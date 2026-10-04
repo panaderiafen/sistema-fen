@@ -9,8 +9,9 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.3.0';
-import * as Caja from './caja.js?v=0.3.0';
+} from './firebase.js?v=0.4.0';
+import * as Caja from './caja.js?v=0.4.0';
+import * as Stock from './stock.js?v=0.4.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -256,7 +257,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.3.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.4.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#caja" data-vista="caja">${icono('cajon')}Ventas de caja</a>
     <a class="nav-item" href="#seguridad" data-vista="seguridad">${icono('seguridad')}Seguridad</a>
@@ -501,9 +502,10 @@ function dialogo(html) {
 
 function pestanasCaja(sub) {
   return `<div class="pestanas" role="tablist" aria-label="Secciones de Ventas de caja">
-    <a role="tab" href="#caja" aria-selected="${sub !== 'anulaciones' && sub !== 'reportes'}">Cierres</a>
+    <a role="tab" href="#caja" aria-selected="${!['anulaciones', 'reportes', 'stock'].includes(sub)}">Cierres</a>
     <a role="tab" href="#caja/anulaciones" aria-selected="${sub === 'anulaciones'}">Anulaciones</a>
-    <a role="tab" href="#caja/reportes" aria-selected="${sub === 'reportes'}">Reportes</a></div>`;
+    <a role="tab" href="#caja/reportes" aria-selected="${sub === 'reportes'}">Reportes</a>
+    <a role="tab" href="#caja/stock" aria-selected="${sub === 'stock'}">Merma y stock</a></div>`;
 }
 
 async function pintarCaja(sub) {
@@ -513,6 +515,7 @@ async function pintarCaja(sub) {
   try {
     if (sub === 'anulaciones') await pintarAnulaciones(el, sub);
     else if (sub === 'reportes') await pintarReportes(el, sub);
+    else if (sub === 'stock') await pintarStock(el, sub);
     else await pintarCierres(el, sub);
   } catch (e) {
     el.querySelector('.tarjeta').innerHTML = `<div class="error">${esc(mensajeError(e))}</div>`;
@@ -773,6 +776,155 @@ async function pintarReportes(el, sub) {
     graf.addEventListener('mouseleave', () => { tip.hidden = true; el.querySelectorAll('.col-graf.activa').forEach(o => o.classList.remove('activa')); });
   }
   colapsar(el);
+}
+
+// ── Merma y stock ──────────────────────────────────
+const stEstado = { suc: 'barros_arana', area: '', periodo: 'mes' };
+const fechaHora = d => d ? `${d.getDate()} ${MESES[d.getMonth()]} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : '';
+
+async function pintarStock(el, sub) {
+  const [desde, hasta] = rangoPeriodo(stEstado.periodo);
+  const [{ filas, merma }, registros, sinPlanilla, resumenes] = await Promise.all([
+    Stock.leerStock(), Stock.leerMerma(desde, hasta), Stock.mermaSinPlanilla(), Caja.leerResumenes(desde, hasta)
+  ]);
+  const deSuc = x => !stEstado.suc || x.sucursal === stEstado.suc;
+  const deArea = x => !stEstado.area || x.area === stEstado.area;
+  const mermaPend = merma.filter(deSuc).sort((a, b) => b.valor - a.valor);
+  const stock = filas.filter(deSuc).filter(deArea);
+  const regs = registros.filter(deSuc);
+  const ventas = resumenes.filter(deSuc).reduce((a, r) => a + (Number(r.totalBruto) || 0), 0);
+  const perdida = regs.reduce((a, r) => a + (Number(r.monto) || 0), 0);
+  const vendible = stock.reduce((a, f) => a + f.valor, 0);
+  const areasPresentes = [...new Set(filas.filter(deSuc).map(f => f.area))].sort();
+  const sucTxt = s => (stEstado.suc ? '' : ` <small>${esc(sucursal(s))}</small>`);
+  const btnPer = (id, txt) => `<button type="button" class="chip-filtro" data-st-periodo="${id}" aria-pressed="${stEstado.periodo === id}">${txt}</button>`;
+
+  // Stock por categoría
+  const porCat = Stock.CATEGORIAS.map(c => ({ ...c, filas: stock.filter(f => f.categoria === c.key).sort((a, b) => a.nombre.localeCompare(b.nombre)) })).filter(c => c.filas.length);
+  // Informe de merma
+  const sumar = (lista, clave, valor) => { const o = {}; lista.forEach(x => { const k = clave(x); o[k] = (o[k] || 0) + valor(x); }); return Object.entries(o).sort((a, b) => b[1] - a[1]); };
+  const mArea = sumar(regs, r => r.area || 'Otros', r => Number(r.monto) || 0);
+  const mMotivo = sumar(regs.flatMap(r => (r.motivos && r.motivos.length ? r.motivos : [{ motivo: r.motivo || 'Sin motivo', cantidad: r.cantidad }])), x => x.motivo || 'Sin motivo', x => Number(x.cantidad) || 0);
+  const mProd = sumar(regs, r => r.nombreProducto || r.productoId, r => Number(r.monto) || 0);
+  const unidades = regs.reduce((a, r) => a + (Number(r.cantidad) || 0), 0);
+  const titulo = desde === hasta ? diaCorto(desde) : `${diaCorto(desde)} – ${diaCorto(hasta)}`;
+
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-caja">Ventas de caja</h1><p>Lo que antes hacías como administrador en la caja</p></div>${pestanasCaja(sub)}</div>
+    <div class="filtros"><div class="chips" role="group" aria-label="Sucursal">
+      ${Object.entries(SUCURSALES).map(([k, v]) => `<button type="button" class="chip-filtro" data-st-suc="${k}" aria-pressed="${stEstado.suc === k}">${esc(v)}</button>`).join('')}
+      <button type="button" class="chip-filtro" data-st-suc="" aria-pressed="${!stEstado.suc}">Las dos</button></div></div>
+
+    <section class="tarjeta" aria-labelledby="t-merma-pend">
+      <div class="titulo-fila"><h2 id="t-merma-pend">Merma por registrar</h2>${mermaPend.length > 1 ? `<button type="button" class="btn-sec" id="btn-reg-todas">Registrar todas (${mermaPend.length})</button>` : `<span>${mermaPend.length}</span>`}</div>
+      ${mermaPend.length ? `<div data-colapsar="5">${mermaPend.map(m => `<div class="fila-caja"><div class="txt">
+          <b>${esc(m.nombre)} · ${m.cantidad} u.${sucTxt(m.sucursal)}</b>
+          <span>${[m.envio ? 'envió ' + fechaHora(m.envio) : '', m.quien ? m.quien.split('@')[0] : '', m.ingreso ? 'ingresó ' + m.ingreso : ''].filter(Boolean).map(esc).join(' · ')}</span>
+          ${m.motivos.length ? `<span class="nota">${esc(m.motivos.join(' · '))}</span>` : ''}</div>
+          <div class="acciones"><span class="chip c-rojo">-${esc(pesos(m.valor))}</span>
+            <button type="button" class="btn-sec" data-rescatar="${esc(m.stockId)}">Rescatar</button>
+            <button type="button" class="btn-sec btn-peligro" data-registrar="${esc(m.stockId)}">Registrar merma</button></div></div>`).join('')}</div>
+        <p class="nota-i">(i) Lo envían las cajeras desde Stock en la caja. Registrar lo saca del stock, lo guarda en el informe y lo pasa a la pestaña Merma de la planilla. Rescatar lo devuelve al stock para venderlo (eliges a qué día).</p>`
+        : '<div class="vacio">No hay merma por registrar.</div>'}
+    </section>
+
+    ${sinPlanilla.filter(deSuc).length ? `<section class="tarjeta" aria-labelledby="t-merma-sp">
+      <div class="titulo-fila"><h2 id="t-merma-sp">Merma sin pasar a planilla</h2><span>${sinPlanilla.filter(deSuc).length}</span></div>
+      <div data-colapsar>${sinPlanilla.filter(deSuc).map(r => `<div class="fila-caja"><div class="txt"><b>${esc(r.nombreProducto || '')} · ${Number(r.cantidad) || 0} u.${sucTxt(r.sucursal)}</b><span>${esc(r.fechaEnvio || '')}${r.errorPlanilla ? ' · ' + esc(r.errorPlanilla) : ''}</span></div>
+        <div class="acciones"><button type="button" class="btn-sec" data-reenviar-merma="${esc(r.id)}">Reenviar</button></div></div>`).join('')}</div>
+      <p class="nota-i">(i) Ya está registrada (salió del stock y está en el informe); solo falta la fila en la planilla. Antes de reenviar, mira la pestaña Merma de la planilla: si la fila ya está (a veces llega aunque la respuesta se pierda), no reenvíes. Un reenvío en las próximas horas no se duplica; uno de otro día sí podría.</p>
+    </section>` : ''}
+
+    <section class="tarjeta" aria-labelledby="t-stock">
+      <div class="titulo-fila"><h2 id="t-stock">Stock ahora</h2>
+        <select id="st-area" aria-label="Área"><option value="">Todas las áreas</option>${areasPresentes.map(a => `<option value="${esc(a)}" ${stEstado.area === a ? 'selected' : ''}>${esc(AREAS_NOMBRE[a] || a)}</option>`).join('')}</select></div>
+      <div class="cifras cifras-4" style="margin:12px 0 4px">
+        <div class="cifra"><span class="rotulo">Valor en stock</span><span class="valor">${pesos(vendible)}</span><span class="nota">Incluye última oferta</span></div>
+        <div class="cifra"><span class="rotulo">Unidades</span><span class="valor">${Math.round(stock.reduce((a, f) => a + f.cantidad, 0)).toLocaleString('es-CL')}</span><span class="nota">${stock.length === 1 ? '1 producto' : stock.length + ' productos'}</span></div>
+        <div class="cifra"><span class="rotulo">En última oferta</span><span class="valor">${pesos(stock.filter(f => f.categoria === 'ultimaOferta').reduce((a, f) => a + f.valor, 0))}</span><span class="nota">4 días o más</span></div>
+        <div class="cifra"><span class="rotulo">Merma por registrar</span><span class="valor">${pesos(mermaPend.reduce((a, m) => a + m.valor, 0))}</span><span class="nota">A precio normal</span></div>
+      </div>
+      ${porCat.length ? porCat.map(c => `<details class="grupo-stock"${c.key === 'ultimaOferta' ? ' open' : ''}>
+          <summary><span>${esc(c.nombre)}</span><span>${c.filas.length === 1 ? '1 producto' : c.filas.length + ' productos'} · <b>${pesos(c.filas.reduce((a, f) => a + f.valor, 0))}</b></span></summary>
+          <div class="tabla-prod"><div class="fila-prod enc"><span>Producto</span><span>Unidades</span><span>Valor</span></div>
+          ${c.filas.map(f => `<div class="fila-prod"><span>${esc(f.nombre)}${sucTxt(f.sucursal)}</span><span>${f.cantidad}</span><span>${pesos(f.valor)}</span></div>`).join('')}</div>
+        </details>`).join('') : '<div class="vacio">Sin stock.</div>'}
+      <p class="nota-i">(i) Ingresar stock, ajustar cantidades y enviar a merma se siguen haciendo en la caja (es trabajo del mostrador). El valor usa el precio de cada día (hoy, ayer, última oferta…). La caja, en Valor en stock, no suma la última oferta; aquí sí.</p>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="t-merma-inf">
+      <div class="titulo-fila"><h2 id="t-merma-inf">Merma registrada</h2><span>${esc(titulo)}</span></div>
+      <div class="chips" role="group" aria-label="Período" style="margin:8px 0 4px">${btnPer('7d', 'Últimos 7 días')}${btnPer('mes', 'Este mes')}${btnPer('mesant', 'Mes anterior')}</div>
+      <div class="cifras cifras-4" style="margin:12px 0 4px">
+        <div class="cifra"><span class="rotulo">Pérdida</span><span class="valor">${pesos(perdida)}</span><span class="nota">A precio normal, con IVA</span></div>
+        <div class="cifra"><span class="rotulo">Unidades</span><span class="valor">${Math.round(unidades).toLocaleString('es-CL')}</span><span class="nota">${regs.length === 1 ? '1 registro' : regs.length + ' registros'}</span></div>
+        <div class="cifra"><span class="rotulo">Merma / ventas</span><span class="valor">${ventas ? (Math.round(perdida * 1000 / ventas) / 10).toLocaleString('es-CL') + '%' : '—'}</span><span class="nota">Ventas de caja ${pesos(ventas)}</span></div>
+      </div>
+      ${regs.length ? `<div class="columnas" style="margin-top:12px">
+        <div class="col-ancha"><h3 class="sub">Por área</h3>${barras(mArea.map(([k, v]) => ({ nombre: AREAS_NOMBRE[k] || k, valor: v })), perdida)}</div>
+        <div class="col-angosta"><h3 class="sub">Por motivo</h3><div class="barras">${mMotivo.map(([k, v]) => `<div class="barra-h"><div class="barra-h-txt"><span>${esc(k)}</span><b>${Math.round(v)} u.</b></div><div class="barra-h-pista"><div class="barra-h-relleno" style="width:${Math.max(0.5, v * 100 / (mMotivo[0][1] || 1))}%"></div></div></div>`).join('')}</div></div>
+      </div>
+      <h3 class="sub" style="margin-top:20px">Productos</h3>
+      <div class="tabla-prod"><div class="fila-prod enc"><span>Producto</span><span>% pérdida</span><span>Pérdida</span></div>
+        <div data-colapsar="10">${mProd.map(([k, v], i) => `<div class="fila-prod"><span><small>${i + 1}</small> ${esc(k)}</span><span>${pct(v, perdida)}%</span><span>${pesos(v)}</span></div>`).join('')}</div></div>` : '<div class="vacio">Sin merma registrada en este período.</div>'}
+      <p class="nota-i">(i) Por día en que se envió a merma desde Stock. Merma / ventas compara con las ventas de caja del mismo período y sucursal.</p>
+    </section>`;
+
+  el.querySelectorAll('[data-st-suc]').forEach(b => b.addEventListener('click', () => { stEstado.suc = b.dataset.stSuc; pintarCaja('stock'); }));
+  el.querySelectorAll('[data-st-periodo]').forEach(b => b.addEventListener('click', () => { stEstado.periodo = b.dataset.stPeriodo; pintarCaja('stock'); }));
+  $('st-area').addEventListener('change', e => { stEstado.area = e.target.value; pintarCaja('stock'); });
+  const porStock = id => merma.find(m => m.stockId === id);
+  const avisoMerma = (r, nombre) => {
+    registrar('Registró merma', `${nombre} · ${r.cantidad} u. · ${pesos(r.monto)}`);
+    if (r.malas) alert(`Merma registrada, pero ${r.malas === 1 ? 'un registro no llegó' : r.malas + ' registros no llegaron'} a la planilla (${r.error}).\n\nQuedan en "Merma sin pasar a planilla" para reenviar.`);
+  };
+  el.querySelectorAll('[data-registrar]').forEach(b => b.addEventListener('click', async () => {
+    const m = porStock(b.dataset.registrar);
+    if (!window.confirm(`¿Registrar merma de ${m.cantidad} u. de "${m.nombre}" (${sucursal(m.sucursal)})?\n\nSale del stock y pasa a la pestaña Merma de la planilla. Pérdida ${pesos(m.valor)}.`)) return;
+    b.disabled = true; b.textContent = 'Registrando…';
+    try { avisoMerma(await Stock.registrarMerma(m.stockId), m.nombre); } catch (e) { alert(e.message || mensajeError(e)); }
+    pintarCaja('stock');
+  }));
+  const todas = $('btn-reg-todas');
+  if (todas) todas.addEventListener('click', async () => {
+    if (!window.confirm(`¿Registrar las ${mermaPend.length} mermas por registrar${stEstado.suc ? ' de ' + sucursal(stEstado.suc) : ''}?\n\nPérdida total ${pesos(mermaPend.reduce((a, m) => a + m.valor, 0))}.`)) return;
+    todas.disabled = true;
+    let ok = 0, malas = 0; const errores = [];
+    for (const m of mermaPend) {
+      todas.textContent = `Registrando ${ok + errores.length + 1} de ${mermaPend.length}…`;
+      try { const r = await Stock.registrarMerma(m.stockId); ok++; malas += r.malas; } catch (e) { errores.push(`${m.nombre}: ${e.message}`); }
+    }
+    registrar('Registró merma', `${ok} productos`);
+    if (malas || errores.length) alert(`Registradas: ${ok}.${malas ? `\n${malas} no llegaron a la planilla (quedan para reenviar).` : ''}${errores.length ? '\n\nNo se pudieron registrar:\n• ' + errores.join('\n• ') : ''}`);
+    pintarCaja('stock');
+  });
+  el.querySelectorAll('[data-rescatar]').forEach(b => b.addEventListener('click', () => abrirRescatar(porStock(b.dataset.rescatar))));
+  el.querySelectorAll('[data-reenviar-merma]').forEach(b => b.addEventListener('click', async () => {
+    const r = sinPlanilla.find(x => x.id === b.dataset.reenviarMerma);
+    b.disabled = true; b.textContent = 'Enviando…';
+    const res = await Stock.enviarMermaAPlanilla(r.id, r);
+    if (res.ok) registrar('Reenvió merma a la planilla', `${r.nombreProducto} · ${r.cantidad} u.`); else alert('No llegó a la planilla: ' + res.error);
+    pintarCaja('stock');
+  }));
+  colapsar(el);
+}
+
+function abrirRescatar(m) {
+  const d = dialogo(`<form method="dialog" class="form-dialogo">
+    <h2>Rescatar de merma</h2>
+    <p class="ayuda">${esc(m.nombre)} · ${m.cantidad} u. · ${esc(sucursal(m.sucursal))}. Vuelve al stock para venderse. ¿A qué día lo dejas? Define el precio con que se vende.</p>
+    <div class="opciones-rescate">${Stock.CATEGORIAS.filter(c => c.key !== 'permanente').map(c => `<button type="button" class="btn-sec" data-destino="${c.key}">${esc(c.nombre)}</button>`).join('')}</div>
+    <div class="error" id="re-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="re-cancelar">Cancelar</button></div>
+  </form>`);
+  d.querySelector('#re-cancelar').onclick = () => d.close();
+  d.querySelectorAll('[data-destino]').forEach(b => b.onclick = async () => {
+    d.querySelectorAll('button').forEach(x => { x.disabled = true; });
+    try {
+      const n = await Stock.rescatarMerma(m.stockId, b.dataset.destino);
+      registrar('Rescató de merma', `${m.nombre} · ${n} u. → ${b.textContent}`);
+      d.close(); pintarCaja('stock');
+    } catch (e) { d.querySelector('#re-error').textContent = e.message || mensajeError(e); d.querySelectorAll('button').forEach(x => { x.disabled = false; }); }
+  });
 }
 
 function abrirAceptar(e) {

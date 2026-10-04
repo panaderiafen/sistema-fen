@@ -211,3 +211,19 @@ td select { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px 
   .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
   .chip-filtro { flex: none; }
 }
+
+/* v0.4.0: Merma y stock */
+.pestanas { overflow-x: auto; max-width: 100%; }
+.pestanas a { white-space: nowrap; flex: none; }
+.grupo-stock { border-top: 1px solid var(--linea); }
+.grupo-stock summary { display: flex; justify-content: space-between; gap: 12px; align-items: center; min-height: 48px; cursor: pointer; font-weight: 600; list-style: none; }
+.grupo-stock summary::-webkit-details-marker { display: none; }
+.grupo-stock summary::before { content: '›'; display: inline-block; width: 16px; color: var(--suave); transition: transform .15s; }
+.grupo-stock[open] summary::before { transform: rotate(90deg); }
+.grupo-stock summary > span:first-child { flex: 1; }
+.grupo-stock summary > span:last-child { font-weight: 400; font-size: 13px; color: var(--suave); }
+.grupo-stock summary b { color: var(--texto); }
+.grupo-stock .tabla-prod { padding-bottom: 8px; }
+h3.sub { margin: 0; font-size: 14px; font-weight: 700; }
+.opciones-rescate { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 8px 0; }
+.cifras-4 .cifra:not(.tarjeta) { padding: 12px 14px; border-radius: 12px; background: var(--fondo); }

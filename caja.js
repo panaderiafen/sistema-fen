@@ -13,7 +13,7 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction
-} from './firebase.js?v=0.3.0';
+} from './firebase.js?v=0.4.0';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -32,7 +32,7 @@ function determinarTurno(fecha) { const h = fecha.getHours(); return h < 13 ? 'M
 // Productos y áreas de la caja: se leen una vez por sesión (para el resumen de cada cierre).
 let _prods = null, _areas = null;
 const AREA_COMPAT = { 'Panadería': 'PAN', 'Bollería': 'BOL', 'Sándwiches': 'PAN', 'Cafetería': 'CAF', 'Pastelería': 'PAS', 'Chocolatería': 'PAS' };
-async function productos() {
+export async function productos() {
   if (!_prods) _prods = (await getDocs(collection(db, 'productos'))).docs.map(d => ({ id: d.id, ...d.data() }));
   return _prods;
 }
@@ -41,11 +41,11 @@ async function areas() {
   if (!_areas.length) _areas = ['BOL', 'PAN', 'PAS', 'CAF'];
   return _areas;
 }
-async function normalizarArea(a) { const ar = await areas(); return ar.includes(a) ? a : (AREA_COMPAT[a] || ar[0] || 'GEN'); }
+export async function normalizarArea(a) { const ar = await areas(); return ar.includes(a) ? a : (AREA_COMPAT[a] || ar[0] || 'GEN'); }
 
 // ── Llamada al script de la caja, con la sesión de Sistema Fën ──
 // Igual que la caja: token de Firebase + clave única (idem); si Google desvía el POST, se reintenta por GET.
-async function llamarScriptCaja(datos, idem, url = F.CAJA_SCRIPT_URL) {
+export async function llamarScriptCaja(datos, idem, url = F.CAJA_SCRIPT_URL) {
   const cuerpo = Object.assign({}, datos, {
     idToken: await auth.currentUser.getIdToken(),
     idem: (idem || (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10))).replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64)
