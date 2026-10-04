@@ -9,8 +9,8 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.2.0';
-import * as Caja from './caja.js?v=0.2.0';
+} from './firebase.js?v=0.2.1';
+import * as Caja from './caja.js?v=0.2.1';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -331,7 +331,7 @@ async function pintarHoy() {
   const cajaOk = r.every(x => x.status === 'fulfilled');
   const pend = [];
 
-  docs(0).filter(e => Math.abs(Number(e.difTotal) || 0) > 0).forEach(e => pend.push({
+  docs(0).filter(e => Math.abs(Number(e.difTotal) || 0) > 0 && e.diferenciaAceptada !== true).forEach(e => pend.push({
     orden: 0, color: 'rojo', icono: 'alerta', chip: 'Atención', url: '#caja', titulo: 'Descuadre de caja',
     detalle: `${sucursal(e.sucursal)} · ${diaTexto(e.fecha)} · diferencia ${pesos(e.difTotal)}`
   }));
@@ -401,12 +401,12 @@ async function pintarSeguridad() {
         <div class="titulo-fila"><h2 id="t-equipos">Equipos autorizados</h2><span>${vigentes.length} ${vigentes.length === 1 ? 'equipo' : 'equipos'}</span></div>
         <div class="tabla-caja"><table>
           <thead><tr><th scope="col">Equipo</th><th scope="col">Cuenta</th><th scope="col">Vence</th><th scope="col">Recordar por</th><th scope="col"><span class="sr">Acción</span></th></tr></thead>
-          <tbody>${vigentes.map(e => `<tr>
+          <tbody data-colapsar>${vigentes.map(e => `<tr>
             <td>${nombreEq(e)}</td><td>${esc(e.correo || '')}</td><td>${fechaCorta(e.venceEn)}</td>
             <td><select data-duracion="${e.id}" aria-label="Recordar ${esc(e.nombre)} por">${opcionesDuracion(e.duracion)}</select></td>
             <td style="text-align:right">${boton(e)}</td></tr>`).join('')}</tbody>
         </table></div>
-        <div class="lista-equipos-cel">${vigentes.map(e => `<div class="equipo-cel">
+        <div class="lista-equipos-cel" data-colapsar>${vigentes.map(e => `<div class="equipo-cel">
           <div class="fila">${nombreEq(e)}${boton(e)}</div>
           <div class="fila"><span class="ayuda">Vence ${fechaCorta(e.venceEn)}</span>
             <select data-duracion="${e.id}" aria-label="Recordar ${esc(e.nombre)} por" style="min-height:40px;border-radius:10px;border:1px solid var(--borde);background:#fff;padding:0 8px">${opcionesDuracion(e.duracion)}</select></div>
@@ -424,10 +424,11 @@ async function pintarSeguridad() {
         </section>
         <section class="tarjeta col-ancha" aria-labelledby="t-act">
           <h2 id="t-act">Actividad reciente</h2>
-          <div class="actividad" style="margin-top:8px">${hist.length ? hist.map(h => `<div><span>${esc(h.accion)}${h.detalle ? ' · ' + esc(h.detalle) : ''}</span><small>${esc(h.equipo || '')} · ${hace(h.en)}</small></div>`).join('') : '<div><small>Sin actividad todavía.</small></div>'}</div>
+          <div class="actividad" style="margin-top:8px" data-colapsar>${hist.length ? hist.map(h => `<div><span>${esc(h.accion)}${h.detalle ? ' · ' + esc(h.detalle) : ''}</span><small>${esc(h.equipo || '')} · ${hace(h.en)}</small></div>`).join('') : '<div><small>Sin actividad todavía.</small></div>'}</div>
         </section>
     </div>`;
 
+  colapsar(el);
   const porId = id => todos.find(x => x.id === id);
   el.querySelectorAll('select[data-duracion]').forEach(s => s.addEventListener('change', async () => {
     const e = porId(s.dataset.duracion);
@@ -520,29 +521,41 @@ async function pintarCierres(el, sub) {
   const filaCaja = (c, botones) => `<div class="fila-caja"><div class="txt"><b>${esc(fechaCaja(c.fecha))} · ${esc(sucursal(c.sucursal))}</b>
       <span>${esc(c.usuario || '')} · ${pesos(c.totalVentas)} vendidos · ${(parseInt(c.nVentas) || 0) === 1 ? '1 venta' : (parseInt(c.nVentas) || 0) + ' ventas'}${c.exportError ? ' · ' + esc(c.exportError) : ''}</span></div>
       <div class="acciones">${botones}</div></div>`;
+  // Estado de cada arqueo: por revisar (diferencia sin aceptar) primero, después el resto.
+  const estadoEv = e => e.sinArqueo ? 'sin' : (parseInt(e.difTotal) || 0) === 0 ? 'ok' : e.diferenciaAceptada === true ? 'aceptada' : 'revisar';
+  evaluaciones.sort((a, b) => (estadoEv(a) === 'revisar' ? 0 : 1) - (estadoEv(b) === 'revisar' ? 0 : 1));
+  const porRevisar = evaluaciones.filter(e => estadoEv(e) === 'revisar').length;
   const evFila = e => {
-    const dif = parseInt(e.difTotal) || 0;
-    const chip = e.sinArqueo ? '<span class="chip c-gris">Sin arqueo</span>' : dif === 0 ? '<span class="chip c-verde">Cuadrada</span>' : `<span class="chip c-rojo">${esc(signo(dif))}</span>`;
+    const dif = parseInt(e.difTotal) || 0, st = estadoEv(e);
+    const btnCorregir = `<button type="button" class="btn-sec" data-corregir="${esc(e.id)}">Corregir</button>`;
+    const acciones = {
+      sin: '<span class="chip c-gris">Sin arqueo</span>' + btnCorregir,
+      ok: '<span class="chip c-verde">Cuadrada</span>',
+      aceptada: `<span class="chip c-gris">${esc(signo(dif))} · aceptada</span>`,
+      revisar: `<span class="chip c-rojo">${esc(signo(dif))}</span>${btnCorregir}<button type="button" class="btn-sec" data-aceptar="${esc(e.id)}">Aceptar diferencia</button>`
+    }[st];
     return `<div class="fila-caja"><div class="txt"><b>${esc(fechaCaja(e.fecha))} · ${esc(sucursal(e.sucursal))}</b>
-      <span>${esc(e.usuario || '')} · sistema ${pesos(e.sistTotal)}${e.sinArqueo ? '' : ' · contado ' + pesos(e.manTotal)}${e.corregido ? ' · corregido por ' + esc(e.corregidoPor || '') : ''}${e.cerradoDesde ? ' · cerrada desde ' + esc(e.cerradoDesde) : ''}</span>
-      ${e.notaDescuadre ? `<span class="nota">“${esc(e.notaDescuadre)}”</span>` : ''}</div>
-      <div class="acciones">${chip}<button type="button" class="btn-sec" data-corregir="${esc(e.id)}">Corregir</button></div></div>`;
+      <span>${e.usuario ? esc(e.usuario) + ' · ' : ''}sistema ${pesos(e.sistTotal)}${e.sinArqueo ? '' : ' · contado ' + pesos(e.manTotal)}${e.corregido ? ' · corregido por ' + esc(e.corregidoPor || '') : ''}${e.cerradoDesde ? ' · cerrada desde ' + esc(e.cerradoDesde) : ''}</span>
+      ${e.notaDescuadre ? `<span class="nota">“${esc(e.notaDescuadre)}”</span>` : ''}
+      ${st === 'aceptada' ? `<span class="nota">Aceptada por ${esc(e.aceptadaPor || '')}${e.notaAceptacion ? ': “' + esc(e.notaAceptacion) + '”' : ''}</span>` : ''}</div>
+      <div class="acciones">${acciones}</div></div>`;
   };
   el.innerHTML = `<div class="cabecera"><div><h1 id="t-caja">Ventas de caja</h1><p>Lo que antes hacías como administrador en la caja</p></div>${pestanasCaja(sub)}</div>
     ${sinCerrar.length ? `<section class="tarjeta" aria-labelledby="t-sin-cerrar">
       <div class="titulo-fila"><h2 id="t-sin-cerrar">Cajas sin cerrar</h2><span>${sinCerrar.length}</span></div>
       <p class="ayuda" style="margin:0 0 4px">Quedaron abiertas de un día anterior. Ciérralas para que su cierre llegue a la planilla.</p>
-      ${sinCerrar.map(c => filaCaja(c, `<button type="button" class="btn-sec" data-arqueo="${esc(c.id)}">Cerrar con arqueo</button><button type="button" class="btn-sec" data-sin-arqueo="${esc(c.id)}">Cerrar sin arqueo</button>`)).join('')}
+      <div data-colapsar>${sinCerrar.map(c => filaCaja(c, `<button type="button" class="btn-sec" data-arqueo="${esc(c.id)}">Cerrar con arqueo</button><button type="button" class="btn-sec" data-sin-arqueo="${esc(c.id)}">Cerrar sin arqueo</button>`)).join('')}</div>
       <p class="nota-i">(i) Sin arqueo: usa solo los totales del sistema, sin conteo de comparación. Úsalo cuando ya no se puede contar el efectivo de ese turno.</p>
     </section>` : ''}
     ${sinPlanilla.length ? `<section class="tarjeta" aria-labelledby="t-sin-planilla">
       <div class="titulo-fila"><h2 id="t-sin-planilla">Cierres sin pasar a planilla</h2><button type="button" class="btn-sec" id="btn-reenviar-todas">Reenviar todas</button></div>
-      ${sinPlanilla.map(c => filaCaja(c, `<button type="button" class="btn-sec" data-reenviar="${esc(c.id)}">Reenviar</button>`)).join('')}
+      <div data-colapsar>${sinPlanilla.map(c => filaCaja(c, `<button type="button" class="btn-sec" data-reenviar="${esc(c.id)}">Reenviar</button>`)).join('')}</div>
       <p class="nota-i">(i) Reenviar no duplica filas: si el cierre ya estaba en la planilla, no se vuelve a escribir.</p>
     </section>` : ''}
     <section class="tarjeta" aria-labelledby="t-arqueos">
-      <div class="titulo-fila"><h2 id="t-arqueos">Arqueos</h2><span>Últimos ${F.DIAS_HISTORIAL} días</span></div>
-      ${evaluaciones.length ? evaluaciones.map(evFila).join('') : '<div class="vacio">Sin cierres en estos días.</div>'}
+      <div class="titulo-fila"><h2 id="t-arqueos">Arqueos</h2><span>${porRevisar ? `${porRevisar} por revisar · ` : ''}Últimos ${F.DIAS_HISTORIAL} días</span></div>
+      ${evaluaciones.length ? `<div data-colapsar>${evaluaciones.map(evFila).join('')}</div>` : '<div class="vacio">Sin cierres en estos días.</div>'}
+      ${porRevisar ? '<p class="nota-i">(i) Corregir: si se contó o anotó mal y tienes el conteo real. Aceptar diferencia: si ya no se puede aclarar; los montos no cambian, queda anotado quién la aceptó y deja de aparecer en Hoy.</p>' : ''}
     </section>`;
 
   const porId = (lista, id) => lista.find(x => x.id === id);
@@ -581,6 +594,52 @@ async function pintarCierres(el, sub) {
     pintarCaja('');
   });
   el.querySelectorAll('[data-corregir]').forEach(b => b.addEventListener('click', () => abrirCorreccion(porId(evaluaciones, b.dataset.corregir))));
+  el.querySelectorAll('[data-aceptar]').forEach(b => b.addEventListener('click', () => abrirAceptar(porId(evaluaciones, b.dataset.aceptar))));
+  colapsar(el);
+}
+
+function abrirAceptar(e) {
+  const d = dialogo(`<form method="dialog" class="form-dialogo">
+    <h2>Aceptar diferencia</h2>
+    <p class="ayuda">${esc(fechaCaja(e.fecha))} · ${esc(sucursal(e.sucursal))} · ${esc(e.usuario || '')} · diferencia <b>${esc(signo(parseInt(e.difTotal) || 0))}</b></p>
+    <p class="ayuda">Úsalo cuando ya no se puede saber qué pasó. Los montos no cambian: queda anotado que lo revisaste y deja de aparecer en Hoy.</p>
+    <div class="campo"><label for="ac-nota">Nota (opcional)</label><textarea id="ac-nota" rows="2" maxlength="300" placeholder="Por ejemplo: no se pudo aclarar"></textarea></div>
+    <div class="error" id="ac-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="ac-cancelar">Cancelar</button><button type="button" class="btn" id="ac-guardar">Aceptar diferencia</button></div>
+  </form>`);
+  d.querySelector('#ac-cancelar').onclick = () => d.close();
+  d.querySelector('#ac-guardar').onclick = async () => {
+    const b = d.querySelector('#ac-guardar'); b.disabled = true;
+    try {
+      await Caja.aceptarDiferencia(e.id, d.querySelector('#ac-nota').value);
+      registrar('Aceptó una diferencia de caja', `${sucursal(e.sucursal)} · ${fechaCaja(e.fecha)} · ${signo(parseInt(e.difTotal) || 0)}`);
+      d.close(); pintarCaja('');
+    } catch (er) { d.querySelector('#ac-error').textContent = er.message || mensajeError(er); b.disabled = false; }
+  };
+}
+
+// (i) Listas largas: muestra las primeras 3 filas y un botón "Ver todas (N)" / "Ver menos".
+// Se usa en Ventas de caja y Seguridad. En Hoy no: los pendientes se ven siempre completos.
+const FILAS_VISIBLES = 3;
+function colapsar(raiz) {
+  raiz.querySelectorAll('[data-colapsar]').forEach(cont => {
+    const filas = [...cont.children];
+    if (filas.length <= FILAS_VISIBLES) return;
+    const extra = filas.slice(FILAS_VISIBLES);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'btn-ver-mas';
+    let abierto = false;
+    const pintar = () => {
+      extra.forEach(f => { f.hidden = !abierto; });
+      btn.textContent = abierto ? 'Ver menos' : `Ver todas (${filas.length})`;
+      btn.setAttribute('aria-expanded', String(abierto));
+    };
+    btn.addEventListener('click', () => { abierto = !abierto; pintar(); });
+    pintar();
+    // en una tabla, el botón va después de la tabla (no puede ir dentro del tbody)
+    const ancla = cont.tagName === 'TBODY' ? cont.closest('table') : cont;
+    ancla.insertAdjacentElement('afterend', btn);
+  });
 }
 
 // (i) Una caja de otro día que vendió hace poco probablemente sigue abierta en una tablet
@@ -677,19 +736,19 @@ async function pintarAnulaciones(el, sub) {
   el.innerHTML = `<div class="cabecera"><div><h1 id="t-caja">Ventas de caja</h1><p>Lo que antes hacías como administrador en la caja</p></div>${pestanasCaja(sub)}</div>
     <section class="tarjeta" aria-labelledby="t-anul-pend">
       <div class="titulo-fila"><h2 id="t-anul-pend">Por aprobar</h2><span>${pendientes.length}</span></div>
-      ${pendientes.length ? pendientes.map(s => `<div class="fila-caja anulacion"><div class="txt">
+      ${pendientes.length ? '<div data-colapsar>' + pendientes.map(s => `<div class="fila-caja anulacion"><div class="txt">
           <b>${pesos(s.total)} · ${esc(sucursal(s.sucursal))} · ${esc(cuando(s))}</b>
           <span>${esc(s.lineasResumen || '')}</span>
           <span>Pide ${esc(s.solicitadoPor || '')} · motivo: ${esc(s.motivo || '—')}</span></div>
-          <div class="acciones"><button type="button" class="btn-sec" data-rechazar="${esc(s.id)}">Rechazar</button><button type="button" class="btn-sec btn-peligro" data-aprobar="${esc(s.id)}">Aprobar anulación</button></div></div>`).join('')
+          <div class="acciones"><button type="button" class="btn-sec" data-rechazar="${esc(s.id)}">Rechazar</button><button type="button" class="btn-sec btn-peligro" data-aprobar="${esc(s.id)}">Aprobar anulación</button></div></div>`).join('') + '</div>'
         : '<div class="vacio">No hay anulaciones por aprobar.</div>'}
       <p class="nota-i">(i) Aprobar anula la venta (no se borra), devuelve el stock al lote del que salió y, si la caja sigue abierta, la descuenta de sus totales. Si la caja ya cerró, rehace su resumen.</p>
     </section>
     <section class="tarjeta" aria-labelledby="t-anul-res">
       <div class="titulo-fila"><h2 id="t-anul-res">Resueltas</h2><span>Últimos ${F.DIAS_HISTORIAL} días</span></div>
-      ${resueltas.length ? resueltas.map(s => `<div class="fila-caja"><div class="txt"><b>${pesos(s.total)} · ${esc(sucursal(s.sucursal))} · ${esc(cuando(s))}</b>
+      ${resueltas.length ? '<div data-colapsar>' + resueltas.map(s => `<div class="fila-caja"><div class="txt"><b>${pesos(s.total)} · ${esc(sucursal(s.sucursal))} · ${esc(cuando(s))}</b>
           <span>${esc(s.lineasResumen || '')} · ${esc(s.motivo || '')}</span></div>
-          <div class="acciones"><span class="chip ${s.estado === 'aprobada' ? 'c-verde' : 'c-gris'}">${s.estado === 'aprobada' ? 'Aprobada' : 'Rechazada'}</span><span class="ayuda">${esc(s.resueltoPor || '')}</span></div></div>`).join('')
+          <div class="acciones"><span class="chip ${s.estado === 'aprobada' ? 'c-verde' : 'c-gris'}">${s.estado === 'aprobada' ? 'Aprobada' : 'Rechazada'}</span><span class="ayuda">${esc(s.resueltoPor || '')}</span></div></div>`).join('') + '</div>'
         : '<div class="vacio">Sin anulaciones resueltas en estos días.</div>'}
     </section>`;
   const porId = id => pendientes.find(x => x.id === id);
@@ -712,4 +771,5 @@ async function pintarAnulaciones(el, sub) {
     catch (e) { alert(e.message || mensajeError(e)); }
     pintarCaja('anulaciones');
   }));
+  colapsar(el);
 }

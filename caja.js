@@ -13,7 +13,7 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction
-} from './firebase.js?v=0.2.0';
+} from './firebase.js?v=0.2.1';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -275,7 +275,17 @@ export async function corregirEvaluacion(evalId, m) {
     difEfectivo: manEfectivoNeto - ent(e.sistEfectivo), difDebito: ent(m.manDebito) - ent(e.sistDebito),
     difCredito: ent(m.manCredito) - ent(e.sistCredito), difTransfer: ent(m.manTransfer) - ent(e.sistTransfer),
     difTotal: manTotal - ent(e.sistTotal),
-    sinArqueo: false, corregido: true, fechaCorreccion: Timestamp.now(), corregidoPor: correo()
+    sinArqueo: false, corregido: true, fechaCorreccion: Timestamp.now(), corregidoPor: correo(),
+    diferenciaAceptada: false // con montos nuevos, la diferencia (si queda) se vuelve a revisar
+  });
+}
+
+// Aceptar una diferencia que ya no se puede aclarar: no cambia montos, solo deja constancia.
+export async function aceptarDiferencia(evalId, nota) {
+  const sn = await getDoc(doc(db, 'evaluacion_caja', evalId));
+  if (!sn.exists()) throw new Error('No se encontró ese cierre');
+  await updateDoc(doc(db, 'evaluacion_caja', evalId), {
+    diferenciaAceptada: true, aceptadaPor: correo(), fechaAceptacion: Timestamp.now(), notaAceptacion: String(nota || '').trim().slice(0, 300)
   });
 }
 

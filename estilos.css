@@ -149,3 +149,9 @@ td select { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px 
   .equipo-cel { border-top: 1px solid var(--linea); padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
   .equipo-cel .fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 }
+
+/* v0.2.1: listas largas (Ver todas / Ver menos) */
+.btn-ver-mas { display: block; width: 100%; margin-top: 4px; min-height: 40px; border: 0; border-top: 1px solid var(--linea); background: none; color: var(--acento); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-ver-mas:hover { text-decoration: underline; }
+.btn-ver-mas:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 8px; }
+[data-colapsar] > [hidden] { display: none !important; }
