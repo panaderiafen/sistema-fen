@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — configuración  v0.1.1
+//  Sistema Fën — configuración  v0.2.0
 //  (i) La configuración web de Firebase no es secreta: es la misma que usa
 //  la caja y solo identifica el proyecto. Lo que protege los datos son las
 //  reglas de Firestore y la cuenta de administración.
 // ═══════════════════════════════════════════════
 window.FEN_SIS = {
-  VERSION: '0.1.1',
+  VERSION: '0.2.0',
   firebase: {
     apiKey: 'AIzaSyDrG2mij1h5wZ2lIyAYMTfgG9avaVnjcaU',
     authDomain: 'fen-ventas.firebaseapp.com',
@@ -30,5 +30,11 @@ window.FEN_SIS = {
     { id: '1a',     nombre: '1 año' },
     { id: 'fecha',  nombre: 'Personalizado' }
   ],
-  DURACION_SUGERIDA: '4m'
+  DURACION_SUGERIDA: '4m',
+  // Script de caja/merma (el mismo que usa la caja para pasar los cierres a la planilla).
+  // Sistema Fën lo llama con su propia sesión de administración.
+  CAJA_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx7eYgaVGK5NBFcmX5rVr2H_QiLIuRKS7oBwiVfy5_74icgNnKvD_WEkYD92dU-fddv1A/exec',
+  // Script de Ventas mensuales (el mismo que usa la caja): solo para el correo de descuadre.
+  VENTAS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxeA_xhOm83PlYgLzv7wP5N6AM-ogfrfTClrs91JzFWgi5HCSgIRwgzAuGIbd6WsukrNQ/exec',
+  DIAS_HISTORIAL: 60
 };

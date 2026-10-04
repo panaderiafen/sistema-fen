@@ -103,6 +103,30 @@ td select { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px 
 .actividad small { color: var(--suave); }
 .lista-equipos-cel { display: none; }
 
+/* Ventas de caja */
+.pestanas { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--menu); }
+.pestanas a { min-height: 40px; padding: 0 16px; border-radius: 10px; display: flex; align-items: center; font-size: 13px; font-weight: 600; color: var(--suave); text-decoration: none; }
+.pestanas a[aria-selected="true"] { background: var(--tarjeta); color: var(--texto); font-weight: 700; }
+.fila-caja { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid var(--linea); }
+.fila-caja .txt { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fila-caja .txt b { font-size: 15px; font-weight: 600; }
+.fila-caja .txt span { font-size: 13px; color: var(--suave); }
+.fila-caja .nota { font-size: 13px; color: var(--texto); font-style: italic; }
+.fila-caja .acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.titulo-fila .btn-sec { font-size: 13px; }
+.dialogo { border: 0; border-radius: 20px; padding: 0; width: min(520px, calc(100vw - 32px)); background: var(--tarjeta); color: var(--texto); box-shadow: 0 12px 40px rgba(37, 48, 42, 0.18); }
+.dialogo::backdrop { background: rgba(37, 48, 42, 0.35); }
+.form-dialogo { padding: 24px; display: flex; flex-direction: column; gap: 16px; max-height: calc(100vh - 48px); overflow-y: auto; }
+.form-dialogo h2 { margin: 0; font-size: 20px; }
+.form-dialogo .ayuda { margin: 0; }
+.form-dialogo textarea { padding: 10px 14px; border-radius: 12px; border: 1px solid var(--borde); background: #fff; font: inherit; resize: vertical; }
+.grilla-montos { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.botones { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.tabla-arqueo { min-width: 0; font-size: 13px; }
+.tabla-arqueo td, .tabla-arqueo th { padding: 8px 6px; }
+.tabla-arqueo .total td { font-weight: 700; }
+.dif-mal { color: var(--rojo-t); font-weight: 700; }
+
 /* Menú (solo celular) y barra inferior */
 .barra { display: none; }
 .vista-menu .nav-item { min-height: 52px; font-size: 15px; font-weight: 600; }
@@ -113,7 +137,7 @@ td select { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px 
   main > section { gap: 18px; }
   .cabecera h1 { font-size: 28px; }
   .tarjeta { padding: 16px; }
-  .barra { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); position: fixed; left: 0; right: 0; bottom: 0; height: 72px; padding: 6px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--tarjeta); border-top: 1px solid var(--linea); z-index: 5; }
+  .barra { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); position: fixed; left: 0; right: 0; bottom: 0; height: 72px; padding: 6px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--tarjeta); border-top: 1px solid var(--linea); z-index: 5; }
   .barra a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--suave); text-decoration: none; }
   .barra a[aria-current="page"] { color: var(--acento); font-weight: 700; }
   .cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }

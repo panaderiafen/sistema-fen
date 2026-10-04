@@ -1,20 +1,41 @@
-# Sistema Fën · v0.1.1
+# Sistema Fën · v0.2.0
 
-**App:** v0.1.1 · **Reglas de Firestore:** v1.2.0 · 4 de octubre de 2026
+**App:** v0.2.0 · **Reglas de Firestore:** v1.2.0 (sin cambios) · 4 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
-Primera versión de la etapa 1. Solo entra la cuenta de administración (la misma de la caja).
+Etapa 1. Solo entra la cuenta de administración (la misma de la caja).
+
+## Novedades de la v0.2.0: Ventas de caja
+Lo que hacías como administrador dentro de la caja, ahora sin abrirla.
+
+| Pestaña | Qué hace |
+| --- | --- |
+| **Cierres** | **Cajas sin cerrar** de días anteriores: cerrar con arqueo (cuentas sin ver el sistema; al tocar *Revisar* aparece la tabla Sistema / Contado / Diferencia; si hay diferencia pide la nota) o sin arqueo. **Cierres sin pasar a planilla:** *Reenviar* uno o *Reenviar todas*. **Arqueos** de los últimos 60 días, con *Corregir* |
+| **Anulaciones** | Por aprobar: *Aprobar anulación* o *Rechazar*. Debajo, las resueltas de los últimos 60 días |
+
+Los pendientes de **Hoy** ahora abren estas pestañas (antes abrían la caja).
+
+(i) Hace lo mismo que la caja v2.1.1, con estas mejoras:
+- Un cierre hecho aquí pasa a la planilla al tiro, también **sin arqueo** (en la caja, sin arqueo no se pasaba).
+- Si hay diferencia, llega el **mismo correo de descuadre** que manda la caja.
+- **Pago dividido:** al anular una venta pagada con dos medios en una caja abierta, se descuenta de cada medio. La caja v2.1.1 todavía lo hace mal (queda anotado para arreglarla).
+- **Sin dobles:** cerrar y aprobar se guardan en un solo paso. Si tú y la cajera (o dos equipos) lo hacen al mismo tiempo, solo uno cuenta y el otro ve "ya estaba cerrada / resuelta".
+- **Caja que sigue vendiendo:** si una caja de otro día vendió hace menos de 30 minutos (por ejemplo, una tablet que quedó encendida desde ayer), avisa antes de cerrarla. Lo mejor en ese caso es cerrarla desde esa tablet.
+- Cada cierre queda con quién lo cerró y "cerrada desde Sistema Fën". Todo queda también en Seguridad → Actividad.
+
+(i) Reenviar nunca duplica filas: la planilla reconoce un cierre que ya tiene (usa la misma clave que la caja).
 
 ## Qué trae
 
 | Pantalla | Qué hace |
 | --- | --- |
 | **Entrada** | Correo y contraseña de administración, nombre del equipo y por cuánto tiempo recordarlo: solo esta vez (hasta cerrar el navegador, máximo 12 horas), 30 días, 4 meses (sugerido), 1 año o una fecha |
-| **Hoy** | Pendientes reales de la caja: descuadres de ayer y hoy, cajas de días anteriores sin cerrar, cierres sin pasar a planilla, anulaciones por aprobar. Ventas de ayer en caja y cajas abiertas ahora. Cada pendiente abre la caja |
+| **Hoy** | Pendientes reales de la caja: descuadres de ayer y hoy, cajas de días anteriores sin cerrar, cierres sin pasar a planilla, anulaciones por aprobar. Ventas de ayer en caja y cajas abiertas ahora. Cada pendiente abre Ventas de caja |
+| **Ventas de caja** | Cierres y anulaciones (ver arriba) |
 | **Seguridad** | Tus equipos autorizados, cuándo vence cada uno, cambiar la duración, revocar, salir de este equipo, actividad reciente y correo para cambiar la contraseña |
 | **Menú** | Abre las apps actuales (Ventas B2B, Gastos, Producción, Caja, Asistencia) en otra pestaña |
 
-(i) Gastos, Ventas B2B y Producción aparecen en Hoy como "Llega en la v0.2": esa versión los conecta. La agenda llega en la etapa 3.
+(i) Gastos, Ventas B2B y Producción siguen apareciendo en Hoy como "Próximamente": se conectan en una versión siguiente. La agenda llega en la etapa 3.
 
 (i) Sistema Fën tiene **su propia sesión**: entrar, salir o revocar aquí no cambia ni cierra la cuenta abierta en la caja de ese equipo.
 
@@ -22,58 +43,50 @@ Primera versión de la etapa 1. Solo entra la cuenta de administración (la mism
 
 ## Archivos y dónde va cada uno
 ```
-firestore.rules        reglas v1.2.0                      → consola de Firebase (fen-ventas) → Firestore Database → Reglas
-index.html             la app                              → GitHub, repo sistema-fen, raíz
-estilos.css            colores Salvia y arena              → GitHub, sistema-fen, raíz
-config.js              versión, apps del menú, Firebase    → GitHub, sistema-fen, raíz
-firebase.js            conexión con Firebase               → GitHub, sistema-fen, raíz
-app.js                 entrada, Hoy, Seguridad, menú        → GitHub, sistema-fen, raíz
-README.md              este archivo                        → GitHub, sistema-fen, raíz
-firestore-v1.1.0.rules reglas anteriores, por si hay que volver → no se sube (guárdalo)
+index.html             la app                                     → GitHub, repo sistema-fen, raíz (reemplaza)
+estilos.css            colores Salvia y arena                     → GitHub, sistema-fen, raíz (reemplaza)
+config.js              versión, apps del menú, Firebase, scripts  → GitHub, sistema-fen, raíz (reemplaza)
+firebase.js            conexión con Firebase                      → GitHub, sistema-fen, raíz (reemplaza)
+app.js                 pantallas                                  → GitHub, sistema-fen, raíz (reemplaza)
+caja.js                NUEVO: lógica de cierres y anulaciones     → GitHub, sistema-fen, raíz
+README.md              este archivo                               → GitHub, sistema-fen, raíz (reemplaza)
+firestore.rules        reglas v1.2.0, IGUALES a las que ya están  → no hace falta publicarlas de nuevo
 ```
+Nada en Apps Script ni en la caja cambia.
 
 (i) `config.js` lleva la configuración web de Firebase. No es secreta: es la misma que ya está en la caja y solo dice a qué proyecto conectarse. Lo que protege los datos son las reglas y tu contraseña.
 
-## Instalación (en este orden)
+## Instalación de la v0.2.0
+1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra los 7 archivos de la lista (6 reemplazan, `caja.js` es nuevo) → **Commit changes**.
+2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.2.0**).
 
-### 1. Reglas de Firestore (2 minutos)
-1. Consola de Firebase → **fen-ventas** → **Firestore Database** → pestaña **Reglas**.
-2. Borra todo, pega el contenido de `firestore.rules` → **Publicar**.
-3. (i) Es lo mismo que ya tenías más dos bloques nuevos (`equipos` e `historial`), que solo puede usar la cuenta de administración. Lo de la caja no cambia.
-4. Revisa la caja: abre la caja y haz algo de todos los días, como ver Stock o Reportes. Debe funcionar igual.
-
-### 2. GitHub
-1. En el repo **sistema-fen**, sube `index.html`, `estilos.css`, `config.js`, `firebase.js`, `app.js` y `README.md` a la raíz.
-2. **Settings → Pages →** Source: *Deploy from a branch* · Branch: **main** · carpeta **/(root)** → **Save**.
-3. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/
-
-### 3. Primera entrada
-1. Correo y contraseña de administración de la caja.
-2. Nombre del equipo (por ejemplo "Computador oficina") y **4 meses** → **Entrar**.
-3. Haz lo mismo en tu celular (por ejemplo "Celular de Emmanuel").
+(i) Instalación desde cero (v0.1): reglas v1.2.0 en Firebase, subir los archivos, Settings → Pages → *Deploy from a branch*, **main**, **/(root)**. Ya está hecho.
 
 ## Lista de verificación
-- [ ] Entras y aparece **Hoy** con los pendientes de la caja (o "Nada pendiente en la caja").
-- [ ] Recargas la página: sigues dentro, sin volver a poner la contraseña.
-- [ ] **Seguridad** muestra tus equipos. Desde el computador, revoca el celular: en el celular, Sistema Fën se cierra y explica por qué. Vuelve a entrar en el celular.
-- [ ] La caja sigue funcionando como siempre (paso 1.4).
+- [ ] Abajo a la izquierda dice **v0.2.0** y en el menú aparece **Ventas de caja**.
+- [ ] En **Hoy**, toca "Caja anterior sin cerrar": abre Ventas de caja → Cierres con las 3 cajas viejas.
+- [ ] Cierra una de ellas (con arqueo si tienes el conteo, si no sin arqueo). Revisa en la planilla de la caja, pestaña **Cajas**, que llegó **una sola fila** con su ID Caja. Si quedó con diferencia, te llega el correo de descuadre.
+- [ ] Ábrela en la caja (Reportes o evaluación): se ve como cerrada.
+- [ ] Si hay una anulación pendiente, apruébala aquí y revisa en la caja que la venta salió como anulada.
 
 ## Si algo sale mal
-- **"Firestore no dejó guardar: falta publicar las reglas v1.2.0":** falta el paso 1.
-- **La caja muestra errores de permisos después del paso 1:** en Reglas, pega `firestore-v1.1.0.rules` → Publicar (vuelve a como estaba) y avísame.
-- **La página de GitHub muestra 404:** revisa el paso 2.2 y espera unos minutos.
+- **"Firestore no dejó guardar":** revisa que en Firebase sigan las reglas v1.2.0.
+- **"…el cierre no llegó a la planilla (…)":** la caja quedó cerrada; el cierre queda en *Cierres sin pasar a planilla*. Toca *Reenviar*. Si vuelve a fallar, mándame el texto del error.
+- **Sigue viéndose la v0.1.1:** espera unos minutos y recarga con Ctrl+Shift+R.
 
-## Pruebas automáticas (12, todas pasan)
+## Pruebas automáticas (19, todas pasan)
 Con Firebase simulado en el navegador:
-- Entrada: contraseña mala y cuenta que no es de administración no entran. El dueño autoriza el equipo por 4 meses y queda en el historial.
-- Hoy: muestra en orden el descuadre, la caja anterior sin cerrar, el cierre sin planilla y la anulación; las ventas de ayer; y las cajas abiertas hoy.
-- Recargar no pide contraseña.
-- Seguridad: cambiar la duración, revocar otro equipo, salir de este equipo (queda en la actividad), y el correo para cambiar la contraseña.
-- Revocado desde otro equipo: se cierra al instante. Vencido, también con la app abierta: pide entrar de nuevo.
-- "Solo esta vez" no queda guardado en el equipo.
-- Celular: barra inferior, sin scroll horizontal, Seguridad en tarjetas, Menú.
-- Sin errores de JavaScript.
+- Las 12 de la v0.1.1 (entrada, Hoy, recargar, Seguridad, revocar, vencer, celular).
+- Hoy abre Ventas de caja → Anulaciones. Aprobar una venta con pago dividido: efectivo y débito bajan lo justo, no aparece un medio "Dividido", el stock vuelve al mismo lote, queda en la actividad.
+- Cerrar con arqueo: la diferencia exige nota; una sola evaluación; la planilla recibe el cierre con la misma clave que usa la caja y con la sesión de Sistema Fën; sale el correo de descuadre.
+- Reenviar: si el script falla, queda en la lista con el error; al reintentar, sale de la lista.
+- Cerrar sin arqueo (también pasa a la planilla) y corregir un arqueo.
+- Caja que vendió hace 5 minutos: avisa y, si dices que no, no se cierra.
+- Solicitud aprobada en otro equipo justo antes: no se descuenta dos veces.
+- Celular: Caja en la barra inferior, sin scroll horizontal.
 
-Además, una revisión independiente del código y las reglas antes de entregar: las reglas de la caja quedan idénticas. Se corrigieron 4 detalles: la sesión ahora es propia de Sistema Fën y no toca la caja; se revisa el vencimiento con la app abierta; "Salir" deja su registro; un equipo revocado no puede volver a quedar vigente.
+Además, una revisión independiente comparó `caja.js` con la caja v2.1.1 y el script de la planilla: los nombres de campos y la clave anti-duplicados coinciden. De esa revisión salieron las mejoras de "sin dobles", "caja que sigue vendiendo", el correo de descuadre y un arreglo de seguridad en *Corregir*.
 
-**Lo que no pude probar aquí:** Firebase real. Por eso la lista de verificación.
+**Pendiente para la caja (no es de esta entrega):** que las reglas no dejen vender en una caja ya cerrada; que la caja también use "un solo paso" al cerrar y aprobar; arreglar el descuento del pago dividido; y en el script de la planilla, revisar duplicados por ID Caja en vez de por la primera venta.
+
+**Lo que no pude probar aquí:** Firebase real y el script real. Por eso la lista de verificación.

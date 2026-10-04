@@ -7,8 +7,8 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
-  getFirestore, collection, doc, addDoc, getDoc, getDocs, updateDoc,
-  query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
+  getFirestore, collection, doc, addDoc, getDoc, getDocs, updateDoc, setDoc, increment,
+  query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp, runTransaction
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // Instancia con nombre propio: Sistema Fën guarda su sesión aparte de la caja, aunque
@@ -21,6 +21,6 @@ export {
   onAuthStateChanged, signInWithEmailAndPassword, signOut,
   setPersistence, browserLocalPersistence, browserSessionPersistence,
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
-  collection, doc, addDoc, getDoc, getDocs, updateDoc,
-  query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
+  collection, doc, addDoc, getDoc, getDocs, updateDoc, setDoc, increment,
+  query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp, runTransaction
 };
