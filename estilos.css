@@ -227,3 +227,38 @@ td select { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px 
 h3.sub { margin: 0; font-size: 14px; font-weight: 700; }
 .opciones-rescate { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 8px 0; }
 .cifras-4 .cifra:not(.tarjeta) { padding: 12px 14px; border-radius: 12px; background: var(--fondo); }
+
+/* v0.5.0: botón (i) y globo de explicación */
+.btn-info { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: 4px; padding: 0; vertical-align: middle; border-radius: 50%; border: 1.5px solid var(--acento); background: transparent; color: var(--acento); font: italic 700 12px/1 Georgia, 'Times New Roman', serif; cursor: pointer; position: relative; }
+.btn-info::before { content: 'i'; }
+.btn-info::after { content: ''; position: absolute; inset: -12px; } /* área para el dedo de 44px */
+.btn-info:hover, .btn-info[aria-expanded="true"] { background: var(--acento); color: #fff; }
+.btn-info:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+h1 .btn-info { width: 22px; height: 22px; font-size: 13px; }
+.globo-info { position: fixed; z-index: 50; padding: 14px 16px; border-radius: 12px; background: var(--texto); color: #fff; font-size: 13px; line-height: 1.5; box-shadow: 0 8px 24px rgba(37, 48, 42, .25); }
+.globo-info b { display: block; font-size: 14px; margin-bottom: 4px; }
+.globo-info p { margin: 6px 0 0; }
+/* Configuración */
+.lista-edit { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.fila-edit { display: flex; align-items: center; gap: 6px; }
+.fila-edit input[type=text], .fila-nueva input { flex: 1; min-width: 0; min-height: 40px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; padding: 0 10px; font-size: 14px; }
+.fila-edit.guardando { opacity: .5; pointer-events: none; }
+.fila-nueva { display: flex; gap: 6px; margin-top: 4px; }
+.btn-icono { width: 36px; height: 40px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--borde); border-radius: 10px; background: var(--tarjeta); color: var(--texto); cursor: pointer; }
+.btn-icono:disabled { opacity: .3; cursor: default; }
+.btn-chico { min-height: 40px; padding: 0 12px; font-size: 13px; flex: none; }
+.uso { font-size: 12px; color: var(--suave); white-space: nowrap; flex: none; }
+.grilla-areas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px 28px; margin-top: 12px; }
+.grilla-areas h3 small { font-weight: 400; color: var(--suave); }
+.tabla-tiempos { width: 100%; min-width: 0; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+.tabla-tiempos th { text-align: left; font-size: 12px; color: var(--suave); font-weight: 600; padding: 0 8px 8px 0; border-bottom: 0; }
+.tabla-tiempos td { padding: 6px 8px 6px 0; border-top: 1px solid var(--linea); }
+.dias { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--suave); }
+.dias input { width: 64px; min-height: 40px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; padding: 0 8px; text-align: center; font-size: 14px; color: var(--texto); }
+@media (max-width: 760px) {
+  .grilla-areas { grid-template-columns: 1fr; }
+  .fila-edit { flex-wrap: wrap; }
+  .fila-edit input[type=text] { flex-basis: 100%; }
+  .uso { flex: 1; }
+}
+.fila-compacta .txt { flex: 1 1 160px; }

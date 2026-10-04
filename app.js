@@ -9,9 +9,10 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.4.0';
-import * as Caja from './caja.js?v=0.4.0';
-import * as Stock from './stock.js?v=0.4.0';
+} from './firebase.js?v=0.5.0';
+import * as Caja from './caja.js?v=0.5.0';
+import * as Stock from './stock.js?v=0.5.0';
+import * as Ajustes from './ajustes.js?v=0.5.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -107,9 +108,51 @@ const P = {
   computador: '<rect x="3" y="5" width="18" height="11" rx="2"/><path d="M2 20h20"/>',
   celular: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
   tablet: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M11 18h2"/>',
-  flecha: '<path d="M9 6l6 6-6 6"/>'
+  flecha: '<path d="M9 6l6 6-6 6"/>',
+  ajustes: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  arriba: '<path d="M6 15l6-6 6 6"/>', abajo: '<path d="M6 9l6 6 6-6"/>'
 };
 const icono = (n, t = 20) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ''}</svg>`;
+
+// ── Botón (i): explicación corta al tocarlo ────────
+// info('Título', 'texto') → botón redondo con una i. Al tocarlo abre un globo con la explicación.
+// Se cierra tocando fuera, con Esc o tocando la (i) de nuevo. Funciona igual en celular.
+const INFOS = [];
+function info(titulo, texto) {
+  let i = INFOS.findIndex(x => x.titulo === titulo && x.texto === texto);
+  if (i < 0) { INFOS.push({ titulo, texto }); i = INFOS.length - 1; }
+  return `<button type="button" class="btn-info" data-info="${i}" aria-label="Qué es: ${esc(titulo)}" aria-expanded="false"></button>`;
+}
+let globoAbierto = null;
+function cerrarGlobo() {
+  if (!globoAbierto) return;
+  globoAbierto.btn.setAttribute('aria-expanded', 'false');
+  globoAbierto.el.remove(); globoAbierto = null;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('.btn-info');
+  if (!b) { if (globoAbierto && !e.target.closest('.globo-info')) cerrarGlobo(); return; }
+  e.preventDefault(); e.stopPropagation();
+  const mismo = globoAbierto && globoAbierto.btn === b;
+  cerrarGlobo();
+  if (mismo) return;
+  const d = INFOS[+b.dataset.info] || { titulo: '', texto: '' };
+  const g = document.createElement('div');
+  g.className = 'globo-info'; g.setAttribute('role', 'dialog'); g.setAttribute('aria-label', d.titulo);
+  g.innerHTML = `<b>${esc(d.titulo)}</b>${String(d.texto).split('\n').map(p => `<p>${esc(p)}</p>`).join('')}`;
+  document.body.appendChild(g);
+  const r = b.getBoundingClientRect(), ancho = Math.min(320, window.innerWidth - 32);
+  g.style.width = ancho + 'px';
+  g.style.left = Math.max(16, Math.min(r.left + r.width / 2 - ancho / 2, window.innerWidth - ancho - 16)) + 'px';
+  const abajo = r.bottom + 8 + g.offsetHeight < window.innerHeight;
+  g.style.top = (abajo ? r.bottom + 8 : Math.max(8, r.top - 8 - g.offsetHeight)) + 'px';
+  b.setAttribute('aria-expanded', 'true');
+  globoAbierto = { btn: b, el: g, y: window.scrollY };
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && globoAbierto) { const b = globoAbierto.btn; cerrarGlobo(); b.focus(); } });
+// Al desplazar la página el globo se cierra (si se movió más que un poco: tocar la (i) puede mover la página unos píxeles)
+window.addEventListener('scroll', () => { if (globoAbierto && Math.abs(window.scrollY - globoAbierto.y) > 40) cerrarGlobo(); }, { passive: true });
+window.addEventListener('hashchange', cerrarGlobo);
 
 // ── Pantallas ──────────────────────────────────────
 function mostrar(id) { ['cargando', 'entrada', 'sin-acceso', 'app'].forEach(x => $(x).classList.toggle('oculto', x !== id)); }
@@ -245,7 +288,7 @@ onAuthStateChanged(auth, async user => {
 });
 
 // ── Navegación ─────────────────────────────────────
-const VISTAS = ['hoy', 'caja', 'seguridad', 'menu'];
+const VISTAS = ['hoy', 'caja', 'ajustes', 'seguridad', 'menu'];
 // #caja = cierres, #caja/anulaciones = anulaciones
 const vistaDesdeHash = () => { const v = (location.hash || '').replace('#', '').split('/')[0]; return VISTAS.includes(v) ? v : 'hoy'; };
 const subVista = () => (location.hash || '').split('/')[1] || '';
@@ -257,9 +300,10 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.4.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.5.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#caja" data-vista="caja">${icono('cajon')}Ventas de caja</a>
+    <a class="nav-item" href="#ajustes" data-vista="ajustes">${icono('ajustes')}Configuración</a>
     <a class="nav-item" href="#seguridad" data-vista="seguridad">${icono('seguridad')}Seguridad</a>
     <div class="grupo">Abren la app actual</div>
     ${apps}
@@ -280,6 +324,7 @@ function irA(v) {
   if (v === 'hoy') pintarHoy();
   if (v === 'caja') pintarCaja(subVista());
   if (v === 'seguridad') pintarSeguridad();
+  if (v === 'ajustes') pintarAjustes();
   if (v === 'menu') pintarMenuCelular();
   window.scrollTo(0, 0);
 }
@@ -303,7 +348,7 @@ async function pintarHoy() {
     <div class="cabecera"><div><h1 id="t-hoy">Hoy</h1><p id="hoy-sub">${fechaLarga} · revisando…</p></div></div>
     <div class="cifras">
       <a class="tarjeta cifra enlace-cifra" href="#caja/reportes/ayer"><span class="rotulo">Ventas de ayer en caja</span><span class="valor" id="c-ventas">…</span><span class="nota" id="c-ventas-n">Bruto, con IVA</span><span class="ver-mas-cifra">Ver reporte</span></a>
-      <div class="tarjeta cifra"><span class="rotulo">Cajas abiertas ahora</span><span class="valor" id="c-abiertas">…</span><span class="nota">Abiertas hoy</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Cajas abiertas ahora ${info('Cajas abiertas ahora', 'Cajas abiertas hoy que siguen vendiendo. Una caja de un día anterior que quedó abierta no cuenta aquí: aparece en Pendientes como "Caja anterior sin cerrar".')}</span><span class="valor" id="c-abiertas">…</span><span class="nota">Abiertas hoy</span></div>
     </div>
     <div class="columnas">
       <section class="tarjeta col-ancha" aria-labelledby="t-pend">
@@ -473,6 +518,7 @@ function pintarMenuCelular() {
       <div class="grupo" style="padding:0 0 4px">En Sistema Fën</div>
       <a class="nav-item" href="#hoy">${icono('hoy')}Hoy</a>
       <a class="nav-item" href="#caja">${icono('cajon')}Ventas de caja</a>
+      <a class="nav-item" href="#ajustes">${icono('ajustes')}Configuración</a>
       <a class="nav-item" href="#seguridad">${icono('seguridad')}Seguridad</a>
     </section>
     <section class="tarjeta" aria-label="Apps actuales">
@@ -702,10 +748,10 @@ async function pintarReportes(el, sub) {
     </div>
     ${faltan.length ? `<div class="aviso aviso-accion" role="status"><div><b>Faltan ${faltan.length} ${faltan.length === 1 ? 'resumen' : 'resúmenes'} en este período.</b> Esos cierres no están sumados abajo. Generarlos lee las ventas de esas cajas una vez.</div><button type="button" class="btn-sec" id="rep-generar">Generar ${faltan.length === 1 ? 'el que falta' : 'los que faltan'}</button></div>` : ''}
     <div class="cifras cifras-4">
-      <div class="tarjeta cifra"><span class="rotulo">Ventas · ${esc(titulo)}</span><span class="valor">${pesos(t.bruto)}</span><span class="nota">${varPct === null ? 'Bruto, con IVA' : `${varPct >= 0 ? '+' : ''}${varPct}% vs los ${largo} días anteriores`}</span></div>
-      <div class="tarjeta cifra"><span class="rotulo">Neto (sin IVA)</span><span class="valor">${pesos(neto)}</span><span class="nota">IVA ${pesos(t.bruto - neto)}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Ventas · ${esc(titulo)} ${info('Ventas del período', 'Suma de lo vendido en caja en los cierres de estos días, con IVA y después de descuentos. No incluye cajas que siguen abiertas ni ventas anuladas.\nEl porcentaje compara con el mismo número de días justo antes (por ejemplo, este mes hasta hoy contra los mismos días anteriores).')}</span><span class="valor">${pesos(t.bruto)}</span><span class="nota">${varPct === null ? 'Bruto, con IVA' : `${varPct >= 0 ? '+' : ''}${varPct}% vs los ${largo} días anteriores`}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Neto (sin IVA) ${info('Neto', 'Las ventas sin el 19% de IVA (bruto / 1,19). Es el monto que usa el costeo y el que se compara con los gastos.')}</span><span class="valor">${pesos(neto)}</span><span class="nota">IVA ${pesos(t.bruto - neto)}</span></div>
       <div class="tarjeta cifra"><span class="rotulo">Ventas</span><span class="valor">${t.nVentas.toLocaleString('es-CL')}</span><span class="nota">${t.nAnuladas ? `${t.nAnuladas} anuladas, no suman` : 'Sin anuladas'}</span></div>
-      <div class="tarjeta cifra"><span class="rotulo">Ticket promedio</span><span class="valor">${pesos(ticket)}</span><span class="nota">Bruto por venta</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Ticket promedio ${info('Ticket promedio', 'Cuánto gasta en promedio cada cliente: ventas brutas divididas por el número de ventas (boletas) del período.\nSirve para ver si la gente compra más por visita, no solo si vienen más.')}</span><span class="valor">${pesos(ticket)}</span><span class="nota">Bruto por venta</span></div>
     </div>
     ${t.nVentas ? `
     <section class="tarjeta" aria-labelledby="t-rep-dias">
@@ -838,9 +884,9 @@ async function pintarStock(el, sub) {
       <div class="titulo-fila"><h2 id="t-stock">Stock ahora</h2>
         <select id="st-area" aria-label="Área"><option value="">Todas las áreas</option>${areasPresentes.map(a => `<option value="${esc(a)}" ${stEstado.area === a ? 'selected' : ''}>${esc(AREAS_NOMBRE[a] || a)}</option>`).join('')}</select></div>
       <div class="cifras cifras-4" style="margin:12px 0 4px">
-        <div class="cifra"><span class="rotulo">Valor en stock</span><span class="valor">${pesos(vendible)}</span><span class="nota">Incluye última oferta</span></div>
+        <div class="cifra"><span class="rotulo">Valor en stock ${info('Valor en stock', 'Lo que valdría todo el stock vendible si se vendiera hoy, cada lote a su precio del día (hoy, ayer, antes de ayer, cuarto día, última oferta) y los productos sin vencimiento a precio normal.\nNo cuenta la merma ni los productos que no controlan stock (bolsas, por ejemplo).\nEn la caja, "Valor en stock" no suma la última oferta; aquí sí, por eso puede salir mayor.')}</span><span class="valor">${pesos(vendible)}</span><span class="nota">Incluye última oferta</span></div>
         <div class="cifra"><span class="rotulo">Unidades</span><span class="valor">${Math.round(stock.reduce((a, f) => a + f.cantidad, 0)).toLocaleString('es-CL')}</span><span class="nota">${stock.length === 1 ? '1 producto' : stock.length + ' productos'}</span></div>
-        <div class="cifra"><span class="rotulo">En última oferta</span><span class="valor">${pesos(stock.filter(f => f.categoria === 'ultimaOferta').reduce((a, f) => a + f.valor, 0))}</span><span class="nota">4 días o más</span></div>
+        <div class="cifra"><span class="rotulo">En última oferta ${info('Última oferta', 'Lotes con 4 días o más desde que se ingresaron (o pasados a mano a última oferta). Se venden al precio más bajo y son los próximos candidatos a merma.')}</span><span class="valor">${pesos(stock.filter(f => f.categoria === 'ultimaOferta').reduce((a, f) => a + f.valor, 0))}</span><span class="nota">4 días o más</span></div>
         <div class="cifra"><span class="rotulo">Merma por registrar</span><span class="valor">${pesos(mermaPend.reduce((a, m) => a + m.valor, 0))}</span><span class="nota">A precio normal</span></div>
       </div>
       ${porCat.length ? porCat.map(c => `<details class="grupo-stock"${c.key === 'ultimaOferta' ? ' open' : ''}>
@@ -857,7 +903,7 @@ async function pintarStock(el, sub) {
       <div class="cifras cifras-4" style="margin:12px 0 4px">
         <div class="cifra"><span class="rotulo">Pérdida</span><span class="valor">${pesos(perdida)}</span><span class="nota">A precio normal, con IVA</span></div>
         <div class="cifra"><span class="rotulo">Unidades</span><span class="valor">${Math.round(unidades).toLocaleString('es-CL')}</span><span class="nota">${regs.length === 1 ? '1 registro' : regs.length + ' registros'}</span></div>
-        <div class="cifra"><span class="rotulo">Merma / ventas</span><span class="valor">${ventas ? (Math.round(perdida * 1000 / ventas) / 10).toLocaleString('es-CL') + '%' : '—'}</span><span class="nota">Ventas de caja ${pesos(ventas)}</span></div>
+        <div class="cifra"><span class="rotulo">Merma / ventas ${info('Merma / ventas', 'Pérdida por merma dividida por las ventas de caja del mismo período y sucursal, ambas con IVA.\nEjemplo: 3% quiere decir que por cada $100 vendidos se perdieron $3 en merma. Sirve para comparar meses aunque se venda más o menos.')}</span><span class="valor">${ventas ? (Math.round(perdida * 1000 / ventas) / 10).toLocaleString('es-CL') + '%' : '—'}</span><span class="nota">Ventas de caja ${pesos(ventas)}</span></div>
       </div>
       ${regs.length ? `<div class="columnas" style="margin-top:12px">
         <div class="col-ancha"><h3 class="sub">Por área</h3>${barras(mArea.map(([k, v]) => ({ nombre: AREAS_NOMBRE[k] || k, valor: v })), perdida)}</div>
@@ -925,6 +971,135 @@ function abrirRescatar(m) {
       d.close(); pintarCaja('stock');
     } catch (e) { d.querySelector('#re-error').textContent = e.message || mensajeError(e); d.querySelectorAll('button').forEach(x => { x.disabled = false; }); }
   });
+}
+
+// ── Configuración del negocio ──────────────────────
+let recetasCache = null;
+async function pintarAjustes() {
+  const el = $('v-ajustes');
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-ajustes">Configuración</h1><p>Ajustes del negocio que usa la caja</p></div></div>
+    <div class="tarjeta"><div class="vacio" style="border:0">Cargando…</div></div>`;
+  let datos;
+  try { datos = await Ajustes.leerAjustes(); }
+  catch (e) { el.querySelector('.tarjeta').innerHTML = `<div class="error">${esc(mensajeError(e))}</div>`; return; }
+  const { c, areas, productos } = datos;
+  const lista = id => (c[id] && Array.isArray(c[id].lista) && c[id].lista.length ? c[id].lista : Ajustes.BASE[id]);
+  const usoSub = {}; productos.forEach(p => { if (p.categoria) { const k = (p.area || '') + '|' + p.categoria; usoSub[k] = (usoSub[k] || 0) + 1; } });
+  const editor = (id, items, extra = () => '') => `<div class="lista-edit" data-lista="${id}">
+      ${items.map((t, i) => `<div class="fila-edit" data-valor="${esc(t)}">
+        <input type="text" value="${esc(t)}" aria-label="Nombre" data-renombrar maxlength="60">${extra(t)}
+        <button type="button" class="btn-icono" data-mover="-1" aria-label="Subir ${esc(t)}" ${i === 0 ? 'disabled' : ''}>${icono('arriba', 18)}</button>
+        <button type="button" class="btn-icono" data-mover="1" aria-label="Bajar ${esc(t)}" ${i === items.length - 1 ? 'disabled' : ''}>${icono('abajo', 18)}</button>
+        <button type="button" class="btn-sec btn-peligro btn-chico" data-quitar>Quitar</button></div>`).join('') || '<div class="vacio">Sin elementos todavía.</div>'}
+      <form class="fila-nueva" data-agregar><input type="text" placeholder="Agregar…" aria-label="Agregar a la lista" maxlength="60"><button type="submit" class="btn-sec btn-chico">Agregar</button></form>
+    </div>`;
+  const tp = (c.tiemposPago && c.tiemposPago.ainavillo) || {};
+  const per = (c.reconciliacionPeriodos && c.reconciliacionPeriodos.periodos) || {};
+  const hoy = new Date();
+  const meses = []; for (let m = hoy.getMonth() + 1; m >= 1; m--) meses.push(`${hoy.getFullYear()}-${String(m).padStart(2, '0')}`);
+  const ocultas = (c.recetasOcultas && c.recetasOcultas.ids) || [];
+
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-ajustes">Configuración ${info('Configuración', 'Son los mismos ajustes que antes cambiabas en Configuración y Productos de la caja. Se guardan al tiro en Firebase.\nLa caja los lee al abrirse: cada tablet ve el cambio cuando se abre o se recarga la caja (no hace falta hacer nada más).\nLa impresora y el ancho del papel siguen en la caja, porque son de cada equipo.')}</h1><p>Ajustes del negocio que usa la caja</p></div></div>
+    <div class="columnas">
+      <section class="tarjeta col-ancha" style="display:block" aria-labelledby="t-motivos">
+        <div class="titulo-fila"><h2 id="t-motivos">Motivos de merma ${info('Motivos de merma', 'La lista que elige la cajera al enviar un producto a merma desde Stock. El orden de aquí es el orden en que aparecen.\nCambiar el nombre o quitar un motivo no cambia la merma ya registrada: esos registros guardan el texto que tenían.\nLa lista no puede quedar vacía (la caja volvería a poner los motivos de fábrica).')}</h2><span>${lista('motivosMerma').length}</span></div>
+        ${editor('motivosMerma', lista('motivosMerma'))}
+      </section>
+      <section class="tarjeta col-angosta" style="display:block" aria-labelledby="t-leche">
+        <div class="titulo-fila"><h2 id="t-leche">Tipos de leche ${info('Tipos de leche', 'Las opciones que aparecen al vender un café con leche. Se usan en el reporte de la caja "Por tipo de leche".\nCambiar un nombre no cambia las ventas ya hechas.')}</h2><span>${lista('tiposLeche').length}</span></div>
+        ${editor('tiposLeche', lista('tiposLeche'))}
+      </section>
+    </div>
+
+    <section class="tarjeta" aria-labelledby="t-subcat">
+      <div class="titulo-fila"><h2 id="t-subcat">Subcategorías ${info('Subcategorías', 'Grupos dentro de cada área para ordenar los productos en la caja (por ejemplo, en Pastelería: Tortas, Kuchen). Se asignan a cada producto en Productos de la caja.\nAl lado de cada una dice cuántos productos la usan.\nCambiar el nombre o quitar una subcategoría NO cambia los productos que ya la tenían: en la caja quedan marcados "fuera de lista" hasta que les asignes otra.')}</h2></div>
+      <div class="grilla-areas">${areas.map(a => `<div><h3 class="sub">${esc(a.nombre)} <small>${esc(a.id)}</small></h3>
+        ${editor('sub:' + a.id, ((c.subcategorias && c.subcategorias.porArea) || {})[a.id] || [], t => { const n = usoSub[a.id + '|' + t] || 0; return `<span class="uso" title="Productos con esta subcategoría">${n} ${n === 1 ? 'producto' : 'productos'}</span>`; })}</div>`).join('')}</div>
+    </section>
+
+    <div class="columnas">
+      <section class="tarjeta col-angosta" style="display:block" aria-labelledby="t-tiempos">
+        <div class="titulo-fila"><h2 id="t-tiempos">Tiempos de pago ${info('Tiempos de pago', 'Cuántos días pasan desde la venta hasta que la plata de cada medio llega a la cuenta. La caja los usa en "Ventas mensuales hacia fën-producción" para proyectar el flujo de caja.\nBarros Arana está fijo en 0 días (convenio de pago inmediato, confirmado). Si cambia, avísame: hay que cambiarlo también en la caja, porque la caja lo vuelve a dejar en 0 cada vez que guarda.\nAinavillo: pon los días que informe el procesador de pagos.')}</h2></div>
+        <form id="form-tiempos"><table class="tabla-tiempos"><thead><tr><th>Medio</th><th>Ainavillo</th><th>Barros Arana</th></tr></thead><tbody>
+          ${[['debito', 'Débito'], ['credito', 'Crédito'], ['transferencia', 'Transferencia']].map(([k, n]) => `<tr><td>${n}</td>
+            <td><label class="dias"><input type="number" min="0" max="90" step="1" inputmode="numeric" id="tp-${k}" value="${Number(tp[k]) || 0}" aria-label="${n} en Ainavillo, días"> días</label></td><td class="ayuda" style="white-space:nowrap">0 (inmediato)</td></tr>`).join('')}
+        </tbody></table>
+        <div class="botones" style="justify-content:flex-start;margin-top:12px"><button type="submit" class="btn-sec">Guardar tiempos</button><span class="ayuda" id="tp-estado" role="status"></span></div></form>
+      </section>
+      <section class="tarjeta col-ancha" style="display:block" aria-labelledby="t-periodos">
+        <div class="titulo-fila"><h2 id="t-periodos">Períodos de conciliación ${info('Períodos de conciliación', 'En la caja, "Reconciliación de nombres históricos" deja emparejar nombres antiguos de productos (de ventas y merma pasadas) con su receta de Producción, mes por mes.\nAquí marcas qué meses ya revisaste. Es solo un seguimiento: marcar o desmarcar no cambia ventas ni merma.\nEl emparejamiento en sí se sigue haciendo en la caja.')}</h2><span>${hoy.getFullYear()}</span></div>
+        <div data-colapsar="4">${meses.map(m => { const r = per[m] || {}; const [y, mm] = m.split('-').map(Number); return `<div class="fila-caja fila-compacta"><div class="txt"><b>${MESES_LARGOS[mm - 1].replace(/^./, x => x.toUpperCase())} ${y}</b>
+          <span>${r.revisado ? `Revisado el ${esc(fechaCaja(r.fecha || ''))}${r.usuario ? ' por ' + esc(r.usuario) : ''}` : 'Pendiente'}</span></div>
+          <div class="acciones">${r.revisado ? '<span class="chip c-verde">Revisado</span>' : '<span class="chip c-gris">Pendiente</span>'}<button type="button" class="btn-sec btn-chico" data-periodo-rev="${m}" data-rev="${r.revisado ? '0' : '1'}">${r.revisado ? 'Desmarcar' : 'Marcar revisado'}</button></div></div>`; }).join('')}</div>
+      </section>
+    </div>
+
+    <section class="tarjeta" aria-labelledby="t-recetas">
+      <div class="titulo-fila"><h2 id="t-recetas">Recetas sin producto en la caja ${info('Recetas sin producto en la caja', 'Producción publica su lista de recetas. Las que no tienen un producto vinculado en la caja aparecen como pendientes en la caja (Configuración → Conexión con fën-producción).\nOcultar sirve para las que no se venden en el mostrador (por ejemplo, solo B2B o insumos): dejan de aparecer como pendientes. Se puede deshacer con "Mostrar".\nCrear el producto o vincularlo se sigue haciendo en la caja, hasta que llegue el catálogo nuevo.')}</h2><span id="rec-total"></span></div>
+      <div id="rec-lista"><div class="vacio">Cargando la lista de Producción…</div></div>
+    </section>`;
+
+  // Listas
+  const trabajar = async (fila, fn, texto) => {
+    fila && fila.classList.add('guardando');
+    try { await fn(); if (texto) registrar('Cambió la configuración', texto); pintarAjustes(); }
+    catch (e) { fila && fila.classList.remove('guardando'); alert(e.message || mensajeError(e)); pintarAjustes(); }
+  };
+  const ops = id => id.startsWith('sub:')
+    ? { area: id.slice(4), agregar: (t) => Ajustes.subAgregar(id.slice(4), t), renombrar: (a, b) => Ajustes.subRenombrar(id.slice(4), a, b), quitar: t => Ajustes.subQuitar(id.slice(4), t), mover: (t, p) => Ajustes.subMover(id.slice(4), t, p), nombre: 'Subcategoría ' + id.slice(4) }
+    : { agregar: t => Ajustes.agregar(id, t), renombrar: (a, b) => Ajustes.renombrar(id, a, b), quitar: t => Ajustes.quitar(id, t), mover: (t, p) => Ajustes.mover(id, t, p), nombre: id === 'motivosMerma' ? 'Motivo de merma' : 'Tipo de leche' };
+  el.querySelectorAll('[data-lista]').forEach(box => {
+    const o = ops(box.dataset.lista);
+    box.querySelectorAll('.fila-edit').forEach(f => {
+      const v = f.dataset.valor;
+      const inp = f.querySelector('[data-renombrar]');
+      inp.addEventListener('change', () => { if (inp.value.trim() !== v) trabajar(f, () => o.renombrar(v, inp.value), `${o.nombre}: "${v}" → "${inp.value.trim()}"`); });
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
+      f.querySelectorAll('[data-mover]').forEach(b => b.addEventListener('click', () => trabajar(f, () => o.mover(v, +b.dataset.mover))));
+      f.querySelector('[data-quitar]').addEventListener('click', () => {
+        const uso = o.area ? (usoSub[o.area + '|' + v] || 0) : 0;
+        if (!window.confirm(`¿Quitar "${v}" de la lista?${uso ? `\n\n${uso} ${uso === 1 ? 'producto la tiene' : 'productos la tienen'} asignada: no cambian solos, en la caja quedan "fuera de lista".` : '\n\nLo ya registrado con este nombre no cambia.'}`)) return;
+        trabajar(f, () => o.quitar(v), `${o.nombre}: quitó "${v}"`);
+      });
+    });
+    box.querySelector('[data-agregar]').addEventListener('submit', e => {
+      e.preventDefault(); const t = e.target.querySelector('input').value;
+      if (t.trim()) trabajar(null, () => o.agregar(t), `${o.nombre}: agregó "${t.trim()}"`);
+    });
+  });
+  // Tiempos de pago
+  $('form-tiempos').addEventListener('submit', async e => {
+    e.preventDefault();
+    const t = { debito: $('tp-debito').value, credito: $('tp-credito').value, transferencia: $('tp-transferencia').value };
+    try {
+      const r = await Ajustes.guardarTiemposAinavillo(t);
+      registrar('Cambió la configuración', `Tiempos de pago Ainavillo: débito ${r.ainavillo.debito}, crédito ${r.ainavillo.credito}, transferencia ${r.ainavillo.transferencia} días`);
+      $('tp-estado').textContent = 'Guardado';
+    } catch (er) { $('tp-estado').textContent = er.message || mensajeError(er); }
+  });
+  // Períodos
+  el.querySelectorAll('[data-periodo-rev]').forEach(b => b.addEventListener('click', () =>
+    trabajar(b.closest('.fila-caja'), () => Ajustes.marcarPeriodo(b.dataset.periodoRev, b.dataset.rev === '1'), `Período ${b.dataset.periodoRev}: ${b.dataset.rev === '1' ? 'revisado' : 'pendiente'}`)));
+  colapsar(el);
+
+  // Recetas (lista publicada por Producción; se lee una vez por sesión)
+  try {
+    if (!recetasCache) recetasCache = await Ajustes.leerRecetasProduccion();
+    if (!$('rec-lista')) return;
+    const vinculadas = new Set(productos.map(p => p.idRecetaFen).filter(Boolean));
+    const sinProd = recetasCache.filter(r => !vinculadas.has(r.id));
+    const vis = sinProd.filter(r => !ocultas.includes(r.id)), ocu = sinProd.filter(r => ocultas.includes(r.id));
+    const fila = (r, oculta) => `<div class="fila-caja"><div class="txt"><b>${esc(r.nombre || r.id)}</b><span>${esc(r.id)}${r.area ? ' · ' + esc(r.area) : ''}</span></div>
+      <div class="acciones"><button type="button" class="btn-sec btn-chico" data-${oculta ? 'mostrar' : 'ocultar'}-receta="${esc(r.id)}">${oculta ? 'Mostrar' : 'Ocultar'}</button></div></div>`;
+    $('rec-total').textContent = `${vis.length} pendientes · ${ocu.length} ocultas`;
+    $('rec-lista').innerHTML = `${vis.length ? `<div data-colapsar="5">${vis.map(r => fila(r, false)).join('')}</div>` : '<div class="vacio">Todas las recetas tienen producto o están ocultas.</div>'}
+      ${ocu.length ? `<details class="grupo-stock"><summary><span>Ocultas</span><span>${ocu.length}</span></summary><div data-colapsar="10">${ocu.map(r => fila(r, true)).join('')}</div></details>` : ''}`;
+    $('rec-lista').querySelectorAll('[data-ocultar-receta]').forEach(b => b.addEventListener('click', () => trabajar(b.closest('.fila-caja'), () => Ajustes.ocultarReceta(b.dataset.ocultarReceta), `Ocultó la receta ${b.dataset.ocultarReceta}`)));
+    $('rec-lista').querySelectorAll('[data-mostrar-receta]').forEach(b => b.addEventListener('click', () => trabajar(b.closest('.fila-caja'), () => Ajustes.mostrarReceta(b.dataset.mostrarReceta), `Volvió a mostrar la receta ${b.dataset.mostrarReceta}`)));
+    colapsar($('rec-lista'));
+  } catch (e) {
+    if ($('rec-lista')) $('rec-lista').innerHTML = `<div class="error">No se pudo leer la lista de recetas de Producción (${esc(e.message || '')}). Las ${ocultas.length} recetas ocultas siguen ocultas.</div>`;
+  }
 }
 
 function abrirAceptar(e) {

@@ -1,9 +1,33 @@
-# Sistema Fën · v0.4.0
+# Sistema Fën · v0.5.0
 
-**App:** v0.4.0 · **Reglas de Firestore:** v1.2.0 (sin cambios) · 4 de octubre de 2026
+**App:** v0.5.0 · **Reglas de Firestore:** v1.2.0 (sin cambios) · 4 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Etapa 1. Solo entra la cuenta de administración (la misma de la caja).
+
+## Novedades de la v0.5.0: Configuración y botón (i)
+Nuevo **Configuración** en el menú (en el celular, en Menú). Son los ajustes del negocio que antes se cambiaban dentro de la caja:
+
+| Parte | Qué hace |
+| --- | --- |
+| **Motivos de merma** | La lista que elige la cajera al enviar a merma. Agregar, cambiar nombre (escribe y Enter), subir/bajar, quitar |
+| **Tipos de leche** | Las opciones al vender un café con leche. Igual que arriba |
+| **Subcategorías** | Por área. Al lado de cada una, cuántos productos la usan. Agregar, renombrar, ordenar, quitar |
+| **Tiempos de pago** | Días hasta que llega la plata de débito, crédito y transferencia en Ainavillo. Barros Arana fijo en 0 (como en la caja) |
+| **Períodos de conciliación** | Qué meses del año ya revisaste en la reconciliación de nombres históricos. Marcar o desmarcar |
+| **Recetas sin producto en la caja** | Recetas que publica Producción sin producto vinculado. **Ocultar** las que no se venden en el mostrador; **Mostrar** para deshacer |
+
+La impresora y el ancho de papel siguen en la caja (son de cada equipo).
+
+**Botón (i):** las explicaciones nuevas van en un botón redondo con una *i* al lado del título o de la cifra. Tócalo para leer qué es y de dónde sale; se cierra tocando fuera o con Esc. Las notas "(i)" que ya estaban siguen donde estaban. En esta versión hay (i) en: cada parte de Configuración; Ventas del período, Neto y Ticket promedio (Reportes); Valor en stock, En última oferta y Merma / ventas (Merma y stock); Cajas abiertas ahora (Hoy).
+
+(i) La caja lee estos ajustes al abrirse: cada tablet ve el cambio la próxima vez que se abre o se recarga la caja.
+
+(i) Cada cambio se guarda sobre lo que está guardado en ese momento, así que no pisa un cambio hecho desde la caja. Lo contrario sí puede pasar: si tienes la caja abierta desde antes (como admin) y cambias la misma lista ahí, la caja guarda su lista vieja. Antes de cambiar una lista en la caja, recárgala.
+
+(i) Cambiar el nombre o quitar un motivo, tipo de leche o subcategoría no cambia lo ya registrado (ventas, merma, productos). Los productos con una subcategoría quitada quedan "fuera de lista" en la caja.
+
+Archivos: `ajustes.js` es **nuevo**; cambian `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js` y `stock.js` (solo versión), `README.md`. Sin cambios en reglas, scripts ni la caja.
 
 ## Novedades de la v0.4.0: Merma y stock
 Nueva pestaña **Ventas de caja → Merma y stock**. Arriba eliges Barros Arana, Ainavillo o las dos.
@@ -105,7 +129,8 @@ estilos.css            colores Salvia y arena                     → GitHub, si
 config.js              versión, apps del menú, Firebase, scripts  → GitHub, sistema-fen, raíz (reemplaza)
 firebase.js            conexión con Firebase                      → GitHub, sistema-fen, raíz (reemplaza)
 app.js                 pantallas                                  → GitHub, sistema-fen, raíz (reemplaza)
-stock.js               NUEVO en v0.4.0: merma y stock             → GitHub, sistema-fen, raíz
+ajustes.js             NUEVO en v0.5.0: configuración del negocio  → GitHub, sistema-fen, raíz
+stock.js               merma y stock (v0.4.0)                     → GitHub, sistema-fen, raíz
 caja.js                lógica de cierres y anulaciones     → GitHub, sistema-fen, raíz
 logo-fen.png           logo secundario en verde                   → GitHub, sistema-fen, raíz (nuevo en v0.2.2)
 README.md              este archivo                               → GitHub, sistema-fen, raíz (reemplaza)
@@ -115,14 +140,16 @@ Nada en Apps Script ni en la caja cambia.
 
 (i) `config.js` lleva la configuración web de Firebase. No es secreta: es la misma que ya está en la caja y solo dice a qué proyecto conectarse. Lo que protege los datos son las reglas y tu contraseña.
 
-## Instalación de la v0.4.0
-1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra `stock.js` (nuevo) y `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js`, `README.md` y `logo-fen.png` → **Commit changes**.
-2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.4.0**).
+## Instalación de la v0.5.0
+1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra `ajustes.js` (nuevo), `stock.js` y `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js`, `README.md` y `logo-fen.png` → **Commit changes**.
+2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.5.0**).
 
 (i) Instalación desde cero (v0.1): reglas v1.2.0 en Firebase, subir los archivos, Settings → Pages → *Deploy from a branch*, **main**, **/(root)**. Ya está hecho.
 
 ## Lista de verificación
-- [ ] Abajo a la izquierda dice **v0.4.0**.
+- [ ] Abajo a la izquierda dice **v0.5.0** y en el menú aparece **Configuración**.
+- [ ] En Configuración se ven tus motivos de merma, tipos de leche y subcategorías reales. Agrega un motivo de prueba, recarga la caja y revisa que aparezca al enviar a merma; después quítalo.
+- [ ] Toca una (i): se abre la explicación; toca fuera y se cierra.
 - [ ] **Merma y stock**: el stock de Barros Arana se ve igual que en la caja (Stock). Registra una merma pendiente y revisa que salga del stock en la caja y que llegue **una** fila a la pestaña Merma de la planilla.
 - [ ] Ventas de caja → **Reportes** → **Este mes**: si avisa que faltan resúmenes, toca **Generar los que faltan**. Compara el total de septiembre (Mes anterior) con el reporte de la caja: deben coincidir.
 - [ ] En Arqueos, las cuadradas ya no tienen Corregir. Acepta una diferencia que no se pueda aclarar: queda en gris "aceptada" y sale de Hoy.
@@ -137,7 +164,7 @@ Nada en Apps Script ni en la caja cambia.
 - **"…el cierre no llegó a la planilla (…)":** la caja quedó cerrada; el cierre queda en *Cierres sin pasar a planilla*. Toca *Reenviar*. Si vuelve a fallar, mándame el texto del error.
 - **Sigue viéndose la v0.1.1:** espera unos minutos y recarga con Ctrl+Shift+R.
 
-## Pruebas automáticas (25, todas pasan)
+## Pruebas automáticas (28, todas pasan)
 Con Firebase simulado en el navegador:
 - Las 12 de la v0.1.1 (entrada, Hoy, recargar, Seguridad, revocar, vencer, celular).
 - Hoy abre Ventas de caja → Anulaciones. Aprobar una venta con pago dividido: efectivo y débito bajan lo justo, no aparece un medio "Dividido", el stock vuelve al mismo lote, queda en la actividad.
@@ -147,6 +174,7 @@ Con Firebase simulado en el navegador:
 - Caja que vendió hace 5 minutos: avisa y, si dices que no, no se cierra.
 - Solicitud aprobada en otro equipo justo antes: no se descuenta dos veces.
 - Celular: Caja en la barra inferior, sin scroll horizontal.
+- v0.5.0: listas con los valores de fábrica de la caja si no existen; agregar, renombrar, mover y quitar; un cambio hecho desde la caja mientras la pantalla está abierta no se pierde; la lista no queda vacía; subcategorías con número de productos; tiempos de pago (Barros Arana queda en 0); marcar un período; ocultar una receta (lista de Producción con nombres con coma); botón (i) abre, cabe en el celular y se cierra con Esc o tocando fuera.
 - v0.4.0: valor del stock con el precio de cada día (sin los que no controlan stock); merma por registrar por sucursal; registrar crea un registro por día de envío, sin contar envíos viejos ya rescatados, y lo pasa a la planilla con su clave; si la planilla falla queda para reenviar; rescatar vuelve al día elegido y limpia el registro; merma / ventas; celular.
 - v0.3.0: desde Hoy abre el reporte de ayer; bruto, neto, anuladas, ticket promedio y porcentajes por medio de pago; genera el resumen que falta y lo suma; filtro por sucursal; por sucursal; celular sin scroll horizontal.
 - v0.2.1: cuadrada sin Corregir; descuadre primero; 6 arqueos muestran 3 y "Ver todas (6)" / "Ver menos"; aceptar diferencia no cambia montos, queda en la actividad y sale de Hoy.
