@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F6F4EE">
+<meta name="robots" content="noindex">
+<title>Sistema Fën</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="estilos.css?v=0.1.1">
+<script src="config.js?v=0.1.1"></script>
+</head>
+<body>
+
+<!-- Cargando: mientras Firebase revisa si hay sesión en este equipo -->
+<div id="cargando" class="entrada"><div class="marca"><b>fën</b><span>Sistema</span></div><p class="ayuda">Abriendo…</p></div>
+
+<!-- ── Entrada ───────────────────────────────────── -->
+<section id="entrada" class="entrada oculto" aria-labelledby="t-entrar">
+  <div class="marca"><b>fën</b><span>Sistema</span></div>
+  <form id="form-entrar" class="form-entrada" novalidate>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <h1 id="t-entrar">Entrar en este equipo</h1>
+      <p>Entras una vez y quedas dentro de Sistema Fën en este equipo, por el tiempo que elijas.</p>
+    </div>
+    <div id="aviso-entrada" class="aviso oculto" role="status"></div>
+    <div class="campo">
+      <label for="correo">Correo</label>
+      <input id="correo" type="email" autocomplete="username" required>
+    </div>
+    <div class="campo">
+      <label for="clave">Contraseña</label>
+      <input id="clave" type="password" autocomplete="current-password" required>
+      <span class="ayuda">La misma de administración de la caja.</span>
+    </div>
+    <div class="campo">
+      <label for="nombre-equipo">Nombre de este equipo</label>
+      <input id="nombre-equipo" type="text" maxlength="40" placeholder="Ej.: Computador oficina" required>
+      <span class="ayuda">Así lo reconoces después en Seguridad.</span>
+    </div>
+    <fieldset>
+      <legend>Recordar este equipo por</legend>
+      <div id="duraciones" class="pastillas"></div>
+      <div id="campo-fecha" class="campo oculto">
+        <label for="fecha-hasta">Hasta el</label>
+        <input id="fecha-hasta" type="date">
+      </div>
+      <span class="ayuda">(i) 4 meses es lo sugerido para tu celular o tu computador. Para equipos fijos del local, 1 año; para uno prestado, solo esta vez. Puedes cambiarlo o revocarlo en Seguridad.</span>
+    </fieldset>
+    <div id="error-entrada" class="error" role="alert"></div>
+    <button id="btn-entrar" class="btn" type="submit">Entrar</button>
+  </form>
+  <p class="ayuda" style="max-width:440px;text-align:center">(i) Sistema Fën tiene su propia sesión: entrar o salir aquí no cambia la cuenta abierta en la caja de este equipo.</p>
+</section>
+
+<!-- ── Sin acceso (otra cuenta ya abierta en este navegador, p. ej. una cajera) ── -->
+<section id="sin-acceso" class="entrada oculto" aria-labelledby="t-sin-acceso">
+  <div class="marca"><b>fën</b><span>Sistema</span></div>
+  <div class="form-entrada">
+    <h1 id="t-sin-acceso">Esta cuenta ya no tiene acceso</h1>
+    <p>La cuenta <b id="correo-sin-acceso"></b> no es de administración, así que no puede usar Sistema Fën.</p>
+    <button id="btn-otra-cuenta" class="btn-sec" type="button">Entrar con otra cuenta</button>
+  </div>
+</section>
+
+<!-- ── App ───────────────────────────────────────── -->
+<div id="app" class="app oculto">
+  <nav class="lateral" aria-label="Menú principal" id="menu-lateral"></nav>
+  <main id="principal" tabindex="-1">
+    <section id="v-hoy" aria-labelledby="t-hoy"></section>
+    <section id="v-seguridad" class="oculto" aria-labelledby="t-seguridad"></section>
+    <section id="v-menu" class="oculto vista-menu" aria-labelledby="t-menu"></section>
+  </main>
+  <nav class="barra" aria-label="Navegación" id="barra"></nav>
+</div>
+
+<script type="module" src="app.js?v=0.1.1"></script>
+</body>
+</html>
