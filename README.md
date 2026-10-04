@@ -1,9 +1,17 @@
-# Sistema Fën · v0.2.1
+# Sistema Fën · v0.2.3
 
-**App:** v0.2.1 · **Reglas de Firestore:** v1.2.0 (sin cambios) · 4 de octubre de 2026
+**App:** v0.2.3 · **Reglas de Firestore:** v1.2.0 (sin cambios) · 4 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Etapa 1. Solo entra la cuenta de administración (la misma de la caja).
+
+## Novedades de la v0.2.3
+- Logo centrado en el menú y en el celular, con "Sistema de administración" centrado debajo.
+- Archivos que cambian: `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js` (solo versión), `README.md`. `logo-fen.png` es el mismo de la v0.2.2.
+
+## Novedades de la v0.2.2
+- Logo secundario de Fën en verde oscuro (#2F5A45, el color de los títulos) arriba del menú, en la entrada y arriba de cada pantalla en el celular. Archivo nuevo: `logo-fen.png` (fondo transparente).
+- Archivos que cambian: `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js` (solo el número de versión), `README.md` y el nuevo `logo-fen.png`.
 
 ## Novedades de la v0.2.1
 - **Arqueos:**
@@ -60,6 +68,7 @@ config.js              versión, apps del menú, Firebase, scripts  → GitHub, 
 firebase.js            conexión con Firebase                      → GitHub, sistema-fen, raíz (reemplaza)
 app.js                 pantallas                                  → GitHub, sistema-fen, raíz (reemplaza)
 caja.js                lógica de cierres y anulaciones     → GitHub, sistema-fen, raíz
+logo-fen.png           logo secundario en verde                   → GitHub, sistema-fen, raíz (nuevo en v0.2.2)
 README.md              este archivo                               → GitHub, sistema-fen, raíz (reemplaza)
 firestore.rules        reglas v1.2.0, IGUALES a las que ya están  → no hace falta publicarlas de nuevo
 ```
@@ -67,14 +76,14 @@ Nada en Apps Script ni en la caja cambia.
 
 (i) `config.js` lleva la configuración web de Firebase. No es secreta: es la misma que ya está en la caja y solo dice a qué proyecto conectarse. Lo que protege los datos son las reglas y tu contraseña.
 
-## Instalación de la v0.2.1
-1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra los 7 archivos de la lista (reemplazan a los que están) → **Commit changes**.
-2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.2.1**).
+## Instalación de la v0.2.3
+1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js`, `README.md` y `logo-fen.png` → **Commit changes**.
+2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.2.3**).
 
 (i) Instalación desde cero (v0.1): reglas v1.2.0 en Firebase, subir los archivos, Settings → Pages → *Deploy from a branch*, **main**, **/(root)**. Ya está hecho.
 
 ## Lista de verificación
-- [ ] Abajo a la izquierda dice **v0.2.1**.
+- [ ] Abajo a la izquierda dice **v0.2.3** y arriba aparece el logo en verde.
 - [ ] En Arqueos, las cuadradas ya no tienen Corregir. Acepta una diferencia que no se pueda aclarar: queda en gris "aceptada" y sale de Hoy.
 - [ ] Una lista con más de 3 filas muestra "Ver todas".
 - [ ] En **Hoy**, toca "Caja anterior sin cerrar": abre Ventas de caja → Cierres con las 3 cajas viejas.

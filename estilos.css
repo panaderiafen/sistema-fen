@@ -14,9 +14,10 @@ button, input, select { font: inherit; color: inherit; }
 
 /* ── Entrada ─────────────────────────────────── */
 .entrada { min-height: 100vh; padding: 48px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; }
-.marca { display: flex; align-items: baseline; gap: 8px; }
+.marca { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.marca .logo { width: 150px; height: auto; display: block; }
 .marca b { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; color: var(--acento); }
-.marca span { font-size: 16px; color: var(--suave); }
+.marca span { text-align: center; font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--suave); }
 .form-entrada { width: 100%; max-width: 440px; background: var(--tarjeta); border: 1px solid var(--linea); border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 20px; }
 .form-entrada h1 { margin: 0; font-size: 24px; letter-spacing: -0.01em; }
 .form-entrada p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--suave); }
@@ -40,9 +41,10 @@ legend { padding: 0 0 10px; }
 /* ── App ─────────────────────────────────────── */
 .app { min-height: 100vh; display: flex; flex-wrap: wrap; }
 .lateral { flex: 1 1 240px; max-width: 280px; padding: 28px 16px; background: var(--menu); border-right: 1px solid var(--linea); display: flex; flex-direction: column; gap: 4px; }
-.lateral .marca { padding: 0 12px 24px; }
+.lateral .marca { padding: 0 8px 24px; align-items: center; text-align: center; }
+.lateral .marca .logo { width: 128px; }
 .lateral .marca b { font-size: 28px; }
-.lateral .marca span { font-size: 13px; }
+.lateral .marca span { font-size: 10.5px; letter-spacing: 0.1em; }
 .grupo { padding: 20px 12px 6px; font-size: 12px; font-weight: 600; color: var(--suave); }
 .nav-item { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; font-weight: 500; font-size: 14px; text-decoration: none; color: var(--texto); }
 .nav-item:hover { background: rgba(47, 90, 69, 0.06); }
@@ -129,10 +131,14 @@ td select { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px 
 
 /* Menú (solo celular) y barra inferior */
 .barra { display: none; }
+.marca-cel { display: none; }
 .vista-menu .nav-item { min-height: 52px; font-size: 15px; font-weight: 600; }
 
 @media (max-width: 760px) {
   .lateral { display: none; }
+  .marca-cel { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0 0 16px; }
+  .marca-cel img { width: 84px; height: auto; }
+  .marca-cel span { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--suave); }
   main { padding: 24px 16px 100px; gap: 18px; }
   main > section { gap: 18px; }
   .cabecera h1 { font-size: 28px; }
