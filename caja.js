@@ -13,7 +13,7 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction
-} from './firebase.js?v=0.2.3';
+} from './firebase.js?v=0.3.0';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -394,4 +394,35 @@ export async function rechazarAnulacion(solicitudId) {
   await updateDoc(solRef, { estado: 'rechazada', resueltoPor: correo(), fechaResolucion: Timestamp.now() });
   const ventaRef = doc(db, 'ventas', sol.ventaId);
   if ((await getDoc(ventaRef)).exists()) await updateDoc(ventaRef, { solicitudAnulacionPendiente: false });
+}
+
+// ── Reportes de ventas (leen resumenes_caja: un documento por cierre) ──
+// desde / hasta: 'AAAA-MM-DD' (ambos incluidos). Una sola condición por consulta: no necesita índices.
+export async function leerResumenes(desde, hasta) {
+  const sn = await getDocs(query(collection(db, 'resumenes_caja'), where('fecha', '>=', desde)));
+  return sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => (r.fecha || '') <= hasta);
+}
+
+// Cajas abiertas en el rango (por fecha de apertura) para saber cuáles no tienen resumen.
+export async function cajasDelRango(desde, hasta) {
+  const [y, m, d] = desde.split('-').map(Number);
+  const [y2, m2, d2] = hasta.split('-').map(Number);
+  const fin = new Date(y2, m2 - 1, d2 + 1).getTime();
+  const sn = await getDocs(query(collection(db, 'cajas'), where('apertura', '>=', Timestamp.fromDate(new Date(y, m - 1, d)))));
+  return sn.docs.map(x => ({ id: x.id, ...x.data() }))
+    .filter(c => { const a = c.apertura && c.apertura.toMillis ? c.apertura.toMillis() : 0; return a && a < fin; });
+}
+
+// Genera los resúmenes que faltan (igual que "Generar resúmenes faltantes" de la caja).
+export async function generarResumenes(cajas, avance) {
+  let hechos = 0, fallas = 0;
+  for (const c of cajas) {
+    const ya = await getDoc(doc(db, 'resumenes_caja', c.id));
+    if (!ya.exists()) {
+      const vs = await getDocs(query(collection(db, 'ventas'), where('cajaId', '==', c.id)));
+      (await guardarResumenCaja(c.id, c, vs.docs)) ? hechos++ : fallas++;
+    }
+    if (avance) avance(hechos + fallas, cajas.length);
+  }
+  return { hechos, fallas };
 }

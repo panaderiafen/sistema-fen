@@ -9,8 +9,8 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.2.3';
-import * as Caja from './caja.js?v=0.2.3';
+} from './firebase.js?v=0.3.0';
+import * as Caja from './caja.js?v=0.3.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -256,7 +256,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.2.3" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.3.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#caja" data-vista="caja">${icono('cajon')}Ventas de caja</a>
     <a class="nav-item" href="#seguridad" data-vista="seguridad">${icono('seguridad')}Seguridad</a>
@@ -301,7 +301,7 @@ async function pintarHoy() {
   el.innerHTML = `
     <div class="cabecera"><div><h1 id="t-hoy">Hoy</h1><p id="hoy-sub">${fechaLarga} · revisando…</p></div></div>
     <div class="cifras">
-      <div class="tarjeta cifra"><span class="rotulo">Ventas de ayer en caja</span><span class="valor" id="c-ventas">…</span><span class="nota" id="c-ventas-n">Bruto, con IVA</span></div>
+      <a class="tarjeta cifra enlace-cifra" href="#caja/reportes/ayer"><span class="rotulo">Ventas de ayer en caja</span><span class="valor" id="c-ventas">…</span><span class="nota" id="c-ventas-n">Bruto, con IVA</span><span class="ver-mas-cifra">Ver reporte</span></a>
       <div class="tarjeta cifra"><span class="rotulo">Cajas abiertas ahora</span><span class="valor" id="c-abiertas">…</span><span class="nota">Abiertas hoy</span></div>
     </div>
     <div class="columnas">
@@ -501,8 +501,9 @@ function dialogo(html) {
 
 function pestanasCaja(sub) {
   return `<div class="pestanas" role="tablist" aria-label="Secciones de Ventas de caja">
-    <a role="tab" href="#caja" aria-selected="${sub !== 'anulaciones'}">Cierres</a>
-    <a role="tab" href="#caja/anulaciones" aria-selected="${sub === 'anulaciones'}">Anulaciones</a></div>`;
+    <a role="tab" href="#caja" aria-selected="${sub !== 'anulaciones' && sub !== 'reportes'}">Cierres</a>
+    <a role="tab" href="#caja/anulaciones" aria-selected="${sub === 'anulaciones'}">Anulaciones</a>
+    <a role="tab" href="#caja/reportes" aria-selected="${sub === 'reportes'}">Reportes</a></div>`;
 }
 
 async function pintarCaja(sub) {
@@ -510,7 +511,9 @@ async function pintarCaja(sub) {
   el.innerHTML = `<div class="cabecera"><div><h1 id="t-caja">Ventas de caja</h1><p>Lo que antes hacías como administrador en la caja</p></div>${pestanasCaja(sub)}</div>
     <div class="tarjeta"><div class="vacio" style="border:0">Cargando…</div></div>`;
   try {
-    if (sub === 'anulaciones') await pintarAnulaciones(el, sub); else await pintarCierres(el, sub);
+    if (sub === 'anulaciones') await pintarAnulaciones(el, sub);
+    else if (sub === 'reportes') await pintarReportes(el, sub);
+    else await pintarCierres(el, sub);
   } catch (e) {
     el.querySelector('.tarjeta').innerHTML = `<div class="error">${esc(mensajeError(e))}</div>`;
   }
@@ -598,6 +601,180 @@ async function pintarCierres(el, sub) {
   colapsar(el);
 }
 
+// ── Reportes de ventas ─────────────────────────────
+// Lee los resúmenes de cada cierre (resumenes_caja), no las ventas una por una:
+// un mes son ~60 lecturas en vez de miles. Las cajas abiertas no entran hasta cerrarse.
+const AREAS_NOMBRE = { PAN: 'Panadería', BOL: 'Bollería', PAS: 'Pastelería', CAF: 'Cafetería', Otros: 'Otros' };
+const MEDIOS_NOMBRE = { efectivo: 'Efectivo', debito: 'Débito', credito: 'Crédito', transferencia: 'Transferencia' };
+const repEstado = { periodo: 'mes', desde: '', hasta: '', suc: '', area: '' };
+const aDia = d => Caja.diaLocal(d);
+const sumarDias = (dia, n) => { const [y, m, d] = dia.split('-').map(Number); return aDia(new Date(y, m - 1, d + n)); };
+const diasEntre = (a, b) => { const [y, m, d] = a.split('-').map(Number), [y2, m2, d2] = b.split('-').map(Number); return Math.round((new Date(y2, m2 - 1, d2) - new Date(y, m - 1, d)) / 864e5); };
+function rangoPeriodo(p) {
+  const hoy = new Date(), h = aDia(hoy);
+  if (p === 'ayer') { const a = sumarDias(h, -1); return [a, a]; }
+  if (p === '7d') return [sumarDias(h, -7), sumarDias(h, -1)];
+  if (p === 'mes') return [aDia(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), h];
+  if (p === 'mesant') return [aDia(new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)), aDia(new Date(hoy.getFullYear(), hoy.getMonth(), 0))];
+  return [repEstado.desde || h, repEstado.hasta || h];
+}
+const diaCorto = dia => { const [y, m, d] = dia.split('-').map(Number); return `${d} ${MESES[m - 1]}`; };
+const pct = (a, t) => (t ? Math.round(a * 100 / t) : 0);
+
+// Suma varios resúmenes en uno
+function sumarResumenes(lista) {
+  const t = { nVentas: 0, nAnuladas: 0, bruto: 0, porMedio: {}, porArea: {}, porProducto: {}, porDia: {}, porSuc: {} };
+  lista.forEach(r => {
+    const b = Number(r.totalBruto) || 0;
+    t.nVentas += Number(r.nVentas) || 0; t.nAnuladas += Number(r.nAnuladas) || 0; t.bruto += b;
+    Object.entries(r.porMedio || {}).forEach(([k, v]) => { t.porMedio[k] = (t.porMedio[k] || 0) + (Number(v) || 0); });
+    Object.entries(r.porArea || {}).forEach(([k, v]) => { const a = t.porArea[k] || (t.porArea[k] = { cantidad: 0, bruto: 0 }); a.cantidad += Number(v.cantidad) || 0; a.bruto += Number(v.bruto) || 0; });
+    Object.entries(r.porProducto || {}).forEach(([k, v]) => {
+      const key = v.nombre || k;
+      const p = t.porProducto[key] || (t.porProducto[key] = { nombre: v.nombre || k, area: v.area || 'Otros', cantidad: 0, bruto: 0 });
+      p.cantidad += Number(v.cantidad) || 0; p.bruto += Number(v.bruto) || 0;
+    });
+    const dd = t.porDia[r.fecha] || (t.porDia[r.fecha] = { bruto: 0, nVentas: 0 }); dd.bruto += b; dd.nVentas += Number(r.nVentas) || 0;
+    const ss = t.porSuc[r.sucursal] || (t.porSuc[r.sucursal] = { bruto: 0, nVentas: 0 }); ss.bruto += b; ss.nVentas += Number(r.nVentas) || 0;
+  });
+  return t;
+}
+
+// Barras horizontales de un solo color (magnitud). El texto va siempre en tinta, no en el color de la barra.
+function barras(filas, total) {
+  const max = Math.max(1, ...filas.map(f => f.valor));
+  return `<div class="barras" data-colapsar="8">${filas.map(f => `<div class="barra-h">
+      <div class="barra-h-txt"><span>${esc(f.nombre)}${f.extra ? ` <small>${esc(f.extra)}</small>` : ''}</span><b>${pesos(f.valor)} <small>${pct(f.valor, total)}%</small></b></div>
+      <div class="barra-h-pista"><div class="barra-h-relleno" style="width:${Math.max(0.5, f.valor * 100 / max)}%"></div></div></div>`).join('')}</div>`;
+}
+
+async function pintarReportes(el, sub) {
+  const preset = (location.hash || '').split('/')[2];
+  if (preset && ['ayer', '7d', 'mes', 'mesant'].includes(preset)) { repEstado.periodo = preset; history.replaceState(null, '', '#caja/reportes'); }
+  const [desde, hasta] = rangoPeriodo(repEstado.periodo);
+  repEstado.desde = desde; repEstado.hasta = hasta;
+  const largo = diasEntre(desde, hasta) + 1;
+  const prevHasta = sumarDias(desde, -1), prevDesde = sumarDias(desde, -largo);
+  const [todos, cajas] = await Promise.all([Caja.leerResumenes(prevDesde, hasta), Caja.cajasDelRango(desde, hasta)]);
+  const filtroSuc = r => !repEstado.suc || r.sucursal === repEstado.suc;
+  const actuales = todos.filter(r => r.fecha >= desde && filtroSuc(r));
+  const previos = todos.filter(r => r.fecha <= prevHasta && filtroSuc(r));
+  const t = sumarResumenes(actuales), tp = sumarResumenes(previos);
+  const conResumen = new Set(todos.map(r => r.id));
+  const cajasSuc = cajas.filter(filtroSuc);
+  const faltan = cajasSuc.filter(c => c.estado === 'cerrada' && !conResumen.has(c.id));
+  const abiertas = cajasSuc.filter(c => c.estado === 'abierta');
+  const neto = Math.round(t.bruto / 1.19);
+  const ticket = t.nVentas ? Math.round(t.bruto / t.nVentas) : 0;
+  const varPct = tp.bruto ? Math.round((t.bruto - tp.bruto) * 100 / tp.bruto) : null;
+
+  // Días del período (barras verticales); más de 62 días → por mes
+  const porMes = largo > 62;
+  const columnas = [];
+  if (porMes) {
+    const meses = {};
+    Object.entries(t.porDia).forEach(([d, v]) => { const k = d.slice(0, 7); const m = meses[k] || (meses[k] = { bruto: 0, nVentas: 0 }); m.bruto += v.bruto; m.nVentas += v.nVentas; });
+    for (let d = desde.slice(0, 7); d <= hasta.slice(0, 7); ) { const [y, m] = d.split('-').map(Number); columnas.push({ clave: d, rot: MESES[m - 1], titulo: `${MESES_LARGOS[m - 1]} ${y}`, ...(meses[d] || { bruto: 0, nVentas: 0 }) }); d = aDia(new Date(y, m, 1)).slice(0, 7); }
+  } else {
+    for (let d = desde; d <= hasta; d = sumarDias(d, 1)) {
+      const [y, m, dd] = d.split('-').map(Number); const dow = new Date(y, m - 1, dd).getDay();
+      columnas.push({ clave: d, rot: String(dd), titulo: `${DIAS[dow]} ${dd} ${MESES[m - 1]}`, finde: dow === 0 || dow === 6, ...(t.porDia[d] || { bruto: 0, nVentas: 0 }) });
+    }
+  }
+  const maxCol = Math.max(1, ...columnas.map(c => c.bruto));
+  const cadaRot = columnas.length > 16 ? Math.ceil(columnas.length / 12) : 1;
+
+  const areas = Object.entries(t.porArea).sort((a, b) => b[1].bruto - a[1].bruto);
+  const prods = Object.values(t.porProducto).filter(p => !repEstado.area || p.area === repEstado.area).sort((a, b) => b.bruto - a.bruto);
+  const btnPer = (id, txt) => `<button type="button" class="chip-filtro" data-periodo="${id}" aria-pressed="${repEstado.periodo === id}">${txt}</button>`;
+  const titulo = desde === hasta ? diaCorto(desde) : `${diaCorto(desde)} – ${diaCorto(hasta)}`;
+
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-caja">Ventas de caja</h1><p>Lo que antes hacías como administrador en la caja</p></div>${pestanasCaja(sub)}</div>
+    <div class="filtros" role="group" aria-label="Período y sucursal">
+      <div class="chips">${btnPer('ayer', 'Ayer')}${btnPer('7d', 'Últimos 7 días')}${btnPer('mes', 'Este mes')}${btnPer('mesant', 'Mes anterior')}${btnPer('otro', 'Otras fechas')}</div>
+      <div class="filtros-der">
+        ${repEstado.periodo === 'otro' ? `<label class="fecha-filtro">Desde <input type="date" id="rep-desde" value="${desde}" max="${aDia(new Date())}"></label><label class="fecha-filtro">Hasta <input type="date" id="rep-hasta" value="${hasta}" max="${aDia(new Date())}"></label>` : ''}
+        <select id="rep-suc" aria-label="Sucursal"><option value="">Las dos sucursales</option>${Object.entries(SUCURSALES).map(([k, v]) => `<option value="${k}" ${repEstado.suc === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
+      </div>
+    </div>
+    ${faltan.length ? `<div class="aviso aviso-accion" role="status"><div><b>Faltan ${faltan.length} ${faltan.length === 1 ? 'resumen' : 'resúmenes'} en este período.</b> Esos cierres no están sumados abajo. Generarlos lee las ventas de esas cajas una vez.</div><button type="button" class="btn-sec" id="rep-generar">Generar ${faltan.length === 1 ? 'el que falta' : 'los que faltan'}</button></div>` : ''}
+    <div class="cifras cifras-4">
+      <div class="tarjeta cifra"><span class="rotulo">Ventas · ${esc(titulo)}</span><span class="valor">${pesos(t.bruto)}</span><span class="nota">${varPct === null ? 'Bruto, con IVA' : `${varPct >= 0 ? '+' : ''}${varPct}% vs los ${largo} días anteriores`}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Neto (sin IVA)</span><span class="valor">${pesos(neto)}</span><span class="nota">IVA ${pesos(t.bruto - neto)}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Ventas</span><span class="valor">${t.nVentas.toLocaleString('es-CL')}</span><span class="nota">${t.nAnuladas ? `${t.nAnuladas} anuladas, no suman` : 'Sin anuladas'}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Ticket promedio</span><span class="valor">${pesos(ticket)}</span><span class="nota">Bruto por venta</span></div>
+    </div>
+    ${t.nVentas ? `
+    <section class="tarjeta" aria-labelledby="t-rep-dias">
+      <div class="titulo-fila"><h2 id="t-rep-dias">${porMes ? 'Por mes' : 'Por día'}</h2><span>Bruto · ${actuales.length} ${actuales.length === 1 ? 'cierre' : 'cierres'}</span></div>
+      ${columnas.length > 1 ? `<div class="columnas-graf" role="list">${columnas.map((c, i) => `<div class="col-graf${c.finde ? ' finde' : ''}" role="listitem" tabindex="0" data-tip="${esc(c.titulo)}|${esc(pesos(c.bruto))}|${c.nVentas === 1 ? '1 venta' : c.nVentas + ' ventas'}" aria-label="${esc(c.titulo)}: ${esc(pesos(c.bruto))}, ${c.nVentas === 1 ? '1 venta' : c.nVentas + ' ventas'}">
+          <div class="col-graf-pista"><div class="col-graf-barra" style="height:${c.bruto ? Math.max(1.5, c.bruto * 100 / maxCol) : 0}%"></div></div>
+          <span class="col-graf-rot">${i % cadaRot === 0 ? esc(c.rot) : ''}</span></div>`).join('')}</div>
+        <div class="tip-graf" id="tip-graf" hidden></div>
+        <p class="nota-i">(i) Toca o pasa el mouse sobre una barra para ver el monto.${porMes ? '' : ' Los sábados y domingos van con la etiqueta en verde.'}</p>` : `<p class="ayuda">Un solo día: ${pesos(t.bruto)} en ${t.nVentas} ventas.</p>`}
+    </section>
+    <div class="columnas">
+      <section class="tarjeta col-ancha" aria-labelledby="t-rep-area">
+        <div class="titulo-fila"><h2 id="t-rep-area">Por área</h2><span>Bruto</span></div>
+        ${barras(areas.map(([k, v]) => ({ nombre: AREAS_NOMBRE[k] || k, extra: `${Math.round(v.cantidad).toLocaleString('es-CL')} u.`, valor: v.bruto })), t.bruto)}
+      </section>
+      <section class="tarjeta col-angosta" style="display:block" aria-labelledby="t-rep-medio">
+        <div class="titulo-fila"><h2 id="t-rep-medio">Por medio de pago</h2></div>
+        ${barras(Object.entries(t.porMedio).filter(([, v]) => v).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ nombre: MEDIOS_NOMBRE[k] || k, valor: v })), t.bruto)}
+        ${!repEstado.suc && Object.keys(t.porSuc).length > 1 ? `<div class="titulo-fila" style="margin-top:16px"><h2>Por sucursal</h2></div>${barras(Object.entries(t.porSuc).sort((a, b) => b[1].bruto - a[1].bruto).map(([k, v]) => ({ nombre: sucursal(k), extra: `${v.nVentas} ventas`, valor: v.bruto })), t.bruto)}` : ''}
+      </section>
+    </div>
+    <section class="tarjeta" aria-labelledby="t-rep-prod">
+      <div class="titulo-fila"><h2 id="t-rep-prod">Productos</h2>
+        <select id="rep-area" aria-label="Filtrar productos por área"><option value="">Todas las áreas</option>${areas.map(([k]) => `<option value="${esc(k)}" ${repEstado.area === k ? 'selected' : ''}>${esc(AREAS_NOMBRE[k] || k)}</option>`).join('')}</select></div>
+      ${prods.length ? `<div class="tabla-prod"><div class="fila-prod enc"><span>Producto</span><span>Unidades</span><span>Bruto</span></div>
+        <div data-colapsar="10">${prods.map((p, i) => `<div class="fila-prod"><span><small>${i + 1}</small> ${esc(p.nombre)}${repEstado.area ? '' : ` <small>${esc(AREAS_NOMBRE[p.area] || p.area)}</small>`}</span><span>${Math.round(p.cantidad * 10) / 10}</span><span>${pesos(p.bruto)}</span></div>`).join('')}</div></div>` : '<div class="vacio">Sin productos en esta área.</div>'}
+    </section>` : `<section class="tarjeta"><div class="vacio">Sin ventas cerradas en este período${repEstado.suc ? ' para ' + esc(sucursal(repEstado.suc)) : ''}.</div></section>`}
+    ${abiertas.length ? `<p class="nota-i">(i) ${abiertas.length === 1 ? 'Hay 1 caja abierta' : `Hay ${abiertas.length} cajas abiertas`} en este período: sus ventas aparecen aquí cuando se cierra${abiertas.length === 1 ? '' : 'n'}.</p>` : ''}
+    <p class="nota-i">(i) Bruto = con IVA, después de descuentos. Neto = bruto / 1,19. Lee los resúmenes de cada cierre de la caja, sin las ventas anuladas.</p>`;
+
+  el.querySelectorAll('[data-periodo]').forEach(b => b.addEventListener('click', () => {
+    repEstado.periodo = b.dataset.periodo;
+    if (b.dataset.periodo === 'otro') { repEstado.desde = desde; repEstado.hasta = hasta; }
+    pintarCaja('reportes');
+  }));
+  const cambiaFecha = () => {
+    const d = $('rep-desde').value, h = $('rep-hasta').value;
+    if (!d || !h) return;
+    repEstado.desde = d <= h ? d : h; repEstado.hasta = d <= h ? h : d;
+    if (diasEntre(repEstado.desde, repEstado.hasta) > 366) { alert('Elige hasta un año.'); return; }
+    pintarCaja('reportes');
+  };
+  if ($('rep-desde')) { $('rep-desde').addEventListener('change', cambiaFecha); $('rep-hasta').addEventListener('change', cambiaFecha); }
+  $('rep-suc').addEventListener('change', e => { repEstado.suc = e.target.value; pintarCaja('reportes'); });
+  if ($('rep-area')) $('rep-area').addEventListener('change', e => { repEstado.area = e.target.value; pintarCaja('reportes'); });
+  if ($('rep-generar')) $('rep-generar').addEventListener('click', async e => {
+    const b = e.currentTarget; b.disabled = true;
+    const r = await Caja.generarResumenes(faltan, (n, tot) => { b.textContent = `Generando ${n} de ${tot}…`; });
+    registrar('Generó resúmenes de caja', `${r.hechos} · ${titulo}`);
+    if (r.fallas) alert(`Listos: ${r.hechos}. No se pudieron generar: ${r.fallas}. Intenta de nuevo.`);
+    pintarCaja('reportes');
+  });
+  // Tooltip de las barras por día
+  const tip = $('tip-graf');
+  if (tip) {
+    const graf = el.querySelector('.columnas-graf');
+    const mostrar = c => {
+      const [a, b, n] = c.dataset.tip.split('|');
+      tip.innerHTML = `<b>${esc(b)}</b><span>${esc(a)} · ${esc(n)}</span>`; tip.hidden = false;
+      const g = graf.getBoundingClientRect(), r = c.getBoundingClientRect();
+      const x = Math.min(Math.max(r.left + r.width / 2 - g.left, 70), g.width - 70);
+      tip.style.left = x + 'px';
+      el.querySelectorAll('.col-graf.activa').forEach(o => o.classList.remove('activa')); c.classList.add('activa');
+    };
+    el.querySelectorAll('.col-graf').forEach(c => {
+      c.addEventListener('mouseenter', () => mostrar(c)); c.addEventListener('focus', () => mostrar(c)); c.addEventListener('click', () => mostrar(c));
+    });
+    graf.addEventListener('mouseleave', () => { tip.hidden = true; el.querySelectorAll('.col-graf.activa').forEach(o => o.classList.remove('activa')); });
+  }
+  colapsar(el);
+}
+
 function abrirAceptar(e) {
   const d = dialogo(`<form method="dialog" class="form-dialogo">
     <h2>Aceptar diferencia</h2>
@@ -624,8 +801,9 @@ const FILAS_VISIBLES = 3;
 function colapsar(raiz) {
   raiz.querySelectorAll('[data-colapsar]').forEach(cont => {
     const filas = [...cont.children];
-    if (filas.length <= FILAS_VISIBLES) return;
-    const extra = filas.slice(FILAS_VISIBLES);
+    const visibles = parseInt(cont.dataset.colapsar) || FILAS_VISIBLES;
+    if (filas.length <= visibles) return;
+    const extra = filas.slice(visibles);
     const btn = document.createElement('button');
     btn.type = 'button'; btn.className = 'btn-ver-mas';
     let abierto = false;
