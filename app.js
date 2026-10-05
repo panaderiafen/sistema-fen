@@ -9,12 +9,13 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.7.0';
-import * as Caja from './caja.js?v=0.7.0';
-import * as Stock from './stock.js?v=0.7.0';
-import * as Ajustes from './ajustes.js?v=0.7.0';
-import * as Apps from './apps.js?v=0.7.0';
-import * as Agenda from './agenda.js?v=0.7.0';
+} from './firebase.js?v=0.8.0';
+import * as Caja from './caja.js?v=0.8.0';
+import * as Stock from './stock.js?v=0.8.0';
+import * as Ajustes from './ajustes.js?v=0.8.0';
+import * as Apps from './apps.js?v=0.8.0';
+import * as Agenda from './agenda.js?v=0.8.0';
+import * as Gastos from './gastos.js?v=0.8.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -291,7 +292,7 @@ onAuthStateChanged(auth, async user => {
 });
 
 // ── Navegación ─────────────────────────────────────
-const VISTAS = ['hoy', 'agenda', 'caja', 'ajustes', 'seguridad', 'menu'];
+const VISTAS = ['hoy', 'agenda', 'gastos', 'caja', 'ajustes', 'seguridad', 'menu'];
 // #caja = cierres, #caja/anulaciones = anulaciones
 const vistaDesdeHash = () => { const v = (location.hash || '').replace('#', '').split('/')[0]; return VISTAS.includes(v) ? v : 'hoy'; };
 const subVista = () => (location.hash || '').split('/')[1] || '';
@@ -303,9 +304,10 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.7.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.8.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
+    <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
     <a class="nav-item" href="#caja" data-vista="caja">${icono('cajon')}Ventas de caja</a>
     <a class="nav-item" href="#ajustes" data-vista="ajustes">${icono('ajustes')}Configuración</a>
     <a class="nav-item" href="#seguridad" data-vista="seguridad">${icono('seguridad')}Seguridad</a>
@@ -330,6 +332,7 @@ function irA(v) {
   if (v === 'seguridad') pintarSeguridad();
   if (v === 'ajustes') pintarAjustes();
   if (v === 'agenda') pintarAgendaMes();
+  if (v === 'gastos') pintarGastos(subVista());
   if (v === 'menu') pintarMenuCelular();
   window.scrollTo(0, 0);
 }
@@ -467,13 +470,13 @@ function itemsAuto(estados, desde, hasta) {
   if (!g || g.estado !== 'ok') return [];
   const s = (g.pendientes || []).find(x => x.clave === 'semana');
   return ((s && s.detalle) || []).filter(v => v.fecha >= desde && v.fecha <= hasta)
-    .map(v => ({ auto: true, tipo: 'fen', fecha: v.fecha, hora: '', titulo: `Pago de ${v.nombre}`, origen: 'Desde Gastos', monto: v.monto, url: (F.APPS.find(a => a.id === 'gastos') || {}).url }));
+    .map(v => ({ auto: true, tipo: 'fen', fecha: v.fecha, hora: '', titulo: `Pago de ${v.nombre}`, origen: 'Desde Gastos', monto: v.monto, vencId: v.id }));
 }
 function filaAgenda(x, i) {
   const sub = [x.hora, x.auto ? `${x.origen}${x.monto ? ' · ' + pesos(x.monto) : ''}` : (x.nota || 'Agregado por ti')].filter(Boolean).join(' · ');
   const cuerpo = `<span class="ag-txt"><b>${esc(x.titulo)}</b><small>${esc(sub)}</small></span>${x.tipo === 'personal' ? '<span class="chip c-lila chip-chico">Personal</span>' : ''}`;
-  return x.auto ? `<a class="ag-item" href="${esc(x.url || '#')}" target="_blank" rel="noopener">${cuerpo}</a>`
-    : `<button type="button" class="ag-item${x.hecho ? ' hecho' : ''}" data-ag="${i}">${cuerpo}</button>`;
+  if (x.auto) return x.vencId ? `<button type="button" class="ag-item${x.pagado ? ' hecho' : ''}" data-venc="${esc(x.vencId)}">${cuerpo}</button>` : `<div class="ag-item">${cuerpo}</div>`;
+  return `<button type="button" class="ag-item${x.hecho ? ' hecho' : ''}" data-ag="${i}">${cuerpo}</button>`;
 }
 function pintarAgendaSemana(items, hoy, hasta) {
   const vis = items.filter(pasaFiltro);
@@ -485,6 +488,7 @@ function pintarAgendaSemana(items, hoy, hasta) {
     return `<div class="ag-dia"><div class="ag-fecha">${nombre}</div><div class="ag-items">${porDia[d].map(x => filaAgenda(x, vis.indexOf(x))).join('')}</div></div>`; }).join('')
     : `<div class="vacio">${agFiltro() === 'personal' ? 'Nada personal' : 'Nada agendado'} en estos 7 días.</div>`;
   $('agenda-lista').querySelectorAll('[data-ag]').forEach(b => b.addEventListener('click', () => abrirItemAgenda(vis[+b.dataset.ag])));
+  $('agenda-lista').querySelectorAll('[data-venc]').forEach(b => b.addEventListener('click', () => abrirPagoPorId(b.dataset.venc)));
 }
 
 // Vista del mes
@@ -507,7 +511,10 @@ async function pintarAgendaMes() {
   $('mes-agregar').onclick = () => abrirItemAgenda(null, agMes === hoy.slice(0, 7) ? hoy : desde);
   el.querySelectorAll('[data-ag-filtro]').forEach(b => b.addEventListener('click', () => { agFiltro(b.dataset.agFiltro); pintarAgendaMes(); }));
   let items;
-  try { items = (await Agenda.leerAgenda(desde, hasta)).filter(pasaFiltro); }
+  // Vencimientos de Gastos del mes (si Gastos responde; si no, la agenda se ve igual sin ellos)
+  const vencPromesa = agFiltro() === 'personal' ? Promise.resolve([]) : Gastos.datos().then(d => (d.vencimientos || []).filter(v => v.fecha >= desde && v.fecha <= hasta)
+    .map(v => ({ auto: true, tipo: 'fen', fecha: v.fecha, hora: '', titulo: `Pago de ${v.nombre}`, origen: v.estado === 'PAGADO' ? 'Desde Gastos · pagado' : 'Desde Gastos', monto: Number(v.montoPago || v.montoEstimado) || 0, vencId: v.id, pagado: v.estado === 'PAGADO' }))).catch(() => []);
+  try { items = (await Agenda.leerAgenda(desde, hasta)).filter(pasaFiltro).concat(await vencPromesa).sort((a, b) => (a.fecha + (a.hora || '99:99')).localeCompare(b.fecha + (b.hora || '99:99'))); }
   catch (e) { $('mes-cuerpo').innerHTML = `<div class="error">${esc(e.code === 'permission-denied' ? 'Falta publicar las reglas v1.3.0 de Firestore (ver README).' : mensajeError(e))}</div>`; return; }
   if (!$('mes-cuerpo')) return;
   const porDia = {}; items.forEach(x => (porDia[x.fecha] = porDia[x.fecha] || []).push(x));
@@ -518,7 +525,8 @@ async function pintarAgendaMes() {
     const dia = Caja.diaLocal(new Date(y, m - 1, d)), lista = porDia[dia] || [];
     celdas.push(`<div class="mes-dia${dia === hoy ? ' es-hoy' : ''}${dia < hoy ? ' pasado' : ''}" data-dia="${dia}">
       <button type="button" class="mes-num" data-nuevo="${dia}" aria-label="Agregar el ${d}">${d}</button>
-      ${lista.slice(0, 3).map(x => `<button type="button" class="mes-item${x.tipo === 'personal' ? ' personal' : ''}${x.hecho ? ' hecho' : ''}" data-ag="${items.indexOf(x)}">${x.hora ? `<span>${esc(x.hora)}</span> ` : ''}${esc(x.titulo)}</button>`).join('')}
+      ${lista.slice(0, 3).map(x => x.vencId ? `<button type="button" class="mes-item gasto${x.pagado ? ' hecho' : ''}" data-venc="${esc(x.vencId)}">${esc(x.titulo)}</button>`
+        : `<button type="button" class="mes-item${x.tipo === 'personal' ? ' personal' : ''}${x.hecho ? ' hecho' : ''}" data-ag="${items.indexOf(x)}">${x.hora ? `<span>${esc(x.hora)}</span> ` : ''}${esc(x.titulo)}</button>`).join('')}
       ${lista.length > 3 ? `<button type="button" class="mes-mas" data-ver-dia="${dia}">+${lista.length - 3} más</button>` : ''}</div>`);
   }
   while (celdas.length % 7) celdas.push('<div class="mes-dia vacio-dia" aria-hidden="true"></div>');
@@ -527,12 +535,14 @@ async function pintarAgendaMes() {
   $('mes-cuerpo').innerHTML = `<div class="mes-grilla" role="grid" aria-label="Mes">${['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(n => `<div class="mes-cab">${n}</div>`).join('')}${celdas.join('')}</div>
     <div class="mes-lista">${diasCon.length ? diasCon.map(d => { const f = partesDia(d); return `<div class="ag-dia"><div class="ag-fecha">${d === hoy ? 'HOY' : `${DIAS_CORTOS[f.getDay()]} ${f.getDate()}`}</div><div class="ag-items">${porDia[d].map(x => filaAgenda(x, items.indexOf(x))).join('')}</div></div>`; }).join('') : '<div class="vacio">Nada agendado este mes.</div>'}</div>`;
   $('mes-cuerpo').querySelectorAll('[data-ag]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); abrirItemAgenda(items[+b.dataset.ag]); }));
+  $('mes-cuerpo').querySelectorAll('[data-venc]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); abrirPagoPorId(b.dataset.venc); }));
   $('mes-cuerpo').querySelectorAll('[data-nuevo]').forEach(b => b.addEventListener('click', () => abrirItemAgenda(null, b.dataset.nuevo)));
   $('mes-cuerpo').querySelectorAll('[data-ver-dia]').forEach(b => b.addEventListener('click', () => {
     const d = b.dataset.verDia;
     const dlg = dialogo(`<div class="form-dialogo"><h2>${esc(fechaCaja(d))}</h2><div class="ag-items">${porDia[d].map(x => filaAgenda(x, items.indexOf(x))).join('')}</div><div class="botones"><button type="button" class="btn-sec" id="dd-cerrar">Cerrar</button></div></div>`);
     dlg.querySelector('#dd-cerrar').onclick = () => dlg.close();
     dlg.querySelectorAll('[data-ag]').forEach(x => x.addEventListener('click', () => { dlg.close(); abrirItemAgenda(items[+x.dataset.ag]); }));
+    dlg.querySelectorAll('[data-venc]').forEach(x => x.addEventListener('click', () => { dlg.close(); abrirPagoPorId(x.dataset.venc); }));
   }));
 }
 
@@ -572,7 +582,227 @@ function abrirItemAgenda(item, fecha) {
   }
   setTimeout(() => d.querySelector('#ag-titulo').focus(), 30);
 }
-function refrescarAgenda() { const v = vistaDesdeHash(); if (v === 'agenda') pintarAgendaMes(); else if (v === 'hoy') pintarHoy(); }
+function refrescarAgenda() { const v = vistaDesdeHash(); if (v === 'agenda') pintarAgendaMes(); else if (v === 'hoy') pintarHoy(); else if (v === 'gastos') pintarGastos(subVista()); }
+
+// ── Gastos ─────────────────────────────────────────
+const AREAS_GASTO = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS'];
+const montoV = v => (v.multiArea && v.multiArea.length ? v.multiArea.reduce((s, a) => s + (Number(a.monto) || 0), 0) : Number(String(v.montoEstimado || '').replace(/[^0-9]/g, '')) || 0);
+function pestanasGastos(sub) {
+  return `<div class="pestanas" role="tablist" aria-label="Secciones de Gastos">
+    <a role="tab" href="#gastos" aria-selected="${sub !== 'registrar'}">Vencimientos</a>
+    <a role="tab" href="#gastos/registrar" aria-selected="${sub === 'registrar'}">Registrar gasto</a></div>`;
+}
+async function pintarGastos(sub) {
+  const el = $('v-gastos');
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Pagar vencimientos y registrar gastos sin abrir la app de Gastos</p></div>${pestanasGastos(sub)}</div>
+    <div class="tarjeta"><div class="vacio" style="border:0">Cargando Gastos…</div></div>`;
+  let d;
+  try { d = await Gastos.datos(); }
+  catch (e) {
+    el.querySelector('.tarjeta').innerHTML = `<div class="error">${esc(e.message || mensajeError(e))}</div>${e.code === 'sin_url' || e.code === 'actualizar' ? '<p class="ayuda" style="margin-top:8px"><a href="#ajustes/conexiones">Ir a Conexiones</a></p>' : ''}`;
+    return;
+  }
+  if (vistaDesdeHash() !== 'gastos') return;
+  if (sub === 'registrar') pintarRegistrarGasto(el, sub, d); else pintarVencimientos(el, sub, d);
+}
+
+function pintarVencimientos(el, sub, d) {
+  const hoy = Caja.diaLocal(), en7 = Caja.diaLocal(new Date(Date.now() + 7 * 864e5)), finMes = Caja.diaLocal(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
+  const pend = (d.vencimientos || []).filter(v => v.estado !== 'PAGADO').sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+  const grupos = [
+    { t: 'Atrasados', l: pend.filter(v => v.fecha < hoy), rojo: true },
+    { t: 'Próximos 7 días', l: pend.filter(v => v.fecha >= hoy && v.fecha <= en7) },
+    { t: 'Resto del mes', l: pend.filter(v => v.fecha > en7 && v.fecha <= finMes) },
+    { t: 'Más adelante', l: pend.filter(v => v.fecha > finMes && v.fecha > en7) }
+  ];
+  const pagados = (d.vencimientos || []).filter(v => v.estado === 'PAGADO').sort((a, b) => (b.fechaPago || '').localeCompare(a.fechaPago || ''));
+  const fila = (v, rojo) => `<div class="fila-caja"><div class="txt"><b>${esc(v.nombre)}</b>
+      <span>${esc(fechaCaja(v.fecha))}${v.area && v.area !== 'MULTI' ? ' · ' + esc(v.area) : v.area === 'MULTI' ? ' · varias áreas' : ''}${v.item && v.item !== v.nombre ? ' · ' + esc(v.item) : ''}</span>${v.obs ? `<span class="nota">${esc(v.obs)}</span>` : ''}</div>
+      <div class="acciones"><span class="chip ${rojo ? 'c-rojo' : 'c-gris'}">${montoV(v) ? esc(pesos(montoV(v))) : 'Sin monto'}</span><button type="button" class="btn-sec" data-pagar="${esc(v.id)}">Pagar</button></div></div>`;
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Pagar vencimientos y registrar gastos sin abrir la app de Gastos</p></div>${pestanasGastos(sub)}</div>
+    <div class="cifras cifras-4">
+      <div class="tarjeta cifra"><span class="rotulo">Atrasado</span><span class="valor">${pesos(grupos[0].l.reduce((s, v) => s + montoV(v), 0))}</span><span class="nota">${grupos[0].l.length} ${grupos[0].l.length === 1 ? 'pago' : 'pagos'}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Próximos 7 días</span><span class="valor">${pesos(grupos[1].l.reduce((s, v) => s + montoV(v), 0))}</span><span class="nota">${grupos[1].l.length} ${grupos[1].l.length === 1 ? 'pago' : 'pagos'}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Resto del mes ${info('Montos de los vencimientos', 'Es el monto estimado de cada vencimiento (el de su obligación o el de la compra a crédito). Al pagar escribes el monto real.\nLas cuponeras aparecen cuota por cuota, cada una en su fecha.')}</span><span class="valor">${pesos(grupos[2].l.reduce((s, v) => s + montoV(v), 0))}</span><span class="nota">${grupos[2].l.length} ${grupos[2].l.length === 1 ? 'pago' : 'pagos'}</span></div>
+    </div>
+    ${grupos.filter(g => g.l.length).map((g, i) => `<section class="tarjeta" aria-labelledby="t-venc-${i}"><div class="titulo-fila"><h2 id="t-venc-${i}">${g.t}</h2><span>${g.l.length}</span></div>
+      <div data-colapsar="6">${g.l.map(v => fila(v, g.rojo)).join('')}</div></section>`).join('') || '<section class="tarjeta"><div class="vacio">No hay vencimientos por pagar.</div></section>'}
+    ${pagados.length ? `<section class="tarjeta" aria-labelledby="t-venc-pag"><div class="titulo-fila"><h2 id="t-venc-pag">Pagados</h2><span>Últimos 7 días</span></div>
+      <div data-colapsar="3">${pagados.map(v => `<div class="fila-caja"><div class="txt"><b>${esc(v.nombre)}</b><span>Pagado el ${esc(fechaCaja(v.fechaPago))}${v.urlComprobante ? ' · <a href="' + esc(v.urlComprobante) + '" target="_blank" rel="noopener">comprobante</a>' : ''}</span></div>
+        <div class="acciones"><span class="chip c-verde">${esc(pesos(Number(v.montoPago) || 0))}</span></div></div>`).join('')}</div></section>` : ''}
+    <p class="nota-i">(i) Pagar aquí hace lo mismo que en la app de Gastos: marca el vencimiento pagado, crea el gasto (o completa el de la compra a crédito) y genera el siguiente si es recurrente. El historial completo y las obligaciones siguen en la app de Gastos.</p>`;
+  el.querySelectorAll('[data-pagar]').forEach(b => b.addEventListener('click', () => abrirPago((d.vencimientos || []).find(v => v.id === b.dataset.pagar))));
+  colapsar(el);
+}
+
+async function abrirPagoPorId(id) {
+  try { const d = await Gastos.datos(); const v = (d.vencimientos || []).find(x => String(x.id) === String(id));
+    if (!v) { alert('Ese vencimiento ya no está en Gastos.'); return; }
+    if (v.estado === 'PAGADO') { alert(`"${v.nombre}" ya está pagado (${fechaCaja(v.fechaPago)}).`); return; }
+    abrirPago(v);
+  } catch (e) { alert(e.message || mensajeError(e)); }
+}
+
+function chipsTipoMonto(nombre, sel) {
+  return `<div class="chips" role="radiogroup" aria-label="Tipo de monto">${[['bruto', 'Bruto (con IVA)'], ['neto', 'Neto (+IVA)'], ['siniva', 'Sin IVA']].map(([k, t]) =>
+    `<label class="chip-radio"><input type="radio" name="${nombre}" value="${k}" ${k === sel ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div>`;
+}
+const filaArea = (cls, area = '', monto = '') => `<div class="fila-area"><select class="${cls}-area" aria-label="Área"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === area ? 'selected' : ''}>${a}</option>`).join('')}</select>
+  <input class="${cls}-monto" type="number" inputmode="numeric" min="0" step="1" placeholder="$" value="${esc(monto)}" aria-label="Monto"><button type="button" class="btn-icono" data-quitar-area aria-label="Quitar área">×</button></div>`;
+
+function abrirPago(v) {
+  if (!v) return;
+  const usaAreas = (v.multiArea && v.multiArea.length) || v.area === 'MULTI';
+  const hoy = Caja.diaLocal();
+  const partes = v.area === 'PRORRATEADO' ? [[v.pArea1, v.pPct1], [v.pArea2, v.pPct2], [v.pArea3, v.pPct3]].filter(([a, p]) => a && p) : [];
+  const d = dialogo(`<form class="form-dialogo" novalidate>
+    <h2>Registrar pago</h2>
+    <p class="ayuda"><b>${esc(v.nombre)}</b>${v.item ? ' · ' + esc(v.item) : ''} · vence ${esc(fechaCaja(v.fecha))}${v.fecha < hoy ? ' <span class="chip c-rojo chip-chico">Atrasado</span>' : ''}</p>
+    ${partes.length ? `<p class="ayuda">Se reparte: ${partes.map(([a, p]) => `${esc(a)} ${esc(p)}%`).join(' · ')}</p>` : v.area && v.area !== 'MULTI' ? `<p class="ayuda">Área: ${esc(v.area)}</p>` : ''}
+    <div class="campo"><span class="etiqueta">Tipo de monto</span>${chipsTipoMonto('pg-tipo', v.tipoMonto || 'bruto')}</div>
+    ${usaAreas ? `<div class="campo"><span class="etiqueta">Monto por área ${info('Monto por área', 'Este pago se reparte entre varias áreas. Escribe lo real de este mes en cada una: el total del pago es la suma.')}</span><div id="pg-areas">${(v.multiArea && v.multiArea.length ? v.multiArea : [{}]).map(a => filaArea('pg', a.area || '', a.monto || '')).join('')}</div>
+      <button type="button" class="btn-sec btn-chico" id="pg-mas-area">Agregar área</button></div>` : ''}
+    <div class="grilla-montos"><div class="campo"><label for="pg-monto">Monto pagado</label><input id="pg-monto" type="number" inputmode="numeric" min="0" step="1" value="${montoV(v) || ''}" ${usaAreas ? 'readonly' : ''}></div>
+      <div class="campo"><label for="pg-fecha">Fecha de pago</label><input id="pg-fecha" type="date" value="${hoy}" max="${hoy}"></div></div>
+    <div class="desglose" id="pg-desglose"></div>
+    <div class="campo"><label for="pg-archivo">Comprobante (opcional)</label><input id="pg-archivo" type="file" accept="image/*,application/pdf"></div>
+    <div class="campo"><label for="pg-obs">Observación (opcional)</label><input id="pg-obs" type="text" maxlength="300"></div>
+    <div class="error" id="pg-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="pg-cancelar">Cancelar</button><button type="submit" class="btn" id="pg-guardar">Registrar pago</button></div>
+  </form>`);
+  const tipo = () => d.querySelector('input[name="pg-tipo"]:checked').value;
+  const areas = () => [...d.querySelectorAll('#pg-areas .fila-area')].map(f => ({ area: f.querySelector('.pg-area').value, monto: Number(f.querySelector('.pg-monto').value) || 0 })).filter(a => a.area && a.monto > 0);
+  const recalcular = () => {
+    if (usaAreas) d.querySelector('#pg-monto').value = areas().reduce((s, a) => s + a.monto, 0) || '';
+    const x = Gastos.desglose(d.querySelector('#pg-monto').value, tipo());
+    d.querySelector('#pg-desglose').innerHTML = x.total ? `<span>Neto ${pesos(x.neto)}</span>${tipo() !== 'siniva' ? `<span>IVA ${pesos(x.total - x.neto)}</span>` : ''}<b>Total ${pesos(x.total)}</b>` : '';
+  };
+  d.addEventListener('input', recalcular); d.addEventListener('change', recalcular);
+  d.addEventListener('click', e => { if (e.target.closest('[data-quitar-area]')) { e.target.closest('.fila-area').remove(); recalcular(); } });
+  if (usaAreas) d.querySelector('#pg-mas-area').onclick = () => { d.querySelector('#pg-areas').insertAdjacentHTML('beforeend', filaArea('pg')); };
+  recalcular();
+  d.querySelector('#pg-cancelar').onclick = () => d.close();
+  let idem = 'pago-' + Gastos.nuevaClave();
+  d.querySelector('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = d.querySelector('#pg-error'); err.textContent = '';
+    const monto = Number(d.querySelector('#pg-monto').value) || 0, fecha = d.querySelector('#pg-fecha').value;
+    if (!(monto > 0)) { err.textContent = 'Escribe el monto pagado.'; return; }
+    if (!fecha) { err.textContent = 'Elige la fecha de pago.'; return; }
+    const b = d.querySelector('#pg-guardar'); b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      const archivo = await Gastos.prepararArchivo(d.querySelector('#pg-archivo').files[0]);
+      await Gastos.pagar({ id: v.id, montoPago: monto, fechaPago: fecha, tipoMonto: tipo(), obsPago: d.querySelector('#pg-obs').value, multiArea: usaAreas ? areas() : [], ...(archivo || {}) }, idem);
+      registrar('Pagó un vencimiento', `${v.nombre} · ${pesos(monto)} · ${fechaCaja(fecha)}`);
+      d.close(); refrescarAgenda();
+    } catch (er) {
+      if (er.code && er.code !== 'en_curso') idem = 'pago-' + Gastos.nuevaClave();
+      err.textContent = (er.message || mensajeError(er)) + (er.code ? '' : ' Si vuelves a tocar Registrar pago no se duplica.');
+      if (er.code === 'pagado') { Gastos.olvidar(); setTimeout(() => { d.close(); refrescarAgenda(); }, 2500); }
+      b.disabled = false; b.textContent = 'Registrar pago';
+    }
+  });
+}
+
+function pintarRegistrarGasto(el, sub, d) {
+  const items = d.items || [];
+  const hoy = Caja.diaLocal();
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Pagar vencimientos y registrar gastos sin abrir la app de Gastos</p></div>${pestanasGastos(sub)}</div>
+    <form class="tarjeta form-gasto" id="form-gasto" novalidate>
+      <div class="grilla-montos"><div class="campo"><label for="gs-fecha">Fecha de la compra</label><input id="gs-fecha" type="date" value="${hoy}" max="${hoy}"></div>
+        <div class="campo"><span class="etiqueta">Tipo de monto ${info('Tipo de monto', 'Bruto: el total de la boleta, con IVA incluido.\nNeto: el monto sin IVA; al guardar se suma el 19% (31% si es harina).\nSin IVA: documentos exentos o sin IVA; el monto queda tal cual.')}</span>${chipsTipoMonto('gs-tipo', 'bruto')}</div></div>
+      <div id="gs-items"></div>
+      <button type="button" class="btn-sec" id="gs-mas-item">${icono('mas', 16)} Agregar otro ítem</button>
+      <div class="desglose desglose-grande" id="gs-total"></div>
+      <div class="campo"><span class="etiqueta">Forma de pago</span><div class="chips" role="radiogroup" aria-label="Forma de pago">${[['contado', 'Contado'], ['tarjeta', 'Tarjeta de crédito'], ['proveedor', 'Crédito proveedor']].map(([k, t]) => `<label class="chip-radio"><input type="radio" name="gs-forma" value="${k}" ${k === 'contado' ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div></div>
+      <div class="campo oculto" id="gs-campo-fpago"><label for="gs-fpago">Fecha de pago ${info('Crédito', 'Con tarjeta o crédito de proveedor se crea un vencimiento en esa fecha, para pagarlo después desde Vencimientos.')}</label><input id="gs-fpago" type="date" min="${hoy}"></div>
+      <div class="campo"><label for="gs-archivo">Foto o archivo de la boleta</label><input id="gs-archivo" type="file" accept="image/*,application/pdf" capture="environment"><span class="ayuda">Obligatoria, como en la app de Gastos. Se guarda en Drive, carpeta "Boletas Gastos".</span></div>
+      <div class="campo"><label for="gs-obs">Observación (opcional)</label><input id="gs-obs" type="text" maxlength="300"></div>
+      <div class="error" id="gs-error" role="alert"></div>
+      <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn" id="gs-guardar">Registrar gasto</button></div>
+    </form>
+    <p class="nota-i">(i) Arriendo, luz y las demás obligaciones recurrentes no aparecen aquí: se pagan desde Vencimientos. Editar o anular un gasto ya registrado, las plantillas y las cargas del SII siguen en la app de Gastos.</p>`;
+  let n = 0;
+  const seccion = () => { const id = ++n; return `<fieldset class="item-gasto" data-sec="${id}"><legend class="sr">Ítem ${id}</legend>
+    <div class="fila-item"><div class="campo" style="flex:1"><label for="gs-item-${id}">Ítem</label><select id="gs-item-${id}" class="gs-item"><option value="">Elige un ítem</option>${items.map(i => `<option value="${esc(i.item)}">${esc(i.item)}</option>`).join('')}</select></div>
+      ${id > 1 ? '<button type="button" class="btn-icono" data-quitar-item aria-label="Quitar este ítem">×</button>' : ''}</div>
+    <div class="gs-detalle"></div></fieldset>`; };
+  const cont = $('gs-items');
+  cont.insertAdjacentHTML('beforeend', seccion());
+  const tipo = () => el.querySelector('input[name="gs-tipo"]:checked').value;
+  const datosSec = s => {
+    const it = items.find(i => i.item === s.querySelector('.gs-item').value); if (!it) return null;
+    if (s.querySelector('.gs-detalle').dataset.item !== it.item) return null; // el detalle aún no se dibuja
+    const esHarina = !!(s.querySelector('.gs-harina') && s.querySelector('.gs-harina').checked);
+    if (it.area === 'SELECCIONAR') { const areas = [...s.querySelectorAll('.fila-area')].map(f => ({ area: f.querySelector('.gs-area').value, monto: Number(f.querySelector('.gs-monto').value) || 0 })).filter(a => a.area && a.monto > 0);
+      return { item: it.item, esHarina, areas, montoTotal: areas.reduce((x, a) => x + a.monto, 0) }; }
+    if (it.area === 'PRORRATEADO') { const g = k => s.querySelector('.gs-' + k).value;
+      return { item: it.item, esHarina, montoTotal: Number(g('mtotal')) || 0, prorrateo: { area1: g('a1'), pct1: parseInt(g('p1')) || 0, area2: g('a2'), pct2: parseInt(g('p2')) || 0, area3: g('a3'), pct3: parseInt(g('p3')) || 0 } }; }
+    return { item: it.item, esHarina, montoTotal: Number(s.querySelector('.gs-mfijo').value) || 0 };
+  };
+  const recalcular = () => {
+    let neto = 0, total = 0;
+    el.querySelectorAll('.item-gasto').forEach(s => { const x = datosSec(s); if (!x || !x.montoTotal) return; const r = Gastos.desglose(x.montoTotal, tipo(), x.esHarina); neto += r.neto; total += r.total; });
+    $('gs-total').innerHTML = total ? `<span>Neto ${pesos(neto)}</span>${tipo() !== 'siniva' ? `<span>IVA${el.querySelector('.gs-harina:checked') ? ' e impuesto harina' : ''} ${pesos(total - neto)}</span>` : ''}<b>Total ${pesos(total)}</b>` : '';
+    el.querySelectorAll('.item-gasto').forEach(s => { const h = s.querySelector('.gs-pct-hint'); if (h) { const x = datosSec(s); const sum = (x.prorrateo.pct1 || 0) + (x.prorrateo.pct2 || 0) + (x.prorrateo.area3 ? x.prorrateo.pct3 || 0 : 0); h.textContent = `Suma ${sum}%${sum === 100 ? '' : ' · debe sumar 100%'}`; h.classList.toggle('dif-mal', sum !== 100); } });
+  };
+  const alElegir = s => {
+    const it = items.find(i => i.item === s.querySelector('.gs-item').value), det = s.querySelector('.gs-detalle');
+    det.dataset.item = it ? it.item : '';
+    if (!it) { det.innerHTML = ''; recalcular(); return; }
+    const selA = c => `<select class="gs-${c}" aria-label="Área"><option value="">Área</option>${AREAS_GASTO.map(a => `<option>${a}</option>`).join('')}</select>`;
+    det.innerHTML = `<p class="ayuda">${[it.categoria, it.tipo, it.subTipo].filter(Boolean).map(esc).join(' · ')}${['SELECCIONAR', 'PRORRATEADO'].includes(it.area) ? '' : ' · Área ' + esc(it.area)}</p>
+      ${it.item === 'MATERIA PRIMA' ? '<label class="check"><input type="checkbox" class="gs-harina"> Es harina (12% adicional)</label>' : ''}
+      ${it.area === 'SELECCIONAR' ? `<span class="etiqueta">Monto por área</span><div class="gs-areas">${filaArea('gs')}</div><button type="button" class="btn-sec btn-chico" data-mas-area>Agregar área</button>`
+        : it.area === 'PRORRATEADO' ? `<span class="etiqueta">Reparto por área (%)</span><div class="prorrateo">${[1, 2, 3].map(k => `<div class="fila-area">${selA('a' + k)}<input class="gs-p${k}" type="number" min="0" max="100" step="1" placeholder="%" aria-label="Porcentaje área ${k}">${k === 3 ? '<span class="ayuda">opcional</span>' : ''}</div>`).join('')}</div><span class="ayuda gs-pct-hint"></span>
+          <div class="campo"><label>Monto total</label><input class="gs-mtotal" type="number" inputmode="numeric" min="0" step="1"></div>`
+        : `<div class="campo"><label>Monto</label><input class="gs-mfijo" type="number" inputmode="numeric" min="0" step="1"></div>`}`;
+    recalcular();
+  };
+  $('form-gasto').addEventListener('change', e => { const s = e.target.closest('.item-gasto'); if (e.target.classList.contains('gs-item')) alElegir(s); if (e.target.name === 'gs-forma') $('gs-campo-fpago').classList.toggle('oculto', e.target.value === 'contado'); recalcular(); });
+  $('form-gasto').addEventListener('input', recalcular);
+  $('form-gasto').addEventListener('click', e => {
+    if (e.target.closest('[data-quitar-item]')) { e.target.closest('.item-gasto').remove(); recalcular(); }
+    else if (e.target.closest('[data-quitar-area]')) { const f = e.target.closest('.fila-area'); if (f.parentElement.children.length > 1) f.remove(); recalcular(); }
+    else if (e.target.closest('[data-mas-area]')) e.target.closest('.item-gasto').querySelector('.gs-areas').insertAdjacentHTML('beforeend', filaArea('gs'));
+  });
+  $('gs-mas-item').onclick = () => cont.insertAdjacentHTML('beforeend', seccion());
+  let idem = 'gasto-' + Gastos.nuevaClave();
+  $('form-gasto').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = $('gs-error'); err.textContent = '';
+    const secs = [...el.querySelectorAll('.item-gasto')].map(datosSec);
+    if (secs.some(x => !x)) { err.textContent = 'Elige el ítem en cada parte (o quita la que sobra).'; return; }
+    for (const x of secs) {
+      if (!(x.montoTotal > 0)) { err.textContent = `${x.item}: falta el monto.`; return; }
+      if (x.prorrateo) { const q = x.prorrateo, usadas = [q.area1, q.area2, q.area3].filter(Boolean), s = q.pct1 + q.pct2 + (q.area3 ? q.pct3 : 0);
+        if (!q.area1 || !q.area2 || s !== 100) { err.textContent = `${x.item}: elige al menos dos áreas y que los % sumen 100.`; return; }
+        if (new Set(usadas).size !== usadas.length) { err.textContent = `${x.item}: cada área una sola vez.`; return; } }
+    }
+    const forma = el.querySelector('input[name="gs-forma"]:checked').value, fpago = $('gs-fpago').value;
+    if (forma !== 'contado' && !fpago) { err.textContent = 'Elige la fecha de pago del crédito.'; return; }
+    const f = $('gs-archivo').files[0];
+    if (!f) { err.textContent = 'Falta la foto o el archivo de la boleta.'; return; }
+    const fecha = $('gs-fecha').value; if (!fecha) { err.textContent = 'Elige la fecha de la compra.'; return; }
+    const b = $('gs-guardar'); b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      const archivo = await Gastos.prepararArchivo(f);
+      const ahora = new Date();
+      await Gastos.registrar({ fecha: fecha.split('-').reverse().join('-'), hora: `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`, items: secs, tipoMonto: tipo(), formaPago: forma, fechaPago: forma === 'contado' ? '' : fpago, observacion: $('gs-obs').value, ...archivo }, idem);
+      const total = secs.reduce((s, x) => s + Gastos.desglose(x.montoTotal, tipo(), x.esHarina).total, 0);
+      registrar('Registró un gasto', `${secs.map(x => x.item).join(' + ')} · ${pesos(total)}`);
+      idem = 'gasto-' + Gastos.nuevaClave();
+      alert(`Gasto registrado: ${secs.map(x => x.item).join(' + ')} · ${pesos(total)}${forma !== 'contado' ? `\n\nQuedó un vencimiento para el ${fechaCaja(fpago)}.` : ''}`);
+      pintarGastos('registrar');
+    } catch (er) {
+      // Si Gastos respondió (error de datos, ya pagado…), no se guardó nada: el próximo intento es un envío nuevo.
+      // Si no hubo respuesta (internet), pudo guardarse: se reintenta con la misma clave, que no duplica.
+      if (er.code && er.code !== 'en_curso') idem = 'gasto-' + Gastos.nuevaClave();
+      err.textContent = (er.message || mensajeError(er)) + (er.code ? '' : ' Si vuelves a tocar Registrar no se duplica; si cambias algo, revisa antes en Gastos si ya quedó.');
+      b.disabled = false; b.textContent = 'Registrar gasto';
+    }
+  });
+}
 
 // Convierte el resumen de cada app en filas de Pendientes (una por tema, sintetizada)
 function pendientesApps(estados) {
@@ -583,9 +813,9 @@ function pendientesApps(estados) {
   const de = (id, clave) => P(id).find(x => x.clave === clave);
   // Gastos
   const at = de('gastos', 'atrasados'), se = de('gastos', 'semana'), sii = de('gastos', 'docs_sii');
-  if (at && at.cantidad > 0) L.push({ orden: 0, color: 'rojo', icono: 'boleta', chip: 'Pagar', url: url('gastos'), origen: 'Gastos', titulo: 'Pagos atrasados',
+  if (at && at.cantidad > 0) L.push({ orden: 0, color: 'rojo', icono: 'boleta', chip: 'Pagar', url: '#gastos', origen: 'Gastos', titulo: 'Pagos atrasados',
     detalle: `${veces(at.cantidad, 'pago', 'pagos')} · ${pesos(at.monto)} · ${nombres(at.detalle)}` });
-  if (se && se.cantidad > 0) L.push({ orden: 1.5, color: 'amarillo', icono: 'reloj', chip: 'Esta semana', url: url('gastos'), origen: 'Gastos', titulo: 'Pagos de los próximos 7 días',
+  if (se && se.cantidad > 0) L.push({ orden: 1.5, color: 'amarillo', icono: 'reloj', chip: 'Esta semana', url: '#gastos', origen: 'Gastos', titulo: 'Pagos de los próximos 7 días',
     detalle: `${veces(se.cantidad, 'pago', 'pagos')} · ${pesos(se.monto)} · ${(se.detalle || []).slice(0, 3).map(x => `${x.nombre} ${diaTexto(x.fecha)}`).join(', ')}${se.cantidad > 3 ? '…' : ''}` });
   if (sii && sii.cantidad < 0) L.push({ orden: 5, color: 'gris', icono: 'boleta', chip: 'Revisar', url: url('gastos'), origen: 'Gastos', titulo: 'No se pudieron revisar los documentos del SII',
     detalle: 'Los pagos sí se leyeron. Abre Gastos → Cargas SII para verlos.' });
@@ -713,6 +943,7 @@ function pintarMenuCelular() {
       <div class="grupo" style="padding:0 0 4px">En Sistema Fën</div>
       <a class="nav-item" href="#hoy">${icono('hoy')}Hoy</a>
       <a class="nav-item" href="#agenda">${icono('calendario')}Agenda</a>
+      <a class="nav-item" href="#gastos">${icono('boleta')}Gastos</a>
       <a class="nav-item" href="#caja">${icono('cajon')}Ventas de caja</a>
       <a class="nav-item" href="#ajustes">${icono('ajustes')}Configuración</a>
       <a class="nav-item" href="#seguridad">${icono('seguridad')}Seguridad</a>

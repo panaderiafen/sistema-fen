@@ -6,7 +6,7 @@
 //  Las direcciones de los scripts vienen de config.js y se pueden cambiar en
 //  Configuración → Conexiones (se guardan en Firestore, config/sistemaFen).
 // ═══════════════════════════════════════════════
-import { auth, db, doc, getDoc, runTransaction } from './firebase.js?v=0.7.0';
+import { auth, db, doc, getDoc, runTransaction } from './firebase.js?v=0.8.0';
 
 const F = window.FEN_SIS;
 export const APPS = [
@@ -38,8 +38,8 @@ const conTiempo = (promesa, ms) => Promise.race([promesa, new Promise((_, no) =>
 const mayorIgual = (v, m) => { const a = String(v || '0').split('.').map(Number), b = m.split('.').map(Number); for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) > b[i]; } return true; };
 
 // Versión del script (ping): para saber si ya trae SistemaFen.gs
-export async function probar(app, url) {
-  const a = APPS.find(x => x.id === app);
+export async function probar(app, url, minima) {
+  const a = { ...APPS.find(x => x.id === app) }; if (minima) a.minima = minima;
   const r = await conTiempo(fetch(url + '?action=ping').then(x => x.json()), 20000);
   if (!r || !r.version) return { ok: false, texto: 'Responde, pero no es la implementación con Seguridad' };
   return mayorIgual(r.version, a.minima) ? { ok: true, version: r.version, texto: `v${r.version} · lista` } : { ok: false, version: r.version, texto: `v${r.version} · falta actualizar a v${a.minima}` };

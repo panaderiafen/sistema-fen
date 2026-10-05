@@ -323,3 +323,29 @@ h1 .btn-info { width: 22px; height: 22px; font-size: 13px; }
 .ag-dia:first-child { border-top: 0; }
 .chip-chico { font-size: 11px; padding: 3px 8px; flex: none; }
 .col-angosta .ag-dia { grid-template-columns: 54px minmax(0, 1fr); gap: 4px; }
+
+/* v0.8.0: Gastos */
+.etiqueta { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.chip-radio { position: relative; display: inline-flex; }
+.chip-radio input { position: absolute; opacity: 0; pointer-events: none; }
+.chip-radio span { display: inline-flex; align-items: center; white-space: nowrap; min-height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--borde); background: var(--tarjeta); font-size: 13px; font-weight: 600; cursor: pointer; }
+.chip-radio input:checked + span { background: var(--acento); border-color: var(--acento); color: #fff; }
+.chip-radio input:focus-visible + span { outline: 2px solid var(--acento); outline-offset: 2px; }
+.desglose { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--suave); }
+.desglose b { color: var(--texto); }
+.desglose-grande { margin: 16px 0; padding: 12px 14px; border-radius: 12px; background: var(--fondo); font-size: 14px; }
+.desglose-grande:empty { display: none; }
+.fila-area { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.fila-area select, .fila-area input { min-height: 40px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; padding: 0 8px; font-size: 14px; }
+.fila-area select { flex: 1; min-width: 0; }
+.fila-area input { width: 120px; }
+.form-gasto { display: flex; flex-direction: column; gap: 14px; }
+.form-gasto .campo input[type=date], .form-gasto .campo input[type=text], .form-gasto .campo input[type=number], .form-gasto .campo select { min-height: 44px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; padding: 0 10px; font-size: 15px; width: 100%; }
+.item-gasto { border: 1px solid var(--linea); border-radius: 14px; padding: 14px; margin: 0 0 10px; }
+.fila-item { display: flex; gap: 8px; align-items: flex-end; }
+.gs-detalle { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.check { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: 14px; }
+.check input { width: 18px; height: 18px; accent-color: var(--acento); }
+.mes-item.gasto { background: var(--amarillo); }
+.form-dialogo input[type=file] { font-size: 13px; }
+@media (max-width: 760px) { .fila-area input { width: 96px; } }
