@@ -1,40 +1,43 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Gastos  v0.8.0
-//  Habla con el Apps Script de Gastos (v2.2.0, archivo SistemaFen.gs v1.1.0)
+//  Sistema Fën — Gastos  v0.9.0
+//  Habla con el Apps Script de Gastos (v2.2.0+, archivo SistemaFen.gs; las cargas del SII piden v2.3.0)
 //  con la sesión de administración de Sistema Fën. El script usa las mismas
 //  funciones de la app de Gastos: un pago o un gasto queda igual que si se
 //  hubiera hecho allá (mismas hojas, misma carpeta de Drive).
 //  Cada envío lleva una clave única (idem): si se repite, no se guarda dos veces.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.8.0';
-import * as Apps from './apps.js?v=0.8.0';
+import { auth } from './firebase.js?v=0.9.0';
+import * as Apps from './apps.js?v=0.9.0';
 
 export const VERSION_MINIMA = '2.2.0';
-let urlOk = null, cacheDatos = null;
+let urlOk = null, versionOk = '', cacheDatos = null;
 
-async function url() {
+// Antes de la primera llamada se pregunta la versión del script: a uno antiguo no se le manda nada nuevo
+async function url(minima = VERSION_MINIMA) {
   const u = (await Apps.leerConexiones()).gastos;
   if (!u) throw Object.assign(new Error('Falta la dirección del script de Gastos (Configuración → Conexiones).'), { code: 'sin_url' });
-  if (urlOk !== u) {
-    const v = await Apps.probar('gastos', u, VERSION_MINIMA);
-    if (!v.ok) throw Object.assign(new Error(v.version ? `El script de Gastos está en v${v.version}: falta actualizarlo a v${VERSION_MINIMA} (ver README).` : v.texto), { code: 'actualizar' });
-    urlOk = u;
+  if (urlOk !== u || !Apps.mayorIgual(versionOk, minima)) {
+    const v = await Apps.probar('gastos', u, minima);
+    if (!v.ok) throw Object.assign(new Error(v.version ? `El script de Gastos está en v${v.version}: falta actualizarlo a v${minima} (ver README).` : v.texto), { code: 'actualizar' });
+    urlOk = u; versionOk = v.version;
   }
   return u;
 }
 const nuevaClave = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 12)).replace(/[^a-zA-Z0-9-]/g, '').slice(0, 60);
 
-async function llamar(op, datos = {}, idem) {
-  const u = await url();
+// Lecturas chicas que se pueden reintentar por la dirección si Google desvía el envío
+const LECTURAS_GET = ['datos', 'sii_cargas', 'sii_detalle', 'sii_ventas', 'sii_archivo'];
+export async function llamar(op, datos = {}, idem, minima) {
+  const u = await url(minima);
   const cuerpo = JSON.stringify({ ...datos, action: 'sistema_fen_gastos', op, idToken: await auth.currentUser.getIdToken(), ...(idem ? { idem } : {}) });
   let r = await (await fetch(u, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: cuerpo })).json();
   if (r && r.code === 'version') {
     // Google desvió el envío. Solo la lectura se reintenta por la dirección: un pago o un gasto
     // no (llevaría la sesión en la dirección y una foto no cabe). No se guardó nada.
-    if (op !== 'datos') throw Object.assign(new Error('Google no dejó pasar el envío. Inténtalo de nuevo en un momento (no se guardó nada).'), { code: 'version' });
+    if (!LECTURAS_GET.includes(op)) throw Object.assign(new Error('Google no dejó pasar el envío. Inténtalo de nuevo en un momento (no se guardó nada).'), { code: 'version' });
     r = await (await fetch(u + '?p=' + encodeURIComponent(cuerpo))).json();
   }
-  if (!r || !r.ok) throw Object.assign(new Error((r && (r.error || r.msg || r.message)) || 'Respuesta inesperada de Gastos'), { code: r && r.code });
+  if (!r || !r.ok) throw Object.assign(new Error((r && (r.error || r.msg || r.message)) || 'Respuesta inesperada de Gastos'), { code: r && r.code, datos: r });
   return r;
 }
 

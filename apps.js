@@ -6,11 +6,11 @@
 //  Las direcciones de los scripts vienen de config.js y se pueden cambiar en
 //  Configuración → Conexiones (se guardan en Firestore, config/sistemaFen).
 // ═══════════════════════════════════════════════
-import { auth, db, doc, getDoc, runTransaction } from './firebase.js?v=0.8.0';
+import { auth, db, doc, getDoc, runTransaction } from './firebase.js?v=0.9.0';
 
 const F = window.FEN_SIS;
 export const APPS = [
-  { id: 'gastos', nombre: 'Gastos', minima: '2.1.0' },
+  { id: 'gastos', nombre: 'Gastos', minima: '2.1.0', completa: '2.3.0' },   // completa: la que piden los módulos de Sistema Fën (Gastos y cargas del SII)
   { id: 'b2b', nombre: 'Ventas B2B', minima: '2.1.0' },
   { id: 'produccion', nombre: 'Producción', minima: '2.2.0' }
 ];
@@ -35,7 +35,7 @@ export async function guardarConexion(app, url) {
 }
 
 const conTiempo = (promesa, ms) => Promise.race([promesa, new Promise((_, no) => setTimeout(() => no(new Error('No respondió a tiempo')), ms))]);
-const mayorIgual = (v, m) => { const a = String(v || '0').split('.').map(Number), b = m.split('.').map(Number); for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) > b[i]; } return true; };
+export const mayorIgual = (v, m) => { const a = String(v || '0').split('.').map(Number), b = m.split('.').map(Number); for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) > b[i]; } return true; };
 
 // Versión del script (ping): para saber si ya trae SistemaFen.gs
 export async function probar(app, url, minima) {
