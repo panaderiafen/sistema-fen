@@ -1,10 +1,7 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.3.0 (2026-10-04)
-//  v1.3.0: agenda de Sistema Fën: agenda (lo de Fën, administración) y
-//          agenda_personal (lo personal: solo lo ve y cambia quien lo creó).
-//          Nada se borra: se marca "quitado". Todo lo demás queda igual.
+//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.2.0 (2026-10-04)
 //  v1.2.0: colecciones de Sistema Fën: equipos e historial (solo administración).
 //          Todo lo de la caja queda exactamente igual.
 //  v1.1.0: nueva colección resumenes_caja (resumen de cada cierre, caja v2.1).
@@ -212,21 +209,6 @@ service cloud.firestore {
       allow read: if esAdmin();
       allow create: if esAdmin() && request.resource.data.por == miCorreo();
       allow update, delete: if false;
-    }
-
-    // Agenda de Fën (Sistema Fën): solo administración. No se borra: se marca quitado.
-    match /agenda/{id} {
-      allow read: if esAdmin();
-      allow create: if esAdmin() && request.resource.data.creadoPor == miCorreo();
-      allow update: if esAdmin() && request.resource.data.creadoPor == resource.data.creadoPor;
-      allow delete: if false;
-    }
-    // Agenda personal: solo la ve y la cambia quien la creó (ni otras cuentas de administración).
-    match /agenda_personal/{id} {
-      allow read: if conSesion() && resource.data.uid == request.auth.uid;
-      allow create: if esAdmin() && request.resource.data.uid == request.auth.uid;
-      allow update: if conSesion() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
-      allow delete: if false;
     }
 
     // ── Cualquier otra colección: cerrada ─────────────────────

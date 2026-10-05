@@ -9,11 +9,12 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.6.0';
-import * as Caja from './caja.js?v=0.6.0';
-import * as Stock from './stock.js?v=0.6.0';
-import * as Ajustes from './ajustes.js?v=0.6.0';
-import * as Apps from './apps.js?v=0.6.0';
+} from './firebase.js?v=0.7.0';
+import * as Caja from './caja.js?v=0.7.0';
+import * as Stock from './stock.js?v=0.7.0';
+import * as Ajustes from './ajustes.js?v=0.7.0';
+import * as Apps from './apps.js?v=0.7.0';
+import * as Agenda from './agenda.js?v=0.7.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -111,7 +112,8 @@ const P = {
   tablet: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M11 18h2"/>',
   flecha: '<path d="M9 6l6 6-6 6"/>',
   ajustes: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
-  arriba: '<path d="M6 15l6-6 6 6"/>', abajo: '<path d="M6 9l6 6 6-6"/>'
+  arriba: '<path d="M6 15l6-6 6 6"/>', izq: '<path d="M15 6l-6 6 6 6"/>', mas: '<path d="M12 5v14M5 12h14"/>',
+  calendario: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>', abajo: '<path d="M6 9l6 6 6-6"/>'
 };
 const icono = (n, t = 20) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ''}</svg>`;
 
@@ -289,7 +291,7 @@ onAuthStateChanged(auth, async user => {
 });
 
 // ── Navegación ─────────────────────────────────────
-const VISTAS = ['hoy', 'caja', 'ajustes', 'seguridad', 'menu'];
+const VISTAS = ['hoy', 'agenda', 'caja', 'ajustes', 'seguridad', 'menu'];
 // #caja = cierres, #caja/anulaciones = anulaciones
 const vistaDesdeHash = () => { const v = (location.hash || '').replace('#', '').split('/')[0]; return VISTAS.includes(v) ? v : 'hoy'; };
 const subVista = () => (location.hash || '').split('/')[1] || '';
@@ -301,8 +303,9 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.6.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.7.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
+    <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#caja" data-vista="caja">${icono('cajon')}Ventas de caja</a>
     <a class="nav-item" href="#ajustes" data-vista="ajustes">${icono('ajustes')}Configuración</a>
     <a class="nav-item" href="#seguridad" data-vista="seguridad">${icono('seguridad')}Seguridad</a>
@@ -326,6 +329,7 @@ function irA(v) {
   if (v === 'caja') pintarCaja(subVista());
   if (v === 'seguridad') pintarSeguridad();
   if (v === 'ajustes') pintarAjustes();
+  if (v === 'agenda') pintarAgendaMes();
   if (v === 'menu') pintarMenuCelular();
   window.scrollTo(0, 0);
 }
@@ -357,6 +361,12 @@ async function pintarHoy() {
         <div id="lista-pend"><div class="vacio">Revisando…</div></div>
       </section>
       <div class="col-angosta">
+        <section class="tarjeta" aria-labelledby="t-agenda-sem" id="agenda-semana">
+          <div class="titulo-fila"><h2 id="t-agenda-sem">Agenda semanal ${info('Agenda semanal', 'Lo que viene en los próximos 7 días, empezando hoy.\nFën: lo que agregas para el negocio y los pagos de Gastos de esta semana (llegan solos desde Gastos).\nPersonal: lo ves solo tú; no lo ven otras cuentas ni entra en los informes de Fën.\nToca algo tuyo para cambiarlo, marcarlo hecho o quitarlo. Un pago de Gastos abre Gastos.')}</h2><a href="#agenda">Ver mes</a></div>
+          <div class="chips chips-chicos" role="group" aria-label="Qué mostrar">${['todo', 'fen', 'personal'].map(f => `<button type="button" class="chip-filtro" data-ag-filtro="${f}" aria-pressed="${agFiltro() === f}">${{ todo: 'Todo', fen: 'Fën', personal: 'Personal' }[f]}</button>`).join('')}</div>
+          <div id="agenda-lista"><div class="vacio">Cargando…</div></div>
+          <button type="button" class="btn-sec" id="ag-agregar" style="margin-top:12px">${icono('mas', 16)} Agregar</button>
+        </section>
         <section class="tarjeta" aria-labelledby="t-fuentes">
           <div class="titulo-fila"><h2 id="t-fuentes">De dónde lee Hoy</h2><span id="hoy-hora"></span></div>
           <div id="fuentes"></div>
@@ -423,10 +433,146 @@ async function pintarHoy() {
   }
   $('hoy-hora').textContent = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
   pintarLista();
+  // Agenda de los próximos 7 días (lo propio + los pagos de Gastos cuando llegan)
+  const hasta7 = Caja.diaLocal(new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 6));
+  let propios = null;
+  const pintarSemana = () => { if ($('agenda-lista') && propios) pintarAgendaSemana(propios.concat(itemsAuto(estados, hoy, hasta7)), hoy, hasta7); };
+  Agenda.leerAgenda(hoy, hasta7).then(l => { propios = l; pintarSemana(); })
+    .catch(e => { if ($('agenda-lista')) $('agenda-lista').innerHTML = `<div class="error">${esc(e.code === 'permission-denied' ? 'Falta publicar las reglas v1.3.0 de Firestore (ver README).' : mensajeError(e))}</div>`; });
+  $('ag-agregar').addEventListener('click', () => abrirItemAgenda(null, hoy));
+  el.querySelectorAll('[data-ag-filtro]').forEach(b => b.addEventListener('click', () => {
+    agFiltro(b.dataset.agFiltro);
+    el.querySelectorAll('[data-ag-filtro]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    pintarSemana();
+  }));
   // Las otras apps se leen en paralelo; cada una aparece apenas responde
   const urls = await Apps.leerConexiones();
-  await Promise.all(Apps.APPS.map(async a => { estados[a.id] = await Apps.leerPendientes(a.id, urls[a.id]); pintarLista(); }));
+  await Promise.all(Apps.APPS.map(async a => { estados[a.id] = await Apps.leerPendientes(a.id, urls[a.id]); pintarLista(); if (a.id === 'gastos') pintarSemana(); }));
 }
+
+// ── Agenda ─────────────────────────────────────────
+// Filtro Todo / Fën / Personal: se recuerda en este equipo (si el navegador lo permite)
+let agFiltroMem = 'todo';
+function agFiltro(v) {
+  if (v) { agFiltroMem = v; try { localStorage.setItem('fen_sistema_agenda_filtro', v); } catch (e) {} return v; }
+  try { agFiltroMem = localStorage.getItem('fen_sistema_agenda_filtro') || agFiltroMem; } catch (e) {}
+  return ['todo', 'fen', 'personal'].includes(agFiltroMem) ? agFiltroMem : 'todo';
+}
+const pasaFiltro = x => agFiltro() === 'todo' || x.tipo === agFiltro();
+const DIAS_CORTOS = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+const partesDia = d => { const [y, m, dd] = d.split('-').map(Number); return new Date(y, m - 1, dd); };
+// Pagos de Gastos de esta semana (llegan con el resumen de Gastos: hasta 5, los más próximos)
+function itemsAuto(estados, desde, hasta) {
+  const g = estados && estados.gastos;
+  if (!g || g.estado !== 'ok') return [];
+  const s = (g.pendientes || []).find(x => x.clave === 'semana');
+  return ((s && s.detalle) || []).filter(v => v.fecha >= desde && v.fecha <= hasta)
+    .map(v => ({ auto: true, tipo: 'fen', fecha: v.fecha, hora: '', titulo: `Pago de ${v.nombre}`, origen: 'Desde Gastos', monto: v.monto, url: (F.APPS.find(a => a.id === 'gastos') || {}).url }));
+}
+function filaAgenda(x, i) {
+  const sub = [x.hora, x.auto ? `${x.origen}${x.monto ? ' · ' + pesos(x.monto) : ''}` : (x.nota || 'Agregado por ti')].filter(Boolean).join(' · ');
+  const cuerpo = `<span class="ag-txt"><b>${esc(x.titulo)}</b><small>${esc(sub)}</small></span>${x.tipo === 'personal' ? '<span class="chip c-lila chip-chico">Personal</span>' : ''}`;
+  return x.auto ? `<a class="ag-item" href="${esc(x.url || '#')}" target="_blank" rel="noopener">${cuerpo}</a>`
+    : `<button type="button" class="ag-item${x.hecho ? ' hecho' : ''}" data-ag="${i}">${cuerpo}</button>`;
+}
+function pintarAgendaSemana(items, hoy, hasta) {
+  const vis = items.filter(pasaFiltro);
+  const manana = Caja.diaLocal(new Date(partesDia(hoy).getTime() + 864e5));
+  const porDia = {}; vis.forEach(x => (porDia[x.fecha] = porDia[x.fecha] || []).push(x));
+  const dias = Object.keys(porDia).sort();
+  $('agenda-lista').innerHTML = dias.length ? dias.map(d => { const f = partesDia(d);
+    const nombre = d === hoy ? 'HOY' : d === manana ? 'MAÑANA' : `${DIAS_CORTOS[f.getDay()]} ${f.getDate()}`;
+    return `<div class="ag-dia"><div class="ag-fecha">${nombre}</div><div class="ag-items">${porDia[d].map(x => filaAgenda(x, vis.indexOf(x))).join('')}</div></div>`; }).join('')
+    : `<div class="vacio">${agFiltro() === 'personal' ? 'Nada personal' : 'Nada agendado'} en estos 7 días.</div>`;
+  $('agenda-lista').querySelectorAll('[data-ag]').forEach(b => b.addEventListener('click', () => abrirItemAgenda(vis[+b.dataset.ag])));
+}
+
+// Vista del mes
+let agMes = null; // 'AAAA-MM'
+async function pintarAgendaMes() {
+  const el = $('v-agenda');
+  const hoy = Caja.diaLocal();
+  if (!agMes) agMes = hoy.slice(0, 7);
+  const [y, m] = agMes.split('-').map(Number);
+  const primero = new Date(y, m - 1, 1), ultimo = new Date(y, m, 0);
+  const desde = Caja.diaLocal(primero), hasta = Caja.diaLocal(ultimo);
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-agenda">Agenda ${info('Agenda', 'Fën: lo del negocio (lo ve la administración). Personal: solo tú lo ves y no entra en los informes de Fën.\nToca un día para agregar algo ese día, o algo ya agendado para cambiarlo, marcarlo hecho o quitarlo. Quitar no lo borra: queda guardado como quitado.\nLos pagos de Gastos aparecen en Hoy (próximos 7 días). La copia a Google Calendar llega más adelante.')}</h1><p>${esc(MESES_LARGOS[m - 1].replace(/^./, c => c.toUpperCase()))} ${y}</p></div>
+      <div class="mes-nav"><button type="button" class="btn-icono" id="mes-ant" aria-label="Mes anterior">${icono('izq', 18)}</button><button type="button" class="btn-sec btn-chico" id="mes-hoy">Hoy</button><button type="button" class="btn-icono" id="mes-sig" aria-label="Mes siguiente">${icono('flecha', 18)}</button></div></div>
+    <div class="filtros"><div class="chips" role="group" aria-label="Qué mostrar">${['todo', 'fen', 'personal'].map(f => `<button type="button" class="chip-filtro" data-ag-filtro="${f}" aria-pressed="${agFiltro() === f}">${{ todo: 'Todo', fen: 'Fën', personal: 'Personal' }[f]}</button>`).join('')}</div>
+      <button type="button" class="btn" id="mes-agregar">${icono('mas', 16)} Agregar</button></div>
+    <section class="tarjeta" id="mes-cuerpo"><div class="vacio" style="border:0">Cargando…</div></section>`;
+  $('mes-ant').onclick = () => { agMes = Caja.diaLocal(new Date(y, m - 2, 1)).slice(0, 7); pintarAgendaMes(); };
+  $('mes-sig').onclick = () => { agMes = Caja.diaLocal(new Date(y, m, 1)).slice(0, 7); pintarAgendaMes(); };
+  $('mes-hoy').onclick = () => { agMes = hoy.slice(0, 7); pintarAgendaMes(); };
+  $('mes-agregar').onclick = () => abrirItemAgenda(null, agMes === hoy.slice(0, 7) ? hoy : desde);
+  el.querySelectorAll('[data-ag-filtro]').forEach(b => b.addEventListener('click', () => { agFiltro(b.dataset.agFiltro); pintarAgendaMes(); }));
+  let items;
+  try { items = (await Agenda.leerAgenda(desde, hasta)).filter(pasaFiltro); }
+  catch (e) { $('mes-cuerpo').innerHTML = `<div class="error">${esc(e.code === 'permission-denied' ? 'Falta publicar las reglas v1.3.0 de Firestore (ver README).' : mensajeError(e))}</div>`; return; }
+  if (!$('mes-cuerpo')) return;
+  const porDia = {}; items.forEach(x => (porDia[x.fecha] = porDia[x.fecha] || []).push(x));
+  const hueco = (primero.getDay() + 6) % 7; // lunes primero
+  const celdas = [];
+  for (let i = 0; i < hueco; i++) celdas.push('<div class="mes-dia vacio-dia" aria-hidden="true"></div>');
+  for (let d = 1; d <= ultimo.getDate(); d++) {
+    const dia = Caja.diaLocal(new Date(y, m - 1, d)), lista = porDia[dia] || [];
+    celdas.push(`<div class="mes-dia${dia === hoy ? ' es-hoy' : ''}${dia < hoy ? ' pasado' : ''}" data-dia="${dia}">
+      <button type="button" class="mes-num" data-nuevo="${dia}" aria-label="Agregar el ${d}">${d}</button>
+      ${lista.slice(0, 3).map(x => `<button type="button" class="mes-item${x.tipo === 'personal' ? ' personal' : ''}${x.hecho ? ' hecho' : ''}" data-ag="${items.indexOf(x)}">${x.hora ? `<span>${esc(x.hora)}</span> ` : ''}${esc(x.titulo)}</button>`).join('')}
+      ${lista.length > 3 ? `<button type="button" class="mes-mas" data-ver-dia="${dia}">+${lista.length - 3} más</button>` : ''}</div>`);
+  }
+  while (celdas.length % 7) celdas.push('<div class="mes-dia vacio-dia" aria-hidden="true"></div>');
+  // En el celular: lista de los días con algo agendado
+  const diasCon = Object.keys(porDia).sort();
+  $('mes-cuerpo').innerHTML = `<div class="mes-grilla" role="grid" aria-label="Mes">${['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(n => `<div class="mes-cab">${n}</div>`).join('')}${celdas.join('')}</div>
+    <div class="mes-lista">${diasCon.length ? diasCon.map(d => { const f = partesDia(d); return `<div class="ag-dia"><div class="ag-fecha">${d === hoy ? 'HOY' : `${DIAS_CORTOS[f.getDay()]} ${f.getDate()}`}</div><div class="ag-items">${porDia[d].map(x => filaAgenda(x, items.indexOf(x))).join('')}</div></div>`; }).join('') : '<div class="vacio">Nada agendado este mes.</div>'}</div>`;
+  $('mes-cuerpo').querySelectorAll('[data-ag]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); abrirItemAgenda(items[+b.dataset.ag]); }));
+  $('mes-cuerpo').querySelectorAll('[data-nuevo]').forEach(b => b.addEventListener('click', () => abrirItemAgenda(null, b.dataset.nuevo)));
+  $('mes-cuerpo').querySelectorAll('[data-ver-dia]').forEach(b => b.addEventListener('click', () => {
+    const d = b.dataset.verDia;
+    const dlg = dialogo(`<div class="form-dialogo"><h2>${esc(fechaCaja(d))}</h2><div class="ag-items">${porDia[d].map(x => filaAgenda(x, items.indexOf(x))).join('')}</div><div class="botones"><button type="button" class="btn-sec" id="dd-cerrar">Cerrar</button></div></div>`);
+    dlg.querySelector('#dd-cerrar').onclick = () => dlg.close();
+    dlg.querySelectorAll('[data-ag]').forEach(x => x.addEventListener('click', () => { dlg.close(); abrirItemAgenda(items[+x.dataset.ag]); }));
+  }));
+}
+
+// Agregar o cambiar algo de la agenda
+function abrirItemAgenda(item, fecha) {
+  const it = item || { titulo: '', fecha: fecha || Caja.diaLocal(), hora: '', nota: '', tipo: agFiltro() === 'personal' ? 'personal' : 'fen' };
+  const d = dialogo(`<form class="form-dialogo" novalidate>
+    <h2>${item ? 'Cambiar' : 'Agregar a la agenda'}</h2>
+    <div class="campo"><label for="ag-titulo">Qué es</label><input id="ag-titulo" type="text" maxlength="120" value="${esc(it.titulo)}" placeholder="Por ejemplo: Reunión con proveedor de harina" autocomplete="off"></div>
+    <div class="grilla-montos"><div class="campo"><label for="ag-fecha">Fecha</label><input id="ag-fecha" type="date" value="${esc(it.fecha)}"></div>
+      <div class="campo"><label for="ag-hora">Hora (opcional)</label><input id="ag-hora" type="time" value="${esc(it.hora || '')}"></div></div>
+    <fieldset class="campo tipo-ag"><legend>Es de</legend>
+      <label><input type="radio" name="ag-tipo" value="fen" ${it.tipo !== 'personal' ? 'checked' : ''}> Fën</label>
+      <label><input type="radio" name="ag-tipo" value="personal" ${it.tipo === 'personal' ? 'checked' : ''}> Personal <small>solo tú lo ves</small></label></fieldset>
+    <div class="campo"><label for="ag-nota">Nota (opcional)</label><textarea id="ag-nota" rows="2" maxlength="500">${esc(it.nota || '')}</textarea></div>
+    <div class="error" id="ag-error" role="alert"></div>
+    <div class="botones">${item ? `<button type="button" class="btn-sec btn-peligro" id="ag-quitar">Quitar</button><button type="button" class="btn-sec" id="ag-hecho">${item.hecho ? 'Desmarcar hecho' : 'Marcar hecho'}</button>` : ''}
+      <button type="button" class="btn-sec" id="ag-cancelar">Cancelar</button><button type="submit" class="btn" id="ag-guardar">Guardar</button></div>
+  </form>`);
+  const listo = texto => { if (texto) registrar(texto[0], texto[1]); d.close(); refrescarAgenda(); };
+  const detalle = (tipo, titulo, fecha) => (tipo === 'personal' ? `personal · ${fechaCaja(fecha)}` : `${titulo} · ${fechaCaja(fecha)}`);
+  d.querySelector('#ag-cancelar').onclick = () => d.close();
+  d.querySelector('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const tipo = d.querySelector('input[name="ag-tipo"]:checked').value;
+    const datos = { titulo: d.querySelector('#ag-titulo').value, fecha: d.querySelector('#ag-fecha').value, hora: d.querySelector('#ag-hora').value, nota: d.querySelector('#ag-nota').value };
+    const b = d.querySelector('#ag-guardar'); b.disabled = true;
+    try { await Agenda.guardar(item, datos, tipo); listo([item ? 'Cambió la agenda' : 'Agregó a la agenda', detalle(tipo, datos.titulo.trim(), datos.fecha)]); }
+    catch (er) { d.querySelector('#ag-error').textContent = er.code === 'permission-denied' ? 'Falta publicar las reglas v1.3.0 de Firestore (ver README).' : (er.message || mensajeError(er)); b.disabled = false; }
+  });
+  if (item) {
+    d.querySelector('#ag-hecho').onclick = async () => { try { await Agenda.marcarHecho(item, !item.hecho); listo(); } catch (er) { d.querySelector('#ag-error').textContent = er.message || mensajeError(er); } };
+    d.querySelector('#ag-quitar').onclick = async () => {
+      if (!window.confirm(`¿Quitar "${item.titulo}" de la agenda?`)) return;
+      try { await Agenda.quitar(item); listo(['Quitó de la agenda', detalle(item.tipo, item.titulo, item.fecha)]); } catch (er) { d.querySelector('#ag-error').textContent = er.message || mensajeError(er); }
+    };
+  }
+  setTimeout(() => d.querySelector('#ag-titulo').focus(), 30);
+}
+function refrescarAgenda() { const v = vistaDesdeHash(); if (v === 'agenda') pintarAgendaMes(); else if (v === 'hoy') pintarHoy(); }
 
 // Convierte el resumen de cada app en filas de Pendientes (una por tema, sintetizada)
 function pendientesApps(estados) {
@@ -566,6 +712,7 @@ function pintarMenuCelular() {
     <section class="tarjeta" aria-label="En Sistema Fën">
       <div class="grupo" style="padding:0 0 4px">En Sistema Fën</div>
       <a class="nav-item" href="#hoy">${icono('hoy')}Hoy</a>
+      <a class="nav-item" href="#agenda">${icono('calendario')}Agenda</a>
       <a class="nav-item" href="#caja">${icono('cajon')}Ventas de caja</a>
       <a class="nav-item" href="#ajustes">${icono('ajustes')}Configuración</a>
       <a class="nav-item" href="#seguridad">${icono('seguridad')}Seguridad</a>

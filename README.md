@@ -1,9 +1,24 @@
-# Sistema Fën · v0.6.0
+# Sistema Fën · v0.7.0
 
-**App:** v0.6.0 · **Reglas de Firestore:** v1.2.0 (sin cambios) · 4 de octubre de 2026
+**App:** v0.7.0 · **Reglas de Firestore:** v1.3.0 (nuevas: agenda) · 4 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Etapa 1. Solo entra la cuenta de administración (la misma de la caja).
+
+## Novedades de la v0.7.0: Agenda
+- **Hoy → Agenda semanal:** lo de los próximos 7 días, desde hoy, agrupado por día (Hoy, Mañana, Mar 6…). Filtros **Todo / Fën / Personal** (el equipo recuerda cuál elegiste). Incluye solos los **pagos de Gastos** de la semana (tocarlos abre Gastos). **Agregar** y **Ver mes**.
+- **Agenda** (nuevo en el menú): el mes en calendario (en el celular, lista de los días con algo), con mes anterior / siguiente / Hoy. Toca el número de un día para agregar algo ese día, o algo agendado para cambiarlo, **Marcar hecho** o **Quitar**.
+- Cada cosa tiene: qué es, fecha, hora (opcional), **Fën o Personal** y una nota.
+
+(i) **Personal** se guarda aparte (`agenda_personal`): solo lo ve y lo cambia la cuenta que lo creó, ni otras cuentas de administración, y no entra en los informes de Fën. En Seguridad → Actividad queda "Agregó a la agenda · personal", sin el título.
+
+(i) **Quitar** no borra: queda guardado como quitado. Pasar algo de Fën a Personal (o al revés) lo copia al otro lado y deja el original como quitado.
+
+(i) Pagos de Gastos en la agenda: los que trae el resumen de Gastos (hasta 5, los más próximos). La copia a Google Calendar llega más adelante.
+
+**Reglas de Firestore v1.3.0:** agregan las colecciones `agenda` (solo administración) y `agenda_personal` (solo su dueño). Lo demás queda igual. Sin publicarlas, la agenda dice "Falta publicar las reglas v1.3.0".
+
+Archivos: `agenda.js` es **nuevo**; cambian `index.html`, `estilos.css`, `config.js`, `app.js`, `firestore.rules`, `README.md`, y `caja.js`, `stock.js`, `ajustes.js`, `apps.js` (solo versión). `firestore-v1.2.0.rules` = las reglas anteriores, por si hay que volver.
 
 ## Novedades de la v0.6.0: Hoy con Gastos, Ventas B2B y Producción
 **Hoy** ahora junta en Pendientes lo de las cuatro apps, una fila por tema y lo más urgente arriba. Arriba de cada pendiente dice de qué app viene; tocarlo abre esa app.
@@ -146,26 +161,30 @@ estilos.css            colores Salvia y arena                     → GitHub, si
 config.js              versión, apps del menú, Firebase, scripts  → GitHub, sistema-fen, raíz (reemplaza)
 firebase.js            conexión con Firebase                      → GitHub, sistema-fen, raíz (reemplaza)
 app.js                 pantallas                                  → GitHub, sistema-fen, raíz (reemplaza)
-apps.js                NUEVO en v0.6.0: pendientes de las otras apps → GitHub, sistema-fen, raíz
+agenda.js              NUEVO en v0.7.0: agenda                    → GitHub, sistema-fen, raíz
+apps.js                pendientes de las otras apps (v0.6.0) → GitHub, sistema-fen, raíz
 ajustes.js             configuración del negocio (v0.5.0)          → GitHub, sistema-fen, raíz
 stock.js               merma y stock (v0.4.0)                     → GitHub, sistema-fen, raíz
 caja.js                lógica de cierres y anulaciones     → GitHub, sistema-fen, raíz
 logo-fen.png           logo secundario en verde                   → GitHub, sistema-fen, raíz (nuevo en v0.2.2)
 README.md              este archivo                               → GitHub, sistema-fen, raíz (reemplaza)
-firestore.rules        reglas v1.2.0, IGUALES a las que ya están  → no hace falta publicarlas de nuevo
+firestore.rules        reglas v1.3.0 (agenda)                     → consola de Firebase (fen-ventas) → Firestore Database → Reglas → Publicar
+firestore-v1.2.0.rules reglas anteriores, por si hay que volver   → no se sube (guárdalo)
 ```
 Nada en Apps Script ni en la caja cambia.
 
 (i) `config.js` lleva la configuración web de Firebase. No es secreta: es la misma que ya está en la caja y solo dice a qué proyecto conectarse. Lo que protege los datos son las reglas y tu contraseña.
 
-## Instalación de la v0.6.0
-1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra `apps.js` (nuevo), `ajustes.js`, `stock.js` y `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js`, `README.md` y `logo-fen.png` → **Commit changes**.
-2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.6.0**).
+## Instalación de la v0.7.0
+0. **Reglas:** consola de Firebase → **fen-ventas** → Firestore Database → **Reglas** → borra todo, pega `firestore.rules` (v1.3.0) → **Publicar**. Después abre la caja y haz algo de todos los días: debe funcionar igual (si no, pega `firestore-v1.2.0.rules` y avísame).
+1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra `agenda.js` (nuevo), `apps.js`, `ajustes.js`, `stock.js` y `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js`, `README.md` y `logo-fen.png` → **Commit changes**.
+2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.7.0**).
 
 (i) Instalación desde cero (v0.1): reglas v1.2.0 en Firebase, subir los archivos, Settings → Pages → *Deploy from a branch*, **main**, **/(root)**. Ya está hecho.
 
 ## Lista de verificación
-- [ ] Abajo a la izquierda dice **v0.6.0**.
+- [ ] Abajo a la izquierda dice **v0.7.0** y en el menú aparece **Agenda**.
+- [ ] Agrega algo de Fën y algo personal en la agenda: aparecen en Hoy (si son de los próximos 7 días) y en Agenda. Quita uno de prueba.
 - [ ] Actualiza los tres scripts (README de `scripts-hoy-v0.6.0.zip`) y pega la dirección de Ventas B2B en Configuración → Conexiones.
 - [ ] En Hoy, "De dónde lee Hoy" dice **Al día** en las cuatro apps, y los pagos atrasados, cobros y solicitudes coinciden con lo que muestra cada app.
 - [ ] En Configuración se ven tus motivos de merma, tipos de leche y subcategorías reales. Agrega un motivo de prueba, recarga la caja y revisa que aparezca al enviar a merma; después quítalo.
@@ -184,7 +203,7 @@ Nada en Apps Script ni en la caja cambia.
 - **"…el cierre no llegó a la planilla (…)":** la caja quedó cerrada; el cierre queda en *Cierres sin pasar a planilla*. Toca *Reenviar*. Si vuelve a fallar, mándame el texto del error.
 - **Sigue viéndose la v0.1.1:** espera unos minutos y recarga con Ctrl+Shift+R.
 
-## Pruebas automáticas (30, todas pasan)
+## Pruebas automáticas (33, todas pasan)
 Con Firebase simulado en el navegador:
 - Las 12 de la v0.1.1 (entrada, Hoy, recargar, Seguridad, revocar, vencer, celular).
 - Hoy abre Ventas de caja → Anulaciones. Aprobar una venta con pago dividido: efectivo y débito bajan lo justo, no aparece un medio "Dividido", el stock vuelve al mismo lote, queda en la actividad.
@@ -194,6 +213,7 @@ Con Firebase simulado en el navegador:
 - Caja que vendió hace 5 minutos: avisa y, si dices que no, no se cierra.
 - Solicitud aprobada en otro equipo justo antes: no se descuenta dos veces.
 - Celular: Caja en la barra inferior, sin scroll horizontal.
+- v0.7.0: la agenda semanal en orden de fecha con lo propio, lo personal y los pagos de Gastos; no muestra lo quitado, lo personal de otra cuenta ni lo de más de 7 días; filtros; agregar; mes con agregar en un día, pasar de Fën a personal (el original queda quitado), marcar hecho y quitar sin borrar; lo personal no deja su título en la actividad; celular.
 - v0.6.0: Hoy junta caja y Gastos en orden de urgencia, con el nombre de la app y el enlace; B2B sin dirección y Producción sin actualizar se muestran como tales; Conexiones valida la dirección, prueba la versión y la guarda; con B2B y Producción al día aparecen cobros, órdenes sin factura y solicitudes (sin filas vacías).
 - v0.5.0: listas con los valores de fábrica de la caja si no existen; agregar, renombrar, mover y quitar; un cambio hecho desde la caja mientras la pantalla está abierta no se pierde; la lista no queda vacía; subcategorías con número de productos; tiempos de pago (Barros Arana queda en 0); marcar un período; ocultar una receta (lista de Producción con nombres con coma); botón (i) abre, cabe en el celular y se cierra con Esc o tocando fuera.
 - v0.4.0: valor del stock con el precio de cada día (sin los que no controlan stock); merma por registrar por sucursal; registrar crea un registro por día de envío, sin contar envíos viejos ya rescatados, y lo pasa a la planilla con su clave; si la planilla falla queda para reenviar; rescatar vuelve al día elegido y limpia el registro; merma / ventas; celular.

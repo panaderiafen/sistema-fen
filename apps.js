@@ -6,7 +6,7 @@
 //  Las direcciones de los scripts vienen de config.js y se pueden cambiar en
 //  Configuración → Conexiones (se guardan en Firestore, config/sistemaFen).
 // ═══════════════════════════════════════════════
-import { auth, db, doc, getDoc, runTransaction } from './firebase.js?v=0.6.0';
+import { auth, db, doc, getDoc, runTransaction } from './firebase.js?v=0.7.0';
 
 const F = window.FEN_SIS;
 export const APPS = [
