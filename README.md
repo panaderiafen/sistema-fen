@@ -1,9 +1,26 @@
-# Sistema Fën · v0.5.0
+# Sistema Fën · v0.6.0
 
-**App:** v0.5.0 · **Reglas de Firestore:** v1.2.0 (sin cambios) · 4 de octubre de 2026
+**App:** v0.6.0 · **Reglas de Firestore:** v1.2.0 (sin cambios) · 4 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Etapa 1. Solo entra la cuenta de administración (la misma de la caja).
+
+## Novedades de la v0.6.0: Hoy con Gastos, Ventas B2B y Producción
+**Hoy** ahora junta en Pendientes lo de las cuatro apps, una fila por tema y lo más urgente arriba. Arriba de cada pendiente dice de qué app viene; tocarlo abre esa app.
+
+| App | Pendientes |
+| --- | --- |
+| Gastos | **Pagos atrasados** (cuántos, cuánto y cuáles) · **Pagos de los próximos 7 días** · **Documentos del SII sin gasto** (y cuántos tienen duda anotada) |
+| Ventas B2B | **Cobros atrasados** (monto, cuántos clientes y los que más deben) · **Órdenes sin factura** (cuántas y cuántas atrasadas) |
+| Producción | **Materias primas por aprobar** · **Habilitaciones por resolver** |
+
+"De dónde lee Hoy" dice para cada app: Al día, Revisando, Falta la dirección, Falta actualizar o Sin respuesta.
+
+Nuevo en **Configuración → Conexiones**: la dirección del Apps Script de cada app, con **Probar** (muestra la versión) y **Guardar**. Gastos y Producción ya vienen puestas; **la de Ventas B2B hay que pegarla** (está en la app B2B, ⚙️ Config).
+
+(i) Para que Hoy lea una app, su Apps Script necesita la versión nueva (Gastos v2.1.0, Ventas B2B v2.1.0, Producción v2.2.0): vienen en `scripts-hoy-v0.6.0.zip` con su propio README. Mientras tanto Hoy dice "Falta actualizar" y sigue mostrando la caja.
+
+Archivos: `apps.js` es **nuevo**; cambian `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js`, `stock.js` y `ajustes.js` (solo versión), `README.md`. Sin cambios en reglas de Firestore.
 
 ## Novedades de la v0.5.0: Configuración y botón (i)
 Nuevo **Configuración** en el menú (en el celular, en Menú). Son los ajustes del negocio que antes se cambiaban dentro de la caja:
@@ -129,7 +146,8 @@ estilos.css            colores Salvia y arena                     → GitHub, si
 config.js              versión, apps del menú, Firebase, scripts  → GitHub, sistema-fen, raíz (reemplaza)
 firebase.js            conexión con Firebase                      → GitHub, sistema-fen, raíz (reemplaza)
 app.js                 pantallas                                  → GitHub, sistema-fen, raíz (reemplaza)
-ajustes.js             NUEVO en v0.5.0: configuración del negocio  → GitHub, sistema-fen, raíz
+apps.js                NUEVO en v0.6.0: pendientes de las otras apps → GitHub, sistema-fen, raíz
+ajustes.js             configuración del negocio (v0.5.0)          → GitHub, sistema-fen, raíz
 stock.js               merma y stock (v0.4.0)                     → GitHub, sistema-fen, raíz
 caja.js                lógica de cierres y anulaciones     → GitHub, sistema-fen, raíz
 logo-fen.png           logo secundario en verde                   → GitHub, sistema-fen, raíz (nuevo en v0.2.2)
@@ -140,14 +158,16 @@ Nada en Apps Script ni en la caja cambia.
 
 (i) `config.js` lleva la configuración web de Firebase. No es secreta: es la misma que ya está en la caja y solo dice a qué proyecto conectarse. Lo que protege los datos son las reglas y tu contraseña.
 
-## Instalación de la v0.5.0
-1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra `ajustes.js` (nuevo), `stock.js` y `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js`, `README.md` y `logo-fen.png` → **Commit changes**.
-2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.5.0**).
+## Instalación de la v0.6.0
+1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra `apps.js` (nuevo), `ajustes.js`, `stock.js` y `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js`, `README.md` y `logo-fen.png` → **Commit changes**.
+2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.6.0**).
 
 (i) Instalación desde cero (v0.1): reglas v1.2.0 en Firebase, subir los archivos, Settings → Pages → *Deploy from a branch*, **main**, **/(root)**. Ya está hecho.
 
 ## Lista de verificación
-- [ ] Abajo a la izquierda dice **v0.5.0** y en el menú aparece **Configuración**.
+- [ ] Abajo a la izquierda dice **v0.6.0**.
+- [ ] Actualiza los tres scripts (README de `scripts-hoy-v0.6.0.zip`) y pega la dirección de Ventas B2B en Configuración → Conexiones.
+- [ ] En Hoy, "De dónde lee Hoy" dice **Al día** en las cuatro apps, y los pagos atrasados, cobros y solicitudes coinciden con lo que muestra cada app.
 - [ ] En Configuración se ven tus motivos de merma, tipos de leche y subcategorías reales. Agrega un motivo de prueba, recarga la caja y revisa que aparezca al enviar a merma; después quítalo.
 - [ ] Toca una (i): se abre la explicación; toca fuera y se cierra.
 - [ ] **Merma y stock**: el stock de Barros Arana se ve igual que en la caja (Stock). Registra una merma pendiente y revisa que salga del stock en la caja y que llegue **una** fila a la pestaña Merma de la planilla.
@@ -164,7 +184,7 @@ Nada en Apps Script ni en la caja cambia.
 - **"…el cierre no llegó a la planilla (…)":** la caja quedó cerrada; el cierre queda en *Cierres sin pasar a planilla*. Toca *Reenviar*. Si vuelve a fallar, mándame el texto del error.
 - **Sigue viéndose la v0.1.1:** espera unos minutos y recarga con Ctrl+Shift+R.
 
-## Pruebas automáticas (28, todas pasan)
+## Pruebas automáticas (30, todas pasan)
 Con Firebase simulado en el navegador:
 - Las 12 de la v0.1.1 (entrada, Hoy, recargar, Seguridad, revocar, vencer, celular).
 - Hoy abre Ventas de caja → Anulaciones. Aprobar una venta con pago dividido: efectivo y débito bajan lo justo, no aparece un medio "Dividido", el stock vuelve al mismo lote, queda en la actividad.
@@ -174,6 +194,7 @@ Con Firebase simulado en el navegador:
 - Caja que vendió hace 5 minutos: avisa y, si dices que no, no se cierra.
 - Solicitud aprobada en otro equipo justo antes: no se descuenta dos veces.
 - Celular: Caja en la barra inferior, sin scroll horizontal.
+- v0.6.0: Hoy junta caja y Gastos en orden de urgencia, con el nombre de la app y el enlace; B2B sin dirección y Producción sin actualizar se muestran como tales; Conexiones valida la dirección, prueba la versión y la guarda; con B2B y Producción al día aparecen cobros, órdenes sin factura y solicitudes (sin filas vacías).
 - v0.5.0: listas con los valores de fábrica de la caja si no existen; agregar, renombrar, mover y quitar; un cambio hecho desde la caja mientras la pantalla está abierta no se pierde; la lista no queda vacía; subcategorías con número de productos; tiempos de pago (Barros Arana queda en 0); marcar un período; ocultar una receta (lista de Producción con nombres con coma); botón (i) abre, cabe en el celular y se cierra con Esc o tocando fuera.
 - v0.4.0: valor del stock con el precio de cada día (sin los que no controlan stock); merma por registrar por sucursal; registrar crea un registro por día de envío, sin contar envíos viejos ya rescatados, y lo pasa a la planilla con su clave; si la planilla falla queda para reenviar; rescatar vuelve al día elegido y limpia el registro; merma / ventas; celular.
 - v0.3.0: desde Hoy abre el reporte de ayer; bruto, neto, anuladas, ticket promedio y porcentajes por medio de pago; genera el resumen que falta y lo suma; filtro por sucursal; por sucursal; celular sin scroll horizontal.

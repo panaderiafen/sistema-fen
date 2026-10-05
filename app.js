@@ -9,10 +9,11 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.5.0';
-import * as Caja from './caja.js?v=0.5.0';
-import * as Stock from './stock.js?v=0.5.0';
-import * as Ajustes from './ajustes.js?v=0.5.0';
+} from './firebase.js?v=0.6.0';
+import * as Caja from './caja.js?v=0.6.0';
+import * as Stock from './stock.js?v=0.6.0';
+import * as Ajustes from './ajustes.js?v=0.6.0';
+import * as Apps from './apps.js?v=0.6.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -300,7 +301,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.5.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.6.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#caja" data-vista="caja">${icono('cajon')}Ventas de caja</a>
     <a class="nav-item" href="#ajustes" data-vista="ajustes">${icono('ajustes')}Configuración</a>
@@ -335,7 +336,7 @@ function itemPendiente(p) {
   const fuera = /^https?:/.test(p.url) ? ' target="_blank" rel="noopener"' : '';
   return `<a class="pendiente" href="${esc(p.url)}"${fuera}>
     <div class="icono-caja c-${p.color}">${icono(p.icono)}</div>
-    <div class="txt"><b>${esc(p.titulo)}</b><span>${esc(p.detalle)}</span></div>
+    <div class="txt">${p.origen ? `<small class="origen">${esc(p.origen)}</small>` : ''}<b>${esc(p.titulo)}</b><span>${esc(p.detalle)}</span></div>
     <span class="chip c-${p.color}">${esc(p.chip)}</span></a>`;
 }
 
@@ -360,6 +361,7 @@ async function pintarHoy() {
           <div class="titulo-fila"><h2 id="t-fuentes">De dónde lee Hoy</h2><span id="hoy-hora"></span></div>
           <div id="fuentes"></div>
           <p class="nota-i">(i) Hoy solo lee: no cambia nada en las apps. Si una no responde, sus pendientes no aparecen hasta que vuelva.</p>
+          <p class="ayuda" style="margin-top:6px">Cómo se calcula cada pendiente ${info('Pendientes de las otras apps', 'Gastos: pagos atrasados (vencimientos pendientes con fecha pasada), pagos de los próximos 7 días (incluye hoy) y documentos del SII cargados que aún no tienen gasto.\nVentas B2B: cobros atrasados según la frecuencia de pago de cada cliente (descuenta abonos), y órdenes sin folio; "atrasadas" según si el cliente factura diario, semanal o mensual. Es la misma cuenta que hace la app B2B.\nProducción: materias primas o insumos nuevos que pidieron las jefas y solicitudes de habilitar una materia prima en otra área.\nCada app guarda el resumen 2 minutos: un cambio recién hecho puede tardar eso en verse aquí. Tocar un pendiente abre la app.')}</p>
         </section>
       </div>
     </div>`;
@@ -378,37 +380,84 @@ async function pintarHoy() {
   const pend = [];
 
   docs(0).filter(e => Math.abs(Number(e.difTotal) || 0) > 0 && e.diferenciaAceptada !== true).forEach(e => pend.push({
-    orden: 0, color: 'rojo', icono: 'alerta', chip: 'Atención', url: '#caja', titulo: 'Descuadre de caja',
+    orden: 0, color: 'rojo', icono: 'alerta', chip: 'Atención', url: '#caja', titulo: 'Descuadre de caja', origen: 'Caja',
     detalle: `${sucursal(e.sucursal)} · ${diaTexto(e.fecha)} · diferencia ${pesos(e.difTotal)}`
   }));
   const abiertas = docs(1);
   abiertas.filter(c => (c.fecha || '') < hoy).forEach(c => pend.push({
-    orden: 1, color: 'amarillo', icono: 'reloj', chip: 'Cerrar', url: '#caja', titulo: 'Caja anterior sin cerrar',
+    orden: 1, color: 'amarillo', icono: 'reloj', chip: 'Cerrar', url: '#caja', titulo: 'Caja anterior sin cerrar', origen: 'Caja',
     detalle: `${sucursal(c.sucursal)} · ${diaTexto(c.fecha)} · ${c.usuario || ''}`
   }));
   docs(2).filter(c => c.estado === 'cerrada' && c.exportadaSheets !== true && (parseInt(c.nVentas) || 0) > 0).forEach(c => pend.push({
-    orden: 2, color: 'amarillo', icono: 'cajon', chip: 'Reenviar', url: '#caja', titulo: 'Cierre sin pasar a planilla',
+    orden: 2, color: 'amarillo', icono: 'cajon', chip: 'Reenviar', url: '#caja', titulo: 'Cierre sin pasar a planilla', origen: 'Caja',
     detalle: `${sucursal(c.sucursal)} · ${diaTexto(c.fecha)} · ${pesos(c.totalVentas)}`
   }));
   docs(3).forEach(s => pend.push({
-    orden: 3, color: 'lila', icono: 'anular', chip: 'Revisar', url: '#caja/anulaciones', titulo: 'Anulación por aprobar',
+    orden: 3, color: 'lila', icono: 'anular', chip: 'Revisar', url: '#caja/anulaciones', titulo: 'Anulación por aprobar', origen: 'Caja',
     detalle: `${sucursal(s.sucursal)} · ${pesos(s.total)} · pide ${s.solicitadoPor || ''}`
   }));
-  pend.sort((a, b) => a.orden - b.orden);
-
-  $('lista-pend').innerHTML = pend.length ? pend.map(itemPendiente).join('')
-    : `<div class="vacio">${cajaOk ? 'Nada pendiente en la caja.' : 'No se pudo leer la caja. Revisa internet y vuelve a abrir Hoy.'}</div>`;
-  $('hoy-sub').textContent = `${fechaLarga} · ${pend.length} ${pend.length === 1 ? 'pendiente' : 'pendientes'}`;
+  const estados = { gastos: { estado: 'leyendo' }, b2b: { estado: 'leyendo' }, produccion: { estado: 'leyendo' } };
+  const pintarLista = () => {
+    if (!$('lista-pend')) return;
+    const todos = pend.concat(pendientesApps(estados)).sort((a, b) => a.orden - b.orden);
+    const leyendo = Object.values(estados).some(x => x.estado === 'leyendo');
+    $('lista-pend').innerHTML = todos.length ? todos.map(itemPendiente).join('') + (leyendo ? '<div class="vacio">Revisando Gastos, Ventas B2B y Producción…</div>' : '')
+      : `<div class="vacio">${leyendo ? 'Revisando…' : cajaOk ? 'Nada pendiente.' : 'No se pudo leer la caja. Revisa internet y vuelve a abrir Hoy.'}</div>`;
+    $('hoy-sub').textContent = `${fechaLarga} · ${todos.length} ${todos.length === 1 ? 'pendiente' : 'pendientes'}${leyendo ? '…' : ''}`;
+    pintarFuentes();
+  };
 
   const resumenes = docs(4);
   $('c-ventas').textContent = r[4].status === 'fulfilled' ? pesos(resumenes.reduce((a, x) => a + (Number(x.totalBruto) || 0), 0)) : '—';
   $('c-ventas-n').textContent = `${resumenes.length} ${resumenes.length === 1 ? 'cierre' : 'cierres'} · bruto, con IVA`;
   $('c-abiertas').textContent = r[1].status === 'fulfilled' ? String(abiertas.filter(c => c.fecha === hoy).length) : '—';
 
-  const fila = (nombre, chip, color) => `<div class="fuente"><span>${esc(nombre)}</span><span class="chip c-${color}">${esc(chip)}</span></div>`;
-  $('fuentes').innerHTML = fila('Caja', cajaOk ? 'Al día' : 'Sin respuesta', cajaOk ? 'verde' : 'amarillo')
-    + ['Gastos', 'Ventas B2B', 'Producción'].map(n => fila(n, 'Próximamente', 'gris')).join('');
+  function pintarFuentes() {
+    if (!$('fuentes')) return;
+    const fila = (nombre, chip, color, extra = '') => `<div class="fuente"><span>${esc(nombre)}${extra}</span><span class="chip c-${color}">${esc(chip)}</span></div>`;
+    const E = { ok: ['Al día', 'verde'], leyendo: ['Revisando…', 'gris'], sin_url: ['Falta la dirección', 'amarillo'], actualizar: ['Falta actualizar', 'amarillo'], error: ['Sin respuesta', 'amarillo'] };
+    $('fuentes').innerHTML = fila('Caja', cajaOk ? 'Al día' : 'Sin respuesta', cajaOk ? 'verde' : 'amarillo')
+      + Apps.APPS.map(a => { const e = estados[a.id]; const [t, c] = E[e.estado] || E.error;
+        const ayuda = e.estado === 'sin_url' ? ' <a href="#ajustes/conexiones">Agregar</a>' : e.estado === 'actualizar' ? ' <a href="#ajustes/conexiones">Cómo</a>' : '';
+        return fila(a.nombre, t, c, ayuda) + (e.estado === 'error' && e.error ? `<div class="ayuda" style="margin:-4px 0 6px">${esc(e.error)}</div>` : ''); }).join('');
+  }
   $('hoy-hora').textContent = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+  pintarLista();
+  // Las otras apps se leen en paralelo; cada una aparece apenas responde
+  const urls = await Apps.leerConexiones();
+  await Promise.all(Apps.APPS.map(async a => { estados[a.id] = await Apps.leerPendientes(a.id, urls[a.id]); pintarLista(); }));
+}
+
+// Convierte el resumen de cada app en filas de Pendientes (una por tema, sintetizada)
+function pendientesApps(estados) {
+  const L = [], url = id => (F.APPS.find(a => a.id === id) || {}).url || '#';
+  const nombres = (det, n = 3) => (det || []).slice(0, n).map(x => x.nombre).filter(Boolean).join(', ') + ((det || []).length > n ? '…' : '');
+  const veces = (n, s, p) => `${n} ${n === 1 ? s : p}`;
+  const P = id => (estados[id] && estados[id].estado === 'ok' ? estados[id].pendientes : []);
+  const de = (id, clave) => P(id).find(x => x.clave === clave);
+  // Gastos
+  const at = de('gastos', 'atrasados'), se = de('gastos', 'semana'), sii = de('gastos', 'docs_sii');
+  if (at && at.cantidad > 0) L.push({ orden: 0, color: 'rojo', icono: 'boleta', chip: 'Pagar', url: url('gastos'), origen: 'Gastos', titulo: 'Pagos atrasados',
+    detalle: `${veces(at.cantidad, 'pago', 'pagos')} · ${pesos(at.monto)} · ${nombres(at.detalle)}` });
+  if (se && se.cantidad > 0) L.push({ orden: 1.5, color: 'amarillo', icono: 'reloj', chip: 'Esta semana', url: url('gastos'), origen: 'Gastos', titulo: 'Pagos de los próximos 7 días',
+    detalle: `${veces(se.cantidad, 'pago', 'pagos')} · ${pesos(se.monto)} · ${(se.detalle || []).slice(0, 3).map(x => `${x.nombre} ${diaTexto(x.fecha)}`).join(', ')}${se.cantidad > 3 ? '…' : ''}` });
+  if (sii && sii.cantidad < 0) L.push({ orden: 5, color: 'gris', icono: 'boleta', chip: 'Revisar', url: url('gastos'), origen: 'Gastos', titulo: 'No se pudieron revisar los documentos del SII',
+    detalle: 'Los pagos sí se leyeron. Abre Gastos → Cargas SII para verlos.' });
+  if (sii && sii.cantidad > 0) L.push({ orden: 2.5, color: 'azul', icono: 'boleta', chip: 'Revisar', url: url('gastos'), origen: 'Gastos', titulo: 'Documentos del SII sin gasto',
+    detalle: `${veces(sii.cantidad, 'documento', 'documentos')} por registrar${sii.enDuda ? ` · ${sii.enDuda} con duda anotada` : ''}` });
+  // Ventas B2B
+  const co = de('b2b', 'cobros'), sf = de('b2b', 'sin_factura');
+  if (co && co.cantidad > 0) L.push({ orden: 0.5, color: 'rojo', icono: 'camion', chip: 'Cobrar', url: url('b2b'), origen: 'Ventas B2B', titulo: 'Cobros atrasados',
+    detalle: `${pesos(co.monto)} · ${veces(co.clientes, 'cliente', 'clientes')} · ${(co.detalle || []).slice(0, 3).map(x => `${x.nombre} ${pesos(x.valor)}`).join(', ')}${co.clientes > 3 ? '…' : ''}` });
+  if (sf && sf.cantidad > 0) L.push({ orden: sf.atrasadas ? 1.2 : 4, color: sf.atrasadas ? 'amarillo' : 'azul', icono: 'camion', chip: 'Facturar', url: url('b2b'), origen: 'Ventas B2B', titulo: 'Órdenes sin factura',
+    detalle: `${veces(sf.cantidad, 'orden', 'órdenes')}${sf.atrasadas ? `, ${sf.atrasadas} atrasadas · ${(sf.detalle || []).slice(0, 3).map(x => `${x.nombre} (${x.valor})`).join(', ')}` : ' · todas dentro de su plazo'}` });
+  // Producción
+  const mp = de('produccion', 'solicitudes_mp'), hb = de('produccion', 'habilitaciones');
+  if (mp && mp.cantidad > 0) L.push({ orden: 3.2, color: 'lila', icono: 'libro', chip: 'Aprobar', url: url('produccion'), origen: 'Producción', titulo: 'Materias primas por aprobar',
+    detalle: `${veces(mp.cantidad, 'solicitud', 'solicitudes')} · ${(mp.detalle || []).slice(0, 3).map(x => `${x.nombre} (${x.area})`).join(', ')}${mp.cantidad > 3 ? '…' : ''}` });
+  if (hb && hb.cantidad > 0) L.push({ orden: 3.3, color: 'lila', icono: 'libro', chip: 'Resolver', url: url('produccion'), origen: 'Producción', titulo: 'Habilitaciones por resolver',
+    detalle: `${veces(hb.cantidad, 'solicitud', 'solicitudes')} · ${(hb.detalle || []).slice(0, 3).map(x => `${x.nombre} → ${x.area}`).join(', ')}${hb.cantidad > 3 ? '…' : ''}` });
+  return L;
 }
 
 // ── Seguridad ──────────────────────────────────────
@@ -980,7 +1029,8 @@ async function pintarAjustes() {
   el.innerHTML = `<div class="cabecera"><div><h1 id="t-ajustes">Configuración</h1><p>Ajustes del negocio que usa la caja</p></div></div>
     <div class="tarjeta"><div class="vacio" style="border:0">Cargando…</div></div>`;
   let datos;
-  try { datos = await Ajustes.leerAjustes(); }
+  let conexiones = {};
+  try { [datos, conexiones] = await Promise.all([Ajustes.leerAjustes(), Apps.leerConexiones()]); }
   catch (e) { el.querySelector('.tarjeta').innerHTML = `<div class="error">${esc(mensajeError(e))}</div>`; return; }
   const { c, areas, productos } = datos;
   const lista = id => (c[id] && Array.isArray(c[id].lista) && c[id].lista.length ? c[id].lista : Ajustes.BASE[id]);
@@ -1037,6 +1087,16 @@ async function pintarAjustes() {
     <section class="tarjeta" aria-labelledby="t-recetas">
       <div class="titulo-fila"><h2 id="t-recetas">Recetas sin producto en la caja ${info('Recetas sin producto en la caja', 'Producción publica su lista de recetas. Las que no tienen un producto vinculado en la caja aparecen como pendientes en la caja (Configuración → Conexión con fën-producción).\nOcultar sirve para las que no se venden en el mostrador (por ejemplo, solo B2B o insumos): dejan de aparecer como pendientes. Se puede deshacer con "Mostrar".\nCrear el producto o vincularlo se sigue haciendo en la caja, hasta que llegue el catálogo nuevo.')}</h2><span id="rec-total"></span></div>
       <div id="rec-lista"><div class="vacio">Cargando la lista de Producción…</div></div>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="t-conexiones" id="conexiones">
+      <div class="titulo-fila"><h2 id="t-conexiones">Conexiones ${info('Conexiones', 'La dirección del Apps Script de cada app, para que Hoy lea sus pendientes. Es la misma dirección que usa cada app (termina en /exec).\nPara que funcione, cada script necesita la versión con SistemaFen.gs: Gastos v2.1.0, Ventas B2B v2.1.0 y Producción v2.2.0 (ver el README de la v0.6.0). "Probar" pregunta la versión.\nLa de Ventas B2B está en la app B2B, ⚙️ Config, o en Apps Script ▸ Implementar ▸ Gestionar implementaciones.\nEstas direcciones no son secretas: el script solo responde a la cuenta de administración.')}</h2></div>
+      ${Apps.APPS.map(a => `<form class="fila-conexion" data-conexion="${a.id}">
+        <label for="cx-${a.id}">${esc(a.nombre)}</label>
+        <input type="url" id="cx-${a.id}" value="${esc(conexiones[a.id] || '')}" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false" autocomplete="off">
+        <button type="button" class="btn-sec btn-chico" data-probar>Probar</button>
+        <button type="submit" class="btn-sec btn-chico">Guardar</button>
+        <span class="ayuda estado-cx" role="status">${conexiones[a.id] ? '' : 'Falta la dirección'}</span></form>`).join('')}
     </section>`;
 
   // Listas
@@ -1077,6 +1137,23 @@ async function pintarAjustes() {
       $('tp-estado').textContent = 'Guardado';
     } catch (er) { $('tp-estado').textContent = er.message || mensajeError(er); }
   });
+  // Conexiones
+  el.querySelectorAll('[data-conexion]').forEach(f => {
+    const app = f.dataset.conexion, inp = f.querySelector('input'), est = f.querySelector('.estado-cx');
+    f.querySelector('[data-probar]').addEventListener('click', async () => {
+      const u = inp.value.trim();
+      if (!Apps.URL_VALIDA.test(u)) { est.textContent = 'La dirección no parece de Apps Script (debe terminar en /exec)'; return; }
+      est.textContent = 'Probando…';
+      try { const r = await Apps.probar(app, u); est.textContent = r.texto; est.classList.toggle('ok', r.ok); }
+      catch (e) { est.textContent = 'No respondió: ' + (e.message || e); }
+    });
+    f.addEventListener('submit', async e => {
+      e.preventDefault();
+      try { await Apps.guardarConexion(app, inp.value); est.textContent = 'Guardada'; registrar('Cambió la configuración', `Conexión de ${app}`); }
+      catch (er) { est.textContent = er.message || mensajeError(er); }
+    });
+  });
+  if (subVista() === 'conexiones') setTimeout(() => { const c = $('conexiones'); if (c) c.scrollIntoView({ block: 'start' }); }, 50);
   // Períodos
   el.querySelectorAll('[data-periodo-rev]').forEach(b => b.addEventListener('click', () =>
     trabajar(b.closest('.fila-caja'), () => Ajustes.marcarPeriodo(b.dataset.periodoRev, b.dataset.rev === '1'), `Período ${b.dataset.periodoRev}: ${b.dataset.rev === '1' ? 'revisado' : 'pendiente'}`)));

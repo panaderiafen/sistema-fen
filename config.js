@@ -5,7 +5,7 @@
 //  reglas de Firestore y la cuenta de administración.
 // ═══════════════════════════════════════════════
 window.FEN_SIS = {
-  VERSION: '0.5.0',
+  VERSION: '0.6.0',
   firebase: {
     apiKey: 'AIzaSyDrG2mij1h5wZ2lIyAYMTfgG9avaVnjcaU',
     authDomain: 'fen-ventas.firebaseapp.com',
@@ -36,6 +36,13 @@ window.FEN_SIS = {
   CAJA_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx7eYgaVGK5NBFcmX5rVr2H_QiLIuRKS7oBwiVfy5_74icgNnKvD_WEkYD92dU-fddv1A/exec',
   // Script de Ventas mensuales (el mismo que usa la caja): solo para el correo de descuadre.
   VENTAS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxeA_xhOm83PlYgLzv7wP5N6AM-ogfrfTClrs91JzFWgi5HCSgIRwgzAuGIbd6WsukrNQ/exec',
+  // Apps Script de cada app, para que Hoy lea sus pendientes (se pueden cambiar en Configuración → Conexiones).
+  // La de Ventas B2B se guarda en cada equipo de la app B2B (⚙️ Config): pégala en Conexiones.
+  SCRIPTS: {
+    gastos: 'https://script.google.com/macros/s/AKfycbxQXOCvWM9YYY-mKLBImD4jp5XTCpBLqBO1pzCFFfllMaDBmFZAzdT8dswjyifcqzex/exec',
+    b2b: '',
+    produccion: 'https://script.google.com/macros/s/AKfycbw-D1gOezUuFEhhqXQ69zYR0Sp4Bekg3CHhy3lEMzB8CV9kp6ty0iXTreyq5aULmz5L8g/exec'
+  },
   // Lista de recetas que publica Producción (la misma que lee la caja, pestaña Lista_publica_productos)
   RECETAS_CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKvAbWUlwxbcCx54T3lfdMa8XxPD-F2lSE05-vMfdv_UpFVpDi6pbAJOpM7O6LBLmdfkz5804lzMYn/pub?gid=1370945279&single=true&output=csv',
   DIAS_HISTORIAL: 60
