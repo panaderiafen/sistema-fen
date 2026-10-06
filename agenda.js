@@ -7,7 +7,7 @@
 //  Nada se borra: "Quitar" lo marca quitado (queda en Firebase).
 //  Las consultas usan un solo campo (no necesitan índices).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, addDoc, getDoc, getDocs, updateDoc, query, where, Timestamp } from './firebase.js?v=0.10.0';
+import { auth, db, collection, doc, addDoc, getDoc, getDocs, updateDoc, query, where, Timestamp } from './firebase.js?v=0.10.1';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 const uid = () => (auth.currentUser && auth.currentUser.uid) || '';

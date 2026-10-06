@@ -1,9 +1,30 @@
-# Sistema Fën · v0.10.0
+# Sistema Fën · v0.10.1
 
-**App:** v0.10.0 · **Reglas de Firestore:** v1.3.0 (sin cambios) · 5 de octubre de 2026
+**App:** v0.10.1 · **Reglas de Firestore:** v1.3.0 (sin cambios) · 5 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas y despacho siguen en sus apps (Producción y B2B) con su PIN.
+
+## Novedades de la v0.10.1: Cotizaciones de Previred
+Nueva pestaña **Gastos → Previred**. Subes el PDF "Certificado de Pagos de Cotizaciones Previsionales" (el lote con todos o el de un trabajador) y:
+- Se lee **en tu equipo**: período, fecha de pago, total y, por trabajador, imponible, AFP, salud, AFC y lo que paga la empresa (SIS, seguros sociales, accidentes).
+- Eliges el **área** y el **ítem** de cada trabajador. Se recuerdan para el mes siguiente; por defecto, las áreas de producción van a REMUNERACIONES PRODUCCIÓN y Ventas/Admin a OTRAS REMUNERACIONES.
+- **Registrar** crea un gasto por trabajador (sin IVA, pagado al contado en la fecha de Previred, fecha del gasto = último día del mes de las remuneraciones, editable). En la observación queda el detalle: "Previred agosto 2026 · Nombre · AFP $… · Salud $… · AFC $… · Empleador $…".
+- Si tienes una obligación de cotizaciones por pagar, la propone y queda **pagada** (sin crear otro gasto).
+- El detalle completo queda en la hoja nueva **"Cotizaciones"** de la planilla de Gastos, y el PDF en Drive (carpeta "Cotizaciones Previred", privado).
+- **Meses cargados** muestra el costo de cada trabajador por mes.
+
+(i) **No se puede cargar dos veces lo mismo.** Si vuelves a subir un lote que ya cargaste con un trabajador más (o una gratificación nueva), se deja fuera lo ya cargado y se registra solo lo nuevo.
+
+(i) **Si alguna línea del PDF no se puede leer, no deja guardar** (el total quedaría incompleto) y te dice de qué trabajador es.
+
+(i) **Costo real de un sueldo** = el líquido que transfieres + el total de su fila de Previred. AFP y salud se descuentan del sueldo; SIS, seguros sociales y accidentes los paga la empresa; la AFC mezcla las dos partes. Conviene confirmarlo con la contadora.
+
+(i) El lector de PDF (pdf.js) se carga desde cdnjs solo al abrir esta pestaña, y solo lee texto.
+
+(i) Necesita el **script de Gastos v2.5.0** (`gastos-script-v2.5.0.zip`). Sin él, la pestaña dice "falta actualizarlo a v2.5.0"; el resto de Gastos sigue igual.
+
+Archivos: `previred.js` es **nuevo**; cambian `index.html`, `estilos.css`, `config.js`, `app.js`, `apps.js`, `README.md` y los demás `.js` (solo versión).
 
 ## Novedades de la v0.10.0: Gastos completo
 Gastos ahora tiene todo lo de la app de Gastos, en 7 pestañas:
@@ -227,6 +248,7 @@ estilos.css            colores Salvia y arena                     → GitHub, si
 config.js              versión, apps del menú, Firebase, scripts  → GitHub, sistema-fen, raíz (reemplaza)
 firebase.js            conexión con Firebase                      → GitHub, sistema-fen, raíz (reemplaza)
 app.js                 pantallas                                  → GitHub, sistema-fen, raíz (reemplaza)
+previred.js            NUEVO en v0.10.1: cotizaciones de Previred → GitHub, sistema-fen, raíz
 sii.js                 cargas del SII (v0.9.0)                    → GitHub, sistema-fen, raíz
 gastos.js              Gastos (v0.8.0)                            → GitHub, sistema-fen, raíz
 agenda.js              agenda (v0.7.0)                            → GitHub, sistema-fen, raíz
@@ -239,15 +261,15 @@ README.md              este archivo                               → GitHub, si
 firestore.rules        reglas v1.3.0 (agenda)                     → consola de Firebase (fen-ventas) → Firestore Database → Reglas → Publicar
 firestore-v1.2.0.rules reglas anteriores, por si hay que volver   → no se sube (guárdalo)
 ```
-En Apps Script cambia solo el de **Gastos** (v2.4.0, zip aparte con su README). Nada en la caja cambia.
+En Apps Script cambia solo el de **Gastos** (v2.5.0, zip aparte con su README). Nada en la caja cambia.
 
 (i) `config.js` lleva la configuración web de Firebase. No es secreta: es la misma que ya está en la caja y solo dice a qué proyecto conectarse. Lo que protege los datos son las reglas y tu contraseña.
 
-## Instalación de la v0.10.0
-0. **Primero el script de Gastos v2.4.0** (`gastos-script-v2.4.0.zip`, ver su README).
-1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra `sii.js`, `gastos.js`, `agenda.js`, `apps.js`, `ajustes.js`, `stock.js` y `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js`, `README.md` y `logo-fen.png` → **Commit changes**.
-2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.10.0**).
-3. Configuración → Conexiones → Gastos → **Probar**: debe decir "v2.4.0 · lista".
+## Instalación de la v0.10.1
+0. **Primero el script de Gastos v2.5.0** (`gastos-script-v2.5.0.zip`, ver su README). Si no instalaste la v2.4.0, esta la incluye.
+1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra `previred.js` (nuevo), `sii.js`, `gastos.js`, `agenda.js`, `apps.js`, `ajustes.js`, `stock.js` y `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js`, `README.md` y `logo-fen.png` → **Commit changes**.
+2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.10.1**).
+3. Configuración → Conexiones → Gastos → **Probar**: debe decir "v2.5.0 · lista".
 
 ## Instalación de la v0.8.0 (ya hecha si la instalaste)
 0. **Script de Gastos v2.2.0** (ver su README). **Reglas:** si ya publicaste las v1.3.0, no hace falta nada más; consola de Firebase → **fen-ventas** → Firestore Database → **Reglas** → borra todo, pega `firestore.rules` (v1.3.0) → **Publicar**. Después abre la caja y haz algo de todos los días: debe funcionar igual (si no, pega `firestore-v1.2.0.rules` y avísame).
@@ -257,6 +279,8 @@ En Apps Script cambia solo el de **Gastos** (v2.4.0, zip aparte con su README). 
 (i) Instalación desde cero (v0.1): reglas v1.2.0 en Firebase, subir los archivos, Settings → Pages → *Deploy from a branch*, **main**, **/(root)**. Ya está hecho.
 
 ## Lista de verificación
+- [ ] **Previred**: sube el lote de agosto. El total debe ser el que pagaste en Previred y cada trabajador con su AFP, salud, AFC y empresa. Elige áreas e ítems y registra: en Registro Gasto aparece una fila por trabajador; en la planilla, la hoja **Cotizaciones** con el detalle (la columna "Folio Planilla" con los 16 dígitos completos).
+- [ ] Vuelve a subir el mismo PDF: dice que ya estaba cargado completo.
 - [ ] Abajo a la izquierda dice **v0.10.0**; Gastos tiene 7 pestañas.
 - [ ] **Registrados**: aparecen tus gastos; busca uno por monto o proveedor. **Corrige** la observación de uno de prueba y revisa en la planilla que cambió solo esa fila.
 - [ ] Registra un gasto de prueba y **anúlalo**: sale de Registro Gasto y aparece en la pestaña nueva **Gastos anulados** con tu cuenta y el motivo.
@@ -293,7 +317,7 @@ En Apps Script cambia solo el de **Gastos** (v2.4.0, zip aparte con su README). 
 - **"…el cierre no llegó a la planilla (…)":** la caja quedó cerrada; el cierre queda en *Cierres sin pasar a planilla*. Toca *Reenviar*. Si vuelve a fallar, mándame el texto del error.
 - **Sigue viéndose la v0.1.1:** espera unos minutos y recarga con Ctrl+Shift+R.
 
-## Pruebas automáticas (45, todas pasan)
+## Pruebas automáticas (48, todas pasan)
 Con Firebase simulado en el navegador:
 - Las 12 de la v0.1.1 (entrada, Hoy, recargar, Seguridad, revocar, vencer, celular).
 - Hoy abre Ventas de caja → Anulaciones. Aprobar una venta con pago dividido: efectivo y débito bajan lo justo, no aparece un medio "Dividido", el stock vuelve al mismo lote, queda en la actividad.
@@ -303,6 +327,7 @@ Con Firebase simulado en el navegador:
 - Caja que vendió hace 5 minutos: avisa y, si dices que no, no se cierra.
 - Solicitud aprobada en otro equipo justo antes: no se descuenta dos veces.
 - Celular: Caja en la barra inferior, sin scroll horizontal.
+- v0.10.1: un PDF de prueba con el mismo formato que Previred (datos inventados): lee 2 trabajadores (uno con el nombre en dos líneas), totales por AFP, salud, AFC y empresa; área e ítem recordados y por defecto según el área; fecha = último día del período; propone el vencimiento de cotizaciones; pide área e ítem; registra con clave según el contenido; lote con un trabajador ya cargado registra solo el otro; mes completo ya cargado no deja guardar; un PDF que no es de Previred avisa; celular sin scroll horizontal. El lector se probó también con un lote real de Previred: el total leído coincide con el pagado. Pruebas del script: área e ítem validados, nombres sin fórmulas, un gasto por trabajador sin IVA con el detalle en la observación, PDF privado, hojas nuevas al final, vencimiento pagado, mismo mes otra vez no guarda nada, mismo envío no duplica, costo por trabajador. Una revisión independiente encontró 6 cosas (guardar con líneas sin leer, líneas que podían perderse sin aviso, reintento tras un corte, folios de 16 dígitos, lote con un trabajador nuevo, un resquicio de fórmulas): todas arregladas.
 - v0.10.0: registrados con búsqueda, mes y "por pagar"; corregir (área fija del ítem, neto, historial con antes → después); anular una compra de dos líneas con motivo y su vencimiento; un pago de obligación sin boleta no se agrupa y ofrece dejar el vencimiento por pagar; anular un vencimiento; obligaciones con % sugerido, cuponera, archivar e historial; análisis (costo operacional sin la inversión, por área, subtipo, 6 meses); ítems (subir, renombrar, archivar y reactivar); celular sin scroll horizontal en las cuatro pestañas. Pruebas del script con la planilla en memoria y el Code.gs real: nota de crédito y factura con el mismo folio, notas de crédito antiguas, la app de Gastos sin tipo no reimporta, "NC." y "Tipo Doc"; lista con huella, corregir revisa la fila, conserva el folio y respeta el signo; anular copia a "Gastos anulados" (al final de las pestañas, por nombre de columna), borra de abajo hacia arriba, no repite con la misma clave y con otra clave detecta que la fila cambió; vencimiento anulado oculto, sin correo, sin pago y fuera de Hoy; obligaciones validadas (día, %, áreas, cuponera); ítems archivados fuera de Registrar y del orden. Una revisión independiente encontró 6 cosas (agrupar pagos distintos como una compra, pago anulado que dejaba la obligación pagada, área que cambiaba sola al corregir, reintento que podía anular otra fila igual, orden con archivados, columnas nuevas en "Gastos anulados"): todas arregladas.
 - v0.9.0: subir un XML con 4 documentos (uno ya importado, uno con nota y coincidencia, una nota de crédito, uno con harina y vencimiento a 31 días ya puesto como pendiente); la carga queda en el historial con el archivo; asignar productos con "Mismo ítem a todos" y áreas (montos calculados con IVA e impuesto de harina, cuadrando exacto); vincular con un gasto a mano; importar (montos negativos y fecha propia en la nota de crédito). CSV sin detalle: no importa sin ítem; dividir en dos ítems con el acumulador y aviso de cuánto falta; % sugerido por ventas; pide pagada o pendiente; "Aplicar a todas"; repetidos → "Importar solo las nuevas" con otra clave; historial con búsqueda, ir a la carga, nota y quitar. Reabrir no vuelve a guardar la carga; detalle de un documento; script sin actualizar avisa sin romper Vencimientos; celular sin scroll horizontal. Pruebas del script con la planilla en memoria y el Code.gs real: ya importados y coincidencias, archivo privado en Drive, carga repetida no se duplica, notas sin fórmulas, quitar marca sin borrar (y desaparece de Hoy), volver a subir la trae de vuelta, vincular revisa que las filas sigan siendo las mismas, importar rechaza áreas que no suman, ítems inexistentes, áreas falsas y documentos repetidos, el reintento no duplica, repetidos no escriben nada, un corte a medias no deja vencimientos sueltos, documentos en $0. Una revisión independiente encontró 5 cosas (nota que podía guardarse en el documento equivocado, documentos en $0, lecturas sin bloqueo, mensaje tras un corte, "Misma área a todos" en ítems prorrateados): todas arregladas.
 - v0.8.0: vencimientos por grupo con montos (remuneraciones = suma de sus áreas); pagar uno repartido por área con comprobante (la foto se achica y va con su clave única); registrar un gasto con varias áreas, reparto en % (debe sumar 100), harina, neto y crédito de proveedor (pide fecha de pago y foto); total con IVA e impuesto de harina; los vencimientos en la agenda del mes y tocar uno abre el pago; script sin actualizar avisa; celular. Más las pruebas del script: no paga dos veces, un envío repetido no duplica, un envío cortado a medias no se repite, áreas y % revisados en el servidor, ítems de obligaciones recurrentes no se registran a mano.

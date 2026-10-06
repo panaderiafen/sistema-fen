@@ -6,11 +6,11 @@
 //  Las direcciones de los scripts vienen de config.js y se pueden cambiar en
 //  Configuración → Conexiones (se guardan en Firestore, config/sistemaFen).
 // ═══════════════════════════════════════════════
-import { auth, db, doc, getDoc, runTransaction } from './firebase.js?v=0.10.0';
+import { auth, db, doc, getDoc, runTransaction } from './firebase.js?v=0.10.1';
 
 const F = window.FEN_SIS;
 export const APPS = [
-  { id: 'gastos', nombre: 'Gastos', minima: '2.1.0', completa: '2.4.0' },   // completa: la que piden los módulos de Sistema Fën (Gastos y cargas del SII)
+  { id: 'gastos', nombre: 'Gastos', minima: '2.1.0', completa: '2.5.0' },   // completa: la que piden los módulos de Sistema Fën (Gastos y cargas del SII)
   { id: 'b2b', nombre: 'Ventas B2B', minima: '2.1.0' },
   { id: 'produccion', nombre: 'Producción', minima: '2.2.0' }
 ];

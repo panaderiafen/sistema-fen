@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — app  v0.10.0
+//  Sistema Fën — app  v0.10.1
 //  Etapa 1: entrada por equipo, Seguridad, Hoy, menú y la administración de la caja
 //  (cierres y anulaciones).
 // ═══════════════════════════════════════════════
@@ -9,14 +9,15 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.10.0';
-import * as Caja from './caja.js?v=0.10.0';
-import * as Stock from './stock.js?v=0.10.0';
-import * as Ajustes from './ajustes.js?v=0.10.0';
-import * as Apps from './apps.js?v=0.10.0';
-import * as Agenda from './agenda.js?v=0.10.0';
-import * as Gastos from './gastos.js?v=0.10.0';
-import * as Sii from './sii.js?v=0.10.0';
+} from './firebase.js?v=0.10.1';
+import * as Caja from './caja.js?v=0.10.1';
+import * as Stock from './stock.js?v=0.10.1';
+import * as Ajustes from './ajustes.js?v=0.10.1';
+import * as Apps from './apps.js?v=0.10.1';
+import * as Agenda from './agenda.js?v=0.10.1';
+import * as Gastos from './gastos.js?v=0.10.1';
+import * as Sii from './sii.js?v=0.10.1';
+import * as Previred from './previred.js?v=0.10.1';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -305,7 +306,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.10.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.10.1" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -588,7 +589,7 @@ function refrescarAgenda() { const v = vistaDesdeHash(); if (v === 'agenda') pin
 // ── Gastos ─────────────────────────────────────────
 const AREAS_GASTO = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS'];
 const montoV = v => (v.multiArea && v.multiArea.length ? v.multiArea.reduce((s, a) => s + (Number(a.monto) || 0), 0) : Number(String(v.montoEstimado || '').replace(/[^0-9]/g, '')) || 0);
-const SUBS_GASTOS = [['', 'Vencimientos'], ['obligaciones', 'Obligaciones'], ['registrar', 'Registrar'], ['registrados', 'Registrados'], ['analisis', 'Análisis'], ['sii', 'Cargas del SII'], ['items', 'Ítems']];
+const SUBS_GASTOS = [['', 'Vencimientos'], ['obligaciones', 'Obligaciones'], ['registrar', 'Registrar'], ['registrados', 'Registrados'], ['previred', 'Previred'], ['analisis', 'Análisis'], ['sii', 'Cargas del SII'], ['items', 'Ítems']];
 function pestanasGastos(sub) {
   const actual = SUBS_GASTOS.some(([k]) => k && k === sub) ? sub : '';
   return `<div class="pestanas" role="tablist" aria-label="Secciones de Gastos">${SUBS_GASTOS.map(([k, t]) => `<a role="tab" href="#gastos${k ? '/' + k : ''}" aria-selected="${k === actual}">${t}</a>`).join('')}</div>`;
@@ -610,6 +611,7 @@ async function pintarGastos(sub) {
   else if (sub === 'registrados') pintarRegistrados(el, sub, d);
   else if (sub === 'analisis') pintarAnalisis(el, sub, d);
   else if (sub === 'items') pintarItems(el, sub, d);
+  else if (sub === 'previred') pintarPrevired(el, sub, d);
   else pintarVencimientos(el, sub, d);
 }
 
@@ -1695,6 +1697,126 @@ function editarItem(i) {
     try { await Gastos.guardarItem(datos); registrar(i ? 'Editó un ítem' : 'Creó un ítem', i && i.item !== datos.nombre ? `${i.item} → ${datos.nombre}` : datos.nombre); d.close(); pintarGastos('items'); }
     catch (er) { q('#it-error').textContent = er.message || mensajeError(er); b.disabled = false; }
   });
+}
+
+// ── Gastos · v0.10.1: cotizaciones de Previred ──
+const prev = { datos: null, archivo: null, config: {}, yaCargadas: [], idem: null };
+const ultimoDia = periodo => { const [a, m] = periodo.split('-').map(Number); const d = new Date(a, m, 0); return Caja.diaLocal(d); };
+function itemPorDefecto(area, items) {
+  const existe = n => items.some(i => i.item === n);
+  if (['PAN', 'BOL', 'CAF', 'PAS'].includes(area) && existe('REMUNERACIONES PRODUCCIÓN')) return 'REMUNERACIONES PRODUCCIÓN';
+  if (existe('OTRAS REMUNERACIONES')) return 'OTRAS REMUNERACIONES';
+  return '';
+}
+
+async function pintarPrevired(el, sub, d) {
+  const items = d.itemsSii || d.items || [];
+  el.innerHTML = cabGastos(sub) + `
+    <section class="tarjeta" aria-labelledby="t-prev"><div class="titulo-fila"><h2 id="t-prev">Cotizaciones de Previred ${info('Cotizaciones de Previred', 'Sube el PDF de "Certificado de Pagos de Cotizaciones Previsionales" que descargas de Previred: el de un trabajador o el lote con todos. Se lee aquí mismo, en tu equipo.\nSe registra un gasto por trabajador (sin IVA, pagado al contado en la fecha de pago de Previred), con el área y el ítem que elijas: se recuerdan para el mes siguiente.\nEl detalle (AFP, salud, AFC y lo que paga la empresa) queda en la hoja "Cotizaciones" de la planilla, y el PDF en Drive como comprobante.\nEl mismo mes no se puede cargar dos veces.')}</h2></div>
+      <div class="campo"><label for="prev-archivo">PDF de Previred</label><input id="prev-archivo" type="file" accept="application/pdf,.pdf"></div>
+      <div id="prev-msg" class="ayuda" role="status">${esc(prev.mensaje || '')}</div></section>
+    <div id="prev-trabajo"></div>
+    <section class="tarjeta" aria-labelledby="t-prev-hist"><div class="titulo-fila"><h2 id="t-prev-hist">Meses cargados ${info('Costo de cada sueldo', 'AFP y salud se descuentan del sueldo del trabajador. SIS, seguros sociales y accidentes (ISL o mutual) los paga la empresa. La AFC mezcla las dos partes.\nEl costo real de un sueldo es el líquido que le transfieres más el total de su fila aquí.')}</h2></div>
+      <div id="prev-hist"><div class="vacio" style="border:0">Cargando…</div></div></section>`;
+  $('prev-archivo').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) leerPrevired(f, items, d); });
+  if (prev.datos) pintarPrevTrabajo(items, d);
+  try { pintarPrevHist((await Previred.lista()).periodos || []); }
+  catch (e) { errorGastos($('prev-hist'), e); }
+}
+
+async function leerPrevired(file, items, d) {
+  const msg = $('prev-msg'); prev.mensaje = '';
+  if (file.size > 8 * 1024 * 1024) { msg.textContent = 'El PDF pesa más de 8 MB: no parece un certificado de Previred.'; return; }
+  msg.textContent = 'Leyendo el PDF…';
+  try {
+    const r = Previred.leer(await Previred.lineasDelPdf(file));
+    msg.textContent = 'Revisando si ese mes ya estaba cargado…';
+    const e = await Previred.estado(r.periodo, r.trabajadores);
+    // Lo ya cargado se deja fuera (por ejemplo, el lote se descargó de nuevo con un trabajador más)
+    const ya = new Set(e.yaCargadas || []);
+    let fuera = 0;
+    r.trabajadores.forEach(t => { const n = t.lineas.length; t.lineas = t.lineas.filter(l => !ya.has(Previred.clave(r.periodo, t, l))); fuera += n - t.lineas.length; t.total = t.lineas.reduce((x, l) => x + l.monto, 0); });
+    r.yaCargadasN = fuera;
+    r.trabajadores = r.trabajadores.filter(t => t.lineas.length);
+    r.trabajadores.forEach(t => {
+      const c = (e.config || {})[t.rut.toUpperCase()] || {};
+      t.area = c.area || '';
+      t.item = c.item && items.some(i => i.item === c.item) ? c.item : itemPorDefecto(t.area, items);
+    });
+    Object.assign(prev, { datos: r, archivo: file, yaCargadas: e.yaCargadas || [], idem: await Previred.claveDeEnvio(r.periodo, r.trabajadores) });
+    prev.fecha = ultimoDia(r.periodo);
+    const pend = (d.vencimientos || []).filter(v => v.estado === 'PENDIENTE' || v.estado === 'VENCIDA');
+    const sug = pend.find(v => /cotiz|previred|imposic/i.test(`${v.nombre} ${v.item}`));
+    prev.vencimientoId = sug && !fuera ? sug.id : '';   // si parte ya estaba cargada, el vencimiento lo eliges tú
+    msg.textContent = '';
+    pintarPrevTrabajo(items, d);
+  } catch (er) { msg.textContent = er.message || mensajeError(er); }
+}
+
+function pintarPrevTrabajo(items, d) {
+  const cont = $('prev-trabajo'), r = prev.datos;
+  if (!cont || !r) return;
+  const total = r.trabajadores.reduce((s, t) => s + t.total, 0);
+  const pend = (d.vencimientos || []).filter(v => v.estado === 'PENDIENTE' || v.estado === 'VENCIDA');
+  const cargado = !r.trabajadores.length, parcial = !cargado && r.yaCargadasN > 0;
+  const opcItems = sel => `<option value="">Ítem</option>${items.map(i => `<option value="${esc(i.item)}" ${i.item === sel ? 'selected' : ''}>${esc(i.item)}</option>`).join('')}`;
+  cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prev-mes">
+    <div class="titulo-fila"><h2 id="t-prev-mes">${esc(Previred.nombreMes(r.periodo).replace(/^./, c => c.toUpperCase()))}</h2><span>${r.trabajadores.length} ${r.trabajadores.length === 1 ? 'trabajador' : 'trabajadores'}</span></div>
+    <div class="desglose desglose-grande"><span>Total pagado <b>${pesos(total)}</b></span><span>Pagado el <b>${esc(fechaIso(r.fechaPago))}</b></span>
+      <span>AFP <b>${pesos(r.trabajadores.reduce((s, t) => s + Previred.resumen(t).afp, 0))}</b></span><span>Salud <b>${pesos(r.trabajadores.reduce((s, t) => s + Previred.resumen(t).salud, 0))}</b></span>
+      <span>AFC <b>${pesos(r.trabajadores.reduce((s, t) => s + Previred.resumen(t).afc, 0))}</b></span><span>Empresa <b>${pesos(r.trabajadores.reduce((s, t) => s + Previred.resumen(t).empleador, 0))}</b></span></div>
+    ${r.avisos.map(a => `<div class="aviso">${esc(a)}</div>`).join('')}
+    ${cargado ? `<div class="aviso aviso-rojo">Este mes ya estaba cargado completo: no hay nada nuevo que guardar. Míralo en "Meses cargados".</div>` : ''}
+    ${parcial ? `<div class="aviso">${r.yaCargadasN} ${r.yaCargadasN === 1 ? 'línea ya estaba cargada' : 'líneas ya estaban cargadas'} de este mes: se dejan fuera y se registra solo lo nuevo (lo que ves abajo).</div>` : ''}
+    ${r.bloquea ? '<div class="aviso aviso-rojo">Hay líneas del PDF que no se pudieron leer (ver arriba): no se puede guardar porque los totales quedarían incompletos. Prueba con el PDF de ese trabajador por separado o avísame.</div>' : ''}
+    <div id="prev-filas">${r.trabajadores.map((t, i) => { const s = Previred.resumen(t);
+      return `<div class="fila-caja" data-t="${i}"><div class="txt"><b>${esc(t.nombre)}</b>
+        <span>Imponible ${pesos(s.imponible)} · AFP ${pesos(s.afp)} · Salud ${pesos(s.salud)} · AFC ${pesos(s.afc)} · Empresa ${pesos(s.empleador)}${s.otro ? ' · Otros ' + pesos(s.otro) : ''}</span></div>
+        <div class="acciones"><select data-area="${i}" aria-label="Área de ${esc(t.nombre)}"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === t.area ? 'selected' : ''}>${a}</option>`).join('')}</select>
+          <select data-item="${i}" aria-label="Ítem de ${esc(t.nombre)}">${opcItems(t.item)}</select>
+          <span class="chip c-gris">${pesos(t.total)}</span></div></div>`; }).join('')}</div>
+    <div class="grilla-montos"><div class="campo"><label for="prev-fecha">Fecha del gasto ${info('Fecha del gasto', 'El mes al que corresponde el costo. Por defecto, el último día del mes de las remuneraciones (así queda junto a los sueldos de ese mes en el análisis). La fecha de pago es la de Previred.')}</label><input id="prev-fecha" type="date" value="${esc(prev.fecha)}"></div>
+      <div class="campo"><label for="prev-venc">Vencimiento que paga (opcional)</label><select id="prev-venc"><option value="">Ninguno</option>${pend.map(v => `<option value="${esc(v.id)}" ${v.id === prev.vencimientoId ? 'selected' : ''}>${esc(v.nombre)} · ${esc(fechaIso(v.fecha))}</option>`).join('')}</select></div></div>
+    <div class="error" id="prev-error" role="alert"></div>
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="prev-guardar" ${cargado || r.bloquea ? 'disabled' : ''}>Registrar ${r.trabajadores.length} ${r.trabajadores.length === 1 ? 'gasto' : 'gastos'} · ${pesos(total)}</button><button type="button" class="btn-sec" id="prev-descartar">Descartar</button></div></section>`;
+  if (!cont.dataset.escucha) cont.dataset.escucha = '1', cont.addEventListener('change', e => {
+    const r = prev.datos; if (!r) return;
+    const t = e.target;
+    if (t.dataset.area !== undefined) { const w = r.trabajadores[+t.dataset.area]; const antes = itemPorDefecto(w.area, items); w.area = t.value; if (!w.item || w.item === antes) { w.item = itemPorDefecto(w.area, items); const s = cont.querySelector(`[data-item="${t.dataset.area}"]`); if (s) s.value = w.item; } }
+    else if (t.dataset.item !== undefined) r.trabajadores[+t.dataset.item].item = t.value;
+    else if (t.id === 'prev-fecha') prev.fecha = t.value;
+    else if (t.id === 'prev-venc') prev.vencimientoId = t.value;
+  });
+  $('prev-descartar').onclick = () => { prev.datos = null; cont.innerHTML = ''; };
+  $('prev-guardar').onclick = async () => {
+    const err = $('prev-error'); err.textContent = '';
+    const falta = r.trabajadores.find(t => !t.area || !t.item);
+    if (falta) { err.textContent = `${falta.nombre}: elige el área y el ítem.`; return; }
+    if (!prev.fecha) { err.textContent = 'Elige la fecha del gasto.'; return; }
+    const payload = { periodo: r.periodo, fechaPago: r.fechaPago, fecha: prev.fecha, vencimientoId: prev.vencimientoId || '',
+      trabajadores: r.trabajadores.map(t => ({ rut: t.rut, nombre: t.nombre, area: t.area, item: t.item, lineas: t.lineas.map(l => ({ institucion: l.institucion, tipoPago: l.tipoPago, imponible: l.imponible, monto: l.monto, folio: l.folio })) })) };
+    const b = $('prev-guardar'); b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      const x = await Previred.registrar(payload, prev.archivo, prev.idem);
+      registrar('Cargó cotizaciones de Previred', `${Previred.nombreMes(r.periodo)} · ${x.trabajadores} trabajadores · ${pesos(x.total)}`);
+      prev.datos = null;
+      prev.mensaje = `Listo: ${x.trabajadores} gastos por ${pesos(x.total)}${x.vencimiento ? ' y el vencimiento quedó pagado' : ''}.${x.conArchivo ? '' : ' (El PDF no se pudo guardar en Drive.)'}`;
+      pintarGastos('previred');
+    } catch (er) {
+      err.textContent = (er.message || mensajeError(er)) + (er.code ? '' : ' Si vuelves a tocar Registrar no se duplica.');
+      b.disabled = er.code === 'duplicado'; b.textContent = 'Registrar';
+    }
+  };
+}
+
+function pintarPrevHist(P) {
+  const cont = $('prev-hist'); if (!cont) return;
+  cont.innerHTML = P.length ? P.map((p, k) => `<details class="mes-sii" ${k === 0 ? 'open' : ''}><summary><b>${esc(Previred.nombreMes(p.periodo).replace(/^./, c => c.toUpperCase()))}</b><span>${p.trabajadores.length} trabajadores · ${pesos(p.total)} · pagado el ${esc(fechaIso(p.fechaPago))}</span></summary>
+    ${p.trabajadores.sort((a, b) => b.total - a.total).map(t => `<div class="fila-caja"><div class="txt"><b>${esc(t.nombre)}</b><span>${esc(t.area)} · imponible ${pesos(t.imponible)}</span>
+      <span>AFP ${pesos(t.afp)} · Salud ${pesos(t.salud)} · AFC ${pesos(t.afc)} · Empresa ${pesos(t.empleador)}${t.otro ? ' · Otros ' + pesos(t.otro) : ''}</span></div>
+      <div class="acciones"><span class="chip c-gris">${pesos(t.total)}</span></div></div>`).join('')}
+    ${p.archivo ? `<p class="ayuda"><a href="${esc(p.archivo)}" target="_blank" rel="noopener">PDF en Drive</a></p>` : ''}</details>`).join('')
+    : '<div class="vacio">Aún no hay meses cargados.</div>';
 }
 
 // Convierte el resumen de cada app en filas de Pendientes (una por tema, sintetizada)
