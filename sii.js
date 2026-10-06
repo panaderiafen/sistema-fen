@@ -1,14 +1,17 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Cargas del SII  v0.9.0
+//  Sistema Fën — Cargas del SII  v0.10.0
 //  Lectura de los archivos del SII y armado de lo que se importa, copiado de la
 //  app de Gastos (index.html, "Carga masiva"): mismos formatos, mismas reglas de
 //  harina, notas de crédito, detalle de productos y reparto por área.
 //  Lo que se guarda pasa por el Apps Script de Gastos (SistemaFen.gs v1.2.0),
 //  que vuelve a revisar todo antes de escribir.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.9.0';
+import * as Gastos from './gastos.js?v=0.10.0';
 
-export const VERSION_MINIMA = '2.3.0';
+export const VERSION_MINIMA = '2.4.0';
+// v0.10.0: un documento se reconoce por RUT, folio y si es nota de crédito (tipo 61):
+// la nota de crédito de un proveedor puede tener el mismo folio que una de sus facturas.
+export const clave = f => `${f.rut}|${f.folio}${String(f.tipoDoc ?? f.tipo) === '61' ? '|61' : ''}`;
 const llamar = (op, datos, idem) => Gastos.llamar(op, datos, idem, VERSION_MINIMA);
 
 // ── Lectura de los archivos ────────────────────────
@@ -370,7 +373,7 @@ export function prepararParaImportar(facturas, ITEMS) {
     });
     if (error) return;
     listas.push({
-      rut: f.rut, razonSocial: f.razonSocial, folio: f.folio,
+      rut: f.rut, razonSocial: f.razonSocial, folio: f.folio, tipoDoc: f.tipoDoc || (f.total < 0 ? '61' : '33'),
       fechaDocto: f.fecha.replace(/\//g, '-'), // dd-mm-yyyy, como guarda la app
       total: f.total, neto: f.neto, iva: f.iva, esHarina: !!f.esHarina,
       estado: f.esNotaCredito ? 'pagada' : f.estado, fechaEstado: f.fechaEstado, lineas,
@@ -405,18 +408,18 @@ export function formatoDeArchivo(nombre) {
 
 // ── Llamadas al Apps Script de Gastos ──────────────
 const base64Utf8 = texto => { const b = new TextEncoder().encode(texto); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
-const docsDe = facturas => facturas.map(f => ({ rut: f.rut, folio: f.folio, total: f.total, fecha: fechaDDMMYYYYaISO(f.fecha), razonSocial: f.razonSocial }));
+const docsDe = facturas => facturas.map(f => ({ rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', total: f.total, fecha: fechaDDMMYYYYaISO(f.fecha), razonSocial: f.razonSocial }));
 
 export const estado = facturas => llamar('sii_estado', { documentos: docsDe(facturas) });
 export const registrarCarga = (facturas, nombre, tipo, contenido, idem) =>
   llamar('sii_carga', { nombreArchivo: nombre, mimeType: tipo || 'text/plain', archivoBase64: base64Utf8(contenido), documentos: docsDe(facturas) }, idem);
 export const cargas = () => llamar('sii_cargas');
 export const archivo = id => llamar('sii_archivo', { id });
-export const detalle = (rut, folio) => llamar('sii_detalle', { rut, folio });
+export const detalle = (rut, folio, tipo) => llamar('sii_detalle', { rut, folio, ...(tipo !== undefined ? { tipo } : {}) });
 let ventasCache = null;
 export async function ventas() { if (!ventasCache || Date.now() - ventasCache.t > 600000) ventasCache = { t: Date.now(), d: await llamar('sii_ventas') }; return ventasCache.d; }
 export async function importar(listas, omitirRepetidas, idem) { const r = await llamar('sii_importar', { facturas: listas, omitirRepetidas: !!omitirRepetidas }, idem); Gastos.olvidar(); return r; }
-export const vincular = (f, c, idem) => llamar('sii_vincular', { rut: f.rut, folio: f.folio, razonSocial: f.razonSocial, filas: c.filas, fecha: c.fecha, total: c.total }, idem);
-export const notaDoc = (f, nota) => llamar('sii_nota_doc', { rut: f.rut, folio: f.folio, razonSocial: f.razonSocial, nota });
+export const vincular = (f, c, idem) => llamar('sii_vincular', { rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', razonSocial: f.razonSocial, filas: c.filas, fecha: c.fecha, total: c.total }, idem);
+export const notaDoc = (f, nota) => llamar('sii_nota_doc', { rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', razonSocial: f.razonSocial, nota });
 export const notaCarga = (id, nota) => llamar('sii_nota_carga', { id, nota });
 export const quitarCarga = id => llamar('sii_quitar_carga', { id });

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — app  v0.9.0
+//  Sistema Fën — app  v0.10.0
 //  Etapa 1: entrada por equipo, Seguridad, Hoy, menú y la administración de la caja
 //  (cierres y anulaciones).
 // ═══════════════════════════════════════════════
@@ -9,14 +9,14 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.9.0';
-import * as Caja from './caja.js?v=0.9.0';
-import * as Stock from './stock.js?v=0.9.0';
-import * as Ajustes from './ajustes.js?v=0.9.0';
-import * as Apps from './apps.js?v=0.9.0';
-import * as Agenda from './agenda.js?v=0.9.0';
-import * as Gastos from './gastos.js?v=0.9.0';
-import * as Sii from './sii.js?v=0.9.0';
+} from './firebase.js?v=0.10.0';
+import * as Caja from './caja.js?v=0.10.0';
+import * as Stock from './stock.js?v=0.10.0';
+import * as Ajustes from './ajustes.js?v=0.10.0';
+import * as Apps from './apps.js?v=0.10.0';
+import * as Agenda from './agenda.js?v=0.10.0';
+import * as Gastos from './gastos.js?v=0.10.0';
+import * as Sii from './sii.js?v=0.10.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -305,7 +305,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.9.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.10.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -588,15 +588,14 @@ function refrescarAgenda() { const v = vistaDesdeHash(); if (v === 'agenda') pin
 // ── Gastos ─────────────────────────────────────────
 const AREAS_GASTO = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS'];
 const montoV = v => (v.multiArea && v.multiArea.length ? v.multiArea.reduce((s, a) => s + (Number(a.monto) || 0), 0) : Number(String(v.montoEstimado || '').replace(/[^0-9]/g, '')) || 0);
+const SUBS_GASTOS = [['', 'Vencimientos'], ['obligaciones', 'Obligaciones'], ['registrar', 'Registrar'], ['registrados', 'Registrados'], ['analisis', 'Análisis'], ['sii', 'Cargas del SII'], ['items', 'Ítems']];
 function pestanasGastos(sub) {
-  return `<div class="pestanas" role="tablist" aria-label="Secciones de Gastos">
-    <a role="tab" href="#gastos" aria-selected="${sub !== 'registrar' && sub !== 'sii'}">Vencimientos</a>
-    <a role="tab" href="#gastos/registrar" aria-selected="${sub === 'registrar'}">Registrar gasto</a>
-    <a role="tab" href="#gastos/sii" aria-selected="${sub === 'sii'}">Cargas del SII</a></div>`;
+  const actual = SUBS_GASTOS.some(([k]) => k && k === sub) ? sub : '';
+  return `<div class="pestanas" role="tablist" aria-label="Secciones de Gastos">${SUBS_GASTOS.map(([k, t]) => `<a role="tab" href="#gastos${k ? '/' + k : ''}" aria-selected="${k === actual}">${t}</a>`).join('')}</div>`;
 }
 async function pintarGastos(sub) {
   const el = $('v-gastos');
-  el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Pagar vencimientos y registrar gastos sin abrir la app de Gastos</p></div>${pestanasGastos(sub)}</div>
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Todo lo de la app de Gastos, aquí</p></div>${pestanasGastos(sub)}</div>
     <div class="tarjeta"><div class="vacio" style="border:0">Cargando Gastos…</div></div>`;
   let d;
   try { d = await Gastos.datos(); }
@@ -605,7 +604,13 @@ async function pintarGastos(sub) {
     return;
   }
   if (vistaDesdeHash() !== 'gastos') return;
-  if (sub === 'registrar') pintarRegistrarGasto(el, sub, d); else if (sub === 'sii') pintarSII(el, sub, d); else pintarVencimientos(el, sub, d);
+  if (sub === 'registrar') pintarRegistrarGasto(el, sub, d);
+  else if (sub === 'sii') pintarSII(el, sub, d);
+  else if (sub === 'obligaciones') pintarObligaciones(el, sub, d);
+  else if (sub === 'registrados') pintarRegistrados(el, sub, d);
+  else if (sub === 'analisis') pintarAnalisis(el, sub, d);
+  else if (sub === 'items') pintarItems(el, sub, d);
+  else pintarVencimientos(el, sub, d);
 }
 
 function pintarVencimientos(el, sub, d) {
@@ -620,8 +625,8 @@ function pintarVencimientos(el, sub, d) {
   const pagados = (d.vencimientos || []).filter(v => v.estado === 'PAGADO').sort((a, b) => (b.fechaPago || '').localeCompare(a.fechaPago || ''));
   const fila = (v, rojo) => `<div class="fila-caja"><div class="txt"><b>${esc(v.nombre)}</b>
       <span>${esc(fechaCaja(v.fecha))}${v.area && v.area !== 'MULTI' ? ' · ' + esc(v.area) : v.area === 'MULTI' ? ' · varias áreas' : ''}${v.item && v.item !== v.nombre ? ' · ' + esc(v.item) : ''}</span>${v.obs ? `<span class="nota">${esc(v.obs)}</span>` : ''}</div>
-      <div class="acciones"><span class="chip ${rojo ? 'c-rojo' : 'c-gris'}">${montoV(v) ? esc(pesos(montoV(v))) : 'Sin monto'}</span><button type="button" class="btn-sec" data-pagar="${esc(v.id)}">Pagar</button></div></div>`;
-  el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Pagar vencimientos y registrar gastos sin abrir la app de Gastos</p></div>${pestanasGastos(sub)}</div>
+      <div class="acciones"><span class="chip ${rojo ? 'c-rojo' : 'c-gris'}">${montoV(v) ? esc(pesos(montoV(v))) : 'Sin monto'}</span><button type="button" class="btn-sec" data-pagar="${esc(v.id)}">Pagar</button><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-v="${esc(v.id)}" aria-label="Anular ${esc(v.nombre)}">Anular</button></div></div>`;
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Todo lo de la app de Gastos, aquí</p></div>${pestanasGastos(sub)}</div>
     <div class="cifras cifras-4">
       <div class="tarjeta cifra"><span class="rotulo">Atrasado</span><span class="valor">${pesos(grupos[0].l.reduce((s, v) => s + montoV(v), 0))}</span><span class="nota">${grupos[0].l.length} ${grupos[0].l.length === 1 ? 'pago' : 'pagos'}</span></div>
       <div class="tarjeta cifra"><span class="rotulo">Próximos 7 días</span><span class="valor">${pesos(grupos[1].l.reduce((s, v) => s + montoV(v), 0))}</span><span class="nota">${grupos[1].l.length} ${grupos[1].l.length === 1 ? 'pago' : 'pagos'}</span></div>
@@ -632,8 +637,9 @@ function pintarVencimientos(el, sub, d) {
     ${pagados.length ? `<section class="tarjeta" aria-labelledby="t-venc-pag"><div class="titulo-fila"><h2 id="t-venc-pag">Pagados</h2><span>Últimos 7 días</span></div>
       <div data-colapsar="3">${pagados.map(v => `<div class="fila-caja"><div class="txt"><b>${esc(v.nombre)}</b><span>Pagado el ${esc(fechaCaja(v.fechaPago))}${v.urlComprobante ? ' · <a href="' + esc(v.urlComprobante) + '" target="_blank" rel="noopener">comprobante</a>' : ''}</span></div>
         <div class="acciones"><span class="chip c-verde">${esc(pesos(Number(v.montoPago) || 0))}</span></div></div>`).join('')}</div></section>` : ''}
-    <p class="nota-i">(i) Pagar aquí hace lo mismo que en la app de Gastos: marca el vencimiento pagado, crea el gasto (o completa el de la compra a crédito) y genera el siguiente si es recurrente. El historial completo y las obligaciones siguen en la app de Gastos.</p>`;
+    <p class="nota-i">(i) Pagar aquí hace lo mismo que en la app de Gastos: marca el vencimiento pagado, crea el gasto (o completa el de la compra a crédito) y genera el siguiente si es recurrente. El historial de pagos y las reglas están en Obligaciones. Anular un vencimiento no lo borra: queda ANULADO con su motivo.</p>`;
   el.querySelectorAll('[data-pagar]').forEach(b => b.addEventListener('click', () => abrirPago((d.vencimientos || []).find(v => v.id === b.dataset.pagar))));
+  el.querySelectorAll('[data-anular-v]').forEach(b => b.addEventListener('click', () => anularVencimientoUI((d.vencimientos || []).find(v => v.id === b.dataset.anularV))));
   colapsar(el);
 }
 
@@ -709,7 +715,7 @@ function abrirPago(v) {
 function pintarRegistrarGasto(el, sub, d) {
   const items = d.items || [];
   const hoy = Caja.diaLocal();
-  el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Pagar vencimientos y registrar gastos sin abrir la app de Gastos</p></div>${pestanasGastos(sub)}</div>
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Todo lo de la app de Gastos, aquí</p></div>${pestanasGastos(sub)}</div>
     <form class="tarjeta form-gasto" id="form-gasto" novalidate>
       <div class="grilla-montos"><div class="campo"><label for="gs-fecha">Fecha de la compra</label><input id="gs-fecha" type="date" value="${hoy}" max="${hoy}"></div>
         <div class="campo"><span class="etiqueta">Tipo de monto ${info('Tipo de monto', 'Bruto: el total de la boleta, con IVA incluido.\nNeto: el monto sin IVA; al guardar se suma el 19% (31% si es harina).\nSin IVA: documentos exentos o sin IVA; el monto queda tal cual.')}</span>${chipsTipoMonto('gs-tipo', 'bruto')}</div></div>
@@ -723,7 +729,7 @@ function pintarRegistrarGasto(el, sub, d) {
       <div class="error" id="gs-error" role="alert"></div>
       <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn" id="gs-guardar">Registrar gasto</button></div>
     </form>
-    <p class="nota-i">(i) Arriendo, luz y las demás obligaciones recurrentes no aparecen aquí: se pagan desde Vencimientos. Editar o anular un gasto ya registrado y las plantillas siguen en la app de Gastos. Las facturas del SII se importan en la pestaña Cargas del SII.</p>`;
+    <p class="nota-i">(i) Arriendo, luz y las demás obligaciones recurrentes no aparecen aquí: se pagan desde Vencimientos. Para corregir o anular un gasto ya registrado, ve a Registrados. Las facturas del SII se importan en Cargas del SII.</p>`;
   let n = 0;
   const seccion = () => { const id = ++n; return `<fieldset class="item-gasto" data-sec="${id}"><legend class="sr">Ítem ${id}</legend>
     <div class="fila-item"><div class="campo" style="flex:1"><label for="gs-item-${id}">Ítem</label><select id="gs-item-${id}" class="gs-item"><option value="">Elige un ítem</option>${items.map(i => `<option value="${esc(i.item)}">${esc(i.item)}</option>`).join('')}</select></div>
@@ -820,7 +826,7 @@ const fechaSii = iso => (iso ? fechaCaja(iso) : 'sin fecha');
 
 async function pintarSII(el, sub, d) {
   sii.items = d.itemsSii || d.items || [];
-  el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Pagar vencimientos, registrar gastos y cargar los documentos del SII</p></div>${pestanasGastos(sub)}</div>
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Todo lo de la app de Gastos, aquí</p></div>${pestanasGastos(sub)}</div>
     <section class="tarjeta" aria-labelledby="t-sii-subir">
       <div class="titulo-fila"><h2 id="t-sii-subir">Subir un archivo del SII ${info('Archivos del SII', 'Sirven tres archivos del SII (sección compras):\n• XML (Documentos recibidos → Descargar XML): el más completo, con detalle de productos, fecha de vencimiento y forma de pago.\n• XLS (Documentos recibidos): con detalle de productos, sin vencimiento.\n• CSV (Registro de Compras y Ventas): el mes completo, solo totales.\nAl subirlo se marca lo que ya está en Gastos, y una copia del archivo queda en Drive (carpeta "Cargas SII", privada) para volver a abrirlo desde el historial.')}</h2></div>
       <div class="campo"><label for="sii-archivo">Archivo (XML, XLS o CSV)</label><input id="sii-archivo" type="file" accept=".xml,.xls,.xlsx,.csv,.txt,.html,text/xml,application/xml,text/csv"></div>
@@ -866,7 +872,7 @@ async function procesarSii(contenido, nombre, { guardar, tipo } = {}) {
   try {
     const r = await Sii.estado(facturas);
     const ya = new Set(r.importados || []);
-    facturas.forEach(f => { const k = f.rut + '|' + f.folio; f.yaImportada = ya.has(k); f.nota = (r.notas || {})[k] || ''; f.coincidencias = (r.coincidencias || {})[k] || null; });
+    facturas.forEach(f => { const k = Sii.clave(f); f.yaImportada = ya.has(k); f.nota = (r.notas || {})[k] || ''; f.coincidencias = (r.coincidencias || {})[k] || null; });
   } catch (e) {
     if (e.code === 'actualizar' || e.code === 'sin_url') { if (msg) msg.textContent = e.message; sii.facturas = []; pintarTrabajoSii(); return; }
     sii.aviso = `No se pudo revisar qué documentos ya están en Gastos (${e.message}). Puedes clasificar igual: al importar, Gastos revisa los repetidos y no guarda nada dos veces.`;
@@ -1111,7 +1117,7 @@ function eventosTrabajoSii(cont) {
     else if (b.hasAttribute('data-ver-det')) {
       f.detalleAbierto = !f.detalleAbierto; repintarDocSii(i);
       if (f.detalleAbierto && f.detalleGuardado === undefined) {
-        try { f.detalleGuardado = (await Sii.detalle(f.rut, f.folio)).detalle || []; } catch (er) { f.detalleGuardado = undefined; f.detalleAbierto = false; alert(er.message || er); }
+        try { f.detalleGuardado = (await Sii.detalle(f.rut, f.folio, f.tipoDoc === '61' ? '61' : '')).detalle || []; } catch (er) { f.detalleGuardado = undefined; f.detalleAbierto = false; alert(er.message || er); }
         repintarDocSii(i);
       }
     }
@@ -1153,7 +1159,7 @@ async function importarSii(omitir) {
   try {
     const r = await Sii.importar(listas, omitir, sii.idem);
     sii.idem = null;
-    listas.forEach(l => { const f = sii.facturas.find(x => x.rut === l.rut && x.folio === l.folio); if (f) f.yaImportada = true; });
+    listas.forEach(l => { const f = sii.facturas.find(x => Sii.clave(x) === Sii.clave(l)); if (f) f.yaImportada = true; });
     sii.hint = `<p class="sii-ok">Importado: ${r.facturas} ${r.facturas === 1 ? 'documento' : 'documentos'} · ${r.filas} ${r.filas === 1 ? 'línea' : 'líneas'} de gasto${r.vencimientos ? ` · ${r.vencimientos} ${r.vencimientos === 1 ? 'vencimiento' : 'vencimientos'}` : ''}${r.detalle ? ` · ${r.detalle} productos en Detalle Compras` : ''}</p>`;
     registrar('Importó documentos del SII', `${r.facturas} documento(s) · ${sii.nombre}`);
     pintarTrabajoSii(); cargarHistorialSii();
@@ -1189,7 +1195,7 @@ function pintarHistorialSii() {
     const r = Sii.buscarEnHistorial(C, q);
     cont.innerHTML = r.length ? `<p class="ayuda">${r.length} ${r.length === 1 ? 'documento' : 'documentos'} en ${new Set(r.map(x => x.carga.id)).size} ${new Set(r.map(x => x.carga.id)).size === 1 ? 'carga' : 'cargas'}</p>
       <div data-colapsar="8">${r.map(({ doc: d, carga }) => `<div class="fila-caja"><div class="txt"><b>${esc(d.razonSocial || 'Documento')}</b><span>N° ${esc(d.folio)} · ${esc(d.rut)} · ${d.importado ? 'en Gastos' : 'pendiente'} · carga del ${esc(fechaSii(carga.desde))}</span>${d.nota ? `<span class="nota">${esc(d.nota)}</span>` : ''}</div>
-        <div class="acciones">${d.tieneDetalle ? `<button type="button" class="btn-sec btn-chico" data-detalle="${esc(d.rut)}|${esc(d.folio)}">Detalle</button>` : ''}<button type="button" class="btn-sec btn-chico" data-ir-carga="${esc(carga.id)}">Ir a la carga</button></div></div>`).join('')}</div>`
+        <div class="acciones">${d.tieneDetalle ? `<button type="button" class="btn-sec btn-chico" data-detalle="${esc(d.rut)}|${esc(d.folio)}|${esc(d.tipo || '')}">Detalle</button>` : ''}<button type="button" class="btn-sec btn-chico" data-ir-carga="${esc(carga.id)}">Ir a la carga</button></div></div>`).join('')}</div>`
       : `<div class="vacio">Ningún documento coincide con "${esc(q)}".</div>`;
     colapsar(cont);
     return;
@@ -1218,7 +1224,7 @@ function tarjetaCargaSii(c) {
       : c.nota ? `<p class="nota-carga">${esc(c.nota)}</p>` : ''}
     ${(c.documentos || []).length ? `<details class="docs-carga" data-docs="${esc(c.id)}" ${sii.docs.has(c.id) ? 'open' : ''}><summary>Ver los ${c.documentos.length} documentos</summary>
       ${c.documentos.map(d => `<div class="fila-caja"><div class="txt"><b>${esc(d.razonSocial || 'Documento')}</b><span>N° ${esc(d.folio)}${d.importado ? ' · en Gastos' : ' · pendiente'}</span>${d.nota ? `<span class="nota">${esc(d.nota)}</span>` : ''}</div>
-        ${d.tieneDetalle ? `<div class="acciones"><button type="button" class="btn-sec btn-chico" data-detalle="${esc(d.rut)}|${esc(d.folio)}">Detalle</button></div>` : ''}</div>`).join('')}</details>` : ''}
+        ${d.tieneDetalle ? `<div class="acciones"><button type="button" class="btn-sec btn-chico" data-detalle="${esc(d.rut)}|${esc(d.folio)}|${esc(d.tipo || '')}">Detalle</button></div>` : ''}</div>`).join('')}</details>` : ''}
     <div class="botones" style="justify-content:flex-start">
       ${c.url ? `<button type="button" class="btn-sec btn-chico" data-reabrir="${esc(c.id)}">${completa ? 'Revisar carga' : 'Reabrir carga'}</button><a class="btn-sec btn-chico btn-enlace" href="${esc(c.url)}" target="_blank" rel="noopener">Archivo en Drive</a>` : ''}
       <button type="button" class="btn-sec btn-chico" data-nota-carga="${esc(c.id)}">${c.nota ? 'Editar nota' : 'Nota'}</button>
@@ -1235,7 +1241,7 @@ function eventosHistorialSii(cont) {
   }, true);
   cont.addEventListener('click', async e => {
     const b = e.target.closest('button'); if (!b || b.classList.contains('btn-info')) return;
-    if (b.dataset.detalle) { const [rut, folio] = b.dataset.detalle.split('|'); verDetalleSii(rut, folio); }
+    if (b.dataset.detalle) { const [rut, folio, tipo] = b.dataset.detalle.split('|'); verDetalleSii(rut, folio, tipo); }
     else if (b.dataset.irCarga) {
       const c = (sii.cargas || []).find(x => x.id === b.dataset.irCarga); if (!c) return;
       sii.histBusqueda = ''; $('sii-hist-buscar').value = '';
@@ -1267,17 +1273,428 @@ function eventosHistorialSii(cont) {
   });
 }
 
-async function verDetalleSii(rut, folio) {
+async function verDetalleSii(rut, folio, tipo) {
   const d = dialogo(`<div class="form-dialogo"><h2 id="sii-det-titulo">Detalle del documento</h2><p class="ayuda" id="sii-det-sub">N° ${esc(folio)}</p><div id="sii-det-lista"><p class="ayuda">Cargando…</p></div>
     <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cerrar</button></div></div>`);
   d.querySelector('[data-cerrar]').onclick = () => d.close();
   try {
-    const r = await Sii.detalle(rut, folio);
+    const r = await Sii.detalle(rut, folio, tipo);
     if (!d.open) return;
     if (r.razonSocial) d.querySelector('#sii-det-titulo').textContent = r.razonSocial;
     d.querySelector('#sii-det-sub').textContent = `N° ${r.folio || folio}${r.fecha ? ' · ' + fechaSii(Caja.normalizarFechaCaja(r.fecha) || r.fecha) : ''}`;
     d.querySelector('#sii-det-lista').innerHTML = listaDetalleSii(r.detalle);
   } catch (e) { if (d.open) d.querySelector('#sii-det-lista').innerHTML = `<p class="error">${esc(e.message || mensajeError(e))}</p>`; }
+}
+
+// ── Gastos · v0.10.0: anular vencimientos, obligaciones, registrados, análisis e ítems ──
+const errorGastos = (el, e) => { el.innerHTML = `<div class="error">${esc(e.message || mensajeError(e))}</div>${e.code === 'sin_url' || e.code === 'actualizar' ? '<p class="ayuda"><a href="#ajustes/conexiones">Ir a Conexiones</a></p>' : ''}`; };
+const cabGastos = sub => `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Todo lo de la app de Gastos, aquí</p></div>${pestanasGastos(sub)}</div>`;
+const fechaIso = iso => (iso ? fechaCaja(iso) : '—');
+const FRECUENCIAS = { mensual_dia: 'Mensual (día fijo)', mensual_ultimo: 'Mensual (último día)', quincenal: 'Quincenal (días 1 y 15)', variable: 'Fecha específica', cuponera: 'Cuponera / cuotas' };
+
+// Diálogo con motivo obligatorio. Devuelve el texto o null si se cancela.
+function pedirMotivo(titulo, detalleHtml, boton) {
+  return new Promise(ok => {
+    const d = dialogo(`<form class="form-dialogo" novalidate><h2>${esc(titulo)}</h2>${detalleHtml}
+      <div class="campo"><label for="mt-txt">Motivo</label><input id="mt-txt" type="text" maxlength="300" placeholder="Ej: factura duplicada"></div>
+      <div class="error" id="mt-error" role="alert"></div>
+      <div class="botones"><button type="button" class="btn-sec" id="mt-no">Cancelar</button><button type="submit" class="btn btn-peligro-lleno" id="mt-si">${esc(boton)}</button></div></form>`);
+    let listo = false;
+    d.querySelector('#mt-no').onclick = () => d.close();
+    d.addEventListener('close', () => { if (!listo) ok(null); });
+    d.querySelector('form').addEventListener('submit', e => {
+      e.preventDefault();
+      const t = d.querySelector('#mt-txt').value.trim();
+      if (t.length < 3) { d.querySelector('#mt-error').textContent = 'Escribe el motivo (queda guardado).'; return; }
+      listo = true; d.close(); ok(t);
+    });
+  });
+}
+
+async function anularVencimientoUI(v) {
+  const motivo = await pedirMotivo('Anular vencimiento', `<p class="ayuda"><b>${esc(v.nombre)}</b> · vence ${esc(fechaCaja(v.fecha))}${montoV(v) ? ' · ' + esc(pesos(montoV(v))) : ''}</p>
+    <p class="ayuda">No se borra: queda como ANULADO en la hoja Vencimientos, con el motivo, y deja de aparecer y de avisar por correo. Úsalo cuando ese pago no corresponde (por ejemplo, un mes que no se cobró). La obligación sigue generando los meses siguientes.</p>`, 'Anular');
+  if (!motivo) return;
+  try { await Gastos.anularVencimiento(v.id, motivo); registrar('Anuló un vencimiento', `${v.nombre} · ${fechaCaja(v.fecha)} · ${motivo}`); refrescarAgenda(); }
+  catch (e) { alert(e.message || mensajeError(e)); }
+}
+
+// ── Obligaciones (reglas) ──
+async function pintarObligaciones(el, sub, d) {
+  el.innerHTML = cabGastos(sub) + `<div class="tarjeta"><div class="vacio" style="border:0">Cargando obligaciones…</div></div>`;
+  let P;
+  try { P = (await Gastos.plantillas()).plantillas || []; } catch (e) { errorGastos(el.querySelector('.tarjeta'), e); return; }
+  if (vistaDesdeHash() !== 'gastos' || subVista() !== 'obligaciones') return;
+  const activas = P.filter(p => p.estado === 'ACTIVA').sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const archivadas = P.filter(p => p.estado !== 'ACTIVA').sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const detalle = p => [FRECUENCIAS[p.frecuencia] || p.frecuencia, p.frecuencia === 'mensual_dia' && p.dia ? 'día ' + p.dia : '', p.frecuencia === 'variable' && p.fechaEsp ? fechaIso(p.fechaEsp) : '',
+    Number(p.montoEstimado) ? pesos(Number(p.montoEstimado)) + ' est.' : 'sin monto estimado', p.item ? p.item : '', p.area === 'PRORRATEADO' ? [[p.pArea1, p.pPct1], [p.pArea2, p.pPct2], [p.pArea3, p.pPct3]].filter(x => x[0]).map(x => `${x[0]} ${x[1]}%`).join(' · ') : p.area === 'MULTI' ? (p.multiArea || []).map(a => a.area).join(' + ') : p.area].filter(Boolean).map(esc).join(' · ');
+  const fila = (p, activa) => `<div class="fila-caja"><div class="txt"><b>${esc(p.nombre)}</b><span>${detalle(p)}</span>${activa && p.proximaFecha ? `<span>Próxima: ${esc(fechaIso(p.proximaFecha))}</span>` : ''}${p.obs ? `<span class="nota">${esc(p.obs)}</span>` : ''}</div>
+    <div class="acciones"><button type="button" class="btn-sec btn-chico" data-editar-obl="${esc(p.id)}">Editar</button><button type="button" class="btn-sec btn-chico" data-archivar-obl="${esc(p.id)}" data-archivar="${activa ? '1' : ''}">${activa ? 'Archivar' : 'Reactivar'}</button></div></div>`;
+  const hoy = new Date();
+  el.innerHTML = cabGastos(sub) + `
+    <section class="tarjeta" aria-labelledby="t-obl"><div class="titulo-fila"><h2 id="t-obl">Obligaciones activas ${info('Obligaciones', 'Son las reglas que crean los vencimientos: arriendo, luz, sueldos, cuotas… Cada una genera su vencimiento 3 días antes de la fecha y aparece en Vencimientos para pagarlo.\nArchivar deja de generar vencimientos nuevos; lo ya generado y pagado queda igual. Reactivar vuelve a generar desde hoy (no los meses que pasaron).\nEn Sistema Fën no se borran: se archivan.')}</h2>
+      <button type="button" class="btn" id="obl-nueva">${icono('mas', 16)} Nueva obligación</button></div>
+      <div data-colapsar="12">${activas.map(p => fila(p, true)).join('') || '<div class="vacio">No hay obligaciones activas.</div>'}</div></section>
+    ${archivadas.length ? `<section class="tarjeta" aria-labelledby="t-obl-arch"><div class="titulo-fila"><h2 id="t-obl-arch">Archivadas</h2><span>${archivadas.length}</span></div><div data-colapsar="3">${archivadas.map(p => fila(p, false)).join('')}</div></section>` : ''}
+    <section class="tarjeta" aria-labelledby="t-hist-pagos"><div class="titulo-fila"><h2 id="t-hist-pagos">Historial de pagos ${info('Historial de pagos', 'Los vencimientos pagados, con su fecha de pago y monto real. Vencimientos muestra solo los pagados de los últimos 7 días; aquí están todos.')}</h2></div>
+      <div class="filtros"><select id="hp-mes" aria-label="Mes">${MESES_LARGOS.map((m, i) => `<option value="${i + 1}" ${i === hoy.getMonth() ? 'selected' : ''}>${m.replace(/^./, c => c.toUpperCase())}</option>`).join('')}</select>
+        <select id="hp-anio" aria-label="Año">${[0, 1, 2].map(k => `<option>${hoy.getFullYear() - k}</option>`).join('')}</select>
+        <button type="button" class="btn-sec" id="hp-ver">Ver</button><button type="button" class="btn-sec" id="hp-todo">Ver todo</button></div>
+      <div id="hp-lista"></div></section>`;
+  colapsar(el);
+  $('obl-nueva').onclick = () => abrirObligacion(null, d);
+  el.querySelectorAll('[data-editar-obl]').forEach(b => b.onclick = () => abrirObligacion(P.find(p => p.id === b.dataset.editarObl), d));
+  el.querySelectorAll('[data-archivar-obl]').forEach(b => b.onclick = async () => {
+    const p = P.find(x => x.id === b.dataset.archivarObl), archivar = !!b.dataset.archivar;
+    if (!confirm(archivar ? `¿Archivar "${p.nombre}"?\n\nDeja de generar vencimientos nuevos. Los ya generados y el historial quedan igual.` : `¿Reactivar "${p.nombre}"?\n\nVuelve a generar vencimientos desde hoy.`)) return;
+    b.disabled = true;
+    try { await Gastos.archivarObligacion(p.id, archivar); registrar(archivar ? 'Archivó una obligación' : 'Reactivó una obligación', p.nombre); pintarGastos('obligaciones'); }
+    catch (e) { alert(e.message || mensajeError(e)); b.disabled = false; }
+  });
+  const verHist = async filtro => {
+    const cont = $('hp-lista'); cont.innerHTML = '<p class="ayuda">Cargando…</p>';
+    try {
+      const h = (await Gastos.historialPagos(filtro)).historial || [];
+      cont.innerHTML = h.length ? `<div data-colapsar="10">${h.map(v => `<div class="fila-caja"><div class="txt"><b>${esc(v.nombre)}</b><span>Pagado el ${esc(fechaIso(v.fechaPago))}${v.area && v.area !== 'MULTI' && v.area !== 'PRORRATEADO' ? ' · ' + esc(v.area) : ''}${v.urlComprobante ? ` · <a href="${esc(v.urlComprobante)}" target="_blank" rel="noopener">comprobante</a>` : ''}</span></div>
+        <div class="acciones"><span class="chip c-verde">${esc(pesos(Number(String(v.montoPago).replace(/[^0-9-]/g, '')) || 0))}</span></div></div>`).join('')}</div>
+        <p class="ayuda">${h.length} ${h.length === 1 ? 'pago' : 'pagos'} · ${esc(pesos(h.reduce((s, v) => s + (Number(String(v.montoPago).replace(/[^0-9-]/g, '')) || 0), 0)))}</p>` : '<div class="vacio">Sin pagos en ese período.</div>';
+      colapsar(cont);
+    } catch (e) { errorGastos(cont, e); }
+  };
+  $('hp-ver').onclick = () => verHist({ mes: +$('hp-mes').value, anio: +$('hp-anio').value });
+  $('hp-todo').onclick = () => verHist({});
+  verHist({ mes: hoy.getMonth() + 1, anio: hoy.getFullYear() });
+}
+
+function abrirObligacion(p, d) {
+  const items = d.itemsSii || d.items || [];
+  const it0 = p && p.item ? items.find(i => i.item === p.item) : null;
+  const selArea = (c, v) => `<select class="${c}" aria-label="Área"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === v ? 'selected' : ''}>${a}</option>`).join('')}</select>`;
+  const dlg = dialogo(`<form class="form-dialogo form-obl" novalidate>
+    <h2>${p ? 'Editar obligación' : 'Nueva obligación'}</h2>
+    <div class="campo"><label for="ob-nombre">Nombre</label><input id="ob-nombre" type="text" maxlength="80" value="${esc(p ? p.nombre : '')}" placeholder="Ej: Arriendo sala producción"></div>
+    <div class="campo"><label for="ob-item">Ítem de gasto ${info('Ítem', 'Al pagar, el gasto se registra con este ítem (categoría, tipo y área salen del ítem). Si el ítem se reparte entre áreas, aquí defines cómo; al pagar puedes ajustar los montos del mes.\nSin ítem, la obligación solo avisa.')}</label>
+      <select id="ob-item"><option value="">Sin ítem</option>${items.map(i => `<option value="${esc(i.item)}" ${p && p.item === i.item ? 'selected' : ''}>${esc(i.item)}</option>`).join('')}${p && p.item && !it0 ? `<option selected value="${esc(p.item)}">${esc(p.item)} (ya no está en la lista)</option>` : ''}</select></div>
+    <div id="ob-areas"></div>
+    <div class="grilla-montos"><div class="campo"><label for="ob-frec">Frecuencia</label><select id="ob-frec">${p ? '' : '<option value="">Elige</option>'}${Object.entries(FRECUENCIAS).filter(([k]) => !p || (k === 'cuponera') === (p.frecuencia === 'cuponera')).map(([k, t]) => `<option value="${k}" ${p && p.frecuencia === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div class="campo" id="ob-c-dia"><label for="ob-dia">Día del mes</label><input id="ob-dia" type="number" min="1" max="31" step="1" value="${esc(p ? p.dia : '')}"></div>
+      <div class="campo" id="ob-c-fecha"><label for="ob-fecha">Fecha</label><input id="ob-fecha" type="date" value="${esc(p ? p.fechaEsp : '')}"></div></div>
+    <div id="ob-c-cuotas" class="campo"><span class="etiqueta">Cuotas ${info('Cuponera', 'Cada cuota crea su vencimiento de inmediato, con su fecha y monto. Una cuponera ya creada no cambia sus cuotas aquí: si una cuota no corresponde, anúlala en Vencimientos.')}</span>
+      ${p ? '<p class="ayuda">Las cuotas de esta cuponera ya están creadas: para cambiar una, anúlala en Vencimientos.</p>' : `<div id="ob-cuotas"></div><button type="button" class="btn-sec btn-chico" id="ob-mas-cuota">Agregar cuota</button>`}</div>
+    <div class="grilla-montos"><div class="campo"><label for="ob-monto">Monto estimado (opcional)</label><input id="ob-monto" type="number" inputmode="numeric" min="0" step="1" value="${esc(p ? p.montoEstimado : '')}"></div>
+      <div class="campo"><span class="etiqueta">Tipo de monto al pagar</span><div class="chips" role="radiogroup" aria-label="Tipo de monto">${[['', 'Sin definir'], ['bruto', 'Bruto'], ['neto', 'Neto'], ['siniva', 'Sin IVA']].map(([k, t]) => `<label class="chip-radio"><input type="radio" name="ob-tipo" value="${k}" ${(p ? p.tipoMonto || '' : '') === k ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div></div></div>
+    <div class="campo"><label for="ob-obs">Observación (opcional)</label><input id="ob-obs" type="text" maxlength="300" value="${esc(p ? p.obs : '')}"></div>
+    <div class="error" id="ob-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="ob-cancelar">Cancelar</button><button type="submit" class="btn" id="ob-guardar">Guardar</button></div></form>`);
+  const q = s => dlg.querySelector(s);
+  const pintarAreas = conservar => {
+    const it = items.find(i => i.item === q('#ob-item').value), c = q('#ob-areas');
+    if (!it) { c.innerHTML = ''; return; }
+    if (it.area === 'SELECCIONAR') {
+      const filas = conservar && p && p.multiArea && p.multiArea.length ? p.multiArea : [{}];
+      c.innerHTML = `<div class="campo"><span class="etiqueta">Monto por área</span><div id="ob-multi">${filas.map(a => filaArea('ob', a.area || '', a.monto || '')).join('')}</div><button type="button" class="btn-sec btn-chico" id="ob-mas-area">Agregar área</button></div>`;
+    } else if (it.area === 'PRORRATEADO') {
+      const v = conservar && p ? [[p.pArea1, p.pPct1], [p.pArea2, p.pPct2], [p.pArea3, p.pPct3]] : [[], [], []];
+      c.innerHTML = `<div class="campo"><span class="etiqueta">Reparto por área (%)</span>${v.map((x, k) => `<div class="fila-area">${selArea('ob-pa' + (k + 1), x[0] || '')}<input class="ob-pp${k + 1}" type="number" min="0" max="100" step="1" placeholder="%" value="${esc(x[1] || '')}" aria-label="Porcentaje área ${k + 1}">${k === 2 ? '<span class="ayuda">opcional</span>' : ''}</div>`).join('')}
+        <button type="button" class="btn-sec btn-chico" id="ob-sugerir">Sugerir % según ventas</button><span class="ayuda" id="ob-sug"></span></div>`;
+    } else c.innerHTML = `<p class="ayuda">${[it.categoria, it.tipo, it.subTipo].filter(Boolean).map(esc).join(' · ')} · Área ${esc(it.area)}</p>`;
+  };
+  const pintarFrec = () => { const f = q('#ob-frec').value; q('#ob-c-dia').classList.toggle('oculto', f !== 'mensual_dia'); q('#ob-c-fecha').classList.toggle('oculto', f !== 'variable'); q('#ob-c-cuotas').classList.toggle('oculto', f !== 'cuponera'); };
+  const filaCuota = () => `<div class="fila-area"><input type="date" class="ob-cf" aria-label="Fecha de la cuota"><input type="number" class="ob-cm" min="0" step="1" placeholder="$" aria-label="Monto de la cuota"><button type="button" class="btn-icono" data-quitar-area aria-label="Quitar cuota">×</button></div>`;
+  if (!p) { q('#ob-cuotas').innerHTML = filaCuota() + filaCuota(); q('#ob-mas-cuota').onclick = () => q('#ob-cuotas').insertAdjacentHTML('beforeend', filaCuota()); }
+  pintarAreas(true); pintarFrec();
+  q('#ob-item').addEventListener('change', () => pintarAreas(false));
+  q('#ob-frec').addEventListener('change', pintarFrec);
+  dlg.addEventListener('click', async e => {
+    if (e.target.closest('[data-quitar-area]')) { const f = e.target.closest('.fila-area'); if (f.parentElement.children.length > 1) f.remove(); }
+    else if (e.target.closest('#ob-mas-area')) q('#ob-multi').insertAdjacentHTML('beforeend', filaArea('ob'));
+    else if (e.target.closest('#ob-sugerir')) {
+      const areas = [1, 2, 3].map(k => q('.ob-pa' + k).value).filter(Boolean), s = q('#ob-sug');
+      if (areas.length < 2) { s.textContent = 'Elige primero las áreas.'; return; }
+      s.textContent = 'Calculando…';
+      try {
+        const v = await Sii.ventas(), m = {}; (v.areas || []).forEach(a => { if (areas.includes(a.area)) m[a.area] = a.total; });
+        const tot = Object.values(m).reduce((a, b) => a + b, 0);
+        if (!tot) { s.textContent = 'No hay ventas de esas áreas el mes anterior.'; return; }
+        const pc = areas.map(a => Math.round((m[a] || 0) / tot * 100)); pc[0] += 100 - pc.reduce((a, b) => a + b, 0);
+        [1, 2, 3].forEach(k => { const a = q('.ob-pa' + k).value, i = areas.indexOf(a); if (a && i > -1) q('.ob-pp' + k).value = pc[i]; });
+        s.textContent = `Ventas de ${v.mes}`;
+      } catch (er) { s.textContent = 'No se pudo calcular: ' + (er.message || er); }
+    }
+  });
+  q('#ob-cancelar').onclick = () => dlg.close();
+  let idem = 'obl-' + Gastos.nuevaClave();
+  q('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = q('#ob-error'); err.textContent = '';
+    const datos = { id: p ? p.id : '', nombre: q('#ob-nombre').value.trim(), item: q('#ob-item').value, frecuencia: q('#ob-frec').value, dia: q('#ob-dia').value, fechaEsp: q('#ob-fecha').value,
+      montoEstimado: q('#ob-monto').value, tipoMonto: (q('input[name="ob-tipo"]:checked') || {}).value || '', obs: q('#ob-obs').value.trim() };
+    if (!datos.nombre || !datos.frecuencia) { err.textContent = 'Completa el nombre y la frecuencia.'; return; }
+    const it = items.find(i => i.item === datos.item);
+    if (it && it.area === 'SELECCIONAR') datos.multiArea = [...dlg.querySelectorAll('#ob-multi .fila-area')].map(f => ({ area: f.querySelector('.ob-area').value, monto: Number(f.querySelector('.ob-monto').value) || 0 })).filter(a => a.area && a.monto > 0);
+    if (it && it.area === 'PRORRATEADO') [1, 2, 3].forEach(k => { datos['pArea' + k] = q('.ob-pa' + k).value; datos['pPct' + k] = q('.ob-pp' + k).value; });
+    if (!p && datos.frecuencia === 'cuponera') datos.cuotas = [...dlg.querySelectorAll('#ob-cuotas .fila-area')].map(f => ({ fecha: f.querySelector('.ob-cf').value, monto: f.querySelector('.ob-cm').value })).filter(c => c.fecha);
+    const b = q('#ob-guardar'); b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      await Gastos.guardarObligacion(datos, idem);
+      registrar(p ? 'Editó una obligación' : 'Creó una obligación', `${datos.nombre} · ${FRECUENCIAS[datos.frecuencia]}`);
+      dlg.close(); pintarGastos('obligaciones');
+    } catch (er) {
+      if (er.code && er.code !== 'en_curso') idem = 'obl-' + Gastos.nuevaClave();
+      err.textContent = er.message || mensajeError(er); b.disabled = false; b.textContent = 'Guardar';
+    }
+  });
+}
+
+// ── Gastos registrados ──
+const reg = { busqueda: '', mes: '', forma: 'todos' };
+const mesDe = g => (g.fecha || '').slice(0, 7);
+const estadoPagoG = g => {
+  if (g.formaPago !== 'tarjeta' && g.formaPago !== 'proveedor') return { t: 'Pagado', c: 'c-verde' };
+  if (g.estadoVencimiento === 'PAGADO') return { t: 'Pagado', c: 'c-verde' };
+  if (!g.estadoVencimiento) return { t: 'A crédito', c: 'c-gris' };
+  if (g.estadoVencimiento === 'ANULADO') return { t: 'Vencimiento anulado', c: 'c-gris' };
+  if (g.estadoVencimiento === 'VENCIDA') return { t: 'Vencida', c: 'c-rojo' };
+  return { t: 'Por pagar', c: 'c-amarillo' };
+};
+// Líneas de la misma compra: mismo día y la misma boleta (foto) o el mismo documento del SII.
+// Sin boleta ni folio no se agrupa (dos pagos de obligaciones del mismo día no son una compra).
+const mismaCompra = (a, b) => a.fecha === b.fecha && a.formaPago === b.formaPago &&
+  ((a.urlFoto && a.urlFoto === b.urlFoto && a.hora === b.hora) || (a.folio && a.rut === b.rut && a.folio === b.folio && a.esNC === b.esNC));
+
+async function pintarRegistrados(el, sub, d) {
+  el.innerHTML = cabGastos(sub) + `<div class="tarjeta"><div class="vacio" style="border:0">Cargando gastos…</div></div>`;
+  let L;
+  try { L = (await Gastos.lista()).gastos || []; } catch (e) { errorGastos(el.querySelector('.tarjeta'), e); return; }
+  if (vistaDesdeHash() !== 'gastos' || subVista() !== 'registrados') return;
+  L = L.slice().sort((a, b) => b.fecha.localeCompare(a.fecha) || (b.hora || '').localeCompare(a.hora || '') || a.fila - b.fila);
+  const meses = [...new Set(L.map(mesDe))].sort().reverse();
+  el.innerHTML = cabGastos(sub) + `
+    <section class="tarjeta" aria-labelledby="t-reg"><div class="titulo-fila"><h2 id="t-reg">Gastos registrados ${info('Gastos registrados', 'Cada fila de la planilla Registro Gasto: una por ítem y área. Corregir cambia fecha, ítem, área, monto u observación (el neto se recalcula).\nAnular no borra: la fila pasa a la pestaña "Gastos anulados" de la planilla, con fecha, quién y motivo, y deja de sumar en todos lados (análisis, Looker, prorrateo).\nSi la compra tiene varias líneas (áreas o ítems), puedes anular toda la compra de una vez.\nSe muestran desde el 1 de enero del año pasado.')}</h2><span id="reg-cuenta"></span></div>
+      <div class="filtros"><input id="reg-buscar" type="search" placeholder="Buscar ítem, área, monto, proveedor, folio u observación" value="${esc(reg.busqueda)}" aria-label="Buscar">
+        <select id="reg-mes" aria-label="Mes"><option value="">Todos los meses</option>${meses.map(m => `<option value="${m}" ${reg.mes === m ? 'selected' : ''}>${MESES_LARGOS[+m.slice(5) - 1].replace(/^./, c => c.toUpperCase())} ${m.slice(0, 4)}</option>`).join('')}</select>
+        <div class="chips chips-chicos" role="group" aria-label="Forma de pago">${[['todos', 'Todos'], ['credito', 'A crédito'], ['por_pagar', 'Por pagar']].map(([k, t]) => `<button type="button" class="chip-filtro" data-forma="${k}" aria-pressed="${reg.forma === k}">${t}</button>`).join('')}</div></div>
+      <div id="reg-lista"></div></section>`;
+  const pintarLista = () => {
+    const q = reg.busqueda.trim().toLowerCase(), qn = q.replace(/[^0-9]/g, '');
+    const F = L.filter(g => (!reg.mes || mesDe(g) === reg.mes)
+      && (reg.forma === 'todos' || (reg.forma === 'credito' ? (g.formaPago === 'tarjeta' || g.formaPago === 'proveedor') : ['Por pagar', 'Vencida'].includes(estadoPagoG(g).t)))
+      && (!q || [g.item, g.area, g.obs, g.razonSocial, g.rut, g.folio, fechaIso(g.fecha)].join(' ').toLowerCase().includes(q) || (qn.length >= 3 && String(Math.abs(g.monto)).includes(qn))));
+    $('reg-cuenta').textContent = `${F.length} ${F.length === 1 ? 'línea' : 'líneas'} · ${pesos(F.reduce((s, g) => s + g.monto, 0))}`;
+    const cont = $('reg-lista');
+    cont.innerHTML = F.length ? `<div data-colapsar="25">${F.map(g => { const e = estadoPagoG(g);
+      return `<div class="fila-caja" data-fila="${g.fila}"><div class="txt"><b>${esc(g.item)}</b>
+        <span>${esc(fechaIso(g.fecha))} · ${esc(g.area)}${g.formaPago && g.formaPago !== 'contado' ? ' · ' + (g.formaPago === 'tarjeta' ? 'tarjeta' : 'crédito proveedor') : ''}${g.vencimiento && e.t !== 'Pagado' ? ' · vence ' + esc(fechaIso(g.vencimiento)) : ''}</span>
+        ${g.razonSocial || g.folio ? `<span>${esc(g.razonSocial || g.rut)}${g.folio ? ` · ${g.esNC ? 'NC' : 'F.'} ${esc(g.folio)}` : ''}</span>` : ''}${g.obs ? `<span class="nota">${esc(g.obs)}</span>` : ''}</div>
+        <div class="acciones"><span class="chip ${e.c} chip-chico">${e.t}</span><span class="chip c-gris">${esc(pesos(g.monto))}</span>
+          ${g.urlFoto ? `<a class="btn-sec btn-chico btn-enlace" href="${esc(g.urlFoto)}" target="_blank" rel="noopener">Boleta</a>` : ''}
+          ${g.rut && g.folio ? `<button type="button" class="btn-sec btn-chico" data-det-g="${g.fila}">Detalle</button>` : ''}
+          <button type="button" class="btn-sec btn-chico" data-corregir="${g.fila}">Corregir</button><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-g="${g.fila}">Anular</button></div></div>`; }).join('')}</div>`
+      : '<div class="vacio">No hay gastos con esos filtros.</div>';
+    colapsar(cont);
+  };
+  pintarLista();
+  $('reg-buscar').addEventListener('input', e => { reg.busqueda = e.target.value; pintarLista(); });
+  $('reg-mes').addEventListener('change', e => { reg.mes = e.target.value; pintarLista(); });
+  el.querySelectorAll('[data-forma]').forEach(b => b.onclick = () => { reg.forma = b.dataset.forma; el.querySelectorAll('[data-forma]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); pintarLista(); });
+  $('reg-lista').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const g = L.find(x => x.fila === +(b.dataset.corregir || b.dataset.anularG || b.dataset.detG)); if (!g) return;
+    if (b.dataset.corregir) corregirGasto(g, d);
+    else if (b.dataset.anularG) anularGastoUI(g, L);
+    else if (b.dataset.detG) verDetalleSii(g.rut, g.folio, g.esNC ? '61' : '');
+  });
+}
+
+function corregirGasto(g, d) {
+  const items = d.itemsSii || d.items || [];
+  const it0 = items.find(i => i.item === g.item);
+  const dlg = dialogo(`<form class="form-dialogo" novalidate><h2>Corregir gasto</h2>
+    <p class="ayuda">${esc(g.item)} · ${esc(g.area)} · ${esc(pesos(g.monto))} · ${esc(fechaIso(g.fecha))}${g.folio ? ` · ${g.esNC ? 'NC' : 'F.'} ${esc(g.folio)}` : ''}</p>
+    <div class="grilla-montos"><div class="campo"><label for="cg-fecha">Fecha</label><input id="cg-fecha" type="date" value="${esc(g.fecha)}"></div>
+      <div class="campo"><label for="cg-monto">Monto final${g.monto < 0 ? ' (nota de crédito: negativo)' : ''}</label><input id="cg-monto" type="number" step="1" value="${esc(g.monto)}"></div></div>
+    <div class="campo"><label for="cg-item">Ítem</label><select id="cg-item">${it0 ? '' : `<option value="${esc(g.item)}" selected>${esc(g.item)} (ya no está en la lista)</option>`}${items.map(i => `<option value="${esc(i.item)}" ${i.item === g.item ? 'selected' : ''}>${esc(i.item)}</option>`).join('')}</select></div>
+    <div class="campo"><label for="cg-area">Área</label><select id="cg-area"></select></div>
+    <div class="campo"><label for="cg-obs">Observación</label><input id="cg-obs" type="text" maxlength="500" value="${esc(g.obs)}"></div>
+    <p class="ayuda">El neto se recalcula si cambia el monto${g.esHarina ? ' (con el impuesto de la harina)' : ''}.${g.folio ? ' El folio del SII se mantiene en la observación.' : ''} Si la compra tiene otras líneas (otras áreas o ítems), se corrigen una por una.</p>
+    <div class="error" id="cg-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="cg-cancelar">Cancelar</button><button type="submit" class="btn" id="cg-guardar">Guardar</button></div></form>`);
+  const q = s => dlg.querySelector(s);
+  // El área actual de la fila siempre se ofrece (aunque hoy el ítem tenga otra área fija): guardar sin tocarla no la cambia
+  const pintarArea = () => {
+    const it = items.find(i => i.item === q('#cg-item').value), mismoItem = q('#cg-item').value === g.item;
+    const fija = it && !Sii.necesitaAreas(it) ? it.area : null;
+    const opciones = [...new Set([...(mismoItem ? [g.area] : []), ...(fija ? [fija] : AREAS_GASTO)])];
+    const sel = mismoItem ? g.area : (fija || (AREAS_GASTO.includes(q('#cg-area').value) ? q('#cg-area').value : AREAS_GASTO[0]));
+    q('#cg-area').innerHTML = opciones.map(a => `<option value="${esc(a)}" ${a === sel ? 'selected' : ''}>${esc(a || 'Sin área')}</option>`).join('');
+  };
+  pintarArea();
+  q('#cg-item').addEventListener('change', pintarArea);
+  q('#cg-cancelar').onclick = () => dlg.close();
+  let idem = 'edit-' + Gastos.nuevaClave();
+  q('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const c = { fecha: q('#cg-fecha').value, item: q('#cg-item').value, area: q('#cg-area').value, monto: Math.round(Number(q('#cg-monto').value) || 0), obs: q('#cg-obs').value.trim() };
+    const err = q('#cg-error'); err.textContent = '';
+    if (!c.fecha || !c.monto) { err.textContent = 'Completa la fecha y el monto.'; return; }
+    const cambios = [['Fecha', fechaIso(g.fecha), fechaIso(c.fecha)], ['Ítem', g.item, c.item], ['Área', g.area, c.area], ['Monto', pesos(g.monto), pesos(c.monto)], ['Observación', g.obs, c.obs]].filter(x => x[1] !== x[2]);
+    if (!cambios.length) { dlg.close(); return; }
+    const b = q('#cg-guardar'); b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      await Gastos.editar(g, c, idem);
+      registrar('Corrigió un gasto', `${g.item} ${fechaIso(g.fecha)} · ${cambios.map(x => `${x[0]}: ${x[1] || '—'} → ${x[2] || '—'}`).join(' · ')}`);
+      dlg.close(); pintarGastos('registrados');
+    } catch (er) {
+      if (er.code && er.code !== 'en_curso' && er.code !== 'a_medias') idem = 'edit-' + Gastos.nuevaClave();
+      err.textContent = (er.message || mensajeError(er)) + (er.code ? '' : ' Si vuelves a tocar Guardar no se duplica.');
+      if (er.code === 'cambio') setTimeout(() => { dlg.close(); pintarGastos('registrados'); }, 2500);
+      b.disabled = false; b.textContent = 'Guardar';
+    }
+  });
+}
+
+// Clave del envío: se mantiene si no hubo respuesta (reintentar no anula otra fila igual)
+let idemAnular = null;
+async function anularGastoUI(g, L) {
+  const hermanas = L.filter(x => x !== g && mismaCompra(x, g));
+  const lineas = [g, ...hermanas];
+  const todas = await new Promise(ok => {
+    if (!hermanas.length) return ok(false);
+    const d = dialogo(`<div class="form-dialogo"><h2>Esta compra tiene ${lineas.length} líneas</h2>
+      <div class="lista-detalle">${lineas.map(x => `<div class="fila-reparto"><span>${esc(x.item)}<small>${esc(x.area)}</small></span><b>${esc(pesos(x.monto))}</b></div>`).join('')}</div>
+      <p class="ayuda">Mismo día, hora y boleta. Si la compra entera no corresponde (por ejemplo, quedó duplicada), anúlala completa.</p>
+      <div class="botones"><button type="button" class="btn-sec" data-r="no">Cancelar</button><button type="button" class="btn-sec" data-r="una">Solo ${esc(g.item)} · ${esc(g.area)}</button><button type="button" class="btn" data-r="todas">Toda la compra</button></div></div>`);
+    let r = null;
+    d.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { r = b.dataset.r; d.close(); });
+    d.addEventListener('close', () => ok(r === 'todas' ? true : r === 'una' ? false : null));
+  });
+  if (todas === null) return;
+  const filas = todas ? lineas : [g];
+  const motivo = await pedirMotivo(filas.length > 1 ? `Anular ${filas.length} líneas` : 'Anular gasto',
+    `<div class="lista-detalle">${filas.map(x => `<div class="fila-reparto"><span>${esc(x.item)}<small>${esc(fechaIso(x.fecha))} · ${esc(x.area)}</small></span><b>${esc(pesos(x.monto))}</b></div>`).join('')}</div>
+    <p class="ayuda">No se borra: pasa a la pestaña "Gastos anulados" de la planilla con la fecha, tu cuenta y el motivo, y deja de sumar.${g.folio ? ' Ojo: si era una factura del SII, el documento sigue contando como importado.' : ''}</p>`, 'Anular');
+  if (!motivo) return;
+  // Solo se repite la clave para exactamente las mismas filas (un reintento); otra anulación lleva clave nueva
+  const firma = filas.map(x => x.fila + ':' + x.huella).join(',');
+  if (!idemAnular || idemAnular.firma !== firma) idemAnular = { firma, idem: 'anul-' + Gastos.nuevaClave() };
+  try {
+    const r = await Gastos.anular(filas, motivo, idemAnular.idem);
+    idemAnular = null;
+    registrar('Anuló un gasto', `${filas.map(x => `${x.item} ${x.area} ${pesos(x.monto)}`).join(' + ')} · ${fechaIso(g.fecha)} · ${motivo}`);
+    for (const v of r.pagados || []) {
+      if (confirm(`Este gasto era el pago de "${v.nombre}" (vencía el ${fechaIso(v.fecha)}, pagado el ${fechaIso(v.fechaPago)}).\n\n¿Dejar ese vencimiento por pagar de nuevo? Lo que decía el pago queda anotado.`)) {
+        try { await Gastos.reabrirVencimiento(v.id, motivo); registrar('Dejó un vencimiento por pagar de nuevo', `${v.nombre} · ${motivo}`); } catch (e) { alert(e.message || mensajeError(e)); }
+      }
+    }
+    for (const v of r.vencimientos || []) {
+      if (confirm(`Esta compra era a crédito y tiene su vencimiento por pagar:\n\n${v.nombre} · ${pesos(v.monto)} · vence ${fechaIso(v.fecha)}\n\n¿Anularlo también (con el mismo motivo)?`)) {
+        try { await Gastos.anularVencimiento(v.id, motivo); registrar('Anuló un vencimiento', `${v.nombre} · ${motivo}`); } catch (e) { alert(e.message || mensajeError(e)); }
+      }
+    }
+    pintarGastos('registrados');
+  } catch (e) {
+    if (e.code && e.code !== 'en_curso' && e.code !== 'a_medias') idemAnular = null;
+    alert((e.message || mensajeError(e)) + (e.code ? '' : '\n\nNo hubo respuesta: la lista se vuelve a cargar para ver si quedó anulado.'));
+    if (e.code === 'cambio' || !e.code) { Gastos.olvidarTodo(); pintarGastos('registrados'); }
+  }
+}
+
+// ── Análisis ──
+const SUBTIPOS_COSTO = ['OPERATIVO', 'COMERCIAL', 'SIN CLASIFICAR'];
+const NOTA_SUBTIPO = { 'INVERSIÓN': 'compra de activos, no es costo del mes', 'FINANCIERO': 'deuda: solo los intereses son costo', 'PASIVO': 'pago de algo que ya debías' };
+const ana = { mes: '', modo: 'devengado' };
+async function pintarAnalisis(el, sub) {
+  el.innerHTML = cabGastos(sub) + `<div class="tarjeta"><div class="vacio" style="border:0">Cargando gastos…</div></div>`;
+  let L;
+  try { L = (await Gastos.lista()).gastos || []; } catch (e) { errorGastos(el.querySelector('.tarjeta'), e); return; }
+  if (vistaDesdeHash() !== 'gastos' || subVista() !== 'analisis') return;
+  const hoy = Caja.diaLocal().slice(0, 7);
+  if (!ana.mes) ana.mes = hoy;
+  const fechaDe = g => (ana.modo === 'caja' && g.fechaPago ? g.fechaPago : g.fecha);
+  const meses = [...new Set(L.map(g => fechaDe(g).slice(0, 7)).concat([hoy]))].filter(Boolean).sort().reverse();
+  const sub_ = g => String(g.subTipo || '').toUpperCase().trim() || 'SIN CLASIFICAR';
+  const esCosto = g => SUBTIPOS_COSTO.includes(sub_(g));
+  const delMes = L.filter(g => fechaDe(g).slice(0, 7) === ana.mes);
+  const costo = delMes.filter(esCosto), fuera = delMes.filter(g => !esCosto(g));
+  const suma = l => l.reduce((s, g) => s + g.monto, 0);
+  const agrupar = (l, f) => { const m = {}; l.forEach(g => { const k = f(g) || 'Sin dato'; m[k] = (m[k] || 0) + g.monto; }); return Object.entries(m).map(([nombre, valor]) => ({ nombre, valor })).sort((a, b) => b.valor - a.valor); };
+  const total = suma(costo);
+  const [y, m] = ana.mes.split('-').map(Number);
+  const evol = [5, 4, 3, 2, 1, 0].map(k => { const dt = new Date(y, m - 1 - k, 1); const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`; return { nombre: `${MESES_LARGOS[dt.getMonth()].replace(/^./, c => c.toUpperCase())} ${dt.getFullYear()}`, valor: suma(L.filter(g => esCosto(g) && fechaDe(g).slice(0, 7) === key)) }; });
+  const nombreMes = `${MESES_LARGOS[m - 1]} ${y}`;
+  el.innerHTML = cabGastos(sub) + `
+    <div class="filtros"><select id="an-mes" aria-label="Mes">${meses.map(k => `<option value="${k}" ${k === ana.mes ? 'selected' : ''}>${MESES_LARGOS[+k.slice(5) - 1].replace(/^./, c => c.toUpperCase())} ${k.slice(0, 4)}</option>`).join('')}</select>
+      <div class="chips chips-chicos" role="group" aria-label="Fecha que se usa">${[['devengado', 'Por fecha de compra'], ['caja', 'Por fecha de pago']].map(([k, t]) => `<button type="button" class="chip-filtro" data-modo-an="${k}" aria-pressed="${ana.modo === k}">${t}</button>`).join('')}</div>
+      ${info('Cómo se calcula', 'Costo operacional: los gastos con subtipo OPERATIVO o COMERCIAL (o sin subtipo). Inversiones, deudas (FINANCIERO) e impuestos por pagar (PASIVO) son salidas de plata pero no costo del mes: se muestran aparte para que los meses se puedan comparar.\nPor fecha de compra: el mes en que se compró (devengado). Por fecha de pago: el mes en que salió la plata (flujo de caja); las compras a crédito cuentan cuando se pagan.\nLos gastos anulados no suman. Montos con IVA (monto final).')}</div>
+    <div class="cifras cifras-4">
+      <div class="tarjeta cifra"><span class="rotulo">Costo operacional</span><span class="valor">${pesos(total)}</span><span class="nota">${costo.length} ${costo.length === 1 ? 'línea' : 'líneas'} · ${esc(nombreMes)}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Fijos</span><span class="valor">${pesos(suma(costo.filter(g => g.categoria.toUpperCase() === 'FIJO')))}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Variables</span><span class="valor">${pesos(suma(costo.filter(g => g.categoria.toUpperCase() === 'VARIABLE')))}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Fuera del costo</span><span class="valor">${pesos(suma(fuera))}</span><span class="nota">inversión, deuda, impuestos</span></div>
+    </div>
+    ${costo.length ? `<div class="grilla-an">
+      <section class="tarjeta" aria-labelledby="t-an-area"><div class="titulo-fila"><h2 id="t-an-area">Por área</h2></div>${barras(agrupar(costo, g => g.area), total)}</section>
+      <section class="tarjeta" aria-labelledby="t-an-item"><div class="titulo-fila"><h2 id="t-an-item">Ítems que más pesan</h2></div>${barras(agrupar(costo, g => g.item).slice(0, 8), total)}</section>
+      <section class="tarjeta" aria-labelledby="t-an-tipo"><div class="titulo-fila"><h2 id="t-an-tipo">Directo e indirecto</h2></div>${barras(agrupar(costo, g => g.tipo.toUpperCase()), total)}</section>
+      <section class="tarjeta" aria-labelledby="t-an-sub"><div class="titulo-fila"><h2 id="t-an-sub">Por subtipo (todo el mes)</h2></div>${barras(agrupar(delMes, sub_).map(x => ({ ...x, extra: NOTA_SUBTIPO[x.nombre] || '' })), suma(delMes))}</section>
+    </div>` : `<section class="tarjeta"><div class="vacio">No hay gastos en ${esc(nombreMes)}.</div></section>`}
+    <section class="tarjeta" aria-labelledby="t-an-evol"><div class="titulo-fila"><h2 id="t-an-evol">Costo operacional, últimos 6 meses</h2></div>${barras(evol, 0)}</section>`;
+  colapsar(el);
+  $('an-mes').addEventListener('change', e => { ana.mes = e.target.value; pintarAnalisis(el, sub); });
+  el.querySelectorAll('[data-modo-an]').forEach(b => b.onclick = () => { ana.modo = b.dataset.modoAn; pintarAnalisis(el, sub); });
+}
+
+// ── Ítems ──
+async function pintarItems(el, sub) {
+  el.innerHTML = cabGastos(sub) + `<div class="tarjeta"><div class="vacio" style="border:0">Cargando ítems…</div></div>`;
+  let I;
+  try { I = (await Gastos.itemsTodos()).items || []; } catch (e) { errorGastos(el.querySelector('.tarjeta'), e); return; }
+  if (vistaDesdeHash() !== 'gastos' || subVista() !== 'items') return;
+  const activos = I.filter(i => !i.archivado), archivados = I.filter(i => i.archivado);
+  const fila = (i, k, n) => `<div class="fila-caja"><div class="txt"><b>${esc(i.item)}</b><span>${[i.categoria, i.tipo, i.subTipo, i.area].filter(Boolean).map(esc).join(' · ')}</span>${i.esObligacionRecurrente ? '<span>Se paga desde Obligaciones</span>' : ''}</div>
+    <div class="acciones">${n ? `<button type="button" class="btn-icono" data-mover="${esc(i.item)}" data-dir="arriba" ${k === 0 ? 'disabled' : ''} aria-label="Subir ${esc(i.item)}">${icono('arriba', 16)}</button><button type="button" class="btn-icono" data-mover="${esc(i.item)}" data-dir="abajo" ${k === n - 1 ? 'disabled' : ''} aria-label="Bajar ${esc(i.item)}">${icono('abajo', 16)}</button>` : ''}
+      <button type="button" class="btn-sec btn-chico" data-editar-item="${esc(i.item)}">Editar</button><button type="button" class="btn-sec btn-chico" data-archivar-item="${esc(i.item)}" data-archivar="${i.archivado ? '' : '1'}">${i.archivado ? 'Reactivar' : 'Archivar'}</button></div></div>`;
+  el.innerHTML = cabGastos(sub) + `<div id="gx-items">
+    <section class="tarjeta" aria-labelledby="t-items"><div class="titulo-fila"><h2 id="t-items">Ítems de gasto ${info('Ítems', 'La lista con la que se clasifica cada gasto, en el orden en que aparece al registrar.\nÁrea: una fija (el gasto va entero ahí), SELECCIONAR (se elige el área y el monto al registrar) o PRORRATEADO (se reparte en % entre áreas).\nArchivar lo saca de las listas para registrar; los gastos que ya lo usan no cambian. En Sistema Fën los ítems no se borran.\nCambiar el nombre no cambia los gastos ya registrados ni las obligaciones que lo usan: esos siguen con el nombre anterior.')}</h2>
+      <button type="button" class="btn" id="item-nuevo">${icono('mas', 16)} Nuevo ítem</button></div>
+      ${activos.map((i, k) => fila(i, k, activos.length)).join('') || '<div class="vacio">No hay ítems.</div>'}</section>
+    ${archivados.length ? `<section class="tarjeta" aria-labelledby="t-items-arch"><div class="titulo-fila"><h2 id="t-items-arch">Archivados</h2><span>${archivados.length}</span></div><div data-colapsar="3">${archivados.map(i => fila(i, 0, 0)).join('')}</div></section>` : ''}</div>`;
+  colapsar(el);
+  $('item-nuevo').onclick = () => editarItem(null);
+  $('gx-items').addEventListener('click', async e => {
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
+    if (b.dataset.editarItem) editarItem(I.find(i => i.item === b.dataset.editarItem));
+    else if (b.dataset.mover) { b.disabled = true; try { await Gastos.moverItem(b.dataset.mover, b.dataset.dir); pintarItems(el, sub); } catch (er) { alert(er.message || mensajeError(er)); b.disabled = false; } }
+    else if (b.dataset.archivarItem) {
+      const archivar = !!b.dataset.archivar, nombre = b.dataset.archivarItem;
+      if (archivar && !confirm(`¿Archivar "${nombre}"?\n\nDeja de aparecer para registrar gastos, obligaciones y el SII. Los gastos que ya lo usan no cambian.`)) return;
+      b.disabled = true;
+      try { await Gastos.archivarItem(nombre, archivar); registrar(archivar ? 'Archivó un ítem' : 'Reactivó un ítem', nombre); pintarItems(el, sub); }
+      catch (er) { alert(er.message || mensajeError(er)); b.disabled = false; }
+    }
+  });
+}
+
+function editarItem(i) {
+  const sel = (id, opciones, v) => `<select id="${id}"><option value="">Elige</option>${opciones.map(o => `<option ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+  const d = dialogo(`<form class="form-dialogo" novalidate><h2>${i ? 'Editar ítem' : 'Nuevo ítem'}</h2>
+    <div class="campo"><label for="it-nombre">Nombre</label><input id="it-nombre" type="text" maxlength="60" value="${esc(i ? i.item : '')}" style="text-transform:uppercase"></div>
+    ${i ? '<p class="ayuda">Si cambias el nombre, los gastos ya registrados y las obligaciones que lo usan siguen con el nombre anterior.</p>' : ''}
+    <div class="grilla-montos"><div class="campo"><label for="it-cat">Categoría</label>${sel('it-cat', ['FIJO', 'VARIABLE'], i && i.categoria)}</div><div class="campo"><label for="it-tipo">Tipo</label>${sel('it-tipo', ['DIRECTO', 'INDIRECTO'], i && i.tipo)}</div></div>
+    <div class="grilla-montos"><div class="campo"><label for="it-sub">Subtipo</label>${sel('it-sub', ['OPERATIVO', 'COMERCIAL', 'INVERSIÓN', 'FINANCIERO', 'PASIVO'], i && i.subTipo)}</div><div class="campo"><label for="it-area">Área</label>${sel('it-area', ['SELECCIONAR', 'PRORRATEADO', ...AREAS_GASTO], i && i.area)}</div></div>
+    <div class="error" id="it-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="it-cancelar">Cancelar</button><button type="submit" class="btn" id="it-guardar">Guardar</button></div></form>`);
+  const q = s => d.querySelector(s);
+  q('#it-cancelar').onclick = () => d.close();
+  q('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const datos = { nombreOriginal: i ? i.item : '', nombre: q('#it-nombre').value.trim().toUpperCase(), categoria: q('#it-cat').value, tipo: q('#it-tipo').value, subTipo: q('#it-sub').value, area: q('#it-area').value };
+    if (!datos.nombre || !datos.categoria || !datos.tipo || !datos.subTipo || !datos.area) { q('#it-error').textContent = 'Completa todos los campos.'; return; }
+    const b = q('#it-guardar'); b.disabled = true;
+    try { await Gastos.guardarItem(datos); registrar(i ? 'Editó un ítem' : 'Creó un ítem', i && i.item !== datos.nombre ? `${i.item} → ${datos.nombre}` : datos.nombre); d.close(); pintarGastos('items'); }
+    catch (er) { q('#it-error').textContent = er.message || mensajeError(er); b.disabled = false; }
+  });
 }
 
 // Convierte el resumen de cada app en filas de Pendientes (una por tema, sintetizada)
@@ -1596,7 +2013,7 @@ function sumarResumenes(lista) {
 function barras(filas, total) {
   const max = Math.max(1, ...filas.map(f => f.valor));
   return `<div class="barras" data-colapsar="8">${filas.map(f => `<div class="barra-h">
-      <div class="barra-h-txt"><span>${esc(f.nombre)}${f.extra ? ` <small>${esc(f.extra)}</small>` : ''}</span><b>${pesos(f.valor)} <small>${pct(f.valor, total)}%</small></b></div>
+      <div class="barra-h-txt"><span>${esc(f.nombre)}${f.extra ? ` <small>${esc(f.extra)}</small>` : ''}</span><b>${pesos(f.valor)}${total ? ` <small>${pct(f.valor, total)}%</small>` : ''}</b></div>
       <div class="barra-h-pista"><div class="barra-h-relleno" style="width:${Math.max(0.5, f.valor * 100 / max)}%"></div></div></div>`).join('')}</div>`;
 }
 

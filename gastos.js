@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Gastos  v0.9.0
-//  Habla con el Apps Script de Gastos (v2.2.0+, archivo SistemaFen.gs; las cargas del SII piden v2.3.0)
+//  Sistema Fën — Gastos  v0.10.0
+//  Habla con el Apps Script de Gastos (v2.2.0+, archivo SistemaFen.gs; registrados, obligaciones, ítems y SII piden v2.4.0)
 //  con la sesión de administración de Sistema Fën. El script usa las mismas
 //  funciones de la app de Gastos: un pago o un gasto queda igual que si se
 //  hubiera hecho allá (mismas hojas, misma carpeta de Drive).
 //  Cada envío lleva una clave única (idem): si se repite, no se guarda dos veces.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.9.0';
-import * as Apps from './apps.js?v=0.9.0';
+import { auth } from './firebase.js?v=0.10.0';
+import * as Apps from './apps.js?v=0.10.0';
 
 export const VERSION_MINIMA = '2.2.0';
 let urlOk = null, versionOk = '', cacheDatos = null;
@@ -90,3 +90,29 @@ export function desglose(monto, tipoMonto, esHarina) {
   if (tipoMonto === 'siniva') return { neto: m, total: m };
   return { neto: Math.round(m / f), total: m };
 }
+
+// ── v0.10.0: gastos registrados, obligaciones e ítems (script de Gastos v2.4.0) ──
+export const VERSION_COMPLETA = '2.4.0';
+const op = (o, d, idem) => llamar(o, d, idem, VERSION_COMPLETA);
+let cacheLista = null;
+// Gastos desde el 1 de enero del año pasado (alcanza para el análisis). 60 s en memoria.
+export async function lista(forzar) {
+  if (!forzar && cacheLista && Date.now() - cacheLista.t < 60000) return cacheLista.d;
+  const d = await op('g_lista');
+  cacheLista = { t: Date.now(), d };
+  return d;
+}
+const olvidarTodo = () => { cacheLista = null; olvidar(); };
+export { olvidarTodo };
+export async function editar(g, cambios, idem) { const r = await op('g_editar', { fila: g.fila, huella: g.huella, ...cambios }, idem); olvidarTodo(); return r; }
+export async function anular(filas, motivo, idem) { const r = await op('g_anular', { filas: filas.map(g => ({ fila: g.fila, huella: g.huella })), motivo }, idem); olvidarTodo(); return r; }
+export const plantillas = () => op('obl_plantillas');
+export const historialPagos = filtro => op('obl_historial', filtro || {});
+export async function anularVencimiento(id, motivo) { const r = await op('obl_anular_venc', { id, motivo }); olvidarTodo(); return r; }
+export async function reabrirVencimiento(id, motivo) { const r = await op('obl_reabrir_venc', { id, motivo }); olvidarTodo(); return r; }
+export async function guardarObligacion(d, idem) { const r = await op('obl_guardar', d, idem); olvidarTodo(); return r; }
+export async function archivarObligacion(id, archivar) { const r = await op(archivar ? 'obl_archivar' : 'obl_activar', { id }); olvidarTodo(); return r; }
+export const itemsTodos = () => op('items_todos');
+export async function guardarItem(d) { const r = await op('item_guardar', d); olvidarTodo(); return r; }
+export async function moverItem(item, direccion) { const r = await op('item_mover', { item, direccion }); olvidarTodo(); return r; }
+export async function archivarItem(nombre, archivar) { const r = await op('item_archivar', { nombre, archivar }); olvidarTodo(); return r; }

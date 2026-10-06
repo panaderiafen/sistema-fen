@@ -1,9 +1,34 @@
-# Sistema Fën · v0.9.0
+# Sistema Fën · v0.10.0
 
-**App:** v0.9.0 · **Reglas de Firestore:** v1.3.0 (sin cambios) · 5 de octubre de 2026
+**App:** v0.10.0 · **Reglas de Firestore:** v1.3.0 (sin cambios) · 5 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas y despacho siguen en sus apps (Producción y B2B) con su PIN.
+
+## Novedades de la v0.10.0: Gastos completo
+Gastos ahora tiene todo lo de la app de Gastos, en 7 pestañas:
+
+| Pestaña | Qué hace |
+| --- | --- |
+| **Vencimientos** | Igual que antes, más **Anular** en cada vencimiento (con motivo) |
+| **Obligaciones** (nueva) | Las reglas que crean los vencimientos: **nueva**, **editar**, **archivar** y **reactivar** (con ítem, reparto por área o en %, "Sugerir % según ventas", frecuencia, cuotas de una cuponera, monto estimado y tipo de monto). Más el **historial de pagos** por mes o completo |
+| **Registrar** | Igual que antes |
+| **Registrados** (nueva) | Todos los gastos desde el 1 de enero del año pasado, con búsqueda (ítem, área, monto, proveedor, folio, observación), mes y "A crédito / Por pagar". **Corregir** (fecha, ítem, área, monto, observación; el neto se recalcula) y **Anular** |
+| **Análisis** (nueva) | El mes en costo operacional, fijos, variables y lo que queda fuera del costo (inversión, deuda, impuestos); por área, ítems que más pesan, directo e indirecto, por subtipo y los últimos 6 meses. Por fecha de compra o por fecha de pago |
+| **Cargas del SII** | Igual que antes (con el arreglo de abajo) |
+| **Ítems** (nueva) | Nuevo, editar, subir y bajar, **archivar** y reactivar |
+
+(i) **Anular un gasto no lo borra.** La fila pasa a una pestaña nueva de la planilla, **"Gastos anulados"**, con la fecha, tu cuenta y el motivo, y sale de Registro Gasto: así deja de sumar en todos lados (análisis, Looker, prorrateo) sin filtrar nada. Si la compra tiene varias líneas (áreas o ítems con la misma boleta o factura), puedes anular la compra completa. Si era a crédito, te ofrece anular también su vencimiento; si era el pago de una obligación, te ofrece dejar ese vencimiento **por pagar de nuevo**.
+
+(i) **Anular un vencimiento** lo deja como ANULADO en la hoja Vencimientos (con el motivo en ObsPago): no aparece, no avisa por correo y no se puede pagar. La obligación sigue generando los meses siguientes. **Obligaciones e ítems no se borran: se archivan.**
+
+(i) **Antes de corregir o anular, Gastos revisa que la fila siga siendo la misma** (las filas se corren cuando entra un gasto nuevo). Si cambió, avisa y recarga la lista.
+
+(i) **Arreglo del SII (corrección pendiente de la v0.9):** un documento se reconoce por RUT, folio **y tipo**. Una nota de crédito con el mismo folio que una factura del mismo proveedor ya no sale como "ya importada". Las notas de crédito nuevas se anotan "NC.123" en la observación; las antiguas ("F.123" con monto negativo) se reconocen solas.
+
+(i) Necesita el **script de Gastos v2.4.0** (`gastos-script-v2.4.0.zip`). Sin él, las pestañas nuevas y Cargas del SII dicen "falta actualizarlo a v2.4.0"; Vencimientos y Registrar siguen funcionando.
+
+Archivos: cambian `index.html`, `estilos.css`, `config.js`, `app.js`, `gastos.js`, `sii.js`, `apps.js`, `README.md`, y `caja.js`, `stock.js`, `ajustes.js`, `agenda.js` (solo versión). Reglas sin cambio.
 
 ## Novedades de la v0.9.0: Cargas del SII
 Nueva pestaña **Gastos → Cargas del SII**: la carga masiva de la app de Gastos, ahora aquí.
@@ -22,7 +47,7 @@ Nueva pestaña **Gastos → Cargas del SII**: la carga masiva de la app de Gasto
 
 (i) Gastos revisa todo antes de escribir: que el ítem exista, que las áreas sean válidas, que los montos sumen el total del documento y que no esté ya importado. Si se corta internet al importar, volver a tocar "Importar" no duplica.
 
-(i) Necesita el **script de Gastos v2.3.0** (`gastos-script-v2.3.0.zip`). Sin él, la pestaña dice "falta actualizarlo a v2.3.0"; Vencimientos y Registrar gasto siguen funcionando.
+(i) Necesitaba el script de Gastos v2.3.0 (desde la v0.10.0, el v2.4.0).
 
 Archivos: `sii.js` es **nuevo**; cambian `index.html`, `estilos.css`, `config.js`, `app.js`, `gastos.js`, `apps.js`, `README.md`, y `caja.js`, `stock.js`, `ajustes.js`, `agenda.js` (solo versión). Reglas sin cambio.
 
@@ -202,7 +227,7 @@ estilos.css            colores Salvia y arena                     → GitHub, si
 config.js              versión, apps del menú, Firebase, scripts  → GitHub, sistema-fen, raíz (reemplaza)
 firebase.js            conexión con Firebase                      → GitHub, sistema-fen, raíz (reemplaza)
 app.js                 pantallas                                  → GitHub, sistema-fen, raíz (reemplaza)
-sii.js                 NUEVO en v0.9.0: cargas del SII            → GitHub, sistema-fen, raíz
+sii.js                 cargas del SII (v0.9.0)                    → GitHub, sistema-fen, raíz
 gastos.js              Gastos (v0.8.0)                            → GitHub, sistema-fen, raíz
 agenda.js              agenda (v0.7.0)                            → GitHub, sistema-fen, raíz
 apps.js                pendientes de las otras apps (v0.6.0) → GitHub, sistema-fen, raíz
@@ -214,15 +239,15 @@ README.md              este archivo                               → GitHub, si
 firestore.rules        reglas v1.3.0 (agenda)                     → consola de Firebase (fen-ventas) → Firestore Database → Reglas → Publicar
 firestore-v1.2.0.rules reglas anteriores, por si hay que volver   → no se sube (guárdalo)
 ```
-En Apps Script cambia solo el de **Gastos** (v2.3.0, zip aparte con su README). Nada en la caja cambia.
+En Apps Script cambia solo el de **Gastos** (v2.4.0, zip aparte con su README). Nada en la caja cambia.
 
 (i) `config.js` lleva la configuración web de Firebase. No es secreta: es la misma que ya está en la caja y solo dice a qué proyecto conectarse. Lo que protege los datos son las reglas y tu contraseña.
 
-## Instalación de la v0.9.0
-0. **Primero el script de Gastos v2.3.0** (`gastos-script-v2.3.0.zip`, ver su README). Si la v0.8.0 todavía no estaba instalada, el script v2.3.0 ya la incluye.
-1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra `sii.js` (nuevo), `gastos.js`, `agenda.js`, `apps.js`, `ajustes.js`, `stock.js` y `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js`, `README.md` y `logo-fen.png` → **Commit changes**.
-2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.9.0**).
-3. Configuración → Conexiones → Gastos → **Probar**: debe decir "v2.3.0 · lista".
+## Instalación de la v0.10.0
+0. **Primero el script de Gastos v2.4.0** (`gastos-script-v2.4.0.zip`, ver su README).
+1. En GitHub, repo **sistema-fen** → **Add file → Upload files** → arrastra `sii.js`, `gastos.js`, `agenda.js`, `apps.js`, `ajustes.js`, `stock.js` y `index.html`, `estilos.css`, `config.js`, `app.js`, `caja.js`, `README.md` y `logo-fen.png` → **Commit changes**.
+2. Espera 1 o 2 minutos y abre https://panaderiafen.github.io/sistema-fen/ (si ves la versión anterior, recarga con Ctrl+Shift+R; abajo a la izquierda debe decir **v0.10.0**).
+3. Configuración → Conexiones → Gastos → **Probar**: debe decir "v2.4.0 · lista".
 
 ## Instalación de la v0.8.0 (ya hecha si la instalaste)
 0. **Script de Gastos v2.2.0** (ver su README). **Reglas:** si ya publicaste las v1.3.0, no hace falta nada más; consola de Firebase → **fen-ventas** → Firestore Database → **Reglas** → borra todo, pega `firestore.rules` (v1.3.0) → **Publicar**. Después abre la caja y haz algo de todos los días: debe funcionar igual (si no, pega `firestore-v1.2.0.rules` y avísame).
@@ -232,6 +257,13 @@ En Apps Script cambia solo el de **Gastos** (v2.3.0, zip aparte con su README). 
 (i) Instalación desde cero (v0.1): reglas v1.2.0 en Firebase, subir los archivos, Settings → Pages → *Deploy from a branch*, **main**, **/(root)**. Ya está hecho.
 
 ## Lista de verificación
+- [ ] Abajo a la izquierda dice **v0.10.0**; Gastos tiene 7 pestañas.
+- [ ] **Registrados**: aparecen tus gastos; busca uno por monto o proveedor. **Corrige** la observación de uno de prueba y revisa en la planilla que cambió solo esa fila.
+- [ ] Registra un gasto de prueba y **anúlalo**: sale de Registro Gasto y aparece en la pestaña nueva **Gastos anulados** con tu cuenta y el motivo.
+- [ ] **Análisis** de septiembre: compara el costo operacional con el de la app de Gastos (deben coincidir).
+- [ ] **Obligaciones**: están tus reglas (las mismas que en la app de Gastos). Crea una de prueba con fecha específica y archívala.
+- [ ] **Ítems**: el mismo orden que en la app de Gastos. Archiva uno de prueba: deja de aparecer en Registrar (aquí y en la app de Gastos); reactívalo.
+- [ ] **Cargas del SII**: reabre una carga: los ya importados siguen en gris.
 - [ ] Abajo a la izquierda dice **v0.9.0** y en Gastos aparece la pestaña **Cargas del SII**, con tus cargas anteriores agrupadas por mes (las mismas que en la app de Gastos).
 - [ ] **Reabre** una carga con pendientes: aparecen sus documentos, los ya importados en gris con "Ya en Gastos".
 - [ ] Sube un XML chico del SII (o el de esta semana). Clasifica **una** factura de prueba e impórtala. En la planilla de Gastos aparece igual que cuando importas desde la app (folio en la observación, RUT, y si era pendiente, su vencimiento en Vencimientos).
@@ -261,7 +293,7 @@ En Apps Script cambia solo el de **Gastos** (v2.3.0, zip aparte con su README). 
 - **"…el cierre no llegó a la planilla (…)":** la caja quedó cerrada; el cierre queda en *Cierres sin pasar a planilla*. Toca *Reenviar*. Si vuelve a fallar, mándame el texto del error.
 - **Sigue viéndose la v0.1.1:** espera unos minutos y recarga con Ctrl+Shift+R.
 
-## Pruebas automáticas (41, todas pasan)
+## Pruebas automáticas (45, todas pasan)
 Con Firebase simulado en el navegador:
 - Las 12 de la v0.1.1 (entrada, Hoy, recargar, Seguridad, revocar, vencer, celular).
 - Hoy abre Ventas de caja → Anulaciones. Aprobar una venta con pago dividido: efectivo y débito bajan lo justo, no aparece un medio "Dividido", el stock vuelve al mismo lote, queda en la actividad.
@@ -271,6 +303,7 @@ Con Firebase simulado en el navegador:
 - Caja que vendió hace 5 minutos: avisa y, si dices que no, no se cierra.
 - Solicitud aprobada en otro equipo justo antes: no se descuenta dos veces.
 - Celular: Caja en la barra inferior, sin scroll horizontal.
+- v0.10.0: registrados con búsqueda, mes y "por pagar"; corregir (área fija del ítem, neto, historial con antes → después); anular una compra de dos líneas con motivo y su vencimiento; un pago de obligación sin boleta no se agrupa y ofrece dejar el vencimiento por pagar; anular un vencimiento; obligaciones con % sugerido, cuponera, archivar e historial; análisis (costo operacional sin la inversión, por área, subtipo, 6 meses); ítems (subir, renombrar, archivar y reactivar); celular sin scroll horizontal en las cuatro pestañas. Pruebas del script con la planilla en memoria y el Code.gs real: nota de crédito y factura con el mismo folio, notas de crédito antiguas, la app de Gastos sin tipo no reimporta, "NC." y "Tipo Doc"; lista con huella, corregir revisa la fila, conserva el folio y respeta el signo; anular copia a "Gastos anulados" (al final de las pestañas, por nombre de columna), borra de abajo hacia arriba, no repite con la misma clave y con otra clave detecta que la fila cambió; vencimiento anulado oculto, sin correo, sin pago y fuera de Hoy; obligaciones validadas (día, %, áreas, cuponera); ítems archivados fuera de Registrar y del orden. Una revisión independiente encontró 6 cosas (agrupar pagos distintos como una compra, pago anulado que dejaba la obligación pagada, área que cambiaba sola al corregir, reintento que podía anular otra fila igual, orden con archivados, columnas nuevas en "Gastos anulados"): todas arregladas.
 - v0.9.0: subir un XML con 4 documentos (uno ya importado, uno con nota y coincidencia, una nota de crédito, uno con harina y vencimiento a 31 días ya puesto como pendiente); la carga queda en el historial con el archivo; asignar productos con "Mismo ítem a todos" y áreas (montos calculados con IVA e impuesto de harina, cuadrando exacto); vincular con un gasto a mano; importar (montos negativos y fecha propia en la nota de crédito). CSV sin detalle: no importa sin ítem; dividir en dos ítems con el acumulador y aviso de cuánto falta; % sugerido por ventas; pide pagada o pendiente; "Aplicar a todas"; repetidos → "Importar solo las nuevas" con otra clave; historial con búsqueda, ir a la carga, nota y quitar. Reabrir no vuelve a guardar la carga; detalle de un documento; script sin actualizar avisa sin romper Vencimientos; celular sin scroll horizontal. Pruebas del script con la planilla en memoria y el Code.gs real: ya importados y coincidencias, archivo privado en Drive, carga repetida no se duplica, notas sin fórmulas, quitar marca sin borrar (y desaparece de Hoy), volver a subir la trae de vuelta, vincular revisa que las filas sigan siendo las mismas, importar rechaza áreas que no suman, ítems inexistentes, áreas falsas y documentos repetidos, el reintento no duplica, repetidos no escriben nada, un corte a medias no deja vencimientos sueltos, documentos en $0. Una revisión independiente encontró 5 cosas (nota que podía guardarse en el documento equivocado, documentos en $0, lecturas sin bloqueo, mensaje tras un corte, "Misma área a todos" en ítems prorrateados): todas arregladas.
 - v0.8.0: vencimientos por grupo con montos (remuneraciones = suma de sus áreas); pagar uno repartido por área con comprobante (la foto se achica y va con su clave única); registrar un gasto con varias áreas, reparto en % (debe sumar 100), harina, neto y crédito de proveedor (pide fecha de pago y foto); total con IVA e impuesto de harina; los vencimientos en la agenda del mes y tocar uno abre el pago; script sin actualizar avisa; celular. Más las pruebas del script: no paga dos veces, un envío repetido no duplica, un envío cortado a medias no se repite, áreas y % revisados en el servidor, ítems de obligaciones recurrentes no se registran a mano.
 - v0.7.0: la agenda semanal en orden de fecha con lo propio, lo personal y los pagos de Gastos; no muestra lo quitado, lo personal de otra cuenta ni lo de más de 7 días; filtros; agregar; mes con agregar en un día, pasar de Fën a personal (el original queda quitado), marcar hecho y quitar sin borrar; lo personal no deja su título en la actividad; celular.
