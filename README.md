@@ -1,9 +1,14 @@
-# Sistema Fën · v0.11.2
+# Sistema Fën · v0.11.3
 
-**App:** v0.11.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.0.0 (nuevas) · 6 de octubre de 2026
+**App:** v0.11.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.0.0 (nuevas) · 6 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas y despacho siguen en sus apps (Producción y B2B) con su PIN.
+
+## Novedades de la v0.11.3
+- **Control de totales:** Firestore tampoco deja sumar dos campos en la misma consulta sin un índice extra. Ahora pide cada suma por separado (cuesta lo mismo). No hace falta crear índices.
+
+Archivos: cambian `b2b.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos.
 
 ## Novedades de la v0.11.2
 - **Control de totales:** Firestore no deja sumar con un filtro sin un índice extra. Ahora suma toda la colección y resta los pocos documentos marcados "quitado de la planilla". No hace falta crear índices.

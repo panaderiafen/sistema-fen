@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.11.2';
-import * as FB from './firebase-b2b.js?v=0.11.2';
-import * as Apps from './apps.js?v=0.11.2';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.11.2';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.11.3';
+import * as FB from './firebase-b2b.js?v=0.11.3';
+import * as Apps from './apps.js?v=0.11.3';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.11.3';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 const K_CFG = 'fen_sistema_b2b_cfg';
@@ -212,7 +212,11 @@ export async function totales() {
   // Firestore suma toda la colección (sin filtro: un filtro + una suma necesitaría un índice compuesto);
   // después se restan los pocos documentos marcados como quitados de la planilla.
   const db = cx.db;
-  const agg = async (col, campos) => (await FB.getAggregateFromServer(FB.collection(db, col), campos)).data();
+  // Una agregación por consulta: Firestore pide un índice compuesto si se suman dos campos juntos
+  const agg = async (col, campos) => {
+    const partes = await Promise.all(Object.entries(campos).map(async ([k, c]) => (await FB.getAggregateFromServer(FB.collection(db, col), { [k]: c })).data()));
+    return Object.assign({}, ...partes);
+  };
   const quitados = async col => { const sn = await FB.getDocs(FB.query(FB.collection(db, col), FB.where('quitadoEnPlanilla', '==', true))); uso.lecturas += Math.max(1, sn.size); return sn.docs.map(d => d.data()); };
   const menos = (r, qs, campos) => { const o = { n: r.n - qs.length }; campos.forEach(c => { o[c] = (Number(r[c]) || 0) - qs.reduce((s, d) => s + (Number(d[c]) || 0), 0); }); return o; };
   const [o, a, c, p, e, qo, qa, qc, qp, qe, ult] = await Promise.all([
