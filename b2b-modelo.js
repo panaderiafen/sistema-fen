@@ -206,11 +206,20 @@ export function armar(hojas) {
     docs.ordenes[String(n)] = o;
   });
   // Líneas cuya orden no está en ningún resumen: se arma la orden con lo que hay (nada se pierde)
+  const repetidas = [];
   Object.keys(lineasPor).forEach(k => {
     const rs = lineasPor[k], r0 = rs[0], n = Number(k.slice(1));
     const id = String(n);
-    if (docs.ordenes[id]) {   // la orden ya está: estas líneas vienen de la otra hoja (archivado a medias); se guardan aparte
-      docs.ordenes[id].lineasOtraHoja = rs.map(linea);
+    if (docs.ordenes[id]) {   // la orden ya está: estas líneas vienen de la otra hoja (archivado a medias)
+      const firma = ls => ls.map(l => [clave(l.producto), l.cantidad, l.precio, l.total].join('|')).sort().join(';');
+      const otras = rs.map(linea);
+      if (firma(otras) === firma(docs.ordenes[id].lineas)) {
+        // Las mismas líneas, repetidas: el archivado las copió al histórico pero no alcanzó a borrarlas. No se pierde nada.
+        docs.ordenes[id].detalleRepetidoEn = r0._hoja;
+        repetidas.push({ n, hoja: r0._hoja, filas: rs.map(x => x._fila) });
+        return;
+      }
+      docs.ordenes[id].lineasOtraHoja = otras;
       docs.ordenes[id].revisar.push(`También tiene ${rs.length} ${rs.length === 1 ? 'línea' : 'líneas'} en ${r0._hoja}`);
       aviso(r0._hoja, r0._fila, `La orden N° ${n} tiene líneas en el detalle actual y en el histórico: se guardaron las dos para revisar.`);
       return;
@@ -225,6 +234,14 @@ export function armar(hojas) {
       revisar: ['No está en el resumen (solo en el detalle)'], soloDetalle: true, origen: { hoja: r0._hoja, fila: r0._fila }, quitadoEnPlanilla: false
     };
   });
+  if (repetidas.length) {
+    const porHoja = {};
+    repetidas.forEach(r => { (porHoja[r.hoja] = porHoja[r.hoja] || []).push(r); });
+    Object.entries(porHoja).forEach(([hoja, l]) => {
+      const filas = l.reduce((s, r) => s + r.filas.length, 0);
+      aviso(hoja, null, `${l.length} órdenes ya archivadas siguen también aquí, con las mismas líneas (${filas} filas, N° ${Math.min(...l.map(r => r.n))} a ${Math.max(...l.map(r => r.n))}). Es un archivado que copió al histórico pero no alcanzó a borrar. Se copió una sola vez y no queda para revisar.`);
+    });
+  }
   Object.values(docs.ordenes).forEach(o => {
     totalPlanilla.ordenes++; totalPlanilla.total += o.total; totalPlanilla.neto += o.neto;
     totalPlanilla.lineas += o.lineas.length; totalPlanilla.totalLineas += o.lineas.reduce((s, l) => s + l.total, 0);
@@ -257,7 +274,8 @@ export function armar(hojas) {
     clientes: Object.keys(docs.clientes).length, productos: Object.keys(docs.productos).length,
     precios: Object.values(docs.clientes).reduce((s, c) => s + c.precios.length, 0), preciosSinCliente,
     ...totalPlanilla, abonos: Object.keys(docs.abonos).length, abonosMonto, ediciones: Object.keys(docs.ediciones).length,
-    revisar: Object.values(docs.ordenes).filter(o => o.revisar.length).length
+    revisar: Object.values(docs.ordenes).filter(o => o.revisar.length).length,
+    detalleRepetido: repetidas.length, filasRepetidas: repetidas.reduce((s, r) => s + r.filas.length, 0)
   };
   return { docs, avisos, planilla };
 }

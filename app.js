@@ -9,17 +9,17 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.11.0';
-import * as Caja from './caja.js?v=0.11.0';
-import * as Stock from './stock.js?v=0.11.0';
-import * as Ajustes from './ajustes.js?v=0.11.0';
-import * as Apps from './apps.js?v=0.11.0';
-import * as Agenda from './agenda.js?v=0.11.0';
-import * as Gastos from './gastos.js?v=0.11.0';
-import * as Sii from './sii.js?v=0.11.0';
-import * as Previred from './previred.js?v=0.11.0';
-import * as B2b from './b2b.js?v=0.11.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.11.0';
+} from './firebase.js?v=0.11.1';
+import * as Caja from './caja.js?v=0.11.1';
+import * as Stock from './stock.js?v=0.11.1';
+import * as Ajustes from './ajustes.js?v=0.11.1';
+import * as Apps from './apps.js?v=0.11.1';
+import * as Agenda from './agenda.js?v=0.11.1';
+import * as Gastos from './gastos.js?v=0.11.1';
+import * as Sii from './sii.js?v=0.11.1';
+import * as Previred from './previred.js?v=0.11.1';
+import * as B2b from './b2b.js?v=0.11.1';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.11.1';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -311,7 +311,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.11.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.11.1" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2061,7 +2061,7 @@ function pintarB2bBase(el, sub, cx) {
     const enPlanilla = { clientes: p.planilla.clientes, productos: p.planilla.productos, ordenes: p.planilla.ordenes, abonos: p.planilla.abonos, ediciones: p.planilla.ediciones };
     const revisar = Object.values(p.docs.ordenes).filter(o => o.revisar.length);
     prepHtml = `<div class="tabla-b2b" style="margin-top:12px"><table class="tabla-tiempos"><thead><tr><th scope="col">Qué</th><th scope="col">En la planilla</th><th scope="col">Nuevos</th><th scope="col">Cambiaron</th><th scope="col">Ya no están ${info('Ya no están', 'Estaban en la copia anterior y ya no aparecen en la planilla (por ejemplo, una orden eliminada en la app B2B). En la base nueva no se borran: quedan marcados como "quitado de la planilla" y dejan de sumar.')}</th><th scope="col">Iguales</th></tr></thead><tbody>
-      ${COLS_B2B.map(k => `<tr><td>${NOMBRES_B2B[k]}</td><td>${enPlanilla[k].toLocaleString('es-CL')}</td><td>${c[k].nuevos.length}</td><td>${c[k].cambiados.length}</td><td>${c[k].quitar.length}</td><td>${c[k].iguales}</td></tr>`).join('')}
+      ${COLS_B2B.map(k => `<tr><td>${NOMBRES_B2B[k]}</td><td>${enPlanilla[k].toLocaleString('es-CL')}</td><td>${c[k].nuevos.length.toLocaleString('es-CL')}</td><td>${c[k].cambiados.length.toLocaleString('es-CL')}</td><td>${c[k].quitar.length.toLocaleString('es-CL')}</td><td>${c[k].iguales.toLocaleString('es-CL')}</td></tr>`).join('')}
       </tbody></table></div>
       <p class="ayuda" style="margin-top:8px">${p.planilla.ordenes.toLocaleString('es-CL')} órdenes (${p.planilla.archivadas.toLocaleString('es-CL')} archivadas) con ${p.planilla.lineas.toLocaleString('es-CL')} líneas · ${pesos(p.planilla.total)} · ${p.planilla.precios} precios especiales · leída ${hace(new Date(p.leido))}</p>
       ${p.avisos.length ? `<details class="aviso" style="margin-top:10px"><summary><b>${p.avisos.length} ${p.avisos.length === 1 ? 'aviso' : 'avisos'} de la planilla</b> · no frenan la copia ${info('Avisos', 'Son cosas raras en la planilla: filas sin nombre, precios de clientes que no existen, una orden repetida o con el detalle que no suma lo mismo que el resumen. La copia las respeta tal cual (nada se pierde) y cada orden con algo raro queda marcada "para revisar".\nConviene corregirlas en la planilla con calma; no hay apuro.')}</summary>

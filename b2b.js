@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.11.0';
-import * as FB from './firebase-b2b.js?v=0.11.0';
-import * as Apps from './apps.js?v=0.11.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.11.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.11.1';
+import * as FB from './firebase-b2b.js?v=0.11.1';
+import * as Apps from './apps.js?v=0.11.1';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.11.1';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 const K_CFG = 'fen_sistema_b2b_cfg';
