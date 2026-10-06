@@ -1,9 +1,15 @@
-# Sistema Fën · v0.11.1
+# Sistema Fën · v0.11.2
 
-**App:** v0.11.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.0.0 (nuevas) · 6 de octubre de 2026
+**App:** v0.11.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.0.0 (nuevas) · 6 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas y despacho siguen en sus apps (Producción y B2B) con su PIN.
+
+## Novedades de la v0.11.2
+- **Control de totales:** Firestore no deja sumar con un filtro sin un índice extra. Ahora suma toda la colección y resta los pocos documentos marcados "quitado de la planilla". No hace falta crear índices.
+- Si la copia termina bien y algo falla después, el mensaje lo dice claro (antes parecía que la copia había fallado).
+
+Archivos: cambian `b2b.js`, `app.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos.
 
 ## Novedades de la v0.11.1
 - **Archivado a medias:** en la planilla real, unas 950 órdenes ya archivadas siguen también en "Detalle Ventas" (el archivado las copió al histórico pero no alcanzó a borrarlas). Si las líneas son exactamente las mismas, ahora se copian **una sola vez**, sin marcar la orden para revisar, y queda **un solo aviso** que lo resume. Si las líneas son distintas, la orden sí queda para revisar, con las dos versiones guardadas.

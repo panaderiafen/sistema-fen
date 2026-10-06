@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.11.1';
-import * as FB from './firebase-b2b.js?v=0.11.1';
-import * as Apps from './apps.js?v=0.11.1';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.11.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.11.2';
+import * as FB from './firebase-b2b.js?v=0.11.2';
+import * as Apps from './apps.js?v=0.11.2';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.11.2';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 const K_CFG = 'fen_sistema_b2b_cfg';
@@ -209,17 +209,23 @@ async function escribir(db, lote) {
 export async function totales() {
   const cx = await conexion();
   if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva.');
-  const db = cx.db, vig = col => FB.query(FB.collection(db, col), FB.where('quitadoEnPlanilla', '==', false));
-  const agg = async (col, campos) => { const r = await FB.getAggregateFromServer(vig(col), campos); return r.data(); };
-  const [o, a, c, p, e, ult] = await Promise.all([
+  // Firestore suma toda la colección (sin filtro: un filtro + una suma necesitaría un índice compuesto);
+  // después se restan los pocos documentos marcados como quitados de la planilla.
+  const db = cx.db;
+  const agg = async (col, campos) => (await FB.getAggregateFromServer(FB.collection(db, col), campos)).data();
+  const quitados = async col => { const sn = await FB.getDocs(FB.query(FB.collection(db, col), FB.where('quitadoEnPlanilla', '==', true))); uso.lecturas += Math.max(1, sn.size); return sn.docs.map(d => d.data()); };
+  const menos = (r, qs, campos) => { const o = { n: r.n - qs.length }; campos.forEach(c => { o[c] = (Number(r[c]) || 0) - qs.reduce((s, d) => s + (Number(d[c]) || 0), 0); }); return o; };
+  const [o, a, c, p, e, qo, qa, qc, qp, qe, ult] = await Promise.all([
     agg('ordenes', { n: FB.count(), total: FB.sum('total'), neto: FB.sum('neto') }),
     agg('abonos', { n: FB.count(), monto: FB.sum('monto') }),
     agg('clientes', { n: FB.count() }), agg('productos', { n: FB.count() }), agg('ediciones', { n: FB.count() }),
+    quitados('ordenes'), quitados('abonos'), quitados('clientes'), quitados('productos'), quitados('ediciones'),
     FB.getDoc(FB.doc(db, 'config', 'migracion'))
   ]);
   uso.lecturas += Math.ceil((o.n + 1) / 1000) + Math.ceil((a.n + 1) / 1000) + 4;
+  const O = menos(o, qo, ['total', 'neto']), A = menos(a, qa, ['monto']);
   return {
-    base: { ordenes: o.n, total: o.total, neto: o.neto, abonos: a.n, abonosMonto: a.monto, clientes: c.n, productos: p.n, ediciones: e.n },
+    base: { ordenes: O.n, total: O.total, neto: O.neto, abonos: A.n, abonosMonto: A.monto, clientes: c.n - qc.length, productos: p.n - qp.length, ediciones: e.n - qe.length },
     ultima: ult.exists() ? ult.data() : null
   };
 }

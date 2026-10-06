@@ -9,17 +9,17 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.11.1';
-import * as Caja from './caja.js?v=0.11.1';
-import * as Stock from './stock.js?v=0.11.1';
-import * as Ajustes from './ajustes.js?v=0.11.1';
-import * as Apps from './apps.js?v=0.11.1';
-import * as Agenda from './agenda.js?v=0.11.1';
-import * as Gastos from './gastos.js?v=0.11.1';
-import * as Sii from './sii.js?v=0.11.1';
-import * as Previred from './previred.js?v=0.11.1';
-import * as B2b from './b2b.js?v=0.11.1';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.11.1';
+} from './firebase.js?v=0.11.2';
+import * as Caja from './caja.js?v=0.11.2';
+import * as Stock from './stock.js?v=0.11.2';
+import * as Ajustes from './ajustes.js?v=0.11.2';
+import * as Apps from './apps.js?v=0.11.2';
+import * as Agenda from './agenda.js?v=0.11.2';
+import * as Gastos from './gastos.js?v=0.11.2';
+import * as Sii from './sii.js?v=0.11.2';
+import * as Previred from './previred.js?v=0.11.2';
+import * as B2b from './b2b.js?v=0.11.2';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.11.2';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -311,7 +311,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.11.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.11.2" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -1985,7 +1985,7 @@ function errorB2b(e) {
   if (/permission-denied/.test(c)) return 'La base nueva no dejó leer o guardar: revisa que estén publicadas las reglas de fen-b2b v1.0.0 y que tu cuenta esté en admins (ver README).';
   if (/invalid-credential|wrong-password|user-not-found/.test(c)) return 'En fen-b2b no hay una cuenta con tu correo y esa contraseña. Créala en la consola de Firebase del proyecto fen-b2b → Authentication (ver README).';
   if (/invalid-api-key|api-key-not-valid/.test(c)) return 'La configuración guardada no es válida (apiKey). Vuelve a pegarla.';
-  if (/failed-precondition/.test(c)) return 'Firestore todavía no está creado en fen-b2b (consola → Firestore Database → Crear base de datos).';
+  if (/failed-precondition/.test(c)) return /index/i.test((e && e.message) || '') ? 'Firestore pide un índice para esta consulta. Avísame con este mensaje: ' + e.message : 'Firestore todavía no está creado en fen-b2b (consola → Firestore Database → Crear base de datos).';
   return (e && e.message) || mensajeError(e);
 }
 
@@ -2112,8 +2112,8 @@ function pintarB2bBase(el, sub, cx) {
       registrar('Copió la planilla de B2B a la base nueva', `${r.escritos} documentos`);
       b2b.msg = `Listo: ${r.escritos.toLocaleString('es-CL')} documentos copiados.`;
       b2b.prep = null;
-      b2b.tot = await B2b.totales();
     } catch (e) { b2b.error = errorB2b(e) + ' Lo copiado hasta ahí queda; vuelve a leer la planilla y copia lo que falte.'; }
+    if (!b2b.error) { try { b2b.tot = await B2b.totales(); } catch (e) { b2b.error = 'La copia terminó bien, pero no se pudieron revisar los totales: ' + errorB2b(e); } }
     b2b.copiando = false;
     if (vistaDesdeHash() === 'b2b' && !subVista()) pintarB2bBase(el, sub, cx);
   });
