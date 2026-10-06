@@ -1,9 +1,68 @@
-# Sistema Fën · v0.10.1
+# Sistema Fën · v0.11.0
 
-**App:** v0.10.1 · **Reglas de Firestore:** v1.3.0 (sin cambios) · 5 de octubre de 2026
+**App:** v0.11.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.0.0 (nuevas) · 6 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas y despacho siguen en sus apps (Producción y B2B) con su PIN.
+
+## Novedades de la v0.11.0: base nueva de Ventas B2B
+Primera etapa de B2B en Sistema Fën. Nueva sección **Ventas B2B** en el menú, con dos pestañas:
+
+| Pestaña | Qué hace |
+| --- | --- |
+| **Base nueva** | Conecta el proyecto Firebase nuevo **fen-b2b**, **lee la planilla de B2B** y muestra qué cambiaría; al confirmar, **copia** clientes (con sus precios especiales), productos, órdenes con su detalle (también las archivadas), abonos y ediciones. Después, **Control de totales** compara la planilla con la base nueva, y **Uso estimado** calcula cuánto gastaría la app de logística de la cuota gratis |
+| **Órdenes en la base nueva** | Para revisar la copia: las últimas 30, o buscar por N° de orden, folio o mes |
+
+**Para el día a día no cambia nada:** la app B2B y la planilla siguen igual y la planilla sigue mandando. La base nueva la usará la app de logística (v0.12).
+
+(i) **Proyecto aparte, misma cuenta de Google.** fen-b2b tiene su propia cuota gratis (50.000 lecturas y 20.000 escrituras al día), así la caja (fen-ventas) nunca se queda sin cuota por B2B.
+
+(i) **La copia se puede repetir cuando quieras.** Solo escribe lo que cambió desde la anterior. Si se corta a medias, lo copiado queda y la siguiente completa el resto. **Nada se borra:** si algo ya no está en la planilla (por ejemplo, una orden eliminada en la app B2B), en la base nueva queda marcado "quitado de la planilla" y deja de sumar.
+
+(i) **Avisos de la planilla:** filas sin nombre, precios de clientes que no existen, órdenes repetidas o con el detalle que no suma lo mismo que el resumen. No frenan la copia: todo se copia tal cual y cada orden con algo raro queda marcada **Revisar**. Conviene corregirlas en la planilla con calma.
+
+(i) **Una sola contraseña.** La base nueva tiene su propia lista de cuentas: creas ahí tu mismo correo con tu misma contraseña. Desde ahí, al entrar a Sistema Fën se entra solo a las dos, y al salir (o si revocas el equipo) se cierran las dos.
+
+Archivos: **nuevos** `b2b.js`, `b2b-modelo.js`, `firebase-b2b.js` y `firestore-b2b.rules` (reglas de fen-b2b; van en la consola, la copia en GitHub es de respaldo). Cambian `index.html`, `estilos.css`, `config.js`, `app.js`, `README.md` y los demás `.js` (solo versión).
+
+Necesita el **script de B2B v2.3.0** (`b2b-script-v2.3.0.zip`). Sin él, "Leer la planilla" dice que falta actualizarlo; nada más cambia.
+
+### Instalación v0.11.0 (unos 25 minutos, una sola vez)
+
+**A. Crear el proyecto fen-b2b** (en [console.firebase.google.com](https://console.firebase.google.com), con la misma cuenta de Google de siempre)
+1. **Agregar proyecto** → nombre **fen-b2b**. Si Firebase le agrega letras al ID (ej. `fen-b2b-3a1f2`), da igual. Google Analytics: **no**. Queda en el plan gratis (Spark): **no** agregues facturación.
+2. **Firestore Database → Crear base de datos** → ubicación **southamerica-west1 (Santiago)** (no se puede cambiar después) → **modo de producción**.
+3. **Firestore → Reglas**: borra todo, pega `firestore-b2b.rules` → **Publicar**.
+4. **Authentication → Comenzar → Correo electrónico/contraseña** → habilitar (solo el primero) → Guardar.
+5. **Authentication → Usuarios → Agregar usuario**: tu correo de Sistema Fën y **la misma contraseña**. Copia el **UID** que aparece en la lista.
+6. **Authentication → Configuración → Acciones del usuario**: desmarca **Habilitar la creación (registro)** → Guardar. Así nadie puede crearse una cuenta solo (igual que en fen-ventas).
+7. **Firestore → Datos → Iniciar colección** → ID `admins` → ID del documento: **el UID** del paso 5 → campo `ok`, tipo booleano, `true` → Guardar.
+8. **⚙️ Configuración del proyecto → General → Tus apps → `</>` (Web)** → apodo `Sistema Fën` → sin Hosting → Registrar. Copia el bloque **`const firebaseConfig = { … }`** completo.
+
+**B. Script de B2B v2.3.0** → ver el README de `b2b-script-v2.3.0.zip` (ping debe decir **2.3.0**).
+
+**C. Sistema Fën v0.11.0** → sube a GitHub (repo `sistema-fen`, raíz) todos los archivos del zip, reemplazando. Espera 1 o 2 minutos y recarga.
+
+**D. Conectar y copiar** (en Sistema Fën → **Ventas B2B**)
+1. Pega el bloque del paso A.8 → **Guardar y conectar**.
+2. Escribe tu contraseña → **Entrar**. (Si dice que falta marcar tu cuenta como administración, revisa el paso A.7: el ID del documento debe ser exactamente el UID que muestra la pantalla.)
+3. **Leer la planilla** (puede tardar un minuto). Revisa la tabla y los avisos.
+4. **Copiar … cambios a la base nueva** → al terminar, **Control de totales** debe decir **Todo cuadra**.
+
+### Lista de verificación v0.11.0
+- [ ] Ventas B2B → Base nueva dice **Conectada**, proyecto fen-b2b, con tu correo.
+- [ ] "Leer la planilla" muestra la cantidad de órdenes que esperas (actuales + archivadas) y el total.
+- [ ] Después de copiar: **Todo cuadra** en todas las filas del control de totales.
+- [ ] Órdenes en la base nueva: busca 3 órdenes (una reciente, una con folio, una archivada) y compáralas con la app B2B: cliente, líneas, total, folio y estado de pago.
+- [ ] Vuelve a leer la planilla: **Todo al día: no hay nada que copiar**. Crea una orden de prueba en la app B2B, lee de nuevo: aparece **1 nueva** en Órdenes. Bórrala o anúlala como siempre, lee y copia: queda "quitada de la planilla".
+- [ ] En la consola de Firebase de fen-b2b → Firestore → **Uso**: las lecturas y escrituras del día son las de la copia (la primera escribe una vez cada orden; las siguientes, solo lo que cambió).
+- [ ] La caja y la app B2B siguen igual.
+
+### Si algo sale mal
+- **"No dejó leer o guardar"**: revisa que las reglas de fen-b2b estén publicadas (A.3) y el documento en `admins` (A.7).
+- **"No hay una cuenta con tu correo y esa contraseña"**: revisa el paso A.5 (mismo correo, misma contraseña).
+- **"Firestore todavía no está creado"**: paso A.2.
+- Para volver atrás: sube a GitHub los archivos de la v0.10.1. La base nueva queda como está (no molesta) y la planilla no se tocó.
 
 ## Novedades de la v0.10.1: Cotizaciones de Previred
 Nueva pestaña **Gastos → Previred**. Subes el PDF "Certificado de Pagos de Cotizaciones Previsionales" (el lote con todos o el de un trabajador) y:

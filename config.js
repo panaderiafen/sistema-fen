@@ -5,7 +5,7 @@
 //  reglas de Firestore y la cuenta de administración.
 // ═══════════════════════════════════════════════
 window.FEN_SIS = {
-  VERSION: '0.10.1',
+  VERSION: '0.11.0',
   firebase: {
     apiKey: 'AIzaSyDrG2mij1h5wZ2lIyAYMTfgG9avaVnjcaU',
     authDomain: 'fen-ventas.firebaseapp.com',
@@ -45,5 +45,8 @@ window.FEN_SIS = {
   },
   // Lista de recetas que publica Producción (la misma que lee la caja, pestaña Lista_publica_productos)
   RECETAS_CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKvAbWUlwxbcCx54T3lfdMa8XxPD-F2lSE05-vMfdv_UpFVpDi6pbAJOpM7O6LBLmdfkz5804lzMYn/pub?gid=1370945279&single=true&output=csv',
-  DIAS_HISTORIAL: 60
+  DIAS_HISTORIAL: 60,
+  // Base nueva de Ventas B2B (proyecto Firebase fen-b2b). Se pega en Sistema Fën → Ventas B2B y queda
+  // guardada en Firestore (config/sistemaFen). Si se pone aquí, se usa cuando no hay una guardada.
+  firebaseB2B: null
 };

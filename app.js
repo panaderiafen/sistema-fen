@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — app  v0.10.1
+//  Sistema Fën — app  v0.11.0
 //  Etapa 1: entrada por equipo, Seguridad, Hoy, menú y la administración de la caja
 //  (cierres y anulaciones).
 // ═══════════════════════════════════════════════
@@ -9,15 +9,17 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.10.1';
-import * as Caja from './caja.js?v=0.10.1';
-import * as Stock from './stock.js?v=0.10.1';
-import * as Ajustes from './ajustes.js?v=0.10.1';
-import * as Apps from './apps.js?v=0.10.1';
-import * as Agenda from './agenda.js?v=0.10.1';
-import * as Gastos from './gastos.js?v=0.10.1';
-import * as Sii from './sii.js?v=0.10.1';
-import * as Previred from './previred.js?v=0.10.1';
+} from './firebase.js?v=0.11.0';
+import * as Caja from './caja.js?v=0.11.0';
+import * as Stock from './stock.js?v=0.11.0';
+import * as Ajustes from './ajustes.js?v=0.11.0';
+import * as Apps from './apps.js?v=0.11.0';
+import * as Agenda from './agenda.js?v=0.11.0';
+import * as Gastos from './gastos.js?v=0.11.0';
+import * as Sii from './sii.js?v=0.11.0';
+import * as Previred from './previred.js?v=0.11.0';
+import * as B2b from './b2b.js?v=0.11.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.11.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -219,6 +221,8 @@ $('form-entrar').addEventListener('submit', async ev => {
       autorizadoEn: serverTimestamp(), ultimaVez: serverTimestamp(), creadoPor: user.email
     });
     guardarEquipoId(ref.id, estado.duracion === 'sesion');
+    // Base nueva de B2B (si ya está conectada): misma cuenta y contraseña, se entra de una vez
+    B2b.leerConfig().then(cfg => cfg && B2b.entrar(clave, estado.duracion === 'sesion')).catch(() => {});
     $('clave').value = '';
     estado.equipo = { nombre };
     registrar('Autorizó un equipo', `${nombre} · ${nombreDuracion(estado.duracion)}`);
@@ -232,7 +236,7 @@ $('form-entrar').addEventListener('submit', async ev => {
   }
 });
 
-$('btn-otra-cuenta').addEventListener('click', async () => { olvidarEquipo(); await signOut(auth); });
+$('btn-otra-cuenta').addEventListener('click', async () => { olvidarEquipo(); await B2b.salir(); await signOut(auth); });
 
 // ── Abrir: revisa que este equipo siga autorizado ───
 function revisarEquipo(snap, user) {
@@ -261,6 +265,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 async function bloquear(motivo) {
   cerrarEscucha(); olvidarEquipo(); ponerMotivo(motivo);
   estado.user = null; estado.equipo = null; estado.equipoId = null;
+  await B2b.salir();
   try { await signOut(auth); } catch (e) { mostrarEntrada(motivo); }
 }
 
@@ -294,7 +299,7 @@ onAuthStateChanged(auth, async user => {
 });
 
 // ── Navegación ─────────────────────────────────────
-const VISTAS = ['hoy', 'agenda', 'gastos', 'caja', 'ajustes', 'seguridad', 'menu'];
+const VISTAS = ['hoy', 'agenda', 'gastos', 'b2b', 'caja', 'ajustes', 'seguridad', 'menu'];
 // #caja = cierres, #caja/anulaciones = anulaciones
 const vistaDesdeHash = () => { const v = (location.hash || '').replace('#', '').split('/')[0]; return VISTAS.includes(v) ? v : 'hoy'; };
 const subVista = () => (location.hash || '').split('/')[1] || '';
@@ -306,10 +311,11 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.10.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.11.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
+    <a class="nav-item" href="#b2b" data-vista="b2b">${icono('camion')}Ventas B2B</a>
     <a class="nav-item" href="#caja" data-vista="caja">${icono('cajon')}Ventas de caja</a>
     <a class="nav-item" href="#ajustes" data-vista="ajustes">${icono('ajustes')}Configuración</a>
     <a class="nav-item" href="#seguridad" data-vista="seguridad">${icono('seguridad')}Seguridad</a>
@@ -335,6 +341,7 @@ function irA(v) {
   if (v === 'ajustes') pintarAjustes();
   if (v === 'agenda') pintarAgendaMes();
   if (v === 'gastos') pintarGastos(subVista());
+  if (v === 'b2b') pintarB2b(subVista());
   if (v === 'menu') pintarMenuCelular();
   window.scrollTo(0, 0);
 }
@@ -1950,6 +1957,200 @@ async function pintarSeguridad() {
 }
 
 // ── Menú (celular) ─────────────────────────────────
+// ── Ventas B2B: base nueva (fen-b2b) ───────────────
+// v0.11: conectar la base nueva, copiar la planilla y revisar que todo cuadre.
+// La app B2B sigue funcionando igual: la planilla manda hasta que exista la app de logística (v0.12).
+const SUBS_B2B = [['', 'Base nueva'], ['ordenes', 'Órdenes en la base nueva']];
+const b2b = { prep: null, tot: null, uso: null, copiando: false, msg: '', error: '' };
+function cabB2b(sub) {
+  const actual = SUBS_B2B.some(([k]) => k && k === sub) ? sub : '';
+  return `<div class="cabecera"><div><h1 id="t-b2b">Ventas B2B</h1><p>Base nueva en preparación · la app B2B sigue funcionando igual</p></div>
+    <div class="pestanas" role="tablist" aria-label="Secciones de Ventas B2B">${SUBS_B2B.map(([k, t]) => `<a role="tab" href="#b2b${k ? '/' + k : ''}" aria-selected="${k === actual}">${t}</a>`).join('')}</div></div>`;
+}
+async function pintarB2b(sub) {
+  const el = $('v-b2b');
+  el.innerHTML = cabB2b(sub) + '<div class="tarjeta"><div class="vacio" style="border:0">Conectando con la base nueva…</div></div>';
+  let cx;
+  try { cx = await B2b.conexion(); }
+  catch (e) { el.querySelector('.tarjeta').innerHTML = `<div class="error">${esc(errorB2b(e))}</div>`; return; }
+  if (vistaDesdeHash() !== 'b2b') return;
+  if (cx.estado === 'sin_config') return pintarB2bConfig(el, sub);
+  if (cx.estado === 'sin_sesion') return pintarB2bEntrar(el, sub, cx);
+  if (cx.estado === 'sin_admin') return pintarB2bSinAdmin(el, sub, cx);
+  if (sub === 'ordenes') return pintarB2bOrdenes(el, sub);
+  pintarB2bBase(el, sub, cx);
+}
+function errorB2b(e) {
+  const c = (e && e.code) || '';
+  if (/permission-denied/.test(c)) return 'La base nueva no dejó leer o guardar: revisa que estén publicadas las reglas de fen-b2b v1.0.0 y que tu cuenta esté en admins (ver README).';
+  if (/invalid-credential|wrong-password|user-not-found/.test(c)) return 'En fen-b2b no hay una cuenta con tu correo y esa contraseña. Créala en la consola de Firebase del proyecto fen-b2b → Authentication (ver README).';
+  if (/invalid-api-key|api-key-not-valid/.test(c)) return 'La configuración guardada no es válida (apiKey). Vuelve a pegarla.';
+  if (/failed-precondition/.test(c)) return 'Firestore todavía no está creado en fen-b2b (consola → Firestore Database → Crear base de datos).';
+  return (e && e.message) || mensajeError(e);
+}
+
+function pintarB2bConfig(el, sub, actual) {
+  el.innerHTML = cabB2b(sub) + `<section class="tarjeta" aria-labelledby="t-b2b-cfg">
+    <h2 id="t-b2b-cfg">Conectar la base nueva ${info('Base nueva de B2B', 'Es un proyecto de Firebase aparte (fen-b2b), en tu misma cuenta de Google. Tiene su propia cuota gratis, así la caja nunca se queda sin lecturas por culpa de B2B.\nLa configuración que pegas aquí no es secreta: solo dice cuál es el proyecto. Los datos los protegen las reglas y tu cuenta de administración.')}</h2>
+    <p class="ayuda">En la consola de Firebase, abre el proyecto <b>fen-b2b</b> → ⚙️ Configuración del proyecto → Tus apps → la app web → copia todo el bloque <code>const firebaseConfig = { … }</code> y pégalo aquí.</p>
+    <div class="campo"><label for="b2b-cfg">Configuración web de fen-b2b</label><textarea id="b2b-cfg" rows="8" spellcheck="false" style="font-family:monospace;font-size:13px;padding:12px;border-radius:12px;border:1px solid var(--borde)" placeholder="const firebaseConfig = {&#10;  apiKey: &quot;…&quot;,&#10;  authDomain: &quot;fen-b2b.firebaseapp.com&quot;,&#10;  projectId: &quot;fen-b2b&quot;, …&#10;};">${actual ? esc(JSON.stringify(actual, null, 2)) : ''}</textarea></div>
+    <div class="error" id="b2b-cfg-err" role="alert"></div>
+    <div class="botones">${actual ? '<button type="button" class="btn-sec" id="b2b-cfg-volver">Volver</button>' : ''}<button type="button" class="btn" id="b2b-cfg-ok">Guardar y conectar</button></div></section>`;
+  if (actual) $('b2b-cfg-volver').addEventListener('click', () => pintarB2b(sub));
+  $('b2b-cfg-ok').addEventListener('click', async () => {
+    const btn = $('b2b-cfg-ok'); $('b2b-cfg-err').textContent = '';
+    let cfg; try { cfg = B2b.parsearConfig($('b2b-cfg').value); } catch (e) { $('b2b-cfg-err').textContent = e.message; return; }
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try {
+      await B2b.salir();
+      await B2b.guardarConfig(cfg);
+      registrar('Conectó la base nueva de B2B', cfg.projectId);
+      pintarB2b(sub);
+    } catch (e) { $('b2b-cfg-err').textContent = errorB2b(e); btn.disabled = false; btn.textContent = 'Guardar y conectar'; }
+  });
+}
+
+function pintarB2bEntrar(el, sub, cx) {
+  el.innerHTML = cabB2b(sub) + `<section class="tarjeta" aria-labelledby="t-b2b-entrar">
+    <h2 id="t-b2b-entrar">Entrar a la base nueva ${info('Por qué pide la contraseña', 'La base nueva es otro proyecto de Firebase y tiene su propia sesión. Usa tu mismo correo y contraseña: se pide una vez en cada equipo (y después cada vez que entres a Sistema Fën se entra solo).\nLa cuenta se crea en la consola del proyecto fen-b2b → Authentication.')}</h2>
+    <p class="ayuda">Proyecto <b>${esc(cx.cfg.projectId)}</b> · cuenta <b>${esc(cx.correo)}</b></p>
+    <form id="b2b-form-entrar" class="campo" style="max-width:420px">
+      <label for="b2b-clave">Tu contraseña de Sistema Fën</label><input type="password" id="b2b-clave" autocomplete="current-password" required>
+      <div class="error" id="b2b-entrar-err" role="alert"></div>
+      <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn" id="b2b-entrar-ok">Entrar</button><button type="button" class="btn-sec" id="b2b-cambiar-cfg">Cambiar configuración</button></div>
+    </form></section>`;
+  $('b2b-cambiar-cfg').addEventListener('click', () => pintarB2bConfig(el, sub, cx.cfg));
+  $('b2b-form-entrar').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const btn = $('b2b-entrar-ok'); $('b2b-entrar-err').textContent = ''; btn.disabled = true; btn.textContent = 'Entrando…';
+    try { await B2b.entrar($('b2b-clave').value, (estado.equipo || {}).duracion === 'sesion'); pintarB2b(sub); }
+    catch (e) { $('b2b-entrar-err').textContent = errorB2b(e); btn.disabled = false; btn.textContent = 'Entrar'; }
+  });
+}
+
+function pintarB2bSinAdmin(el, sub, cx) {
+  el.innerHTML = cabB2b(sub) + `<section class="tarjeta" aria-labelledby="t-b2b-adm">
+    <h2 id="t-b2b-adm">Falta marcar tu cuenta como administración</h2>
+    <p class="ayuda">Entraste a <b>${esc(cx.cfg.projectId)}</b> con <b>${esc(cx.correo)}</b>, pero esa cuenta todavía no está en <code>admins</code>. En la consola de Firebase de fen-b2b → Firestore Database → <b>Iniciar colección</b> <code>admins</code> → ID del documento:</p>
+    <div class="aviso" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><code id="b2b-uid" style="font-size:15px;word-break:break-all">${esc(cx.uid)}</code><button type="button" class="btn-sec btn-chico" id="b2b-copiar-uid">Copiar</button></div>
+    <p class="ayuda" style="margin-top:8px">Agrega un campo <code>ok</code> (booleano, true) y guarda. Después presiona Revisar.</p>
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="b2b-revisar">Revisar</button></div></section>`;
+  $('b2b-copiar-uid').addEventListener('click', () => { try { navigator.clipboard.writeText(cx.uid); $('b2b-copiar-uid').textContent = 'Copiado'; } catch (e) {} });
+  $('b2b-revisar').addEventListener('click', () => pintarB2b(sub));
+}
+
+const cuadra = (a, b) => Math.round(Number(a) || 0) === Math.round(Number(b) || 0);
+function tablaTotales(planilla, base) {
+  const filas = [['Órdenes', planilla.ordenes, base.ordenes, false], ['Total de las órdenes', planilla.total, base.total, true], ['Neto de las órdenes', planilla.neto, base.neto, true],
+    ['Abonos', planilla.abonos, base.abonos, false], ['Monto de los abonos', planilla.abonosMonto, base.abonosMonto, true],
+    ['Clientes', planilla.clientes, base.clientes, false], ['Productos', planilla.productos, base.productos, false], ['Ediciones de órdenes', planilla.ediciones, base.ediciones, false]];
+  const todo = filas.every(f => cuadra(f[1], f[2]));
+  return `<div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Qué</th><th scope="col">Planilla</th><th scope="col">Base nueva</th><th scope="col"><span class="sr">Cuadra</span></th></tr></thead><tbody>
+    ${filas.map(([t, a, b, plata]) => `<tr><td>${t}</td><td>${plata ? pesos(a) : Number(a || 0).toLocaleString('es-CL')}</td><td>${plata ? pesos(b) : Number(b || 0).toLocaleString('es-CL')}</td><td>${cuadra(a, b) ? '<span class="chip c-verde">Cuadra</span>' : '<span class="chip c-rojo">No cuadra</span>'}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="${todo ? 'ok-texto' : 'error'}" style="margin-top:8px">${todo ? 'Todo cuadra: la base nueva tiene lo mismo que la planilla.' : 'Hay diferencias. Si recién copiaste, lee la planilla otra vez y copia lo que falte; si siguen, avísame.'}</p>`;
+}
+
+function pintarB2bBase(el, sub, cx) {
+  const p = b2b.prep, t = b2b.tot;
+  const ultima = t && t.ultima;
+  const fechaUlt = ultima && ultima.ultima ? `${fechaCorta(ultima.ultima)} · ${hace(ultima.ultima)}` : '';
+  let prepHtml = '';
+  if (p) {
+    const c = p.cambios;
+    const enPlanilla = { clientes: p.planilla.clientes, productos: p.planilla.productos, ordenes: p.planilla.ordenes, abonos: p.planilla.abonos, ediciones: p.planilla.ediciones };
+    const revisar = Object.values(p.docs.ordenes).filter(o => o.revisar.length);
+    prepHtml = `<div class="tabla-b2b" style="margin-top:12px"><table class="tabla-tiempos"><thead><tr><th scope="col">Qué</th><th scope="col">En la planilla</th><th scope="col">Nuevos</th><th scope="col">Cambiaron</th><th scope="col">Ya no están ${info('Ya no están', 'Estaban en la copia anterior y ya no aparecen en la planilla (por ejemplo, una orden eliminada en la app B2B). En la base nueva no se borran: quedan marcados como "quitado de la planilla" y dejan de sumar.')}</th><th scope="col">Iguales</th></tr></thead><tbody>
+      ${COLS_B2B.map(k => `<tr><td>${NOMBRES_B2B[k]}</td><td>${enPlanilla[k].toLocaleString('es-CL')}</td><td>${c[k].nuevos.length}</td><td>${c[k].cambiados.length}</td><td>${c[k].quitar.length}</td><td>${c[k].iguales}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="ayuda" style="margin-top:8px">${p.planilla.ordenes.toLocaleString('es-CL')} órdenes (${p.planilla.archivadas.toLocaleString('es-CL')} archivadas) con ${p.planilla.lineas.toLocaleString('es-CL')} líneas · ${pesos(p.planilla.total)} · ${p.planilla.precios} precios especiales · leída ${hace(new Date(p.leido))}</p>
+      ${p.avisos.length ? `<details class="aviso" style="margin-top:10px"><summary><b>${p.avisos.length} ${p.avisos.length === 1 ? 'aviso' : 'avisos'} de la planilla</b> · no frenan la copia ${info('Avisos', 'Son cosas raras en la planilla: filas sin nombre, precios de clientes que no existen, una orden repetida o con el detalle que no suma lo mismo que el resumen. La copia las respeta tal cual (nada se pierde) y cada orden con algo raro queda marcada "para revisar".\nConviene corregirlas en la planilla con calma; no hay apuro.')}</summary>
+        <ul>${p.avisos.slice(0, 200).map(a => `<li>${esc(a.hoja)}${a.fila ? ', fila ' + a.fila : ''}: ${esc(a.texto)}</li>`).join('')}${p.avisos.length > 200 ? `<li>… y ${p.avisos.length - 200} más</li>` : ''}</ul></details>` : ''}
+      ${revisar.length ? `<p class="ayuda">${revisar.length === 1 ? '1 orden queda marcada' : revisar.length.toLocaleString('es-CL') + ' órdenes quedan marcadas'} para revisar (se ven en "Órdenes en la base nueva").</p>` : ''}
+      <div class="botones" style="justify-content:flex-start;margin-top:12px"><button type="button" class="btn" id="b2b-copiar" ${p.porEscribir && !b2b.copiando ? '' : 'disabled'}>${p.porEscribir ? `Copiar ${p.porEscribir.toLocaleString('es-CL')} ${p.porEscribir === 1 ? 'cambio' : 'cambios'} a la base nueva` : 'Todo al día: no hay nada que copiar'}</button></div>
+      <div id="b2b-avance" class="ayuda" aria-live="polite"></div>`;
+  }
+  let usoHtml = '<p class="ayuda">Lee la planilla para calcularlo.</p>';
+  if (p) b2b.uso = { u: usoEstimado(p.docs, Caja.diaLocal()), clientes: p.planilla.clientes, productos: p.planilla.productos };
+  if (b2b.uso) {
+    const u = b2b.uso.u;
+    usoHtml = `<p>Al abrir la app de logística se leerían unos <b>${u.porApertura.toLocaleString('es-CL')}</b> documentos (${b2b.uso.clientes} clientes, ${b2b.uso.productos} productos y ${u.ordenesRecientes} órdenes de los últimos 14 días o sin folio).</p>
+      <p class="ayuda">Con ${u.aperturasDia} aperturas al día y ${u.ordenesDia === 1 ? 'una orden diaria' : 'unas ' + u.ordenesDia + ' órdenes diarias'}: cerca de <b>${u.lecturasDia.toLocaleString('es-CL')}</b> lecturas de ${u.limiteLecturas.toLocaleString('es-CL')} gratis (${Math.round(u.lecturasDia / u.limiteLecturas * 100)}%) y <b>${u.escriturasDia}</b> escrituras de ${u.limiteEscrituras.toLocaleString('es-CL')}.</p>`;
+  }
+  el.innerHTML = cabB2b(sub) + `
+    <section class="tarjeta" aria-labelledby="t-b2b-cx"><div class="titulo-fila"><h2 id="t-b2b-cx">Conexión</h2><span class="chip c-verde">Conectada</span></div>
+      <p class="ayuda">Proyecto <b>${esc(cx.cfg.projectId)}</b> · ${esc(cx.correo)}${fechaUlt ? ` · última copia ${esc(fechaUlt)}${ultima.por ? ' por ' + esc(ultima.por) : ''}` : ' · todavía sin copia'}</p>
+      <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" id="b2b-cambiar-cfg">Cambiar configuración</button></div></section>
+    <section class="tarjeta" aria-labelledby="t-b2b-copia"><h2 id="t-b2b-copia">Copia desde la planilla ${info('Copia desde la planilla', 'Lee todas las hojas de B2B (clientes, productos, precios, órdenes con su detalle, también las archivadas, abonos y ediciones) y las copia a la base nueva.\nSe puede repetir las veces que quieras: solo escribe lo que cambió desde la copia anterior. La planilla no se toca.\nHasta que exista la app de logística (v0.12), la planilla sigue mandando.')}</h2>
+      <p class="ayuda">Primero se lee y se muestra qué cambiaría; recién al confirmar se escribe.</p>
+      <div class="botones" style="justify-content:flex-start"><button type="button" class="btn${p ? '-sec' : ''}" id="b2b-leer" ${b2b.copiando ? 'disabled' : ''}>${p ? 'Leer de nuevo' : 'Leer la planilla'}</button></div>
+      <div class="error" id="b2b-error" role="alert">${esc(b2b.error)}</div>${b2b.msg ? `<p class="ok-texto" role="status">${esc(b2b.msg)}</p>` : ''}
+      ${prepHtml}</section>
+    <section class="tarjeta" aria-labelledby="t-b2b-tot"><h2 id="t-b2b-tot">Control de totales ${info('Control de totales', 'Compara lo que dice la planilla (en la última lectura o copia) con lo que suma Firestore en la base nueva. Las sumas las hace Firestore: cuestan muy poco (una lectura por cada mil documentos).')}</h2>
+      <div id="b2b-tot-cont">${t && (p || (ultima && ultima.planilla)) ? tablaTotales(p ? p.planilla : ultima.planilla, t.base) : '<p class="ayuda">Todavía sin revisar.</p>'}</div>
+      <div class="botones" style="justify-content:flex-start;margin-top:8px"><button type="button" class="btn-sec" id="b2b-totales">Revisar totales</button></div></section>
+    <section class="tarjeta" aria-labelledby="t-b2b-uso"><h2 id="t-b2b-uso">Uso estimado de Firebase ${info('Uso estimado', 'Cuánto gastaría la app de logística (v0.12) en el proyecto fen-b2b, que tiene su propia cuota gratis: 50.000 lecturas y 20.000 escrituras al día. La caja no se ve afectada.\nEs una estimación a partir de tus datos; cuando la app esté funcionando lo medimos en la consola de Firebase (Firestore → Uso).')}</h2>
+      ${usoHtml}<p class="ayuda">En esta sesión: ${B2b.uso.lecturas.toLocaleString('es-CL')} lecturas y ${B2b.uso.escrituras.toLocaleString('es-CL')} escrituras en fen-b2b.</p></section>`;
+  $('b2b-cambiar-cfg').addEventListener('click', () => pintarB2bConfig(el, sub, cx.cfg));
+  $('b2b-leer').addEventListener('click', async () => {
+    const btn = $('b2b-leer'); btn.disabled = true; btn.textContent = 'Leyendo la planilla… (puede tardar un minuto)';
+    b2b.error = ''; b2b.msg = '';
+    try { b2b.prep = await B2b.preparar(); } catch (e) { b2b.error = errorB2b(e); }
+    if (vistaDesdeHash() === 'b2b' && !subVista()) pintarB2bBase(el, sub, cx);
+  });
+  $('b2b-totales').addEventListener('click', async () => {
+    const btn = $('b2b-totales'); btn.disabled = true; btn.textContent = 'Sumando…';
+    try { b2b.tot = await B2b.totales(); b2b.error = ''; } catch (e) { b2b.error = errorB2b(e); }
+    if (vistaDesdeHash() === 'b2b' && !subVista()) pintarB2bBase(el, sub, cx);
+  });
+  const bc = $('b2b-copiar');
+  if (bc) bc.addEventListener('click', async () => {
+    if (!confirm(`Se escribirán ${p.porEscribir.toLocaleString('es-CL')} documentos en la base nueva (fen-b2b). La planilla no cambia. ¿Seguir?`)) return;
+    b2b.copiando = true; bc.disabled = true; $('b2b-leer').disabled = true; b2b.error = '';
+    try {
+      const r = await B2b.copiar(p, (h, n) => { const a = $('b2b-avance'); if (a) a.textContent = `Copiando… ${h.toLocaleString('es-CL')} de ${n.toLocaleString('es-CL')}`; });
+      registrar('Copió la planilla de B2B a la base nueva', `${r.escritos} documentos`);
+      b2b.msg = `Listo: ${r.escritos.toLocaleString('es-CL')} documentos copiados.`;
+      b2b.prep = null;
+      b2b.tot = await B2b.totales();
+    } catch (e) { b2b.error = errorB2b(e) + ' Lo copiado hasta ahí queda; vuelve a leer la planilla y copia lo que falte.'; }
+    b2b.copiando = false;
+    if (vistaDesdeHash() === 'b2b' && !subVista()) pintarB2bBase(el, sub, cx);
+  });
+}
+
+function filaOrdenB2b(o) {
+  const chips = [o.quitadoEnPlanilla ? '<span class="chip c-gris">Quitada de la planilla</span>' : '', o.archivada ? '<span class="chip c-gris">Archivada</span>' : '',
+    o.folio ? `<span class="chip c-azul">Folio ${esc(o.folio)}</span>` : '<span class="chip c-gris">Sin folio</span>',
+    `<span class="chip ${/PAGADO/.test(o.estadoPago) ? 'c-verde' : 'c-gris'}">${esc(o.estadoPago || 'PENDIENTE')}</span>`,
+    (o.revisar || []).length ? '<span class="chip c-rojo">Revisar</span>' : ''].join('');
+  return `<details class="fila-orden-b2b"><summary class="fila-caja"><div class="txt"><b>N° ${esc(o.n)} · ${esc(o.cliente || '—')}</b><span>${esc(diaTexto(o.fecha))} ${esc((o.fecha || '').slice(0, 4))} · ${pesos(o.total)} · ${(o.lineas || []).length} ${(o.lineas || []).length === 1 ? 'línea' : 'líneas'}</span></div><div class="acciones">${chips}</div></summary>
+    <div style="padding:4px 0 12px">
+      ${(o.revisar || []).length ? `<div class="aviso aviso-rojo" style="margin-bottom:8px">${o.revisar.map(esc).join(' · ')}</div>` : ''}
+      <div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Producto</th><th scope="col">Cantidad</th><th scope="col">Precio neto</th><th scope="col">Total</th></tr></thead><tbody>
+      ${(o.lineas || []).map(l => `<tr><td>${esc(l.producto)}</td><td>${esc(l.cantidad)}</td><td>${pesos(l.precio)}</td><td>${pesos(l.total)}</td></tr>`).join('') || '<tr><td colspan="4">Sin líneas</td></tr>'}
+      </tbody></table></div>
+      <p class="ayuda" style="margin-top:6px">Neto ${pesos(o.neto)} · IVA ${pesos(o.iva)} · Total ${pesos(o.total)}${o.fechaPago ? ' · pagada ' + esc(o.fechaPago) : ''}${o.obs ? ' · ' + esc(o.obs) : ''} · de ${esc((o.origen || {}).hoja || '')}, fila ${esc((o.origen || {}).fila || '')}</p>
+    </div></details>`;
+}
+async function pintarB2bOrdenes(el, sub) {
+  el.innerHTML = cabB2b(sub) + `<section class="tarjeta" aria-labelledby="t-b2b-ord"><h2 id="t-b2b-ord">Órdenes en la base nueva ${info('Para qué sirve', 'Para revisar que la copia quedó bien: busca una orden y compárala con la planilla o con la app B2B.\nCada búsqueda gasta una lectura por orden que muestra.')}</h2>
+    <form id="b2b-buscar" class="fila-filtros" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+      <div class="campo" style="flex:1 1 220px"><label for="b2b-q">N° de orden, folio o mes (AAAA-MM)</label><input id="b2b-q" inputmode="numeric" placeholder="Ej: 1002, 5512 o 2026-09"></div>
+      <button type="submit" class="btn">Buscar</button><button type="button" class="btn-sec" id="b2b-ultimas">Últimas 30</button></form>
+    <div class="error" id="b2b-ord-err" role="alert"></div><div id="b2b-ord-lista"><div class="vacio">Cargando…</div></div></section>`;
+  const mostrarLista = async (fn) => {
+    const cont = $('b2b-ord-lista'); $('b2b-ord-err').textContent = ''; cont.innerHTML = '<div class="vacio">Buscando…</div>';
+    try {
+      const l = await fn();
+      cont.innerHTML = l.length ? `<p class="ayuda">${l.length} ${l.length === 1 ? 'orden' : 'órdenes'}${l.length ? ' · ' + pesos(l.filter(o => !o.quitadoEnPlanilla).reduce((s, o) => s + (o.total || 0), 0)) : ''}</p>` + l.map(filaOrdenB2b).join('') : '<div class="vacio">No hay órdenes con eso.</div>';
+    } catch (e) { cont.innerHTML = ''; $('b2b-ord-err').textContent = errorB2b(e); }
+  };
+  $('b2b-buscar').addEventListener('submit', ev => { ev.preventDefault(); mostrarLista(() => B2b.buscarOrdenes($('b2b-q').value)); });
+  $('b2b-ultimas').addEventListener('click', () => mostrarLista(() => B2b.ultimasOrdenes(30)));
+  mostrarLista(() => B2b.ultimasOrdenes(30));
+}
+
 function pintarMenuCelular() {
   const u = estado.user, eq = estado.equipo || {};
   $('v-menu').innerHTML = `
@@ -1959,6 +2160,7 @@ function pintarMenuCelular() {
       <a class="nav-item" href="#hoy">${icono('hoy')}Hoy</a>
       <a class="nav-item" href="#agenda">${icono('calendario')}Agenda</a>
       <a class="nav-item" href="#gastos">${icono('boleta')}Gastos</a>
+      <a class="nav-item" href="#b2b">${icono('camion')}Ventas B2B</a>
       <a class="nav-item" href="#caja">${icono('cajon')}Ventas de caja</a>
       <a class="nav-item" href="#ajustes">${icono('ajustes')}Configuración</a>
       <a class="nav-item" href="#seguridad">${icono('seguridad')}Seguridad</a>

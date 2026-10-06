@@ -431,3 +431,15 @@ h1 .btn-info { width: 22px; height: 22px; font-size: 13px; }
 #prev-filas select { min-height: 40px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; padding: 0 8px; font-size: 13px; max-width: 100%; }
 #prev-filas .acciones { flex: 1 1 360px; justify-content: flex-end; }
 @media (max-width: 760px) { #prev-filas .acciones { justify-content: flex-start; } #prev-filas select[data-item] { flex: 1 1 200px; } }
+
+/* v0.11.0 · Ventas B2B (base nueva) */
+.ok-texto { font-size: 13px; font-weight: 600; color: var(--verde-t); }
+.fila-orden-b2b { border-top: 1px solid var(--linea); }
+.fila-orden-b2b:first-of-type { border-top: 0; }
+.fila-orden-b2b > summary { list-style: none; cursor: pointer; border-top: 0; }
+.fila-orden-b2b > summary::-webkit-details-marker { display: none; }
+.fila-orden-b2b > summary .acciones { flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+details.aviso > summary { cursor: pointer; }
+.tabla-b2b { overflow-x: auto; }
+.tabla-b2b .tabla-tiempos { font-size: 13px; }
+@media (max-width: 640px) { .tabla-b2b .tabla-tiempos th, .tabla-b2b .tabla-tiempos td { padding-right: 6px; } }
