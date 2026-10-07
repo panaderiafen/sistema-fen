@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.14.3';
-import * as FB from './firebase-b2b.js?v=0.14.3';
-import * as Apps from './apps.js?v=0.14.3';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.14.3';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.14.4';
+import * as FB from './firebase-b2b.js?v=0.14.4';
+import * as Apps from './apps.js?v=0.14.4';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.14.4';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -551,12 +551,24 @@ export async function datosPdf(o) {
 //  Cada cambio de precio queda en historialPrecios del cliente o del producto.
 // ═══════════════════════════════════════════════
 const TXT = ['rut', 'razonSocial', 'giro', 'direccion', 'correo', 'telefono', 'contacto'];
+// v0.14.4 · WhatsApp del cliente: número (+56 9 …) o enlace de invitación de un grupo
+export function normalizarWsp(t) {
+  const d = String(t || '').replace(/[^\d]/g, '');
+  if (!d) return '';
+  if (d.length === 8) return '569' + d;
+  if (d.length === 9 && d[0] === '9') return '56' + d;
+  if (d.length === 11 && d.startsWith('569')) return d;
+  return null;
+}
+export const grupoWspValido = t => !t || /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]{10,}/.test(String(t).trim());
 export const FACTURACION = ['Diaria', 'Semanal', 'Mensual'];
 export const FRECUENCIA = ['Diaria', 'Semanal', 'Mensual', '30dias'];
 export async function guardarCliente(id, datos) {
   const db = await dbOk();
   const cambios = {};
   TXT.forEach(k => { if (k in datos) cambios[k] = String(datos[k] || '').trim(); });
+  if ('whatsapp' in datos) { const w = normalizarWsp(datos.whatsapp); if (w === null) throw new Error('El WhatsApp debe ser un celular chileno (9 dígitos, empieza con 9).'); cambios.whatsapp = w; }
+  if ('grupoWhatsapp' in datos) { if (!grupoWspValido(datos.grupoWhatsapp)) throw new Error('El enlace del grupo debe empezar con https://chat.whatsapp.com/'); cambios.grupoWhatsapp = String(datos.grupoWhatsapp || '').trim(); }
   if (datos.facturacion) { if (!FACTURACION.includes(datos.facturacion)) throw new Error('Facturación no válida.'); cambios.facturacion = datos.facturacion; }
   if (datos.frecuenciaPago) { if (!FRECUENCIA.includes(datos.frecuenciaPago)) throw new Error('Frecuencia no válida.'); cambios.frecuenciaPago = datos.frecuenciaPago; }
   await FB.updateDoc(FB.doc(db, 'clientes', id), { ...cambios, planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });

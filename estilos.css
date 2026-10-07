@@ -552,3 +552,8 @@ details.aviso > summary { cursor: pointer; }
 .resumen-factura tfoot td { font-weight: 600; text-align: right; }
 .resumen-factura tfoot td:first-child { text-align: right; color: var(--suave); }
 .resumen-factura tfoot tr.total td { font-weight: 800; color: var(--texto); border-top: 2px solid var(--texto); }
+/* v0.14.4 · Folio y WhatsApp en "Para facturar" */
+.acciones-factura { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.folio-pre { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--suave); }
+.folio-pre input { width: 110px; min-height: 36px; padding: 0 10px; border: 1px solid var(--borde); border-radius: 8px; font-size: 16px; background: var(--tarjeta); color: var(--texto); }
+.btn-wsp { border-color: #25a35a; color: #1c7a43; }

@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.14.3';
-import * as Caja from './caja.js?v=0.14.3';
-import * as Stock from './stock.js?v=0.14.3';
-import * as Ajustes from './ajustes.js?v=0.14.3';
-import * as Apps from './apps.js?v=0.14.3';
-import * as Agenda from './agenda.js?v=0.14.3';
-import * as Gastos from './gastos.js?v=0.14.3';
-import * as Sii from './sii.js?v=0.14.3';
-import * as Previred from './previred.js?v=0.14.3';
-import * as B2b from './b2b.js?v=0.14.3';
-import * as PdfOrden from './pdf-orden.js?v=0.14.3';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.14.3';
+} from './firebase.js?v=0.14.4';
+import * as Caja from './caja.js?v=0.14.4';
+import * as Stock from './stock.js?v=0.14.4';
+import * as Ajustes from './ajustes.js?v=0.14.4';
+import * as Apps from './apps.js?v=0.14.4';
+import * as Agenda from './agenda.js?v=0.14.4';
+import * as Gastos from './gastos.js?v=0.14.4';
+import * as Sii from './sii.js?v=0.14.4';
+import * as Previred from './previred.js?v=0.14.4';
+import * as B2b from './b2b.js?v=0.14.4';
+import * as PdfOrden from './pdf-orden.js?v=0.14.4';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.14.4';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -312,7 +312,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.14.3" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.14.4" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -1986,7 +1986,7 @@ async function pintarSeguridad() {
 // v0.11: conectar la base nueva, copiar la planilla y revisar que todo cuadre.
 // La app B2B sigue funcionando igual: la planilla manda hasta que exista la app de logística (v0.12).
 const SUBS_B2B = [['', 'Órdenes'], ['solicitudes', 'Solicitudes'], ['conciliacion', 'Conciliación'], ['clientes', 'Clientes'], ['productos', 'Productos'], ['cuenta', 'Estado de cuenta'], ['analisis', 'Análisis'], ['buscar', 'Buscar'], ['base', 'Base nueva']];
-const b2b = { prep: null, tot: null, uso: null, copiando: false, msg: '', error: '', activaVista: null, vivo: null, datos: null, errVivo: '', sel: new Set(), planilla: '', cambiando: '' };
+const b2b = { folioPre: {}, prep: null, tot: null, uso: null, copiando: false, msg: '', error: '', activaVista: null, vivo: null, datos: null, errVivo: '', sel: new Set(), planilla: '', cambiando: '' };
 function cabB2b(sub) {
   const actual = SUBS_B2B.some(([k]) => k && k === sub) ? sub : '';
   const activa = b2b.datos && b2b.datos.config && b2b.datos.config.activa;
@@ -2240,7 +2240,7 @@ function b2bEscuchar(sub) {
     const s = subVista();
     if (document.querySelector('dialog[open]')) return;   // no se repinta con una ventana abierta
     const activa = !!(d.config && d.config.activa);
-    if (s === '') pintarB2bAdmin($('v-b2b'), s);
+    if (s === '') { if (document.activeElement && document.activeElement.matches && document.activeElement.matches('[data-folio-pre]')) document.activeElement.addEventListener('blur', () => { if (subVista() === '' && vistaDesdeHash() === 'b2b') setTimeout(() => { if (!(document.activeElement && document.activeElement.matches && document.activeElement.matches('[data-folio-pre]'))) pintarB2bAdmin($('v-b2b'), ''); }, 0); }, { once: true }); else pintarB2bAdmin($('v-b2b'), s); }
     else if (s === 'solicitudes') pintarB2bSolicitudes($('v-b2b'), s);
     else if (s === 'clientes') pintarB2bClientes($('v-b2b'), s);
     else if (s === 'productos') pintarB2bProductos($('v-b2b'), s);
@@ -2291,7 +2291,7 @@ function rangoLargo(a, b) {
   if (ya === yb) return `del ${da} de ${MESES_LARGOS[Number(ma) - 1]} al ${db} de ${MESES_LARGOS[Number(mb) - 1]} de ${yb}`;
   return `del ${fechaLarga(a)} al ${fechaLarga(b)}`;
 }
-function datosFactura(ordenes) {
+function datosFactura(ordenes, folio) {
   const os = ordenes.slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || a.n - b.n);
   // Una fila por producto y precio (si un producto tuvo dos precios, salen dos filas: así calza con la factura)
   const F = {};
@@ -2303,19 +2303,27 @@ function datosFactura(ordenes) {
   const filas = Object.values(F).sort((a, b) => a.producto.localeCompare(b.producto, 'es') || a.precio - b.precio);
   const neto = filas.reduce((s, f) => s + f.neto, 0), iva = Math.round(neto * 0.19), sumaOrdenes = os.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const msj = os.length === 1
-    ? `Hola, envío factura de la orden de venta N° ${os[0].n}, pedido ${'del ' + fechaLarga(os[0].fecha)}.`
-    : `Hola, envío factura del período de pedidos ${rangoLargo(os[0].fecha, os[os.length - 1].fecha)}. Las órdenes incluidas son:\n` + os.map(o => `Orden N° ${o.n}, pedido del ${fechaLarga(o.fecha)}.`).join('\n');
+    ? `Hola, envío factura${folio ? ' N° ' + folio : ''} de la orden de venta N° ${os[0].n}, pedido ${'del ' + fechaLarga(os[0].fecha)}.`
+    : `Hola, envío factura${folio ? ' N° ' + folio : ''} del período de pedidos ${rangoLargo(os[0].fecha, os[os.length - 1].fecha)}. Las órdenes incluidas son:\n` + os.map(o => `Orden N° ${o.n}, pedido del ${fechaLarga(o.fecha)}.`).join('\n');
   return { os, filas, neto, iva, total: neto + iva, sumaOrdenes, msj };
 }
 function resumenFactura(cliente, ordenes) {
-  const f = datosFactura(ordenes);
+  const f = datosFactura(ordenes, b2b.folioPre[cliente]);
   return `<div class="resumen-factura" aria-label="Resumen para facturar a ${esc(cliente)}">
-    <div class="titulo-fila"><b>Para facturar · ${f.os.length} ${f.os.length === 1 ? 'orden' : 'órdenes'} (N° ${f.os.map(o => o.n).join(', ')})</b><button type="button" class="btn-sec btn-chico" data-copiar-msj="${esc(cliente)}">Copiar mensaje</button></div>
+    <div class="titulo-fila"><b>Para facturar · ${f.os.length} ${f.os.length === 1 ? 'orden' : 'órdenes'} (N° ${f.os.map(o => o.n).join(', ')})</b>
+      <div class="acciones-factura"><label class="folio-pre"><span>Folio SII</span><input inputmode="numeric" data-folio-pre="${esc(cliente)}" value="${esc(b2b.folioPre[cliente] || '')}" placeholder="Ej: 5512" aria-label="Folio SII de la factura"></label>
+        <button type="button" class="btn-sec btn-chico" data-copiar-msj="${esc(cliente)}">Copiar mensaje</button><button type="button" class="btn-sec btn-chico btn-wsp" data-wsp-cli="${esc(cliente)}">WhatsApp</button></div></div>
     <div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Producto</th><th scope="col">Cantidad</th><th scope="col">Precio neto</th><th scope="col">Total neto</th></tr></thead><tbody>
       ${f.filas.map(x => `<tr><td>${esc(x.producto)}</td><td>${x.cantidad.toLocaleString('es-CL')}</td><td>${pesos(x.precio)}</td><td>${pesos(x.neto)}</td></tr>`).join('')}
     </tbody><tfoot><tr><td colspan="3">Neto</td><td>${pesos(f.neto)}</td></tr><tr><td colspan="3">IVA (19%)</td><td>${pesos(f.iva)}</td></tr><tr class="total"><td colspan="3">Total</td><td>${pesos(f.total)}</td></tr></tfoot></table></div>
     ${f.total !== f.sumaOrdenes ? `<p class="ayuda">Las órdenes suman ${pesos(f.sumaOrdenes)}: la diferencia de ${pesos(Math.abs(f.total - f.sumaOrdenes))} es por redondeo del IVA (la factura lo calcula sobre el neto total).</p>` : ''}
   </div>`;
+}
+// WhatsApp: al número del cliente (mensaje ya escrito); a un grupo (se copia el mensaje y se abre el grupo); sin datos, se elige el chat
+async function abrirWhatsapp(cl, msj) {
+  if (cl.grupoWhatsapp) { await copiarTexto(msj); window.open(cl.grupoWhatsapp, '_blank', 'noopener'); return 'grupo'; }
+  if (cl.whatsapp) { window.open(`https://wa.me/${cl.whatsapp}?text=${encodeURIComponent(msj)}`, '_blank', 'noopener'); return 'numero'; }
+  window.open(`https://wa.me/?text=${encodeURIComponent(msj)}`, '_blank', 'noopener'); return 'sin';
 }
 async function copiarTexto(t) {
   try { await navigator.clipboard.writeText(t); return true; }
@@ -2384,8 +2392,16 @@ function pintarB2bAdmin(el, sub) {
   }));
   el.querySelectorAll('[data-copiar-msj]').forEach(bm => bm.addEventListener('click', async () => {
     const lista = (porCliente[bm.dataset.copiarMsj] || []).filter(o => b2b.sel.has(String(o.n)));
-    const ok = await copiarTexto(datosFactura(lista).msj);
+    const ok = await copiarTexto(datosFactura(lista, b2b.folioPre[bm.dataset.copiarMsj]).msj);
     bm.textContent = ok ? 'Copiado' : 'No se pudo copiar'; setTimeout(() => { bm.textContent = 'Copiar mensaje'; }, 2000);
+  }));
+  el.querySelectorAll('[data-folio-pre]').forEach(inp => inp.addEventListener('input', () => { b2b.folioPre[inp.dataset.folioPre] = inp.value.replace(/[^\d]/g, ''); }));
+  el.querySelectorAll('[data-wsp-cli]').forEach(bw => bw.addEventListener('click', async () => {
+    const c = bw.dataset.wspCli, lista = (porCliente[c] || []).filter(o => b2b.sel.has(String(o.n)));
+    const msj = datosFactura(lista, b2b.folioPre[c]).msj, cl = d.clientes.find(x => x.id === (lista[0] || {}).clienteId) || cliDe(c) || {};
+    const r = await abrirWhatsapp(cl, msj);
+    if (r === 'grupo') alert('Mensaje copiado. Se abre el grupo de WhatsApp: pégalo ahí (mantén presionado → Pegar).');
+    else if (r === 'sin') alert('Este cliente no tiene WhatsApp guardado (Clientes → Editar datos). Se abre WhatsApp para que elijas el chat; el mensaje ya va escrito.');
   }));
   // v0.14.2: PDF de las órdenes marcadas (una hoja por orden, o un resumen)
   el.querySelectorAll('[data-pdf-cli]').forEach(bp => bp.addEventListener('click', async () => {
@@ -2418,7 +2434,7 @@ function pintarB2bAdmin(el, sub) {
     const totalSel = lista.reduce((s, o) => s + o.total, 0);
     const clientes = [...new Set(lista.map(o => o.cliente))];
     const r = await pedirDatos('Asignar folio', `<p class="ayuda">${ns.length} ${ns.length === 1 ? 'orden' : 'órdenes'} (N° ${ns.join(', ')}) · ${esc(clientes.join(', '))} · <b>${pesos(totalSel)}</b></p>
-      <div class="fila-campos"><div class="campo"><label for="pd-folio">Folio SII</label><input id="pd-folio" inputmode="numeric" placeholder="Ej: 5512"></div>
+      <div class="fila-campos"><div class="campo"><label for="pd-folio">Folio SII</label><input id="pd-folio" inputmode="numeric" placeholder="Ej: 5512" value="${esc(b2b.folioPre[bf.dataset.folioCli] || '')}"></div>
       <div class="campo"><label for="pd-fecha">Fecha del folio</label><input id="pd-fecha" type="date" value="${Caja.diaLocal()}"></div></div>`, 'Asignar folio',
       dd => { const f = dd.querySelector('#pd-folio').value.trim(); if (!/^\d{1,12}$/.test(f)) return { error: 'Escribe el número de folio.' }; return { folio: f, fecha: dd.querySelector('#pd-fecha').value }; });
     if (!r) return;
@@ -2429,7 +2445,7 @@ function pintarB2bAdmin(el, sub) {
       if (usado.length && !confirm(`El folio ${r.folio} ya está en ${usado.length === 1 ? 'la orden' : 'las órdenes'} N° ${usado.map(u => u.n).join(', ')} de ${lista[0].cliente}. ¿Agregar estas órdenes al mismo folio?`)) return;
       await B2b.asignarFolio(ns, r.folio, r.fecha);
       registrar('Asignó folio B2B', `Folio ${r.folio} · N° ${ns.join(', ')}`);
-      ns.forEach(n => b2b.sel.delete(String(n))); B2b.pasarAPlanilla().catch(() => {});
+      ns.forEach(n => b2b.sel.delete(String(n))); delete b2b.folioPre[bf.dataset.folioCli]; B2b.pasarAPlanilla().catch(() => {});
     } catch (e) { alert(errorB2b(e)); }
   }));
   el.querySelectorAll('[data-pago]').forEach(b => b.addEventListener('click', async () => {
@@ -2636,8 +2652,12 @@ function pintarB2bClientes(el, sub) {
       <div class="fila-campos"><div class="campo"><label for="pd-giro">Giro</label><input id="pd-giro" value="${esc(c.giro)}"></div><div class="campo"><label for="pd-dir">Dirección</label><input id="pd-dir" value="${esc(c.direccion)}"></div></div>
       <div class="fila-campos"><div class="campo"><label for="pd-correo">Correo</label><input id="pd-correo" type="email" value="${esc(c.correo)}"></div><div class="campo"><label for="pd-tel">Teléfono</label><input id="pd-tel" value="${esc(c.telefono)}"></div></div>
       <div class="campo"><label for="pd-contacto">Contacto</label><input id="pd-contacto" value="${esc(c.contacto)}"></div>
+      <div class="fila-campos"><div class="campo"><label for="pd-wsp">WhatsApp (celular)</label><input id="pd-wsp" inputmode="tel" value="${esc(c.whatsapp ? '+' + c.whatsapp : '')}" placeholder="+56 9 1234 5678"></div><div class="campo"><label for="pd-grupo">Grupo de WhatsApp (enlace)</label><input id="pd-grupo" value="${esc(c.grupoWhatsapp || '')}" placeholder="https://chat.whatsapp.com/…"></div></div>
+      <p class="ayuda">Si el cliente usa un grupo, pega el enlace de invitación del grupo (en WhatsApp: datos del grupo → Invitar con enlace). Si tiene los dos, se usa el grupo.</p>
       <div class="fila-campos"><div class="campo"><label for="pd-fact">Facturación</label><select id="pd-fact">${opc(B2b.FACTURACION, c.facturacion || 'Diaria')}</select></div><div class="campo"><label for="pd-frec">Frecuencia de pago</label><select id="pd-frec">${opc(B2b.FRECUENCIA, c.frecuenciaPago || 'Diaria')}</select></div></div>`, 'Guardar',
-      dd => { const v = id => dd.querySelector('#' + id).value.trim(); return { rut: v('pd-rut'), razonSocial: v('pd-razon'), giro: v('pd-giro'), direccion: v('pd-dir'), correo: v('pd-correo'), telefono: v('pd-tel'), contacto: v('pd-contacto'), facturacion: v('pd-fact'), frecuenciaPago: v('pd-frec') }; });
+      dd => { const v = id => dd.querySelector('#' + id).value.trim(); return { rut: v('pd-rut'), razonSocial: v('pd-razon'), giro: v('pd-giro'), direccion: v('pd-dir'), correo: v('pd-correo'), telefono: v('pd-tel'), contacto: v('pd-contacto'), facturacion: v('pd-fact'), frecuenciaPago: v('pd-frec'), whatsapp: v('pd-wsp'), grupoWhatsapp: v('pd-grupo') }; });
+    if (r && r.whatsapp && B2b.normalizarWsp(r.whatsapp) === null) { alert('El WhatsApp debe ser un celular chileno (9 dígitos, empieza con 9).'); return; }
+    if (r && !B2b.grupoWspValido(r.grupoWhatsapp)) { alert('El enlace del grupo debe empezar con https://chat.whatsapp.com/'); return; }
     if (r && r.facturacion === (c.facturacion || 'Diaria')) delete r.facturacion;
     if (r && r.frecuenciaPago === (c.frecuenciaPago || 'Diaria')) delete r.frecuenciaPago;
     if (!r) return;
