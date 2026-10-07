@@ -1,9 +1,14 @@
-# Sistema Fën · v0.12.2
+# Sistema Fën · v0.12.3
 
-**App:** v0.12.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.2.0 · 6 de octubre de 2026
+**App:** v0.12.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.2.0 · 6 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.12.3
+- **Por facturar:** junto al nombre de cada cliente están **Marcar todas** y, apenas marcas una orden, **Asignar folio a N · $total** (antes el botón estaba al final de la lista). El nombre del cliente queda fijo arriba mientras bajas por sus órdenes.
+
+Archivos: cambian `app.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos.
 
 ## Novedades de la v0.12.2
 - **Solicitudes de anulación:** logística puede pedir que se anule una orden. Te llega en Ventas B2B → Solicitudes, con su motivo y **Ver PDF**. Al aprobar, la orden queda anulada (no se borra; en la planilla pasa a "Ordenes anuladas"); al rechazar, sigue igual.

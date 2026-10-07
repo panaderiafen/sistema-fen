@@ -449,3 +449,12 @@ details.aviso > summary { cursor: pointer; }
 .check-b2b input { width: 22px; height: 22px; accent-color: var(--acento); }
 .grupo-b2b + .grupo-b2b { border-top: 1px solid var(--linea); margin-top: 8px; }
 @media (max-width: 480px) { .fila-campos { grid-template-columns: 1fr; } }
+.cab-cliente-b2b { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; margin-top: 12px; padding: 8px 0; position: sticky; top: 0; z-index: 2; background: var(--tarjeta); }
+.cab-cliente-b2b > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.cab-cliente-b2b span { font-size: 13px; color: var(--suave); }
+.cab-cliente-b2b .acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn.btn-chico { min-height: 40px; padding: 0 14px; font-size: 13px; }
+/* Por facturar: casilla, orden y Anular en una sola fila (también en el celular) */
+.fila-orden-b2b > summary.fila-caja { flex-wrap: nowrap; gap: 10px; padding: 10px 0; }
+.fila-orden-b2b > summary.fila-caja .txt { flex: 1 1 auto; min-width: 0; }
+.fila-orden-b2b > summary.fila-caja .acciones { flex: none; }

@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.12.2';
-import * as Caja from './caja.js?v=0.12.2';
-import * as Stock from './stock.js?v=0.12.2';
-import * as Ajustes from './ajustes.js?v=0.12.2';
-import * as Apps from './apps.js?v=0.12.2';
-import * as Agenda from './agenda.js?v=0.12.2';
-import * as Gastos from './gastos.js?v=0.12.2';
-import * as Sii from './sii.js?v=0.12.2';
-import * as Previred from './previred.js?v=0.12.2';
-import * as B2b from './b2b.js?v=0.12.2';
-import * as PdfOrden from './pdf-orden.js?v=0.12.2';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.12.2';
+} from './firebase.js?v=0.12.3';
+import * as Caja from './caja.js?v=0.12.3';
+import * as Stock from './stock.js?v=0.12.3';
+import * as Ajustes from './ajustes.js?v=0.12.3';
+import * as Apps from './apps.js?v=0.12.3';
+import * as Agenda from './agenda.js?v=0.12.3';
+import * as Gastos from './gastos.js?v=0.12.3';
+import * as Sii from './sii.js?v=0.12.3';
+import * as Previred from './previred.js?v=0.12.3';
+import * as B2b from './b2b.js?v=0.12.3';
+import * as PdfOrden from './pdf-orden.js?v=0.12.3';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.12.3';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -312,7 +312,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.12.2" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.12.3" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2237,16 +2237,16 @@ function pintarB2bAdmin(el, sub) {
   const folios = Object.keys(porFolio).sort((a, b) => Math.min(...porFolio[a].map(o => o.n)) - Math.min(...porFolio[b].map(o => o.n)));
   const sel = [...b2b.sel].filter(n => sinFolio.some(o => String(o.n) === n));
   b2b.sel = new Set(sel);
-  const totalSel = sinFolio.filter(o => b2b.sel.has(String(o.n))).reduce((s, o) => s + o.total, 0);
   el.innerHTML = cabB2b(sub) + `
     <section class="tarjeta" aria-labelledby="t-b2b-plan"><div class="titulo-fila"><h2 id="t-b2b-plan">Copia en la planilla ${info('Copia en la planilla', 'Cada orden nueva, edición, folio, pago, abono y anulación pasa sola a la planilla (Resumen Facturas, Detalle Ventas, Abonos), en general en segundos. Así Looker y Hoy siguen igual.\nSi algo queda pendiente (por ejemplo, sin internet), se reintenta solo; también puedes presionar "Pasar ahora".')}</h2>
       <span class="chip ${pendPlan ? 'c-amarillo' : 'c-verde'}">${pendPlan ? pendPlan + ' por pasar' : 'Al día'}</span></div>
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" id="b2b-pasar">Pasar ahora</button></div>
       ${b2b.planilla ? `<p class="ayuda" role="status">${esc(b2b.planilla)}</p>` : ''}${b2b.errVivo ? `<p class="error">${esc(b2b.errVivo)}</p>` : ''}</section>
     <section class="tarjeta" aria-labelledby="t-b2b-fact"><div class="titulo-fila"><h2 id="t-b2b-fact">Por facturar</h2><span>${sinFolio.length} ${sinFolio.length === 1 ? 'orden' : 'órdenes'} · ${pesos(sinFolio.reduce((s, o) => s + o.total, 0))}</span></div>
-      ${Object.keys(porCliente).sort((a, b) => a.localeCompare(b, 'es')).map(c => `<div class="grupo-b2b"><div class="titulo-fila" style="margin-top:10px"><b>${esc(c)}</b><span>${porCliente[c].length} · ${pesos(porCliente[c].reduce((s, o) => s + o.total, 0))}</span></div>
-        ${porCliente[c].map(o => `<details class="fila-orden-b2b"><summary class="fila-caja"><label class="check-b2b" onclick="event.stopPropagation()"><input type="checkbox" data-sel="${o.n}" ${b2b.sel.has(String(o.n)) ? 'checked' : ''} aria-label="Marcar orden ${o.n}"></label><div class="txt"><b>N° ${o.n}</b><span>${esc(diaTexto(o.fecha))} · ${pesos(o.total)}${o.planillaPendiente ? ' · por pasar a la planilla' : ''}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-o="${o.n}">Anular</button></div></summary>${lineasHtml(o)}</details>`).join('')}</div>`).join('') || '<div class="vacio" style="border:0">No hay órdenes sin folio.</div>'}
-      ${sinFolio.length ? `<div class="botones" style="justify-content:flex-start;margin-top:12px"><button type="button" class="btn" id="b2b-folio" ${b2b.sel.size ? '' : 'disabled'}>Asignar folio${b2b.sel.size ? ` a ${b2b.sel.size} ${b2b.sel.size === 1 ? 'orden' : 'órdenes'} · ${pesos(totalSel)}` : ' (marca las órdenes)'}</button></div>` : ''}</section>
+      ${Object.keys(porCliente).sort((a, b) => a.localeCompare(b, 'es')).map(c => { const mc = porCliente[c].filter(o => b2b.sel.has(String(o.n))), todas = mc.length === porCliente[c].length; return `<div class="grupo-b2b"><div class="cab-cliente-b2b"><div><b>${esc(c)}</b><span>${porCliente[c].length} · ${pesos(porCliente[c].reduce((s, o) => s + o.total, 0))}</span></div>
+        <div class="acciones"><button type="button" class="btn-sec btn-chico" data-marcar-cli="${esc(c)}">${todas ? 'Desmarcar' : 'Marcar todas'}</button>${mc.length ? `<button type="button" class="btn btn-chico" data-folio-cli="${esc(c)}">Asignar folio a ${mc.length} · ${pesos(mc.reduce((s, o) => s + o.total, 0))}</button>` : ''}</div></div>
+        ${porCliente[c].map(o => `<details class="fila-orden-b2b"><summary class="fila-caja"><label class="check-b2b" onclick="event.stopPropagation()"><input type="checkbox" data-sel="${o.n}" ${b2b.sel.has(String(o.n)) ? 'checked' : ''} aria-label="Marcar orden ${o.n}"></label><div class="txt"><b>N° ${o.n}</b><span>${esc(diaTexto(o.fecha))} · ${pesos(o.total)}${o.planillaPendiente ? ' · por pasar a la planilla' : ''}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-o="${o.n}">Anular</button></div></summary>${lineasHtml(o)}</details>`).join('')}</div>`; }).join('') || '<div class="vacio" style="border:0">No hay órdenes sin folio.</div>'}
+      ${sinFolio.length ? `<p class="ayuda" style="margin-top:10px">Marca las órdenes que van en la misma factura: el botón "Asignar folio" aparece junto al nombre del cliente.</p>` : ''}</section>
     <section class="tarjeta" aria-labelledby="t-b2b-cob"><div class="titulo-fila"><h2 id="t-b2b-cob">Por cobrar</h2><span>${folios.length} ${folios.length === 1 ? 'folio' : 'folios'}</span></div>
       ${folios.map(f => { const l = porFolio[f], tot = l.reduce((s, o) => s + o.total, 0), ab = abonadoFolio[f] || 0; return `<div class="fila-caja"><div class="txt"><b>Folio ${esc(f)} · ${esc([...new Set(l.map(o => o.cliente))].join(', '))}</b><span>${l.length} ${l.length === 1 ? 'orden' : 'órdenes'} (N° ${l.map(o => o.n).join(', ')}) · ${pesos(tot)}${ab ? ` · abonado ${pesos(ab)} · saldo ${pesos(Math.max(0, tot - ab))}` : ''}${l[0].fechaFolio ? ' · folio del ' + esc(diaTexto(l[0].fechaFolio)) : ''}</span></div>
         <div class="acciones">${ab ? '<span class="chip c-amarillo">Parcial</span>' : ''}<button type="button" class="btn-sec btn-chico" data-abono="${esc(f)}">Abono</button><button type="button" class="btn-sec btn-chico" data-pago="${esc(f)}">Pagado</button></div></div>`; }).join('') || '<div class="vacio" style="border:0">No hay folios por cobrar.</div>'}</section>`;
@@ -2257,10 +2257,15 @@ function pintarB2bAdmin(el, sub) {
     catch (e) { b2b.planilla = 'No se pudo: ' + errorB2b(e); }
     pintarB2bAdmin(el, sub);
   });
-  const bf = $('b2b-folio');
-  if (bf) bf.addEventListener('click', async () => {
-    const ns = [...b2b.sel].map(Number).sort((a, b) => a - b);
-    const lista = sinFolio.filter(o => b2b.sel.has(String(o.n)));
+  el.querySelectorAll('[data-marcar-cli]').forEach(b => b.addEventListener('click', () => {
+    const l = porCliente[b.dataset.marcarCli] || [], todas = l.every(o => b2b.sel.has(String(o.n)));
+    l.forEach(o => todas ? b2b.sel.delete(String(o.n)) : b2b.sel.add(String(o.n)));
+    pintarB2bAdmin(el, sub);
+  }));
+  el.querySelectorAll('[data-folio-cli]').forEach(bf => bf.addEventListener('click', async () => {
+    const lista = (porCliente[bf.dataset.folioCli] || []).filter(o => b2b.sel.has(String(o.n)));
+    const ns = lista.map(o => o.n).sort((a, b) => a - b);
+    const totalSel = lista.reduce((s, o) => s + o.total, 0);
     const clientes = [...new Set(lista.map(o => o.cliente))];
     const r = await pedirDatos('Asignar folio', `<p class="ayuda">${ns.length} ${ns.length === 1 ? 'orden' : 'órdenes'} (N° ${ns.join(', ')}) · ${esc(clientes.join(', '))} · <b>${pesos(totalSel)}</b></p>
       ${clientes.length > 1 ? '<p class="aviso">Ojo: marcaste órdenes de más de un cliente.</p>' : ''}
@@ -2273,9 +2278,9 @@ function pintarB2bAdmin(el, sub) {
       if (usado.length && !confirm(`El folio ${r.folio} ya está en ${usado.length === 1 ? 'la orden' : 'las órdenes'} N° ${usado.join(', ')}. ¿Agregar estas órdenes al mismo folio?`)) return;
       await B2b.asignarFolio(ns, r.folio, r.fecha);
       registrar('Asignó folio B2B', `Folio ${r.folio} · N° ${ns.join(', ')}`);
-      b2b.sel = new Set(); B2b.pasarAPlanilla().catch(() => {});
+      ns.forEach(n => b2b.sel.delete(String(n))); B2b.pasarAPlanilla().catch(() => {});
     } catch (e) { alert(errorB2b(e)); }
-  });
+  }));
   el.querySelectorAll('[data-pago]').forEach(b => b.addEventListener('click', async () => {
     const f = b.dataset.pago, l = porFolio[f], tot = l.reduce((s, o) => s + o.total, 0);
     const r = await pedirDatos(`Folio ${f} pagado`, `<p class="ayuda">${l.length} ${l.length === 1 ? 'orden' : 'órdenes'} · ${pesos(tot)}${abonadoFolio[f] ? ` · ya abonado ${pesos(abonadoFolio[f])}` : ''}</p>
