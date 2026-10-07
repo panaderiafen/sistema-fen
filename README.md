@@ -1,9 +1,23 @@
-# Sistema Fën · v0.13.1
+# Sistema Fën · v0.13.2
 
-**App:** v0.13.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.3.0 · **Script de B2B:** v2.5.1 · 7 de octubre de 2026
+**App:** v0.13.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.3.0 · **Script de B2B:** v2.5.1 · 7 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.13.2: cuánto aporta y cómo paga cada cliente
+En **Ventas B2B → Clientes**, cada cliente muestra en su línea:
+- **Mes ant.** (lo que compró el mes pasado) y **prom. 3 meses** (los 3 meses cerrados), en **neto**. Una flecha ↑ o ↓ si el mes pasado cambió más de un 20%, y su **% del total B2B**.
+- **Semáforo de pago** a la derecha: 🟢 hasta 7 días desde el folio · 🟡 de 8 a 30 · 🔴 más de 30. Toma lo peor entre **cómo paga** (sus folios de los últimos 6 meses, pesa más una factura grande) y **lo que debe hoy** (su folio pendiente más antiguo). El texto dice por qué: "Al día · 3 d", "Paga en 18 d" o "Debe hace 43 d". Gris: todavía no hay pagos para medir.
+- Al abrir un cliente: cuántos días paga en promedio frente a lo **acordado**, cuánto debe hoy, y cada cuánto pide.
+- **Ordenar** por Nombre, Aporte o Pago.
+- **Dejó de comprar:** un cliente que pide seguido y lleva más del doble de su intervalo normal sin pedir aparece marcado en Clientes y en **Hoy**. Se quita solo cuando vuelve a comprar, o con **"Ya lo revisé"** (con una nota opcional, por ejemplo "de vacaciones"). Desde Hoy, tocarlo abre ese cliente.
+
+(i) Las órdenes de los últimos 6 meses se leen una vez cada 6 horas en cada equipo ("Actualizar" las vuelve a leer). Son unas pocas centenas de lecturas: muy dentro de lo gratis de Firebase.
+
+(i) **Los días de pago salen de la fecha que se pone al marcar Pagado o Abono.** Usa la fecha real de la transferencia. Las órdenes antiguas sin "Fecha Folio" en la planilla no cuentan para el promedio.
+
+Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos. No cambian el script, las reglas ni la app de logística.
 
 ## Novedades de la v0.13.1
 - **Órdenes (Ventas B2B):** las tarjetas **Copia en la planilla, Por facturar y Por cobrar se pliegan y despliegan**. Parten cerradas, con su resumen a la vista (por ejemplo "2 clientes · 8 órdenes · $62.475" o "2 folios · saldo $37.485"); este equipo recuerda cuáles dejaste abiertas.
@@ -39,7 +53,7 @@ Archivos: cambian `app.js`, `b2b.js`, `b2b-modelo.js`, `pdf-orden.js`, `estilos.
 ### Instalación de la v0.13.0 (en este orden, unos 10 minutos)
 1. **Script de B2B v2.5.1** (zip `b2b-script-v2.5.1`): sigue su README. El ping debe decir **2.5.1**.
 2. **Reglas de fen-b2b v1.3.0**: consola de Firebase → proyecto **fen-b2b** → Firestore Database → **Reglas** → borra todo, pega el contenido de `firestore-b2b.rules` → **Publicar**. (Permiten que la app de logística, al pasar cambios a la planilla, marque también los del catálogo.)
-3. **GitHub, repo `sistema-fen`**: Add file → Upload files → sube todos los archivos del zip (sin la carpeta) → Commit. En 1 o 2 minutos, recarga con Ctrl + Shift + R; abajo a la izquierda debe decir **v0.13.1**.
+3. **GitHub, repo `sistema-fen`**: Add file → Upload files → sube todos los archivos del zip (sin la carpeta) → Commit. En 1 o 2 minutos, recarga con Ctrl + Shift + R; abajo a la izquierda debe decir **v0.13.2**.
 4. **App de logística v1.1.1** (zip `fen-logistica-v1.1.1`): GitHub, repo `fen-logistica` → sube todos los archivos. Solo cambia el orden de la lista de órdenes.
 
 ### Lista de verificación

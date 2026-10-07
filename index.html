@@ -8,17 +8,17 @@
 <title>Sistema Fën</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="estilos.css?v=0.13.1">
-<script src="config.js?v=0.13.1"></script>
+<link rel="stylesheet" href="estilos.css?v=0.13.2">
+<script src="config.js?v=0.13.2"></script>
 </head>
 <body>
 
 <!-- Cargando: mientras Firebase revisa si hay sesión en este equipo -->
-<div id="cargando" class="entrada"><div class="marca"><img class="logo" src="logo-fen.png?v=0.13.1" alt="Fën, panadería masa madre"><span>Sistema de administración</span></div><p class="ayuda">Abriendo…</p></div>
+<div id="cargando" class="entrada"><div class="marca"><img class="logo" src="logo-fen.png?v=0.13.2" alt="Fën, panadería masa madre"><span>Sistema de administración</span></div><p class="ayuda">Abriendo…</p></div>
 
 <!-- ── Entrada ───────────────────────────────────── -->
 <section id="entrada" class="entrada oculto" aria-labelledby="t-entrar">
-  <div class="marca"><img class="logo" src="logo-fen.png?v=0.13.1" alt="Fën, panadería masa madre"><span>Sistema de administración</span></div>
+  <div class="marca"><img class="logo" src="logo-fen.png?v=0.13.2" alt="Fën, panadería masa madre"><span>Sistema de administración</span></div>
   <form id="form-entrar" class="form-entrada" novalidate>
     <div style="display:flex;flex-direction:column;gap:6px">
       <h1 id="t-entrar">Entrar en este equipo</h1>
@@ -56,7 +56,7 @@
 
 <!-- ── Sin acceso (otra cuenta ya abierta en este navegador, p. ej. una cajera) ── -->
 <section id="sin-acceso" class="entrada oculto" aria-labelledby="t-sin-acceso">
-  <div class="marca"><img class="logo" src="logo-fen.png?v=0.13.1" alt="Fën, panadería masa madre"><span>Sistema de administración</span></div>
+  <div class="marca"><img class="logo" src="logo-fen.png?v=0.13.2" alt="Fën, panadería masa madre"><span>Sistema de administración</span></div>
   <div class="form-entrada">
     <h1 id="t-sin-acceso">Esta cuenta ya no tiene acceso</h1>
     <p>La cuenta <b id="correo-sin-acceso"></b> no es de administración, así que no puede usar Sistema Fën.</p>
@@ -68,7 +68,7 @@
 <div id="app" class="app oculto">
   <nav class="lateral" aria-label="Menú principal" id="menu-lateral"></nav>
   <main id="principal" tabindex="-1">
-    <div class="marca-cel" aria-hidden="true"><img src="logo-fen.png?v=0.13.1" alt=""><span>Sistema de administración</span></div>
+    <div class="marca-cel" aria-hidden="true"><img src="logo-fen.png?v=0.13.2" alt=""><span>Sistema de administración</span></div>
     <section id="v-hoy" aria-labelledby="t-hoy"></section>
     <section id="v-caja" class="oculto" aria-labelledby="t-caja"></section>
     <section id="v-seguridad" class="oculto" aria-labelledby="t-seguridad"></section>
@@ -81,6 +81,6 @@
   <nav class="barra" aria-label="Navegación" id="barra"></nav>
 </div>
 
-<script type="module" src="app.js?v=0.13.1"></script>
+<script type="module" src="app.js?v=0.13.2"></script>
 </body>
 </html>

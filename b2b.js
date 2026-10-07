@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.13.1';
-import * as FB from './firebase-b2b.js?v=0.13.1';
-import * as Apps from './apps.js?v=0.13.1';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.13.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.13.2';
+import * as FB from './firebase-b2b.js?v=0.13.2';
+import * as Apps from './apps.js?v=0.13.2';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.13.2';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -689,4 +689,100 @@ export function correspondeFacturar(facturacion, fecha, hoy = hoyTxt()) {
   if (/^seman/.test(f)) { const d = new Date(hoy + 'T12:00:00'), w = d.getDay(); d.setDate(d.getDate() - (w === 0 ? 6 : w - 1)); return fecha < hoyTxt(d); }
   if (/^mensu/.test(f)) return fecha.slice(0, 7) < hoy.slice(0, 7);
   return fecha < hoy;
+}
+
+// ═══════════════════════════════════════════════
+//  v0.13.2 · Cuánto aporta cada cliente y cómo paga
+// ═══════════════════════════════════════════════
+// Órdenes de los últimos 6 meses (para el análisis). Se guardan 6 horas en este equipo para no releer.
+const K_ANALISIS = 'fen_b2b_analisis';
+let cacheAnalisis = null;
+export async function ordenesParaAnalisis(forzar) {
+  const db = await dbOk();
+  const ahora = Date.now();
+  if (!forzar && !cacheAnalisis) { try { const c = JSON.parse(localStorage.getItem(K_ANALISIS) || 'null'); if (c && c.v === 1) cacheAnalisis = c; } catch (e) {} }
+  if (!forzar && cacheAnalisis && ahora - cacheAnalisis.en < 6 * 3600e3) return cacheAnalisis;
+  const h = new Date(), desde = hoyTxt(new Date(h.getFullYear(), h.getMonth() - 6, 1));
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'ordenes'), FB.where('fecha', '>=', desde)));
+  uso.lecturas += Math.max(1, sn.size);
+  const campos = ['n', 'fecha', 'cliente', 'clienteId', 'neto', 'total', 'folio', 'fechaFolio', 'estadoPago', 'fechaPago', 'estado', 'quitadoEnPlanilla'];
+  const ordenes = sn.docs.map(d => { const x = d.data(), o = { id: d.id }; campos.forEach(k => { if (x[k] !== undefined) o[k] = x[k]; }); return o; })
+    .filter(o => !o.quitadoEnPlanilla && o.estado !== 'anulada');
+  cacheAnalisis = { v: 1, en: ahora, desde, ordenes };
+  try { localStorage.setItem(K_ANALISIS, JSON.stringify(cacheAnalisis)); } catch (e) {}
+  return cacheAnalisis;
+}
+export function olvidarAnalisis() { cacheAnalisis = null; try { localStorage.removeItem(K_ANALISIS); } catch (e) {} }
+
+const fechaDe = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(f || '')); return m ? m[0] : null; };
+const diasEntre = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 864e5);
+export const CORTES_PAGO = { verde: 7, amarillo: 30 };   // días: hasta 7 al día, hasta 30 más tarde, más de 30 tarde
+const ACORDADO = { diaria: 0, semanal: 7, mensual: 30, '30dias': 30 };
+// ordenes: las de 6 meses (y además las pendientes de cualquier fecha); abonos: todos. Montos de compra en NETO.
+export function analisisClientes(ordenes, abonos, clientes, hoy = hoyTxt()) {
+  const mesDe = (k) => { const [y, m] = hoy.split('-').map(Number), d = new Date(y, m - 1 - k, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+  const m1 = mesDe(1), m3 = [mesDe(1), mesDe(2), mesDe(3)], mPrev = [mesDe(2), mesDe(3), mesDe(4)];
+  const norm = t => String(t || '').trim().toLowerCase();
+  const porNombre = {}; clientes.forEach(c => { porNombre[norm(c.nombre)] = c.id; });
+  const idDe = o => o.clienteId || porNombre[norm(o.cliente)] || 'nombre:' + norm(o.cliente);
+  const abonadoFolio = {}, ultAbono = {};
+  abonos.forEach(a => { const f = String(a.folio); abonadoFolio[f] = (abonadoFolio[f] || 0) + (Number(a.monto) || 0); const fa = fechaDe(a.fecha); if (fa && (!ultAbono[f] || fa > ultAbono[f])) ultAbono[f] = fa; });
+  const R = {};
+  const r = id => R[id] || (R[id] = { meses: {}, dias: new Set(), pagos: [], pendientes: {}, ultimaCompra: null });
+  const vistos = new Set();
+  ordenes.forEach(o => {
+    if (vistos.has(String(o.n))) return; vistos.add(String(o.n));
+    const x = r(idDe(o)), f = fechaDe(o.fecha), neto = Number(o.neto) || 0;
+    if (f) { x.meses[f.slice(0, 7)] = (x.meses[f.slice(0, 7)] || 0) + neto; x.dias.add(f); if (!x.ultimaCompra || f > x.ultimaCompra) x.ultimaCompra = f; }
+    const ff = fechaDe(o.fechaFolio), e = String(o.estadoPago || '').toUpperCase();
+    if (o.folio && !e.includes('PAGADO')) { const k = String(o.folio), p = x.pendientes[k] || (x.pendientes[k] = { folio: k, total: 0, desde: ff || f }); p.total += Number(o.total) || 0; if ((ff || f) && (ff || f) < p.desde) p.desde = ff || f; }
+    if (o.folio && e.includes('PAGADO') && ff) { const fp = fechaDe(o.fechaPago); if (fp && diasEntre(ff, hoy) <= 190) x.pagos.push({ folio: String(o.folio), dias: Math.max(0, diasEntre(ff, fp)), peso: Number(o.total) || 0 }); }
+  });
+  const totalProm = Object.values(R).reduce((s, x) => s + m3.reduce((t, m) => t + (x.meses[m] || 0), 0) / 3, 0);
+  const color = d => d == null ? null : d <= CORTES_PAGO.verde ? 'verde' : d <= CORTES_PAGO.amarillo ? 'amarillo' : 'rojo';
+  const peor = (a, b) => ['rojo', 'amarillo', 'verde'].find(c => c === a || c === b) || null;
+  const out = {};
+  Object.entries(R).forEach(([id, x]) => {
+    const mesAnt = x.meses[m1] || 0, prom3 = m3.reduce((s, m) => s + (x.meses[m] || 0), 0) / 3, previo = mPrev.reduce((s, m) => s + (x.meses[m] || 0), 0) / 3;
+    const tend = previo > 0 && mesAnt > previo * 1.2 ? 'sube' : previo > 0 && mesAnt < previo * 0.8 ? 'baja' : null;
+    // Cómo paga: promedio de días folio → pago, ponderado por monto (un folio cuenta una vez)
+    const porFolio = {}; x.pagos.forEach(p => { const q = porFolio[p.folio] || (porFolio[p.folio] = { dias: p.dias, peso: 0 }); q.peso += p.peso; q.dias = Math.max(q.dias, p.dias); });
+    const fs = Object.values(porFolio), pesoT = fs.reduce((s, p) => s + (p.peso || 1), 0);
+    const diasPago = fs.length ? Math.round(fs.reduce((s, p) => s + p.dias * (p.peso || 1), 0) / pesoT) : null;
+    // Cómo está hoy: lo que debe y el folio pendiente más antiguo
+    const pend = Object.values(x.pendientes).map(p => ({ ...p, saldo: Math.max(0, p.total - (abonadoFolio[p.folio] || 0)), dias: p.desde ? Math.max(0, diasEntre(p.desde, hoy)) : 0 })).filter(p => p.saldo > 0);
+    const deuda = pend.reduce((s, p) => s + p.saldo, 0), masAntiguo = pend.sort((a, b) => b.dias - a.dias)[0] || null;
+    const cHist = color(diasPago), cHoy = masAntiguo ? color(masAntiguo.dias) : null;
+    const semaforo = peor(cHist, cHoy) || (diasPago == null && !masAntiguo ? 'gris' : 'verde');
+    // Dejó de comprar: intervalo típico (mediana entre días de compra) y días sin comprar
+    const dias = [...x.dias].sort(), gaps = dias.slice(1).map((d, i) => diasEntre(dias[i], d)).sort((a, b) => a - b);
+    const intervalo = gaps.length >= 3 ? gaps[Math.floor(gaps.length / 2)] : null;
+    const diasSin = x.ultimaCompra ? diasEntre(x.ultimaCompra, hoy) : null;
+    const dejo = intervalo != null && diasSin != null && diasSin > Math.max(intervalo * 2, intervalo + 7);
+    const cl = clientes.find(c => c.id === id);
+    const acordado = cl ? ACORDADO[norm(cl.frecuenciaPago)] : undefined;
+    out[id] = { mesAnt, prom3, tend, peso: totalProm > 0 ? prom3 / totalProm : 0, diasPago, nFolios: fs.length, deuda, masAntiguo, nPendientes: pend.length, semaforo, cHist, cHoy, acordado, ultimaCompra: x.ultimaCompra, intervalo, diasSin, dejo };
+  });
+  return { porCliente: out, meses: { m1, m3 } };
+}
+// "Ya lo revisé": el aviso de Dejó de comprar se calla hasta que el cliente vuelva a comprar
+export async function revisarDejoDeComprar(clienteId, ultimaCompra, nota) {
+  const db = await dbOk();
+  await FB.updateDoc(FB.doc(db, 'clientes', clienteId), { avisoCompra: { revisado: ahoraTxt(), ultimaCompra: ultimaCompra || null, nota: String(nota || '').trim().slice(0, 200) || null, por: authSF.currentUser.email } });
+  uso.escrituras++;
+}
+export const dejoVigente = (cliente, a) => !!(a && a.dejo && cliente && cliente.estado !== 'archivado' && !(cliente.avisoCompra && cliente.avisoCompra.ultimaCompra === a.ultimaCompra));
+// Para Hoy: clientes que dejaron de comprar (sin "Ya lo revisé"). Solo con la base nueva en uso; no pide nada.
+export async function dejoDeComprarParaHoy() {
+  let cx;
+  try { cx = await conexion(); } catch (e) { return null; }
+  if (cx.estado !== 'ok') return null;
+  const cfg = await FB.getDoc(FB.doc(cx.db, 'config', 'b2b')); uso.lecturas++;
+  if (!cfg.exists() || !cfg.data().activa) return null;
+  const [an, cs] = await Promise.all([ordenesParaAnalisis(false), FB.getDocs(FB.collection(cx.db, 'clientes'))]);
+  uso.lecturas += Math.max(1, cs.size);
+  const clientes = cs.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => !c.quitadoEnPlanilla);
+  const r = analisisClientes(an.ordenes, [], clientes);
+  return clientes.filter(c => dejoVigente(c, r.porCliente[c.id])).map(c => ({ id: c.id, nombre: c.nombre, diasSin: r.porCliente[c.id].diasSin, intervalo: r.porCliente[c.id].intervalo }))
+    .sort((a, b) => b.diasSin - a.diasSin);
 }

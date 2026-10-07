@@ -473,3 +473,27 @@ details.aviso > summary { cursor: pointer; }
 .plegable[open] > summary { padding-bottom: 12px; margin-bottom: 4px; border-bottom: 1px solid var(--linea); }
 .plegable > summary:focus-visible { outline: 2px solid var(--acento); outline-offset: 4px; border-radius: 8px; }
 @media (max-width: 640px) { .plegable > summary { flex-wrap: wrap; } }
+/* v0.13.2 · Clientes: aporte y semáforo de pago */
+.semaforo { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--suave); white-space: nowrap; }
+.semaforo i { width: 9px; height: 9px; border-radius: 50%; background: var(--borde); flex: none; }
+.semaforo.s-verde i { background: #3E9B63; }
+.semaforo.s-amarillo i { background: #d39b1c; }
+.semaforo.s-rojo i { background: #C8502C; }
+.semaforo.s-verde { color: var(--verde-t); }
+.semaforo.s-amarillo { color: var(--amarillo-t); }
+.semaforo.s-rojo { color: var(--rojo-t); }
+.fila-orden-b2b .txt span b { display: inline; font-size: inherit; font-weight: 700; color: var(--texto); }
+@media (max-width: 640px) {
+  details[data-cli] > summary.fila-caja { flex-wrap: wrap; row-gap: 4px; }
+  details[data-cli] > summary .acciones { flex-basis: 100%; justify-content: flex-start; }
+}
+.tend-sube { color: var(--verde-t); font-weight: 800; }
+.tend-baja { color: var(--rojo-t); font-weight: 800; }
+.fila-orden-cli { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 12px 0 4px; }
+.fila-orden-cli .pastilla { min-height: 36px; }
+.fila-orden-cli > .ayuda { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fila-orden-cli .btn-link { padding: 0; }
+.analisis-cli { display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.5; }
+.analisis-cli p { margin: 0; }
+.aviso-dejo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-top: 6px; padding: 10px 12px; border-radius: 10px; background: var(--amarillo); color: var(--amarillo-t); }
+@media (max-width: 640px) { .fila-orden-cli > .ayuda { margin-left: 0; } }

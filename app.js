@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.13.1';
-import * as Caja from './caja.js?v=0.13.1';
-import * as Stock from './stock.js?v=0.13.1';
-import * as Ajustes from './ajustes.js?v=0.13.1';
-import * as Apps from './apps.js?v=0.13.1';
-import * as Agenda from './agenda.js?v=0.13.1';
-import * as Gastos from './gastos.js?v=0.13.1';
-import * as Sii from './sii.js?v=0.13.1';
-import * as Previred from './previred.js?v=0.13.1';
-import * as B2b from './b2b.js?v=0.13.1';
-import * as PdfOrden from './pdf-orden.js?v=0.13.1';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.13.1';
+} from './firebase.js?v=0.13.2';
+import * as Caja from './caja.js?v=0.13.2';
+import * as Stock from './stock.js?v=0.13.2';
+import * as Ajustes from './ajustes.js?v=0.13.2';
+import * as Apps from './apps.js?v=0.13.2';
+import * as Agenda from './agenda.js?v=0.13.2';
+import * as Gastos from './gastos.js?v=0.13.2';
+import * as Sii from './sii.js?v=0.13.2';
+import * as Previred from './previred.js?v=0.13.2';
+import * as B2b from './b2b.js?v=0.13.2';
+import * as PdfOrden from './pdf-orden.js?v=0.13.2';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.13.2';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -312,7 +312,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.13.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.13.2" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -467,6 +467,13 @@ async function pintarHoy() {
     const cuenta = {}; l.forEach(x => { const t = tipos[x.tipo] || 'otra'; cuenta[t] = (cuenta[t] || 0) + 1; });
     pend.push({ orden: 2.8, color: 'lila', icono: 'camion', chip: 'Responder', url: '#b2b/solicitudes', origen: 'Ventas B2B', titulo: `${l.length === 1 ? 'Solicitud' : 'Solicitudes'} de logística`,
       detalle: Object.entries(cuenta).map(([t, n]) => `${n} de ${t}`).join(' · ') });
+    pintarLista();
+  }).catch(() => {});
+  // v0.13.2: clientes que dejaron de comprar
+  B2b.dejoDeComprarParaHoy().then(l => {
+    if (!l || !l.length) return;
+    l.forEach(c => pend.push({ orden: 3.5, color: 'amarillo', icono: 'camion', chip: 'Revisar', url: '#b2b/clientes/' + encodeURIComponent(c.id), origen: 'Ventas B2B', titulo: `${c.nombre} dejó de comprar`,
+      detalle: `${c.diasSin} días sin pedir (normalmente cada ${c.intervalo}) · Llámalo o márcalo "Ya lo revisé" en Clientes` }));
     pintarLista();
   }).catch(() => {});
   const urls = await Apps.leerConexiones();
@@ -2433,23 +2440,62 @@ async function nuevoClienteUI() {
 
 const claveB2b = t => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 // ── v0.13 · Clientes ───────────────────────────────
-const b2bCat = { filtroCli: '', archivadosCli: false, abiertoCli: '', filtroProd: '', archivadosProd: false };
+const b2bCat = { filtroCli: '', archivadosCli: false, abiertoCli: '', filtroProd: '', archivadosProd: false, ordenCli: 'nombre', soloDejo: false, an: null, anCargando: false, anError: '', irA: '' };
 const catOk = () => b2b.datos && b2b.datos.config && b2b.datos.config.activa;
 function sinActivar(el, sub) { el.innerHTML = cabB2b(sub) + `<section class="tarjeta"><div class="vacio" style="border:0">${b2b.datos && b2b.datos.config ? 'Disponible cuando la base nueva esté en uso (Base nueva → Cambiar).' : (b2b.errVivo ? esc(b2b.errVivo) : 'Cargando…')}</div></section>`; }
+async function cargarAnalisisCli(el, sub, forzar) {
+  b2bCat.anCargando = true; b2bCat.anError = '';
+  if (forzar) pintarB2bClientes(el, sub);
+  try { b2bCat.an = await B2b.ordenesParaAnalisis(forzar); }
+  catch (e) { b2bCat.anError = 'No se pudieron leer las compras: ' + errorB2b(e); }
+  b2bCat.anCargando = false;
+  if (vistaDesdeHash() === 'b2b' && subVista() === 'clientes' && !document.querySelector('dialog[open]')) pintarB2bClientes($('v-b2b'), 'clientes');
+}
 // Cuántos cambios del catálogo faltan por pasar a la planilla (se pasan solos; si se quedan, falta el script v2.5.0)
 const chipCat = l => { const n = (l || []).filter(x => x.planillaPendiente).length; return n ? `<span class="chip c-amarillo" title="Se pasan solos a la planilla. Si no bajan, revisa que el script de B2B esté en v2.5.0.">${n} por pasar a la planilla</span>` : ''; };
 function pintarB2bClientes(el, sub) {
   if (!catOk()) return sinActivar(el, sub);
   const d = b2b.datos, q = claveB2b(b2bCat.filtroCli);
-  const lista = d.clientes.filter(c => (b2bCat.archivadosCli ? c.estado === 'archivado' : c.estado !== 'archivado') && (!q || claveB2b(c.nombre).includes(q) || claveB2b(c.rut).includes(q)));
+  // v0.13.2: cuánto aporta y cómo paga (órdenes de 6 meses, leídas una vez cada 6 horas en este equipo)
+  if (!b2bCat.an && !b2bCat.anCargando && !b2bCat.anError) cargarAnalisisCli(el, sub, false);
+  const an = b2bCat.an ? B2b.analisisClientes([...d.ordenes.values()].concat(b2bCat.an.ordenes), d.abonos, d.clientes) : null;
+  const A = c => an && an.porCliente[c.id];
+  const destino = (location.hash.split('/')[2] || '');
+  if (destino && destino !== b2bCat.irA) { b2bCat.irA = destino; b2bCat.abiertoCli = decodeURIComponent(destino); b2bCat.filtroCli = ''; b2bCat.soloDejo = false; }
+  const nDejo = an ? d.clientes.filter(c => B2b.dejoVigente(c, A(c))).length : 0;
+  if (!nDejo) b2bCat.soloDejo = false;
+  const rangoPago = { verde: 0, amarillo: 1, rojo: 2, gris: -1 };
+  const lista = d.clientes.filter(c => (b2bCat.archivadosCli ? c.estado === 'archivado' : c.estado !== 'archivado') && (!q || claveB2b(c.nombre).includes(q) || claveB2b(c.rut).includes(q)) && (!b2bCat.soloDejo || B2b.dejoVigente(c, A(c))))
+    .sort((a, b) => b2bCat.ordenCli === 'aporte' && an ? ((A(b) || {}).prom3 || 0) - ((A(a) || {}).prom3 || 0) : b2bCat.ordenCli === 'pago' && an ? (rangoPago[(A(b) || {}).semaforo || 'gris'] - rangoPago[(A(a) || {}).semaforo || 'gris']) || (((A(b) || {}).deuda || 0) - ((A(a) || {}).deuda || 0)) : 0);
+  const SEM = { verde: 'Al día', amarillo: 'Paga tarde', rojo: 'Paga a +30 días', gris: 'Sin pagos aún' };
+  // El texto dice por qué tiene ese color: cómo paga (historial) o lo que debe hoy
+  const semaforo = a => { if (!a) return '';
+    const porHoy = a.masAntiguo && rangoPago[a.cHoy] > rangoPago[a.cHist || 'gris'];
+    const t = a.semaforo === 'gris' ? 'Sin pagos aún' : porHoy ? `Debe hace ${a.masAntiguo.dias} d` : a.semaforo === 'verde' ? `Al día${a.diasPago != null ? ' · ' + a.diasPago + ' d' : ''}` : `Paga en ${a.diasPago} d`;
+    return `<span class="semaforo s-${a.semaforo}" title="${esc(SEM[a.semaforo])}"><i aria-hidden="true"></i>${esc(t)}</span>`; };
+  const resumenCli = c => { const a = A(c); if (!an) return b2bCat.anError ? '' : 'Calculando compras…'; if (!a || (!a.prom3 && !a.mesAnt)) return 'Sin compras en los últimos 3 meses';
+    return `Mes ant. <b>${pesos(a.mesAnt)}</b> · prom. 3 meses <b>${pesos(a.prom3)}</b>${a.tend ? ` <span class="tend-${a.tend}" aria-label="${a.tend === 'sube' ? 'sube' : 'baja'}">${a.tend === 'sube' ? '↑' : '↓'}</span>` : ''} · ${Math.round(a.peso * 100)}% de B2B`; };
+  const detalleCli = c => { const a = A(c); if (!a) return '';
+    const L = [];
+    L.push(a.diasPago != null ? `<b>Cómo paga:</b> en promedio ${a.diasPago} ${a.diasPago === 1 ? 'día' : 'días'} desde el folio (${a.nFolios} ${a.nFolios === 1 ? 'folio' : 'folios'}, últimos 6 meses)${a.acordado != null ? ` · acordado ${a.acordado ? a.acordado + ' días' : 'al día'}${a.diasPago > a.acordado + 3 ? ' <span class="chip c-amarillo chip-chico">más tarde que lo acordado</span>' : ''}` : ''}` : '<b>Cómo paga:</b> todavía no hay folios pagados con fecha en los últimos 6 meses');
+    L.push(a.deuda > 0 ? `<b>Hoy:</b> debe ${pesos(a.deuda)} (con IVA) en ${a.nPendientes} ${a.nPendientes === 1 ? 'folio' : 'folios'}; el más antiguo, folio ${esc(a.masAntiguo.folio)}, hace ${a.masAntiguo.dias} ${a.masAntiguo.dias === 1 ? 'día' : 'días'}` : '<b>Hoy:</b> no debe folios');
+    if (a.ultimaCompra) L.push(`<b>Compras:</b> ${a.intervalo != null ? `suele pedir cada ${a.intervalo} ${a.intervalo === 1 ? 'día' : 'días'}; ` : ''}última compra hace ${a.diasSin} ${a.diasSin === 1 ? 'día' : 'días'} (${esc(diaTexto(a.ultimaCompra))})`);
+    const dejo = B2b.dejoVigente(c, a);
+    return `<div class="analisis-cli">${L.map(x => `<p>${x}</p>`).join('')}
+      ${dejo ? `<div class="aviso-dejo"><span><b>Dejó de comprar:</b> lleva ${a.diasSin} días sin pedir (normalmente cada ${a.intervalo}).</span><button type="button" class="btn-sec btn-chico" data-revisado-cli="${esc(c.id)}">Ya lo revisé</button></div>`
+        : c.avisoCompra && a.dejo ? `<p class="ayuda">Aviso de "dejó de comprar" revisado el ${esc(String(c.avisoCompra.revisado).slice(0, 10))}${c.avisoCompra.nota ? ': ' + esc(c.avisoCompra.nota) : ''}. Vuelve a avisar si compra y después deja de comprar otra vez.</p>` : ''}</div>`; };
   const prodsActivos = d.productos.filter(p => p.estado !== 'archivado');
   el.innerHTML = cabB2b(sub) + `<section class="tarjeta" aria-labelledby="t-b2b-clis">
     <div class="titulo-fila"><h2 id="t-b2b-clis">Clientes ${info('Clientes', 'Los cambios aparecen al tiro en la app de logística y pasan solos a la planilla (hojas Clientes y Precios).\nEl nombre no se cambia, porque las órdenes y la planilla ubican al cliente por su nombre.\nUn cliente archivado deja de aparecer en logística; sus órdenes quedan igual.')}</h2><div class="acciones">${chipCat(d.clientes)}<button type="button" class="btn-sec btn-chico" id="b2b-nuevo-cli">+ Nuevo cliente</button></div></div>
     <div class="filtros-b2b"><div class="campo"><label for="cli-q">Buscar</label><input id="cli-q" value="${esc(b2bCat.filtroCli)}" placeholder="Nombre o RUT"></div>
       <label class="check-linea"><input type="checkbox" id="cli-arch" ${b2bCat.archivadosCli ? 'checked' : ''}> Ver archivados</label></div>
-    ${lista.map(c => `<details class="fila-orden-b2b" data-cli="${esc(c.id)}" ${b2bCat.abiertoCli === c.id ? 'open' : ''}><summary class="fila-caja"><div class="txt"><b>${esc(c.nombre)}</b><span>${esc(c.rut || 'sin RUT')} · factura ${esc(c.facturacion || 'Diaria')} · paga ${esc(c.frecuenciaPago || 'Diaria')} · ${(c.precios || []).length} ${(c.precios || []).length === 1 ? 'precio especial' : 'precios especiales'}</span></div>${c.estado === 'archivado' ? '<div class="acciones"><span class="chip c-gris">Archivado</span></div>' : ''}</summary>
+    <div class="fila-orden-cli"><div class="pastillas" role="group" aria-label="Ordenar por">${[['nombre', 'Nombre'], ['aporte', 'Aporte'], ['pago', 'Pago']].map(([k, t]) => `<button type="button" class="pastilla" data-orden-cli="${k}" aria-pressed="${b2bCat.ordenCli === k}">${t}</button>`).join('')}</div>
+      ${nDejo ? `<button type="button" class="chip-filtro" id="cli-dejo" aria-pressed="${b2bCat.soloDejo}">Dejó de comprar (${nDejo})</button>` : ''}
+      <span class="ayuda">${b2bCat.anError ? `<span class="error">${esc(b2bCat.anError)}</span> ` : ''}${b2bCat.an ? `Compras en neto · al ${esc(diaTexto(new Date(b2bCat.an.en).toISOString().slice(0, 10)))} ${new Date(b2bCat.an.en).toTimeString().slice(0, 5)}` : ''} <button type="button" class="btn-link" id="cli-act" ${b2bCat.anCargando ? 'disabled' : ''}>${b2bCat.anCargando ? 'Leyendo…' : 'Actualizar'}</button> ${info('Aporte y pago de cada cliente', 'Mes ant.: lo que compró el mes pasado (neto, sin IVA). Prom. 3 meses: el promedio de los 3 meses cerrados (sin el mes en curso). La flecha ↑ o ↓ aparece si el mes pasado fue más de un 20% distinto a los 3 meses anteriores. El % es su parte del total B2B.\nSemáforo: verde, paga hasta 7 días después del folio; amarillo, de 8 a 30; rojo, más de 30. Mira cómo pagó sus folios de los últimos 6 meses (un folio grande pesa más) y también si hoy tiene un folio pendiente de hace más días: toma el peor de los dos. Gris: todavía no hay pagos para medir.\nLos días se cuentan con la fecha que se registra al marcar Pagado o Abono: conviene usar la fecha real de la transferencia.\nDejó de comprar: un cliente que pide seguido y lleva más del doble de su intervalo normal sin pedir (y al menos una semana más). Se quita solo cuando vuelve a comprar, o con "Ya lo revisé".\nLas órdenes se leen una vez cada 6 horas en este equipo; "Actualizar" las vuelve a leer.')}</span></div>
+    ${lista.map(c => `<details class="fila-orden-b2b" data-cli="${esc(c.id)}" ${b2bCat.abiertoCli === c.id ? 'open' : ''}><summary class="fila-caja"><div class="txt"><b>${esc(c.nombre)}${B2b.dejoVigente(c, A(c)) ? ' <span class="chip c-amarillo chip-chico">Dejó de comprar</span>' : ''}</b><span>${resumenCli(c)}</span></div><div class="acciones">${c.estado === 'archivado' ? '<span class="chip c-gris">Archivado</span>' : semaforo(A(c))}</div></summary>
       <div style="padding:4px 0 14px;display:flex;flex-direction:column;gap:10px">
-        <p class="ayuda">${esc(c.razonSocial || '')}${c.giro ? ' · ' + esc(c.giro) : ''}${c.direccion ? ' · ' + esc(c.direccion) : ''}${c.correo ? ' · ' + esc(c.correo) : ''}${c.telefono ? ' · ' + esc(c.telefono) : ''}${c.contacto ? ' · contacto ' + esc(c.contacto) : ''}</p>
+        ${detalleCli(c)}
+        <p class="ayuda">${esc(c.rut || 'sin RUT')} · factura ${esc(c.facturacion || 'Diaria')} · paga ${esc(c.frecuenciaPago || 'Diaria')} · ${(c.precios || []).length} ${(c.precios || []).length === 1 ? 'precio especial' : 'precios especiales'}<br>${esc(c.razonSocial || '')}${c.giro ? ' · ' + esc(c.giro) : ''}${c.direccion ? ' · ' + esc(c.direccion) : ''}${c.correo ? ' · ' + esc(c.correo) : ''}${c.telefono ? ' · ' + esc(c.telefono) : ''}${c.contacto ? ' · contacto ' + esc(c.contacto) : ''}</p>
         <div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Precio especial</th><th scope="col">Precio neto</th><th scope="col">Base</th><th scope="col"><span class="sr">Acciones</span></th></tr></thead><tbody>
           ${(c.precios || []).map(x => { const p = d.productos.find(y => y.id === x.productoId) || d.productos.find(y => claveB2b(y.nombre) === claveB2b(x.producto)); return `<tr><td>${esc(x.producto)}</td><td>${pesos(x.precio)}</td><td>${p ? pesos(p.precioBase) : '—'}</td><td><button type="button" class="btn-sec btn-chico" data-precio-cli="${esc(c.id)}" data-precio-prod="${esc(x.productoId || '')}" data-precio-nom="${esc(x.producto)}">Cambiar</button></td></tr>`; }).join('') || '<tr><td colspan="4">Sin precios especiales: paga el precio base.</td></tr>'}
         </tbody></table></div>
@@ -2460,6 +2506,17 @@ function pintarB2bClientes(el, sub) {
   $('b2b-nuevo-cli').addEventListener('click', nuevoClienteUI);
   $('cli-q').addEventListener('input', e => { b2bCat.filtroCli = e.target.value; const p = e.target.selectionStart; pintarB2bClientes(el, sub); const i = $('cli-q'); i.focus(); i.setSelectionRange(p, p); });
   $('cli-arch').addEventListener('change', e => { b2bCat.archivadosCli = e.target.checked; pintarB2bClientes(el, sub); });
+  el.querySelectorAll('[data-orden-cli]').forEach(b => b.addEventListener('click', () => { b2bCat.ordenCli = b.dataset.ordenCli; pintarB2bClientes(el, sub); }));
+  if ($('cli-dejo')) $('cli-dejo').addEventListener('click', () => { b2bCat.soloDejo = !b2bCat.soloDejo; pintarB2bClientes(el, sub); });
+  $('cli-act').addEventListener('click', () => cargarAnalisisCli(el, sub, true));
+  el.querySelectorAll('[data-revisado-cli]').forEach(b => b.addEventListener('click', async () => {
+    const c = d.clientes.find(x => x.id === b.dataset.revisadoCli), a = A(c);
+    const r = await pedirDatos(`Ya lo revisé · ${c.nombre}`, `<p class="ayuda">El aviso "Dejó de comprar" se quita de Clientes y de Hoy. Vuelve a aparecer solo si el cliente compra de nuevo y después vuelve a dejar de comprar.</p>
+      <div class="campo"><label for="pd-nota">Nota (opcional)</label><input id="pd-nota" maxlength="200" placeholder="Ej: cerró por vacaciones hasta el 20"></div>`, 'Listo', dd => ({ nota: dd.querySelector('#pd-nota').value }));
+    if (!r) return;
+    try { await B2b.revisarDejoDeComprar(c.id, a.ultimaCompra, r.nota); registrar('Revisó cliente que dejó de comprar', c.nombre + (r.nota ? ' · ' + r.nota : '')); } catch (e) { alert(errorB2b(e)); }
+  }));
+  if (destino && b2bCat.abiertoCli) { const dt = el.querySelector(`details[data-cli="${CSS.escape(b2bCat.abiertoCli)}"]`); if (dt && !dt.dataset.visto) { dt.dataset.visto = '1'; requestAnimationFrame(() => dt.scrollIntoView({ block: 'center' })); } }
   el.querySelectorAll('details[data-cli]').forEach(dt => dt.addEventListener('toggle', () => { if (dt.open) b2bCat.abiertoCli = dt.dataset.cli; else if (b2bCat.abiertoCli === dt.dataset.cli) b2bCat.abiertoCli = ''; }));
   // Si la planilla trae otro valor (ej. "Diario"), se muestra tal cual y no se cambia salvo que se elija otro
   const opc = (lista, sel) => (sel && !lista.includes(sel) ? `<option value="${esc(sel)}" selected>${esc(sel)} (de la planilla)</option>` : '') + lista.map(x => `<option ${x === sel ? 'selected' : ''}>${x}</option>`).join('');
