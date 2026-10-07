@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.13.0';
-import * as FB from './firebase-b2b.js?v=0.13.0';
-import * as Apps from './apps.js?v=0.13.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.13.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.13.1';
+import * as FB from './firebase-b2b.js?v=0.13.1';
+import * as Apps from './apps.js?v=0.13.1';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.13.1';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -254,11 +254,13 @@ export async function totales() {
 
 // ── Mirar órdenes en la base nueva (para revisar la copia) ─
 const conId = s => ({ id: s.id, ...s.data() });
+// Más recientes primero por fecha de la orden (una orden editada no cambia de lugar)
+const porFechaDesc = (a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')) || b.n - a.n;
 export async function ultimasOrdenes(n = 30) {
   const cx = await conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva.');
   const sn = await FB.getDocs(FB.query(FB.collection(cx.db, 'ordenes'), FB.orderBy('n', 'desc'), FB.limit(n)));
   uso.lecturas += Math.max(1, sn.size);
-  return sn.docs.map(conId);
+  return sn.docs.map(conId).sort(porFechaDesc);
 }
 export async function buscarOrdenes(q) {
   const cx = await conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva.');
@@ -272,7 +274,7 @@ export async function buscarOrdenes(q) {
     f.docs.forEach(d => { if (d.id !== o.id) docs.push(conId(d)); });
   } else throw new Error('Escribe un N° de orden, un folio o un mes (AAAA-MM).');
   uso.lecturas += Math.max(1, docs.length);
-  return docs.sort((a, b) => b.n - a.n);
+  return docs.sort(porFechaDesc);
 }
 
 // ═══════════════════════════════════════════════
@@ -397,11 +399,16 @@ export async function asignarFolio(ns, folio, fechaFolio) {
   const f = String(folio || '').trim();
   if (!/^\d{1,12}$/.test(f)) throw new Error('El folio debe ser un número.');
   if (!ns.length) throw new Error('Marca al menos una orden.');
+  // Regla: un folio (una factura) es de un solo cliente
+  const cliDe = o => o.clienteId || String(o.cliente || '').trim().toLowerCase();
+  const yaEnFolio = await ordenesDelFolio(db, f);
   await FB.runTransaction(db, async tx => {
     const refs = ns.map(n => FB.doc(db, 'ordenes', String(n)));
     const sns = [];
     for (const r of refs) sns.push(await tx.get(r));
     sns.forEach(sn => { if (!sn.exists()) throw new Error('Una de las órdenes ya no existe.'); const o = sn.data(); if (o.folio) throw new Error(`La orden N° ${o.n} ya tiene el folio ${o.folio}.`); if (o.estado === 'anulada') throw new Error(`La orden N° ${o.n} está anulada.`); });
+    const todas = sns.map(sn => sn.data()).concat(yaEnFolio);
+    if (new Set(todas.map(cliDe)).size > 1) throw new Error(yaEnFolio.length ? `El folio ${f} ya es de ${yaEnFolio[0].cliente} (N° ${yaEnFolio.map(o => o.n).join(', ')}). Un folio es de un solo cliente: revisa el número.` : 'Un folio es de un solo cliente: marca solo órdenes del mismo cliente.');
     refs.forEach(r => tx.update(r, marcaCambio({ folio: f, sinFolio: false, fechaFolio: fechaFolio || hoyTxt() })));
   });
   uso.escrituras += ns.length;
@@ -412,7 +419,7 @@ async function ordenesDelFolio(db, folio) {
   uso.lecturas += Math.max(1, sn.size);
   return sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(o => !o.quitadoEnPlanilla && o.estado !== 'anulada');
 }
-export async function folioUsado(folio) { const db = await dbOk(); return (await ordenesDelFolio(db, folio)).map(o => o.n); }
+export async function folioUsado(folio) { const db = await dbOk(); return (await ordenesDelFolio(db, folio)).map(o => ({ n: o.n, cliente: o.cliente, clienteId: o.clienteId || null })); }
 // Pago completo de un folio: todas sus órdenes quedan PAGADO con esa fecha
 export async function registrarPago(folio, fechaPago) {
   const db = await dbOk();

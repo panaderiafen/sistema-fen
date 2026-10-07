@@ -464,3 +464,12 @@ details.aviso > summary { cursor: pointer; }
 .check-linea { display: flex; align-items: center; gap: 8px; min-height: 48px; font-size: 13px; font-weight: 600; }
 .cifras-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 640px) { .cifras-3 { grid-template-columns: 1fr; } }
+/* v0.13.1 · Tarjetas plegables (Ventas B2B → Órdenes) */
+.plegable > summary { list-style: none; cursor: pointer; align-items: center; padding-bottom: 0; }
+.plegable > summary::-webkit-details-marker { display: none; }
+.plegable > summary h2 { display: flex; align-items: center; gap: 8px; }
+.plegable > summary h2::before { content: '›'; display: inline-block; width: 14px; color: var(--suave); font-size: 20px; line-height: 1; transition: transform .15s; }
+.plegable[open] > summary h2::before { transform: rotate(90deg); }
+.plegable[open] > summary { padding-bottom: 12px; margin-bottom: 4px; border-bottom: 1px solid var(--linea); }
+.plegable > summary:focus-visible { outline: 2px solid var(--acento); outline-offset: 4px; border-radius: 8px; }
+@media (max-width: 640px) { .plegable > summary { flex-wrap: wrap; } }

@@ -1,9 +1,16 @@
-# Sistema Fën · v0.13.0
+# Sistema Fën · v0.13.1
 
-**App:** v0.13.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.3.0 · **Script de B2B:** v2.5.0 · 6 de octubre de 2026
+**App:** v0.13.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.3.0 · **Script de B2B:** v2.5.1 · 7 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.13.1
+- **Órdenes (Ventas B2B):** las tarjetas **Copia en la planilla, Por facturar y Por cobrar se pliegan y despliegan**. Parten cerradas, con su resumen a la vista (por ejemplo "2 clientes · 8 órdenes · $62.475" o "2 folios · saldo $37.485"); este equipo recuerda cuáles dejaste abiertas.
+- **Por fecha de la orden:** Por facturar y Por cobrar ordenan las órdenes por su fecha (antes por N°); Buscar y "Últimas 30" muestran la más reciente arriba por fecha. En la **planilla**, una orden editada ya no sube al principio de Detalle Ventas: queda en su lugar (script v2.5.1).
+- **Un folio es de un solo cliente:** al asignar un folio que ya tiene órdenes de otro cliente, avisa y no lo asigna (antes solo preguntaba). La base nueva tampoco lo deja aunque se intente por otro lado.
+
+Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos. Si todavía no instalabas la v0.13.0, instala esta directamente con los pasos de abajo (con el script v2.5.1).
 
 ## Novedades de la v0.13.0: catálogo y estado de cuenta en Sistema Fën
 Ventas B2B tiene tres pestañas nuevas:
@@ -30,10 +37,10 @@ También:
 Archivos: cambian `app.js`, `b2b.js`, `b2b-modelo.js`, `pdf-orden.js`, `estilos.css`, `config.js`, `firestore-b2b.rules` (v1.3.0), `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos.
 
 ### Instalación de la v0.13.0 (en este orden, unos 10 minutos)
-1. **Script de B2B v2.5.0** (zip `b2b-script-v2.5.0`): sigue su README. El ping debe decir **2.5.0**.
+1. **Script de B2B v2.5.1** (zip `b2b-script-v2.5.1`): sigue su README. El ping debe decir **2.5.1**.
 2. **Reglas de fen-b2b v1.3.0**: consola de Firebase → proyecto **fen-b2b** → Firestore Database → **Reglas** → borra todo, pega el contenido de `firestore-b2b.rules` → **Publicar**. (Permiten que la app de logística, al pasar cambios a la planilla, marque también los del catálogo.)
-3. **GitHub, repo `sistema-fen`**: Add file → Upload files → sube todos los archivos del zip (sin la carpeta) → Commit. En 1 o 2 minutos, recarga con Ctrl + Shift + R; abajo a la izquierda debe decir **v0.13.0**.
-4. La app de logística **no cambia** (sigue en v1.1.0).
+3. **GitHub, repo `sistema-fen`**: Add file → Upload files → sube todos los archivos del zip (sin la carpeta) → Commit. En 1 o 2 minutos, recarga con Ctrl + Shift + R; abajo a la izquierda debe decir **v0.13.1**.
+4. **App de logística v1.1.1** (zip `fen-logistica-v1.1.1`): GitHub, repo `fen-logistica` → sube todos los archivos. Solo cambia el orden de la lista de órdenes.
 
 ### Lista de verificación
 - [ ] Ventas B2B muestra las pestañas Clientes, Productos y Estado de cuenta.
