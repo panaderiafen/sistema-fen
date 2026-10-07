@@ -443,3 +443,9 @@ details.aviso > summary { cursor: pointer; }
 .tabla-b2b { overflow-x: auto; }
 .tabla-b2b .tabla-tiempos { font-size: 13px; }
 @media (max-width: 640px) { .tabla-b2b .tabla-tiempos th, .tabla-b2b .tabla-tiempos td { padding-right: 6px; } }
+/* v0.12.0 · Ventas B2B (administración) */
+.fila-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.check-b2b { display: flex; align-items: center; padding: 6px; margin: -6px 0 -6px -6px; cursor: pointer; }
+.check-b2b input { width: 22px; height: 22px; accent-color: var(--acento); }
+.grupo-b2b + .grupo-b2b { border-top: 1px solid var(--linea); margin-top: 8px; }
+@media (max-width: 480px) { .fila-campos { grid-template-columns: 1fr; } }

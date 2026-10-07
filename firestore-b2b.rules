@@ -1,19 +1,23 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.0.0 (2026-10-06)
+//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.1.0 (2026-10-06)
 //
-//  Base nueva de Ventas B2B. Proyecto aparte de la caja (fen-ventas), así
-//  cada uno tiene su propia cuota gratis.
+//  v1.1.0: la app de logística (fen-logistica) crea y edita órdenes y manda
+//          solicitudes; el N° de orden sale de un contador que solo sube de a 1.
+//  v1.0.0: base nueva; solo administración escribe.
 //
 //  Roles (se administran SOLO desde la consola de Firebase):
 //    admins/{uid}      → administración (Sistema Fën): lee y escribe todo
-//    logistica/{uid}   → la persona que registra las órdenes (app nueva, v0.12):
-//                        por ahora solo puede leer clientes, productos y órdenes
+//    logistica/{uid}   → la persona que registra las órdenes:
+//                        · lee clientes, productos y órdenes
+//                        · crea órdenes (con el N° que sigue) y edita las que no
+//                          tienen folio ni pago y no están anuladas ni archivadas
+//                        · deja el registro de cada edición y manda solicitudes
 //    cualquier otra cuenta → nada
 //
-//  Nada se borra: ninguna regla permite delete. Lo que sale de la planilla
-//  queda marcado (quitadoEnPlanilla) y lo que se anule quedará anulado.
+//  Nada se borra: ninguna regla permite delete. Una orden se anula (estado
+//  "anulada"); lo que sale de la planilla queda marcado (quitadoEnPlanilla).
 // ═══════════════════════════════════════════════════════════════
 
 service cloud.firestore {
@@ -28,8 +32,39 @@ service cloud.firestore {
     function esLogistica() {
       return conSesion() && exists(/databases/$(database)/documents/logistica/$(request.auth.uid));
     }
+    function miCorreo() {
+      return request.auth.token.email;
+    }
     function nuevo() {
       return request.resource.data;
+    }
+    function antes() {
+      return resource.data;
+    }
+    function cambian() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+    // Una orden bien formada (la escriba quien la escriba)
+    function ordenValida(n) {
+      return nuevo().n is int && string(nuevo().n) == n
+          && nuevo().total is number && nuevo().neto is number && nuevo().iva is number
+          && nuevo().lineas is list && nuevo().cliente is string;
+    }
+    // Lo que logística puede dejar en una orden: sin folio, sin pago, activa
+    function ordenDeLogistica(n) {
+      return ordenValida(n)
+          && nuevo().lineas.size() > 0 && nuevo().lineas.size() <= 80
+          && nuevo().cliente.size() > 0
+          && nuevo().folio == null && nuevo().sinFolio == true
+          && nuevo().estadoPago == 'PENDIENTE' && nuevo().fechaPago == null
+          && nuevo().estado == 'activa' && nuevo().archivada == false
+          && nuevo().quitadoEnPlanilla == false
+          && nuevo().planillaPendiente == true;
+    }
+    // El contador sube exactamente 1 en la misma escritura, y n es el valor que tenía
+    function tomaElNumero(n) {
+      return get(/databases/$(database)/documents/contadores/ordenes).data.siguiente == int(n)
+          && getAfter(/databases/$(database)/documents/contadores/ordenes).data.siguiente == int(n) + 1;
     }
 
     // ── Roles: cada cuenta ve solo el suyo; se crean en la consola ──
@@ -42,7 +77,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ── Catálogo y órdenes: logística lee, administración escribe ──
+    // ── Catálogo: logística lee, administración escribe ──
     match /clientes/{id} {
       allow read: if esAdmin() || esLogistica();
       allow create, update: if esAdmin() && nuevo().nombre is string && nuevo().nombre.size() > 0;
@@ -53,11 +88,50 @@ service cloud.firestore {
       allow create, update: if esAdmin() && nuevo().nombre is string && nuevo().nombre.size() > 0;
       allow delete: if false;
     }
+
+    // ── Órdenes ──
     match /ordenes/{n} {
       allow read: if esAdmin() || esLogistica();
-      // El id es el N° de orden y tiene que coincidir con el campo n
-      allow create, update: if esAdmin() && nuevo().n is int && string(nuevo().n) == n
-                            && nuevo().total is number && nuevo().lineas is list;
+      allow create: if (esAdmin() && ordenValida(n))
+                    || (esLogistica() && ordenDeLogistica(n) && tomaElNumero(n)
+                        && nuevo().creada.por == miCorreo());
+      allow update: if (esAdmin() && ordenValida(n))
+                    // logística edita solo lo que todavía no tiene folio ni pago
+                    || (esLogistica() && antes().folio == null && antes().estadoPago == 'PENDIENTE'
+                        && antes().estado == 'activa' && antes().archivada == false
+                        && ordenDeLogistica(n) && nuevo().n == antes().n
+                        && nuevo().get('creada', null) == antes().get('creada', null))
+                    // cualquiera de los dos marca que ya pasó a la planilla (lo hace el script con su sesión)
+                    || ((esAdmin() || esLogistica()) && cambian().hasOnly(['planillaPendiente', 'planillaEn'])
+                        && nuevo().planillaPendiente == false);
+      allow delete: if false;
+    }
+    // El N° que sigue: logística lo sube de a 1 (junto con crear la orden)
+    match /contadores/{id} {
+      allow read: if esAdmin() || (esLogistica() && id == 'ordenes');
+      allow create: if esAdmin();
+      allow update: if esAdmin()
+                    || (esLogistica() && id == 'ordenes' && nuevo().siguiente == antes().siguiente + 1
+                        && cambian().hasOnly(['siguiente', 'en', 'desde'])
+                        // solo junto con crear esa orden (no se pueden saltar números)
+                        && existsAfter(/databases/$(database)/documents/ordenes/$(string(antes().siguiente))));
+      allow delete: if false;
+    }
+    // Registro de cada edición de una orden
+    match /ediciones/{id} {
+      allow read: if esAdmin() || esLogistica();
+      allow create: if esAdmin() || (esLogistica() && nuevo().por == miCorreo() && nuevo().n is int
+                                     && nuevo().motivo is string && nuevo().motivo.size() > 2);
+      allow update: if esAdmin()
+                    || ((esLogistica()) && cambian().hasOnly(['planillaPendiente', 'planillaEn']) && nuevo().planillaPendiente == false);
+      allow delete: if false;
+    }
+    // Solicitudes de logística (precio especial o producto nuevo): ella ve las suyas
+    match /solicitudes/{id} {
+      allow read: if esAdmin() || (esLogistica() && resource.data.por == miCorreo());
+      allow create: if esAdmin() || (esLogistica() && nuevo().por == miCorreo() && nuevo().estado == 'pendiente'
+                                     && nuevo().tipo in ['precio', 'producto']);
+      allow update: if esAdmin();
       allow delete: if false;
     }
 
@@ -67,22 +141,14 @@ service cloud.firestore {
       allow create, update: if esAdmin() && nuevo().monto is number;
       allow delete: if false;
     }
-    match /ediciones/{id} {
-      allow read: if esAdmin();
-      allow create, update: if esAdmin();
-      allow delete: if false;
-    }
-    match /contadores/{id} {
-      allow read, create, update: if esAdmin();
-      allow delete: if false;
-    }
-    // Registro de las copias desde la planilla (qué se copió y cuándo)
     match /migracion/{id} {
       allow read, create, update: if esAdmin();
       allow delete: if false;
     }
     match /config/{id} {
-      allow read, create, update: if esAdmin();
+      // logística lee si la base nueva ya está en uso (config/b2b)
+      allow read: if esAdmin() || (esLogistica() && id == 'b2b');
+      allow create, update: if esAdmin();
       allow delete: if false;
     }
 

@@ -1,9 +1,29 @@
-# Sistema Fën · v0.11.3
+# Sistema Fën · v0.12.0
 
-**App:** v0.11.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.0.0 (nuevas) · 6 de octubre de 2026
+**App:** v0.12.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.1.0 · 6 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
-Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas y despacho siguen en sus apps (Producción y B2B) con su PIN.
+Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.12.0: Ventas B2B con la base nueva
+**Ventas B2B** ahora tiene cuatro pestañas:
+
+| Pestaña | Qué hace |
+| --- | --- |
+| **Órdenes** | **Copia en la planilla** (al día o cuántos cambios faltan, y "Pasar ahora"). **Por facturar**: las órdenes sin folio, por cliente; marcas varias y **Asignar folio** (con su fecha; avisa si el folio ya se usó). **Por cobrar**: cada folio con sus órdenes, abonado y saldo; **Abono** (monto, fecha, referencia; si completa el total queda pagado, si no PARCIAL) y **Pagado** (fecha). **Anular** una orden (con motivo; no se borra) |
+| **Solicitudes** | Lo que pide logística: **precio especial** (al aprobar queda en el cliente) o **producto nuevo** de Producción (al aprobar queda como producto B2B con ese precio base). Puedes cambiar el precio antes de aprobar, o rechazar con motivo. Aquí también: **+ Nuevo cliente** |
+| **Buscar** | Buscar órdenes por N°, folio o mes |
+| **Base nueva** | La conexión, la copia desde la planilla (solo antes del cambio), el control de totales y **Cambiar a la base nueva / Volver a la app antigua** |
+
+(i) **Cambiar a la base nueva** hace, en este orden: deja la app B2B antigua **solo para mirar**, hace **una última copia** de la planilla, deja el **N° de orden** siguiendo desde el último y **activa la app de logística**. Si algo falla a medio camino, deshace lo hecho y la app antigua sigue como siempre.
+
+(i) **Volver a la app antigua** está siempre disponible: la planilla ya tiene todo lo hecho en las apps nuevas, así que la app antigua sigue desde ahí. Antes de volver revisa que no quede nada sin pasar a la planilla.
+
+(i) **Lo que todavía queda en la app antigua (solo para mirar):** estado de cuenta, análisis y la conciliación bancaria con cartola. La conciliación con cartola y la administración completa de productos y precios llegan en la v0.13; mientras tanto, los pagos y abonos se registran aquí a mano, y los precios y productos nuevos entran por Solicitudes.
+
+(i) **Clientes nuevos** creados aquí aparecen al tiro en la app de logística. Todavía no se copian a la hoja Clientes de la planilla (llega en la v0.13).
+
+Archivos: cambian `b2b.js`, `firebase-b2b.js`, `app.js`, `estilos.css`, `config.js`, `firestore-b2b.rules` (v1.1.0), `README.md` y los demás `.js` e `index.html` (solo versión).
 
 ## Novedades de la v0.11.3
 - **Control de totales:** Firestore tampoco deja sumar dos campos en la misma consulta sin un índice extra. Ahora pide cada suma por separado (cuesta lo mismo). No hace falta crear índices.
