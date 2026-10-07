@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.13.2';
-import * as Caja from './caja.js?v=0.13.2';
-import * as Stock from './stock.js?v=0.13.2';
-import * as Ajustes from './ajustes.js?v=0.13.2';
-import * as Apps from './apps.js?v=0.13.2';
-import * as Agenda from './agenda.js?v=0.13.2';
-import * as Gastos from './gastos.js?v=0.13.2';
-import * as Sii from './sii.js?v=0.13.2';
-import * as Previred from './previred.js?v=0.13.2';
-import * as B2b from './b2b.js?v=0.13.2';
-import * as PdfOrden from './pdf-orden.js?v=0.13.2';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.13.2';
+} from './firebase.js?v=0.14.0';
+import * as Caja from './caja.js?v=0.14.0';
+import * as Stock from './stock.js?v=0.14.0';
+import * as Ajustes from './ajustes.js?v=0.14.0';
+import * as Apps from './apps.js?v=0.14.0';
+import * as Agenda from './agenda.js?v=0.14.0';
+import * as Gastos from './gastos.js?v=0.14.0';
+import * as Sii from './sii.js?v=0.14.0';
+import * as Previred from './previred.js?v=0.14.0';
+import * as B2b from './b2b.js?v=0.14.0';
+import * as PdfOrden from './pdf-orden.js?v=0.14.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.14.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -312,7 +312,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.13.2" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.14.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -467,6 +467,13 @@ async function pintarHoy() {
     const cuenta = {}; l.forEach(x => { const t = tipos[x.tipo] || 'otra'; cuenta[t] = (cuenta[t] || 0) + 1; });
     pend.push({ orden: 2.8, color: 'lila', icono: 'camion', chip: 'Responder', url: '#b2b/solicitudes', origen: 'Ventas B2B', titulo: `${l.length === 1 ? 'Solicitud' : 'Solicitudes'} de logística`,
       detalle: Object.entries(cuenta).map(([t, n]) => `${n} de ${t}`).join(' · ') });
+    pintarLista();
+  }).catch(() => {});
+  // v0.14: abonos de la cartola por revisar
+  B2b.movimientosParaHoy().then(r => {
+    if (!r || !r.n) return;
+    pend.push({ orden: 2.9, color: 'azul', icono: 'boleta', chip: 'Conciliar', url: '#b2b/conciliacion', origen: 'Ventas B2B', titulo: `${r.n} ${r.n === 1 ? 'abono' : 'abonos'} de la cartola por revisar`,
+      detalle: `${pesos(r.monto)}${r.desde ? ' · desde el ' + diaTexto(r.desde) : ''}` });
     pintarLista();
   }).catch(() => {});
   // v0.13.2: clientes que dejaron de comprar
@@ -1978,14 +1985,14 @@ async function pintarSeguridad() {
 // ── Ventas B2B: base nueva (fen-b2b) ───────────────
 // v0.11: conectar la base nueva, copiar la planilla y revisar que todo cuadre.
 // La app B2B sigue funcionando igual: la planilla manda hasta que exista la app de logística (v0.12).
-const SUBS_B2B = [['', 'Órdenes'], ['solicitudes', 'Solicitudes'], ['clientes', 'Clientes'], ['productos', 'Productos'], ['cuenta', 'Estado de cuenta'], ['buscar', 'Buscar'], ['base', 'Base nueva']];
+const SUBS_B2B = [['', 'Órdenes'], ['solicitudes', 'Solicitudes'], ['conciliacion', 'Conciliación'], ['clientes', 'Clientes'], ['productos', 'Productos'], ['cuenta', 'Estado de cuenta'], ['buscar', 'Buscar'], ['base', 'Base nueva']];
 const b2b = { prep: null, tot: null, uso: null, copiando: false, msg: '', error: '', activaVista: null, vivo: null, datos: null, errVivo: '', sel: new Set(), planilla: '', cambiando: '' };
 function cabB2b(sub) {
   const actual = SUBS_B2B.some(([k]) => k && k === sub) ? sub : '';
   const activa = b2b.datos && b2b.datos.config && b2b.datos.config.activa;
-  const nSol = b2b.datos ? b2b.datos.solicitudes.length : 0;
+  const nSol = b2b.datos ? b2b.datos.solicitudes.length : 0, nMov = b2b.datos && b2b.datos.movimientos ? b2b.datos.movimientos.length : 0;
   return `<div class="cabecera"><div><h1 id="t-b2b">Ventas B2B</h1><p>${activa ? 'Base nueva en uso · la planilla recibe una copia automática' : 'Base nueva en preparación · la app B2B sigue funcionando igual'}</p></div>
-    <div class="pestanas" role="tablist" aria-label="Secciones de Ventas B2B">${SUBS_B2B.map(([k, t]) => `<a role="tab" href="#b2b${k ? '/' + k : ''}" aria-selected="${k === actual}">${t}${k === 'solicitudes' && nSol ? ` <span class="chip c-amarillo">${nSol}</span>` : ''}</a>`).join('')}</div></div>`;
+    <div class="pestanas" role="tablist" aria-label="Secciones de Ventas B2B">${SUBS_B2B.map(([k, t]) => `<a role="tab" href="#b2b${k ? '/' + k : ''}" aria-selected="${k === actual}">${t}${k === 'solicitudes' && nSol ? ` <span class="chip c-amarillo">${nSol}</span>` : ''}${k === 'conciliacion' && nMov ? ` <span class="chip c-azul">${nMov}</span>` : ''}</a>`).join('')}</div></div>`;
 }
 async function pintarB2b(sub) {
   const el = $('v-b2b');
@@ -2004,6 +2011,7 @@ async function pintarB2b(sub) {
   if (sub === 'clientes') return pintarB2bClientes(el, sub);
   if (sub === 'productos') return pintarB2bProductos(el, sub);
   if (sub === 'cuenta') return pintarB2bCuenta(el, sub);
+  if (sub === 'conciliacion') return pintarB2bConciliacion(el, sub);
   pintarB2bAdmin(el, sub);
 }
 function errorB2b(e) {
@@ -2197,7 +2205,7 @@ document.addEventListener('click', async ev => {
 });
 function b2bEscuchar(sub) {
   if (b2b.vivo) return;
-  b2b.datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null };
+  b2b.datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, clientes: [], productos: [], movimientos: [] };
   B2b.escuchar((d, e) => {
     b2b.datos = d; b2b.errVivo = e ? errorB2b(e) : '';
     if (vistaDesdeHash() !== 'b2b') return;
@@ -2208,10 +2216,11 @@ function b2bEscuchar(sub) {
     else if (s === 'solicitudes') pintarB2bSolicitudes($('v-b2b'), s);
     else if (s === 'clientes') pintarB2bClientes($('v-b2b'), s);
     else if (s === 'productos') pintarB2bProductos($('v-b2b'), s);
+    else if (s === 'conciliacion') { if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#v-b2b .mov-edit')) b2bConc.repintar = true; else pintarB2bConciliacion($('v-b2b'), s); }
     else if (s === 'cuenta' && !b2bCuenta.tocado) pintarB2bCuenta($('v-b2b'), s);
     else if (s === 'base' && b2b.activaVista !== activa && !b2b.cambiando && !b2b.copiando) pintarB2b(s);
     b2b.activaVista = activa;
-  }).then(f => { b2b.vivo = f; }).catch(e => { b2b.errVivo = errorB2b(e); b2b.datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null }; if (vistaDesdeHash() === 'b2b' && subVista() === '') pintarB2bAdmin($('v-b2b'), ''); });
+  }).then(f => { b2b.vivo = f; }).catch(e => { b2b.errVivo = errorB2b(e); b2b.datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, clientes: [], productos: [], movimientos: [] }; if (vistaDesdeHash() === 'b2b' && subVista() === '') pintarB2bAdmin($('v-b2b'), ''); });
 }
 // Ventana con campos; leer(d) devuelve { error } o los valores
 function pedirDatos(titulo, html, boton, leer) {
@@ -2627,6 +2636,147 @@ function pintarB2bCuenta(el, sub) {
     try { await PdfOrden.estadoCuenta(s.cliente, s.res, s.desde, s.hasta, s.modo); } catch (e) { alert('No se pudo hacer el PDF: ' + (e.message || e)); }
     bp.disabled = false; bp.textContent = 'Descargar PDF';
   });
+}
+
+// ── v0.14 · Conciliación bancaria ──────────────────
+// Estado de la pantalla: lo que cambiaste a mano en cada movimiento se mantiene aunque lleguen cambios en vivo
+const b2bConc = { msg: '', error: '', cargando: false, forzados: {}, edit: {}, abierto: '', ocupado: '', repintar: false, an: null, anPidiendo: false };
+function pintarB2bConciliacion(el, sub) {
+  if (!catOk()) return sinActivar(el, sub);
+  const d = b2b.datos, conf = d.conciliacion;
+  b2bConc.repintar = false;
+  if (!d.conciliacionLeida) { el.innerHTML = cabB2b(sub) + '<section class="tarjeta"><div class="vacio" style="border:0">Cargando…</div></section>'; return; }
+  if (!conf || !conf.importado) return pintarConcInicio(el, sub);
+  // Pagos ya registrados (para avisar si un abono parece uno ya anotado a mano): órdenes de 6 meses, con caché
+  if (!b2bConc.an && !b2bConc.anPidiendo) { b2bConc.anPidiendo = true; B2b.ordenesParaAnalisis(false).then(a => { b2bConc.an = a; if (subVista() === 'conciliacion' && !document.querySelector('dialog[open]')) pintarB2bConciliacion($('v-b2b'), 'conciliacion'); }).catch(() => {}); }
+  const ordenes = [...d.ordenes.values()];
+  const props = B2b.proponer(d.movimientos, { clientes: d.clientes, ordenes, abonos: d.abonos, equivalencias: B2b.configConciliacion(conf).equivalencias, forzados: b2bConc.forzados,
+    pagados: B2b.pagadosPorFolio(b2bConc.an ? ordenes.concat(b2bConc.an.ordenes) : ordenes, d.clientes) });   // lo vivo primero (más nuevo)
+  const porCobrar = B2b.foliosPorCobrar(ordenes, d.abonos, d.clientes);
+  const grupos = { auto: [], revisar: [], sinCliente: [] };
+  d.movimientos.forEach(m => { const p = props[m.id]; (grupos[b2bConc.edit[m.id] && p.tipo === 'auto' ? 'revisar' : p.tipo] || grupos.revisar).push(m); });
+  const cab = m => `<div class="txt"><b>${pesos(m.monto)}${props[m.id].cliente ? ' · ' + esc(props[m.id].cliente) : ''}</b><span>${esc(diaTexto(m.fecha))} · ${esc(m.descripcion)}</span></div>`;
+  const folioTxt = a => `folio ${esc(a.folio)} ${pesos(a.monto)}`;
+  const optsCli = sel => `<option value="">Elige el cliente…</option>` + d.clientes.filter(c => c.estado !== 'archivado' || c.id === sel).map(c => `<option value="${esc(c.id)}" ${c.id === sel ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('');
+  // Editor de un movimiento: cliente, folios por cobrar con el monto de cada uno
+  const editor = m => {
+    const p = props[m.id], e = b2bConc.edit[m.id] || {}, fol = (p.clienteId && porCobrar[p.clienteId]) || [];
+    const val = f => e.montos && f.folio in e.montos ? e.montos[f.folio] : ((p.asignaciones || []).find(a => a.folio === f.folio) || {}).monto || 0;
+    const asignado = fol.reduce((s, f) => s + (Number(val(f)) || 0), 0), sobra = m.monto - asignado;
+    return `<div class="mov-edit" data-mov="${esc(m.id)}">
+      <div class="campo"><label for="mc-${esc(m.id)}">Cliente</label><select id="mc-${esc(m.id)}" data-mov-cli="${esc(m.id)}">${optsCli(p.clienteId)}</select></div>
+      ${p.motivo ? `<p class="ayuda">${esc(p.motivo)}</p>` : ''}
+      ${p.clienteId ? (fol.length ? `<div class="mov-folios">${fol.map(f => `<label class="mov-folio"><span><b>Folio ${esc(f.folio)}</b><small>${esc(diaTexto(f.fecha))} · saldo ${pesos(f.saldo)}${f.abonado ? ` (abonado ${pesos(f.abonado)})` : ''}</small></span>
+          <input inputmode="numeric" data-mov-monto="${esc(m.id)}" data-folio="${esc(f.folio)}" value="${val(f) ? Number(val(f)).toLocaleString('es-CL') : ''}" placeholder="0" aria-label="Monto para el folio ${esc(f.folio)}"></label>`).join('')}</div>
+        <p class="mov-suma ${sobra < 0 ? 'error' : ''}">Asignado ${pesos(asignado)} de ${pesos(m.monto)}${sobra > 0 ? ` · quedan ${pesos(sobra)} sin asignar` : sobra < 0 ? ` · te pasaste en ${pesos(-sobra)}` : ' · calza exacto'}</p>`
+        : '<p class="ayuda">Este cliente no tiene folios por cobrar.</p>') : ''}
+      <div class="botones" style="justify-content:flex-start">${p.clienteId && fol.length ? `<button type="button" class="btn btn-chico" data-mov-ok="${esc(m.id)}" ${asignado <= 0 || sobra < 0 || b2bConc.ocupado ? 'disabled' : ''}>Confirmar${sobra > 0 && asignado > 0 ? ' (con saldo sin asignar)' : ''}</button>` : ''}
+        <button type="button" class="btn-sec btn-chico" data-mov-rev="${esc(m.id)}">Ya estaba registrado</button>
+        <button type="button" class="btn-sec btn-chico" data-mov-ign="${esc(m.id)}">No es de B2B</button></div></div>`;
+  };
+  const fila = (m, conEditor) => `<details class="fila-orden-b2b mov" data-movd="${esc(m.id)}" ${conEditor && b2bConc.abierto === m.id ? 'open' : ''}><summary class="fila-caja">${cab(m)}
+      <div class="acciones">${props[m.id].tipo === 'auto' && !b2bConc.edit[m.id] ? `<span class="mov-prop">${props[m.id].asignaciones.map(folioTxt).join(' + ')}</span><button type="button" class="btn btn-chico" data-mov-auto="${esc(m.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${editor(m)}</details>`;
+  const seccion = (k, titulo, l, ayuda, extra = '') => `<details class="tarjeta plegable" data-plegar="c-${k}" ${plegadas()['c-' + k] === true && l.length ? '' : 'open'}><summary class="titulo-fila"><h2>${titulo}</h2><span>${l.length} ${l.length === 1 ? 'abono' : 'abonos'} · ${pesos(l.reduce((s, m) => s + m.monto, 0))}</span></summary>
+      ${l.length ? `<p class="ayuda">${ayuda}</p>${extra}${l.map(m => fila(m, true)).join('')}` : '<div class="vacio" style="border:0">Nada aquí.</div>'}</details>`;
+  el.innerHTML = cabB2b(sub) + `
+    <section class="tarjeta" aria-labelledby="t-conc"><div class="titulo-fila"><h2 id="t-conc">Cargar cartola ${info('Conciliación bancaria', 'Sube la cartola de BancoEstado (Chequera Electrónica) tal como la descargas: la histórica o la en línea. Se pueden subir las dos aunque se repitan días: cada abono se reconoce y no se cuenta dos veces.\nSolo se miran los abonos (lo que entra). Los de Transbank y los que marques "No es de B2B" se ignoran.\nEl cliente se reconoce por lo aprendido antes, por el RUT que trae la descripción o por su nombre o razón social. Cuando lo eliges a mano, se aprende para la próxima.\nAl confirmar, el pago queda con la fecha del banco: si cubre el saldo del folio queda PAGADO; si no, como abono (PARCIAL). Todo pasa solo a la planilla.')}</h2></div>
+      <div class="fila-cartola"><label class="btn" for="conc-archivo">${b2bConc.cargando ? 'Leyendo…' : 'Elegir cartola (.xlsx)'}</label><input id="conc-archivo" type="file" accept=".xlsx,.xls" class="sr" ${b2bConc.cargando ? 'disabled' : ''}>
+        <span class="ayuda">${d.movimientos.length ? `${d.movimientos.length} ${d.movimientos.length === 1 ? 'abono pendiente' : 'abonos pendientes'} de cartolas anteriores` : 'No hay abonos pendientes.'}</span></div>
+      ${b2bConc.msg ? `<p class="ayuda" role="status">${b2bConc.msg}</p>` : ''}${b2bConc.error ? `<p class="error" role="alert">${esc(b2bConc.error)}</p>` : ''}
+      <p class="ayuda" style="margin-top:8px">¿Volviste a usar la app antigua un tiempo? <button type="button" class="btn-link" id="conc-reimportar" ${b2bConc.cargando ? 'disabled' : ''}>Traer otra vez lo conciliado allá</button></p></section>
+    ${seccion('auto', 'Listos para confirmar', grupos.auto, 'Calzan exacto con folios por cobrar de ese cliente. Revisa y confirma; si alguno no corresponde, ábrelo para cambiarlo.', grupos.auto.length > 1 ? `<div class="botones" style="justify-content:flex-start;margin:4px 0 8px"><button type="button" class="btn btn-chico" id="conc-todos" ${b2bConc.ocupado ? 'disabled' : ''}>Confirmar los ${grupos.auto.length} · ${pesos(grupos.auto.reduce((s, m) => s + m.monto, 0))}</button></div>` : '')}
+    ${seccion('revisar', 'Para revisar', grupos.revisar, 'Se reconoce el cliente, pero el monto no calza exacto (pago de varias facturas, abono parcial o un pago que ya estaba anotado). Viene una propuesta: los folios más antiguos primero.')}
+    ${seccion('sin', 'Sin cliente', grupos.sinCliente, 'No se reconoció quién pagó. Elige el cliente (se aprende para la próxima) o márcalo "No es de B2B".')}`;
+  // ── Acciones ──
+  el.querySelectorAll('.mov-edit').forEach(x => x.addEventListener('focusout', () => setTimeout(() => { if (b2bConc.repintar && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('#v-b2b .mov-edit')) && subVista() === 'conciliacion') pintarB2bConciliacion($('v-b2b'), 'conciliacion'); }, 0)));
+  el.querySelectorAll('details[data-plegar]').forEach(dt => dt.addEventListener('toggle', () => plegar(dt.dataset.plegar, !dt.open)));
+  el.querySelectorAll('details[data-movd]').forEach(dt => dt.addEventListener('toggle', () => { if (dt.open) b2bConc.abierto = dt.dataset.movd; else if (b2bConc.abierto === dt.dataset.movd) b2bConc.abierto = ''; }));
+  const repintar = () => pintarB2bConciliacion(el, sub);
+  $('conc-archivo').addEventListener('change', async ev => {
+    const f = ev.target.files && ev.target.files[0]; if (!f) return;
+    b2bConc.cargando = true; b2bConc.msg = ''; b2bConc.error = ''; repintar();
+    try {
+      await cargarScriptExterno('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', () => window.XLSX);
+      const wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: true });
+      const c = B2b.leerCartola(wb, window.XLSX);
+      const r = await B2b.cargarCartola(c, b2b.datos.conciliacion);
+      b2bConc.msg = `<b>${esc(c.identificador)}</b>: ${r.abonos} ${r.abonos === 1 ? 'abono' : 'abonos'} en la cartola · <b>${r.nuevos} ${r.nuevos === 1 ? 'nuevo' : 'nuevos'}</b> · ${r.yaVistos} ya ${r.yaVistos === 1 ? 'visto' : 'vistos'} antes · ${r.ignorados} ${r.ignorados === 1 ? 'ignorado' : 'ignorados'} (Transbank y otros).`;
+      registrar('Cargó cartola', `${c.identificador} · ${r.nuevos} abonos nuevos`);
+    } catch (e) { b2bConc.error = 'No se pudo leer la cartola: ' + errorB2b(e); }
+    b2bConc.cargando = false; repintar();
+  });
+  $('conc-reimportar').addEventListener('click', async () => {
+    b2bConc.cargando = true; b2bConc.error = ''; b2bConc.msg = ''; repintar();
+    try { const r = await B2b.importarConciliacionAntigua(); b2bConc.msg = `Listo: ${r.nuevos} abonos nuevos traídos de la app antigua${r.cerrados ? ` y ${r.cerrados} que allá ya estaban conciliados` : ''}.`; } catch (e) { b2bConc.error = errorB2b(e); }
+    b2bConc.cargando = false; repintar();
+  });
+  const confirmar = async (id, conEdicion) => {
+    const m = d.movimientos.find(x => x.id === id), p = props[id], e = b2bConc.edit[id];
+    const asign = conEdicion && e && e.montos ? Object.entries(e.montos).map(([folio, monto]) => ({ folio, monto })) : (conEdicion ? ((porCobrar[p.clienteId] || []).map(f => ({ folio: f.folio, monto: ((p.asignaciones || []).find(a => a.folio === f.folio) || {}).monto || 0 }))) : p.asignaciones);
+    await B2b.aplicarMovimiento(id, p.clienteId, asign, p.por === 'manual' || p.por === 'nombre-parcial');   // se aprende lo que confirmaste tú
+    delete b2bConc.edit[id]; delete b2bConc.forzados[id];
+    registrar('Concilió abono', `${pesos(m.monto)} · ${p.cliente} · ${asign.filter(a => Number(a.monto) > 0).map(a => 'folio ' + a.folio).join(', ')}`);
+  };
+  const ocupado = async (id, fn) => { b2bConc.ocupado = id; b2bConc.error = ''; repintar(); try { await fn(); B2b.pasarAPlanilla().catch(() => {}); } catch (e) { b2bConc.error = errorB2b(e); } b2bConc.ocupado = ''; repintar(); };
+  el.querySelectorAll('[data-mov-auto]').forEach(b => b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); ocupado(b.dataset.movAuto, () => confirmar(b.dataset.movAuto, false)); }));
+  el.querySelectorAll('[data-mov-ok]').forEach(b => b.addEventListener('click', () => ocupado(b.dataset.movOk, () => confirmar(b.dataset.movOk, true))));
+  if ($('conc-todos')) $('conc-todos').addEventListener('click', () => ocupado('todos', async () => {
+    let ok = 0; const errores = [];
+    for (const m of grupos.auto) { try { await confirmar(m.id, false); ok++; } catch (e) { errores.push(`${pesos(m.monto)}: ${errorB2b(e)}`); } }
+    b2bConc.msg = `Listo: ${ok} ${ok === 1 ? 'abono confirmado' : 'abonos confirmados'}.`;
+    if (errores.length) throw new Error(errores.join(' · '));
+  }));
+  el.querySelectorAll('[data-mov-cli]').forEach(sel => sel.addEventListener('change', () => { const id = sel.dataset.movCli; if (sel.value) b2bConc.forzados[id] = sel.value; else delete b2bConc.forzados[id]; delete b2bConc.edit[id]; b2bConc.abierto = id; repintar(); }));
+  el.querySelectorAll('[data-mov-monto]').forEach(inp => {
+    inp.addEventListener('input', () => { const id = inp.dataset.movMonto, e = b2bConc.edit[id] || (b2bConc.edit[id] = { montos: {} });
+      if (!e.montos) e.montos = {};
+      if (!Object.keys(e.montos).length) el.querySelectorAll(`[data-mov-monto="${CSS.escape(id)}"]`).forEach(x => { e.montos[x.dataset.folio] = Math.round(Number(x.value.replace(/[^\d]/g, '')) || 0); });
+      e.montos[inp.dataset.folio] = Math.round(Number(inp.value.replace(/[^\d]/g, '')) || 0); });
+    inp.addEventListener('change', () => { b2bConc.abierto = inp.dataset.movMonto; repintar(); });
+  });
+  el.querySelectorAll('[data-mov-rev]').forEach(b => b.addEventListener('click', async () => {
+    const id = b.dataset.movRev, m = d.movimientos.find(x => x.id === id);
+    const r = await pedirDatos('Ya estaba registrado', `<p class="ayuda">${pesos(m.monto)} · ${esc(m.descripcion)} (${esc(diaTexto(m.fecha))})</p><p class="ayuda">No se registra ningún pago: el abono queda como revisado (por ejemplo, un pago que ya anotaste a mano o un anticipo).</p>
+      <div class="campo"><label for="pd-nota">Nota (opcional)</label><input id="pd-nota" maxlength="200" placeholder="Ej: ya registrado el folio 5512"></div>`, 'Marcar revisado', dd => ({ nota: dd.querySelector('#pd-nota').value }));
+    if (!r) return;
+    ocupado(id, async () => { await B2b.marcarMovimiento(id, 'revisado', r.nota); registrar('Abono de cartola revisado', `${pesos(m.monto)} · ${m.descripcion}`); });
+  }));
+  el.querySelectorAll('[data-mov-ign]').forEach(b => b.addEventListener('click', async () => {
+    const id = b.dataset.movIgn, m = d.movimientos.find(x => x.id === id), patron = B2b.normCartola(m.descripcion).replace(/^(TEF( BANCOESTADO)?( DE)+)\s*/, '');
+    const r = await pedirDatos('No es de B2B', `<p class="ayuda">${pesos(m.monto)} · ${esc(m.descripcion)} (${esc(diaTexto(m.fecha))})</p><p class="ayuda">No se registra ningún pago y deja de aparecer aquí.</p>
+      <label class="check-linea"><input type="checkbox" id="pd-siempre"> Ignorar siempre los abonos que digan:</label>
+      <div class="campo"><label for="pd-patron" class="sr">Texto a ignorar</label><input id="pd-patron" value="${esc(patron)}"></div>
+      <div class="campo"><label for="pd-nota">Nota (opcional)</label><input id="pd-nota" maxlength="200" placeholder="Ej: transferencia entre mis cuentas"></div>`, 'No es de B2B',
+      dd => { const siempre = dd.querySelector('#pd-siempre').checked, pt = dd.querySelector('#pd-patron').value.trim(); if (siempre && B2b.normCartola(pt).length < 4) return { error: 'Escribe un texto más largo para ignorar.' }; return { nota: dd.querySelector('#pd-nota').value, patron: siempre ? pt : '' }; });
+    if (!r) return;
+    ocupado(id, async () => { await B2b.marcarMovimiento(id, 'ignorado', r.nota, r.patron); registrar('Abono de cartola ignorado', `${pesos(m.monto)} · ${m.descripcion}${r.patron ? ' · siempre: ' + r.patron : ''}`); });
+  }));
+}
+// Primera vez: traer lo que ya se concilió en la app antigua (así no vuelve a aparecer)
+function pintarConcInicio(el, sub) {
+  el.innerHTML = cabB2b(sub) + `<section class="tarjeta" aria-labelledby="t-conc-ini"><h2 id="t-conc-ini">Antes de la primera cartola</h2>
+    <p>La conciliación de la app antigua tiene guardado lo ya conciliado, los nombres que aprendió (quién paga con qué descripción), lo que se ignora y los abonos que quedaron por revisar. Hay que traerlo <b>una sola vez</b>, para que nada se vuelva a mostrar ni se registre dos veces.</p>
+    <p class="ayuda">Necesita el script de B2B v${B2b.VERSION_CONCILIACION}. Solo lee la planilla; no cambia nada en ella.</p>
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="conc-importar" ${b2bConc.cargando ? 'disabled' : ''}>${b2bConc.cargando ? 'Trayendo…' : 'Traer lo de la app antigua'}</button>
+      <button type="button" class="btn-sec" id="conc-sin">Empezar sin historial</button></div>
+    ${b2bConc.error ? `<p class="error" role="alert">${esc(b2bConc.error)}</p>` : ''}</section>`;
+  $('conc-importar').addEventListener('click', async () => {
+    b2bConc.cargando = true; b2bConc.error = ''; pintarConcInicio(el, sub);
+    try { const r = await B2b.importarConciliacionAntigua(); b2bConc.msg = `Listo: se trajeron ${r.historial} abonos ya conciliados, ${r.pendientes} por revisar, ${r.equivalencias} nombres aprendidos y ${r.ignorar} textos a ignorar.`; registrar('Trajo la conciliación de la app antigua', b2bConc.msg); }
+    catch (e) { b2bConc.error = errorB2b(e); }
+    b2bConc.cargando = false; if (subVista() === 'conciliacion') pintarB2bConciliacion($('v-b2b'), 'conciliacion');
+  });
+  $('conc-sin').addEventListener('click', async () => {
+    if (!confirm('¿Empezar sin traer nada?\n\nÚsalo solo si nunca usaste la conciliación en la app antigua: si no, lo ya conciliado volvería a aparecer.')) return;
+    try { await B2b.empezarConciliacionSinHistorial(); } catch (e) { b2bConc.error = errorB2b(e); pintarConcInicio(el, sub); }
+  });
+}
+// Carga una librería de cdnjs una sola vez
+const scriptsCargados = {};
+function cargarScriptExterno(src, listo) {
+  if (listo && listo()) return Promise.resolve();
+  if (!scriptsCargados[src]) scriptsCargados[src] = new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = () => ok(); sc.onerror = () => { delete scriptsCargados[src]; no(new Error('No se pudo cargar el lector de Excel (revisa internet).')); }; document.head.appendChild(sc); });
+  return scriptsCargados[src];
 }
 
 function pintarMenuCelular() {

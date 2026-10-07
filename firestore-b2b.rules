@@ -1,8 +1,9 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.3.0 (2026-10-06)
+//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.4.0 (2026-10-07)
 //
+//  v1.4.0: conciliación bancaria (movimientos de la cartola), solo administración.
 //  v1.3.0: catálogo editable en Sistema Fën; quien pasa a la planilla (también
 //          logística) puede marcar como pasados clientes y productos.
 //  v1.2.0: logística también puede solicitar la anulación de una orden (la anula administración)
@@ -148,6 +149,15 @@ service cloud.firestore {
     match /abonos/{id} {
       allow read: if esAdmin();
       allow create, update: if esAdmin() && nuevo().monto is number;
+      allow delete: if false;
+    }
+    // Abonos de la cartola del banco (conciliación): se marcan, nunca se borran
+    match /movimientos/{id} {
+      allow read: if esAdmin();
+      allow create: if esAdmin() && nuevo().monto is number && nuevo().huella is string;
+      // nunca cambian su huella ni su monto, y uno ya resuelto no vuelve a "pendiente" (así no se aplica dos veces)
+      allow update: if esAdmin() && nuevo().huella == antes().huella && nuevo().monto == antes().monto
+                    && (antes().estado == 'pendiente' || nuevo().estado == antes().estado);
       allow delete: if false;
     }
     match /migracion/{id} {

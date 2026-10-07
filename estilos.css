@@ -497,3 +497,22 @@ details.aviso > summary { cursor: pointer; }
 .analisis-cli p { margin: 0; }
 .aviso-dejo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-top: 6px; padding: 10px 12px; border-radius: 10px; background: var(--amarillo); color: var(--amarillo-t); }
 @media (max-width: 640px) { .fila-orden-cli > .ayuda { margin-left: 0; } }
+/* v0.14.0 · Conciliación bancaria */
+.fila-cartola { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 8px; }
+.fila-cartola label.btn { display: inline-flex; align-items: center; cursor: pointer; }
+.fila-cartola input[type=file]:focus-visible + .ayuda, .fila-cartola label.btn:focus-within { outline: 2px solid var(--acento); outline-offset: 3px; }
+.mov .acciones { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.mov-prop { font-size: 13px; color: var(--suave); }
+.mov-edit { display: flex; flex-direction: column; gap: 10px; padding: 6px 0 14px; }
+.mov-edit .campo { max-width: 360px; }
+.mov-folios { display: flex; flex-direction: column; gap: 6px; }
+.mov-folio { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border: 1px solid var(--linea); border-radius: 10px; }
+.mov-folio span { display: flex; flex-direction: column; }
+.mov-folio small { color: var(--suave); font-size: 12px; }
+.mov-folio input { width: 130px; min-height: 40px; text-align: right; font-size: 16px; border: 1px solid var(--borde); border-radius: 8px; padding: 0 10px; background: var(--tarjeta); color: var(--texto); }
+.mov-suma { margin: 0; font-size: 13px; font-weight: 600; }
+@media (max-width: 640px) {
+  .mov > summary.fila-caja { flex-wrap: wrap; row-gap: 6px; }
+  .mov > summary .acciones { flex-basis: 100%; justify-content: flex-start; }
+  .mov-folio input { width: 110px; }
+}

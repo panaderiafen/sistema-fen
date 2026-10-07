@@ -1,9 +1,43 @@
-# Sistema Fën · v0.13.2
+# Sistema Fën · v0.14.0
 
-**App:** v0.13.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.3.0 · **Script de B2B:** v2.5.1 · 7 de octubre de 2026
+**App:** v0.14.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.4.0 · **Script de B2B:** v2.6.0 · 7 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.14.0: conciliación bancaria con la cartola
+Ventas B2B tiene una pestaña nueva, **Conciliación** (con el número de abonos por revisar):
+
+1. **Cargar cartola:** la de BancoEstado tal como la descargas, **histórica o en línea** (.xlsx). Se pueden subir las dos aunque se repitan días: cada abono se reconoce por su "huella" (fecha, saldo, monto y descripción, la misma de la app antigua) y nunca se cuenta dos veces. Solo se miran los abonos; Transbank y lo que marques "No es de B2B" se ignoran.
+2. **Listos para confirmar:** el cliente se reconoció con seguridad (por lo aprendido, por el **RUT** de la descripción o por su nombre completo) y el monto **calza exacto** con un folio, o con una sola combinación de folios. Revisas y confirmas uno por uno o **todos juntos**.
+3. **Para revisar:** el monto no calza exacto (un pago de varias facturas, un abono parcial) o hay alguna duda. Viene una propuesta (**los folios más antiguos primero**) que puedes cambiar folio por folio; abajo dice cuánto queda sin asignar. También avisa si ya hay un pago registrado del mismo monto ("¿ya estaba registrado?").
+4. **Sin cliente:** eliges el cliente y **se aprende** para la próxima.
+5. Para cada abono también: **Ya estaba registrado** (no registra nada; por ejemplo, un pago que anotaste a mano) o **No es de B2B** (con la opción de ignorar siempre los que digan lo mismo).
+
+Al confirmar, el pago queda con **la fecha del banco**: si cubre el saldo del folio queda **PAGADO**; si no, es un **abono** (PARCIAL). Todo junto o nada: no puede quedar a medias, y un abono ya conciliado no se puede aplicar dos veces (ni desde dos equipos). Todo pasa solo a la planilla, incluido el historial de la conciliación. **Hoy** muestra cuántos abonos de la cartola faltan por revisar.
+
+(i) **Antes de la primera cartola**, la pestaña pide **traer lo de la app antigua** (una sola vez): lo ya conciliado, los nombres aprendidos, lo que se ignora y los abonos que quedaron por revisar. Así nada se repite.
+
+(i) **El nombre solo en parte no se confirma solo:** el banco corta la descripción a unas 35 letras. Si el cliente se reconoce solo por el comienzo de su nombre, el abono queda en "Para revisar" para que lo confirmes tú.
+
+(i) **Ya no se guarda una copia de la cartola en Drive** (lo hacía la app antigua): cada abono queda en la base nueva y en la hoja ConciliacionBancaria_Historial de la planilla.
+
+(i) **Lo que todavía queda en la app antigua (solo para mirar):** el análisis (llega en la v0.14.1).
+
+Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `config.js`, `firestore-b2b.rules` (v1.4.0), `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos.
+
+### Instalación de la v0.14.0 (en este orden, unos 10 minutos)
+1. **Script de B2B v2.6.0** (zip `b2b-script-v2.6.0`): sigue su README. El ping debe decir **2.6.0**.
+2. **Reglas de fen-b2b v1.4.0**: consola de Firebase → proyecto **fen-b2b** → Firestore Database → **Reglas** → borra todo, pega el contenido de `firestore-b2b.rules` → **Publicar**.
+3. **GitHub, repo `sistema-fen`**: sube todos los archivos del zip (reemplazando). Recarga con Ctrl + Shift + R; abajo a la izquierda debe decir **v0.14.0**.
+4. En **Ventas B2B → Conciliación** presiona **Traer lo de la app antigua** (una vez).
+
+### Lista de verificación
+- [ ] Después de traer lo de la app antigua, sube la última cartola histórica que ya habías conciliado allá: casi todo debe salir como "ya visto antes".
+- [ ] Sube la cartola en línea de hoy: los abonos nuevos aparecen en Listos para confirmar, Para revisar o Sin cliente.
+- [ ] Confirma uno que calce exacto: el folio pasa a PAGADO con la fecha del banco (Por cobrar y la planilla).
+- [ ] Un abono parcial queda como abono (PARCIAL) y el folio sigue en Por cobrar con su saldo.
+- [ ] Hoy muestra los abonos que faltan por revisar.
 
 ## Novedades de la v0.13.2: cuánto aporta y cómo paga cada cliente
 En **Ventas B2B → Clientes**, cada cliente muestra en su línea:
@@ -53,7 +87,7 @@ Archivos: cambian `app.js`, `b2b.js`, `b2b-modelo.js`, `pdf-orden.js`, `estilos.
 ### Instalación de la v0.13.0 (en este orden, unos 10 minutos)
 1. **Script de B2B v2.5.1** (zip `b2b-script-v2.5.1`): sigue su README. El ping debe decir **2.5.1**.
 2. **Reglas de fen-b2b v1.3.0**: consola de Firebase → proyecto **fen-b2b** → Firestore Database → **Reglas** → borra todo, pega el contenido de `firestore-b2b.rules` → **Publicar**. (Permiten que la app de logística, al pasar cambios a la planilla, marque también los del catálogo.)
-3. **GitHub, repo `sistema-fen`**: Add file → Upload files → sube todos los archivos del zip (sin la carpeta) → Commit. En 1 o 2 minutos, recarga con Ctrl + Shift + R; abajo a la izquierda debe decir **v0.13.2**.
+3. **GitHub, repo `sistema-fen`**: Add file → Upload files → sube todos los archivos del zip (sin la carpeta) → Commit. En 1 o 2 minutos, recarga con Ctrl + Shift + R; abajo a la izquierda debe decir **v0.14.0**.
 4. **App de logística v1.1.1** (zip `fen-logistica-v1.1.1`): GitHub, repo `fen-logistica` → sube todos los archivos. Solo cambia el orden de la lista de órdenes.
 
 ### Lista de verificación

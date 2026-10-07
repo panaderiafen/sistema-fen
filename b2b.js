@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.13.2';
-import * as FB from './firebase-b2b.js?v=0.13.2';
-import * as Apps from './apps.js?v=0.13.2';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.13.2';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.14.0';
+import * as FB from './firebase-b2b.js?v=0.14.0';
+import * as Apps from './apps.js?v=0.14.0';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.14.0';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -343,7 +343,7 @@ export async function volverAPlanilla() {
   const url = await scriptListo();
   await pasarAPlanilla();
   let pend = 0;
-  for (const col of ['ordenes', 'abonos', 'ediciones', 'clientes', 'productos']) {
+  for (const col of ['ordenes', 'abonos', 'ediciones', 'clientes', 'productos', 'movimientos']) {
     const sn = await FB.getDocs(FB.query(FB.collection(db, col), FB.where('planillaPendiente', '==', true)));
     uso.lecturas += Math.max(1, sn.size); pend += sn.size;
   }
@@ -366,7 +366,7 @@ export async function pasarAPlanilla() {
 // ── Escuchas en vivo (órdenes por facturar y por cobrar, abonos, solicitudes) ──
 export async function escuchar(cb) {
   const db = await dbOk();
-  const datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, clientes: [], productos: [], listo: { a: 0 } };
+  const datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, clientes: [], productos: [], movimientos: [], conciliacion: null, conciliacionLeida: false, listo: { a: 0 } };
   const avisar = () => cb(datos);
   const desde = hoyTxt(new Date(Date.now() - 30 * 864e5));
   const juntar = clave => sn => {
@@ -387,6 +387,9 @@ export async function escuchar(cb) {
     FB.onSnapshot(FB.doc(db, 'config', 'b2b'), sn => { datos.config = sn.exists() ? sn.data() : { activa: false }; avisar(); }, err),
     // v0.13: catálogo en vivo (clientes con sus precios especiales, y productos)
     FB.onSnapshot(FB.collection(db, 'clientes'), sn => { uso.lecturas += sn.docChanges().length || 1; datos.clientes = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => !c.quitadoEnPlanilla).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es')); avisar(); }, err),
+    // v0.14: movimientos de la cartola por revisar y la configuración de la conciliación
+    FB.onSnapshot(FB.query(FB.collection(db, 'movimientos'), FB.where('estado', '==', 'pendiente')), sn => { uso.lecturas += sn.docChanges().length || 1; datos.movimientos = sn.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || (a.orden || 0) - (b.orden || 0)); avisar(); }, err),
+    FB.onSnapshot(FB.doc(db, 'config', 'conciliacion'), sn => { datos.conciliacion = sn.exists() ? sn.data() : null; datos.conciliacionLeida = true; avisar(); }, err),
     FB.onSnapshot(FB.collection(db, 'productos'), sn => { uso.lecturas += sn.docChanges().length || 1; datos.productos = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !p.quitadoEnPlanilla).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es')); avisar(); }, err)
   ];
   return () => fin.forEach(f => { try { f(); } catch (e) {} });
@@ -785,4 +788,310 @@ export async function dejoDeComprarParaHoy() {
   const r = analisisClientes(an.ordenes, [], clientes);
   return clientes.filter(c => dejoVigente(c, r.porCliente[c.id])).map(c => ({ id: c.id, nombre: c.nombre, diasSin: r.porCliente[c.id].diasSin, intervalo: r.porCliente[c.id].intervalo }))
     .sort((a, b) => b.diasSin - a.diasSin);
+}
+
+// ═══════════════════════════════════════════════
+//  v0.14.0 · Conciliación bancaria con la cartola (BancoEstado, Chequera Electrónica)
+// ═══════════════════════════════════════════════
+// Lo mismo que hacía la app B2B, ahora con la base nueva:
+//  · cada abono de la cartola se identifica por su "huella" (fecha|saldo|monto|descripción), igual que antes,
+//    así lo ya conciliado en la app antigua no se vuelve a mostrar.
+//  · el cliente se reconoce por lo aprendido, por el RUT de la descripción o por su nombre/razón social.
+//  · la propuesta se calcula cada vez con los folios por cobrar de ese momento (nunca queda vieja).
+export const normCartola = s => String(s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+const normRut = s => String(s || '').toUpperCase().replace(/[^0-9K]/g, '');
+export function montoCartola(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  if (typeof v === 'number') return Math.round(v);
+  const n = parseFloat(String(v).replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.'));
+  return isNaN(n) ? 0 : Math.round(n);
+}
+function fechaCartolaISO(v) {
+  if (v === null || v === undefined || v === '') return '';
+  if (v instanceof Date && !isNaN(v)) return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+  const t = String(v).trim(), m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : t;
+}
+// Histórica: la hoja Movimientos trae "DD/MM"; el año sale de "Fecha Inicio" (si cruza de diciembre a enero, suma 1)
+function fechaConAnio(ddmm, inicio) {
+  const d = String(ddmm || '').trim().match(/^(\d{1,2})\/(\d{1,2})$/), i = String(inicio || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!d || !i) return '';
+  const anio = Number(d[2]) < Number(i[2]) ? Number(i[3]) + 1 : Number(i[3]);
+  return `${anio}-${d[2].padStart(2, '0')}-${d[1].padStart(2, '0')}`;
+}
+function campoResumen(filas, etiqueta) {
+  for (const f of filas) if (String(f[0] || '').trim().toLowerCase() === etiqueta.toLowerCase()) { const v = f.find((c, i) => i > 0 && String(c || '').trim()); if (v) return String(v).trim(); }
+  return null;
+}
+// wb: libro leído con SheetJS (XLSX.read(buf, { type: 'array', cellDates: true }))
+export function leerCartola(wb, XLSX) {
+  const resumen = wb.SheetNames.includes('Resumen') ? XLSX.utils.sheet_to_json(wb.Sheets['Resumen'], { header: 1, defval: '' }) : [];
+  const desc = r => String(r['Descripción'] || r['Descripcion'] || '').trim();
+  let filas, identificador, tipo;
+  if (wb.SheetNames.includes('Movimientos')) {
+    tipo = 'historica';
+    const inicio = campoResumen(resumen, 'Fecha Inicio');
+    filas = XLSX.utils.sheet_to_json(wb.Sheets['Movimientos'], { defval: '' }).map(r => ({ fecha: fechaConAnio(r['Fecha'], inicio), descripcion: desc(r), cargos: montoCartola(r['Cheques / Cargos']), abonos: montoCartola(r['Depósitos / Abonos']), saldo: montoCartola(r['Saldo']) })).filter(f => f.descripcion);
+    if (filas.some(f => f.abonos > 0 && !f.fecha)) throw new Error('No se pudo saber el año de las fechas (falta "Fecha Inicio" en la hoja Resumen).');
+    identificador = `Histórica N°${campoResumen(resumen, 'N° Cartola') || '?'} (${inicio || '?'} a ${campoResumen(resumen, 'Fecha Final') || '?'})`;
+  } else {
+    tipo = 'enlinea';
+    const hoja = wb.SheetNames.includes('Registros') ? 'Registros' : wb.SheetNames[0];
+    filas = XLSX.utils.sheet_to_json(wb.Sheets[hoja], { defval: '' }).map(r => ({ fecha: fechaCartolaISO(r['Fecha']), descripcion: desc(r), cargos: montoCartola(r['Cargos']), abonos: montoCartola(r['Abonos']), saldo: montoCartola(r['Saldo']) })).filter(f => f.descripcion && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha));
+    let gen = null;
+    resumen.forEach(f => f.forEach(c => { const m = String(c || '').match(/Fecha\s*-\s*Hora\s+(\d{2}\/\d{2}\/\d{4})-(\d{2}:\d{2})/); if (m) gen = m[1] + ' ' + m[2]; }));
+    const fs = filas.map(f => f.fecha).sort();
+    identificador = gen ? 'En línea generada ' + gen : `En línea (${fs[0] || '?'} a ${fs[fs.length - 1] || '?'})`;
+  }
+  if (!filas.length) throw new Error('El archivo no tiene movimientos. ¿Es la cartola de BancoEstado (histórica o en línea)?');
+  return { tipo, identificador, filas };
+}
+export const huellaMovimiento = f => `${f.fecha}|${f.saldo}|${f.abonos}|${normCartola(f.descripcion)}`;
+export async function idMovimiento(huella) {
+  const b = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(huella));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+const CONC_DEF = { ignorar: ['TRANSBANK'], equivalencias: [] };
+export const configConciliacion = c => ({ ...CONC_DEF, ...(c || {}), ignorar: (c && c.ignorar) || CONC_DEF.ignorar, equivalencias: (c && c.equivalencias) || [] });
+
+// Guarda los abonos nuevos de la cartola como "pendientes" (los ya vistos no se repiten)
+export async function cargarCartola(cartola, conf) {
+  const db = await dbOk();
+  const c = configConciliacion(conf), ign = c.ignorar.map(normCartola).filter(Boolean);
+  const r = { abonos: 0, nuevos: 0, yaVistos: 0, ignorados: 0, cargos: 0, identificador: cartola.identificador };
+  const cand = [];
+  cartola.filas.forEach((f, i) => {
+    if (!(f.abonos > 0)) { r.cargos++; return; }
+    r.abonos++;
+    const dn = normCartola(f.descripcion);
+    if (ign.some(p => dn.includes(p))) { r.ignorados++; return; }
+    cand.push({ f, i, huella: huellaMovimiento(f) });
+  });
+  const ids = await Promise.all(cand.map(x => idMovimiento(x.huella)));
+  const sns = await Promise.all(ids.map(id => FB.getDoc(FB.doc(db, 'movimientos', id))));
+  uso.lecturas += ids.length;
+  const porEscribir = [];
+  cand.forEach((x, k) => {
+    if (sns[k].exists()) { r.yaVistos++; return; }
+    r.nuevos++;
+    porEscribir.push([ids[k],  { huella: x.huella, fecha: x.f.fecha, descripcion: x.f.descripcion, descNorm: normCartola(x.f.descripcion), monto: x.f.abonos, saldo: x.f.saldo, orden: x.i,
+      cartola: cartola.identificador, estado: 'pendiente', origen: 'sistema-fen', cargado: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: false }]);
+  });
+  for (let i = 0; i < porEscribir.length; i += 400) { const b = FB.writeBatch(db); porEscribir.slice(i, i + 400).forEach(([id, d]) => b.set(FB.doc(db, 'movimientos', id), d)); await b.commit(); uso.escrituras += Math.min(400, porEscribir.length - i); }
+  return r;
+}
+
+// ── A quién corresponde y cómo repartir cada abono ──
+const fechaDMY = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); return m ? `${m[3]}-${m[2]}-${m[1]}` : (f || ''); };
+const PREFIJOS = /^(TEF( BANCOESTADO)?( DE)+|TRANSF(ERENCIA)?( DE)+|TRASPASO( DE)+|DEP(OSITO)?( DE)?|ABONO( DE)?)\s*/;
+export function identificarCliente(mov, clientes, equivalencias) {
+  const dn = mov.descNorm || normCartola(mov.descripcion);
+  const eq = (equivalencias || []).find(e => e.desc === dn);
+  if (eq) { const c = clientes.find(x => x.id === eq.clienteId); if (c) return { cliente: c, por: 'aprendido' }; }
+  const m = String(mov.descripcion || '').toUpperCase().match(/(?<!\d)(\d{7,8})-?([0-9K])\b/);
+  if (m && dvRut(m[1]) === m[2]) { const rut = m[1] + m[2], c = clientes.find(x => normRut(x.rut) === rut); if (c) return { cliente: c, por: 'rut' }; }
+  // Por nombre o razón social, con palabras completas. Si el banco cortó la descripción (35 letras),
+  // basta que el pagador sea el comienzo del nombre, pero eso nunca se confirma solo (queda para revisar).
+  const pagador = dn.replace(PREFIJOS, '').trim(), cortada = String(mov.descripcion || '').trim().length >= 34;
+  const conPalabras = (txt, n) => (' ' + txt + ' ').includes(' ' + n + ' ');
+  let mejor = null, largo = 0, empate = false, seguro = false;
+  clientes.forEach(c => [normCartola(c.nombre), normCartola(c.razonSocial)].forEach(n => {
+    if (!n || n.length < 4) return;
+    const entero = conPalabras(dn, n), prefijo = cortada && pagador.length >= 10 && n.startsWith(pagador) && (n.length === pagador.length || n[pagador.length] === ' ' || conPalabras(n, pagador.split(' ').slice(0, -1).join(' ')));
+    if (!entero && !prefijo) return;
+    const l = entero ? n.length : pagador.length;
+    if (l > largo) { mejor = c; largo = l; empate = false; seguro = entero && n.length >= 8; } else if (l === largo && mejor && mejor.id !== c.id) empate = true;
+  }));
+  return mejor && !empate ? { cliente: mejor, por: seguro ? 'nombre' : 'nombre-parcial' } : null;
+}
+// Dígito verificador de un RUT chileno
+function dvRut(num) { let s = 0, m = 2; for (let i = String(num).length - 1; i >= 0; i--) { s += Number(String(num)[i]) * m; m = m === 7 ? 2 : m + 1; } const r = 11 - (s % 11); return r === 11 ? '0' : r === 10 ? 'K' : String(r); }
+// Folios por cobrar de cada cliente, con su saldo (total − abonos), del más antiguo al más nuevo
+export function foliosPorCobrar(ordenes, abonos, clientes) {
+  const norm = t => String(t || '').trim().toLowerCase(), porNombre = {};
+  clientes.forEach(c => { porNombre[norm(c.nombre)] = c.id; });
+  const ab = {}; abonos.forEach(a => { ab[String(a.folio)] = (ab[String(a.folio)] || 0) + (Number(a.monto) || 0); });
+  const F = {}, vistos = new Set();
+  ordenes.forEach(o => {
+    if (vistos.has(String(o.n))) return; vistos.add(String(o.n));
+    if (!o.folio || o.estado === 'anulada' || o.quitadoEnPlanilla || /PAGADO/.test(String(o.estadoPago || '').toUpperCase())) return;
+    const k = String(o.folio), f = F[k] || (F[k] = { folio: k, total: 0, ordenes: [], clienteId: o.clienteId || porNombre[norm(o.cliente)] || null, cliente: o.cliente, fecha: fechaDe(o.fechaFolio) || fechaDe(o.fecha) || '' });
+    f.total += Number(o.total) || 0; f.ordenes.push(o.n);
+  });
+  const out = {};
+  Object.values(F).forEach(f => { f.abonado = ab[f.folio] || 0; f.saldo = Math.max(0, Math.round(f.total - f.abonado)); if (f.saldo > 0 && f.clienteId) (out[f.clienteId] = out[f.clienteId] || []).push(f); });
+  Object.values(out).forEach(l => l.sort((a, b) => a.fecha.localeCompare(b.fecha) || Number(a.folio) - Number(b.folio)));
+  return out;
+}
+// Reparto sugerido: primero los folios más antiguos completos; lo que sobra, como abono al siguiente
+export function repartoFIFO(folios, monto) {
+  let resto = monto; const a = [];
+  for (const f of folios) { if (resto <= 0) break; const m = Math.min(resto, f.saldo); a.push({ folio: f.folio, monto: m }); resto -= m; }
+  return { asignaciones: a, sobra: Math.max(0, resto) };
+}
+// Todas las combinaciones de folios que suman exacto (hasta 16 folios)
+function combinacionesExactas(folios, monto) {
+  if (folios.length > 12) return [];   // con muchos folios no se busca: se propone por antigüedad y se revisa
+  const n = folios.length, out = [];
+  for (let m = 1; m < (1 << n) && out.length < 50; m++) { let s = 0, edad = 0; for (let i = 0; i < n; i++) if (m & (1 << i)) { s += folios[i].saldo; edad += i; } if (s === monto) out.push({ edad, l: folios.filter((_, i) => m & (1 << i)) }); }
+  return out.sort((a, b) => a.edad - b.edad).map(x => x.l);   // primero la de los folios más antiguos
+}
+// mov: movimientos pendientes (en orden); ctx: { clientes, ordenes, abonos, equivalencias, pagados: [{clienteId, total, fechaPago, folio}] }
+export function proponer(movs, ctx) {
+  const porCobrar = foliosPorCobrar(ctx.ordenes, ctx.abonos, ctx.clientes), reservados = new Set(), out = {};
+  movs.forEach(mv => {
+    const forz = ctx.forzados && ctx.forzados[mv.id] && ctx.clientes.find(c => c.id === ctx.forzados[mv.id]);
+    const id = forz ? { cliente: forz, por: 'manual' } : identificarCliente(mv, ctx.clientes, ctx.equivalencias);
+    if (!id) { out[mv.id] = { tipo: 'sinCliente' }; return; }
+    const c = id.cliente, folios = (porCobrar[c.id] || []).filter(f => !reservados.has(f.folio));
+    const base = { clienteId: c.id, cliente: c.nombre, por: id.por, folios };
+    // ¿Ya se registró a mano un pago del mismo monto, cerca de esa fecha?
+    // (igual que antes: un pago registrado con el mismo monto hace dudar, aunque se haya anotado días después)
+    const yaPagado = (ctx.pagados || []).filter(p => p.clienteId === c.id && Math.round(p.total) === mv.monto && p.fechaPago && Math.abs(diasEntre(p.fechaPago, mv.fecha)) <= 60).sort((a, b) => Math.abs(diasEntre(a.fechaPago, mv.fecha)) - Math.abs(diasEntre(b.fechaPago, mv.fecha)))[0] || null;
+    if (!folios.length) { out[mv.id] = { ...base, tipo: 'revisar', motivo: yaPagado ? `Parece el pago del folio ${yaPagado.folio}, que ya está registrado (pagado el ${fechaDMY(yaPagado.fechaPago)}).` : 'No tiene folios por cobrar.', yaPagado, asignaciones: [], sobra: mv.monto }; return; }
+    const exactos = folios.filter(f => f.saldo === mv.monto), comb = exactos.length ? [] : combinacionesExactas(folios, mv.monto);
+    let asign = null, motivo = '';
+    if (exactos.length) { asign = [exactos[0]]; motivo = exactos.length > 1 ? `Hay ${exactos.length} folios con ese mismo saldo: se propone el más antiguo.` : 'Calza exacto con un folio.'; }
+    else if (comb.length) { asign = comb[0]; motivo = comb.length > 1 ? 'Más de una combinación de folios suma ese monto: se propone la de los más antiguos.' : `Paga ${asign.length} folios juntos.`; }
+    // Se confirma sola solo si no hay ninguna duda: una sola forma de calzar exacto y ningún pago igual ya registrado
+    const unica = exactos.length === 1 || (!exactos.length && comb.length === 1);
+    const seguro = id.por !== 'nombre-parcial';
+    if (!seguro && !motivo) motivo = 'El nombre se reconoció solo en parte (el banco corta la descripción): confirma que es este cliente.';
+    else if (!seguro) motivo = 'El nombre se reconoció solo en parte: confirma que es este cliente. ' + motivo;
+    if (asign && unica && !yaPagado && seguro) {
+      asign.forEach(f => reservados.add(f.folio));
+      out[mv.id] = { ...base, tipo: 'auto', motivo, asignaciones: asign.map(f => ({ folio: f.folio, monto: f.saldo })), sobra: 0 };
+      return;
+    }
+    const sug = asign ? { asignaciones: asign.map(f => ({ folio: f.folio, monto: f.saldo })), sobra: 0 } : repartoFIFO(folios, mv.monto);
+    out[mv.id] = { ...base, tipo: 'revisar', motivo: yaPagado ? `Ojo: el folio ${yaPagado.folio} ya se registró pagado el ${fechaDMY(yaPagado.fechaPago)} con este mismo monto. Si es el mismo pago, marca "Ya estaba registrado".` : motivo || 'No calza exacto: se propone pagar primero los folios más antiguos.', yaPagado, ...sug };
+  });
+  return out;
+}
+
+// Aplica un abono de la cartola: todo junto o nada (pagos/abonos de cada folio + el movimiento queda conciliado)
+export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender) {
+  const db = await dbOk();
+  const asig = (asignaciones || []).map(a => ({ folio: String(a.folio), monto: Math.round(Number(a.monto) || 0) })).filter(a => a.monto > 0);
+  if (!asig.length) throw new Error('Asigna el monto a al menos un folio.');
+  const cliente = (await FB.getDoc(FB.doc(db, 'clientes', clienteId))).data() || {};
+  await FB.runTransaction(db, async tx => {
+    // Las consultas (órdenes y abonos de cada folio) se repiten en cada intento: si otro equipo cambió algo, se ve
+    const info = {};
+    for (const a of asig) {
+      const os = await ordenesDelFolio(db, a.folio);
+      if (!os.length) throw new Error(`No hay órdenes con el folio ${a.folio}.`);
+      const prev = await FB.getDocs(FB.query(FB.collection(db, 'abonos'), FB.where('folio', '==', a.folio)));
+      uso.lecturas += Math.max(1, prev.size);
+      info[a.folio] = { ids: os.map(o => o.id), abonado: prev.docs.map(d => d.data()).filter(x => !x.quitadoEnPlanilla).reduce((s, x) => s + (Number(x.monto) || 0), 0) };
+    }
+    const mref = FB.doc(db, 'movimientos', movId), ms = await tx.get(mref);
+    if (!ms.exists()) throw new Error('Ese movimiento ya no está.');
+    const mv = ms.data();
+    if (mv.estado !== 'pendiente') throw new Error('Ese movimiento ya se registró.');
+    const total = asig.reduce((s, a) => s + a.monto, 0);
+    if (total > mv.monto) throw new Error(`Asignaste ${total.toLocaleString('es-CL')}, más que el abono del banco (${mv.monto.toLocaleString('es-CL')}).`);
+    const cref = FB.doc(db, 'config', 'conciliacion'), cs = aprender ? await tx.get(cref) : null;
+    const leidas = {};
+    for (const a of asig) { leidas[a.folio] = []; for (const id of info[a.folio].ids) { const s = await tx.get(FB.doc(db, 'ordenes', id)); if (s.exists()) leidas[a.folio].push({ id, ...s.data() }); } }
+    const hechas = [];
+    for (const a of asig) {
+      const os = leidas[a.folio].filter(o => o.estado !== 'anulada' && !o.quitadoEnPlanilla);
+      if (os.some(o => o.clienteId && o.clienteId !== clienteId)) throw new Error(`El folio ${a.folio} es de otro cliente.`);
+      const tot = os.reduce((s, o) => s + (Number(o.total) || 0), 0), saldo = Math.round(tot - info[a.folio].abonado);
+      if (os.every(o => /PAGADO/.test(o.estadoPago || '')) || saldo <= 0) throw new Error(`El folio ${a.folio} ya está pagado.`);
+      if (a.monto > saldo) throw new Error(`Al folio ${a.folio} le quedan ${saldo.toLocaleString('es-CL')}: no se le puede asignar ${a.monto.toLocaleString('es-CL')}.`);
+      const completo = a.monto === saldo, tipo = completo && !info[a.folio].abonado ? 'pago' : 'abono';
+      // Pago del saldo completo de un folio sin abonos: queda PAGADO (igual que antes, sin fila en Abonos). Si no, es un abono.
+      if (tipo === 'abono') tx.set(FB.doc(FB.collection(db, 'abonos')), { folio: a.folio, fecha: mv.fecha, monto: a.monto, referencia: 'Cartola: ' + mv.descripcion, movimiento: movId, extra: {}, quitadoEnPlanilla: false, planillaPendiente: true, por: authSF.currentUser.email, en: FB.serverTimestamp() });
+      os.filter(o => !/PAGADO/.test(o.estadoPago || '')).forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio(completo ? { estadoPago: 'PAGADO', fechaPago: mv.fecha } : { estadoPago: 'PARCIAL' })));
+      hechas.push({ folio: a.folio, monto: a.monto, tipo: completo ? (tipo === 'pago' ? 'pago' : 'abono final') : 'abono' });
+    }
+    if (aprender && mv.descNorm) {
+      const c = configConciliacion(cs.exists() ? cs.data() : null), eq = c.equivalencias.filter(e => e.desc !== mv.descNorm).concat([{ desc: mv.descNorm, clienteId, nombre: cliente.nombre || '' }]);
+      tx.set(cref, { ...(cs.exists() ? cs.data() : {}), ignorar: c.ignorar, equivalencias: eq.slice(-500) });
+    }
+    tx.update(mref, { estado: 'conciliado', clienteId, cliente: cliente.nombre || '', asignaciones: hechas, sobra: mv.monto - total, aprendido: !!aprender, resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: true });
+  });
+  uso.escrituras += asig.length * 2 + 1;
+}
+// "Ya estaba registrado" (revisado) o "No es de B2B" (ignorado); con patrón, se ignoran siempre los que lo digan
+export async function marcarMovimiento(movId, estado, nota, patron) {
+  const db = await dbOk();
+  if (!['revisado', 'ignorado'].includes(estado)) throw new Error('Estado no válido.');
+  await FB.runTransaction(db, async tx => {
+    const mref = FB.doc(db, 'movimientos', movId), ms = await tx.get(mref);
+    if (!ms.exists() || ms.data().estado !== 'pendiente') throw new Error('Ese movimiento ya se resolvió.');
+    const cref = FB.doc(db, 'config', 'conciliacion'), cs = patron ? await tx.get(cref) : null;
+    if (patron) { const c = configConciliacion(cs.exists() ? cs.data() : null), p = normCartola(patron); if (p.length < 4) throw new Error('El texto a ignorar es muy corto.'); tx.set(cref, { ...(cs.exists() ? cs.data() : {}), equivalencias: c.equivalencias, ignorar: [...new Set(c.ignorar.concat([p]))] }); }
+    tx.update(mref, { estado, nota: String(nota || '').trim().slice(0, 200) || null, resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: estado === 'revisado' });
+  });
+  uso.escrituras += patron ? 2 : 1;
+}
+
+// ── Una sola vez: traer lo ya conciliado en la app antigua (historial, lo aprendido, lo ignorado y lo pendiente) ──
+export const VERSION_CONCILIACION = '2.6.0';   // script que entrega las hojas de conciliación (SistemaFen.gs v1.4.0)
+export async function importarConciliacionAntigua() {
+  const db = await dbOk();
+  const url = (await Apps.leerConexiones()).b2b;
+  if (!url) throw new Error('Falta la dirección del script de B2B (Configuración → Conexiones).');
+  const v = await Apps.probar('b2b', url, VERSION_CONCILIACION);
+  if (!v.ok) throw new Error(v.version ? `El script de B2B está en v${v.version}: necesita v${VERSION_CONCILIACION} (ver README).` : v.texto);
+  const r = await llamarScript(url, { action: 'sistema_fen_b2b', accion: 'sistema_fen_b2b', op: 'conciliacion', idToken: await authSF.currentUser.getIdToken() });
+  if (!r || !r.ok) throw new Error((r && (r.error || r.msg)) || 'El script no respondió bien.');
+  const H = r.hojas || {}, filasDe = (h, ...cols) => { const t = H[h]; if (!t) return []; const ix = cols.map(c => t.c.findIndex(x => normCartola(x) === normCartola(c))); return t.f.map(f => ix.map(i => (i < 0 ? '' : f[i + 1]))); };
+  const clientes = (await FB.getDocs(FB.collection(db, 'clientes'))).docs.map(d => ({ id: d.id, ...d.data() }));
+  const cliPorNombre = n => clientes.find(c => normCartola(c.nombre) === normCartola(n));
+  const snExist = await FB.getDocs(FB.collection(db, 'movimientos'));
+  const existentes = new Set(snExist.docs.map(d => d.id)), pendientesYa = new Set(snExist.docs.filter(d => d.data().estado === 'pendiente').map(d => d.id));
+  uso.lecturas += clientes.length + existentes.size + 2;
+  const docs = [];
+  const parteHuella = h => { const p = String(h).split('|'); return { fecha: p[0] || '', saldo: Number(p[1]) || 0, monto: Number(p[2]) || 0, descNorm: p.slice(3).join('|') }; };
+  for (const [huella, fecha, descripcion, monto, cliente, folios] of filasDe('ConciliacionBancaria_Historial', 'Fingerprint', 'Fecha', 'Descripcion', 'Monto', 'Cliente', 'Folios')) {
+    if (!huella) continue;
+    const ph = parteHuella(huella), c = cliPorNombre(cliente);
+    docs.push([await idMovimiento(String(huella)), { huella: String(huella), fecha: fechaDe(fecha) || ph.fecha, descripcion: String(descripcion || ph.descNorm), descNorm: ph.descNorm, monto: Number(monto) || ph.monto, saldo: ph.saldo,
+      cartola: 'App antigua', estado: /revisado/i.test(String(folios)) ? 'revisado' : 'conciliado', cliente: String(cliente || ''), clienteId: c ? c.id : null, folios: String(folios || ''), origen: 'app antigua', planillaPendiente: false }]);
+  }
+  for (const [huella, , fecha, descripcion, monto, , , , , ident] of filasDe('ConciliacionBancaria_Pendientes', 'Huella', 'Tipo', 'Fecha', 'Descripcion', 'Monto', 'Cliente', 'Asignaciones', 'FoliosPendientes', 'FolioYaPagado', 'Identificador')) {
+    if (!huella) continue;
+    const ph = parteHuella(huella);
+    docs.push([await idMovimiento(String(huella)), { huella: String(huella), fecha: fechaDe(fecha) || ph.fecha, descripcion: String(descripcion || ph.descNorm), descNorm: ph.descNorm, monto: Number(monto) || ph.monto, saldo: ph.saldo,
+      cartola: String(ident || 'App antigua'), estado: 'pendiente', origen: 'app antigua', planillaPendiente: false }]);
+  }
+  const vistos = new Set(), nuevos = docs.filter(([id]) => !existentes.has(id) && !vistos.has(id) && vistos.add(id));
+  // Lo que aquí seguía pendiente pero en la app antigua ya se concilió (por ejemplo, después de volver a ella un tiempo)
+  const aCerrar = docs.filter(([id, d]) => pendientesYa.has(id) && d.estado !== 'pendiente');
+  for (const [id, d] of aCerrar) { await FB.updateDoc(FB.doc(db, 'movimientos', id), { estado: d.estado, cliente: d.cliente, clienteId: d.clienteId, folios: d.folios, origen: 'app antigua', planillaPendiente: false }); uso.escrituras++; }
+  for (let i = 0; i < nuevos.length; i += 400) { const b = FB.writeBatch(db); nuevos.slice(i, i + 400).forEach(([id, d]) => b.set(FB.doc(db, 'movimientos', id), d)); await b.commit(); uso.escrituras += Math.min(400, nuevos.length - i); }
+  const equivalencias = filasDe('Equivalencias_Cartola', 'Descripcion_Normalizada', 'Cliente').map(([desc, n]) => { const c = cliPorNombre(n); return c && desc ? { desc: normCartola(desc), clienteId: c.id, nombre: c.nombre } : null; }).filter(Boolean);
+  const ignorar = [...new Set(['TRANSBANK'].concat(filasDe('ConciliacionIgnorados', 'Patron').map(([p]) => normCartola(p)).filter(p => p.length >= 4)))];
+  const cref = FB.doc(db, 'config', 'conciliacion'), cs = await FB.getDoc(cref), c = configConciliacion(cs.exists() ? cs.data() : null);
+  const eqFinal = c.equivalencias.concat(equivalencias.filter(e => !c.equivalencias.some(x => x.desc === e.desc)));
+  await FB.setDoc(cref, { ignorar: [...new Set(c.ignorar.concat(ignorar))], equivalencias: eqFinal.slice(-500), importado: { en: FB.serverTimestamp(), por: authSF.currentUser.email, historial: docs.length, nuevos: nuevos.length } });
+  uso.escrituras++;
+  return { cerrados: aCerrar.length, historial: docs.filter(([, d]) => d.estado !== 'pendiente').length, pendientes: docs.filter(([, d]) => d.estado === 'pendiente').length, nuevos: nuevos.length, equivalencias: equivalencias.length, ignorar: ignorar.length };
+}
+// Empezar sin traer nada (por ejemplo, si nunca se usó la conciliación en la app antigua)
+export async function empezarConciliacionSinHistorial() {
+  const db = await dbOk();
+  await FB.setDoc(FB.doc(db, 'config', 'conciliacion'), { ...CONC_DEF, importado: { en: FB.serverTimestamp(), por: authSF.currentUser.email, historial: 0, nuevos: 0, sinHistorial: true } }, { merge: true });
+}
+// Pagos ya registrados (para avisar "ya estaba registrado"): de las órdenes de 6 meses
+export function pagadosPorFolio(ordenes, clientes) {
+  const norm = t => String(t || '').trim().toLowerCase(), porNombre = {}; clientes.forEach(c => { porNombre[norm(c.nombre)] = c.id; });
+  const F = {}, vistos = new Set();
+  ordenes.forEach(o => { if (vistos.has(String(o.n))) return; vistos.add(String(o.n)); if (!o.folio || !/PAGADO/.test(String(o.estadoPago || '').toUpperCase())) return; const k = String(o.folio), f = F[k] || (F[k] = { folio: k, total: 0, fechaPago: fechaDe(o.fechaPago), clienteId: o.clienteId || porNombre[norm(o.cliente)] || null }); f.total += Number(o.total) || 0; });
+  return Object.values(F);
+}
+// Para Hoy: abonos de la cartola que faltan por revisar
+export async function movimientosParaHoy() {
+  let cx;
+  try { cx = await conexion(); } catch (e) { return null; }
+  if (cx.estado !== 'ok') return null;
+  const sn = await FB.getDocs(FB.query(FB.collection(cx.db, 'movimientos'), FB.where('estado', '==', 'pendiente')));
+  uso.lecturas += Math.max(1, sn.size);
+  const l = sn.docs.map(d => d.data());
+  return { n: l.length, monto: l.reduce((s, m) => s + (Number(m.monto) || 0), 0), desde: l.map(m => m.fecha).sort()[0] || null };
 }
