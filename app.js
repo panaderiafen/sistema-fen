@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.14.0';
-import * as Caja from './caja.js?v=0.14.0';
-import * as Stock from './stock.js?v=0.14.0';
-import * as Ajustes from './ajustes.js?v=0.14.0';
-import * as Apps from './apps.js?v=0.14.0';
-import * as Agenda from './agenda.js?v=0.14.0';
-import * as Gastos from './gastos.js?v=0.14.0';
-import * as Sii from './sii.js?v=0.14.0';
-import * as Previred from './previred.js?v=0.14.0';
-import * as B2b from './b2b.js?v=0.14.0';
-import * as PdfOrden from './pdf-orden.js?v=0.14.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.14.0';
+} from './firebase.js?v=0.14.1';
+import * as Caja from './caja.js?v=0.14.1';
+import * as Stock from './stock.js?v=0.14.1';
+import * as Ajustes from './ajustes.js?v=0.14.1';
+import * as Apps from './apps.js?v=0.14.1';
+import * as Agenda from './agenda.js?v=0.14.1';
+import * as Gastos from './gastos.js?v=0.14.1';
+import * as Sii from './sii.js?v=0.14.1';
+import * as Previred from './previred.js?v=0.14.1';
+import * as B2b from './b2b.js?v=0.14.1';
+import * as PdfOrden from './pdf-orden.js?v=0.14.1';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.14.1';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -312,7 +312,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.14.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.14.1" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -1985,7 +1985,7 @@ async function pintarSeguridad() {
 // ── Ventas B2B: base nueva (fen-b2b) ───────────────
 // v0.11: conectar la base nueva, copiar la planilla y revisar que todo cuadre.
 // La app B2B sigue funcionando igual: la planilla manda hasta que exista la app de logística (v0.12).
-const SUBS_B2B = [['', 'Órdenes'], ['solicitudes', 'Solicitudes'], ['conciliacion', 'Conciliación'], ['clientes', 'Clientes'], ['productos', 'Productos'], ['cuenta', 'Estado de cuenta'], ['buscar', 'Buscar'], ['base', 'Base nueva']];
+const SUBS_B2B = [['', 'Órdenes'], ['solicitudes', 'Solicitudes'], ['conciliacion', 'Conciliación'], ['clientes', 'Clientes'], ['productos', 'Productos'], ['cuenta', 'Estado de cuenta'], ['analisis', 'Análisis'], ['buscar', 'Buscar'], ['base', 'Base nueva']];
 const b2b = { prep: null, tot: null, uso: null, copiando: false, msg: '', error: '', activaVista: null, vivo: null, datos: null, errVivo: '', sel: new Set(), planilla: '', cambiando: '' };
 function cabB2b(sub) {
   const actual = SUBS_B2B.some(([k]) => k && k === sub) ? sub : '';
@@ -2012,6 +2012,7 @@ async function pintarB2b(sub) {
   if (sub === 'productos') return pintarB2bProductos(el, sub);
   if (sub === 'cuenta') return pintarB2bCuenta(el, sub);
   if (sub === 'conciliacion') return pintarB2bConciliacion(el, sub);
+  if (sub === 'analisis') return pintarB2bAnalisis(el, sub);
   pintarB2bAdmin(el, sub);
 }
 function errorB2b(e) {
@@ -2124,9 +2125,36 @@ function pintarB2bBase(el, sub, cx) {
     <section class="tarjeta" aria-labelledby="t-b2b-tot"><h2 id="t-b2b-tot">Control de totales ${info('Control de totales', 'Compara lo que dice la planilla (en la última lectura o copia) con lo que suma Firestore en la base nueva. Las sumas las hace Firestore: cuestan muy poco (una lectura por cada mil documentos).')}</h2>
       <div id="b2b-tot-cont">${t && (p || (ultima && ultima.planilla)) ? tablaTotales(p ? p.planilla : ultima.planilla, t.base) : '<p class="ayuda">Todavía sin revisar.</p>'}</div>
       <div class="botones" style="justify-content:flex-start;margin-top:8px"><button type="button" class="btn-sec" id="b2b-totales">Revisar totales</button></div></section>
+    <section class="tarjeta" aria-labelledby="t-b2b-pl"><h2 id="t-b2b-pl">Planilla ${info('Planilla de B2B', 'Hojas para Producción: Producción lee de la planilla de B2B las ventas por receta, el total de ventas y los cobros de cada mes. Antes se generaban con botones de la app antigua; ahora el script las genera solo cada noche (una vez instalado, ver README) y aquí puedes generarlas cuando quieras.\nFilas repetidas: órdenes ya archivadas cuyas líneas quedaron también en Detalle Ventas. Primero se cuentan; al sacarlas, el script guarda antes una copia completa de la hoja ("Detalle Ventas respaldo …") y solo saca las que son idénticas a las del histórico.')}</h2>
+      <div class="fila-caja"><div class="txt"><b>Hojas para Producción</b><span>${b2b.hojas ? esc(b2b.hojas) : 'Ventas por receta, total de ventas y cobros por mes.'}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico" id="b2b-hojas">Generar ahora</button></div></div>
+      <div class="fila-caja"><div class="txt"><b>Filas repetidas en Detalle Ventas</b><span>${b2b.repetidas ? b2b.repetidas.texto : 'Órdenes archivadas cuyas líneas siguen también en Detalle Ventas.'}</span></div><div class="acciones">${b2b.repetidas && b2b.repetidas.filas && !b2b.repetidas.limpiado ? `<button type="button" class="btn btn-chico" id="b2b-rep-sacar">Sacar ${b2b.repetidas.filas.toLocaleString('es-CL')} filas</button>` : ''}<button type="button" class="btn-sec btn-chico" id="b2b-rep-contar">${b2b.repetidas ? 'Revisar de nuevo' : 'Revisar'}</button></div></div>
+      ${b2b.errPlanilla ? `<p class="error">${esc(b2b.errPlanilla)}</p>` : ''}</section>
     <section class="tarjeta" aria-labelledby="t-b2b-uso"><h2 id="t-b2b-uso">Uso estimado de Firebase ${info('Uso estimado', 'Cuánto gastaría la app de logística (v0.12) en el proyecto fen-b2b, que tiene su propia cuota gratis: 50.000 lecturas y 20.000 escrituras al día. La caja no se ve afectada.\nEs una estimación a partir de tus datos; cuando la app esté funcionando lo medimos en la consola de Firebase (Firestore → Uso).')}</h2>
       ${usoHtml}<p class="ayuda">En esta sesión: ${B2b.uso.lecturas.toLocaleString('es-CL')} lecturas y ${B2b.uso.escrituras.toLocaleString('es-CL')} escrituras en fen-b2b.</p></section>`;
   $('b2b-cambiar-cfg').addEventListener('click', () => pintarB2bConfig(el, sub, cx.cfg));
+  const repintarBase = () => { if (vistaDesdeHash() === 'b2b' && subVista() === 'base') pintarB2bBase(el, sub, cx); };
+  const trabajando = (id, txt) => { const b = $(id); if (b) { b.disabled = true; b.textContent = txt; } b2b.errPlanilla = ''; };
+  $('b2b-hojas').addEventListener('click', async () => {
+    trabajando('b2b-hojas', 'Generando…');
+    try { const r = await B2b.opPlanilla('hojas_produccion'); const err = [r.errorVentas, r.errorTotal, r.errorCobros].filter(Boolean);
+      b2b.hojas = err.length ? 'Con errores: ' + err.join(' · ') : `Generadas recién${r.tareaNocturna ? ' · se generan solas cada noche' : r.tareaNocturna === false ? ' · falta instalar la tarea de cada noche (ver README)' : ''}.`; registrar('Generó las hojas de B2B para Producción', ''); }
+    catch (e) { b2b.errPlanilla = errorB2b(e); }
+    repintarBase();
+  });
+  $('b2b-rep-contar').addEventListener('click', async () => {
+    trabajando('b2b-rep-contar', 'Revisando…');
+    try { const r = await B2b.opPlanilla('filas_repetidas'); b2b.repetidas = { filas: r.filas, texto: r.filas ? `${r.filas.toLocaleString('es-CL')} filas de ${r.ordenes.toLocaleString('es-CL')} órdenes archivadas son idénticas a las del histórico y se pueden sacar (de ${r.total.toLocaleString('es-CL')} filas).${r.nDistintas ? ` ${r.nDistintas} órdenes tienen líneas distintas y no se tocan (N° ${r.distintas.join(', ')}${r.nDistintas > r.distintas.length ? '…' : ''}).` : ''}` : `No hay filas repetidas.${r.nDistintas ? ` ${r.nDistintas} órdenes archivadas tienen líneas distintas y no se tocan.` : ''}` }; }
+    catch (e) { b2b.errPlanilla = errorB2b(e); }
+    repintarBase();
+  });
+  const bs = $('b2b-rep-sacar');
+  if (bs) bs.addEventListener('click', async () => {
+    if (!confirm(`Se sacarán ${b2b.repetidas.filas.toLocaleString('es-CL')} filas de Detalle Ventas (ya están en Detalle Ventas Historico).\n\nAntes se guarda una copia completa de la hoja. ¿Seguir?`)) return;
+    trabajando('b2b-rep-sacar', 'Sacando…');
+    try { const r = await B2b.opPlanilla('filas_repetidas', { limpiar: true }); b2b.repetidas = { filas: 0, limpiado: true, texto: `Listo: se sacaron ${r.filas.toLocaleString('es-CL')} filas; quedan ${r.quedan.toLocaleString('es-CL')}. Respaldo en la hoja "${esc(r.respaldo)}".` }; registrar('Sacó filas repetidas de Detalle Ventas', `${r.filas} filas · respaldo ${r.respaldo}`); }
+    catch (e) { b2b.errPlanilla = errorB2b(e); }
+    repintarBase();
+  });
   conectarCambio(el, sub, cx);
   $('b2b-leer').addEventListener('click', async () => {
     const btn = $('b2b-leer'); btn.disabled = true; btn.textContent = 'Leyendo la planilla… (puede tardar un minuto)';
@@ -2217,6 +2245,7 @@ function b2bEscuchar(sub) {
     else if (s === 'clientes') pintarB2bClientes($('v-b2b'), s);
     else if (s === 'productos') pintarB2bProductos($('v-b2b'), s);
     else if (s === 'conciliacion') { if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#v-b2b .mov-edit')) b2bConc.repintar = true; else pintarB2bConciliacion($('v-b2b'), s); }
+    else if (s === 'analisis' && !document.getElementById('t-an')) pintarB2bAnalisis($('v-b2b'), s);   // solo la primera vez (lee por su cuenta)
     else if (s === 'cuenta' && !b2bCuenta.tocado) pintarB2bCuenta($('v-b2b'), s);
     else if (s === 'base' && b2b.activaVista !== activa && !b2b.cambiando && !b2b.copiando) pintarB2b(s);
     b2b.activaVista = activa;
@@ -2777,6 +2806,80 @@ function cargarScriptExterno(src, listo) {
   if (listo && listo()) return Promise.resolve();
   if (!scriptsCargados[src]) scriptsCargados[src] = new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = () => ok(); sc.onerror = () => { delete scriptsCargados[src]; no(new Error('No se pudo cargar el lector de Excel (revisa internet).')); }; document.head.appendChild(sc); });
   return scriptsCargados[src];
+}
+
+// ── v0.14.1 · Análisis ─────────────────────────────
+const b2bAn = { tipo: 'mes', desde: '', hasta: '', clienteId: '', vista: 'ranking', res: null, clave: '', cargando: false, error: '' };
+const PERIODOS_AN = [['hoy', 'Hoy'], ['ayer', 'Ayer'], ['semana', 'Esta semana'], ['semanaAnterior', 'Semana pasada'], ['mes', 'Este mes'], ['mesAnterior', 'Mes pasado'], ['otro', 'Otras fechas']];
+function pintarB2bAnalisis(el, sub) {
+  if (!catOk()) return sinActivar(el, sub);
+  const d = b2b.datos, s = b2bAn;
+  const per = B2b.periodoAnalisis(s.tipo, s.desde, s.hasta);
+  const clave = [per.desde, per.hasta, per.antes.desde, per.antes.hasta].join('|');
+  if (s.clave !== clave && !s.cargando) {
+    s.cargando = true; s.error = '';
+    Promise.all([B2b.ordenesEntre(per.desde, per.hasta), B2b.ordenesEntre(per.antes.desde, per.antes.hasta), B2b.pagadasEntre(per.desde, per.hasta)])
+      .then(([a, b, c]) => { s.datos = { a, b, c }; s.clave = clave; })
+      .catch(e => { s.error = errorB2b(e); s.clave = clave; s.datos = null; })
+      .finally(() => { s.cargando = false; if (subVista() === 'analisis') pintarB2bAnalisis($('v-b2b'), 'analisis'); });
+  }
+  const listo = s.clave === clave && s.datos && !s.cargando;
+  const r = listo ? B2b.analizarB2b(per, s.datos.a, s.datos.b, s.datos.c, d.abonos, d.productos, s.clienteId, [...d.ordenes.values()]) : null;
+  const fd = f => { const [y, m, dd] = String(f).split('-'); return `${Number(dd)} ${MESES[Number(m) - 1]}${y !== String(new Date().getFullYear()) ? ' ' + y : ''}`; };
+  const rango = a => a.desde === a.hasta ? fd(a.desde) : `${fd(a.desde)} al ${fd(a.hasta)}`;
+  const flecha = v => v == null ? '' : `<span class="${v >= 0 ? 'tend-sube' : 'tend-baja'}">${v >= 0 ? '↑' : '↓'} ${Math.abs(Math.round(v * 100))}%</span>`;
+  const cliente = d.clientes.find(c => c.id === s.clienteId);
+  const filtros = `<section class="tarjeta" aria-labelledby="t-an"><div class="titulo-fila"><h2 id="t-an">Análisis ${info('Análisis de B2B', 'Resumen: lo vendido en el período (por fecha de la orden), en neto, comparado con el período anterior del mismo largo (este mes se compara con los mismos días del mes pasado). Pendiente de cobro: lo que de esas ventas falta pagar.\nCaja real: lo que efectivamente entró en el período, por fecha de pago (la del banco cuando viene de la conciliación). Un folio con abonos se cuenta por sus abonos, cada uno en su fecha.\nProductos: lo vendido por producto; por día de la semana es el promedio de unidades de ese día en el período.\nNo incluye órdenes anuladas.')}</h2><span>${esc(rango(per))}</span></div>
+    <div class="chips chips-chicos" role="group" aria-label="Período">${PERIODOS_AN.map(([k, t]) => `<button type="button" class="chip-filtro" data-an-per="${k}" aria-pressed="${s.tipo === k}">${t}</button>`).join('')}</div>
+    <div class="filtros-b2b" style="margin-top:10px">${s.tipo === 'otro' ? `<div class="campo"><label for="an-desde">Desde</label><input id="an-desde" type="date" value="${esc(s.desde || per.desde)}"></div><div class="campo"><label for="an-hasta">Hasta</label><input id="an-hasta" type="date" value="${esc(s.hasta || per.hasta)}"></div>` : ''}
+      <div class="campo"><label for="an-cli">Cliente</label><select id="an-cli"><option value="">Todos los clientes</option>${d.clientes.map(c => `<option value="${esc(c.id)}" ${c.id === s.clienteId ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></div></div>
+    ${s.error ? `<p class="error">${esc(s.error)}</p>` : ''}</section>`;
+  if (!r) { el.innerHTML = cabB2b(sub) + filtros + `<section class="tarjeta"><div class="vacio" style="border:0">${s.error ? 'No se pudo leer.' : 'Leyendo…'}</div></section>`; conectar(); return; }
+  const R = r.resumen, C = r.caja;
+  const resumen = `<section class="tarjeta" aria-labelledby="t-an-res"><div class="titulo-fila"><h2 id="t-an-res">Resumen${cliente ? ' · ' + esc(cliente.nombre) : ''}</h2><span>frente a ${esc(rango(per.antes))}</span></div>
+    <div class="cifras cifras-an">
+      <div class="cifra-an"><span class="rotulo">Ventas (neto)</span><span class="valor">${pesos(R.neto)}</span><span class="nota">${flecha(R.var.neto)} antes ${pesos(R.antes.neto)}</span></div>
+      <div class="cifra-an"><span class="rotulo">Órdenes</span><span class="valor">${R.n}</span><span class="nota">${flecha(R.var.n)} antes ${R.antes.n}</span></div>
+      <div class="cifra-an"><span class="rotulo">Ticket promedio</span><span class="valor">${pesos(R.ticket)}</span><span class="nota">neto por orden · antes ${pesos(R.antes.ticket)}</span></div>
+      <div class="cifra-an"><span class="rotulo">Pendiente de cobro</span><span class="valor" style="color:var(--rojo-t)">${pesos(R.pendiente)}</span><span class="nota">de estas ventas · cobrado ${pesos(R.cobrado)}</span></div>
+    </div>
+    <p class="ayuda">Total con IVA ${pesos(R.total)} (IVA ${pesos(R.iva)}) · facturado ${pesos(R.facturado)} · sin factura ${pesos(R.total - R.facturado)}</p></section>`;
+  const caja = `<section class="tarjeta" aria-labelledby="t-an-caja"><div class="titulo-fila"><h2 id="t-an-caja">Caja real</h2><span>${esc(rango(per))}</span></div>
+    ${C.total ? `<div class="filas-caja-an">
+      <div><span>Pagos de ventas del período</span><b>${pesos(C.delPeriodo)}</b></div>
+      <div><span>Pagos de ventas anteriores</span><b>${pesos(C.anteriores)}</b></div>
+      <div><span>Abonos (cada uno en su fecha)</span><b>${pesos(C.abonos)}</b></div>
+      <div class="total"><span>Total que entró</span><b>${pesos(C.total)}</b></div></div>
+      ${C.origen.length ? `<details class="detalle-an"><summary>De qué meses vienen los pagos anteriores</summary>${C.origen.map(o => `<div><span>${esc(MESES_LARGOS[Number(o.mes.slice(5)) - 1] || o.mes)} ${esc(o.mes.slice(0, 4))} · ${o.n} ${o.n === 1 ? 'orden' : 'órdenes'}</span><b>${pesos(o.total)}</b></div>`).join('')}</details>` : ''}
+      ${C.detalleAbonos.length ? `<details class="detalle-an"><summary>Detalle de abonos (${C.detalleAbonos.length})</summary>${C.detalleAbonos.map(a => `<div><span>${esc(diaTexto(a.fecha))} · folio ${esc(a.folio)}${a.referencia ? ' · ' + esc(a.referencia) : ''}</span><b>${pesos(a.monto)}</b></div>`).join('')}</details>` : ''}`
+      : '<div class="vacio" style="border:0">No entraron pagos en este período.</div>'}</section>`;
+  const vistas = [['ranking', 'Ranking'], ['dias', 'Por día de la semana'], ['precios', 'Precio real'], ...(s.clienteId ? [['cliente', 'Qué dejó de pedir']] : [])];
+  if (!vistas.some(([k]) => k === s.vista)) s.vista = 'ranking';
+  const top = r.ranking.slice(0, 40);
+  const fmtU = u => (Math.round(u * 10) / 10).toLocaleString('es-CL');
+  const tabla = {
+    ranking: () => `<table class="tabla-tiempos"><thead><tr><th scope="col">Producto</th><th scope="col">Unidades</th><th scope="col">Neto</th><th scope="col">% del total</th><th scope="col">Frente a antes</th></tr></thead><tbody>
+      ${top.map(p => `<tr><td>${esc(p.producto)}${s.clienteId ? '' : `<br><span class="ayuda">${p.clientes} ${p.clientes === 1 ? 'cliente' : 'clientes'}</span>`}</td><td>${fmtU(p.unidades)}</td><td>${pesos(p.neto)}</td><td><span class="barra-an"><i style="width:${Math.max(2, Math.round(p.parte * 100))}%"></i></span> ${Math.round(p.parte * 1000) / 10}%</td><td>${p.nuevo ? '<span class="chip c-azul chip-chico">Nuevo</span>' : flecha(p.varNeto)}</td></tr>`).join('')}</tbody></table>`,
+    dias: () => `<table class="tabla-tiempos tabla-dias-an"><thead><tr><th scope="col">Producto</th>${r.diasSemana.map((x, i) => `<th scope="col">${x}${r.nDia[i] ? '' : '*'}</th>`).join('')}</tr></thead><tbody>
+      ${top.slice(0, 25).map(p => { const mx = Math.max(...p.porDia.map(v => v || 0)); return `<tr><td>${esc(p.producto)}</td>${p.porDia.map(v => `<td class="${v && v === mx ? 'max-an' : ''}">${v == null ? '—' : v ? fmtU(v) : '·'}</td>`).join('')}</tr>`; }).join('')}</tbody></table>
+      <p class="ayuda">Promedio de unidades por día de la semana en el período${r.nDia.some(x => !x) ? ' (* ese día no está en el período)' : ''}. Lo más alto de cada producto va marcado.</p>`,
+    precios: () => `<table class="tabla-tiempos"><thead><tr><th scope="col">Producto</th><th scope="col">Precio real</th><th scope="col">Precio base</th><th scope="col">Diferencia</th></tr></thead><tbody>
+      ${top.map(p => `<tr><td>${esc(p.producto)}</td><td>${pesos(p.precioReal)}</td><td>${p.precioBase ? pesos(p.precioBase) : '—'}</td><td>${p.descuento == null ? '—' : p.descuento > 0.005 ? `<span class="tend-baja">−${Math.round(p.descuento * 1000) / 10}%</span>` : p.descuento < -0.005 ? `<span class="tend-sube">+${Math.round(-p.descuento * 1000) / 10}%</span>` : 'igual'}</td></tr>`).join('')}</tbody></table>
+      <p class="ayuda">Precio real: neto promedio por unidad en el período (con los precios especiales). La diferencia es contra el precio base de hoy.</p>`,
+    cliente: () => r.dejados.length ? `<table class="tabla-tiempos"><thead><tr><th scope="col">Producto que pedía</th><th scope="col">Unidades antes</th><th scope="col">Neto antes</th></tr></thead><tbody>${r.dejados.map(p => `<tr><td>${esc(p.producto)}</td><td>${fmtU(p.unidadesAntes)}</td><td>${pesos(p.netoAntes)}</td></tr>`).join('')}</tbody></table>
+      <p class="ayuda">Productos que ${esc(cliente ? cliente.nombre : 'el cliente')} pidió en ${esc(rango(per.antes))} y no en este período.</p>` : '<div class="vacio" style="border:0">Pidió todo lo que pedía en el período anterior.</div>'
+  };
+  const prods = `<section class="tarjeta" aria-labelledby="t-an-prod"><div class="titulo-fila"><h2 id="t-an-prod">Productos${cliente ? ' · ' + esc(cliente.nombre) : ''}</h2><span>${r.ranking.length} ${r.ranking.length === 1 ? 'producto' : 'productos'}</span></div>
+    <div class="pastillas" role="group" aria-label="Ver" style="margin-bottom:10px">${vistas.map(([k, t]) => `<button type="button" class="pastilla" data-an-vista="${k}" aria-pressed="${s.vista === k}">${t}</button>`).join('')}</div>
+    ${r.ranking.length || s.vista === 'cliente' ? `<div class="tabla-b2b">${tabla[s.vista]()}</div>` : '<div class="vacio" style="border:0">Sin ventas en este período.</div>'}</section>`;
+  el.innerHTML = cabB2b(sub) + filtros + resumen + caja + prods;
+  conectar();
+  function conectar() {
+    el.querySelectorAll('[data-an-per]').forEach(b => b.addEventListener('click', () => { s.tipo = b.dataset.anPer; pintarB2bAnalisis(el, sub); }));
+    if ($('an-desde')) { $('an-desde').addEventListener('change', e => { s.desde = e.target.value; s.hasta = s.hasta || $('an-hasta').value; pintarB2bAnalisis(el, sub); }); $('an-hasta').addEventListener('change', e => { s.hasta = e.target.value; s.desde = s.desde || $('an-desde').value; pintarB2bAnalisis(el, sub); }); }
+    $('an-cli').addEventListener('change', e => { s.clienteId = e.target.value; pintarB2bAnalisis(el, sub); });
+    el.querySelectorAll('[data-an-vista]').forEach(b => b.addEventListener('click', () => { s.vista = b.dataset.anVista; pintarB2bAnalisis(el, sub); }));
+  }
 }
 
 function pintarMenuCelular() {

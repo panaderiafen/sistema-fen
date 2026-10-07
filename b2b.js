@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.14.0';
-import * as FB from './firebase-b2b.js?v=0.14.0';
-import * as Apps from './apps.js?v=0.14.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.14.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.14.1';
+import * as FB from './firebase-b2b.js?v=0.14.1';
+import * as Apps from './apps.js?v=0.14.1';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.14.1';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -368,7 +368,7 @@ export async function escuchar(cb) {
   const db = await dbOk();
   const datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, clientes: [], productos: [], movimientos: [], conciliacion: null, conciliacionLeida: false, listo: { a: 0 } };
   const avisar = () => cb(datos);
-  const desde = hoyTxt(new Date(Date.now() - 30 * 864e5));
+  const desde = hoyTxt(new Date(Date.now() - 7 * 864e5));   // v0.14.1: 7 días (antes 30): lo pendiente llega por sus propias consultas; así lee mucho menos
   const juntar = clave => sn => {
     uso.lecturas += sn.docChanges().length || 1;
     sn.docChanges().forEach(c => {
@@ -1094,4 +1094,108 @@ export async function movimientosParaHoy() {
   uso.lecturas += Math.max(1, sn.size);
   const l = sn.docs.map(d => d.data());
   return { n: l.length, monto: l.reduce((s, m) => s + (Number(m.monto) || 0), 0), desde: l.map(m => m.fecha).sort()[0] || null };
+}
+
+// ═══════════════════════════════════════════════
+//  v0.14.1 · Análisis de B2B (resumen del período, caja real y productos)
+// ═══════════════════════════════════════════════
+const cacheRangos = new Map();   // las mismas fechas no se vuelven a leer en 5 minutos
+async function consultaCacheada(clave, fn) {
+  const c = cacheRangos.get(clave);
+  if (c && Date.now() - c.en < 5 * 60e3) return c.v;
+  const v = await fn(); cacheRangos.set(clave, { en: Date.now(), v }); return v;
+}
+export function olvidarAnalisisB2b() { cacheRangos.clear(); }
+const limpias = sn => sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(o => !o.quitadoEnPlanilla && o.estado !== 'anulada');
+// Órdenes vendidas entre dos fechas (por fecha de la orden)
+export async function ordenesEntre(desde, hasta) {
+  return consultaCacheada('v|' + desde + '|' + hasta, async () => {
+    const db = await dbOk();
+    const sn = await FB.getDocs(FB.query(FB.collection(db, 'ordenes'), FB.where('fecha', '>=', desde), FB.where('fecha', '<=', hasta)));
+    uso.lecturas += Math.max(1, sn.size);
+    return limpias(sn);
+  });
+}
+// Órdenes pagadas entre dos fechas (por fecha de pago)
+export async function pagadasEntre(desde, hasta) {
+  return consultaCacheada('p|' + desde + '|' + hasta, async () => {
+    const db = await dbOk();
+    const sn = await FB.getDocs(FB.query(FB.collection(db, 'ordenes'), FB.where('fechaPago', '>=', desde), FB.where('fechaPago', '<=', hasta + '')));
+    uso.lecturas += Math.max(1, sn.size);
+    return limpias(sn);
+  });
+}
+// Períodos: devuelve { desde, hasta, antes: { desde, hasta }, nombre }
+export function periodoAnalisis(tipo, desdeP, hastaP, hoy = hoyTxt()) {
+  const D = s => new Date(s + 'T12:00:00'), T = d => hoyTxt(d), mas = (s, n) => { const d = D(s); d.setDate(d.getDate() + n); return T(d); };
+  const lunes = s => { const d = D(s), w = d.getDay(); d.setDate(d.getDate() - (w === 0 ? 6 : w - 1)); return T(d); };
+  const ini = s => s.slice(0, 8) + '01', fin = s => { const d = D(ini(s)); d.setMonth(d.getMonth() + 1); d.setDate(0); return T(d); };
+  const mesAntes = s => { const d = D(ini(s)); d.setMonth(d.getMonth() - 1); return T(d); };
+  const dias = (a, b) => Math.round((D(b) - D(a)) / 864e5) + 1;
+  let desde, hasta, antes;
+  if (tipo === 'hoy') { desde = hasta = hoy; antes = { desde: mas(hoy, -1), hasta: mas(hoy, -1) }; }
+  else if (tipo === 'ayer') { desde = hasta = mas(hoy, -1); antes = { desde: mas(hoy, -2), hasta: mas(hoy, -2) }; }
+  else if (tipo === 'semana') { desde = lunes(hoy); hasta = hoy; antes = { desde: mas(desde, -7), hasta: mas(hasta, -7) }; }
+  else if (tipo === 'semanaAnterior') { desde = mas(lunes(hoy), -7); hasta = mas(desde, 6); antes = { desde: mas(desde, -7), hasta: mas(hasta, -7) }; }
+  else if (tipo === 'mes') { desde = ini(hoy); hasta = hoy; const a = mesAntes(hoy), n = Math.min(Number(hoy.slice(8)), Number(fin(a).slice(8))); antes = { desde: a, hasta: a.slice(0, 8) + String(n).padStart(2, '0') }; }
+  else if (tipo === 'mesAnterior') { desde = mesAntes(hoy); hasta = fin(desde); const a = mesAntes(desde); antes = { desde: a, hasta: fin(a) }; }
+  else { desde = desdeP || hoy; hasta = hastaP || hoy; if (hasta < desde) [desde, hasta] = [hasta, desde]; const n = dias(desde, hasta); antes = { desde: mas(desde, -n), hasta: mas(desde, -1) }; }
+  return { desde, hasta, antes, dias: dias(desde, hasta) };
+}
+const pct = (a, b) => (b > 0 ? (a - b) / b : null);
+const DIAS_SEM = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+// Lo que se compró: por producto (unidades y neto), por día de la semana y precio real
+function porProducto(ordenes) {
+  const P = {};
+  ordenes.forEach(o => (o.lineas || []).forEach(l => {
+    const k = String(l.producto || '').trim(); if (!k) return;
+    const p = P[k] || (P[k] = { producto: k, productoId: l.productoId || null, unidades: 0, neto: 0, dias: [0, 0, 0, 0, 0, 0, 0], clientes: new Set() });
+    const u = Number(l.cantidad) || 0, n = Number(l.neto) || Math.round(u * (Number(l.precio) || 0));
+    p.unidades += u; p.neto += n; if (!p.productoId && l.productoId) p.productoId = l.productoId;
+    const f = fechaDe(o.fecha); if (f) { const w = new Date(f + 'T12:00:00').getDay(); p.dias[w === 0 ? 6 : w - 1] += u; }
+    p.clientes.add(o.clienteId || o.cliente);
+  }));
+  return P;
+}
+// ordenes / ordenesAntes: del período y del anterior; pagadas: con fecha de pago en el período; abonos: todos
+export function analizarB2b(per, ordenes, ordenesAntes, pagadas, abonos, productos, clienteId, otras = []) {
+  const delCli = o => !clienteId || o.clienteId === clienteId;
+  const os = ordenes.filter(delCli), osA = ordenesAntes.filter(delCli);
+  const neto = l => l.reduce((s, o) => s + (Number(o.neto) || 0), 0), total = l => l.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const ec = estadoDeCuenta(os, abonos, '', '', 'orden');
+  const resumen = { n: os.length, neto: neto(os), iva: total(os) - neto(os), total: total(os), ticket: os.length ? Math.round(neto(os) / os.length) : 0,
+    facturado: total(os.filter(o => o.folio)), pendiente: ec.pendiente, cobrado: ec.pagado,
+    antes: { n: osA.length, neto: neto(osA), ticket: osA.length ? Math.round(neto(osA) / osA.length) : 0 },
+    var: { neto: pct(neto(os), neto(osA)), n: pct(os.length, osA.length) } };
+  // Caja real: lo que entró en el período. Un folio con abonos se cuenta por sus abonos (cada uno en su fecha); si no, por su fecha de pago.
+  const foliosConAbono = new Set(abonos.map(a => String(a.folio)));
+  const cliDeFolio = {}; otras.concat(ordenesAntes, ordenes, pagadas).forEach(o => { if (o.folio) cliDeFolio[String(o.folio)] = o.clienteId || o.cliente; });
+  const pag = pagadas.filter(o => delCli(o) && !(o.folio && foliosConAbono.has(String(o.folio))) && (fechaDe(o.fechaPago) || '') >= per.desde && (fechaDe(o.fechaPago) || '') <= per.hasta);
+  const delPeriodo = pag.filter(o => (o.fecha || '') >= per.desde), anteriores = pag.filter(o => (o.fecha || '') < per.desde);
+  const abs = abonos.filter(a => { const f = fechaDe(a.fecha) || ''; return f >= per.desde && f <= per.hasta && (!clienteId || cliDeFolio[String(a.folio)] === clienteId); });
+  const origen = {}; anteriores.forEach(o => { const m = String(o.fecha || '').slice(0, 7); (origen[m] = origen[m] || { mes: m, total: 0, n: 0 }); origen[m].total += Number(o.total) || 0; origen[m].n++; });
+  const caja = { delPeriodo: total(delPeriodo), anteriores: total(anteriores), abonos: abs.reduce((s, a) => s + (Number(a.monto) || 0), 0), detalleAbonos: abs.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha))),
+    origen: Object.values(origen).sort((a, b) => b.mes.localeCompare(a.mes)), nPagos: pag.length };
+  caja.total = caja.delPeriodo + caja.anteriores + caja.abonos;
+  // Productos
+  const P = porProducto(os), PA = porProducto(osA), netoT = Object.values(P).reduce((s, p) => s + p.neto, 0);
+  const nDia = [0, 0, 0, 0, 0, 0, 0]; for (let i = 0; i < per.dias; i++) { const d = new Date(per.desde + 'T12:00:00'); d.setDate(d.getDate() + i); const w = d.getDay(); nDia[w === 0 ? 6 : w - 1]++; }
+  const base = p => { const x = (productos || []).find(y => (p.productoId && y.id === p.productoId) || String(y.nombre).trim().toLowerCase() === p.producto.toLowerCase()); return x ? Number(x.precioBase) || 0 : 0; };
+  const ranking = Object.values(P).map(p => { const a = PA[p.producto], real = p.unidades ? Math.round(p.neto / p.unidades) : 0, b = base(p);
+    return { producto: p.producto, unidades: p.unidades, neto: p.neto, parte: netoT ? p.neto / netoT : 0, varNeto: a ? pct(p.neto, a.neto) : null, nuevo: !a, clientes: p.clientes.size,
+      porDia: p.dias.map((u, i) => (nDia[i] ? u / nDia[i] : null)), precioReal: real, precioBase: b, descuento: b && real ? 1 - real / b : null }; })
+    .sort((a, b) => b.neto - a.neto);
+  const dejados = clienteId ? Object.values(PA).filter(p => !P[p.producto]).map(p => ({ producto: p.producto, unidadesAntes: p.unidades, netoAntes: p.neto })).sort((a, b) => b.netoAntes - a.netoAntes) : [];
+  return { resumen, caja, ranking, dejados, diasSemana: DIAS_SEM, nDia };
+}
+// v0.14.1 · Planilla: hojas para Producción y filas repetidas (script de B2B v2.7.0)
+export const VERSION_PLANILLA = '2.7.0';
+export async function opPlanilla(op, extra) {
+  const url = (await Apps.leerConexiones()).b2b;
+  if (!url) throw new Error('Falta la dirección del script de B2B (Configuración → Conexiones).');
+  const v = await Apps.probar('b2b', url, VERSION_PLANILLA);
+  if (!v.ok) throw new Error(v.version ? `El script de B2B está en v${v.version}: necesita v${VERSION_PLANILLA} (ver README).` : v.texto);
+  const r = await llamarScript(url, { action: 'sistema_fen_b2b', accion: 'sistema_fen_b2b', op, ...(extra || {}), idToken: await authSF.currentUser.getIdToken() });
+  if (!r || !r.ok) throw new Error((r && (r.error || r.msg)) || 'El script no respondió bien.');
+  return r;
 }

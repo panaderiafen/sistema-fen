@@ -516,3 +516,23 @@ details.aviso > summary { cursor: pointer; }
   .mov > summary .acciones { flex-basis: 100%; justify-content: flex-start; }
   .mov-folio input { width: 110px; }
 }
+/* v0.14.1 · Análisis de B2B */
+.cifras-an { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 6px 0 12px; }
+.cifra-an { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--linea); border-radius: 12px; }
+.cifra-an .rotulo { font-size: 12px; color: var(--suave); font-weight: 600; }
+.cifra-an .valor { font-size: 22px; font-weight: 800; color: var(--texto); }
+.cifra-an .nota { font-size: 12px; color: var(--suave); }
+.filas-caja-an { display: flex; flex-direction: column; }
+.filas-caja-an > div, .detalle-an > div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--linea); font-size: 14px; }
+.filas-caja-an > div.total { border-bottom: 0; border-top: 2px solid var(--texto); font-size: 15px; }
+.detalle-an { margin-top: 10px; font-size: 13px; }
+.detalle-an > summary { cursor: pointer; font-weight: 600; color: var(--acento); padding: 4px 0; }
+.detalle-an > div { font-size: 13px; }
+.barra-an { display: inline-block; width: 60px; height: 6px; background: var(--menu); border-radius: 3px; vertical-align: middle; overflow: hidden; }
+.barra-an i { display: block; height: 100%; background: var(--acento); }
+.tabla-dias-an td, .tabla-dias-an th { text-align: center; }
+.tabla-dias-an td:first-child, .tabla-dias-an th:first-child { text-align: left; }
+.tabla-dias-an td.max-an { font-weight: 800; color: var(--acento); }
+@media (max-width: 900px) { .cifras-an { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* v0.14.1 · Ventas B2B tiene 9 pestañas: en pantalla grande pasan a una segunda línea en vez de esconderse */
+@media (min-width: 901px) { #v-b2b .pestanas { flex-wrap: wrap; overflow-x: visible; } }

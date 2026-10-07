@@ -1,9 +1,35 @@
-# Sistema Fën · v0.14.0
+# Sistema Fën · v0.14.1
 
-**App:** v0.14.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.4.0 · **Script de B2B:** v2.6.0 · 7 de octubre de 2026
+**App:** v0.14.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.4.0 · **Script de B2B:** v2.7.0 · 7 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.14.1: análisis de B2B
+Pestaña nueva **Análisis** en Ventas B2B:
+- **Período:** hoy, ayer, esta semana, semana pasada, este mes, mes pasado u otras fechas; todos los clientes o uno.
+- **Resumen:** ventas en neto, órdenes, ticket promedio y pendiente de cobro, cada uno comparado con el período anterior del mismo largo (este mes se compara con los mismos días del mes pasado). Abajo, total con IVA, facturado y sin factura.
+- **Caja real:** lo que efectivamente entró en el período, por fecha de pago (con la conciliación, la del banco): pagos de ventas del período, pagos de ventas anteriores (con de qué meses vienen) y abonos, cada uno en su fecha.
+- **Productos:** **Ranking** (unidades, neto, % del total y si subió o bajó), **Por día de la semana** (promedio de unidades de cada día; lo más alto marcado), **Precio real** (neto promedio por unidad frente al precio base) y, con un cliente elegido, **Qué dejó de pedir** frente al período anterior.
+
+También:
+- **Ventas B2B lee menos:** las órdenes "recientes" que se escuchan en vivo son las de 7 días (antes 30); lo pendiente llega igual por sus propias consultas. Importa cuando B2B crezca.
+- **Base nueva → Planilla** (necesita el script de B2B **v2.7.0**):
+  - **Hojas para Producción** (ventas por receta, total de ventas y cobros por mes): desde el cambio del 6 de octubre no se generaban (eran botones de la app antigua). Ahora el script las genera **solo cada noche** y aquí se pueden generar cuando quieras.
+  - **Filas repetidas en Detalle Ventas:** "Revisar" cuenta cuántas filas de órdenes ya archivadas siguen repetidas; "Sacar N filas" las saca, solo las idénticas al histórico, y antes guarda una copia completa de la hoja ("Detalle Ventas respaldo …"). Además, esas filas repetidas inflaban las ventas por receta que lee Producción: después de sacarlas, genera las hojas de nuevo.
+- En pantalla grande, las pestañas de Ventas B2B pasan a una segunda línea en vez de esconderse.
+
+Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos.
+
+### Instalación de la v0.14.1
+Si ya instalaste la v0.14.0: 1) script de B2B **v2.7.0** (su README; incluye ejecutar una vez `instalarTareaNocturna`), 2) GitHub, sube todos los archivos; abajo debe decir **v0.14.1**. Las reglas no cambian.
+
+Si todavía no instalabas la v0.14.0, sigue sus pasos (más abajo) usando el script **v2.7.0** en vez del v2.6.0.
+
+### Lista de verificación
+- [ ] Análisis → Este mes: las ventas cuadran con lo que esperas; Caja real muestra lo que entró.
+- [ ] Base nueva → Planilla → Generar ahora: "Generadas recién · se generan solas cada noche".
+- [ ] Revisar filas repetidas → Sacar → en la planilla aparece la hoja "Detalle Ventas respaldo …" y Detalle Ventas queda más corta. Luego Generar ahora.
 
 ## Novedades de la v0.14.0: conciliación bancaria con la cartola
 Ventas B2B tiene una pestaña nueva, **Conciliación** (con el número de abonos por revisar):
