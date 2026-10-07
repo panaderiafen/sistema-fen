@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.12.0';
-import * as FB from './firebase-b2b.js?v=0.12.0';
-import * as Apps from './apps.js?v=0.12.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.12.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.12.1';
+import * as FB from './firebase-b2b.js?v=0.12.1';
+import * as Apps from './apps.js?v=0.12.1';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.12.1';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.4.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.2.0)
@@ -494,4 +494,21 @@ export async function nuevoCliente(c) {
       facturacion: c.facturacion || 'Diaria', frecuenciaPago: c.frecuenciaPago || 'Diaria', precios: [], estado: 'activo', extra: {}, origen: { app: 'sistema-fen' }, quitadoEnPlanilla: false, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
     return id;
   });
+}
+
+// Para el PDF de una orden: el cliente y el historial de ediciones
+export async function datosPdf(o) {
+  const db = await dbOk();
+  let cliente = { nombre: o.cliente };
+  if (o.clienteId) { const c = await FB.getDoc(FB.doc(db, 'clientes', o.clienteId)); uso.lecturas++; if (c.exists()) cliente = c.data(); }
+  let ediciones = [];
+  if (o.editada || o.revisar) {
+    const sn = await FB.getDocs(FB.query(FB.collection(db, 'ediciones'), FB.where('n', '==', Number(o.n))));
+    uso.lecturas += Math.max(1, sn.size);
+    ediciones = sn.docs.map(d => d.data()).filter(e => !e.quitadoEnPlanilla).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+  }
+  let originales = {};
+  const e0 = ediciones.find(e => e.cambios && /"antes"/.test(e.cambios));
+  if (e0) { try { (JSON.parse(e0.cambios).antes || []).forEach(l => { originales[l.producto] = (originales[l.producto] || 0) + l.cantidad; }); } catch (x) {} }
+  return { cliente, ediciones, originales };
 }

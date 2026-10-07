@@ -5,7 +5,7 @@
 //  reglas de Firestore y la cuenta de administración.
 // ═══════════════════════════════════════════════
 window.FEN_SIS = {
-  VERSION: '0.12.0',
+  VERSION: '0.12.1',
   firebase: {
     apiKey: 'AIzaSyDrG2mij1h5wZ2lIyAYMTfgG9avaVnjcaU',
     authDomain: 'fen-ventas.firebaseapp.com',
@@ -48,5 +48,7 @@ window.FEN_SIS = {
   DIAS_HISTORIAL: 60,
   // Base nueva de Ventas B2B (proyecto Firebase fen-b2b). Se pega en Sistema Fën → Ventas B2B y queda
   // guardada en Firestore (config/sistemaFen). Si se pone aquí, se usa cuando no hay una guardada.
-  firebaseB2B: null
+  firebaseB2B: null,
+  // Datos que salen en el PDF de la orden de venta B2B
+  DATOS_EMPRESA: { direccion: 'Ainavillo 764, Concepción', telefono: '+56 9 4147 3683', correo: 'panaderiafen@gmail.com', web: 'WWW.PANADERIAFEN.CL · @PANADERIAFEN' }
 };

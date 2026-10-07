@@ -9,17 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.12.0';
-import * as Caja from './caja.js?v=0.12.0';
-import * as Stock from './stock.js?v=0.12.0';
-import * as Ajustes from './ajustes.js?v=0.12.0';
-import * as Apps from './apps.js?v=0.12.0';
-import * as Agenda from './agenda.js?v=0.12.0';
-import * as Gastos from './gastos.js?v=0.12.0';
-import * as Sii from './sii.js?v=0.12.0';
-import * as Previred from './previred.js?v=0.12.0';
-import * as B2b from './b2b.js?v=0.12.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.12.0';
+} from './firebase.js?v=0.12.1';
+import * as Caja from './caja.js?v=0.12.1';
+import * as Stock from './stock.js?v=0.12.1';
+import * as Ajustes from './ajustes.js?v=0.12.1';
+import * as Apps from './apps.js?v=0.12.1';
+import * as Agenda from './agenda.js?v=0.12.1';
+import * as Gastos from './gastos.js?v=0.12.1';
+import * as Sii from './sii.js?v=0.12.1';
+import * as Previred from './previred.js?v=0.12.1';
+import * as B2b from './b2b.js?v=0.12.1';
+import * as PdfOrden from './pdf-orden.js?v=0.12.1';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.12.1';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -311,7 +312,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.12.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.12.1" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2138,7 +2139,8 @@ function filaOrdenB2b(o) {
       <div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Producto</th><th scope="col">Cantidad</th><th scope="col">Precio neto</th><th scope="col">Total</th></tr></thead><tbody>
       ${(o.lineas || []).map(l => `<tr><td>${esc(l.producto)}</td><td>${esc(l.cantidad)}</td><td>${pesos(l.precio)}</td><td>${pesos(l.total)}</td></tr>`).join('') || '<tr><td colspan="4">Sin líneas</td></tr>'}
       </tbody></table></div>
-      <p class="ayuda" style="margin-top:6px">Neto ${pesos(o.neto)} · IVA ${pesos(o.iva)} · Total ${pesos(o.total)}${o.fechaPago ? ' · pagada ' + esc(o.fechaPago) : ''}${o.obs ? ' · ' + esc(o.obs) : ''} · de ${esc((o.origen || {}).hoja || '')}, fila ${esc((o.origen || {}).fila || '')}</p>
+      <p class="ayuda" style="margin-top:6px">Neto ${pesos(o.neto)} · IVA ${pesos(o.iva)} · Total ${pesos(o.total)}${o.fechaPago ? ' · pagada ' + esc(o.fechaPago) : ''}${o.obs ? ' · ' + esc(o.obs) : ''} · ${(o.origen || {}).hoja ? `de ${esc(o.origen.hoja)}, fila ${esc(o.origen.fila)}` : (o.creada && o.creada.por ? 'creada en la app de logística por ' + esc(o.creada.por) : 'creada en la app de logística')}${o.estado === 'anulada' && o.anulada ? ` · anulada: ${esc(o.anulada.motivo)}` : ''}</p>
+      <div class="botones" style="justify-content:flex-start;margin-top:8px"><button type="button" class="btn-sec btn-chico" data-ver-pdf="${o.n}">Ver PDF</button></div>
     </div></details>`;
 }
 async function pintarB2bOrdenes(el, sub) {
@@ -2151,6 +2153,7 @@ async function pintarB2bOrdenes(el, sub) {
     const cont = $('b2b-ord-lista'); $('b2b-ord-err').textContent = ''; cont.innerHTML = '<div class="vacio">Buscando…</div>';
     try {
       const l = await fn();
+      l.forEach(o => b2bVistas.set(String(o.n), o));
       cont.innerHTML = l.length ? `<p class="ayuda">${l.length} ${l.length === 1 ? 'orden' : 'órdenes'}${l.length ? ' · ' + pesos(l.filter(o => !o.quitadoEnPlanilla).reduce((s, o) => s + (o.total || 0), 0)) : ''}</p>` + l.map(filaOrdenB2b).join('') : '<div class="vacio">No hay órdenes con eso.</div>';
     } catch (e) { cont.innerHTML = ''; $('b2b-ord-err').textContent = errorB2b(e); }
   };
@@ -2160,6 +2163,17 @@ async function pintarB2bOrdenes(el, sub) {
 }
 
 // ── v0.12 · Ventas B2B: administración sobre la base nueva ──
+const b2bVistas = new Map();   // órdenes mostradas en Buscar (para el PDF)
+document.addEventListener('click', async ev => {
+  const b = ev.target.closest('[data-ver-pdf]'); if (!b) return;
+  ev.preventDefault();
+  const n = b.dataset.verPdf, o = (b2b.datos && b2b.datos.ordenes.get(n)) || b2bVistas.get(n);
+  if (!o) return;
+  b.disabled = true; b.textContent = 'Generando…';
+  try { const d = await B2b.datosPdf(o); await PdfOrden.descargar(o, d.cliente, d.originales, d.ediciones, true); }
+  catch (e) { alert('No se pudo hacer el PDF: ' + (e.message || e)); }
+  b.disabled = false; b.textContent = 'Ver PDF';
+});
 function b2bEscuchar(sub) {
   if (b2b.vivo) return;
   b2b.datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null };
@@ -2196,7 +2210,8 @@ const b2bOrdenes = () => [...((b2b.datos && b2b.datos.ordenes) || new Map()).val
 function lineasHtml(o) {
   return `<div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Producto</th><th scope="col">Cant.</th><th scope="col">Precio neto</th><th scope="col">Total</th></tr></thead><tbody>
     ${(o.lineas || []).map(l => `<tr><td>${esc(l.producto)}</td><td>${esc(l.cantidad)}</td><td>${pesos(l.precio)}</td><td>${pesos(l.total)}</td></tr>`).join('')}</tbody></table></div>
-    <p class="ayuda" style="margin-top:6px">Neto ${pesos(o.neto)} · IVA ${pesos(o.iva)} · Total ${pesos(o.total)}${o.obs ? ' · ' + esc(o.obs) : ''}${o.creada && o.creada.por ? ' · creada por ' + esc(o.creada.por) : ''}${o.editada ? ` · editada ${o.editada.veces} ${o.editada.veces === 1 ? 'vez' : 'veces'}` : ''}</p>`;
+    <p class="ayuda" style="margin-top:6px">Neto ${pesos(o.neto)} · IVA ${pesos(o.iva)} · Total ${pesos(o.total)}${o.obs ? ' · ' + esc(o.obs) : ''}${o.creada && o.creada.por ? ' · creada por ' + esc(o.creada.por) : ''}${o.editada ? ` · editada ${o.editada.veces} ${o.editada.veces === 1 ? 'vez' : 'veces'}` : ''}</p>
+    <div class="botones" style="justify-content:flex-start;margin:8px 0 12px"><button type="button" class="btn-sec btn-chico" data-ver-pdf="${o.n}">Ver PDF</button></div>`;
 }
 function pintarB2bAdmin(el, sub) {
   const d = b2b.datos, cfg = d && d.config;

@@ -1,9 +1,15 @@
-# Sistema Fën · v0.12.0
+# Sistema Fën · v0.12.1
 
-**App:** v0.12.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.1.0 · 6 de octubre de 2026
+**App:** v0.12.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.1.0 · 6 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.12.1
+- **Ver PDF** en cada orden (Órdenes y Buscar): se abre en otra pestaña, igual al que baja logística, con el historial de ediciones.
+- En Buscar, las órdenes hechas en la app de logística dicen quién las creó (antes decía "de , fila").
+
+Archivos: **nuevos** `pdf-orden.js` y `logo-orden.png`; cambian `app.js`, `b2b.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos.
 
 ## Novedades de la v0.12.0: Ventas B2B con la base nueva
 **Ventas B2B** ahora tiene cuatro pestañas:
