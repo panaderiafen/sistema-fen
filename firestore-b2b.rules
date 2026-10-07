@@ -1,8 +1,10 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.1.0 (2026-10-06)
+//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.2.0 (2026-10-06)
 //
+//  v1.2.0: logística también puede solicitar la anulación de una orden (la anula administración)
+//          y marca "Entendido" en la respuesta a sus solicitudes.
 //  v1.1.0: la app de logística (fen-logistica) crea y edita órdenes y manda
 //          solicitudes; el N° de orden sale de un contador que solo sube de a 1.
 //  v1.0.0: base nueva; solo administración escribe.
@@ -130,8 +132,11 @@ service cloud.firestore {
     match /solicitudes/{id} {
       allow read: if esAdmin() || (esLogistica() && resource.data.por == miCorreo());
       allow create: if esAdmin() || (esLogistica() && nuevo().por == miCorreo() && nuevo().estado == 'pendiente'
-                                     && nuevo().tipo in ['precio', 'producto']);
-      allow update: if esAdmin();
+                                     && (nuevo().tipo in ['precio', 'producto']
+                                         || (nuevo().tipo == 'anulacion' && nuevo().n is int)));
+      // logística solo marca "Entendido" en la respuesta a una solicitud suya
+      allow update: if esAdmin()
+                    || (esLogistica() && antes().por == miCorreo() && cambian().hasOnly(['vista', 'vistaEn']) && nuevo().vista == true);
       allow delete: if false;
     }
 

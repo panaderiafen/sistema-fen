@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — PDF de la orden de venta (el mismo de la app de logística)  v0.12.1
+//  Sistema Fën — PDF de la orden de venta (el mismo de la app de logística)  v0.12.2
 //  El mismo formato de la app B2B. Las librerías (html2canvas y jsPDF) se cargan
 //  desde cdnjs solo la primera vez que se pide un PDF.
 // ═══════════════════════════════════════════════
@@ -39,13 +39,15 @@ export function html(orden, cliente, originales = {}, ediciones = []) {
     return `<tr><td>${esc(l.producto)}${m ? m.nota : ''}</td><td style="text-align:center">${cant}</td><td style="text-align:right">${clp(l.precio)}</td><td style="text-align:right">${clp(l.neto)}</td></tr>`;
   }).join('') + Object.keys(originales).filter(p => !(p in ahora) && originales[p] > 0).map(p =>
     `<tr><td style="color:#999">${esc(p)}<div style="font-size:9px;color:#c0392b;margin-top:2px">&#8618; Devuelto: ${originales[p]} unid.</div></td><td style="text-align:center"><span style="text-decoration:line-through;color:#999">${originales[p]}</span> &rarr; <strong>0</strong></td><td></td><td style="text-align:right">$0</td></tr>`).join('');
-  return `<div class="od">
+  const anulada = orden.estado === 'anulada', an = orden.anulada || {};
+  return `<div class="od${anulada ? ' od-anulada' : ''}">
+  ${anulada ? `<div class="od-sello" aria-hidden="true">ANULADA</div><div class="od-franja">ORDEN ANULADA${an.en ? ' el ' + esc(an.en) : ''}${an.motivo ? ' · ' + esc(an.motivo) : ''} — no vale como pedido</div>` : ''}
   <div class="od-cab"><img class="od-logo" src="logo-orden.png" alt="Fën">
     <div class="od-tit"><div class="od-t1">Orden de Venta</div><div class="od-t2">N° ${num}</div><div class="od-info">${esc(E.direccion)}<br>${esc(E.telefono)}<br>${esc(E.correo)}</div></div></div>
   <hr class="od-hr">
   <div class="od-dos">
     <div class="od-caja"><div class="od-et">Cliente</div><div class="od-val"><strong>${esc(cliente.nombre || orden.cliente || '—')}</strong><br>${esc(cliente.razonSocial || '')}<br>RUT: ${esc(cliente.rut || '—')}<br>${esc(cliente.direccion || '')}</div></div>
-    <div class="od-caja"><div class="od-et">Detalle</div><div class="od-val"><strong>Fecha:</strong> ${esc(fechaES(orden.fecha))}<br><strong>Estado:</strong> ${esc(orden.estadoPago || 'PENDIENTE')}<br><strong>Folio SII:</strong> ${esc(orden.folio || 'Pendiente')}</div></div>
+    <div class="od-caja"><div class="od-et">Detalle</div><div class="od-val"><strong>Fecha:</strong> ${esc(fechaES(orden.fecha))}<br><strong>Estado:</strong> ${anulada ? '<span style="color:#c0392b;font-weight:800">ANULADA</span>' : esc(orden.estadoPago || 'PENDIENTE')}<br><strong>Folio SII:</strong> ${esc(orden.folio || 'Pendiente')}</div></div>
   </div>
   ${orden.obs ? `<div class="od-notas"><strong>Notas:</strong> ${esc(orden.obs)}</div>` : ''}
   <table class="od-tabla"><thead><tr><th>Producto</th><th style="text-align:center">Cant.</th><th style="text-align:right">Neto Unit.</th><th style="text-align:right">Neto Total</th></tr></thead><tbody>${filas}</tbody></table>
@@ -69,7 +71,9 @@ const CSS = `.od{width:720px;padding:40px 48px;background:#fff;color:#1a1a2e;fon
 .od-notas{background:#f5f7ff;border-left:3px solid #003a79;padding:10px 14px;margin-bottom:16px;font-size:12px;font-family:Arial,sans-serif;color:#444}
 .od-hist{margin-top:22px}.od-ed{background:#f7f9fc;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:11px;font-family:Arial,sans-serif;color:#444}
 .od-pie{display:flex;justify-content:space-between;font-size:10px;color:#777;margin-top:32px;border-top:1px solid #e0e0e0;padding-top:14px;font-family:Arial,sans-serif;letter-spacing:.5px}
-.od-pie strong{color:#003a79}.od-nota{font-size:10px;color:#999;margin-top:18px;text-align:center;font-family:Arial,sans-serif}`;
+.od-pie strong{color:#003a79}
+.od-anulada{position:relative;overflow:hidden}.od-sello{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%) rotate(-30deg);font-size:150px;font-weight:900;letter-spacing:12px;color:rgba(192,57,43,.22);border:12px solid rgba(192,57,43,.22);padding:0 30px;border-radius:24px;white-space:nowrap;pointer-events:none;z-index:2;font-family:Arial,sans-serif}
+.od-franja{background:#c0392b;color:#fff;font-family:Arial,sans-serif;font-size:13px;font-weight:800;letter-spacing:1px;text-align:center;padding:9px 12px;border-radius:6px;margin-bottom:18px}.od-nota{font-size:10px;color:#999;margin-top:18px;text-align:center;font-family:Arial,sans-serif}`;
 
 // Arma el PDF (tamaño carta) y lo descarga. Si el contenido es más alto que una hoja, sigue en la siguiente.
 // abrir: true → se muestra en otra pestaña (para revisar) en vez de descargarse
@@ -99,7 +103,7 @@ export async function descargar(orden, cliente, originales, ediciones, abrir) {
       if (pag) pdf.addPage();
       pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', margen + (anchoUtil - canvas.width * escala) / 2, margen, canvas.width * escala, alto * escala);
     }
-    const nombre = 'Orden_' + String(orden.n).padStart(4, '0') + '_' + String(cliente.nombre || orden.cliente || 'cliente').replace(/[^a-zA-Z0-9]+/g, '_') + '.pdf';
+    const nombre = (orden.estado === 'anulada' ? 'ANULADA_' : '') + 'Orden_' + String(orden.n).padStart(4, '0') + '_' + String(cliente.nombre || orden.cliente || 'cliente').replace(/[^a-zA-Z0-9]+/g, '_') + '.pdf';
     if (ventana) { ventana.location.href = pdf.output('bloburl'); return nombre; }
     pdf.save(nombre);
     return nombre;

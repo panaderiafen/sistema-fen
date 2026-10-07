@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.12.1';
-import * as Caja from './caja.js?v=0.12.1';
-import * as Stock from './stock.js?v=0.12.1';
-import * as Ajustes from './ajustes.js?v=0.12.1';
-import * as Apps from './apps.js?v=0.12.1';
-import * as Agenda from './agenda.js?v=0.12.1';
-import * as Gastos from './gastos.js?v=0.12.1';
-import * as Sii from './sii.js?v=0.12.1';
-import * as Previred from './previred.js?v=0.12.1';
-import * as B2b from './b2b.js?v=0.12.1';
-import * as PdfOrden from './pdf-orden.js?v=0.12.1';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.12.1';
+} from './firebase.js?v=0.12.2';
+import * as Caja from './caja.js?v=0.12.2';
+import * as Stock from './stock.js?v=0.12.2';
+import * as Ajustes from './ajustes.js?v=0.12.2';
+import * as Apps from './apps.js?v=0.12.2';
+import * as Agenda from './agenda.js?v=0.12.2';
+import * as Gastos from './gastos.js?v=0.12.2';
+import * as Sii from './sii.js?v=0.12.2';
+import * as Previred from './previred.js?v=0.12.2';
+import * as B2b from './b2b.js?v=0.12.2';
+import * as PdfOrden from './pdf-orden.js?v=0.12.2';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.12.2';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -312,7 +312,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.12.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.12.2" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2167,8 +2167,10 @@ const b2bVistas = new Map();   // órdenes mostradas en Buscar (para el PDF)
 document.addEventListener('click', async ev => {
   const b = ev.target.closest('[data-ver-pdf]'); if (!b) return;
   ev.preventDefault();
-  const n = b.dataset.verPdf, o = (b2b.datos && b2b.datos.ordenes.get(n)) || b2bVistas.get(n);
-  if (!o) return;
+  const n = b.dataset.verPdf;
+  let o = (b2b.datos && b2b.datos.ordenes.get(n)) || b2bVistas.get(n);
+  if (!o) { try { o = (await B2b.buscarOrdenes(n)).find(x => String(x.n) === String(n)); } catch (e) {} }
+  if (!o) { alert('No se encontró la orden.'); return; }
   b.disabled = true; b.textContent = 'Generando…';
   try { const d = await B2b.datosPdf(o); await PdfOrden.descargar(o, d.cliente, d.originales, d.ediciones, true); }
   catch (e) { alert('No se pudo hacer el PDF: ' + (e.message || e)); }
@@ -2311,7 +2313,9 @@ function pintarB2bSolicitudes(el, sub) {
   el.innerHTML = cabB2b(sub) + `<section class="tarjeta" aria-labelledby="t-b2b-cli"><div class="titulo-fila"><h2 id="t-b2b-cli">Clientes</h2><button type="button" class="btn-sec btn-chico" id="b2b-nuevo-cli">+ Nuevo cliente</button></div>
       <p class="ayuda">Un cliente nuevo aparece al tiro en la app de logística. Sus precios especiales se agregan con una solicitud (o se aprueban aquí).</p></section>
     <section class="tarjeta" aria-labelledby="t-b2b-sol"><h2 id="t-b2b-sol">Solicitudes de logística ${info('Solicitudes', 'La persona de logística pide un precio especial para un cliente, o agregar a B2B un producto que ya existe en Producción.\nAl aprobar, el precio o el producto aparecen al tiro en su app. Puedes cambiar el precio antes de aprobar.')}</h2>
-    ${!d ? '<div class="vacio" style="border:0">Cargando…</div>' : l.map(s => `<div class="fila-caja"><div class="txt"><b>${s.tipo === 'precio' ? 'Precio especial' : 'Producto nuevo'}: ${esc(s.producto)}${s.cliente ? ' · ' + esc(s.cliente) : ''}</b>
+    ${!d ? '<div class="vacio" style="border:0">Cargando…</div>' : l.map(s => s.tipo === 'anulacion' ? `<div class="fila-caja"><div class="txt"><b>Anular orden N° ${esc(s.n)}${s.cliente ? ' · ' + esc(s.cliente) : ''}</b>
+      <span>${pesos(s.precio)} · ${esc(s.por || '')} · "${esc(s.nota || '')}"</span></div>
+      <div class="acciones"><button type="button" class="btn-sec btn-chico" data-ver-pdf="${esc(s.n)}">Ver PDF</button><button type="button" class="btn-sec btn-chico" data-rechazar="${esc(s.id)}">Rechazar</button><button type="button" class="btn-sec btn-chico btn-peligro" data-aprobar="${esc(s.id)}">Anular</button></div></div>` : `<div class="fila-caja"><div class="txt"><b>${s.tipo === 'precio' ? 'Precio especial' : 'Producto nuevo'}: ${esc(s.producto)}${s.cliente ? ' · ' + esc(s.cliente) : ''}</b>
       <span>Propone ${pesos(s.precio)} neto${s.area ? ' · ' + esc(s.area) : ''} · ${esc(s.por || '')}${s.nota ? ' · "' + esc(s.nota) + '"' : ''}</span></div>
       <div class="acciones"><button type="button" class="btn-sec btn-chico btn-peligro" data-rechazar="${esc(s.id)}">Rechazar</button><button type="button" class="btn-sec btn-chico" data-aprobar="${esc(s.id)}">Aprobar</button></div></div>`).join('') || '<div class="vacio" style="border:0">No hay solicitudes pendientes.</div>'}</section>`;
   $('b2b-nuevo-cli').addEventListener('click', async () => {
@@ -2331,6 +2335,12 @@ function pintarB2bSolicitudes(el, sub) {
   });
   el.querySelectorAll('[data-aprobar]').forEach(b => b.addEventListener('click', async () => {
     const s = l.find(x => x.id === b.dataset.aprobar);
+    if (s.tipo === 'anulacion') {
+      if (!confirm(`¿Anular la orden N° ${s.n} (${s.cliente || ''})?\n\nMotivo de logística: ${s.nota || '—'}\n\nNo se borra: queda anulada y en la planilla pasa a "Ordenes anuladas".`)) return;
+      try { await B2b.aprobarSolicitud(s, 0, 'Anulada'); registrar('Anuló una orden B2B (pedido de logística)', `N° ${s.n} · ${s.nota || ''}`); B2b.pasarAPlanilla().catch(() => {}); }
+      catch (e) { alert(errorB2b(e)); }
+      return;
+    }
     const r = await pedirDatos(s.tipo === 'precio' ? `Precio especial para ${s.cliente}` : `Agregar ${s.producto} a B2B`,
       `<p class="ayuda">${s.tipo === 'precio' ? `<b>${esc(s.producto)}</b> para <b>${esc(s.cliente)}</b>.` : `Queda como producto de B2B con este <b>precio base</b> (para todos los clientes)${s.idReceta ? `, vinculado a la receta ${esc(s.idReceta)}` : ''}.`}</p>
       <div class="campo"><label for="pd-precio">Precio neto</label><input id="pd-precio" inputmode="numeric" value="${esc(s.precio)}"></div>

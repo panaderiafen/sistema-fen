@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.12.1';
-import * as FB from './firebase-b2b.js?v=0.12.1';
-import * as Apps from './apps.js?v=0.12.1';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.12.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.12.2';
+import * as FB from './firebase-b2b.js?v=0.12.2';
+import * as Apps from './apps.js?v=0.12.2';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.12.2';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.4.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.2.0)
@@ -448,11 +448,15 @@ export async function anularOrden(n, motivo) {
 export async function aprobarSolicitud(s, precio, respuesta) {
   const db = await dbOk();
   const p = Math.round(Number(precio) || 0);
-  if (!(p > 0)) throw new Error('Escribe el precio.');
+  if (!(p > 0) && s.tipo !== 'anulacion') throw new Error('Escribe el precio.');
   await FB.runTransaction(db, async tx => {
     const sref = FB.doc(db, 'solicitudes', s.id), ss = await tx.get(sref);
     if (!ss.exists() || ss.data().estado !== 'pendiente') throw new Error('Esa solicitud ya se resolvió.');
-    if (s.tipo === 'precio') {
+    if (s.tipo === 'anulacion') {
+      const oref = FB.doc(db, 'ordenes', String(s.n)), os = await tx.get(oref);
+      if (!os.exists()) throw new Error('La orden ya no existe.');
+      if (os.data().estado !== 'anulada') tx.update(oref, marcaCambio({ estado: 'anulada', anulada: { por: authSF.currentUser.email, en: ahoraTxt(), motivo: `${s.nota || 'Sin motivo'} (pedido por ${s.por})`, solicitud: s.id } }));
+    } else if (s.tipo === 'precio') {
       const cref = FB.doc(db, 'clientes', s.clienteId), cs = await tx.get(cref);
       if (!cs.exists()) throw new Error('El cliente ya no existe.');
       const lista = (cs.data().precios || []).filter(x => !((x.productoId && x.productoId === s.productoId) || String(x.producto).toLowerCase() === String(s.producto).toLowerCase()));
@@ -464,7 +468,7 @@ export async function aprobarSolicitud(s, precio, respuesta) {
       while ((await tx.get(FB.doc(db, 'productos', id))).exists()) id = slugB2B(s.producto) + '-' + i++;
       tx.set(FB.doc(db, 'productos', id), { nombre: s.producto, precioBase: p, categoria: '', idReceta: s.idReceta || '', area: s.area || '', estado: 'activo', extra: {}, origen: { app: 'solicitud', solicitud: s.id }, quitadoEnPlanilla: false, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
     }
-    tx.update(sref, { estado: 'aprobada', precioAprobado: p, respuesta: String(respuesta || '').trim() || null, resuelta: { por: authSF.currentUser.email, en: FB.serverTimestamp() } });
+    tx.update(sref, { estado: 'aprobada', precioAprobado: s.tipo === 'anulacion' ? null : p, respuesta: String(respuesta || '').trim() || null, resuelta: { por: authSF.currentUser.email, en: FB.serverTimestamp() } });
   });
   uso.escrituras += 2;
 }
