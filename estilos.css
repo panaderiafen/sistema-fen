@@ -543,3 +543,12 @@ details.aviso > summary { cursor: pointer; }
 .opciones-pdf input { margin-top: 3px; }
 .opciones-pdf span { display: flex; flex-direction: column; gap: 2px; }
 .opciones-pdf small { color: var(--suave); font-size: 12px; }
+/* v0.14.3 · Resumen para facturar (órdenes marcadas) */
+.resumen-factura { margin: 4px 0 12px; padding: 12px 14px; border: 1px solid var(--acento); border-radius: 12px; background: var(--acento-suave); }
+.resumen-factura .titulo-fila { align-items: center; flex-wrap: wrap; }
+.resumen-factura .titulo-fila b { font-size: 14px; }
+.resumen-factura table { background: var(--tarjeta); border-radius: 8px; }
+.resumen-factura td:nth-child(n+2), .resumen-factura th:nth-child(n+2) { text-align: right; }
+.resumen-factura tfoot td { font-weight: 600; text-align: right; }
+.resumen-factura tfoot td:first-child { text-align: right; color: var(--suave); }
+.resumen-factura tfoot tr.total td { font-weight: 800; color: var(--texto); border-top: 2px solid var(--texto); }

@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.14.2';
-import * as Caja from './caja.js?v=0.14.2';
-import * as Stock from './stock.js?v=0.14.2';
-import * as Ajustes from './ajustes.js?v=0.14.2';
-import * as Apps from './apps.js?v=0.14.2';
-import * as Agenda from './agenda.js?v=0.14.2';
-import * as Gastos from './gastos.js?v=0.14.2';
-import * as Sii from './sii.js?v=0.14.2';
-import * as Previred from './previred.js?v=0.14.2';
-import * as B2b from './b2b.js?v=0.14.2';
-import * as PdfOrden from './pdf-orden.js?v=0.14.2';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.14.2';
+} from './firebase.js?v=0.14.3';
+import * as Caja from './caja.js?v=0.14.3';
+import * as Stock from './stock.js?v=0.14.3';
+import * as Ajustes from './ajustes.js?v=0.14.3';
+import * as Apps from './apps.js?v=0.14.3';
+import * as Agenda from './agenda.js?v=0.14.3';
+import * as Gastos from './gastos.js?v=0.14.3';
+import * as Sii from './sii.js?v=0.14.3';
+import * as Previred from './previred.js?v=0.14.3';
+import * as B2b from './b2b.js?v=0.14.3';
+import * as PdfOrden from './pdf-orden.js?v=0.14.3';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.14.3';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -312,7 +312,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.14.2" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.14.3" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2281,6 +2281,46 @@ let plegadasMem = null;
 function plegadas() { if (!plegadasMem) { try { plegadasMem = JSON.parse(localStorage.getItem(K_PLEG) || '{}') || {}; } catch (e) { plegadasMem = {}; } } return plegadasMem; }
 const plegada = k => plegadas()[k] !== false;   // cerradas hasta que se abran: así se ve de qué está hecha la sección
 function plegar(k, si) { plegadas()[k] = si; try { localStorage.setItem(K_PLEG, JSON.stringify(plegadasMem)); } catch (e) {} }
+// v0.14.3 · Resumen para hacer la factura en el SII con las órdenes marcadas de un cliente
+const fechaLarga = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); return m ? `${Number(m[3])} de ${MESES_LARGOS[Number(m[2]) - 1]} de ${m[1]}` : String(f || ''); };
+function rangoLargo(a, b) {
+  if (a === b) return 'del ' + fechaLarga(a);
+  const [ya, ma] = a.split('-'), [yb, mb] = b.split('-');
+  const da = Number(a.slice(8)), db = Number(b.slice(8));
+  if (ya === yb && ma === mb) return `del ${da} al ${db} de ${MESES_LARGOS[Number(mb) - 1]} de ${yb}`;
+  if (ya === yb) return `del ${da} de ${MESES_LARGOS[Number(ma) - 1]} al ${db} de ${MESES_LARGOS[Number(mb) - 1]} de ${yb}`;
+  return `del ${fechaLarga(a)} al ${fechaLarga(b)}`;
+}
+function datosFactura(ordenes) {
+  const os = ordenes.slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || a.n - b.n);
+  // Una fila por producto y precio (si un producto tuvo dos precios, salen dos filas: así calza con la factura)
+  const F = {};
+  os.forEach(o => (o.lineas || []).forEach(l => {
+    const precio = Math.round(Number(l.precio) || 0), k = String(l.producto).trim() + '|' + precio;
+    const f = F[k] || (F[k] = { producto: String(l.producto).trim(), precio, cantidad: 0, neto: 0 });
+    f.cantidad += Number(l.cantidad) || 0; f.neto += Number(l.neto) || Math.round((Number(l.cantidad) || 0) * precio);
+  }));
+  const filas = Object.values(F).sort((a, b) => a.producto.localeCompare(b.producto, 'es') || a.precio - b.precio);
+  const neto = filas.reduce((s, f) => s + f.neto, 0), iva = Math.round(neto * 0.19), sumaOrdenes = os.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const msj = os.length === 1
+    ? `Hola, envío factura de la orden de venta N° ${os[0].n}, pedido ${'del ' + fechaLarga(os[0].fecha)}.`
+    : `Hola, envío factura del período de pedidos ${rangoLargo(os[0].fecha, os[os.length - 1].fecha)}. Las órdenes incluidas son:\n` + os.map(o => `Orden N° ${o.n}, pedido del ${fechaLarga(o.fecha)}.`).join('\n');
+  return { os, filas, neto, iva, total: neto + iva, sumaOrdenes, msj };
+}
+function resumenFactura(cliente, ordenes) {
+  const f = datosFactura(ordenes);
+  return `<div class="resumen-factura" aria-label="Resumen para facturar a ${esc(cliente)}">
+    <div class="titulo-fila"><b>Para facturar · ${f.os.length} ${f.os.length === 1 ? 'orden' : 'órdenes'} (N° ${f.os.map(o => o.n).join(', ')})</b><button type="button" class="btn-sec btn-chico" data-copiar-msj="${esc(cliente)}">Copiar mensaje</button></div>
+    <div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Producto</th><th scope="col">Cantidad</th><th scope="col">Precio neto</th><th scope="col">Total neto</th></tr></thead><tbody>
+      ${f.filas.map(x => `<tr><td>${esc(x.producto)}</td><td>${x.cantidad.toLocaleString('es-CL')}</td><td>${pesos(x.precio)}</td><td>${pesos(x.neto)}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td colspan="3">Neto</td><td>${pesos(f.neto)}</td></tr><tr><td colspan="3">IVA (19%)</td><td>${pesos(f.iva)}</td></tr><tr class="total"><td colspan="3">Total</td><td>${pesos(f.total)}</td></tr></tfoot></table></div>
+    ${f.total !== f.sumaOrdenes ? `<p class="ayuda">Las órdenes suman ${pesos(f.sumaOrdenes)}: la diferencia de ${pesos(Math.abs(f.total - f.sumaOrdenes))} es por redondeo del IVA (la factura lo calcula sobre el neto total).</p>` : ''}
+  </div>`;
+}
+async function copiarTexto(t) {
+  try { await navigator.clipboard.writeText(t); return true; }
+  catch (e) { const ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;top:0;left:-9999px'; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (x) {} ta.remove(); return ok; }
+}
 function pintarB2bAdmin(el, sub) {
   const d = b2b.datos, cfg = d && d.config;
   if (!d || !cfg) { el.innerHTML = cabB2b(sub) + `<section class="tarjeta"><div class="vacio" style="border:0">${b2b.errVivo ? esc(b2b.errVivo) : 'Cargando órdenes…'}</div></section>`; return; }
@@ -2318,6 +2358,7 @@ function pintarB2bAdmin(el, sub) {
     <details class="tarjeta plegable" data-plegar="fact" ${plegada('fact') ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-fact">Por facturar</h2><span>${Object.keys(porCliente).length} ${Object.keys(porCliente).length === 1 ? 'cliente' : 'clientes'} · ${sinFolio.length} ${sinFolio.length === 1 ? 'orden' : 'órdenes'} · ${pesos(sinFolio.reduce((s, o) => s + o.total, 0))}</span></summary>
       ${Object.keys(porCliente).sort((a, b) => a.localeCompare(b, 'es')).map(c => { const mc = porCliente[c].filter(o => b2b.sel.has(String(o.n))), todas = mc.length === porCliente[c].length; return `<div class="grupo-b2b"><div class="cab-cliente-b2b"><div><b>${esc(c)}</b><span>${porCliente[c].length} · ${pesos(porCliente[c].reduce((s, o) => s + o.total, 0))} · ${esc(modalidad(c).toLowerCase())}</span></div>
         <div class="acciones">${tocan(c).length && tocan(c).length < porCliente[c].length ? `<button type="button" class="btn-sec btn-chico" data-tocan-cli="${esc(c)}" >Marcar las que tocan (${tocan(c).length})</button>` : ''}<button type="button" class="btn-sec btn-chico" data-marcar-cli="${esc(c)}">${todas ? 'Desmarcar' : 'Marcar todas'}</button>${mc.length ? `<button type="button" class="btn-sec btn-chico" data-pdf-cli="${esc(c)}">PDF de ${mc.length}</button><button type="button" class="btn btn-chico" data-folio-cli="${esc(c)}">Asignar folio a ${mc.length} · ${pesos(mc.reduce((s, o) => s + o.total, 0))}</button>` : ''}</div></div>
+        ${mc.length ? resumenFactura(c, mc) : ''}
         ${porCliente[c].map(o => `<details class="fila-orden-b2b"><summary class="fila-caja"><label class="check-b2b" onclick="event.stopPropagation()"><input type="checkbox" data-sel="${o.n}" ${b2b.sel.has(String(o.n)) ? 'checked' : ''} aria-label="Marcar orden ${o.n}"></label><div class="txt"><b>N° ${o.n}</b><span>${esc(diaTexto(o.fecha))} · ${pesos(o.total)}${o.planillaPendiente ? ' · por pasar a la planilla' : ''}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-o="${o.n}">Anular</button></div></summary>${lineasHtml(o)}</details>`).join('')}</div>`; }).join('') || '<div class="vacio" style="border:0">No hay órdenes sin folio.</div>'}
       ${sinFolio.length ? `<p class="ayuda" style="margin-top:10px">Marca las órdenes que van en la misma factura: el botón "Asignar folio" aparece junto al nombre del cliente. Un folio es de un solo cliente. ${info('Marcar las que tocan', 'Marca solo las órdenes que ya corresponde facturar según cómo factura el cliente (se cambia en Clientes):\nDiaria: las de días anteriores a hoy.\nSemanal: las de semanas anteriores (lunes a domingo).\nMensual: las de meses anteriores.\nSi el cliente no tiene modalidad, se toma como diaria. El botón aparece solo cuando hay órdenes que todavía no tocan.')}</p>` : ''}</details>
     <details class="tarjeta plegable" data-plegar="cob" ${plegada('cob') ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-cob">Por cobrar</h2><span>${folios.length} ${folios.length === 1 ? 'folio' : 'folios'} · saldo ${pesos(folios.reduce((s, f) => s + Math.max(0, porFolio[f].reduce((x, o) => x + o.total, 0) - (abonadoFolio[f] || 0)), 0))}</span></summary>
@@ -2340,6 +2381,11 @@ function pintarB2bAdmin(el, sub) {
     const l = porCliente[b.dataset.marcarCli] || [], todas = l.every(o => b2b.sel.has(String(o.n)));
     l.forEach(o => todas ? b2b.sel.delete(String(o.n)) : b2b.sel.add(String(o.n)));
     pintarB2bAdmin(el, sub);
+  }));
+  el.querySelectorAll('[data-copiar-msj]').forEach(bm => bm.addEventListener('click', async () => {
+    const lista = (porCliente[bm.dataset.copiarMsj] || []).filter(o => b2b.sel.has(String(o.n)));
+    const ok = await copiarTexto(datosFactura(lista).msj);
+    bm.textContent = ok ? 'Copiado' : 'No se pudo copiar'; setTimeout(() => { bm.textContent = 'Copiar mensaje'; }, 2000);
   }));
   // v0.14.2: PDF de las órdenes marcadas (una hoja por orden, o un resumen)
   el.querySelectorAll('[data-pdf-cli]').forEach(bp => bp.addEventListener('click', async () => {

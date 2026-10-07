@@ -6,7 +6,7 @@
 //  Lo que se guarda pasa por el Apps Script de Gastos (SistemaFen.gs v1.2.0),
 //  que vuelve a revisar todo antes de escribir.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.14.2';
+import * as Gastos from './gastos.js?v=0.14.3';
 
 export const VERSION_MINIMA = '2.4.0';
 // v0.10.0: un documento se reconoce por RUT, folio y si es nota de crédito (tipo 61):
