@@ -1,9 +1,16 @@
-# Sistema Fën · v0.14.1
+# Sistema Fën · v0.14.2
 
-**App:** v0.14.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.4.0 · **Script de B2B:** v2.7.0 · 7 de octubre de 2026
+**App:** v0.14.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.4.0 · **Script de B2B:** v2.7.0 · 7 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.14.2: PDF de varias órdenes
+En **Por facturar**, al marcar órdenes de un cliente aparece **PDF de N** junto a "Asignar folio". Eliges:
+- **Una hoja por orden:** cada orden igual a su PDF de siempre (con su historial de cambios si lo tiene), todas en un solo archivo. Se llama "Ordenes_<primera>-<última>_<cliente>.pdf".
+- **Resumen:** el detalle de cada orden una tras otra (fecha, productos, cantidades, precios), el **total por producto** y el **total a facturar** (neto, IVA y total). Se llama "Resumen_ordenes_<primera>-<última>_<cliente>.pdf".
+
+Archivos: cambian `app.js`, `pdf-orden.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos. Incluye todo lo de la v0.14.1 y v0.14.0: si no las habías instalado, sigue sus pasos (más abajo) y sube esta en vez de esas; abajo a la izquierda debe decir **v0.14.2**.
 
 ## Novedades de la v0.14.1: análisis de B2B
 Pestaña nueva **Análisis** en Ventas B2B:
@@ -22,7 +29,7 @@ También:
 Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos.
 
 ### Instalación de la v0.14.1
-Si ya instalaste la v0.14.0: 1) script de B2B **v2.7.0** (su README; incluye ejecutar una vez `instalarTareaNocturna`), 2) GitHub, sube todos los archivos; abajo debe decir **v0.14.1**. Las reglas no cambian.
+Si ya instalaste la v0.14.0: 1) script de B2B **v2.7.0** (su README; incluye ejecutar una vez `instalarTareaNocturna`), 2) GitHub, sube todos los archivos; abajo debe decir **v0.14.2**. Las reglas no cambian.
 
 Si todavía no instalabas la v0.14.0, sigue sus pasos (más abajo) usando el script **v2.7.0** en vez del v2.6.0.
 
@@ -55,7 +62,7 @@ Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `config.js`, `firestore-b2b
 ### Instalación de la v0.14.0 (en este orden, unos 10 minutos)
 1. **Script de B2B v2.6.0** (zip `b2b-script-v2.6.0`): sigue su README. El ping debe decir **2.6.0**.
 2. **Reglas de fen-b2b v1.4.0**: consola de Firebase → proyecto **fen-b2b** → Firestore Database → **Reglas** → borra todo, pega el contenido de `firestore-b2b.rules` → **Publicar**.
-3. **GitHub, repo `sistema-fen`**: sube todos los archivos del zip (reemplazando). Recarga con Ctrl + Shift + R; abajo a la izquierda debe decir **v0.14.0**.
+3. **GitHub, repo `sistema-fen`**: sube todos los archivos del zip (reemplazando). Recarga con Ctrl + Shift + R; abajo a la izquierda debe decir **v0.14.2**.
 4. En **Ventas B2B → Conciliación** presiona **Traer lo de la app antigua** (una vez).
 
 ### Lista de verificación
@@ -113,7 +120,7 @@ Archivos: cambian `app.js`, `b2b.js`, `b2b-modelo.js`, `pdf-orden.js`, `estilos.
 ### Instalación de la v0.13.0 (en este orden, unos 10 minutos)
 1. **Script de B2B v2.5.1** (zip `b2b-script-v2.5.1`): sigue su README. El ping debe decir **2.5.1**.
 2. **Reglas de fen-b2b v1.3.0**: consola de Firebase → proyecto **fen-b2b** → Firestore Database → **Reglas** → borra todo, pega el contenido de `firestore-b2b.rules` → **Publicar**. (Permiten que la app de logística, al pasar cambios a la planilla, marque también los del catálogo.)
-3. **GitHub, repo `sistema-fen`**: Add file → Upload files → sube todos los archivos del zip (sin la carpeta) → Commit. En 1 o 2 minutos, recarga con Ctrl + Shift + R; abajo a la izquierda debe decir **v0.14.0**.
+3. **GitHub, repo `sistema-fen`**: Add file → Upload files → sube todos los archivos del zip (sin la carpeta) → Commit. En 1 o 2 minutos, recarga con Ctrl + Shift + R; abajo a la izquierda debe decir **v0.14.2**.
 4. **App de logística v1.1.1** (zip `fen-logistica-v1.1.1`): GitHub, repo `fen-logistica` → sube todos los archivos. Solo cambia el orden de la lista de órdenes.
 
 ### Lista de verificación

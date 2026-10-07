@@ -77,41 +77,47 @@ const CSS = `.od{width:720px;padding:40px 48px;background:#fff;color:#1a1a2e;fon
 
 // Arma el PDF (tamaño carta) y lo descarga. Si el contenido es más alto que una hoja, sigue en la siguiente.
 // abrir: true → se muestra en otra pestaña (para revisar) en vez de descargarse
-// Pasa un bloque HTML (.od) a PDF tamaño carta. Si no cabe en una hoja, corta entre filas de tabla.
-async function aPdf(htmlInterno, nombre, ventana, css = CSS) {
+// Pasa uno o varios bloques HTML (.od) a un PDF tamaño carta. Cada bloque empieza en una hoja nueva;
+// si un bloque no cabe en una hoja, se corta entre filas de tabla.
+async function aPdf(bloques, nombre, ventana, css = CSS) {
   await Promise.all([script(CDN.h2c), script(CDN.jspdf)]);
-  const caja = document.createElement('div');
-  caja.style.cssText = 'position:absolute;top:0;left:-99999px;width:720px;z-index:-1';
-  caja.innerHTML = `<style>${css}</style>` + htmlInterno;
-  document.body.appendChild(caja);
+  const lista = Array.isArray(bloques) ? bloques : [bloques];
+  const pdf = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter', orientation: 'portrait' });
+  const margen = 36, anchoUtil = 612 - margen * 2, altoUtil = 792 - margen * 2;
+  let hojas = 0;
   try {
-    const img = caja.querySelector('.od-logo');
-    if (img && !img.complete) await new Promise(r => { img.onload = img.onerror = r; setTimeout(r, 4000); });
-    const raiz = caja.querySelector('.od'), base = raiz.getBoundingClientRect().top;
-    const cortes = [...raiz.querySelectorAll('tr, h3, .od-bloque')].map(e => Math.round((e.getBoundingClientRect().bottom - base) * 2)).sort((a, b) => a - b);
-    const canvas = await window.html2canvas(raiz, { scale: 2, backgroundColor: '#ffffff', width: 720, windowWidth: 720 });
-    const pdf = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter', orientation: 'portrait' });
-    const margen = 36, anchoUtil = 612 - margen * 2, altoUtil = 792 - margen * 2;
-    let escala = anchoUtil / canvas.width;
-    // Si se pasa por poco de una hoja, se achica un poco para que quepa en una (sin hoja en blanco)
-    if (canvas.height * escala > altoUtil && canvas.height * escala <= altoUtil * 1.3) escala = altoUtil / canvas.height;
-    const altoFranja = Math.max(50, Math.floor(altoUtil / escala));
-    for (let y = 0, pag = 0; y < canvas.height; pag++) {
-      let fin = Math.min(y + altoFranja, canvas.height);
-      if (fin < canvas.height) { const c = cortes.filter(x => x > y + 100 && x <= fin).pop(); if (c) fin = c; }
-      const alto = fin - y;
-      if (pag && alto < 40) break;   // un resto mínimo (solo margen) no hace otra hoja
-      const c = document.createElement('canvas'); c.width = canvas.width; c.height = alto;
-      c.getContext('2d').drawImage(canvas, 0, y, canvas.width, alto, 0, 0, canvas.width, alto);
-      if (pag) pdf.addPage();
-      pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', margen + (anchoUtil - canvas.width * escala) / 2, margen, canvas.width * escala, alto * escala);
-      y = fin;
+    for (const htmlInterno of lista) {
+      const caja = document.createElement('div');
+      caja.style.cssText = 'position:absolute;top:0;left:-99999px;width:720px;z-index:-1';
+      caja.innerHTML = `<style>${css}</style>` + htmlInterno;
+      document.body.appendChild(caja);
+      try {
+        const img = caja.querySelector('.od-logo');
+        if (img && !img.complete) await new Promise(r => { img.onload = img.onerror = r; setTimeout(r, 4000); });
+        const raiz = caja.querySelector('.od'), base = raiz.getBoundingClientRect().top;
+        const cortes = [...raiz.querySelectorAll('tr, h3, .od-bloque')].map(e => Math.round((e.getBoundingClientRect().bottom - base) * 2)).sort((a, b) => a - b);
+        const canvas = await window.html2canvas(raiz, { scale: 2, backgroundColor: '#ffffff', width: 720, windowWidth: 720 });
+        let escala = anchoUtil / canvas.width;
+        // Si se pasa por poco de una hoja, se achica un poco para que quepa en una (sin hoja en blanco)
+        if (canvas.height * escala > altoUtil && canvas.height * escala <= altoUtil * 1.3) escala = altoUtil / canvas.height;
+        const altoFranja = Math.max(50, Math.floor(altoUtil / escala));
+        for (let y = 0, pag = 0; y < canvas.height; pag++) {
+          let fin = Math.min(y + altoFranja, canvas.height);
+          if (fin < canvas.height) { const c = cortes.filter(x => x > y + 100 && x <= fin).pop(); if (c) fin = c; }
+          const alto = fin - y;
+          if (pag && alto < 40) break;   // un resto mínimo (solo margen) no hace otra hoja
+          const c = document.createElement('canvas'); c.width = canvas.width; c.height = alto;
+          c.getContext('2d').drawImage(canvas, 0, y, canvas.width, alto, 0, 0, canvas.width, alto);
+          if (hojas) pdf.addPage();
+          pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', margen + (anchoUtil - canvas.width * escala) / 2, margen, canvas.width * escala, alto * escala);
+          hojas++; y = fin;
+        }
+      } finally { caja.remove(); }
     }
     if (ventana) { ventana.location.href = pdf.output('bloburl'); return nombre; }
     pdf.save(nombre);
     return nombre;
   } catch (e) { if (ventana) ventana.close(); throw e; }
-  finally { caja.remove(); }
 }
 export async function descargar(orden, cliente, originales, ediciones, abrir) {
   const ventana = abrir ? window.open('', '_blank') : null;
@@ -153,4 +159,55 @@ export async function estadoCuenta(cliente, r, desde, hasta, modo) {
   if (r.filas.length > 400) throw new Error(`Son ${r.filas.length} filas: acota las fechas para que el PDF no quede tan largo.`);
   const hoy = new Date(), f = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
   return aPdf(htmlEstadoCuenta(cliente, r, desde, hasta, modo), `EstadoCuenta_${String(cliente.nombre).replace(/[^a-zA-Z0-9]+/g, '_')}_${f}.pdf`, null);
+}
+
+// ── v0.14.2 · Varias órdenes en un PDF ──
+const archivo = t => String(t || 'cliente').replace(/[^a-zA-Z0-9]+/g, '_');
+const hoyArchivo = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+// Una hoja (o más) por orden, igual a la de cada orden. lista: [{ orden, cliente, originales, ediciones }]
+export async function variasOrdenes(lista, abrir) {
+  if (!lista.length) throw new Error('Marca al menos una orden.');
+  const ventana = abrir ? window.open('', '_blank') : null;
+  if (ventana) ventana.document.write('<p style="font-family:sans-serif;padding:24px">Generando el PDF…</p>');
+  const ns = lista.map(x => x.orden.n).sort((a, b) => a - b);
+  return aPdf(lista.map(x => html(x.orden, x.cliente, x.originales || {}, x.ediciones || [])), `Ordenes_${ns[0]}-${ns[ns.length - 1]}_${archivo(lista[0].cliente.nombre || lista[0].orden.cliente)}.pdf`, ventana);
+}
+const fechaDMY = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); return m ? `${m[3]}-${m[2]}-${m[1]}` : esc(f || '—'); };
+export function htmlResumenOrdenes(ordenes, cliente) {
+  const E = (window.FEN_LOG || window.FEN_SIS).DATOS_EMPRESA;
+  const os = ordenes.slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || a.n - b.n);
+  const fs = os.map(o => o.fecha).filter(Boolean).sort(), periodo = fs.length ? (fs[0] === fs[fs.length - 1] ? fechaDMY(fs[0]) : `${fechaDMY(fs[0])} al ${fechaDMY(fs[fs.length - 1])}`) : '—';
+  const P = {};
+  os.forEach(o => (o.lineas || []).forEach(l => { const k = l.producto; const p = P[k] || (P[k] = { producto: k, cantidad: 0, neto: 0 }); p.cantidad += Number(l.cantidad) || 0; p.neto += Number(l.neto) || Math.round((Number(l.cantidad) || 0) * (Number(l.precio) || 0)); }));
+  const neto = os.reduce((s, o) => s + (Number(o.neto) || 0), 0), total = os.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const hoy = fechaDMY(hoyArchivo());
+  return `<div class="od">
+  <div class="od-cab"><img class="od-logo" src="logo-orden.png" alt="Fën"><div class="od-tit"><div class="od-t1">Resumen de Órdenes</div><div class="od-info">${os.length} ${os.length === 1 ? 'orden' : 'órdenes'} · ${esc(periodo)}<br>${esc(E.direccion)} · ${esc(E.correo)}</div></div></div>
+  <hr class="od-hr">
+  <div class="od-dos">
+    <div class="od-caja"><div class="od-et">Cliente</div><div class="od-val"><strong>${esc(cliente.nombre)}</strong><br>${esc(cliente.razonSocial || '')}<br>RUT: ${esc(cliente.rut || '—')}<br>${esc(cliente.direccion || '')}</div></div>
+    <div class="od-caja"><div class="od-et">Resumen</div><div class="od-val"><strong>Órdenes:</strong> N° ${os.map(o => o.n).join(', ')}<br><strong>Período:</strong> ${esc(periodo)}<br><strong>Generado:</strong> ${hoy}</div></div>
+  </div>
+  <h3 style="font-size:13px;font-weight:800;color:#003a79;margin:6px 0 8px;text-transform:uppercase;letter-spacing:1px">Detalle por orden</h3>
+  <table class="od-tabla"><thead><tr><th>Orden</th><th>Producto</th><th style="text-align:right">Cant.</th><th style="text-align:right">Precio neto</th><th style="text-align:right">Neto</th></tr></thead><tbody>
+  ${os.map(o => (o.lineas || []).map((l, i) => `<tr${i === 0 ? ' style="border-top:2px solid #dde4ef"' : ''}><td>${i === 0 ? `<strong>N° ${o.n}</strong><br><span style="font-size:10px;color:#888">${fechaDMY(o.fecha)}</span>` : ''}</td><td>${esc(l.producto)}</td><td style="text-align:right">${esc(l.cantidad)}</td><td style="text-align:right">${clp(l.precio)}</td><td style="text-align:right">${clp(Number(l.neto) || (Number(l.cantidad) || 0) * (Number(l.precio) || 0))}</td></tr>`).join('')
+    + `<tr><td></td><td colspan="3" style="text-align:right;font-size:11px;color:#666">Total orden N° ${o.n} (neto ${clp(o.neto)} + IVA ${clp(o.iva != null ? o.iva : (o.total - o.neto))})</td><td style="text-align:right;font-weight:700">${clp(o.total)}</td></tr>`).join('')}
+  </tbody></table>
+  <h3 style="font-size:13px;font-weight:800;color:#003a79;margin:18px 0 8px;text-transform:uppercase;letter-spacing:1px">Total por producto</h3>
+  <table class="od-tabla"><thead><tr><th>Producto</th><th style="text-align:right">Unidades</th><th style="text-align:right">Neto</th></tr></thead><tbody>
+  ${Object.values(P).sort((a, b) => a.producto.localeCompare(b.producto, 'es')).map(p => `<tr><td>${esc(p.producto)}</td><td style="text-align:right">${p.cantidad.toLocaleString('es-CL')}</td><td style="text-align:right">${clp(p.neto)}</td></tr>`).join('')}
+  </tbody></table>
+  <div class="od-bloque" style="display:flex;justify-content:flex-end;margin-top:14px"><table style="font-size:13px;border-collapse:collapse;min-width:260px">
+    <tr><td style="padding:4px 12px">Neto</td><td style="padding:4px 0;text-align:right">${clp(neto)}</td></tr>
+    <tr><td style="padding:4px 12px">IVA (19%)</td><td style="padding:4px 0;text-align:right">${clp(total - neto)}</td></tr>
+    <tr><td style="padding:6px 12px;font-weight:800;border-top:2px solid #003a79">Total a facturar</td><td style="padding:6px 0;text-align:right;font-weight:800;border-top:2px solid #003a79">${clp(total)}</td></tr></table></div>
+  <div class="od-pie"><span><strong>FËN</strong> · PANADERÍA MASA MADRE · CAFETERÍA</span><span>${esc(E.web)}</span></div>
+</div>`;
+}
+export async function resumenOrdenes(ordenes, cliente, abrir) {
+  if (!ordenes.length) throw new Error('Marca al menos una orden.');
+  const ventana = abrir ? window.open('', '_blank') : null;
+  if (ventana) ventana.document.write('<p style="font-family:sans-serif;padding:24px">Generando el PDF…</p>');
+  const ns = ordenes.map(o => o.n).sort((a, b) => a - b);
+  return aPdf(htmlResumenOrdenes(ordenes, cliente), `Resumen_ordenes_${ns[0]}-${ns[ns.length - 1]}_${archivo(cliente.nombre)}.pdf`, ventana);
 }

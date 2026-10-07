@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.14.1';
-import * as Caja from './caja.js?v=0.14.1';
-import * as Stock from './stock.js?v=0.14.1';
-import * as Ajustes from './ajustes.js?v=0.14.1';
-import * as Apps from './apps.js?v=0.14.1';
-import * as Agenda from './agenda.js?v=0.14.1';
-import * as Gastos from './gastos.js?v=0.14.1';
-import * as Sii from './sii.js?v=0.14.1';
-import * as Previred from './previred.js?v=0.14.1';
-import * as B2b from './b2b.js?v=0.14.1';
-import * as PdfOrden from './pdf-orden.js?v=0.14.1';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.14.1';
+} from './firebase.js?v=0.14.2';
+import * as Caja from './caja.js?v=0.14.2';
+import * as Stock from './stock.js?v=0.14.2';
+import * as Ajustes from './ajustes.js?v=0.14.2';
+import * as Apps from './apps.js?v=0.14.2';
+import * as Agenda from './agenda.js?v=0.14.2';
+import * as Gastos from './gastos.js?v=0.14.2';
+import * as Sii from './sii.js?v=0.14.2';
+import * as Previred from './previred.js?v=0.14.2';
+import * as B2b from './b2b.js?v=0.14.2';
+import * as PdfOrden from './pdf-orden.js?v=0.14.2';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.14.2';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -312,7 +312,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.14.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.14.2" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2317,7 +2317,7 @@ function pintarB2bAdmin(el, sub) {
       ${b2b.planilla ? `<p class="ayuda" role="status">${esc(b2b.planilla)}</p>` : ''}${b2b.errVivo ? `<p class="error">${esc(b2b.errVivo)}</p>` : ''}</details>
     <details class="tarjeta plegable" data-plegar="fact" ${plegada('fact') ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-fact">Por facturar</h2><span>${Object.keys(porCliente).length} ${Object.keys(porCliente).length === 1 ? 'cliente' : 'clientes'} · ${sinFolio.length} ${sinFolio.length === 1 ? 'orden' : 'órdenes'} · ${pesos(sinFolio.reduce((s, o) => s + o.total, 0))}</span></summary>
       ${Object.keys(porCliente).sort((a, b) => a.localeCompare(b, 'es')).map(c => { const mc = porCliente[c].filter(o => b2b.sel.has(String(o.n))), todas = mc.length === porCliente[c].length; return `<div class="grupo-b2b"><div class="cab-cliente-b2b"><div><b>${esc(c)}</b><span>${porCliente[c].length} · ${pesos(porCliente[c].reduce((s, o) => s + o.total, 0))} · ${esc(modalidad(c).toLowerCase())}</span></div>
-        <div class="acciones">${tocan(c).length && tocan(c).length < porCliente[c].length ? `<button type="button" class="btn-sec btn-chico" data-tocan-cli="${esc(c)}" >Marcar las que tocan (${tocan(c).length})</button>` : ''}<button type="button" class="btn-sec btn-chico" data-marcar-cli="${esc(c)}">${todas ? 'Desmarcar' : 'Marcar todas'}</button>${mc.length ? `<button type="button" class="btn btn-chico" data-folio-cli="${esc(c)}">Asignar folio a ${mc.length} · ${pesos(mc.reduce((s, o) => s + o.total, 0))}</button>` : ''}</div></div>
+        <div class="acciones">${tocan(c).length && tocan(c).length < porCliente[c].length ? `<button type="button" class="btn-sec btn-chico" data-tocan-cli="${esc(c)}" >Marcar las que tocan (${tocan(c).length})</button>` : ''}<button type="button" class="btn-sec btn-chico" data-marcar-cli="${esc(c)}">${todas ? 'Desmarcar' : 'Marcar todas'}</button>${mc.length ? `<button type="button" class="btn-sec btn-chico" data-pdf-cli="${esc(c)}">PDF de ${mc.length}</button><button type="button" class="btn btn-chico" data-folio-cli="${esc(c)}">Asignar folio a ${mc.length} · ${pesos(mc.reduce((s, o) => s + o.total, 0))}</button>` : ''}</div></div>
         ${porCliente[c].map(o => `<details class="fila-orden-b2b"><summary class="fila-caja"><label class="check-b2b" onclick="event.stopPropagation()"><input type="checkbox" data-sel="${o.n}" ${b2b.sel.has(String(o.n)) ? 'checked' : ''} aria-label="Marcar orden ${o.n}"></label><div class="txt"><b>N° ${o.n}</b><span>${esc(diaTexto(o.fecha))} · ${pesos(o.total)}${o.planillaPendiente ? ' · por pasar a la planilla' : ''}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-o="${o.n}">Anular</button></div></summary>${lineasHtml(o)}</details>`).join('')}</div>`; }).join('') || '<div class="vacio" style="border:0">No hay órdenes sin folio.</div>'}
       ${sinFolio.length ? `<p class="ayuda" style="margin-top:10px">Marca las órdenes que van en la misma factura: el botón "Asignar folio" aparece junto al nombre del cliente. Un folio es de un solo cliente. ${info('Marcar las que tocan', 'Marca solo las órdenes que ya corresponde facturar según cómo factura el cliente (se cambia en Clientes):\nDiaria: las de días anteriores a hoy.\nSemanal: las de semanas anteriores (lunes a domingo).\nMensual: las de meses anteriores.\nSi el cliente no tiene modalidad, se toma como diaria. El botón aparece solo cuando hay órdenes que todavía no tocan.')}</p>` : ''}</details>
     <details class="tarjeta plegable" data-plegar="cob" ${plegada('cob') ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-cob">Por cobrar</h2><span>${folios.length} ${folios.length === 1 ? 'folio' : 'folios'} · saldo ${pesos(folios.reduce((s, f) => s + Math.max(0, porFolio[f].reduce((x, o) => x + o.total, 0) - (abonadoFolio[f] || 0)), 0))}</span></summary>
@@ -2340,6 +2340,31 @@ function pintarB2bAdmin(el, sub) {
     const l = porCliente[b.dataset.marcarCli] || [], todas = l.every(o => b2b.sel.has(String(o.n)));
     l.forEach(o => todas ? b2b.sel.delete(String(o.n)) : b2b.sel.add(String(o.n)));
     pintarB2bAdmin(el, sub);
+  }));
+  // v0.14.2: PDF de las órdenes marcadas (una hoja por orden, o un resumen)
+  el.querySelectorAll('[data-pdf-cli]').forEach(bp => bp.addEventListener('click', async () => {
+    const lista = (porCliente[bp.dataset.pdfCli] || []).filter(o => b2b.sel.has(String(o.n)));
+    if (!lista.length) return;
+    const r = await pedirDatos('PDF de las órdenes marcadas', `<p class="ayuda">${lista.length} ${lista.length === 1 ? 'orden' : 'órdenes'} (N° ${lista.map(o => o.n).join(', ')}) · ${esc(bp.dataset.pdfCli)} · <b>${pesos(lista.reduce((s, o) => s + o.total, 0))}</b></p>
+      <fieldset class="opciones-pdf"><legend class="sr">Tipo de PDF</legend>
+        <label><input type="radio" name="pd-tipo" value="hojas" checked> <span><b>Una hoja por orden</b><small>Cada orden igual a su PDF de siempre, todas en un solo archivo.</small></span></label>
+        <label><input type="radio" name="pd-tipo" value="resumen"> <span><b>Resumen</b><small>El detalle de cada orden una tras otra, el total por producto y el total a facturar.</small></span></label></fieldset>`, 'Descargar PDF',
+      dd => ({ tipo: dd.querySelector('input[name="pd-tipo"]:checked').value }));
+    if (!r) return;
+    const txt = bp.textContent; bp.disabled = true; bp.textContent = 'Generando…';
+    try {
+      const ordenes = lista.slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || a.n - b.n);
+      if (r.tipo === 'resumen') {
+        const cli = d.clientes.find(x => x.id === ordenes[0].clienteId) || cliDe(bp.dataset.pdfCli) || { nombre: bp.dataset.pdfCli };
+        await PdfOrden.resumenOrdenes(ordenes, cli, false);
+      } else {
+        const datos = [];
+        for (const o of ordenes) { const x = await B2b.datosPdf(o); datos.push({ orden: o, ...x }); }
+        await PdfOrden.variasOrdenes(datos, false);
+      }
+      registrar('Descargó PDF de órdenes', `${r.tipo === 'resumen' ? 'Resumen' : 'Una hoja por orden'} · N° ${lista.map(o => o.n).join(', ')}`);
+    } catch (e) { alert('No se pudo hacer el PDF: ' + (e.message || e)); }
+    bp.disabled = false; bp.textContent = txt;
   }));
   el.querySelectorAll('[data-folio-cli]').forEach(bf => bf.addEventListener('click', async () => {
     const lista = (porCliente[bf.dataset.folioCli] || []).filter(o => b2b.sel.has(String(o.n)));

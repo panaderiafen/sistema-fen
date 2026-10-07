@@ -536,3 +536,10 @@ details.aviso > summary { cursor: pointer; }
 @media (max-width: 900px) { .cifras-an { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* v0.14.1 · Ventas B2B tiene 9 pestañas: en pantalla grande pasan a una segunda línea en vez de esconderse */
 @media (min-width: 901px) { #v-b2b .pestanas { flex-wrap: wrap; overflow-x: visible; } }
+/* v0.14.2 · PDF de varias órdenes */
+.opciones-pdf { border: 0; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.opciones-pdf label { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--linea); border-radius: 10px; cursor: pointer; }
+.opciones-pdf label:has(input:checked) { border-color: var(--acento); background: var(--acento-suave); }
+.opciones-pdf input { margin-top: 3px; }
+.opciones-pdf span { display: flex; flex-direction: column; gap: 2px; }
+.opciones-pdf small { color: var(--suave); font-size: 12px; }
