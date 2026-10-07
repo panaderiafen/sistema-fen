@@ -1,8 +1,10 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.2.0 (2026-10-06)
+//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.3.0 (2026-10-06)
 //
+//  v1.3.0: catálogo editable en Sistema Fën; quien pasa a la planilla (también
+//          logística) puede marcar como pasados clientes y productos.
 //  v1.2.0: logística también puede solicitar la anulación de una orden (la anula administración)
 //          y marca "Entendido" en la respuesta a sus solicitudes.
 //  v1.1.0: la app de logística (fen-logistica) crea y edita órdenes y manda
@@ -83,11 +85,13 @@ service cloud.firestore {
     match /clientes/{id} {
       allow read: if esAdmin() || esLogistica();
       allow create, update: if esAdmin() && nuevo().nombre is string && nuevo().nombre.size() > 0;
+      allow update: if esLogistica() && cambian().hasOnly(['planillaPendiente', 'planillaEn']) && nuevo().planillaPendiente == false;
       allow delete: if false;
     }
     match /productos/{id} {
       allow read: if esAdmin() || esLogistica();
       allow create, update: if esAdmin() && nuevo().nombre is string && nuevo().nombre.size() > 0;
+      allow update: if esLogistica() && cambian().hasOnly(['planillaPendiente', 'planillaEn']) && nuevo().planillaPendiente == false;
       allow delete: if false;
     }
 

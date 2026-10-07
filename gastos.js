@@ -6,8 +6,8 @@
 //  hubiera hecho allá (mismas hojas, misma carpeta de Drive).
 //  Cada envío lleva una clave única (idem): si se repite, no se guarda dos veces.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.12.3';
-import * as Apps from './apps.js?v=0.12.3';
+import { auth } from './firebase.js?v=0.13.0';
+import * as Apps from './apps.js?v=0.13.0';
 
 export const VERSION_MINIMA = '2.2.0';
 let urlOk = null, versionOk = '', cacheDatos = null;

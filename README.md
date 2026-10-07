@@ -1,9 +1,48 @@
-# Sistema Fën · v0.12.3
+# Sistema Fën · v0.13.0
 
-**App:** v0.12.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.2.0 · 6 de octubre de 2026
+**App:** v0.13.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.3.0 · **Script de B2B:** v2.5.0 · 6 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.13.0: catálogo y estado de cuenta en Sistema Fën
+Ventas B2B tiene tres pestañas nuevas:
+
+| Pestaña | Qué hace |
+| --- | --- |
+| **Clientes** | Buscar, **+ Nuevo cliente** (se movió aquí desde Solicitudes), **Editar datos** (RUT, razón social, giro, dirección, correo, teléfono, contacto, facturación y frecuencia de pago), **precios especiales** (agregar, cambiar o quitar; cada cambio queda en el historial del cliente) y **Archivar / Reactivar** |
+| **Productos** | **+ Nuevo producto**, **Editar** (precio base, categoría, área, ID de receta; el cambio de precio base queda en su historial) y **Archivar / Reactivar** |
+| **Estado de cuenta** | El mismo de la app B2B: cliente, desde y hasta, **por orden o por folio**. Muestra comprado, pagado y pendiente, y **Descargar PDF** con el formato de siempre |
+
+También:
+- **Por facturar → "Marcar las que tocan (N)"** junto a cada cliente: marca solo las órdenes que ya corresponde facturar según cómo factura ese cliente (diaria: días anteriores; semanal: semanas anteriores; mensual: meses anteriores). Debajo del nombre se ve su modalidad. Aparece solo cuando hay órdenes que todavía no tocan; si tocan todas, basta con "Marcar todas".
+- **Hoy** muestra las **solicitudes de logística** sin responder (precio, producto nuevo o anulación), con enlace directo.
+- **Todo pasa solo a la planilla**: hojas Clientes, Precios y Productos (necesita el **script de B2B v2.5.0**). En la tarjeta "Copia en la planilla" el contador incluye ahora los cambios del catálogo.
+
+(i) **El nombre de un cliente o producto no se cambia**: las órdenes y la planilla lo ubican por su nombre. Si un nombre quedó mal, crea uno nuevo y archiva el anterior.
+
+(i) **Archivar no borra nada**: deja de aparecer en la app de logística; sus órdenes y su historial quedan igual, y se puede reactivar. En la planilla, la columna nueva **Estado** dice ARCHIVADO.
+
+(i) **Un cliente con una facturación distinta en la planilla** (por ejemplo "Diario") se muestra tal cual al editar y no se cambia, salvo que elijas otra.
+
+(i) **Lo que todavía queda en la app antigua (solo para mirar):** análisis y la conciliación bancaria con cartola (llegan en la v0.14).
+
+Archivos: cambian `app.js`, `b2b.js`, `b2b-modelo.js`, `pdf-orden.js`, `estilos.css`, `config.js`, `firestore-b2b.rules` (v1.3.0), `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos.
+
+### Instalación de la v0.13.0 (en este orden, unos 10 minutos)
+1. **Script de B2B v2.5.0** (zip `b2b-script-v2.5.0`): sigue su README. El ping debe decir **2.5.0**.
+2. **Reglas de fen-b2b v1.3.0**: consola de Firebase → proyecto **fen-b2b** → Firestore Database → **Reglas** → borra todo, pega el contenido de `firestore-b2b.rules` → **Publicar**. (Permiten que la app de logística, al pasar cambios a la planilla, marque también los del catálogo.)
+3. **GitHub, repo `sistema-fen`**: Add file → Upload files → sube todos los archivos del zip (sin la carpeta) → Commit. En 1 o 2 minutos, recarga con Ctrl + Shift + R; abajo a la izquierda debe decir **v0.13.0**.
+4. La app de logística **no cambia** (sigue en v1.1.0).
+
+### Lista de verificación
+- [ ] Ventas B2B muestra las pestañas Clientes, Productos y Estado de cuenta.
+- [ ] Cambias un precio especial de un cliente → logística lo ve al tiro al hacer una orden para ese cliente → aparece en la hoja Precios.
+- [ ] Archivas un producto de prueba → deja de aparecer en logística → en la hoja Productos dice ARCHIVADO → lo reactivas.
+- [ ] Estado de cuenta de un cliente: las cifras cuadran con la app antigua; el PDF baja bien.
+- [ ] Por facturar: en un cliente semanal o mensual aparece "Marcar las que tocan" y marca las correctas.
+- [ ] Hoy muestra una solicitud de logística pendiente (si hay alguna).
+- [ ] "Copia en la planilla" queda **Al día**.
 
 ## Novedades de la v0.12.3
 - **Por facturar:** junto al nombre de cada cliente están **Marcar todas** y, apenas marcas una orden, **Asignar folio a N · $total** (antes el botón estaba al final de la lista). El nombre del cliente queda fijo arriba mientras bajas por sus órdenes.

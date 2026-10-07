@@ -8,13 +8,13 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.12.3';
-import * as FB from './firebase-b2b.js?v=0.12.3';
-import * as Apps from './apps.js?v=0.12.3';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.12.3';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.13.0';
+import * as FB from './firebase-b2b.js?v=0.13.0';
+import * as Apps from './apps.js?v=0.13.0';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.13.0';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
-export const VERSION_BASE_NUEVA = '2.4.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.2.0)
+export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
 const K_CFG = 'fen_sistema_b2b_cfg';
 const LOTE = 400;                        // escrituras por lote (Firestore acepta hasta 500)
 const LOTE_BYTES = 4e6;                  // y como máximo ~4 MB por lote (el límite de Firestore es 10 MB)
@@ -151,10 +151,18 @@ export async function copiar(prep, avance) {
     uso.lecturas += Math.max(1, sn.size);
     sn.docs.forEach(d => { const x = d.data(), k = {}; ['creada', 'editada', 'anulada', 'origen'].forEach(c => { if (x[c] !== undefined) k[c] = x[c]; }); if (x.estado === 'anulada') k.estado = 'anulada'; propios[d.id] = k; });
   }
+  // v0.13: lo mismo para clientes y productos (historial de precios, quién lo creó o cambió en Sistema Fën)
+  const propiosCat = { clientes: {}, productos: {} };
+  for (const col of ['clientes', 'productos']) {
+    if (!prep.cambios[col] || !prep.cambios[col].cambiados.length) continue;
+    const sn = await FB.getDocs(FB.collection(db, col));
+    uso.lecturas += Math.max(1, sn.size);
+    sn.docs.forEach(d => { const x = d.data(), k = {}; ['historialPrecios', 'creadoEn', 'creadoPor', 'cambiadoEn', 'cambiadoPor'].forEach(c => { if (x[c] !== undefined) k[c] = x[c]; }); if (x.origen && x.origen.app) k.origen = x.origen; if (Object.keys(k).length) propiosCat[col][d.id] = k; });
+  }
   const ops = [];
   COLECCIONES.forEach(col => {
     const c = prep.cambios[col];
-    [...c.nuevos, ...c.cambiados].forEach(id => { const datos = col === 'ordenes' && propios[id] ? { ...prep.docs[col][id], ...propios[id] } : prep.docs[col][id]; ops.push({ t: 'set', col, id, datos, bytes: JSON.stringify(datos).length + 200 }); });
+    [...c.nuevos, ...c.cambiados].forEach(id => { const extra = col === 'ordenes' ? propios[id] : propiosCat[col] && propiosCat[col][id]; const datos = extra ? { ...prep.docs[col][id], ...extra } : prep.docs[col][id]; ops.push({ t: 'set', col, id, datos, bytes: JSON.stringify(datos).length + 200 }); });
     c.quitar.forEach(id => ops.push({ t: 'quitar', col, id, bytes: 200 }));
   });
   // Lotes de hasta 400 escrituras y ~4 MB
@@ -333,7 +341,7 @@ export async function volverAPlanilla() {
   const url = await scriptListo();
   await pasarAPlanilla();
   let pend = 0;
-  for (const col of ['ordenes', 'abonos', 'ediciones']) {
+  for (const col of ['ordenes', 'abonos', 'ediciones', 'clientes', 'productos']) {
     const sn = await FB.getDocs(FB.query(FB.collection(db, col), FB.where('planillaPendiente', '==', true)));
     uso.lecturas += Math.max(1, sn.size); pend += sn.size;
   }
@@ -356,7 +364,7 @@ export async function pasarAPlanilla() {
 // ── Escuchas en vivo (órdenes por facturar y por cobrar, abonos, solicitudes) ──
 export async function escuchar(cb) {
   const db = await dbOk();
-  const datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, listo: { a: 0 } };
+  const datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, clientes: [], productos: [], listo: { a: 0 } };
   const avisar = () => cb(datos);
   const desde = hoyTxt(new Date(Date.now() - 30 * 864e5));
   const juntar = clave => sn => {
@@ -374,7 +382,10 @@ export async function escuchar(cb) {
     FB.onSnapshot(FB.query(FB.collection(db, 'ordenes'), FB.where('fecha', '>=', desde)), juntar('recientes'), err),
     FB.onSnapshot(FB.collection(db, 'abonos'), sn => { uso.lecturas += sn.docChanges().length || 1; datos.abonos = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(a => !a.quitadoEnPlanilla); avisar(); }, err),
     FB.onSnapshot(FB.query(FB.collection(db, 'solicitudes'), FB.where('estado', '==', 'pendiente')), sn => { uso.lecturas += sn.docChanges().length || 1; datos.solicitudes = sn.docs.map(d => ({ id: d.id, ...d.data() })); avisar(); }, err),
-    FB.onSnapshot(FB.doc(db, 'config', 'b2b'), sn => { datos.config = sn.exists() ? sn.data() : { activa: false }; avisar(); }, err)
+    FB.onSnapshot(FB.doc(db, 'config', 'b2b'), sn => { datos.config = sn.exists() ? sn.data() : { activa: false }; avisar(); }, err),
+    // v0.13: catálogo en vivo (clientes con sus precios especiales, y productos)
+    FB.onSnapshot(FB.collection(db, 'clientes'), sn => { uso.lecturas += sn.docChanges().length || 1; datos.clientes = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => !c.quitadoEnPlanilla).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es')); avisar(); }, err),
+    FB.onSnapshot(FB.collection(db, 'productos'), sn => { uso.lecturas += sn.docChanges().length || 1; datos.productos = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !p.quitadoEnPlanilla).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es')); avisar(); }, err)
   ];
   return () => fin.forEach(f => { try { f(); } catch (e) {} });
 }
@@ -461,12 +472,18 @@ export async function aprobarSolicitud(s, precio, respuesta) {
       if (!cs.exists()) throw new Error('El cliente ya no existe.');
       const lista = (cs.data().precios || []).filter(x => !((x.productoId && x.productoId === s.productoId) || String(x.producto).toLowerCase() === String(s.producto).toLowerCase()));
       lista.push({ producto: s.producto, productoId: s.productoId || null, precio: p });
-      tx.update(cref, { precios: lista, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
+      const previo = (cs.data().precios || []).find(x => (x.productoId && x.productoId === s.productoId) || String(x.producto).toLowerCase() === String(s.producto).toLowerCase());
+      tx.update(cref, { precios: lista, historialPrecios: [...(cs.data().historialPrecios || []), { producto: s.producto, antes: previo ? previo.precio : null, despues: p, en: ahoraTxt(), por: authSF.currentUser.email, solicitud: s.id }].slice(-200), planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
     } else {
       // Producto nuevo: id a partir del nombre (sin pisar uno que exista)
       let id = slugB2B(s.producto), i = 2;
-      while ((await tx.get(FB.doc(db, 'productos', id))).exists()) id = slugB2B(s.producto) + '-' + i++;
-      tx.set(FB.doc(db, 'productos', id), { nombre: s.producto, precioBase: p, categoria: '', idReceta: s.idReceta || '', area: s.area || '', estado: 'activo', extra: {}, origen: { app: 'solicitud', solicitud: s.id }, quitadoEnPlanilla: false, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
+      while (true) {
+        const ps = await tx.get(FB.doc(db, 'productos', id));
+        if (!ps.exists()) break;
+        if (String(ps.data().nombre || '').trim().toLowerCase() === String(s.producto || '').trim().toLowerCase()) throw new Error(`Ya existe el producto "${ps.data().nombre}". Si hay que cambiar su precio, hazlo en Productos y rechaza esta solicitud.`);
+        id = slugB2B(s.producto) + '-' + i++;
+      }
+      tx.set(FB.doc(db, 'productos', id), { nombre: s.producto, precioBase: p, categoria: '', idReceta: s.idReceta || '', area: s.area || '', estado: 'activo', extra: {}, origen: { app: 'solicitud', solicitud: s.id }, quitadoEnPlanilla: false, planillaPendiente: true, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
     }
     tx.update(sref, { estado: 'aprobada', precioAprobado: s.tipo === 'anulacion' ? null : p, respuesta: String(respuesta || '').trim() || null, resuelta: { por: authSF.currentUser.email, en: FB.serverTimestamp() } });
   });
@@ -495,7 +512,7 @@ export async function nuevoCliente(c) {
     }
     const t = k => String(c[k] || '').trim();
     tx.set(FB.doc(db, 'clientes', id), { nombre, rut: t('rut'), razonSocial: t('razonSocial'), giro: t('giro'), direccion: t('direccion'), correo: t('correo'), telefono: t('telefono'), contacto: t('contacto'),
-      facturacion: c.facturacion || 'Diaria', frecuenciaPago: c.frecuenciaPago || 'Diaria', precios: [], estado: 'activo', extra: {}, origen: { app: 'sistema-fen' }, quitadoEnPlanilla: false, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
+      facturacion: c.facturacion || 'Diaria', frecuenciaPago: c.frecuenciaPago || 'Diaria', precios: [], estado: 'activo', extra: {}, origen: { app: 'sistema-fen' }, quitadoEnPlanilla: false, planillaPendiente: true, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
     return id;
   });
 }
@@ -515,4 +532,154 @@ export async function datosPdf(o) {
   const e0 = ediciones.find(e => e.cambios && /"antes"/.test(e.cambios));
   if (e0) { try { (JSON.parse(e0.cambios).antes || []).forEach(l => { originales[l.producto] = (originales[l.producto] || 0) + l.cantidad; }); } catch (x) {} }
   return { cliente, ediciones, originales };
+}
+
+// ═══════════════════════════════════════════════
+//  v0.13.0 · Catálogo (clientes, productos, precios especiales) y estado de cuenta
+//  El nombre no se cambia: las órdenes y la planilla se ubican por nombre.
+//  Nada se borra: clientes y productos se archivan (logística deja de verlos).
+//  Cada cambio de precio queda en historialPrecios del cliente o del producto.
+// ═══════════════════════════════════════════════
+const TXT = ['rut', 'razonSocial', 'giro', 'direccion', 'correo', 'telefono', 'contacto'];
+export const FACTURACION = ['Diaria', 'Semanal', 'Mensual'];
+export const FRECUENCIA = ['Diaria', 'Semanal', 'Mensual', '30dias'];
+export async function guardarCliente(id, datos) {
+  const db = await dbOk();
+  const cambios = {};
+  TXT.forEach(k => { if (k in datos) cambios[k] = String(datos[k] || '').trim(); });
+  if (datos.facturacion) { if (!FACTURACION.includes(datos.facturacion)) throw new Error('Facturación no válida.'); cambios.facturacion = datos.facturacion; }
+  if (datos.frecuenciaPago) { if (!FRECUENCIA.includes(datos.frecuenciaPago)) throw new Error('Frecuencia no válida.'); cambios.frecuenciaPago = datos.frecuenciaPago; }
+  await FB.updateDoc(FB.doc(db, 'clientes', id), { ...cambios, planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
+  uso.escrituras++;
+}
+export async function archivarCliente(id, archivar) {
+  const db = await dbOk();
+  await FB.updateDoc(FB.doc(db, 'clientes', id), { estado: archivar ? 'archivado' : 'activo', planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
+  uso.escrituras++;
+}
+// Precio especial: precio > 0 lo pone o lo cambia; precio 0 o vacío lo quita (vuelve al precio base)
+export async function precioEspecial(clienteId, producto, precio) {
+  const db = await dbOk();
+  const p = Math.round(Number(precio) || 0);
+  await FB.runTransaction(db, async tx => {
+    const ref = FB.doc(db, 'clientes', clienteId), sn = await tx.get(ref);
+    if (!sn.exists()) throw new Error('El cliente ya no existe.');
+    const c = sn.data(), igual = x => (x.productoId && x.productoId === producto.id) || String(x.producto).toLowerCase() === String(producto.nombre).toLowerCase();
+    const previo = (c.precios || []).find(igual);
+    if ((previo ? previo.precio : 0) === p) return;
+    const lista = (c.precios || []).filter(x => !igual(x));
+    if (p > 0) lista.push({ producto: producto.nombre, productoId: producto.id || null, precio: p });
+    lista.sort((a, b) => String(a.producto).localeCompare(String(b.producto), 'es'));
+    tx.update(ref, { precios: lista, historialPrecios: [...(c.historialPrecios || []), { producto: producto.nombre, antes: previo ? previo.precio : null, despues: p > 0 ? p : null, en: ahoraTxt(), por: authSF.currentUser.email }].slice(-200),
+      planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
+  });
+  uso.escrituras++;
+}
+export async function guardarProducto(id, datos) {
+  const db = await dbOk();
+  if (!id) {
+    const nombre = String(datos.nombre || '').trim();
+    if (nombre.length < 2) throw new Error('Escribe el nombre del producto.');
+    const p = Math.round(Number(datos.precioBase) || 0);
+    if (!(p > 0)) throw new Error('Escribe el precio base.');
+    return FB.runTransaction(db, async tx => {
+      let nid = slugB2B(nombre), i = 2;
+      while (true) {
+        const sn = await tx.get(FB.doc(db, 'productos', nid));
+        if (!sn.exists()) break;
+        if (String(sn.data().nombre || '').toLowerCase().trim() === nombre.toLowerCase()) throw new Error('Ya existe un producto con ese nombre.');
+        nid = slugB2B(nombre) + '-' + i++;
+      }
+      tx.set(FB.doc(db, 'productos', nid), { nombre, precioBase: p, categoria: String(datos.categoria || '').trim(), idReceta: String(datos.idReceta || '').trim(), area: String(datos.area || '').trim(), estado: 'activo', extra: {}, origen: { app: 'sistema-fen' },
+        quitadoEnPlanilla: false, planillaPendiente: true, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
+      return nid;
+    });
+  }
+  await FB.runTransaction(db, async tx => {
+    const ref = FB.doc(db, 'productos', id), sn = await tx.get(ref);
+    if (!sn.exists()) throw new Error('El producto ya no existe.');
+    const a = sn.data(), cambios = {};
+    ['categoria', 'idReceta', 'area'].forEach(k => { if (k in datos) cambios[k] = String(datos[k] || '').trim(); });
+    if ('precioBase' in datos) {
+      const p = Math.round(Number(datos.precioBase) || 0);
+      if (!(p > 0)) throw new Error('El precio base debe ser mayor que 0.');
+      if (p !== Number(a.precioBase)) { cambios.precioBase = p; cambios.historialPrecios = [...(a.historialPrecios || []), { antes: Number(a.precioBase) || null, despues: p, en: ahoraTxt(), por: authSF.currentUser.email }].slice(-200); }
+    }
+    tx.update(ref, { ...cambios, planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
+  });
+  uso.escrituras++;
+}
+export async function archivarProducto(id, archivar) {
+  const db = await dbOk();
+  await FB.updateDoc(FB.doc(db, 'productos', id), { estado: archivar ? 'archivado' : 'activo', planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
+  uso.escrituras++;
+}
+
+// ── Estado de cuenta ───────────────────────────────
+// Todas las órdenes de un cliente (también archivadas), sin anuladas ni quitadas
+export async function ordenesDeCliente(clienteId) {
+  const db = await dbOk();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'ordenes'), FB.where('clienteId', '==', clienteId)));
+  uso.lecturas += Math.max(1, sn.size);
+  const os = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(o => !o.quitadoEnPlanilla && o.estado !== 'anulada');
+  // Un folio con abonos que incluye órdenes de otro cliente: el saldo se reparte sobre el total de todo el folio
+  const parciales = [...new Set(os.filter(o => o.folio && String(o.estadoPago || '').toUpperCase() === 'PARCIAL').map(o => String(o.folio)))];
+  for (const f of parciales) {
+    const t = (await ordenesDelFolio(db, f)).reduce((s, o) => s + (Number(o.total) || 0), 0);
+    os.forEach(o => { if (String(o.folio) === f) o._totalFolio = t; });
+  }
+  return os;
+}
+// Saldo como la app B2B: pagado = 0; parcial = (total del folio − abonos) repartido por el peso de la orden
+export function estadoDeCuenta(ordenes, abonos, desde, hasta, modo) {
+  const os = ordenes.filter(o => (!desde || o.fecha >= desde) && (!hasta || o.fecha <= hasta)).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || a.n - b.n);
+  const porFolio = {};
+  ordenes.forEach(o => { if (o.folio) (porFolio[o.folio] = porFolio[o.folio] || []).push(o); });
+  const abonado = f => abonos.filter(a => String(a.folio) === String(f)).reduce((s, a) => s + (Number(a.monto) || 0), 0);
+  const ultimoAbono = f => abonos.filter(a => String(a.folio) === String(f)).map(a => a.fecha).sort().pop() || null;
+  const totalFolio = f => (porFolio[f] || []).reduce((s, o) => s + o.total, 0);
+  const saldo = o => {
+    const e = String(o.estadoPago || '').toUpperCase();
+    if (e.includes('PAGADO')) return 0;
+    if (!o.folio || e !== 'PARCIAL') return o.total;
+    const t = o._totalFolio || totalFolio(o.folio); if (t <= 0) return 0;
+    return Math.round(Math.max(0, t - abonado(o.folio)) * o.total / t);
+  };
+  let filas;
+  if (modo === 'folio') {
+    const grupos = {}, sueltas = [];
+    os.forEach(o => { if (o.folio) (grupos[o.folio] = grupos[o.folio] || []).push(o); else sueltas.push(o); });
+    filas = Object.keys(grupos).map(f => {
+      const l = grupos[f], total = l.reduce((s, o) => s + o.total, 0), sal = l.reduce((s, o) => s + saldo(o), 0);
+      const est = l.some(o => !/PAGADO|PARCIAL/.test(String(o.estadoPago || '').toUpperCase())) ? 'PENDIENTE' : l.some(o => String(o.estadoPago).toUpperCase() === 'PARCIAL') ? 'PARCIAL' : 'PAGADO';
+      return { principal: f, secundaria: l.map(o => o.n).join(', '), fecha: l.map(o => o.fechaFolio).filter(Boolean).sort()[0] || l[0].fecha, neto: l.reduce((s, o) => s + o.neto, 0), total, saldo: sal, abonado: est === 'PARCIAL' ? total - sal : 0, ultimoAbono: est === 'PARCIAL' ? ultimoAbono(f) : null, estado: est, fechaPago: l.map(o => o.fechaPago).filter(Boolean).sort().pop() || null };
+    }).concat(sueltas.map(o => { const e = String(o.estadoPago || 'PENDIENTE').toUpperCase(), pag = e.includes('PAGADO'); return { principal: 'Sin folio', secundaria: String(o.n), fecha: o.fecha, neto: o.neto, total: o.total, saldo: saldo(o), abonado: 0, estado: pag ? 'PAGADO' : 'PENDIENTE', fechaPago: pag ? o.fechaPago : null }; }))
+      .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+  } else {
+    filas = os.map(o => { const e = String(o.estadoPago || 'PENDIENTE').toUpperCase(), sal = saldo(o); return { principal: String(o.n), secundaria: o.folio || 'Pendiente', fecha: o.fecha, neto: o.neto, total: o.total, saldo: sal, abonado: e === 'PARCIAL' ? o.total - sal : 0, ultimoAbono: e === 'PARCIAL' && o.folio ? ultimoAbono(o.folio) : null, estado: e.includes('PAGADO') ? 'PAGADO' : e, fechaPago: o.fechaPago }; });
+  }
+  const comprado = os.reduce((s, o) => s + o.total, 0), pendiente = os.reduce((s, o) => s + saldo(o), 0);
+  return { filas, n: os.length, comprado, pagado: comprado - pendiente, pendiente };
+}
+
+// ── Para Hoy: solicitudes de logística sin responder (solo si la base nueva está conectada y en uso; no pide nada) ──
+export async function solicitudesParaHoy() {
+  let cx;
+  try { cx = await conexion(); } catch (e) { return null; }
+  if (cx.estado !== 'ok') return null;
+  const cfg = await FB.getDoc(FB.doc(cx.db, 'config', 'b2b')); uso.lecturas++;
+  if (!cfg.exists() || !cfg.data().activa) return null;
+  const sn = await FB.getDocs(FB.query(FB.collection(cx.db, 'solicitudes'), FB.where('estado', '==', 'pendiente')));
+  uso.lecturas += Math.max(1, sn.size);
+  return sn.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// ── Por facturar: lo que ya corresponde facturar según la modalidad del cliente ──
+// Diaria: órdenes de días anteriores · Semanal: de semanas anteriores (lunes a domingo) · Mensual: de meses anteriores
+export function correspondeFacturar(facturacion, fecha, hoy = hoyTxt()) {
+  if (!fecha) return false;
+  const f = String(facturacion || '').trim().toLowerCase();   // la planilla puede traer "semanal", "Mensual ", etc.
+  if (/^seman/.test(f)) { const d = new Date(hoy + 'T12:00:00'), w = d.getDay(); d.setDate(d.getDate() - (w === 0 ? 6 : w - 1)); return fecha < hoyTxt(d); }
+  if (/^mensu/.test(f)) return fecha.slice(0, 7) < hoy.slice(0, 7);
+  return fecha < hoy;
 }

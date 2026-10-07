@@ -88,8 +88,8 @@ function filas(hoja, campos) {
   });
 }
 
-const C_CLIENTE = { nombre: ['nombre'], rut: ['rut'], razonSocial: ['razon social'], giro: ['giro'], direccion: ['direccion'], correo: ['correo', 'email', 'mail'], telefono: ['telefono', 'fono'], contacto: ['contacto'], facturacion: ['facturacion'], frecuenciaPago: ['frecuencia pago', 'frecuencia de pago'] };
-const C_PRODUCTO = { nombre: ['nombre'], precioBase: ['precio base'], categoria: ['categoria'], idReceta: ['id receta fen', 'id receta'], area: ['area fen', 'area'] };
+const C_CLIENTE = { nombre: ['nombre'], rut: ['rut'], razonSocial: ['razon social'], giro: ['giro'], direccion: ['direccion'], correo: ['correo', 'email', 'mail'], telefono: ['telefono', 'fono'], contacto: ['contacto'], facturacion: ['facturacion'], frecuenciaPago: ['frecuencia pago', 'frecuencia de pago'], estadoHoja: ['estado'] };
+const C_PRODUCTO = { nombre: ['nombre'], precioBase: ['precio base'], categoria: ['categoria'], idReceta: ['id receta fen', 'id receta'], area: ['area fen', 'area'], estadoHoja: ['estado'] };
 const C_PRECIO = { cliente: ['cliente'], producto: ['producto'], precio: ['precio'] };
 const C_ORDEN = { n: ['n orden', 'no orden', 'numero orden', 'n de orden'], fecha: ['fecha'], cliente: ['cliente'], neto: ['total neto', 'neto'], iva: ['iva'], total: ['total'], estadoPago: ['estado pago', 'estado de pago'], fechaPago: ['fecha pago', 'fecha de pago'], folio: ['folio sii', 'folio'], obs: ['observacion', 'observaciones'], fechaFolio: ['fecha folio'] };
 const C_DETALLE = { n: C_ORDEN.n, fecha: ['fecha'], cliente: ['cliente'], producto: ['producto'], cantidad: ['cantidad'], precio: ['precio neto unit', 'precio unit', 'precio neto unitario', 'precio'], neto: ['neto total', 'neto'], iva: ['iva'], total: ['total'], estadoPago: C_ORDEN.estadoPago, fechaPago: C_ORDEN.fechaPago, folio: C_ORDEN.folio, obs: C_ORDEN.obs, fechaFolio: C_ORDEN.fechaFolio };
@@ -115,7 +115,7 @@ export function armar(hojas) {
     let id = slug(nombre), i = 2; while (docs.productos[id]) id = slug(nombre) + '-' + i++;
     if (id !== slug(nombre)) aviso('Productos', r._fila, `"${nombre}" se parece a otro producto (${docs.productos[slug(nombre)].nombre}): quedó como ${id}. Conviene cambiarle el nombre.`);
     prodPorClave[k] = id;
-    docs.productos[id] = { nombre, precioBase: numero(r.precioBase), categoria: texto(r.categoria), idReceta: texto(r.idReceta), area: texto(r.area), estado: 'activo', extra: r.extra, origen: { hoja: 'Productos', fila: r._fila }, quitadoEnPlanilla: false };
+    docs.productos[id] = { nombre, precioBase: numero(r.precioBase), categoria: texto(r.categoria), idReceta: texto(r.idReceta), area: texto(r.area), estado: /archivad/i.test(texto(r.estadoHoja)) ? 'archivado' : 'activo', extra: r.extra, origen: { hoja: 'Productos', fila: r._fila }, quitadoEnPlanilla: false };
   });
   const productoId = nombre => prodPorClave[clave(nombre)] || null;
 
@@ -129,7 +129,7 @@ export function armar(hojas) {
     let id = slug(nombre), i = 2; while (docs.clientes[id]) id = slug(nombre) + '-' + i++;
     if (id !== slug(nombre)) aviso('Clientes', r._fila, `"${nombre}" se parece a otro cliente (${docs.clientes[slug(nombre)].nombre}): quedó como ${id}. Conviene cambiarle el nombre.`);
     cliPorClave[k] = id;
-    docs.clientes[id] = { nombre, rut: texto(r.rut), razonSocial: texto(r.razonSocial), giro: texto(r.giro), direccion: texto(r.direccion), correo: texto(r.correo), telefono: texto(r.telefono), contacto: texto(r.contacto), facturacion: texto(r.facturacion) || 'Diaria', frecuenciaPago: texto(r.frecuenciaPago) || 'Diaria', precios: [], estado: 'activo', extra: r.extra, origen: { hoja: 'Clientes', fila: r._fila }, quitadoEnPlanilla: false };
+    docs.clientes[id] = { nombre, rut: texto(r.rut), razonSocial: texto(r.razonSocial), giro: texto(r.giro), direccion: texto(r.direccion), correo: texto(r.correo), telefono: texto(r.telefono), contacto: texto(r.contacto), facturacion: texto(r.facturacion) || 'Diaria', frecuenciaPago: texto(r.frecuenciaPago) || 'Diaria', precios: [], estado: /archivad/i.test(texto(r.estadoHoja)) ? 'archivado' : 'activo', extra: r.extra, origen: { hoja: 'Clientes', fila: r._fila }, quitadoEnPlanilla: false };
   });
   const clienteId = nombre => cliPorClave[clave(nombre)] || null;
 

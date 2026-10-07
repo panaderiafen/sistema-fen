@@ -458,3 +458,9 @@ details.aviso > summary { cursor: pointer; }
 .fila-orden-b2b > summary.fila-caja { flex-wrap: nowrap; gap: 10px; padding: 10px 0; }
 .fila-orden-b2b > summary.fila-caja .txt { flex: 1 1 auto; min-width: 0; }
 .fila-orden-b2b > summary.fila-caja .acciones { flex: none; }
+/* v0.13.0 · catálogo y estado de cuenta */
+.filtros-b2b { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin: 6px 0 4px; }
+.filtros-b2b .campo { flex: 1 1 180px; }
+.check-linea { display: flex; align-items: center; gap: 8px; min-height: 48px; font-size: 13px; font-weight: 600; }
+.cifras-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 640px) { .cifras-3 { grid-template-columns: 1fr; } }

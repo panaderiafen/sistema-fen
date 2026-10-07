@@ -77,36 +77,80 @@ const CSS = `.od{width:720px;padding:40px 48px;background:#fff;color:#1a1a2e;fon
 
 // Arma el PDF (tamaño carta) y lo descarga. Si el contenido es más alto que una hoja, sigue en la siguiente.
 // abrir: true → se muestra en otra pestaña (para revisar) en vez de descargarse
-export async function descargar(orden, cliente, originales, ediciones, abrir) {
-  const ventana = abrir ? window.open('', '_blank') : null;
-  if (ventana) ventana.document.write('<p style="font-family:sans-serif;padding:24px">Generando el PDF…</p>');
+// Pasa un bloque HTML (.od) a PDF tamaño carta. Si no cabe en una hoja, corta entre filas de tabla.
+async function aPdf(htmlInterno, nombre, ventana, css = CSS) {
   await Promise.all([script(CDN.h2c), script(CDN.jspdf)]);
   const caja = document.createElement('div');
   caja.style.cssText = 'position:absolute;top:0;left:-99999px;width:720px;z-index:-1';
-  caja.innerHTML = `<style>${CSS}</style>` + html(orden, cliente, originales || {}, ediciones || []);
+  caja.innerHTML = `<style>${css}</style>` + htmlInterno;
   document.body.appendChild(caja);
   try {
     const img = caja.querySelector('.od-logo');
     if (img && !img.complete) await new Promise(r => { img.onload = img.onerror = r; setTimeout(r, 4000); });
-    const canvas = await window.html2canvas(caja.querySelector('.od'), { scale: 2, backgroundColor: '#ffffff', width: 720, windowWidth: 720 });
+    const raiz = caja.querySelector('.od'), base = raiz.getBoundingClientRect().top;
+    const cortes = [...raiz.querySelectorAll('tr, h3, .od-bloque')].map(e => Math.round((e.getBoundingClientRect().bottom - base) * 2)).sort((a, b) => a - b);
+    const canvas = await window.html2canvas(raiz, { scale: 2, backgroundColor: '#ffffff', width: 720, windowWidth: 720 });
     const pdf = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter', orientation: 'portrait' });
     const margen = 36, anchoUtil = 612 - margen * 2, altoUtil = 792 - margen * 2;
     let escala = anchoUtil / canvas.width;
     // Si se pasa por poco de una hoja, se achica un poco para que quepa en una (sin hoja en blanco)
     if (canvas.height * escala > altoUtil && canvas.height * escala <= altoUtil * 1.3) escala = altoUtil / canvas.height;
     const altoFranja = Math.max(50, Math.floor(altoUtil / escala));
-    for (let y = 0, pag = 0; y < canvas.height; y += altoFranja, pag++) {
-      const alto = Math.min(altoFranja, canvas.height - y);
+    for (let y = 0, pag = 0; y < canvas.height; pag++) {
+      let fin = Math.min(y + altoFranja, canvas.height);
+      if (fin < canvas.height) { const c = cortes.filter(x => x > y + 100 && x <= fin).pop(); if (c) fin = c; }
+      const alto = fin - y;
       if (pag && alto < 40) break;   // un resto mínimo (solo margen) no hace otra hoja
       const c = document.createElement('canvas'); c.width = canvas.width; c.height = alto;
       c.getContext('2d').drawImage(canvas, 0, y, canvas.width, alto, 0, 0, canvas.width, alto);
       if (pag) pdf.addPage();
       pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', margen + (anchoUtil - canvas.width * escala) / 2, margen, canvas.width * escala, alto * escala);
+      y = fin;
     }
-    const nombre = (orden.estado === 'anulada' ? 'ANULADA_' : '') + 'Orden_' + String(orden.n).padStart(4, '0') + '_' + String(cliente.nombre || orden.cliente || 'cliente').replace(/[^a-zA-Z0-9]+/g, '_') + '.pdf';
     if (ventana) { ventana.location.href = pdf.output('bloburl'); return nombre; }
     pdf.save(nombre);
     return nombre;
   } catch (e) { if (ventana) ventana.close(); throw e; }
   finally { caja.remove(); }
+}
+export async function descargar(orden, cliente, originales, ediciones, abrir) {
+  const ventana = abrir ? window.open('', '_blank') : null;
+  if (ventana) ventana.document.write('<p style="font-family:sans-serif;padding:24px">Generando el PDF…</p>');
+  const nombre = (orden.estado === 'anulada' ? 'ANULADA_' : '') + 'Orden_' + String(orden.n).padStart(4, '0') + '_' + String(cliente.nombre || orden.cliente || 'cliente').replace(/[^a-zA-Z0-9]+/g, '_') + '.pdf';
+  return aPdf(html(orden, cliente, originales || {}, ediciones || []), nombre, ventana);
+}
+
+// ── Estado de cuenta (el mismo formato de la app B2B) ──
+const fechaCortaEC = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); return m ? `${m[3]}-${m[2]}-${m[1]}` : esc(f || '—'); };
+export function htmlEstadoCuenta(cliente, r, desde, hasta, modo) {
+  const E = (window.FEN_LOG || window.FEN_SIS).DATOS_EMPRESA;
+  const periodo = (desde || hasta) ? `${desde ? 'Desde ' + fechaCortaEC(desde) : ''}${desde && hasta ? ' al ' : ''}${hasta ? (desde ? '' : 'Hasta ') + fechaCortaEC(hasta) : ''}` : 'Todo el período';
+  const c1 = modo === 'folio' ? 'Folio SII' : 'N° Orden', c2 = modo === 'folio' ? 'Órdenes' : 'Folio SII';
+  const tabla = (lista, titulo, color) => !lista.length ? '' : `<h3 style="font-size:13px;font-weight:800;color:${color};margin:18px 0 8px;text-transform:uppercase;letter-spacing:1px">${titulo}</h3>
+    <table class="od-tabla"><thead><tr><th>${c1}</th><th>Fecha</th><th>${c2}</th><th style="text-align:right">Neto</th><th style="text-align:right">Total</th><th>Fecha pago</th></tr></thead><tbody>
+    ${lista.map(f => `<tr${f.estado === 'PARCIAL' ? ' style="color:#9a5b00"' : ''}><td>${esc(f.principal)}</td><td>${fechaCortaEC(f.fecha)}</td><td>${esc(f.secundaria)}</td><td style="text-align:right">${clp(f.neto)}</td>
+      <td style="text-align:right;font-weight:700">${f.estado === 'PARCIAL' ? `<span style="font-size:10px;color:#999;text-decoration:line-through">${clp(f.total)}</span><br><span style="color:#c0392b">${clp(f.saldo)}</span>` : clp(f.total)}</td><td>${f.estado === 'PAGADO' ? fechaCortaEC(f.fechaPago) : '—'}</td></tr>
+      ${f.estado === 'PARCIAL' && f.abonado > 0 ? `<tr><td colspan="6" style="padding:0 12px 8px;font-size:10px;color:#9a5b00">Abonado: ${clp(f.abonado)}${f.ultimoAbono ? ' el ' + fechaCortaEC(f.ultimoAbono) : ''}</td></tr>` : ''}`).join('')}</tbody></table>`;
+  const hoyTxt = (() => { const d = new Date(); return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`; })();
+  return `<div class="od">
+  <div class="od-cab"><img class="od-logo" src="logo-orden.png" alt="Fën"><div class="od-tit"><div class="od-t1">Estado de Cuenta</div><div class="od-info">${esc(periodo)}<br>${esc(E.direccion)} · ${esc(E.correo)}</div></div></div>
+  <hr class="od-hr">
+  <div class="od-dos">
+    <div class="od-caja"><div class="od-et">Cliente</div><div class="od-val"><strong>${esc(cliente.nombre)}</strong><br>${esc(cliente.razonSocial || '')}<br>RUT: ${esc(cliente.rut || '—')}<br>${esc(cliente.direccion || '')}</div></div>
+    <div class="od-caja"><div class="od-et">Resumen</div><div class="od-val"><strong>Período:</strong> ${esc(periodo)}<br><strong>N° de órdenes:</strong> ${r.n}<br><strong>Generado:</strong> ${hoyTxt}</div></div>
+  </div>
+  <div class="od-bloque" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px">
+    <div style="text-align:center;border-radius:8px;padding:14px;border:1px solid #dde4ef;background:#f0f7ff"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Total comprado</div><div style="font-size:20px;font-weight:900;color:#003a79">${clp(r.comprado)}</div></div>
+    <div style="text-align:center;border-radius:8px;padding:14px;border:1px solid #dde4ef;background:#f0fff4"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Total pagado</div><div style="font-size:20px;font-weight:900;color:#1D9E75">${clp(r.pagado)}</div></div>
+    <div style="text-align:center;border-radius:8px;padding:14px;border:1px solid #dde4ef;background:#fff5f5"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Pendiente de pago</div><div style="font-size:20px;font-weight:900;color:#c0392b">${clp(r.pendiente)}</div></div>
+  </div>
+  ${tabla(r.filas.filter(f => f.estado !== 'PAGADO'), 'Pendientes de pago', '#c0392b')}
+  ${tabla(r.filas.filter(f => f.estado === 'PAGADO'), 'Pagadas', '#1D9E75')}
+  <div class="od-pie"><span><strong>FËN</strong> · PANADERÍA MASA MADRE · CAFETERÍA</span><span>${esc(E.web)}</span></div>
+</div>`;
+}
+export async function estadoCuenta(cliente, r, desde, hasta, modo) {
+  if (r.filas.length > 400) throw new Error(`Son ${r.filas.length} filas: acota las fechas para que el PDF no quede tan largo.`);
+  const hoy = new Date(), f = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+  return aPdf(htmlEstadoCuenta(cliente, r, desde, hasta, modo), `EstadoCuenta_${String(cliente.nombre).replace(/[^a-zA-Z0-9]+/g, '_')}_${f}.pdf`, null);
 }
