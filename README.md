@@ -1,9 +1,33 @@
-# Sistema Fën · v0.16.0
+# Sistema Fën · v0.16.2
 
-**App:** v0.16.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.0 · **Script de Gastos:** v2.6.0 · 8 de octubre de 2026
+**App:** v0.16.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.6.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.16.2
+- **Semana de lunes a domingo** para los clientes semanales: el sábado se marcan las órdenes de lunes a sábado; el domingo, también la del domingo (antes iba al sábado siguiente). En Hoy (script de B2B **v2.8.2**) quedan atrasadas desde el lunes.
+- **Análisis:** cada cifra dice contra qué fechas compara (por ejemplo "1 sep al 8 sep: $1.360.009" en vez de "antes") y tiene su botón (i): Ventas, Órdenes, Ticket promedio, Pendiente de cobro, Caja real y Productos.
+
+Archivos: cambian `b2b.js`, `app.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.16.2**. Va con el **script de B2B v2.8.2** (reemplaza a la v2.8.1: si no la instalaste, instala directo esta). Incluye todo lo de la v0.16.1 y v0.16.0.
+
+## Novedades de la v0.16.1: cuándo se factura y cuándo se cobra
+Reglas de Fën (8 de octubre):
+
+| Cliente | Se factura | Se cobra |
+| --- | --- | --- |
+| Diaria | el mismo día | desde el día de la factura |
+| Semanal | semana de **lunes a domingo**: el **sábado** (o el domingo); la orden del domingo, ese mismo domingo | desde el día de la factura |
+| Mensual | el **último día del mes** (así el IVA le queda en ese mes) | el mismo día de la factura |
+| 30 días (frecuencia de pago) | según cómo factura | 30 días después de la factura (entre medio se registran abonos) |
+
+Esto cambia:
+- **"Marcar las que tocan"** (Por facturar): diaria marca también las de hoy; semanal, desde el sábado, las de esa semana; mensual, el último día, todas las del mes.
+- **Agenda:** "Facturar" sale de lunes a sábado (diarios), los sábados (semanales) y el último día del mes (mensuales). Los cobros salen el día de la factura (o a los 30 días); lo no pagado queda en rojo suave.
+- **Clientes:** "acordado" pasa a "al día" para diaria, semanal y mensual (30 días sigue en 30).
+- **Hoy** (necesita el **script de B2B v2.8.1**): una orden sin factura cuenta como atrasada si pasó su día de facturar (la semanal, desde el lunes); en cobros entran solo los folios ya facturados, desde la fecha de la factura (o pasados los 30 días).
+
+Archivos: cambian `b2b.js`, `app.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.16.1**. Junto con esta va el script de B2B v2.8.1 (ahora v2.8.2). Si no instalaste la v0.16.0, haz también su paso del script de Gastos v2.6.0.
 
 ## Novedades de la v0.16.0: agenda para planificar el trabajo de oficina
 - **Etiquetas con color** (Conciliación, Cargas del SII, Reuniones, Cobranza, Marketing, Habilitación, Revisión de apps, y las que crees). Se crean desde el mismo modal de agregar ("+ Nueva") o con el botón **Etiquetas** (cambiar nombre, color o archivar; no se borran).
@@ -23,7 +47,7 @@ Archivos: cambian `agenda.js`, `app.js`, `b2b.js`, `gastos.js`, `estilos.css`, `
 
 ### Instalación de la v0.16.0 (unos 10 minutos)
 1. **Script de Gastos v2.6.0 (Apps Script de Gastos):** sigue el README del zip `gastos-script-v2.6.0` (archivo nuevo `Calendario.gs`, dar el permiso de Google Calendar una vez, nueva versión de la implementación). El ping debe decir **2.6.0**.
-2. **GitHub, repo `sistema-fen`:** sube todos los archivos del zip. Abajo a la izquierda debe decir **v0.16.0**.
+2. **GitHub, repo `sistema-fen`:** sube todos los archivos del zip. Abajo a la izquierda debe decir **v0.16.2**.
 
 ### Lista de verificación
 - [ ] Agenda: aparecen los pagos de Gastos (vencidos en rojo suave) y los próximos pagos con borde punteado (el IVA, si está como obligación).

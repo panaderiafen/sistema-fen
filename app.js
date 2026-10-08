@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.16.0';
-import * as Caja from './caja.js?v=0.16.0';
-import * as Stock from './stock.js?v=0.16.0';
-import * as Ajustes from './ajustes.js?v=0.16.0';
-import * as Apps from './apps.js?v=0.16.0';
-import * as Agenda from './agenda.js?v=0.16.0';
-import * as Gastos from './gastos.js?v=0.16.0';
-import * as Sii from './sii.js?v=0.16.0';
-import * as Previred from './previred.js?v=0.16.0';
-import * as B2b from './b2b.js?v=0.16.0';
-import * as PdfOrden from './pdf-orden.js?v=0.16.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.16.0';
+} from './firebase.js?v=0.16.2';
+import * as Caja from './caja.js?v=0.16.2';
+import * as Stock from './stock.js?v=0.16.2';
+import * as Ajustes from './ajustes.js?v=0.16.2';
+import * as Apps from './apps.js?v=0.16.2';
+import * as Agenda from './agenda.js?v=0.16.2';
+import * as Gastos from './gastos.js?v=0.16.2';
+import * as Sii from './sii.js?v=0.16.2';
+import * as Previred from './previred.js?v=0.16.2';
+import * as B2b from './b2b.js?v=0.16.2';
+import * as PdfOrden from './pdf-orden.js?v=0.16.2';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.16.2';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -313,7 +313,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.16.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.16.2" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2554,7 +2554,7 @@ function pintarB2bAdmin(el, sub) {
         <div class="acciones">${tocan(c).length && tocan(c).length < porCliente[c].length ? `<button type="button" class="btn-sec btn-chico" data-tocan-cli="${esc(c)}" >Marcar las que tocan (${tocan(c).length})</button>` : ''}<button type="button" class="btn-sec btn-chico" data-marcar-cli="${esc(c)}">${todas ? 'Desmarcar' : 'Marcar todas'}</button>${mc.length ? `<button type="button" class="btn-sec btn-chico" data-pdf-cli="${esc(c)}">PDF de ${mc.length}</button><button type="button" class="btn btn-chico" data-folio-cli="${esc(c)}">Asignar folio a ${mc.length} · ${pesos(mc.reduce((s, o) => s + o.total, 0))}</button>` : ''}</div></summary>
         ${mc.length ? resumenFactura(c, mc) : ''}
         ${porCliente[c].map(o => `<details class="fila-orden-b2b"><summary class="fila-caja"><label class="check-b2b" onclick="event.stopPropagation()"><input type="checkbox" data-sel="${o.n}" ${b2b.sel.has(String(o.n)) ? 'checked' : ''} aria-label="Marcar orden ${o.n}"></label><div class="txt"><b>N° ${o.n}</b><span>${esc(diaTexto(o.fecha))} · ${pesos(o.total)}${o.planillaPendiente ? ' · por pasar a la planilla' : ''}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-o="${o.n}">Anular</button></div></summary>${lineasHtml(o)}</details>`).join('')}</details>`; }).join('') || '<div class="vacio" style="border:0">No hay órdenes sin folio.</div>'}
-      ${sinFolio.length ? `<p class="ayuda" style="margin-top:10px">Marca las órdenes que van en la misma factura: el botón "Asignar folio" aparece junto al nombre del cliente. Un folio es de un solo cliente. ${info('Marcar las que tocan', 'Marca solo las órdenes que ya corresponde facturar según cómo factura el cliente (se cambia en Clientes):\nDiaria: las de días anteriores a hoy.\nSemanal: las de semanas anteriores (lunes a domingo).\nMensual: las de meses anteriores.\nSi el cliente no tiene modalidad, se toma como diaria. El botón aparece solo cuando hay órdenes que todavía no tocan.')}</p>` : ''}</details>
+      ${sinFolio.length ? `<p class="ayuda" style="margin-top:10px">Marca las órdenes que van en la misma factura: el botón "Asignar folio" aparece junto al nombre del cliente. Un folio es de un solo cliente. ${info('Marcar las que tocan', 'Marca solo las órdenes que ya corresponde facturar según cómo factura el cliente (se cambia en Clientes):\nDiaria: las de hoy y días anteriores (se factura el mismo día).\nSemanal: semana de lunes a domingo, se factura el sábado (o el domingo): el sábado, las de lunes a sábado; el domingo, también la del domingo.\nMensual: se factura el último día del mes (así el IVA le queda en ese mes): el último día, todas las del mes.\nSi el cliente no tiene modalidad, se toma como diaria. El botón aparece solo cuando hay órdenes que todavía no tocan.')}</p>` : ''}</details>
     <details class="tarjeta plegable" data-plegar="cob" ${plegada('cob') ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-cob">Por cobrar</h2><button type="button" class="lupa" data-lupa="cob" aria-label="Buscar en Por cobrar" aria-expanded="${!!b2b.buscar.cob}">${icono('lupa', 16)}</button><span>${folios.length} ${folios.length === 1 ? 'folio' : 'folios'} · saldo ${pesos(folios.reduce((s, f) => s + Math.max(0, porFolio[f].reduce((x, o) => x + o.total, 0) - (abonadoFolio[f] || 0)), 0))}</span></summary>
       ${notaCobro()}
       ${b2b.buscar.cob != null ? `<div class="buscar-b2b"><input type="search" data-buscar="cob" value="${esc(b2b.buscar.cob)}" placeholder="Folio, cliente o N° de orden" aria-label="Buscar folio, cliente o N° de orden"></div>` : ''}
@@ -3263,16 +3263,16 @@ function pintarB2bAnalisis(el, sub) {
       <div class="campo"><label for="an-cli">Cliente</label><select id="an-cli"><option value="">Todos los clientes</option>${d.clientes.map(c => `<option value="${esc(c.id)}" ${c.id === s.clienteId ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></div></div>
     ${s.error ? `<p class="error">${esc(s.error)}</p>` : ''}</section>`;
   if (!r) { el.innerHTML = cabB2b(sub) + filtros + `<section class="tarjeta"><div class="vacio" style="border:0">${s.error ? 'No se pudo leer.' : 'Leyendo…'}</div></section>`; conectar(); return; }
-  const R = r.resumen, C = r.caja;
+  const R = r.resumen, C = r.caja, antesTxt = rango(per.antes);
   const resumen = `<section class="tarjeta" aria-labelledby="t-an-res"><div class="titulo-fila"><h2 id="t-an-res">Resumen${cliente ? ' · ' + esc(cliente.nombre) : ''}</h2><span>frente a ${esc(rango(per.antes))}</span></div>
     <div class="cifras cifras-an">
-      <div class="cifra-an"><span class="rotulo">Ventas (neto)</span><span class="valor">${pesos(R.neto)}</span><span class="nota">${flecha(R.var.neto)} antes ${pesos(R.antes.neto)}</span></div>
-      <div class="cifra-an"><span class="rotulo">Órdenes</span><span class="valor">${R.n}</span><span class="nota">${flecha(R.var.n)} antes ${R.antes.n}</span></div>
-      <div class="cifra-an"><span class="rotulo">Ticket promedio</span><span class="valor">${pesos(R.ticket)}</span><span class="nota">neto por orden · antes ${pesos(R.antes.ticket)}</span></div>
-      <div class="cifra-an"><span class="rotulo">Pendiente de cobro</span><span class="valor" style="color:var(--rojo-t)">${pesos(R.pendiente)}</span><span class="nota">de estas ventas · cobrado ${pesos(R.cobrado)}</span></div>
+      <div class="cifra-an"><span class="rotulo">Ventas (neto) ${info('Ventas (neto)', `Lo vendido en ${rango(per)} sin IVA, por fecha de la orden (no por fecha de factura ni de pago). No cuenta las anuladas.\nLa flecha compara con ${antesTxt}, el período anterior del mismo largo: este mes se compara con los mismos días del mes pasado; esta semana, con los mismos días de la semana pasada; mes pasado, con el mes completo anterior.`)}</span><span class="valor">${pesos(R.neto)}</span><span class="nota">${flecha(R.var.neto)} ${esc(antesTxt)}: ${pesos(R.antes.neto)}</span></div>
+      <div class="cifra-an"><span class="rotulo">Órdenes ${info('Órdenes', `Cuántas órdenes hubo en ${rango(per)}, frente a las de ${antesTxt}.`)}</span><span class="valor">${R.n}</span><span class="nota">${flecha(R.var.n)} ${esc(antesTxt)}: ${R.antes.n}</span></div>
+      <div class="cifra-an"><span class="rotulo">Ticket promedio ${info('Ticket promedio', `Ventas netas divididas por la cantidad de órdenes: cuánto se vende en promedio por orden. Al lado, el de ${antesTxt}.`)}</span><span class="valor">${pesos(R.ticket)}</span><span class="nota">neto por orden · ${esc(antesTxt)}: ${pesos(R.antes.ticket)}</span></div>
+      <div class="cifra-an"><span class="rotulo">Pendiente de cobro ${info('Pendiente de cobro', `De lo vendido en ${rango(per)}, cuánto falta pagar (con IVA; descuenta los abonos). "Cobrado" es lo que ya se pagó de esas mismas ventas.\nLo que entró en el período, venga de cuando venga, está en Caja real.`)}</span><span class="valor" style="color:var(--rojo-t)">${pesos(R.pendiente)}</span><span class="nota">de estas ventas · cobrado ${pesos(R.cobrado)}</span></div>
     </div>
     <p class="ayuda">Total con IVA ${pesos(R.total)} (IVA ${pesos(R.iva)}) · facturado ${pesos(R.facturado)} · sin factura ${pesos(R.total - R.facturado)}</p></section>`;
-  const caja = `<section class="tarjeta" aria-labelledby="t-an-caja"><div class="titulo-fila"><h2 id="t-an-caja">Caja real</h2><span>${esc(rango(per))}</span></div>
+  const caja = `<section class="tarjeta" aria-labelledby="t-an-caja"><div class="titulo-fila"><h2 id="t-an-caja">Caja real ${info('Caja real', 'Lo que efectivamente entró en el período, por fecha de pago (con la conciliación, la fecha del banco), con IVA:\nPagos de ventas del período: órdenes de estas fechas que ya se pagaron.\nPagos de ventas anteriores: órdenes de antes que se pagaron en estas fechas (abajo, de qué meses vienen).\nAbonos: pagos parciales, cada uno en su fecha. Un folio con abonos se cuenta por sus abonos, no por su fecha de pago.')}</h2><span>${esc(rango(per))}</span></div>
     ${C.total ? `<div class="filas-caja-an">
       <div><span>Pagos de ventas del período</span><b>${pesos(C.delPeriodo)}</b></div>
       <div><span>Pagos de ventas anteriores</span><b>${pesos(C.anteriores)}</b></div>
@@ -3297,7 +3297,7 @@ function pintarB2bAnalisis(el, sub) {
     cliente: () => r.dejados.length ? `<table class="tabla-tiempos"><thead><tr><th scope="col">Producto que pedía</th><th scope="col">Unidades antes</th><th scope="col">Neto antes</th></tr></thead><tbody>${r.dejados.map(p => `<tr><td>${esc(p.producto)}</td><td>${fmtU(p.unidadesAntes)}</td><td>${pesos(p.netoAntes)}</td></tr>`).join('')}</tbody></table>
       <p class="ayuda">Productos que ${esc(cliente ? cliente.nombre : 'el cliente')} pidió en ${esc(rango(per.antes))} y no en este período.</p>` : '<div class="vacio" style="border:0">Pidió todo lo que pedía en el período anterior.</div>'
   };
-  const prods = `<section class="tarjeta" aria-labelledby="t-an-prod"><div class="titulo-fila"><h2 id="t-an-prod">Productos${cliente ? ' · ' + esc(cliente.nombre) : ''}</h2><span>${r.ranking.length} ${r.ranking.length === 1 ? 'producto' : 'productos'}</span></div>
+  const prods = `<section class="tarjeta" aria-labelledby="t-an-prod"><div class="titulo-fila"><h2 id="t-an-prod">Productos${cliente ? ' · ' + esc(cliente.nombre) : ''} ${info('Productos', `Ranking: unidades y neto de cada producto en ${rango(per)}, su parte del total y si subió o bajó frente a ${rango(per.antes)} ("Nuevo" si antes no se vendió).\nPor día de la semana: el promedio de unidades de cada día (lunes, martes…) en el período; lo más alto de cada producto va marcado.\nPrecio real: neto promedio por unidad, con los precios especiales, frente al precio base de hoy.\nQué dejó de pedir (con un cliente elegido): lo que pidió en ${rango(per.antes)} y no en este período.`)}</h2><span>${r.ranking.length} ${r.ranking.length === 1 ? 'producto' : 'productos'}</span></div>
     <div class="pastillas" role="group" aria-label="Ver" style="margin-bottom:10px">${vistas.map(([k, t]) => `<button type="button" class="pastilla" data-an-vista="${k}" aria-pressed="${s.vista === k}">${t}</button>`).join('')}</div>
     ${r.ranking.length || s.vista === 'cliente' ? `<div class="tabla-b2b">${tabla[s.vista]()}</div>` : '<div class="vacio" style="border:0">Sin ventas en este período.</div>'}</section>`;
   el.innerHTML = cabB2b(sub) + filtros + resumen + caja + prods;

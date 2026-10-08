@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.16.0';
-import * as FB from './firebase-b2b.js?v=0.16.0';
-import * as Apps from './apps.js?v=0.16.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.16.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.16.2';
+import * as FB from './firebase-b2b.js?v=0.16.2';
+import * as Apps from './apps.js?v=0.16.2';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.16.2';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -719,12 +719,19 @@ export async function solicitudesParaHoy() {
 
 // ── Por facturar: lo que ya corresponde facturar según la modalidad del cliente ──
 // Diaria: órdenes de días anteriores · Semanal: de semanas anteriores (lunes a domingo) · Mensual: de meses anteriores
-export function correspondeFacturar(facturacion, fecha, hoy = hoyTxt()) {
-  if (!fecha) return false;
+// v0.16.1 (regla de Emmanuel, 8-oct): diaria se factura el mismo día; semanal el sábado de esa semana
+// (semana de lunes a domingo: una orden del domingo se factura ese mismo domingo, v0.16.2); mensual el último día del mes (así el IVA queda en ese mes).
+export function diaDeFacturar(facturacion, fecha) {
+  if (!fecha) return null;
   const f = String(facturacion || '').trim().toLowerCase();   // la planilla puede traer "semanal", "Mensual ", etc.
-  if (/^seman/.test(f)) { const d = new Date(hoy + 'T12:00:00'), w = d.getDay(); d.setDate(d.getDate() - (w === 0 ? 6 : w - 1)); return fecha < hoyTxt(d); }
-  if (/^mensu/.test(f)) return fecha.slice(0, 7) < hoy.slice(0, 7);
-  return fecha < hoy;
+  const d = new Date(fecha.slice(0, 10) + 'T12:00:00');
+  if (/^seman/.test(f)) { if (d.getDay() !== 0) d.setDate(d.getDate() + (6 - d.getDay())); return hoyTxt(d); }   // semana de lunes a domingo: lunes a sábado → ese sábado; domingo → ese domingo
+  if (/^mensu/.test(f)) return hoyTxt(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+  return fecha.slice(0, 10);
+}
+export function correspondeFacturar(facturacion, fecha, hoy = hoyTxt()) {
+  const dia = diaDeFacturar(facturacion, fecha);
+  return !!dia && dia <= hoy;
 }
 
 // ═══════════════════════════════════════════════
@@ -759,7 +766,7 @@ export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
   if (!d) return [];
   const out = [], norm = t => String(t || '').trim().toLowerCase(), enRango = f => f >= desde && f <= hasta;
   const clientes = d.clientes.filter(c => c.estado !== 'archivado');
-  // Cobros: cada folio vence en su fecha de factura + lo acordado (diaria 0, semanal 7, mensual o 30 días: 30)
+  // Cobros: cada folio se cobra desde su fecha de factura (diaria, semanal y mensual) o 30 días después ("30 días")
   const grupos = {}, atrasados = { n: 0, saldo: 0, clientes: new Set() };
   Object.entries(foliosPorCobrar(d.porCobrar, d.abonos, d.clientes)).forEach(([cid, fs]) => {
     const c = d.clientes.find(x => x.id === cid), dias = (c && ACORDADO[norm(c.frecuenciaPago)]) || 0;
@@ -780,7 +787,7 @@ export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
     const dias = diasRitmo(conf), cob = coberturaCartolas(conf.cartolas || []);
     for (let f = desde; f <= hasta; f = masDiasB(f, 1)) if (dias.includes(new Date(f + 'T12:00:00').getDay())) out.push({ auto: true, cat: 'conciliar', fecha: f, titulo: 'Conciliar la cartola', sub: 'Días de conciliar', url: '#b2b/conciliacion', hecho: f <= hoy && !!cob.hasta && cob.hasta >= masDiasB(f, -1) });
   }
-  // Facturar: hoy, lo que ya toca; hacia adelante, según cómo factura cada cliente (diaria: lunes a sábado; semanal: lunes; mensual: el 1)
+  // Facturar: hoy, lo que ya toca; hacia adelante, según cómo factura cada cliente (diaria: lunes a sábado; semanal: sábado; mensual: último día del mes)
   const modo = c => { const f = norm(c.facturacion); return /^seman/.test(f) ? 'semanal' : /^mensu/.test(f) ? 'mensual' : 'diaria'; };
   if (enRango(hoy)) {
     const cliDe = o => clientes.find(c => (o.clienteId && c.id === o.clienteId) || norm(c.nombre) === norm(o.cliente));
@@ -790,7 +797,7 @@ export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
   for (let f = masDiasB(hoy >= desde ? hoy : masDiasB(desde, -1), 1); f <= hasta; f = masDiasB(f, 1)) {
     const w = new Date(f + 'T12:00:00').getDay(), quienes = [];
     if (w !== 0 && clientes.some(c => modo(c) === 'diaria')) quienes.push('diarios');
-    const sem = w === 1 ? clientes.filter(c => modo(c) === 'semanal').map(c => c.nombre) : [], mes = f.slice(8) === '01' ? clientes.filter(c => modo(c) === 'mensual').map(c => c.nombre) : [];
+    const sem = w === 6 ? clientes.filter(c => modo(c) === 'semanal').map(c => c.nombre) : [], mes = masDiasB(f, 1).slice(8) === '01' ? clientes.filter(c => modo(c) === 'mensual').map(c => c.nombre) : [];
     if (!quienes.length && !sem.length && !mes.length) continue;
     out.push({ auto: true, cat: 'facturar', fecha: f, titulo: 'Facturar órdenes', sub: [quienes.length ? 'clientes de facturación diaria' : '', sem.length ? 'semanal: ' + sem.join(', ') : '', mes.length ? 'mensual: ' + mes.join(', ') : ''].filter(Boolean).join(' · '), url: '#b2b' });
   }
@@ -826,7 +833,9 @@ export function olvidarAnalisis() { cacheAnalisis = null; try { localStorage.rem
 const fechaDe = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(f || '')); return m ? m[0] : null; };
 const diasEntre = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 864e5);
 export const CORTES_PAGO = { verde: 7, amarillo: 30 };   // días: hasta 7 al día, hasta 30 más tarde, más de 30 tarde
-const ACORDADO = { diaria: 0, semanal: 7, mensual: 30, '30dias': 30 };
+// v0.16.1: días entre la factura y el pago acordado. Diaria, semanal y mensual pagan el mismo día de la factura
+// (desde ese día quedan por cobrar); "30 días" tiene 30 días de plazo (se pueden ir registrando abonos).
+const ACORDADO = { diaria: 0, semanal: 0, mensual: 0, '30dias': 30 };
 // ordenes: las de 6 meses (y además las pendientes de cualquier fecha); abonos: todos. Montos de compra en NETO.
 export function analisisClientes(ordenes, abonos, clientes, hoy = hoyTxt()) {
   const mesDe = (k) => { const [y, m] = hoy.split('-').map(Number), d = new Date(y, m - 1 - k, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
