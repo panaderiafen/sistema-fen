@@ -1,9 +1,14 @@
-# Sistema Fën · v0.16.2
+# Sistema Fën · v0.16.3
 
-**App:** v0.16.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.6.0 · 8 de octubre de 2026
+**App:** v0.16.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.6.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.16.3
+- **Copiar mensaje** (Por facturar, varias órdenes): cada orden va con la fecha corta: "Orden N° 2536, pedido del 1 oct, 2026" (antes "… del 1 de octubre de 2026.").
+
+Archivos: cambian `app.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.16.3**. Incluye todo lo de la v0.16.2 y anteriores (scripts y reglas, igual que la v0.16.2).
 
 ## Novedades de la v0.16.2
 - **Semana de lunes a domingo** para los clientes semanales: el sábado se marcan las órdenes de lunes a sábado; el domingo, también la del domingo (antes iba al sábado siguiente). En Hoy (script de B2B **v2.8.2**) quedan atrasadas desde el lunes.
@@ -47,7 +52,7 @@ Archivos: cambian `agenda.js`, `app.js`, `b2b.js`, `gastos.js`, `estilos.css`, `
 
 ### Instalación de la v0.16.0 (unos 10 minutos)
 1. **Script de Gastos v2.6.0 (Apps Script de Gastos):** sigue el README del zip `gastos-script-v2.6.0` (archivo nuevo `Calendario.gs`, dar el permiso de Google Calendar una vez, nueva versión de la implementación). El ping debe decir **2.6.0**.
-2. **GitHub, repo `sistema-fen`:** sube todos los archivos del zip. Abajo a la izquierda debe decir **v0.16.2**.
+2. **GitHub, repo `sistema-fen`:** sube todos los archivos del zip. Abajo a la izquierda debe decir **v0.16.3**.
 
 ### Lista de verificación
 - [ ] Agenda: aparecen los pagos de Gastos (vencidos en rojo suave) y los próximos pagos con borde punteado (el IVA, si está como obligación).
