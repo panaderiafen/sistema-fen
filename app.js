@@ -9,19 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.18.1';
-import * as Caja from './caja.js?v=0.18.1';
-import * as Stock from './stock.js?v=0.18.1';
-import * as Ajustes from './ajustes.js?v=0.18.1';
-import * as Apps from './apps.js?v=0.18.1';
-import * as Agenda from './agenda.js?v=0.18.1';
-import * as Gastos from './gastos.js?v=0.18.1';
-import * as Sii from './sii.js?v=0.18.1';
-import * as Previred from './previred.js?v=0.18.1';
-import * as B2b from './b2b.js?v=0.18.1';
-import * as Cartola from './cartola.js?v=0.18.1';
-import * as PdfOrden from './pdf-orden.js?v=0.18.1';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.18.1';
+} from './firebase.js?v=0.19.0';
+import * as Caja from './caja.js?v=0.19.0';
+import * as Stock from './stock.js?v=0.19.0';
+import * as Ajustes from './ajustes.js?v=0.19.0';
+import * as Apps from './apps.js?v=0.19.0';
+import * as Agenda from './agenda.js?v=0.19.0';
+import * as Gastos from './gastos.js?v=0.19.0';
+import * as Sii from './sii.js?v=0.19.0';
+import * as Previred from './previred.js?v=0.19.0';
+import * as B2b from './b2b.js?v=0.19.0';
+import * as Cartola from './cartola.js?v=0.19.0';
+import * as SiiFactura from './sii-factura.js?v=0.19.0';
+import * as PdfOrden from './pdf-orden.js?v=0.19.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.19.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -314,7 +315,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.18.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.19.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2751,10 +2752,11 @@ function resumenFactura(cliente, ordenes) {
   return `<div class="resumen-factura" aria-label="Resumen para facturar a ${esc(cliente)}">
     <div class="titulo-fila"><b>Para facturar · ${f.os.length} ${f.os.length === 1 ? 'orden' : 'órdenes'} (N° ${f.os.map(o => o.n).join(', ')})</b>
       <div class="acciones-factura"><label class="folio-pre"><span>Folio SII</span><input inputmode="numeric" data-folio-pre="${esc(cliente)}" value="${esc(b2b.folioPre[cliente] || '')}" placeholder="Ej: 5512" aria-label="Folio SII de la factura"></label>
-        <button type="button" class="btn-sec btn-chico" data-copiar-msj="${esc(cliente)}">Copiar mensaje</button><button type="button" class="btn-sec btn-chico btn-wsp" data-wsp-cli="${esc(cliente)}">WhatsApp</button></div></div>
+        <button type="button" class="btn-sec btn-chico" data-copiar-msj="${esc(cliente)}">Copiar mensaje</button><button type="button" class="btn-sec btn-chico btn-wsp" data-wsp-cli="${esc(cliente)}">WhatsApp</button><button type="button" class="btn-sec btn-chico" data-sii-cli="${esc(cliente)}">Preparar para el SII</button></div></div>
     <div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Producto</th><th scope="col">Cantidad</th><th scope="col">Precio neto</th><th scope="col">Total neto</th></tr></thead><tbody>
       ${f.filas.map(x => `<tr><td>${esc(x.producto)}</td><td>${x.cantidad.toLocaleString('es-CL')}</td><td>${pesos(x.precio)}</td><td>${pesos(x.neto)}</td></tr>`).join('')}
     </tbody><tfoot><tr><td colspan="3">Neto</td><td>${pesos(f.neto)}</td></tr><tr><td colspan="3">IVA (19%)</td><td>${pesos(f.iva)}</td></tr><tr class="total"><td colspan="3">Total</td><td>${pesos(f.total)}</td></tr></tfoot></table></div>
+    ${f.filas.length > 10 ? `<p class="ayuda">Son ${f.filas.length} productos distintos: el formulario del SII trae 10 líneas; el botón intenta agregar más y, si no caben, te dice cuáles faltan.</p>` : ''}
     ${f.total !== f.sumaOrdenes ? `<p class="ayuda">Las órdenes suman ${pesos(f.sumaOrdenes)}: la diferencia de ${pesos(Math.abs(f.total - f.sumaOrdenes))} es por redondeo del IVA (la factura lo calcula sobre el neto total).</p>` : ''}
   </div>`;
 }
@@ -2770,6 +2772,23 @@ async function abrirWhatsapp(cl, msj) {
   if (cl.grupoWhatsapp) { await copiarTexto(msj); window.open(cl.grupoWhatsapp, '_blank', 'noopener'); return 'grupo'; }
   if (cl.whatsapp) { window.open(`https://wa.me/${cl.whatsapp}?text=${encodeURIComponent(msj)}`, '_blank', 'noopener'); return 'numero'; }
   window.open(`https://wa.me/?text=${encodeURIComponent(msj)}`, '_blank', 'noopener'); return 'sin';
+}
+// v0.19.0 · Instrucciones del botón "Llenar factura Fën" (y el enlace para dejarlo en favoritos)
+function abrirAyudaSii(estado, txt) {
+  const d = dialogo(`<div class="form-dialogo"><h2>Llenar la factura en el SII</h2>
+    ${estado === 'copiado' ? '<p><b>Listo, quedó copiado.</b> Ahora, en el computador:</p>' : estado === 'manual' ? `<p>No se pudo copiar solo. Copia este texto (selecciónalo todo):</p><textarea readonly rows="3" style="width:100%">${esc(txt)}</textarea>` : ''}
+    <ol class="pasos-sii">
+      <li>Abre en el SII el formulario de <b>Factura electrónica</b> (sistema gratuito).</li>
+      <li>Toca <b>Llenar factura Fën</b> en tu barra de favoritos: pone el RUT del cliente y el SII carga sus datos.</li>
+      <li>Toca <b>Llenar factura Fën</b> otra vez: pone los productos, cantidades y precios netos.</li>
+      <li>Revisa y usa <b>Validar y visualizar</b> como siempre. Nada se emite solo.</li>
+    </ol>
+    <details class="detalle-an" ${estado ? '' : 'open'}><summary>Primera vez: dejar el botón en favoritos</summary>
+      <p class="ayuda">Muestra la barra de favoritos (Chrome: Ctrl + Mayús + B; Mac: Cmd + Mayús + B) y <b>arrastra</b> este botón hasta ella. Si tu navegador no deja arrastrar, haz clic derecho → "Agregar a favoritos".</p>
+      <p style="text-align:center"><a class="btn" id="sii-boton" href="${esc(SiiFactura.codigoBoton())}" onclick="return false">Llenar factura Fën</a></p>
+      <p class="ayuda">El botón solo escribe en el formulario abierto del SII; no envía tus datos a ninguna parte. Funciona en el computador (Chrome, Edge o Safari). La primera vez el navegador puede pedir permiso para leer lo copiado: acepta, o pega el texto cuando te lo pida.</p></details>
+    <div class="botones"><button type="button" class="btn" id="sii-cerrar">Entendido</button></div></div>`);
+  d.querySelector('#sii-cerrar').onclick = () => d.close();
 }
 async function copiarTexto(t) {
   try { await navigator.clipboard.writeText(t); return true; }
@@ -2881,6 +2900,15 @@ function pintarB2bAdmin(el, sub) {
     const r = await abrirWhatsapp(cl, msj);
     if (r === 'grupo') alert('Mensaje copiado. Se abre el grupo de WhatsApp: pégalo ahí (mantén presionado → Pegar).');
     else if (r === 'sin') alert('Este cliente no tiene WhatsApp guardado (Clientes → Editar datos). Se abre WhatsApp para que elijas el chat; el mensaje ya va escrito.');
+  }));
+  // v0.19.0: copia el RUT y el detalle para el botón "Llenar factura Fën" en el formulario del SII
+  el.querySelectorAll('[data-sii-cli]').forEach(bs => bs.addEventListener('click', async () => {
+    const c = bs.dataset.siiCli, lista = (porCliente[c] || []).filter(o => b2b.sel.has(String(o.n)));
+    const cl = d.clientes.find(x => x.id === (lista[0] || {}).clienteId) || cliDe(c) || {};
+    let txt;
+    try { txt = SiiFactura.textoParaSii(cl, datosFactura(lista, b2b.folioPre[c]).filas, lista); } catch (e) { alert(e.message); return; }
+    const ok = await copiarTexto(txt);
+    abrirAyudaSii(ok ? 'copiado' : 'manual', txt);
   }));
   // v0.14.2: PDF de las órdenes marcadas (una hoja por orden, o un resumen)
   el.querySelectorAll('[data-pdf-cli]').forEach(bp => bp.addEventListener('click', async () => {

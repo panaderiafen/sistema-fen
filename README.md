@@ -1,9 +1,27 @@
-# Sistema Fën · v0.18.1
+# Sistema Fën · v0.19.0
 
-**App:** v0.18.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
+**App:** v0.19.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.19.0: llenar la factura en el portal gratuito del SII (en prueba)
+En Por facturar, en el panel "Para facturar", hay un botón nuevo: **Preparar para el SII**. Copia el RUT del cliente y el detalle (producto, cantidad y precio neto, igual que la tabla del panel).
+
+En el computador, en el formulario de **Factura electrónica** del SII:
+1. Toca **Llenar factura Fën** en la barra de favoritos: pone el RUT del cliente y el SII busca sus datos (razón social, dirección, giro).
+2. Tócalo otra vez: pone los productos, cantidades y precios netos, y te muestra el neto de Sistema Fën junto al que calcula el SII.
+3. Revisa y usa **Validar y visualizar** como siempre. Nada se emite solo.
+
+**Primera vez:** al tocar "Preparar para el SII" se abre una ventana con "Primera vez: dejar el botón en favoritos". Muestra la barra de favoritos (Ctrl + Mayús + B) y arrastra el botón "Llenar factura Fën" hasta ella. El navegador puede pedir permiso para leer lo copiado: acepta, o pega el texto cuando lo pida.
+
+Lo que hay que saber (está en prueba con tu formulario real):
+- El formulario del SII trae 10 líneas. Si una factura tiene más productos, el botón intenta agregar líneas; si el SII no las acepta, te dice cuáles faltan.
+- Los nombres de producto muy largos se cortan al largo que acepta el SII (te avisa cuáles).
+- El botón solo escribe en el formulario abierto: no envía nada a ninguna parte. Solo funciona en el computador.
+- Si el SII cambia su formulario, el botón avisa que no encontró los campos y hay que ajustarlo.
+
+Archivos: archivo NUEVO `sii-factura.js`; cambian `app.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.19.0**. Incluye la v0.18.1 y la v0.18.0 (va con el **script de Gastos v2.8.0**).
 
 ## Novedades de la v0.18.1
 - **Mensaje de la factura con el nombre del contacto** (Por facturar → Copiar mensaje y WhatsApp): "Hola Bárbara, envío factura N° 3448 de la orden de venta N° 2559…". Usa el primer nombre del campo **Contacto** del cliente (Clientes → Editar datos). Si el cliente no tiene contacto, queda "Hola, envío factura…".
