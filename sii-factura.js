@@ -21,7 +21,7 @@ export function textoParaSii(cliente, filas, ordenes) {
   const r = partirRut(cliente && cliente.rut);
   if (!r) throw new Error('El cliente no tiene RUT (Clientes → Editar datos).');
   const lineas = filas.map(f => ({ n: String(f.producto).trim(), q: Math.round((Number(f.cantidad) || 0) * 1000) / 1000, p: Math.round(Number(f.precio) || 0) }));
-  return PREFIJO + JSON.stringify({ v: 1, rut: r.rut, dv: r.dv, razon: (cliente && (cliente.razonSocial || cliente.nombre)) || '', ordenes: (ordenes || []).map(o => o.n), lineas });
+  return PREFIJO + JSON.stringify({ v: 1, rut: r.rut, dv: r.dv, razon: (cliente && (cliente.razonSocial || cliente.nombre)) || '', ciudad: String((cliente && cliente.ciudad) || '').trim(), ordenes: (ordenes || []).map(o => o.n), lineas });
 }
 
 // ── El botón (bookmarklet). Corre dentro de la página del SII. ──
@@ -62,6 +62,8 @@ async function llenarFacturaFen() {
     }
     if (typeof window.dibujaDetalles === 'function') window.dibujaDetalles();
   }
+  // La ciudad del receptor (el SII no siempre la trae): la de Clientes en Sistema Fën
+  if (d.ciudad && campo('EFXP_CIUDAD_RECEP') && !String(campo('EFXP_CIUDAD_RECEP').value).trim()) { const c = campo('EFXP_CIUDAD_RECEP'); poner('EFXP_CIUDAD_RECEP', c.maxLength > 0 ? d.ciudad.slice(0, c.maxLength) : d.ciudad); }
   const cortados = [], faltan = [];
   L.forEach((x, i) => {
     const k = k2(i), nm = campo('EFXP_NMB_' + k);

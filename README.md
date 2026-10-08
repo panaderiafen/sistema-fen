@@ -1,9 +1,15 @@
-# Sistema Fën · v0.19.0
+# Sistema Fën · v0.19.1
 
-**App:** v0.19.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
+**App:** v0.19.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.19.1
+- **Ciudad del cliente** (Clientes → Editar datos y Nuevo cliente). El botón "Llenar factura Fën" la escribe en el formulario del SII si ese campo viene vacío.
+- **Hay que reinstalar el botón** (el favorito cambió): borra el favorito "Llenar factura Fën" antiguo y arrastra el nuevo desde Por facturar → Preparar para el SII → "Primera vez: dejar el botón en favoritos".
+
+Archivos: cambian `app.js`, `b2b.js`, `sii-factura.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.19.1**. La ciudad se guarda en Sistema Fën; a la planilla de B2B no se copia.
 
 ## Novedades de la v0.19.0: llenar la factura en el portal gratuito del SII (en prueba)
 En Por facturar, en el panel "Para facturar", hay un botón nuevo: **Preparar para el SII**. Copia el RUT del cliente y el detalle (producto, cantidad y precio neto, igual que la tabla del panel).

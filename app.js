@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.19.0';
-import * as Caja from './caja.js?v=0.19.0';
-import * as Stock from './stock.js?v=0.19.0';
-import * as Ajustes from './ajustes.js?v=0.19.0';
-import * as Apps from './apps.js?v=0.19.0';
-import * as Agenda from './agenda.js?v=0.19.0';
-import * as Gastos from './gastos.js?v=0.19.0';
-import * as Sii from './sii.js?v=0.19.0';
-import * as Previred from './previred.js?v=0.19.0';
-import * as B2b from './b2b.js?v=0.19.0';
-import * as Cartola from './cartola.js?v=0.19.0';
-import * as SiiFactura from './sii-factura.js?v=0.19.0';
-import * as PdfOrden from './pdf-orden.js?v=0.19.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.19.0';
+} from './firebase.js?v=0.19.1';
+import * as Caja from './caja.js?v=0.19.1';
+import * as Stock from './stock.js?v=0.19.1';
+import * as Ajustes from './ajustes.js?v=0.19.1';
+import * as Apps from './apps.js?v=0.19.1';
+import * as Agenda from './agenda.js?v=0.19.1';
+import * as Gastos from './gastos.js?v=0.19.1';
+import * as Sii from './sii.js?v=0.19.1';
+import * as Previred from './previred.js?v=0.19.1';
+import * as B2b from './b2b.js?v=0.19.1';
+import * as Cartola from './cartola.js?v=0.19.1';
+import * as SiiFactura from './sii-factura.js?v=0.19.1';
+import * as PdfOrden from './pdf-orden.js?v=0.19.1';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.19.1';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -315,7 +315,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.19.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.19.1" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -3060,12 +3060,12 @@ async function nuevoClienteUI() {
     const r = await pedirDatos('Nuevo cliente', `
       <div class="campo"><label for="pd-nombre">Nombre (como se ve en las órdenes)</label><input id="pd-nombre" placeholder="Ej: Café La Esquina"></div>
       <div class="fila-campos"><div class="campo"><label for="pd-rut">RUT</label><input id="pd-rut" placeholder="12.345.678-9"></div><div class="campo"><label for="pd-razon">Razón social</label><input id="pd-razon"></div></div>
-      <div class="fila-campos"><div class="campo"><label for="pd-giro">Giro</label><input id="pd-giro"></div><div class="campo"><label for="pd-dir">Dirección</label><input id="pd-dir"></div></div>
+      <div class="fila-campos"><div class="campo"><label for="pd-giro">Giro</label><input id="pd-giro"></div><div class="campo"><label for="pd-dir">Dirección</label><input id="pd-dir"></div><div class="campo"><label for="pd-ciudad">Ciudad</label><input id="pd-ciudad" placeholder="Ej: Concepción"></div></div>
       <div class="fila-campos"><div class="campo"><label for="pd-correo">Correo</label><input id="pd-correo" type="email"></div><div class="campo"><label for="pd-tel">Teléfono</label><input id="pd-tel"></div></div>
       <div class="campo"><label for="pd-contacto">Contacto</label><input id="pd-contacto"></div>
       <div class="fila-campos"><div class="campo"><label for="pd-fact">Facturación</label><select id="pd-fact">${opc('pd-fact', 'Diaria')}</select></div><div class="campo"><label for="pd-frec">Frecuencia de pago</label><select id="pd-frec">${opc('pd-frec', 'Diaria')}</select></div></div>`, 'Crear cliente',
       dd => { const v = id => dd.querySelector('#' + id).value.trim(); if (v('pd-nombre').length < 2) return { error: 'Escribe el nombre.' };
-        return { nombre: v('pd-nombre'), rut: v('pd-rut'), razonSocial: v('pd-razon'), giro: v('pd-giro'), direccion: v('pd-dir'), correo: v('pd-correo'), telefono: v('pd-tel'), contacto: v('pd-contacto'), facturacion: v('pd-fact'), frecuenciaPago: v('pd-frec') }; });
+        return { nombre: v('pd-nombre'), rut: v('pd-rut'), razonSocial: v('pd-razon'), giro: v('pd-giro'), direccion: v('pd-dir'), ciudad: v('pd-ciudad'), correo: v('pd-correo'), telefono: v('pd-tel'), contacto: v('pd-contacto'), facturacion: v('pd-fact'), frecuenciaPago: v('pd-frec') }; });
     if (!r) return;
     try { await B2b.nuevoCliente(r); registrar('Creó cliente B2B', r.nombre); alert(`Listo: ${r.nombre} ya aparece en la app de logística.`); }
     catch (e) { alert(errorB2b(e)); }
@@ -3157,13 +3157,13 @@ function pintarB2bClientes(el, sub) {
     const c = d.clientes.find(x => x.id === b.dataset.editarCli);
     const r = await pedirDatos(`Editar ${c.nombre}`, `<p class="ayuda">El nombre no se cambia (las órdenes lo usan).</p>
       <div class="fila-campos"><div class="campo"><label for="pd-rut">RUT</label><input id="pd-rut" value="${esc(c.rut)}"></div><div class="campo"><label for="pd-razon">Razón social</label><input id="pd-razon" value="${esc(c.razonSocial)}"></div></div>
-      <div class="fila-campos"><div class="campo"><label for="pd-giro">Giro</label><input id="pd-giro" value="${esc(c.giro)}"></div><div class="campo"><label for="pd-dir">Dirección</label><input id="pd-dir" value="${esc(c.direccion)}"></div></div>
+      <div class="fila-campos"><div class="campo"><label for="pd-giro">Giro</label><input id="pd-giro" value="${esc(c.giro)}"></div><div class="campo"><label for="pd-dir">Dirección</label><input id="pd-dir" value="${esc(c.direccion)}"></div><div class="campo"><label for="pd-ciudad">Ciudad</label><input id="pd-ciudad" value="${esc(c.ciudad || '')}" placeholder="Ej: Concepción"></div></div>
       <div class="fila-campos"><div class="campo"><label for="pd-correo">Correo</label><input id="pd-correo" type="email" value="${esc(c.correo)}"></div><div class="campo"><label for="pd-tel">Teléfono</label><input id="pd-tel" value="${esc(c.telefono)}"></div></div>
       <div class="campo"><label for="pd-contacto">Contacto</label><input id="pd-contacto" value="${esc(c.contacto)}"></div>
       <div class="fila-campos"><div class="campo"><label for="pd-wsp">WhatsApp (celular)</label><input id="pd-wsp" inputmode="tel" value="${esc(c.whatsapp ? '+' + c.whatsapp : '')}" placeholder="+56 9 1234 5678"></div><div class="campo"><label for="pd-grupo">Grupo de WhatsApp (enlace)</label><input id="pd-grupo" value="${esc(c.grupoWhatsapp || '')}" placeholder="https://chat.whatsapp.com/…"></div></div>
       <p class="ayuda">Si el cliente usa un grupo, pega el enlace de invitación del grupo (en WhatsApp: datos del grupo → Invitar con enlace). Si tiene los dos, se usa el grupo.</p>
       <div class="fila-campos"><div class="campo"><label for="pd-fact">Facturación</label><select id="pd-fact">${opc(B2b.FACTURACION, c.facturacion || 'Diaria')}</select></div><div class="campo"><label for="pd-frec">Frecuencia de pago</label><select id="pd-frec">${opc(B2b.FRECUENCIA, c.frecuenciaPago || 'Diaria')}</select></div></div>`, 'Guardar',
-      dd => { const v = id => dd.querySelector('#' + id).value.trim(); return { rut: v('pd-rut'), razonSocial: v('pd-razon'), giro: v('pd-giro'), direccion: v('pd-dir'), correo: v('pd-correo'), telefono: v('pd-tel'), contacto: v('pd-contacto'), facturacion: v('pd-fact'), frecuenciaPago: v('pd-frec'), whatsapp: v('pd-wsp'), grupoWhatsapp: v('pd-grupo') }; });
+      dd => { const v = id => dd.querySelector('#' + id).value.trim(); return { rut: v('pd-rut'), razonSocial: v('pd-razon'), giro: v('pd-giro'), direccion: v('pd-dir'), ciudad: v('pd-ciudad'), correo: v('pd-correo'), telefono: v('pd-tel'), contacto: v('pd-contacto'), facturacion: v('pd-fact'), frecuenciaPago: v('pd-frec'), whatsapp: v('pd-wsp'), grupoWhatsapp: v('pd-grupo') }; });
     if (r && r.whatsapp && B2b.normalizarWsp(r.whatsapp) === null) { alert('El WhatsApp debe ser un celular chileno (9 dígitos, empieza con 9).'); return; }
     if (r && !B2b.grupoWspValido(r.grupoWhatsapp)) { alert('El enlace del grupo debe empezar con https://chat.whatsapp.com/'); return; }
     if (r && r.facturacion === (c.facturacion || 'Diaria')) delete r.facturacion;

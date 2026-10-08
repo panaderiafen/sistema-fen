@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.19.0';
-import * as FB from './firebase-b2b.js?v=0.19.0';
-import * as Apps from './apps.js?v=0.19.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.19.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.19.1';
+import * as FB from './firebase-b2b.js?v=0.19.1';
+import * as Apps from './apps.js?v=0.19.1';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.19.1';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -542,7 +542,7 @@ export async function nuevoCliente(c) {
       id = base + '-' + i++;
     }
     const t = k => String(c[k] || '').trim();
-    tx.set(FB.doc(db, 'clientes', id), { nombre, rut: t('rut'), razonSocial: t('razonSocial'), giro: t('giro'), direccion: t('direccion'), correo: t('correo'), telefono: t('telefono'), contacto: t('contacto'),
+    tx.set(FB.doc(db, 'clientes', id), { nombre, rut: t('rut'), razonSocial: t('razonSocial'), giro: t('giro'), direccion: t('direccion'), ciudad: t('ciudad'), correo: t('correo'), telefono: t('telefono'), contacto: t('contacto'),
       facturacion: c.facturacion || 'Diaria', frecuenciaPago: c.frecuenciaPago || 'Diaria', precios: [], estado: 'activo', extra: {}, origen: { app: 'sistema-fen' }, quitadoEnPlanilla: false, planillaPendiente: true, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
     return id;
   });
@@ -571,7 +571,7 @@ export async function datosPdf(o) {
 //  Nada se borra: clientes y productos se archivan (logística deja de verlos).
 //  Cada cambio de precio queda en historialPrecios del cliente o del producto.
 // ═══════════════════════════════════════════════
-const TXT = ['rut', 'razonSocial', 'giro', 'direccion', 'correo', 'telefono', 'contacto'];
+const TXT = ['rut', 'razonSocial', 'giro', 'direccion', 'ciudad', 'correo', 'telefono', 'contacto'];   // v0.19.1: ciudad (para la factura del SII)
 // v0.14.4 · WhatsApp del cliente: número (+56 9 …) o enlace de invitación de un grupo
 export function normalizarWsp(t) {
   const d = String(t || '').replace(/[^\d]/g, '');
