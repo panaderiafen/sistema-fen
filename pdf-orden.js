@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — PDF de la orden de venta (el mismo de la app de logística)  v0.12.2
+//  Sistema Fën — PDF de la orden de venta (el mismo de la app de logística)  v0.15.2 (diseño compacto)
 //  El mismo formato de la app B2B. Las librerías (html2canvas y jsPDF) se cargan
 //  desde cdnjs solo la primera vez que se pide un PDF.
 // ═══════════════════════════════════════════════
@@ -18,6 +18,17 @@ const clp = n => '$' + Math.round(Number(n) || 0).toLocaleString('es-CL');
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaES = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); return m ? `${Number(m[3])} de ${MESES[Number(m[2]) - 1]} de ${m[1]}` : (f || ''); };
 
+// v0.15.2 · Diseño compacto (elegido el 7-oct): total grande arriba, productos en un recuadro, lectura fácil en el celular
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const fechaLarga = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); if (!m) return f || ''; const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])); const t = `${DIAS[d.getDay()]} ${fechaES(f)}`; return t.charAt(0).toUpperCase() + t.slice(1); };
+const fechaCorta = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); return m ? `${Number(m[3])} ${MESES[Number(m[2]) - 1].slice(0, 3)}` : esc(f || '—'); };
+const pieEmpresa = E => `Fën · ${esc(E.direccion)} · ${esc(E.telefono)} · ${esc(E.correo)} · panaderiafen.cl`;
+const cabecera = (titulo, sub) => `<div class="od-cab"><img class="od-logo" src="logo-orden.png" alt="Fën"><div><div class="od-t1">${titulo}</div><div class="od-t2">${sub}</div></div></div>`;
+const banda = (etiqueta, valor, detalle) => `<div class="od-banda od-bloque"><div><div class="od-banda-et">${etiqueta}</div><div class="od-banda-v">${valor}</div></div><div class="od-banda-d">${detalle}</div></div>`;
+const fila = (nombre, sub, valor, clase = '') => `<div class="od-fila od-bloque ${clase}"><div><div class="od-fila-n">${nombre}</div>${sub ? `<div class="od-fila-s">${sub}</div>` : ''}</div><div class="od-fila-v">${valor}</div></div>`;
+const caja = (izq, der, cuerpo) => `<div class="od-caja"><div class="od-caja-cab od-bloque"><span>${izq}</span><span>${der}</span></div>${cuerpo}</div>`;
+const estadoPagoTxt = e => { const x = String(e || 'PENDIENTE').toUpperCase(); return x.includes('PAGADO') ? 'Pagada' : x === 'PARCIAL' ? 'Pago parcial' : 'Pago pendiente'; };
+
 // orden: { n, fecha, lineas, neto, iva, total, obs, folio, estadoPago }, cliente: { nombre, razonSocial, rut, direccion }
 // originales: { producto: cantidad antes de editar } · ediciones: [{ fecha, motivo, resumen }]
 export function html(orden, cliente, originales = {}, ediciones = []) {
@@ -26,61 +37,66 @@ export function html(orden, cliente, originales = {}, ediciones = []) {
   // El cambio se compara por producto (total de sus líneas) y se muestra una vez, en su primera línea
   const ahora = {}, vistos = new Set();
   (orden.lineas || []).forEach(l => { ahora[l.producto] = (ahora[l.producto] || 0) + l.cantidad; });
-  const marca = (antes, despues) => {
-    if (typeof antes === 'undefined' || antes === despues) return null;
-    return { cant: `<span style="text-decoration:line-through;color:#999">${antes}</span> &rarr; <strong>${despues}</strong>`,
-      nota: `<div style="font-size:9px;color:${despues < antes ? '#c0392b' : '#1D9E75'};margin-top:2px">&#8618; ${despues < antes ? 'Devuelto' : 'Agregado'}: ${Math.abs(antes - despues)} unid.</div>` };
+  const cambio = (antes, despues) => {
+    if (typeof antes === 'undefined' || antes === despues) return '';
+    const d = Math.abs(antes - despues);
+    return ` · <span class="od-cambio">${antes === 1 ? 'era' : 'eran'} ${antes}, se ${despues < antes ? (d === 1 ? 'devolvió' : 'devolvieron') : (d === 1 ? 'agregó' : 'agregaron')} ${d}</span>`;
   };
   const filas = (orden.lineas || []).map(l => {
     const primera = !vistos.has(l.producto); vistos.add(l.producto);
-    const unica = (orden.lineas || []).filter(x => x.producto === l.producto).length === 1;
-    const m = primera ? marca(originales[l.producto], ahora[l.producto]) : null;
-    const cant = m ? (unica ? m.cant : `${l.cantidad}`) : l.cantidad;
-    return `<tr><td>${esc(l.producto)}${m ? m.nota : ''}</td><td style="text-align:center">${cant}</td><td style="text-align:right">${clp(l.precio)}</td><td style="text-align:right">${clp(l.neto)}</td></tr>`;
+    return fila(esc(l.producto), `${esc(l.cantidad)} × ${clp(l.precio)}${primera ? cambio(originales[l.producto], ahora[l.producto]) : ''}`, clp(l.neto));
   }).join('') + Object.keys(originales).filter(p => !(p in ahora) && originales[p] > 0).map(p =>
-    `<tr><td style="color:#999">${esc(p)}<div style="font-size:9px;color:#c0392b;margin-top:2px">&#8618; Devuelto: ${originales[p]} unid.</div></td><td style="text-align:center"><span style="text-decoration:line-through;color:#999">${originales[p]}</span> &rarr; <strong>0</strong></td><td></td><td style="text-align:right">$0</td></tr>`).join('');
+    fila(esc(p), `<span class="od-cambio">${originales[p] === 1 ? 'era 1, se devolvió' : `eran ${originales[p]}, se devolvieron todos`}</span>`, '$0', 'od-quitado')).join('');
+  const nProd = new Set((orden.lineas || []).map(l => l.producto)).size;
   const anulada = orden.estado === 'anulada', an = orden.anulada || {};
+  const cambios = ediciones.map(e => `${esc(e.fecha)}: ${esc(e.resumen).replace(/\n/g, '; ')}${e.motivo ? ` ("${esc(e.motivo)}")` : ''}`);
+  const notas = [orden.obs ? esc(orden.obs) : ''].concat(cambios).filter(Boolean);
   return `<div class="od${anulada ? ' od-anulada' : ''}">
   ${anulada ? `<div class="od-sello" aria-hidden="true">ANULADA</div><div class="od-franja">ORDEN ANULADA${an.en ? ' el ' + esc(an.en) : ''}${an.motivo ? ' · ' + esc(an.motivo) : ''} — no vale como pedido</div>` : ''}
-  <div class="od-cab"><img class="od-logo" src="logo-orden.png" alt="Fën">
-    <div class="od-tit"><div class="od-t1">Orden de Venta</div><div class="od-t2">N° ${num}</div><div class="od-info">${esc(E.direccion)}<br>${esc(E.telefono)}<br>${esc(E.correo)}</div></div></div>
-  <hr class="od-hr">
-  <div class="od-dos">
-    <div class="od-caja"><div class="od-et">Cliente</div><div class="od-val"><strong>${esc(cliente.nombre || orden.cliente || '—')}</strong><br>${esc(cliente.razonSocial || '')}<br>RUT: ${esc(cliente.rut || '—')}<br>${esc(cliente.direccion || '')}</div></div>
-    <div class="od-caja"><div class="od-et">Detalle</div><div class="od-val"><strong>Fecha:</strong> ${esc(fechaES(orden.fecha))}<br><strong>Estado:</strong> ${anulada ? '<span style="color:#c0392b;font-weight:800">ANULADA</span>' : esc(orden.estadoPago || 'PENDIENTE')}<br><strong>Folio SII:</strong> ${esc(orden.folio || 'Pendiente')}</div></div>
-  </div>
-  ${orden.obs ? `<div class="od-notas"><strong>Notas:</strong> ${esc(orden.obs)}</div>` : ''}
-  <table class="od-tabla"><thead><tr><th>Producto</th><th style="text-align:center">Cant.</th><th style="text-align:right">Neto Unit.</th><th style="text-align:right">Neto Total</th></tr></thead><tbody>${filas}</tbody></table>
-  <div class="od-tot"><div class="od-tr"><span>Neto</span><span>${clp(orden.neto)}</span></div><div class="od-tr"><span>IVA (19%)</span><span>${clp(orden.iva)}</span></div><div class="od-total"><span>TOTAL</span><span>${clp(orden.total)}</span></div></div>
-  ${ediciones.length ? `<div class="od-hist"><div class="od-et">Historial de ediciones</div>${ediciones.map(e => `<div class="od-ed"><div style="color:#8a9bb0;font-size:10px">${esc(e.fecha)}</div><div style="font-style:italic;margin:2px 0">"${esc(e.motivo)}"</div><div style="white-space:pre-line;color:#666">${esc(e.resumen)}</div></div>`).join('')}</div>` : ''}
-  <div class="od-pie"><span><strong>FËN</strong> · PANADERÍA MASA MADRE · CAFETERÍA</span><span>${esc(E.web)}</span></div>
-  <p class="od-nota">Documento interno de pedido — no válido como comprobante tributario.</p>
+  ${cabecera(`Orden de venta N° ${num}`, `${esc(fechaLarga(orden.fecha))} · ${esc(cliente.nombre || orden.cliente || '—')}`)}
+  ${banda('Total con IVA', clp(orden.total), `Neto ${clp(orden.neto)} · IVA ${clp(orden.iva)}<br>${orden.folio ? 'Folio SII ' + esc(orden.folio) : 'Folio SII pendiente'} · ${anulada ? '<b style="color:#b42318">Anulada</b>' : estadoPagoTxt(orden.estadoPago)}`)}
+  ${caja(`${nProd} ${nProd === 1 ? 'producto' : 'productos'}`, 'Neto', filas || fila('Sin productos', '', ''))}
+  <div class="od-info od-bloque"><div><b>Cliente</b>${esc(cliente.razonSocial || cliente.nombre || orden.cliente || '')}<br>RUT ${esc(cliente.rut || '—')}${cliente.direccion ? '<br>' + esc(cliente.direccion) : ''}</div>
+    ${notas.length ? `<div><b>${orden.obs && cambios.length ? 'Notas y cambios' : orden.obs ? 'Notas' : 'Cambios'}</b>${notas.join('<br>')}</div>` : '<div></div>'}</div>
+  <div class="od-pie od-bloque">${pieEmpresa(E)}<br>Documento interno de pedido. No es comprobante tributario.</div>
 </div>`;
 }
-const CSS = `.od{width:720px;padding:40px 48px;background:#fff;color:#1a1a2e;font-family:'Arial Narrow',Arial,sans-serif;box-sizing:border-box}
-.od *{box-sizing:border-box}.od-cab{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px}.od-logo{width:110px;height:auto}
-.od-tit{text-align:right}.od-t1{font-size:26px;font-weight:900;color:#003a79;letter-spacing:2px;text-transform:uppercase}.od-t2{font-size:20px;font-weight:700;color:#003a79;margin-top:2px}
-.od-info{font-size:12px;color:#555;margin-top:6px;line-height:1.9;font-family:Arial,sans-serif}.od-hr{border:none;border-top:2px solid #003a79;margin:18px 0}
-.od-dos{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}.od-caja{border:1px solid #dde4ef;border-radius:6px;padding:14px 16px;background:#fafbff}
-.od-et{font-size:9px;font-weight:800;color:#003a79;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}.od-val{font-size:13px;color:#222;line-height:1.85;font-family:Arial,sans-serif}
-.od-val strong{font-size:15px}.od-tabla{width:100%;border-collapse:collapse;margin-bottom:16px}
-.od-tabla th{background:#003a79;padding:10px 12px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#fff;text-align:left}
-.od-tabla td{padding:11px 12px;font-size:13px;font-family:Arial,sans-serif;border-bottom:1px solid #eef0f5}
-.od-tot{width:230px;margin-left:auto;margin-top:4px}.od-tr{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:#444;font-family:Arial,sans-serif}
-.od-total{display:flex;justify-content:space-between;font-size:20px;font-weight:900;color:#003a79;border-top:2px solid #003a79;padding-top:9px;margin-top:6px}
-.od-notas{background:#f5f7ff;border-left:3px solid #003a79;padding:10px 14px;margin-bottom:16px;font-size:12px;font-family:Arial,sans-serif;color:#444}
-.od-hist{margin-top:22px}.od-ed{background:#f7f9fc;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:11px;font-family:Arial,sans-serif;color:#444}
-.od-pie{display:flex;justify-content:space-between;font-size:10px;color:#777;margin-top:32px;border-top:1px solid #e0e0e0;padding-top:14px;font-family:Arial,sans-serif;letter-spacing:.5px}
-.od-pie strong{color:#003a79}
-.od-anulada{position:relative;overflow:hidden}.od-sello{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%) rotate(-30deg);font-size:150px;font-weight:900;letter-spacing:12px;color:rgba(192,57,43,.22);border:12px solid rgba(192,57,43,.22);padding:0 30px;border-radius:24px;white-space:nowrap;pointer-events:none;z-index:2;font-family:Arial,sans-serif}
-.od-franja{background:#c0392b;color:#fff;font-family:Arial,sans-serif;font-size:13px;font-weight:800;letter-spacing:1px;text-align:center;padding:9px 12px;border-radius:6px;margin-bottom:18px}.od-nota{font-size:10px;color:#999;margin-top:18px;text-align:center;font-family:Arial,sans-serif}`;
+const CSS = `.od{width:720px;padding:44px 52px 36px;background:#fff;color:#171c22;font-family:Manrope,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-variant-numeric:tabular-nums;box-sizing:border-box}
+.od *{box-sizing:border-box}.od-cab{display:flex;align-items:center;gap:18px}.od-logo{width:76px;height:auto;flex:none}
+.od-t1{font-size:22px;font-weight:800;line-height:1.15}.od-t2{font-size:14px;color:#4f5965;margin-top:4px}
+.od-banda{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-top:26px;padding:18px 22px;border-radius:12px;background:#f1f4f8}
+.od-banda-et{font-size:12px;font-weight:600;color:#4f5965}.od-banda-v{font-size:36px;font-weight:800;color:#0b3a75;line-height:1.1;margin-top:2px;white-space:nowrap}
+.od-banda-d{text-align:right;font-size:13px;line-height:1.7;color:#4f5965}
+.od-caja{margin-top:22px;border:1px solid #d5dbe3;border-radius:12px;padding:4px 20px 2px}.od-caja+.od-caja{margin-top:16px}
+.od-caja-cab{display:flex;justify-content:space-between;gap:16px;padding:12px 0 8px;border-bottom:1px solid #d5dbe3;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#4f5965}
+.od-fila{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid #e4e8ee}.od-fila:last-child{border-bottom:0}
+.od-fila-n{font-size:16px;font-weight:600}.od-fila-s{font-size:13px;color:#4f5965;margin-top:2px;line-height:1.5}.od-fila-v{font-size:16px;font-weight:600;white-space:nowrap}
+.od-cambio{color:#8a4b00;font-weight:600}.od-quitado .od-fila-n{color:#8b939e;text-decoration:line-through}
+.od-grupo{padding:10px 0;border-bottom:1px solid #e4e8ee}.od-grupo:last-child{border-bottom:0}
+.od-grupo-cab{display:flex;justify-content:space-between;gap:16px;font-size:15px;font-weight:700}.od-grupo-l{display:flex;justify-content:space-between;gap:16px;font-size:13px;color:#4f5965;margin-top:3px}
+.od-info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px;margin-top:26px;font-size:13px;line-height:1.6;color:#4f5965}.od-info b{display:block;font-weight:700;color:#171c22}
+.od-linea{margin-top:22px;font-size:13px;line-height:1.6;color:#4f5965}.od-linea b{font-weight:700;color:#171c22}
+.od-pie{font-size:11px;line-height:1.6;color:#4f5965;border-top:1px solid #e4e8ee;padding-top:12px;margin-top:32px}
+.od-anulada{position:relative;overflow:hidden}.od-sello{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%) rotate(-30deg);font-size:150px;font-weight:900;letter-spacing:12px;color:rgba(180,35,24,.2);border:12px solid rgba(180,35,24,.2);padding:0 30px;border-radius:24px;white-space:nowrap;pointer-events:none;z-index:2}
+.od-franja{background:#b42318;color:#fff;font-size:13px;font-weight:700;letter-spacing:.5px;text-align:center;padding:9px 12px;border-radius:8px;margin-bottom:18px}`;
+// La letra del PDF (Manrope, de Google Fonts) se carga una vez; si no hay internet, queda una parecida del equipo
+let letraLista = null;
+function cargarLetra() {
+  if (!letraLista) letraLista = new Promise(ok => {
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap';
+    const listo = () => Promise.all(['400', '600', '700', '800'].map(w => document.fonts.load(`${w} 16px Manrope`).catch(() => null))).then(ok, ok);
+    l.onload = listo; l.onerror = () => ok(); setTimeout(ok, 4000);
+    document.head.appendChild(l);
+  });
+  return letraLista;
+}
 
 // Arma el PDF (tamaño carta) y lo descarga. Si el contenido es más alto que una hoja, sigue en la siguiente.
 // abrir: true → se muestra en otra pestaña (para revisar) en vez de descargarse
 // Pasa uno o varios bloques HTML (.od) a un PDF tamaño carta. Cada bloque empieza en una hoja nueva;
 // si un bloque no cabe en una hoja, se corta entre filas de tabla.
 async function aPdf(bloques, nombre, ventana, css = CSS) {
-  await Promise.all([script(CDN.h2c), script(CDN.jspdf)]);
+  await Promise.all([script(CDN.h2c), script(CDN.jspdf), cargarLetra()]);
   const lista = Array.isArray(bloques) ? bloques : [bloques];
   const pdf = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter', orientation: 'portrait' });
   const margen = 36, anchoUtil = 612 - margen * 2, altoUtil = 792 - margen * 2;
@@ -126,33 +142,34 @@ export async function descargar(orden, cliente, originales, ediciones, abrir) {
   return aPdf(html(orden, cliente, originales || {}, ediciones || []), nombre, ventana);
 }
 
-// ── Estado de cuenta (el mismo formato de la app B2B) ──
+// ── Estado de cuenta (v0.15.2: diseño compacto) ──
 const fechaCortaEC = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); return m ? `${m[3]}-${m[2]}-${m[1]}` : esc(f || '—'); };
+const listaN = t => { const l = String(t || '').split(/,\s*/).filter(Boolean); return l.length > 1 ? `${l.slice(0, -1).join(', ')} y ${l[l.length - 1]}` : l.join(''); };
 export function htmlEstadoCuenta(cliente, r, desde, hasta, modo) {
   const E = (window.FEN_LOG || window.FEN_SIS).DATOS_EMPRESA;
-  const periodo = (desde || hasta) ? `${desde ? 'Desde ' + fechaCortaEC(desde) : ''}${desde && hasta ? ' al ' : ''}${hasta ? (desde ? '' : 'Hasta ') + fechaCortaEC(hasta) : ''}` : 'Todo el período';
-  const c1 = modo === 'folio' ? 'Folio SII' : 'N° Orden', c2 = modo === 'folio' ? 'Órdenes' : 'Folio SII';
-  const tabla = (lista, titulo, color) => !lista.length ? '' : `<h3 style="font-size:13px;font-weight:800;color:${color};margin:18px 0 8px;text-transform:uppercase;letter-spacing:1px">${titulo}</h3>
-    <table class="od-tabla"><thead><tr><th>${c1}</th><th>Fecha</th><th>${c2}</th><th style="text-align:right">Neto</th><th style="text-align:right">Total</th><th>Fecha pago</th></tr></thead><tbody>
-    ${lista.map(f => `<tr${f.estado === 'PARCIAL' ? ' style="color:#9a5b00"' : ''}><td>${esc(f.principal)}</td><td>${fechaCortaEC(f.fecha)}</td><td>${esc(f.secundaria)}</td><td style="text-align:right">${clp(f.neto)}</td>
-      <td style="text-align:right;font-weight:700">${f.estado === 'PARCIAL' ? `<span style="font-size:10px;color:#999;text-decoration:line-through">${clp(f.total)}</span><br><span style="color:#c0392b">${clp(f.saldo)}</span>` : clp(f.total)}</td><td>${f.estado === 'PAGADO' ? fechaCortaEC(f.fechaPago) : '—'}</td></tr>
-      ${f.estado === 'PARCIAL' && f.abonado > 0 ? `<tr><td colspan="6" style="padding:0 12px 8px;font-size:10px;color:#9a5b00">Abonado: ${clp(f.abonado)}${f.ultimoAbono ? ' el ' + fechaCortaEC(f.ultimoAbono) : ''}</td></tr>` : ''}`).join('')}</tbody></table>`;
-  const hoyTxt = (() => { const d = new Date(); return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`; })();
+  const periodo = (desde || hasta) ? `${desde ? 'Del ' + fechaES(desde) : ''}${desde && hasta ? ' al ' : ''}${hasta ? (desde ? '' : 'Hasta el ') + fechaES(hasta) : ''}`.replace(/^Del (\d+) de (\w+) de (\d+) al (\d+) de \2 de \3$/, 'Del $1 al $4 de $2 de $3') : 'Todo el período';
+  const hoy = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const porFolio = modo === 'folio';
+  const nombre = f => porFolio ? (f.principal === 'Sin folio' ? `Orden N° ${esc(f.secundaria)}` : `Folio ${esc(f.principal)}`) : `Orden N° ${esc(f.principal)}`;
+  const sub = f => {
+    const partes = porFolio
+      ? (f.principal === 'Sin folio' ? [`Pedido del ${fechaCorta(f.fecha)}`, 'sin factura todavía'] : [`Factura del ${fechaCorta(f.fecha)}`, `${String(f.secundaria).includes(',') ? 'órdenes' : 'orden'} N° ${esc(listaN(f.secundaria))}`])
+      : [`Pedido del ${fechaCorta(f.fecha)}`, f.secundaria && f.secundaria !== 'Pendiente' ? `folio ${esc(f.secundaria)}` : 'sin factura todavía'];
+    if (f.estado === 'PAGADO') partes.push(`pagada el ${fechaCorta(f.fechaPago)}`);
+    else if (f.estado === 'PARCIAL') partes.push(`total ${clp(f.total)}`);
+    return partes.join(' · ') + (f.estado === 'PARCIAL' && f.abonado > 0 ? `<br><span class="od-cambio">Abonado ${clp(f.abonado)}${f.ultimoAbono ? ' el ' + fechaCorta(f.ultimoAbono) : ''}</span>` : '');
+  };
+  const cuenta = l => { if (!porFolio) return `${l.length} ${l.length === 1 ? 'orden' : 'órdenes'}`; const sf = l.filter(f => f.principal === 'Sin folio').length, fa = l.length - sf;
+    return [fa ? `${fa} ${fa === 1 ? 'factura' : 'facturas'}` : '', sf ? `${sf} ${sf === 1 ? 'orden' : 'órdenes'} sin factura` : ''].filter(Boolean).join(' y '); };
+  const pend = r.filas.filter(f => f.estado !== 'PAGADO'), pag = r.filas.filter(f => f.estado === 'PAGADO').slice().reverse();
   return `<div class="od">
-  <div class="od-cab"><img class="od-logo" src="logo-orden.png" alt="Fën"><div class="od-tit"><div class="od-t1">Estado de Cuenta</div><div class="od-info">${esc(periodo)}<br>${esc(E.direccion)} · ${esc(E.correo)}</div></div></div>
-  <hr class="od-hr">
-  <div class="od-dos">
-    <div class="od-caja"><div class="od-et">Cliente</div><div class="od-val"><strong>${esc(cliente.nombre)}</strong><br>${esc(cliente.razonSocial || '')}<br>RUT: ${esc(cliente.rut || '—')}<br>${esc(cliente.direccion || '')}</div></div>
-    <div class="od-caja"><div class="od-et">Resumen</div><div class="od-val"><strong>Período:</strong> ${esc(periodo)}<br><strong>N° de órdenes:</strong> ${r.n}<br><strong>Generado:</strong> ${hoyTxt}</div></div>
-  </div>
-  <div class="od-bloque" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px">
-    <div style="text-align:center;border-radius:8px;padding:14px;border:1px solid #dde4ef;background:#f0f7ff"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Total comprado</div><div style="font-size:20px;font-weight:900;color:#003a79">${clp(r.comprado)}</div></div>
-    <div style="text-align:center;border-radius:8px;padding:14px;border:1px solid #dde4ef;background:#f0fff4"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Total pagado</div><div style="font-size:20px;font-weight:900;color:#1D9E75">${clp(r.pagado)}</div></div>
-    <div style="text-align:center;border-radius:8px;padding:14px;border:1px solid #dde4ef;background:#fff5f5"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Pendiente de pago</div><div style="font-size:20px;font-weight:900;color:#c0392b">${clp(r.pendiente)}</div></div>
-  </div>
-  ${tabla(r.filas.filter(f => f.estado !== 'PAGADO'), 'Pendientes de pago', '#c0392b')}
-  ${tabla(r.filas.filter(f => f.estado === 'PAGADO'), 'Pagadas', '#1D9E75')}
-  <div class="od-pie"><span><strong>FËN</strong> · PANADERÍA MASA MADRE · CAFETERÍA</span><span>${esc(E.web)}</span></div>
+  ${cabecera(`Estado de cuenta · ${esc(cliente.nombre)}`, `${esc(periodo)} · generado el ${esc(fechaES(hoy))}`)}
+  ${banda('Pendiente de pago', clp(r.pendiente), `Comprado ${clp(r.comprado)} · Pagado ${clp(r.pagado)}<br>${r.n} ${r.n === 1 ? 'orden' : 'órdenes'}`)}
+  ${pend.length ? caja(`Por pagar · ${cuenta(pend)}`, 'Saldo', pend.map(f => fila(nombre(f), sub(f), clp(f.saldo))).join('')) : ''}
+  ${pag.length ? caja(`Pagadas · ${cuenta(pag)}`, 'Total', pag.map(f => fila(nombre(f), sub(f), clp(f.total))).join('')) : ''}
+  ${!r.filas.length ? caja('Sin órdenes en este período', '', '') : ''}
+  <div class="od-linea od-bloque"><b>Cliente</b> · ${esc(cliente.razonSocial || cliente.nombre)} · RUT ${esc(cliente.rut || '—')}${cliente.direccion ? ' · ' + esc(cliente.direccion) : ''}</div>
+  <div class="od-pie od-bloque">${pieEmpresa(E)}<br>Montos con IVA. Si ya pagaste algo de lo pendiente, avísanos y lo revisamos.</div>
 </div>`;
 }
 export async function estadoCuenta(cliente, r, desde, hasta, modo) {
@@ -176,32 +193,20 @@ const fechaDMY = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); retu
 export function htmlResumenOrdenes(ordenes, cliente) {
   const E = (window.FEN_LOG || window.FEN_SIS).DATOS_EMPRESA;
   const os = ordenes.slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || a.n - b.n);
-  const fs = os.map(o => o.fecha).filter(Boolean).sort(), periodo = fs.length ? (fs[0] === fs[fs.length - 1] ? fechaDMY(fs[0]) : `${fechaDMY(fs[0])} al ${fechaDMY(fs[fs.length - 1])}`) : '—';
+  const fs = os.map(o => o.fecha).filter(Boolean).sort();
+  const periodo = !fs.length ? '' : fs[0] === fs[fs.length - 1] ? `Pedido del ${fechaES(fs[0])}` : `Pedidos del ${fechaES(fs[0])} al ${fechaES(fs[fs.length - 1])}`.replace(/del (\d+) de (\w+) de (\d+) al (\d+) de \2 de \3$/, 'del $1 al $4 de $2 de $3');
   const P = {};
-  os.forEach(o => (o.lineas || []).forEach(l => { const k = l.producto; const p = P[k] || (P[k] = { producto: k, cantidad: 0, neto: 0 }); p.cantidad += Number(l.cantidad) || 0; p.neto += Number(l.neto) || Math.round((Number(l.cantidad) || 0) * (Number(l.precio) || 0)); }));
+  os.forEach(o => (o.lineas || []).forEach(l => { const k = l.producto; const p = P[k] || (P[k] = { producto: k, cantidad: 0, neto: 0, precios: new Set() }); p.cantidad += Number(l.cantidad) || 0; p.precios.add(Number(l.precio) || 0); p.neto += Number(l.neto) || Math.round((Number(l.cantidad) || 0) * (Number(l.precio) || 0)); }));
   const neto = os.reduce((s, o) => s + (Number(o.neto) || 0), 0), total = os.reduce((s, o) => s + (Number(o.total) || 0), 0);
-  const hoy = fechaDMY(hoyArchivo());
+  const ns = os.map(o => o.n), folios = [...new Set(os.map(o => o.folio).filter(Boolean))];
+  const lineaNeto = l => Number(l.neto) || (Number(l.cantidad) || 0) * (Number(l.precio) || 0);
   return `<div class="od">
-  <div class="od-cab"><img class="od-logo" src="logo-orden.png" alt="Fën"><div class="od-tit"><div class="od-t1">Resumen de Órdenes</div><div class="od-info">${os.length} ${os.length === 1 ? 'orden' : 'órdenes'} · ${esc(periodo)}<br>${esc(E.direccion)} · ${esc(E.correo)}</div></div></div>
-  <hr class="od-hr">
-  <div class="od-dos">
-    <div class="od-caja"><div class="od-et">Cliente</div><div class="od-val"><strong>${esc(cliente.nombre)}</strong><br>${esc(cliente.razonSocial || '')}<br>RUT: ${esc(cliente.rut || '—')}<br>${esc(cliente.direccion || '')}</div></div>
-    <div class="od-caja"><div class="od-et">Resumen</div><div class="od-val"><strong>Órdenes:</strong> N° ${os.map(o => o.n).join(', ')}<br><strong>Período:</strong> ${esc(periodo)}<br><strong>Generado:</strong> ${hoy}</div></div>
-  </div>
-  <h3 style="font-size:13px;font-weight:800;color:#003a79;margin:6px 0 8px;text-transform:uppercase;letter-spacing:1px">Detalle por orden</h3>
-  <table class="od-tabla"><thead><tr><th>Orden</th><th>Producto</th><th style="text-align:right">Cant.</th><th style="text-align:right">Precio neto</th><th style="text-align:right">Neto</th></tr></thead><tbody>
-  ${os.map(o => (o.lineas || []).map((l, i) => `<tr${i === 0 ? ' style="border-top:2px solid #dde4ef"' : ''}><td>${i === 0 ? `<strong>N° ${o.n}</strong><br><span style="font-size:10px;color:#888">${fechaDMY(o.fecha)}</span>` : ''}</td><td>${esc(l.producto)}</td><td style="text-align:right">${esc(l.cantidad)}</td><td style="text-align:right">${clp(l.precio)}</td><td style="text-align:right">${clp(Number(l.neto) || (Number(l.cantidad) || 0) * (Number(l.precio) || 0))}</td></tr>`).join('')
-    + `<tr><td></td><td colspan="3" style="text-align:right;font-size:11px;color:#666">Total orden N° ${o.n} (neto ${clp(o.neto)} + IVA ${clp(o.iva != null ? o.iva : (o.total - o.neto))})</td><td style="text-align:right;font-weight:700">${clp(o.total)}</td></tr>`).join('')}
-  </tbody></table>
-  <h3 style="font-size:13px;font-weight:800;color:#003a79;margin:18px 0 8px;text-transform:uppercase;letter-spacing:1px">Total por producto</h3>
-  <table class="od-tabla"><thead><tr><th>Producto</th><th style="text-align:right">Unidades</th><th style="text-align:right">Neto</th></tr></thead><tbody>
-  ${Object.values(P).sort((a, b) => a.producto.localeCompare(b.producto, 'es')).map(p => `<tr><td>${esc(p.producto)}</td><td style="text-align:right">${p.cantidad.toLocaleString('es-CL')}</td><td style="text-align:right">${clp(p.neto)}</td></tr>`).join('')}
-  </tbody></table>
-  <div class="od-bloque" style="display:flex;justify-content:flex-end;margin-top:14px"><table style="font-size:13px;border-collapse:collapse;min-width:260px">
-    <tr><td style="padding:4px 12px">Neto</td><td style="padding:4px 0;text-align:right">${clp(neto)}</td></tr>
-    <tr><td style="padding:4px 12px">IVA (19%)</td><td style="padding:4px 0;text-align:right">${clp(total - neto)}</td></tr>
-    <tr><td style="padding:6px 12px;font-weight:800;border-top:2px solid #003a79">Total a facturar</td><td style="padding:6px 0;text-align:right;font-weight:800;border-top:2px solid #003a79">${clp(total)}</td></tr></table></div>
-  <div class="od-pie"><span><strong>FËN</strong> · PANADERÍA MASA MADRE · CAFETERÍA</span><span>${esc(E.web)}</span></div>
+  ${cabecera(`Resumen de ${os.length} ${os.length === 1 ? 'orden' : 'órdenes'} · ${esc(cliente.nombre)}`, `${esc(periodo)} · ${ns.length === 1 ? 'orden' : 'órdenes'} N° ${esc(listaN(ns.join(', ')))}`)}
+  ${banda('Total con IVA', clp(total), `Neto ${clp(neto)} · IVA ${clp(total - neto)}<br>${folios.length ? 'Folio SII ' + esc(folios.join(', ')) : 'Folio SII pendiente'}`)}
+  ${caja('Total por producto', 'Neto', Object.values(P).sort((a, b) => a.producto.localeCompare(b.producto, 'es')).map(p => fila(esc(p.producto), p.precios.size === 1 ? `${p.cantidad.toLocaleString('es-CL')} × ${clp([...p.precios][0])}` : `${p.cantidad.toLocaleString('es-CL')} unidades (con precios distintos)`, clp(p.neto))).join(''))}
+  ${caja('Detalle por orden', 'Neto', os.map(o => `<div class="od-grupo od-bloque"><div class="od-grupo-cab"><span>N° ${o.n} · ${esc(fechaLarga(o.fecha).replace(/ de \d{4}$/, '').replace(/ de (\w+)$/, (m, mes) => ' ' + mes.slice(0, 3)).replace(/^(\w)/, c => c.toLowerCase()))}</span><span>${clp(o.neto)}</span></div>
+    ${(o.lineas || []).map(l => `<div class="od-grupo-l"><span>${esc(l.cantidad)} × ${esc(l.producto)} (${clp(l.precio)})</span><span>${clp(lineaNeto(l))}</span></div>`).join('')}</div>`).join(''))}
+  <div class="od-pie od-bloque">${pieEmpresa(E)}<br>${esc(cliente.razonSocial || cliente.nombre)} · RUT ${esc(cliente.rut || '—')} · Documento interno de pedido. No es comprobante tributario.</div>
 </div>`;
 }
 export async function resumenOrdenes(ordenes, cliente, abrir) {

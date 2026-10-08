@@ -597,3 +597,9 @@ a.chip { text-decoration: none; }
 
 /* v0.15.1 · lo que esconde la lupa se esconde aunque la fila sea flex */
 .fila-cobro[hidden], .fila-hist[hidden], details[data-grupo][hidden] { display: none !important; }
+
+/* v0.15.2 · conciliación: tocar el folio asigna su saldo */
+.mov-folio-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; flex: 1; min-height: 44px; padding: 4px 8px; margin: -4px -8px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.mov-folio-btn:hover { background: var(--menu); }
+.mov-folio-btn:focus-visible { outline: 2px solid var(--verde-t); outline-offset: 2px; }
+.mov-folio-on { border-color: var(--verde-t); background: var(--menu); }

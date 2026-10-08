@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.15.1';
-import * as Caja from './caja.js?v=0.15.1';
-import * as Stock from './stock.js?v=0.15.1';
-import * as Ajustes from './ajustes.js?v=0.15.1';
-import * as Apps from './apps.js?v=0.15.1';
-import * as Agenda from './agenda.js?v=0.15.1';
-import * as Gastos from './gastos.js?v=0.15.1';
-import * as Sii from './sii.js?v=0.15.1';
-import * as Previred from './previred.js?v=0.15.1';
-import * as B2b from './b2b.js?v=0.15.1';
-import * as PdfOrden from './pdf-orden.js?v=0.15.1';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.15.1';
+} from './firebase.js?v=0.15.2';
+import * as Caja from './caja.js?v=0.15.2';
+import * as Stock from './stock.js?v=0.15.2';
+import * as Ajustes from './ajustes.js?v=0.15.2';
+import * as Apps from './apps.js?v=0.15.2';
+import * as Agenda from './agenda.js?v=0.15.2';
+import * as Gastos from './gastos.js?v=0.15.2';
+import * as Sii from './sii.js?v=0.15.2';
+import * as Previred from './previred.js?v=0.15.2';
+import * as B2b from './b2b.js?v=0.15.2';
+import * as PdfOrden from './pdf-orden.js?v=0.15.2';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.15.2';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -313,7 +313,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.15.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.15.2" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2838,8 +2838,8 @@ function pintarB2bConciliacion(el, sub) {
     return `<div class="mov-edit" data-mov="${esc(m.id)}">
       <div class="campo"><label for="mc-${esc(m.id)}">Cliente</label><select id="mc-${esc(m.id)}" data-mov-cli="${esc(m.id)}">${optsCli(p.clienteId)}</select></div>
       ${p.motivo ? `<p class="ayuda">${esc(p.motivo)}</p>` : ''}
-      ${p.clienteId ? (fol.length ? `<div class="mov-folios">${fol.map(f => `<label class="mov-folio"><span><b>Folio ${esc(f.folio)}</b><small>${esc(diaTexto(f.fecha))} · saldo ${pesos(f.saldo)}${f.abonado ? ` (abonado ${pesos(f.abonado)})` : ''}</small></span>
-          <input inputmode="numeric" data-mov-monto="${esc(m.id)}" data-folio="${esc(f.folio)}" value="${val(f) ? Number(val(f)).toLocaleString('es-CL') : ''}" placeholder="0" aria-label="Monto para el folio ${esc(f.folio)}"></label>`).join('')}</div>
+      ${p.clienteId ? (fol.length ? `<p class="ayuda">Toca un folio para asignarle su saldo (o lo que queda del abono); tócalo otra vez para quitarlo.</p><div class="mov-folios">${fol.map(f => `<div class="mov-folio${Number(val(f)) > 0 ? ' mov-folio-on' : ''}"><button type="button" class="mov-folio-btn" data-mov-usar="${esc(m.id)}" data-folio="${esc(f.folio)}" aria-pressed="${Number(val(f)) > 0}"><b>Folio ${esc(f.folio)}</b><small>${esc(diaTexto(f.fecha))} · saldo ${pesos(f.saldo)}${f.abonado ? ` (abonado ${pesos(f.abonado)})` : ''}</small></button>
+          <input inputmode="numeric" data-mov-monto="${esc(m.id)}" data-folio="${esc(f.folio)}" value="${val(f) ? Number(val(f)).toLocaleString('es-CL') : ''}" placeholder="0" aria-label="Monto para el folio ${esc(f.folio)}"></div>`).join('')}</div>
         <p class="mov-suma ${sobra < 0 ? 'error' : ''}">Asignado ${pesos(asignado)} de ${pesos(m.monto)}${sobra > 0 ? ` · quedan ${pesos(sobra)} sin asignar` : sobra < 0 ? ` · te pasaste en ${pesos(-sobra)}` : ' · calza exacto'}</p>`
         : '<p class="ayuda">Este cliente no tiene folios por cobrar.</p>') : ''}
       ${p.clienteId && sobra > 0 ? `<label class="check-linea"><input type="checkbox" data-mov-favor="${esc(m.id)}" ${favorOn ? 'checked' : ''}> Dejar ${pesos(sobra)} como saldo a favor de ${esc(p.cliente)} ${info('Saldo a favor', 'Lo que sobra de este abono queda guardado para el cliente: aparece arriba, en "Saldos a favor", y se usa en su próximo folio con un botón.\nSirve cuando el cliente paga de más o paga antes de que exista la factura.\nSi lo desmarcas, lo que sobra no se registra en ninguna parte (por ejemplo, si una parte del abono no era de B2B).')}</label>` : ''}
@@ -2944,6 +2944,16 @@ function pintarB2bConciliacion(el, sub) {
   }));
   el.querySelectorAll('[data-mov-favor]').forEach(c => c.addEventListener('change', () => { b2bConc.favor[c.dataset.movFavor] = c.checked; b2bConc.abierto = c.dataset.movFavor; repintar(); }));
   el.querySelectorAll('[data-mov-cli]').forEach(sel => sel.addEventListener('change', () => { const id = sel.dataset.movCli; if (sel.value) b2bConc.forzados[id] = sel.value; else delete b2bConc.forzados[id]; delete b2bConc.edit[id]; b2bConc.abierto = id; repintar(); }));
+  // v0.15.2: tocar un folio le asigna su saldo (lo que queda del abono si es menos); tocarlo de nuevo lo deja en 0
+  el.querySelectorAll('[data-mov-usar]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.movUsar, m = d.movimientos.find(x => x.id === id), p = props[id];
+    const fol = (p && p.clienteId && porCobrar[p.clienteId]) || [], e = b2bConc.edit[id] || (b2bConc.edit[id] = {});
+    if (!e.montos) { e.montos = {}; el.querySelectorAll(`[data-mov-monto="${CSS.escape(id)}"]`).forEach(x => { e.montos[x.dataset.folio] = Math.round(Number(x.value.replace(/[^\d]/g, '')) || 0); }); }
+    const f = fol.find(x => x.folio === b.dataset.folio); if (!m || !f) return;
+    if (e.montos[f.folio] > 0) e.montos[f.folio] = 0;
+    else { const otros = Object.entries(e.montos).filter(([k]) => k !== f.folio).reduce((s1, [, v]) => s1 + (Number(v) || 0), 0), queda = m.monto - otros; e.montos[f.folio] = queda > 0 ? Math.min(f.saldo, queda) : f.saldo; }
+    b2bConc.abierto = id; repintar();
+  }));
   el.querySelectorAll('[data-mov-monto]').forEach(inp => {
     inp.addEventListener('input', () => { const id = inp.dataset.movMonto, e = b2bConc.edit[id] || (b2bConc.edit[id] = { montos: {} });
       if (!e.montos) e.montos = {};

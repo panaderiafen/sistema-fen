@@ -1,9 +1,19 @@
-# Sistema Fën · v0.15.1
+# Sistema Fën · v0.15.2
 
-**App:** v0.15.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.0 · 8 de octubre de 2026
+**App:** v0.15.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.15.2: PDF más limpios y conciliación más rápida
+- **PDF nuevos (diseño "compacto")**, pensados para leerse bien en el celular cuando llegan por WhatsApp:
+  - **Orden de venta:** el total con IVA grande arriba (con neto, IVA, folio y estado de pago al lado) y los productos en un recuadro con "Neto" sobre los montos, cada uno con "12 × $1.200" debajo. Si la orden se editó, el producto dice "eran 10, se agregaron 2"; uno que se sacó aparece tachado ("eran 5, se devolvieron todos"). Cliente, notas y cambios al final. La anulada sigue con su sello.
+  - **Estado de cuenta:** lo pendiente de pago grande arriba; recuadros "Por pagar" (con el saldo y los abonos) y "Pagadas" (con la fecha de pago).
+  - **Resumen de varias órdenes:** el total con IVA arriba, primero el **total por producto** (lo que necesitas para facturar) y después el detalle por orden.
+  - La letra es Manrope (se carga de Google Fonts la primera vez; sin internet usa una parecida del equipo).
+- **Conciliación:** al revisar un abono, **toca el folio** y se le pone su saldo (o lo que queda del abono, si es menos); tócalo otra vez y queda en 0. Ya no hay que escribir el monto a mano (igual se puede).
+
+Archivos: cambian `pdf-orden.js`, `app.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.15.2**. Junto con esta va la **app de logística v1.2.1** (el mismo PDF de la orden). Reglas y script, sin cambios respecto de la v0.15.0 (si no la habías instalado, haz sus pasos 1 y 2).
 
 ## Novedades de la v0.15.1: búsquedas
 - **Por cobrar · lupa:** no escondía nada (las filas de los folios tapaban el "esconder"). Ahora filtra por cliente, folio o N° de orden.
@@ -26,7 +36,7 @@ Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `firestore-b2b.rules`, `con
 ### Instalación de la v0.15.0 (en este orden, unos 10 minutos)
 1. **Reglas de fen-b2b (consola de Firebase):** proyecto **fen-b2b** → Firestore Database → Reglas → borra todo, pega el contenido de `firestore-b2b.rules` (v1.5.0) → **Publicar**.
 2. **Script de B2B v2.8.0 (Apps Script):** sigue el README del zip `b2b-script-v2.8.0` (reemplazar `Seguridad.gs` y `SistemaFen.gs`, nueva versión de la implementación). El ping debe decir **2.8.0**.
-3. **GitHub, repo `sistema-fen`:** sube todos los archivos de esta carpeta (reemplazan a los de antes) → Commit. A los minutos, abajo a la izquierda debe decir **v0.15.1** (si no, recarga con Ctrl+Shift+R o cierra y abre en el celular).
+3. **GitHub, repo `sistema-fen`:** sube todos los archivos de esta carpeta (reemplazan a los de antes) → Commit. A los minutos, abajo a la izquierda debe decir **v0.15.2** (si no, recarga con Ctrl+Shift+R o cierra y abre en el celular).
 
 ### Lista de verificación
 - [ ] Abajo a la izquierda dice v0.15.0.
