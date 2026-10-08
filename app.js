@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.20.0';
-import * as Caja from './caja.js?v=0.20.0';
-import * as Stock from './stock.js?v=0.20.0';
-import * as Ajustes from './ajustes.js?v=0.20.0';
-import * as Apps from './apps.js?v=0.20.0';
-import * as Agenda from './agenda.js?v=0.20.0';
-import * as Gastos from './gastos.js?v=0.20.0';
-import * as Sii from './sii.js?v=0.20.0';
-import * as Previred from './previred.js?v=0.20.0';
-import * as B2b from './b2b.js?v=0.20.0';
-import * as Cartola from './cartola.js?v=0.20.0';
-import * as SiiFactura from './sii-factura.js?v=0.20.0';
-import * as PdfOrden from './pdf-orden.js?v=0.20.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.20.0';
+} from './firebase.js?v=0.21.0';
+import * as Caja from './caja.js?v=0.21.0';
+import * as Stock from './stock.js?v=0.21.0';
+import * as Ajustes from './ajustes.js?v=0.21.0';
+import * as Apps from './apps.js?v=0.21.0';
+import * as Agenda from './agenda.js?v=0.21.0';
+import * as Gastos from './gastos.js?v=0.21.0';
+import * as Sii from './sii.js?v=0.21.0';
+import * as Previred from './previred.js?v=0.21.0';
+import * as B2b from './b2b.js?v=0.21.0';
+import * as Cartola from './cartola.js?v=0.21.0';
+import * as SiiFactura from './sii-factura.js?v=0.21.0';
+import * as PdfOrden from './pdf-orden.js?v=0.21.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.21.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -315,7 +315,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.20.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.21.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2742,17 +2742,36 @@ function datosFactura(ordenes, folio) {
   const cli = clis.find(c => o0.clienteId && c.id === o0.clienteId) || clis.find(c => String(c.nombre || '').trim().toLowerCase() === String(o0.cliente || '').trim().toLowerCase());
   const nombreC = String((cli && cli.contacto) || '').trim().split(/\s+/)[0] || '';
   const hola = nombreC ? `Hola ${nombreC.charAt(0).toUpperCase() + nombreC.slice(1)},` : 'Hola,';
-  const msj = os.length === 1
-    ? `${hola} envío factura${folio ? ' N° ' + folio : ''} de la orden de venta N° ${os[0].n}, pedido ${'del ' + fechaLarga(os[0].fecha)}.`
-    : `${hola} envío factura${folio ? ' N° ' + folio : ''} del período de pedidos ${rangoLargo(os[0].fecha, os[os.length - 1].fecha)}. Las órdenes incluidas son:\n` + os.map(o => `Orden N° ${o.n}, pedido del ${fechaCortaMsj(o.fecha)}`).join('\n');
-  return { os, filas, neto, iva, total: neto + iva, sumaOrdenes, msj };
+  return { os, filas, neto, iva, total: neto + iva, sumaOrdenes, hola, cli };
+}
+// v0.21.0 · Mensaje para enviar la factura: corto, con el nombre del contacto, folio, total y (a 30 días) vencimiento.
+// El cierre cambia cada día (3 cierres que se turnan) y la primera factura de un cliente lleva los datos de transferencia.
+async function mensajeFactura(ordenes, folio, fechaFolio) {
+  const f = datosFactura(ordenes, folio), os = f.os, cl = f.cli || {};
+  const M = await B2b.mensajesFactura().catch(() => ({ cierres: B2b.CIERRES_DEF, transferencia: '' }));
+  const ns = os.map(o => o.n), ords = ns.length <= 5 ? 'órdenes N° ' + ns.slice(0, -1).join(', ') + ' y ' + ns[ns.length - 1] : ns.length + ' órdenes';
+  let t = `${f.hola} te envío la factura${folio ? ' N° ' + folio : ''} por ${pesos(f.total)}, ` + (os.length === 1 ? `de tu pedido del ${fechaLarga(os[0].fecha)} (orden N° ${os[0].n}).` : `con tus pedidos ${rangoLargo(os[0].fecha, os[os.length - 1].fecha)} (${ords}).`);
+  if (/30/.test(String(cl.frecuenciaPago || ''))) { const v = new Date((fechaFolio || Caja.diaLocal()) + 'T12:00:00'); v.setDate(v.getDate() + 30); t += ` Vence el ${fechaLarga(Caja.diaLocal(v))}.`; }
+  if (M.transferencia && cl.id && !(await B2b.tieneFacturasAntes(cl, ns).catch(() => true))) t += `\n\nPara transferir:\n${M.transferencia}`;
+  return t + '\n\n' + B2b.cierreDelDia(M.cierres);
+}
+// Los 3 cierres y los datos de transferencia (para la primera factura de un cliente)
+async function editarMensajeFactura() {
+  let M; try { M = await B2b.mensajesFactura(true); } catch (e) { alert(errorB2b(e)); return; }
+  const c = i => esc(M.cierres[i] || '');
+  const r = await pedirDatos('Mensaje de la factura', `<p class="ayuda">El mensaje parte con el nombre del contacto, el N° de factura, el total y los pedidos (y el vencimiento si paga a 30 días). Al final va un cierre: hay 3 y se turnan, uno distinto cada día.</p>
+    ${[0, 1, 2].map(i => `<div class="campo"><label for="pd-cierre${i}">Cierre ${i + 1}</label><input id="pd-cierre${i}" maxlength="140" value="${c(i)}"></div>`).join('')}
+    <div class="campo"><label for="pd-transf">Datos para transferir ${info('Datos para transferir', 'Van solo en la primera factura de un cliente (cuando no tiene facturas anteriores). Se guardan en la base de B2B, no en GitHub. Déjalo vacío si no quieres enviarlos nunca.')}</label><textarea id="pd-transf" rows="4" maxlength="400" placeholder="Banco, tipo y N° de cuenta, RUT, nombre y correo">${esc(M.transferencia || '')}</textarea></div>`, 'Guardar',
+    dd => { const ci = [0, 1, 2].map(i => dd.querySelector('#pd-cierre' + i).value.trim()).filter(Boolean); return ci.length ? { cierres: ci, transferencia: dd.querySelector('#pd-transf').value.trim() } : { error: 'Deja al menos un cierre.' }; });
+  if (!r) return;
+  try { await B2b.guardarMensajes(r.cierres, r.transferencia); registrar('Cambió el mensaje de la factura', `${r.cierres.length} cierres${r.transferencia ? ' · con datos de transferencia' : ''}`); } catch (e) { alert(errorB2b(e)); }
 }
 function resumenFactura(cliente, ordenes) {
   const f = datosFactura(ordenes, b2b.folioPre[cliente]);
   return `<div class="resumen-factura" aria-label="Resumen para facturar a ${esc(cliente)}">
     <div class="titulo-fila"><b>Para facturar · ${f.os.length} ${f.os.length === 1 ? 'orden' : 'órdenes'} (N° ${f.os.map(o => o.n).join(', ')})</b>
       <div class="acciones-factura"><label class="folio-pre"><span>Folio SII</span><input inputmode="numeric" data-folio-pre="${esc(cliente)}" value="${esc(b2b.folioPre[cliente] || '')}" placeholder="Ej: 5512" aria-label="Folio SII de la factura"></label>
-        <button type="button" class="btn-sec btn-chico" data-copiar-msj="${esc(cliente)}">Copiar mensaje</button><button type="button" class="btn-sec btn-chico btn-wsp" data-wsp-cli="${esc(cliente)}">WhatsApp</button><button type="button" class="btn-sec btn-chico" data-sii-cli="${esc(cliente)}">Preparar para el SII</button></div></div>
+        <button type="button" class="btn-sec btn-chico" data-copiar-msj="${esc(cliente)}">Copiar mensaje</button><button type="button" class="btn-sec btn-chico btn-wsp" data-wsp-cli="${esc(cliente)}">WhatsApp</button><button type="button" class="btn-sec btn-chico" data-sii-cli="${esc(cliente)}">Preparar para el SII</button><button type="button" class="btn-link" data-msj-editar>Editar mensaje</button></div></div>
     <div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Producto</th><th scope="col">Cantidad</th><th scope="col">Precio neto</th><th scope="col">Total neto</th></tr></thead><tbody>
       ${f.filas.map(x => `<tr><td>${esc(x.producto)}</td><td>${x.cantidad.toLocaleString('es-CL')}</td><td>${pesos(x.precio)}</td><td>${pesos(x.neto)}</td></tr>`).join('')}
     </tbody><tfoot><tr><td colspan="3">Neto</td><td>${pesos(f.neto)}</td></tr><tr><td colspan="3">IVA (19%)</td><td>${pesos(f.iva)}</td></tr><tr class="total"><td colspan="3">Total</td><td>${pesos(f.total)}</td></tr></tfoot></table></div>
@@ -2891,17 +2910,18 @@ function pintarB2bAdmin(el, sub) {
   }));
   el.querySelectorAll('[data-copiar-msj]').forEach(bm => bm.addEventListener('click', async () => {
     const lista = (porCliente[bm.dataset.copiarMsj] || []).filter(o => b2b.sel.has(String(o.n)));
-    const ok = await copiarTexto(datosFactura(lista, b2b.folioPre[bm.dataset.copiarMsj]).msj);
+    const ok = await copiarTexto(await mensajeFactura(lista, b2b.folioPre[bm.dataset.copiarMsj]));
     bm.textContent = ok ? 'Copiado' : 'No se pudo copiar'; setTimeout(() => { bm.textContent = 'Copiar mensaje'; }, 2000);
   }));
   el.querySelectorAll('[data-folio-pre]').forEach(inp => inp.addEventListener('input', () => { b2b.folioPre[inp.dataset.folioPre] = inp.value.replace(/[^\d]/g, ''); }));
   el.querySelectorAll('[data-wsp-cli]').forEach(bw => bw.addEventListener('click', async () => {
     const c = bw.dataset.wspCli, lista = (porCliente[c] || []).filter(o => b2b.sel.has(String(o.n)));
-    const msj = datosFactura(lista, b2b.folioPre[c]).msj, cl = d.clientes.find(x => x.id === (lista[0] || {}).clienteId) || cliDe(c) || {};
+    const msj = await mensajeFactura(lista, b2b.folioPre[c]), cl = d.clientes.find(x => x.id === (lista[0] || {}).clienteId) || cliDe(c) || {};
     const r = await abrirWhatsapp(cl, msj);
     if (r === 'grupo') alert('Mensaje copiado. Se abre el grupo de WhatsApp: pégalo ahí (mantén presionado → Pegar).');
     else if (r === 'sin') alert('Este cliente no tiene WhatsApp guardado (Clientes → Editar datos). Se abre WhatsApp para que elijas el chat; el mensaje ya va escrito.');
   }));
+  el.querySelectorAll('[data-msj-editar]').forEach(b => b.addEventListener('click', editarMensajeFactura));
   // v0.19.0: copia el RUT y el detalle para el botón "Llenar factura Fën" en el formulario del SII
   el.querySelectorAll('[data-sii-cli]').forEach(bs => bs.addEventListener('click', async () => {
     const c = bs.dataset.siiCli, lista = (porCliente[c] || []).filter(o => b2b.sel.has(String(o.n)));
@@ -3022,7 +3042,16 @@ async function revisarFolioSii(d, sinFolio) {
   const lista = cand.filter(o => r.ns.includes(String(o.n))), suma = lista.reduce((s, o) => s + (Number(o.total) || 0), 0);
   if (new Set(lista.map(o => o.clienteId || nom(o.cliente))).size > 1) { alert('Un folio es de un solo cliente: marca órdenes de un mismo cliente.'); return; }
   if (x.total && Math.abs(suma - x.total) > lista.length && !confirm(`La factura del SII es de ${pesos(x.total)} y las órdenes marcadas suman ${pesos(suma)}. ¿Asignar el folio igual?`)) return;
-  if (await asignarFolioOrdenes(lista, x.folio, x.fecha || Caja.diaLocal())) alert(`Listo: folio ${x.folio} asignado a N° ${lista.map(o => o.n).join(', ')}.`);
+  const fechaF = x.fecha || Caja.diaLocal();
+  if (!(await asignarFolioOrdenes(lista, x.folio, fechaF))) return;
+  // Enviar la factura: el mensaje queda listo con el folio y el total
+  const msj = await mensajeFactura(lista, x.folio, fechaF), clE = cli || (d.clientes || []).find(c => c.id === lista[0].clienteId) || {};
+  const dlg = dialogo(`<div class="form-dialogo"><h2>Folio ${esc(x.folio)} asignado</h2><p class="ayuda">N° ${lista.map(o => o.n).join(', ')} quedaron en Por cobrar. Ahora envía la factura (descárgala del SII con "Ver Documento" y adjúntala):</p>
+    <textarea id="fs-msj" rows="7" style="width:100%">${esc(msj)}</textarea>
+    <div class="botones"><button type="button" class="btn-sec" id="fs-cerrar">Listo</button><button type="button" class="btn-sec" id="fs-copiar">Copiar mensaje</button><button type="button" class="btn btn-wsp" id="fs-wsp">Enviar por WhatsApp</button></div></div>`);
+  dlg.querySelector('#fs-cerrar').onclick = () => dlg.close();
+  dlg.querySelector('#fs-copiar').onclick = async ev => { ev.target.textContent = (await copiarTexto(dlg.querySelector('#fs-msj').value)) ? 'Copiado' : 'No se pudo copiar'; };
+  dlg.querySelector('#fs-wsp').onclick = async () => { const r2 = await abrirWhatsapp(clE, dlg.querySelector('#fs-msj').value); if (r2 === 'grupo') alert('Mensaje copiado. Se abre el grupo de WhatsApp: pégalo ahí.'); else if (r2 === 'sin') alert('Este cliente no tiene WhatsApp guardado: elige el chat.'); };
 }
 
 function pintarB2bSolicitudes(el, sub) {

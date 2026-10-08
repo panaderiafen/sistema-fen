@@ -1,9 +1,18 @@
-# Sistema Fën · v0.20.0
+# Sistema Fën · v0.21.0
 
-**App:** v0.20.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
+**App:** v0.21.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.21.0: mensaje de la factura más simple, y enviarla después de emitir
+- **Mensaje nuevo** (Copiar mensaje, WhatsApp y después de emitir): "Hola Bárbara, te envío la factura N° 3448 por $45.220, de tu pedido del 3 de octubre de 2026 (orden N° 2559)." Con varias órdenes: "…con tus pedidos del 1 al 7 de octubre de 2026 (órdenes N° 2559, 2560 y 2561)." Si el cliente paga a 30 días, agrega "Vence el …".
+- **Cierre que cambia cada día:** hay 3 cierres que se turnan (uno distinto cada día). Se cambian en Por facturar → **Editar mensaje**. Vienen: "Cualquier duda, me avisas. ¡Gracias por preferir Fën!", "Si algo no calza, me cuentas. ¡Que tengas un lindo día!" y "Quedo atento a cualquier consulta. ¡Gracias por confiar en Fën!".
+- **Datos para transferir, solo en la primera factura** de un cliente (cuando no tiene facturas anteriores). Se escriben en Editar mensaje (se guardan en la base de B2B, no en GitHub). Vacío = nunca se envían.
+- **Después de traer el folio del SII** (tercer toque del botón), la ventana ofrece **Enviar por WhatsApp** y **Copiar mensaje**, con el folio y el total ya puestos. Flujo: preparar → llenar en el SII → emitir → traer folio → enviar.
+- El botón "Llenar factura Fën" no cambió: no hay que reinstalarlo.
+
+Archivos: cambian `app.js`, `b2b.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.21.0**. Incluye la v0.20.0, v0.19.x y v0.18.x.
 
 ## Novedades de la v0.20.0: referencias, forma de pago y traer el folio del SII
 El botón **Llenar factura Fën** ahora, en el segundo toque, además de los productos:

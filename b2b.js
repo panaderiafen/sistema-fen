@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.20.0';
-import * as FB from './firebase-b2b.js?v=0.20.0';
-import * as Apps from './apps.js?v=0.20.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.20.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.21.0';
+import * as FB from './firebase-b2b.js?v=0.21.0';
+import * as Apps from './apps.js?v=0.21.0';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.21.0';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1348,6 +1348,31 @@ export function cuentasRevisadas(conf, hoy = hoyTxt()) {
 export function hastaRevisado(conf, hoy = hoyTxt()) {
   const hs = cuentasRevisadas(conf, hoy).map(k => coberturaCartolas(cartolasDe(conf, k)).hasta);
   return hs.some(h => !h) ? null : hs.sort()[0] || null;
+}
+// v0.21.0 · Mensaje de la factura: 3 cierres que se turnan por día y datos de transferencia (primera factura de un cliente)
+export const CIERRES_DEF = ['Cualquier duda, me avisas. ¡Gracias por preferir Fën!', 'Si algo no calza, me cuentas. ¡Que tengas un lindo día!', 'Quedo atento a cualquier consulta. ¡Gracias por confiar en Fën!'];
+let cacheMsj = null;
+export async function mensajesFactura(forzar) {
+  if (cacheMsj && !forzar) return cacheMsj;
+  const db = await dbOk();
+  const sn = await FB.getDoc(FB.doc(db, 'config', 'mensajes')); uso.lecturas++;
+  const d = sn.exists() ? sn.data() : {}, ci = Array.isArray(d.cierres) ? d.cierres.map(x => String(x || '').trim()).filter(Boolean) : [];
+  cacheMsj = { cierres: ci.length ? ci : CIERRES_DEF, transferencia: String(d.transferencia || '') };
+  return cacheMsj;
+}
+export async function guardarMensajes(cierres, transferencia) {
+  const db = await dbOk();
+  await FB.setDoc(FB.doc(db, 'config', 'mensajes'), { cierres: cierres.map(x => String(x).slice(0, 140)).slice(0, 3), transferencia: String(transferencia || '').slice(0, 400), en: ahoraTxt(), por: authSF.currentUser.email }, { merge: true });
+  uso.escrituras++; cacheMsj = null;
+}
+// Un cierre distinto cada día (se turnan)
+export function cierreDelDia(cierres, fecha = hoyTxt()) { const l = (cierres && cierres.length ? cierres : CIERRES_DEF), n = Math.floor(new Date(fecha + 'T12:00:00').getTime() / 864e5); return l[((n % l.length) + l.length) % l.length]; }
+// ¿El cliente ya tiene facturas (órdenes con folio) aparte de estas?
+export async function tieneFacturasAntes(cliente, excluir = []) {
+  const db = await dbOk(), ex = new Set(excluir.map(String));
+  const ver = async q => { const sn = await FB.getDocs(FB.query(FB.collection(db, 'ordenes'), ...q, FB.where('sinFolio', '==', false), FB.limit(20))); uso.lecturas += Math.max(1, sn.size); return sn.docs.some(dc => { const o = dc.data(); return o.folio && o.estado !== 'anulada' && !ex.has(String(o.n)); }); };
+  if (cliente.id && await ver([FB.where('clienteId', '==', cliente.id)])) return true;
+  return cliente.nombre ? ver([FB.where('cliente', '==', cliente.nombre)]) : false;
 }
 // v0.18.0 · La configuración de la conciliación leída una vez (para subir la cartola desde Gastos)
 export async function leerConfConciliacion() {
