@@ -557,3 +557,21 @@ details.aviso > summary { cursor: pointer; }
 .folio-pre { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--suave); }
 .folio-pre input { width: 110px; min-height: 36px; padding: 0 10px; border: 1px solid var(--borde); border-radius: 8px; font-size: 16px; background: var(--tarjeta); color: var(--texto); }
 .btn-wsp { border-color: #25a35a; color: #1c7a43; }
+/* v0.14.5 · Clientes plegables en Por facturar, lupa y fechas en Por cobrar */
+details.grupo-b2b > summary.cab-cliente-b2b { list-style: none; cursor: pointer; }
+details.grupo-b2b > summary.cab-cliente-b2b::-webkit-details-marker { display: none; }
+details.grupo-b2b > summary.cab-cliente-b2b > div:first-child { position: relative; padding-left: 18px; }
+details.grupo-b2b > summary.cab-cliente-b2b > div:first-child::before { content: '›'; position: absolute; left: 0; top: -1px; font-size: 18px; color: var(--suave); transition: transform .15s; }
+details.grupo-b2b[open] > summary.cab-cliente-b2b > div:first-child::before { transform: rotate(90deg); }
+details.grupo-b2b:not([open]) { padding-bottom: 2px; }
+.cab-cliente-b2b small { font-size: 12px; color: var(--suave); }
+.lupa { margin-left: 4px; margin-right: auto; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: var(--suave); cursor: pointer; opacity: .55; }
+.lupa:hover, .lupa[aria-expanded="true"] { opacity: 1; background: var(--menu); }
+.lupa:focus-visible { outline: 2px solid var(--acento); opacity: 1; }
+.buscar-b2b { margin: 4px 0 10px; }
+.buscar-b2b input { width: 100%; max-width: 360px; min-height: 40px; padding: 0 12px; border: 1px solid var(--borde); border-radius: 10px; font-size: 16px; background: var(--tarjeta); color: var(--texto); }
+.fechas-cobro { display: block; margin-top: 2px; font-size: 12px; color: var(--suave); }
+.cobertura-conc { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--menu); font-size: 13px; }
+.cobertura-conc > div { display: flex; flex-direction: column; gap: 2px; }
+.cobertura-conc span { color: var(--suave); font-size: 12px; }
+.cobertura-conc .hueco b { color: var(--amarillo-t); }

@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.14.4';
-import * as FB from './firebase-b2b.js?v=0.14.4';
-import * as Apps from './apps.js?v=0.14.4';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.14.4';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.14.5';
+import * as FB from './firebase-b2b.js?v=0.14.5';
+import * as Apps from './apps.js?v=0.14.5';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.14.5';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -424,12 +424,12 @@ async function ordenesDelFolio(db, folio) {
 }
 export async function folioUsado(folio) { const db = await dbOk(); return (await ordenesDelFolio(db, folio)).map(o => ({ n: o.n, cliente: o.cliente, clienteId: o.clienteId || null })); }
 // Pago completo de un folio: todas sus órdenes quedan PAGADO con esa fecha
-export async function registrarPago(folio, fechaPago) {
+export async function registrarPago(folio, fechaPago, medio) {
   const db = await dbOk();
   const os = (await ordenesDelFolio(db, folio)).filter(o => !/PAGADO/.test(o.estadoPago || ''));   // las ya pagadas (o archivadas) no se tocan
   if (!os.length) throw new Error('Ese folio no tiene órdenes por pagar.');
   const b = FB.writeBatch(db);
-  os.forEach(o => b.update(FB.doc(db, 'ordenes', o.id), marcaCambio({ estadoPago: 'PAGADO', fechaPago: fechaPago || hoyTxt() })));
+  os.forEach(o => b.update(FB.doc(db, 'ordenes', o.id), marcaCambio({ estadoPago: 'PAGADO', fechaPago: fechaPago || hoyTxt(), medioPago: String(medio || '').trim().slice(0, 120) || null })));
   await b.commit(); uso.escrituras += os.length;
   return os.length;
 }
@@ -846,7 +846,9 @@ export function leerCartola(wb, XLSX) {
     const inicio = campoResumen(resumen, 'Fecha Inicio');
     filas = XLSX.utils.sheet_to_json(wb.Sheets['Movimientos'], { defval: '' }).map(r => ({ fecha: fechaConAnio(r['Fecha'], inicio), descripcion: desc(r), cargos: montoCartola(r['Cheques / Cargos']), abonos: montoCartola(r['Depósitos / Abonos']), saldo: montoCartola(r['Saldo']) })).filter(f => f.descripcion);
     if (filas.some(f => f.abonos > 0 && !f.fecha)) throw new Error('No se pudo saber el año de las fechas (falta "Fecha Inicio" en la hoja Resumen).');
-    identificador = `Histórica N°${campoResumen(resumen, 'N° Cartola') || '?'} (${inicio || '?'} a ${campoResumen(resumen, 'Fecha Final') || '?'})`;
+    var nCartola = campoResumen(resumen, 'N° Cartola') || null;
+    identificador = `Histórica N°${nCartola || '?'} (${inicio || '?'} a ${campoResumen(resumen, 'Fecha Final') || '?'})`;
+    var desdeC = fechaCartolaISO(inicio), hastaC = fechaCartolaISO(campoResumen(resumen, 'Fecha Final'));
   } else {
     tipo = 'enlinea';
     const hoja = wb.SheetNames.includes('Registros') ? 'Registros' : wb.SheetNames[0];
@@ -857,7 +859,8 @@ export function leerCartola(wb, XLSX) {
     identificador = gen ? 'En línea generada ' + gen : `En línea (${fs[0] || '?'} a ${fs[fs.length - 1] || '?'})`;
   }
   if (!filas.length) throw new Error('El archivo no tiene movimientos. ¿Es la cartola de BancoEstado (histórica o en línea)?');
-  return { tipo, identificador, filas };
+  const fs = filas.map(f => f.fecha).filter(Boolean).sort();
+  return { tipo, identificador, filas, nCartola: tipo === 'historica' ? nCartola : null, desde: (tipo === 'historica' && desdeC) || fs[0] || null, hasta: (tipo === 'historica' && hastaC) || fs[fs.length - 1] || null };
 }
 export const huellaMovimiento = f => `${f.fecha}|${f.saldo}|${f.abonos}|${normCartola(f.descripcion)}`;
 export async function idMovimiento(huella) {
@@ -891,6 +894,8 @@ export async function cargarCartola(cartola, conf) {
       cartola: cartola.identificador, estado: 'pendiente', origen: 'sistema-fen', cargado: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: false }]);
   });
   for (let i = 0; i < porEscribir.length; i += 400) { const b = FB.writeBatch(db); porEscribir.slice(i, i + 400).forEach(([id, d]) => b.set(FB.doc(db, 'movimientos', id), d)); await b.commit(); uso.escrituras += Math.min(400, porEscribir.length - i); }
+  // v0.14.5: queda anotada la cartola (tipo, N°, período) para saber hasta dónde se revisó
+  await anotarCartola({ id: cartola.identificador, tipo: cartola.tipo, nCartola: cartola.nCartola || null, desde: cartola.desde || null, hasta: cartola.hasta || null, abonos: r.abonos, nuevos: r.nuevos, yaVistos: r.yaVistos, ignorados: r.ignorados });
   return r;
 }
 
@@ -1016,8 +1021,8 @@ export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender
       if (a.monto > saldo) throw new Error(`Al folio ${a.folio} le quedan ${saldo.toLocaleString('es-CL')}: no se le puede asignar ${a.monto.toLocaleString('es-CL')}.`);
       const completo = a.monto === saldo, tipo = completo && !info[a.folio].abonado ? 'pago' : 'abono';
       // Pago del saldo completo de un folio sin abonos: queda PAGADO (igual que antes, sin fila en Abonos). Si no, es un abono.
-      if (tipo === 'abono') tx.set(FB.doc(FB.collection(db, 'abonos')), { folio: a.folio, fecha: mv.fecha, monto: a.monto, referencia: 'Cartola: ' + mv.descripcion, movimiento: movId, extra: {}, quitadoEnPlanilla: false, planillaPendiente: true, por: authSF.currentUser.email, en: FB.serverTimestamp() });
-      os.filter(o => !/PAGADO/.test(o.estadoPago || '')).forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio(completo ? { estadoPago: 'PAGADO', fechaPago: mv.fecha } : { estadoPago: 'PARCIAL' })));
+      if (tipo === 'abono') tx.set(FB.doc(FB.collection(db, 'abonos')), { folio: a.folio, fecha: mv.fecha, monto: a.monto, referencia: 'Transferencia · cartola: ' + mv.descripcion, movimiento: movId, extra: {}, quitadoEnPlanilla: false, planillaPendiente: true, por: authSF.currentUser.email, en: FB.serverTimestamp() });
+      os.filter(o => !/PAGADO/.test(o.estadoPago || '')).forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio(completo ? { estadoPago: 'PAGADO', fechaPago: mv.fecha, medioPago: 'Transferencia (cartola)' } : { estadoPago: 'PARCIAL' })));
       hechas.push({ folio: a.folio, monto: a.monto, tipo: completo ? (tipo === 'pago' ? 'pago' : 'abono final') : 'abono' });
     }
     if (aprender && mv.descNorm) {
@@ -1083,6 +1088,7 @@ export async function importarConciliacionAntigua() {
   const eqFinal = c.equivalencias.concat(equivalencias.filter(e => !c.equivalencias.some(x => x.desc === e.desc)));
   await FB.setDoc(cref, { ignorar: [...new Set(c.ignorar.concat(ignorar))], equivalencias: eqFinal.slice(-500), importado: { en: FB.serverTimestamp(), por: authSF.currentUser.email, historial: docs.length, nuevos: nuevos.length } });
   uso.escrituras++;
+  try { await anotarPeriodoAntiguo(); } catch (e) {}
   return { cerrados: aCerrar.length, historial: docs.filter(([, d]) => d.estado !== 'pendiente').length, pendientes: docs.filter(([, d]) => d.estado === 'pendiente').length, nuevos: nuevos.length, equivalencias: equivalencias.length, ignorar: ignorar.length };
 }
 // Empezar sin traer nada (por ejemplo, si nunca se usó la conciliación en la app antigua)
@@ -1210,4 +1216,34 @@ export async function opPlanilla(op, extra) {
   const r = await llamarScript(url, { action: 'sistema_fen_b2b', accion: 'sistema_fen_b2b', op, ...(extra || {}), idToken: await authSF.currentUser.getIdToken() });
   if (!r || !r.ok) throw new Error((r && (r.error || r.msg)) || 'El script no respondió bien.');
   return r;
+}
+
+// v0.14.5 · Registro de cartolas cargadas (en config/conciliacion.cartolas)
+async function anotarCartola(c) {
+  const db = await dbOk(), ref = FB.doc(db, 'config', 'conciliacion');
+  await FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref), d = sn.exists() ? sn.data() : {};
+    const lista = (d.cartolas || []).filter(x => !(x.id === c.id && x.tipo === c.tipo));
+    lista.push({ ...c, cargada: ahoraTxt(), por: authSF.currentUser.email });
+    tx.set(ref, { ...d, ignorar: configConciliacion(d).ignorar, equivalencias: configConciliacion(d).equivalencias, cartolas: lista.slice(-300) });
+  });
+  uso.escrituras++;
+}
+// Lo ya traído de la app antigua: su período (de la primera a la última fecha), una sola vez
+export async function anotarPeriodoAntiguo() {
+  const db = await dbOk();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'movimientos'), FB.where('origen', '==', 'app antigua')));
+  uso.lecturas += Math.max(1, sn.size);
+  const fs = sn.docs.map(d => fechaDe(d.data().fecha)).filter(Boolean).sort();
+  await anotarCartola({ id: 'App antigua', tipo: 'antigua', nCartola: null, desde: fs[0] || null, hasta: fs[fs.length - 1] || null, abonos: sn.size, nuevos: 0, yaVistos: 0, ignorados: 0 });
+}
+// Períodos revisados y huecos (días sin ninguna cartola entre la primera y la última)
+export function coberturaCartolas(cartolas) {
+  const r = (cartolas || []).filter(c => c.desde && c.hasta).map(c => [c.desde, c.hasta]).sort((a, b) => a[0].localeCompare(b[0]));
+  if (!r.length) return { hasta: null, huecos: [] };
+  const mas = (f, n) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() + n); return hoyTxt(d); };
+  const unidos = [];
+  r.forEach(([a, b]) => { const u = unidos[unidos.length - 1]; if (u && a <= mas(u[1], 1)) { if (b > u[1]) u[1] = b; } else unidos.push([a, b]); });
+  const huecos = unidos.slice(1).map((u, i) => [mas(unidos[i][1], 1), mas(u[0], -1)]);
+  return { desde: unidos[0][0], hasta: unidos[unidos.length - 1][1], huecos };
 }

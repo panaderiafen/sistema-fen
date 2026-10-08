@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.14.4';
-import * as Caja from './caja.js?v=0.14.4';
-import * as Stock from './stock.js?v=0.14.4';
-import * as Ajustes from './ajustes.js?v=0.14.4';
-import * as Apps from './apps.js?v=0.14.4';
-import * as Agenda from './agenda.js?v=0.14.4';
-import * as Gastos from './gastos.js?v=0.14.4';
-import * as Sii from './sii.js?v=0.14.4';
-import * as Previred from './previred.js?v=0.14.4';
-import * as B2b from './b2b.js?v=0.14.4';
-import * as PdfOrden from './pdf-orden.js?v=0.14.4';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.14.4';
+} from './firebase.js?v=0.14.5';
+import * as Caja from './caja.js?v=0.14.5';
+import * as Stock from './stock.js?v=0.14.5';
+import * as Ajustes from './ajustes.js?v=0.14.5';
+import * as Apps from './apps.js?v=0.14.5';
+import * as Agenda from './agenda.js?v=0.14.5';
+import * as Gastos from './gastos.js?v=0.14.5';
+import * as Sii from './sii.js?v=0.14.5';
+import * as Previred from './previred.js?v=0.14.5';
+import * as B2b from './b2b.js?v=0.14.5';
+import * as PdfOrden from './pdf-orden.js?v=0.14.5';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.14.5';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -117,6 +117,7 @@ const P = {
   celular: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
   tablet: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M11 18h2"/>',
   flecha: '<path d="M9 6l6 6-6 6"/>',
+  lupa: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
   ajustes: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
   arriba: '<path d="M6 15l6-6 6 6"/>', izq: '<path d="M15 6l-6 6 6 6"/>', mas: '<path d="M12 5v14M5 12h14"/>',
   calendario: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>', abajo: '<path d="M6 9l6 6 6-6"/>'
@@ -312,7 +313,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.14.4" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.14.5" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -1986,7 +1987,7 @@ async function pintarSeguridad() {
 // v0.11: conectar la base nueva, copiar la planilla y revisar que todo cuadre.
 // La app B2B sigue funcionando igual: la planilla manda hasta que exista la app de logística (v0.12).
 const SUBS_B2B = [['', 'Órdenes'], ['solicitudes', 'Solicitudes'], ['conciliacion', 'Conciliación'], ['clientes', 'Clientes'], ['productos', 'Productos'], ['cuenta', 'Estado de cuenta'], ['analisis', 'Análisis'], ['buscar', 'Buscar'], ['base', 'Base nueva']];
-const b2b = { folioPre: {}, prep: null, tot: null, uso: null, copiando: false, msg: '', error: '', activaVista: null, vivo: null, datos: null, errVivo: '', sel: new Set(), planilla: '', cambiando: '' };
+const b2b = { folioPre: {}, gruposAbiertos: new Set(), buscar: { fact: null, cob: null }, prep: null, tot: null, uso: null, copiando: false, msg: '', error: '', activaVista: null, vivo: null, datos: null, errVivo: '', sel: new Set(), planilla: '', cambiando: '' };
 function cabB2b(sub) {
   const actual = SUBS_B2B.some(([k]) => k && k === sub) ? sub : '';
   const activa = b2b.datos && b2b.datos.config && b2b.datos.config.activa;
@@ -2240,7 +2241,7 @@ function b2bEscuchar(sub) {
     const s = subVista();
     if (document.querySelector('dialog[open]')) return;   // no se repinta con una ventana abierta
     const activa = !!(d.config && d.config.activa);
-    if (s === '') { if (document.activeElement && document.activeElement.matches && document.activeElement.matches('[data-folio-pre]')) document.activeElement.addEventListener('blur', () => { if (subVista() === '' && vistaDesdeHash() === 'b2b') setTimeout(() => { if (!(document.activeElement && document.activeElement.matches && document.activeElement.matches('[data-folio-pre]'))) pintarB2bAdmin($('v-b2b'), ''); }, 0); }, { once: true }); else pintarB2bAdmin($('v-b2b'), s); }
+    if (s === '') { if (document.activeElement && document.activeElement.matches && document.activeElement.matches('[data-folio-pre], [data-buscar]')) document.activeElement.addEventListener('blur', () => { if (subVista() === '' && vistaDesdeHash() === 'b2b') setTimeout(() => { if (!(document.activeElement && document.activeElement.matches && document.activeElement.matches('[data-folio-pre], [data-buscar]'))) pintarB2bAdmin($('v-b2b'), ''); }, 0); }, { once: true }); else pintarB2bAdmin($('v-b2b'), s); }
     else if (s === 'solicitudes') pintarB2bSolicitudes($('v-b2b'), s);
     else if (s === 'clientes') pintarB2bClientes($('v-b2b'), s);
     else if (s === 'productos') pintarB2bProductos($('v-b2b'), s);
@@ -2319,6 +2320,11 @@ function resumenFactura(cliente, ordenes) {
     ${f.total !== f.sumaOrdenes ? `<p class="ayuda">Las órdenes suman ${pesos(f.sumaOrdenes)}: la diferencia de ${pesos(Math.abs(f.total - f.sumaOrdenes))} es por redondeo del IVA (la factura lo calcula sobre el neto total).</p>` : ''}
   </div>`;
 }
+// Medio de pago (pago completo y abono): transferencia, efectivo, cheque u otro + referencia
+const MEDIOS = ['Transferencia', 'Efectivo', 'Cheque', 'Tarjeta', 'Otro'];
+const campoMedio = () => `<div class="campo"><label for="pd-medio">Medio de pago</label><select id="pd-medio">${MEDIOS.map(m => `<option>${m}</option>`).join('')}</select></div>`;
+const leerMedio = dd => { const m = dd.querySelector('#pd-medio').value, r = (dd.querySelector('#pd-ref') || {}).value || ''; return m + (r.trim() ? ' · ' + r.trim() : ''); };
+const diasDesde = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); if (!m) return 0; return Math.round((new Date(Caja.diaLocal() + 'T12:00:00') - new Date(`${m[1]}-${m[2]}-${m[3]}T12:00:00`)) / 864e5); };
 // WhatsApp: al número del cliente (mensaje ya escrito); a un grupo (se copia el mensaje y se abre el grupo); sin datos, se elige el chat
 async function abrirWhatsapp(cl, msj) {
   if (cl.grupoWhatsapp) { await copiarTexto(msj); window.open(cl.grupoWhatsapp, '_blank', 'noopener'); return 'grupo'; }
@@ -2350,7 +2356,9 @@ function pintarB2bAdmin(el, sub) {
   const porFolio = {};
   os.filter(o => o.folio && !/PAGADO/.test(o.estadoPago || '')).forEach(o => { (porFolio[o.folio] = porFolio[o.folio] || []).push(o); });
   Object.values(porFolio).forEach(l => l.sort(porFecha));
-  const folios = Object.keys(porFolio).sort((a, b) => porFecha(porFolio[a][0], porFolio[b][0]));
+  // Por cobrar: los folios más antiguos primero (por fecha de la factura)
+  const fFolio = f => porFolio[f].map(o => o.fechaFolio || o.fecha || '').filter(Boolean).sort()[0] || '';
+  const folios = Object.keys(porFolio).sort((a, b) => fFolio(a).localeCompare(fFolio(b)) || porFecha(porFolio[a][0], porFolio[b][0]));
   // Según cómo factura el cliente (Diaria / Semanal / Mensual, en Clientes): las órdenes que ya corresponde facturar
   const norm = t => String(t || '').trim().toLowerCase();
   const cliDe = nombre => { const os1 = porCliente[nombre] || [], id = os1.map(o => o.clienteId).find(Boolean); return (d.clientes || []).find(x => (id && x.id === id) || norm(x.nombre) === norm(nombre)); };
@@ -2363,16 +2371,38 @@ function pintarB2bAdmin(el, sub) {
       <span class="chip ${pendPlan ? 'c-amarillo' : 'c-verde'}">${pendPlan ? pendPlan + ' por pasar' : 'Al día'}</span></summary>
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" id="b2b-pasar">Pasar ahora</button></div>
       ${b2b.planilla ? `<p class="ayuda" role="status">${esc(b2b.planilla)}</p>` : ''}${b2b.errVivo ? `<p class="error">${esc(b2b.errVivo)}</p>` : ''}</details>
-    <details class="tarjeta plegable" data-plegar="fact" ${plegada('fact') ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-fact">Por facturar</h2><span>${Object.keys(porCliente).length} ${Object.keys(porCliente).length === 1 ? 'cliente' : 'clientes'} · ${sinFolio.length} ${sinFolio.length === 1 ? 'orden' : 'órdenes'} · ${pesos(sinFolio.reduce((s, o) => s + o.total, 0))}</span></summary>
-      ${Object.keys(porCliente).sort((a, b) => a.localeCompare(b, 'es')).map(c => { const mc = porCliente[c].filter(o => b2b.sel.has(String(o.n))), todas = mc.length === porCliente[c].length; return `<div class="grupo-b2b"><div class="cab-cliente-b2b"><div><b>${esc(c)}</b><span>${porCliente[c].length} · ${pesos(porCliente[c].reduce((s, o) => s + o.total, 0))} · ${esc(modalidad(c).toLowerCase())}</span></div>
-        <div class="acciones">${tocan(c).length && tocan(c).length < porCliente[c].length ? `<button type="button" class="btn-sec btn-chico" data-tocan-cli="${esc(c)}" >Marcar las que tocan (${tocan(c).length})</button>` : ''}<button type="button" class="btn-sec btn-chico" data-marcar-cli="${esc(c)}">${todas ? 'Desmarcar' : 'Marcar todas'}</button>${mc.length ? `<button type="button" class="btn-sec btn-chico" data-pdf-cli="${esc(c)}">PDF de ${mc.length}</button><button type="button" class="btn btn-chico" data-folio-cli="${esc(c)}">Asignar folio a ${mc.length} · ${pesos(mc.reduce((s, o) => s + o.total, 0))}</button>` : ''}</div></div>
+    <details class="tarjeta plegable" data-plegar="fact" ${plegada('fact') ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-fact">Por facturar</h2><button type="button" class="lupa" data-lupa="fact" aria-label="Buscar en Por facturar" aria-expanded="${!!b2b.buscar.fact}">${icono('lupa', 16)}</button><span>${Object.keys(porCliente).length} ${Object.keys(porCliente).length === 1 ? 'cliente' : 'clientes'} · ${sinFolio.length} ${sinFolio.length === 1 ? 'orden' : 'órdenes'} · ${pesos(sinFolio.reduce((s, o) => s + o.total, 0))}</span></summary>
+      ${b2b.buscar.fact != null ? `<div class="buscar-b2b"><input type="search" data-buscar="fact" value="${esc(b2b.buscar.fact)}" placeholder="Cliente o N° de orden" aria-label="Buscar cliente o N° de orden"></div>` : ''}
+      ${Object.keys(porCliente).sort((a, b) => a.localeCompare(b, 'es')).map(c => { const mc = porCliente[c].filter(o => b2b.sel.has(String(o.n))), todas = mc.length === porCliente[c].length, fs = porCliente[c].map(o => o.fecha).filter(Boolean).sort(); return `<details class="grupo-b2b" data-grupo="${esc(c)}" data-txt="${esc((c + ' ' + porCliente[c].map(o => o.n).join(' ')).toLowerCase())}" ${b2b.gruposAbiertos.has(c) || mc.length ? 'open' : ''}><summary class="cab-cliente-b2b"><div><b>${esc(c)}</b><span>${porCliente[c].length} ${porCliente[c].length === 1 ? 'orden' : 'órdenes'} · ${pesos(porCliente[c].reduce((s, o) => s + o.total, 0))} · ${esc(modalidad(c).toLowerCase())}${fs.length ? ` · <small>${fs[0] === fs[fs.length - 1] ? esc(diaTexto(fs[0])) : `${esc(diaTexto(fs[0]))} al ${esc(diaTexto(fs[fs.length - 1]))}`}</small>` : ''}</span></div>
+        <div class="acciones">${tocan(c).length && tocan(c).length < porCliente[c].length ? `<button type="button" class="btn-sec btn-chico" data-tocan-cli="${esc(c)}" >Marcar las que tocan (${tocan(c).length})</button>` : ''}<button type="button" class="btn-sec btn-chico" data-marcar-cli="${esc(c)}">${todas ? 'Desmarcar' : 'Marcar todas'}</button>${mc.length ? `<button type="button" class="btn-sec btn-chico" data-pdf-cli="${esc(c)}">PDF de ${mc.length}</button><button type="button" class="btn btn-chico" data-folio-cli="${esc(c)}">Asignar folio a ${mc.length} · ${pesos(mc.reduce((s, o) => s + o.total, 0))}</button>` : ''}</div></summary>
         ${mc.length ? resumenFactura(c, mc) : ''}
-        ${porCliente[c].map(o => `<details class="fila-orden-b2b"><summary class="fila-caja"><label class="check-b2b" onclick="event.stopPropagation()"><input type="checkbox" data-sel="${o.n}" ${b2b.sel.has(String(o.n)) ? 'checked' : ''} aria-label="Marcar orden ${o.n}"></label><div class="txt"><b>N° ${o.n}</b><span>${esc(diaTexto(o.fecha))} · ${pesos(o.total)}${o.planillaPendiente ? ' · por pasar a la planilla' : ''}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-o="${o.n}">Anular</button></div></summary>${lineasHtml(o)}</details>`).join('')}</div>`; }).join('') || '<div class="vacio" style="border:0">No hay órdenes sin folio.</div>'}
+        ${porCliente[c].map(o => `<details class="fila-orden-b2b"><summary class="fila-caja"><label class="check-b2b" onclick="event.stopPropagation()"><input type="checkbox" data-sel="${o.n}" ${b2b.sel.has(String(o.n)) ? 'checked' : ''} aria-label="Marcar orden ${o.n}"></label><div class="txt"><b>N° ${o.n}</b><span>${esc(diaTexto(o.fecha))} · ${pesos(o.total)}${o.planillaPendiente ? ' · por pasar a la planilla' : ''}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-o="${o.n}">Anular</button></div></summary>${lineasHtml(o)}</details>`).join('')}</details>`; }).join('') || '<div class="vacio" style="border:0">No hay órdenes sin folio.</div>'}
       ${sinFolio.length ? `<p class="ayuda" style="margin-top:10px">Marca las órdenes que van en la misma factura: el botón "Asignar folio" aparece junto al nombre del cliente. Un folio es de un solo cliente. ${info('Marcar las que tocan', 'Marca solo las órdenes que ya corresponde facturar según cómo factura el cliente (se cambia en Clientes):\nDiaria: las de días anteriores a hoy.\nSemanal: las de semanas anteriores (lunes a domingo).\nMensual: las de meses anteriores.\nSi el cliente no tiene modalidad, se toma como diaria. El botón aparece solo cuando hay órdenes que todavía no tocan.')}</p>` : ''}</details>
-    <details class="tarjeta plegable" data-plegar="cob" ${plegada('cob') ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-cob">Por cobrar</h2><span>${folios.length} ${folios.length === 1 ? 'folio' : 'folios'} · saldo ${pesos(folios.reduce((s, f) => s + Math.max(0, porFolio[f].reduce((x, o) => x + o.total, 0) - (abonadoFolio[f] || 0)), 0))}</span></summary>
-      ${folios.map(f => { const l = porFolio[f], tot = l.reduce((s, o) => s + o.total, 0), ab = abonadoFolio[f] || 0; return `<div class="fila-caja"><div class="txt"><b>Folio ${esc(f)} · ${esc([...new Set(l.map(o => o.cliente))].join(', '))}</b><span>${l.length} ${l.length === 1 ? 'orden' : 'órdenes'} (N° ${l.map(o => o.n).join(', ')}) · ${pesos(tot)}${ab ? ` · abonado ${pesos(ab)} · saldo ${pesos(Math.max(0, tot - ab))}` : ''}${l[0].fechaFolio ? ' · folio del ' + esc(diaTexto(l[0].fechaFolio)) : ''}</span></div>
+    <details class="tarjeta plegable" data-plegar="cob" ${plegada('cob') ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-cob">Por cobrar</h2><button type="button" class="lupa" data-lupa="cob" aria-label="Buscar en Por cobrar" aria-expanded="${!!b2b.buscar.cob}">${icono('lupa', 16)}</button><span>${folios.length} ${folios.length === 1 ? 'folio' : 'folios'} · saldo ${pesos(folios.reduce((s, f) => s + Math.max(0, porFolio[f].reduce((x, o) => x + o.total, 0) - (abonadoFolio[f] || 0)), 0))}</span></summary>
+      ${b2b.buscar.cob != null ? `<div class="buscar-b2b"><input type="search" data-buscar="cob" value="${esc(b2b.buscar.cob)}" placeholder="Folio, cliente o N° de orden" aria-label="Buscar folio, cliente o N° de orden"></div>` : ''}
+      ${folios.map(f => { const l = porFolio[f], tot = l.reduce((s, o) => s + o.total, 0), ab = abonadoFolio[f] || 0, fs = l.map(o => o.fecha).filter(Boolean).sort(), ff = l.map(o => o.fechaFolio).filter(Boolean).sort()[0]; return `<div class="fila-caja fila-cobro" data-txt="${esc((f + ' ' + l.map(o => o.cliente).join(' ') + ' ' + l.map(o => o.n).join(' ')).toLowerCase())}"><div class="txt"><b>Folio ${esc(f)} · ${esc([...new Set(l.map(o => o.cliente))].join(', '))}</b><span>${l.length} ${l.length === 1 ? 'orden' : 'órdenes'} (N° ${l.map(o => o.n).join(', ')}) · ${pesos(tot)}${ab ? ` · abonado ${pesos(ab)} · saldo ${pesos(Math.max(0, tot - ab))}` : ''}</span>
+          <small class="fechas-cobro">${ff ? `Factura del ${esc(diaTexto(ff))}${diasDesde(ff) > 0 ? ` (hace ${diasDesde(ff)} ${diasDesde(ff) === 1 ? 'día' : 'días'})` : ''}` : 'Factura sin fecha'} · ${fs.length ? (fs[0] === fs[fs.length - 1] ? `pedido del ${esc(diaTexto(fs[0]))}` : `pedidos del ${esc(diaTexto(fs[0]))} al ${esc(diaTexto(fs[fs.length - 1]))}`) : ''}</small></div>
         <div class="acciones">${ab ? '<span class="chip c-amarillo">Parcial</span>' : ''}<button type="button" class="btn-sec btn-chico" data-abono="${esc(f)}">Abono</button><button type="button" class="btn-sec btn-chico" data-pago="${esc(f)}">Pagado</button></div></div>`; }).join('') || '<div class="vacio" style="border:0">No hay folios por cobrar.</div>'}</details>`;
   el.querySelectorAll('details[data-plegar]').forEach(dt => dt.addEventListener('toggle', () => plegar(dt.dataset.plegar, !dt.open)));
+  // v0.14.5: cada cliente se pliega; los botones de su encabezado no lo abren ni cierran
+  el.querySelectorAll('details[data-grupo]').forEach(dt => {
+    dt.addEventListener('toggle', () => { if (dt.open) b2b.gruposAbiertos.add(dt.dataset.grupo); else b2b.gruposAbiertos.delete(dt.dataset.grupo); });
+    dt.querySelector(':scope > summary').addEventListener('click', e => { if (e.target.closest('button, input, label, a')) e.preventDefault(); });
+  });
+  el.querySelectorAll('summary .lupa').forEach(b => b.addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+    const k = b.dataset.lupa; b2b.buscar[k] = b2b.buscar[k] == null ? '' : null;
+    if (b2b.buscar[k] != null) { const dt = b.closest('details'); if (!dt.open) { dt.open = true; plegar(dt.dataset.plegar, false); } }
+    pintarB2bAdmin(el, sub);
+    const i = el.querySelector(`[data-buscar="${k}"]`); if (i) i.focus();
+  }));
+  const filtrar = () => ['fact', 'cob'].forEach(k => {
+    const q = (b2b.buscar[k] || '').trim().toLowerCase(), cont = el.querySelector(`details[data-plegar="${k}"]`);
+    if (!cont) return;
+    cont.querySelectorAll(k === 'fact' ? 'details[data-grupo]' : '.fila-cobro').forEach(x => { x.hidden = !!q && !x.dataset.txt.includes(q); });
+  });
+  el.querySelectorAll('[data-buscar]').forEach(i => i.addEventListener('input', () => { b2b.buscar[i.dataset.buscar] = i.value; filtrar(); }));
+  filtrar();
   el.querySelectorAll('[data-sel]').forEach(c => c.addEventListener('change', () => { if (c.checked) b2b.sel.add(c.dataset.sel); else b2b.sel.delete(c.dataset.sel); pintarB2bAdmin(el, sub); }));
   $('b2b-pasar').addEventListener('click', async () => {
     const b = $('b2b-pasar'); b.disabled = true; b.textContent = 'Pasando…';
@@ -2382,12 +2412,12 @@ function pintarB2bAdmin(el, sub) {
   });
   el.querySelectorAll('[data-tocan-cli]').forEach(b => b.addEventListener('click', () => {
     (porCliente[b.dataset.tocanCli] || []).forEach(o => b2b.sel.delete(String(o.n)));
-    tocan(b.dataset.tocanCli).forEach(o => b2b.sel.add(String(o.n)));
+    tocan(b.dataset.tocanCli).forEach(o => b2b.sel.add(String(o.n))); b2b.gruposAbiertos.add(b.dataset.tocanCli);
     pintarB2bAdmin(el, sub);
   }));
   el.querySelectorAll('[data-marcar-cli]').forEach(b => b.addEventListener('click', () => {
     const l = porCliente[b.dataset.marcarCli] || [], todas = l.every(o => b2b.sel.has(String(o.n)));
-    l.forEach(o => todas ? b2b.sel.delete(String(o.n)) : b2b.sel.add(String(o.n)));
+    l.forEach(o => todas ? b2b.sel.delete(String(o.n)) : b2b.sel.add(String(o.n))); if (!todas) b2b.gruposAbiertos.add(b.dataset.marcarCli);
     pintarB2bAdmin(el, sub);
   }));
   el.querySelectorAll('[data-copiar-msj]').forEach(bm => bm.addEventListener('click', async () => {
@@ -2451,9 +2481,10 @@ function pintarB2bAdmin(el, sub) {
   el.querySelectorAll('[data-pago]').forEach(b => b.addEventListener('click', async () => {
     const f = b.dataset.pago, l = porFolio[f], tot = l.reduce((s, o) => s + o.total, 0);
     const r = await pedirDatos(`Folio ${f} pagado`, `<p class="ayuda">${l.length} ${l.length === 1 ? 'orden' : 'órdenes'} · ${pesos(tot)}${abonadoFolio[f] ? ` · ya abonado ${pesos(abonadoFolio[f])}` : ''}</p>
-      <div class="campo"><label for="pd-fecha">Fecha de pago</label><input id="pd-fecha" type="date" value="${Caja.diaLocal()}"></div>`, 'Marcar pagado', dd => ({ fecha: dd.querySelector('#pd-fecha').value }));
+      <div class="fila-campos"><div class="campo"><label for="pd-fecha">Fecha de pago</label><input id="pd-fecha" type="date" value="${Caja.diaLocal()}"></div>${campoMedio()}</div>
+      <div class="campo"><label for="pd-ref">Referencia (opcional)</label><input id="pd-ref" placeholder="Ej: N° de operación, quién pagó"></div>`, 'Marcar pagado', dd => ({ fecha: dd.querySelector('#pd-fecha').value, medio: leerMedio(dd) }));
     if (!r) return;
-    try { const n = await B2b.registrarPago(f, r.fecha); registrar('Registró pago B2B', `Folio ${f} · ${n} órdenes · ${r.fecha}`); B2b.pasarAPlanilla().catch(() => {}); }
+    try { const n = await B2b.registrarPago(f, r.fecha, r.medio); registrar('Registró pago B2B', `Folio ${f} · ${n} órdenes · ${r.fecha} · ${r.medio}`); B2b.pasarAPlanilla().catch(() => {}); }
     catch (e) { alert(errorB2b(e)); }
   }));
   el.querySelectorAll('[data-abono]').forEach(b => b.addEventListener('click', async () => {
@@ -2461,9 +2492,9 @@ function pintarB2bAdmin(el, sub) {
     const r = await pedirDatos(`Abono al folio ${f}`, `<p class="ayuda">Total ${pesos(tot)}${ab ? ` · ya abonado ${pesos(ab)}` : ''} · saldo ${pesos(Math.max(0, tot - ab))}</p>
       <div class="fila-campos"><div class="campo"><label for="pd-monto">Monto</label><input id="pd-monto" inputmode="numeric" placeholder="Ej: 50000"></div>
       <div class="campo"><label for="pd-fecha">Fecha</label><input id="pd-fecha" type="date" value="${Caja.diaLocal()}"></div></div>
-      <div class="campo"><label for="pd-ref">Referencia</label><input id="pd-ref" placeholder="Ej: transferencia"></div>
+      <div class="fila-campos">${campoMedio()}<div class="campo"><label for="pd-ref">Referencia (opcional)</label><input id="pd-ref" placeholder="Ej: N° de operación"></div></div>
       <p class="ayuda">Si con este abono se completa el total, el folio queda pagado.</p>`, 'Registrar abono',
-      dd => { const m = Math.round(Number(String(dd.querySelector('#pd-monto').value).replace(/[^\d]/g, ''))); if (!(m > 0)) return { error: 'Escribe el monto.' }; return { monto: m, fecha: dd.querySelector('#pd-fecha').value, ref: dd.querySelector('#pd-ref').value }; });
+      dd => { const m = Math.round(Number(String(dd.querySelector('#pd-monto').value).replace(/[^\d]/g, ''))); if (!(m > 0)) return { error: 'Escribe el monto.' }; return { monto: m, fecha: dd.querySelector('#pd-fecha').value, ref: leerMedio(dd) }; });
     if (!r) return;
     try { const x = await B2b.registrarAbono(f, r.monto, r.fecha, r.ref); registrar('Registró abono B2B', `Folio ${f} · ${pesos(r.monto)}${x.pagado ? ' · pagado' : ''}`); B2b.pasarAPlanilla().catch(() => {}); }
     catch (e) { alert(errorB2b(e)); }
@@ -2767,6 +2798,8 @@ function pintarB2bConciliacion(el, sub) {
   b2bConc.repintar = false;
   if (!d.conciliacionLeida) { el.innerHTML = cabB2b(sub) + '<section class="tarjeta"><div class="vacio" style="border:0">Cargando…</div></section>'; return; }
   if (!conf || !conf.importado) return pintarConcInicio(el, sub);
+  // v0.14.5: el período de lo traído de la app antigua queda anotado una vez
+  if (!(conf.cartolas || []).some(c => c.tipo === 'antigua') && !conf.importado.sinHistorial && !b2bConc.antiguaPedida) { b2bConc.antiguaPedida = true; B2b.anotarPeriodoAntiguo().catch(() => {}); }
   // Pagos ya registrados (para avisar si un abono parece uno ya anotado a mano): órdenes de 6 meses, con caché
   if (!b2bConc.an && !b2bConc.anPidiendo) { b2bConc.anPidiendo = true; B2b.ordenesParaAnalisis(false).then(a => { b2bConc.an = a; if (subVista() === 'conciliacion' && !document.querySelector('dialog[open]')) pintarB2bConciliacion($('v-b2b'), 'conciliacion'); }).catch(() => {}); }
   const ordenes = [...d.ordenes.values()];
@@ -2803,6 +2836,7 @@ function pintarB2bConciliacion(el, sub) {
       <div class="fila-cartola"><label class="btn" for="conc-archivo">${b2bConc.cargando ? 'Leyendo…' : 'Elegir cartola (.xlsx)'}</label><input id="conc-archivo" type="file" accept=".xlsx,.xls" class="sr" ${b2bConc.cargando ? 'disabled' : ''}>
         <span class="ayuda">${d.movimientos.length ? `${d.movimientos.length} ${d.movimientos.length === 1 ? 'abono pendiente' : 'abonos pendientes'} de cartolas anteriores` : 'No hay abonos pendientes.'}</span></div>
       ${b2bConc.msg ? `<p class="ayuda" role="status">${b2bConc.msg}</p>` : ''}${b2bConc.error ? `<p class="error" role="alert">${esc(b2bConc.error)}</p>` : ''}
+      ${cartolasHtml(conf)}
       <p class="ayuda" style="margin-top:8px">¿Volviste a usar la app antigua un tiempo? <button type="button" class="btn-link" id="conc-reimportar" ${b2bConc.cargando ? 'disabled' : ''}>Traer otra vez lo conciliado allá</button></p></section>
     ${seccion('auto', 'Listos para confirmar', grupos.auto, 'Calzan exacto con folios por cobrar de ese cliente. Revisa y confirma; si alguno no corresponde, ábrelo para cambiarlo.', grupos.auto.length > 1 ? `<div class="botones" style="justify-content:flex-start;margin:4px 0 8px"><button type="button" class="btn btn-chico" id="conc-todos" ${b2bConc.ocupado ? 'disabled' : ''}>Confirmar los ${grupos.auto.length} · ${pesos(grupos.auto.reduce((s, m) => s + m.monto, 0))}</button></div>` : '')}
     ${seccion('revisar', 'Para revisar', grupos.revisar, 'Se reconoce el cliente, pero el monto no calza exacto (pago de varias facturas, abono parcial o un pago que ya estaba anotado). Viene una propuesta: los folios más antiguos primero.')}
@@ -2871,6 +2905,23 @@ function pintarB2bConciliacion(el, sub) {
     if (!r) return;
     ocupado(id, async () => { await B2b.marcarMovimiento(id, 'ignorado', r.nota, r.patron); registrar('Abono de cartola ignorado', `${pesos(m.monto)} · ${m.descripcion}${r.patron ? ' · siempre: ' + r.patron : ''}`); });
   }));
+}
+// v0.14.5 · Cartolas cargadas: tipo, N°, período y hasta dónde se revisó
+function cartolasHtml(conf) {
+  const l = (conf && conf.cartolas) || [];
+  if (!l.length) return '<p class="ayuda" style="margin-top:10px">Todavía no se ha cargado ninguna cartola aquí.</p>';
+  const cob = B2b.coberturaCartolas(l), fd = f => (f ? diaTexto(f) + ' ' + f.slice(0, 4) : '?');
+  const sig = cob.hasta ? (() => { const d = new Date(cob.hasta + 'T12:00:00'); d.setDate(d.getDate() + 1); return Caja.diaLocal(d); })() : null;
+  const nombre = c => c.tipo === 'antigua' ? 'Conciliado en la app antigua' : c.tipo === 'historica' ? `Histórica N° ${esc(c.nCartola || '?')}` : 'En línea';
+  const orden = l.slice().sort((a, b) => String(b.hasta || '').localeCompare(String(a.hasta || '')) || String(b.cargada || '').localeCompare(String(a.cargada || '')));
+  return `<div class="cobertura-conc">
+      <div><span>Revisado</span><b>${cob.desde ? `del ${esc(fd(cob.desde))} al ${esc(fd(cob.hasta))}` : '—'}</b></div>
+      ${sig ? `<div><span>Próxima cartola</span><b>desde el ${esc(fd(sig))}</b></div>` : ''}
+      ${cob.huecos.length ? `<div class="hueco"><span>Falta revisar</span><b>${cob.huecos.map(h => h[0] === h[1] ? esc(fd(h[0])) : `del ${esc(fd(h[0]))} al ${esc(fd(h[1]))}`).join(' · ')}</b></div>` : ''}
+    </div>
+    <details class="detalle-an"><summary>Cartolas cargadas (${l.filter(c => c.tipo !== 'antigua').length})</summary>
+      ${orden.map(c => `<div><span><b>${nombre(c)}</b> · ${c.desde ? (c.desde === c.hasta ? esc(fd(c.desde)) : `${esc(fd(c.desde))} al ${esc(fd(c.hasta))}`) : 'sin fechas'}${c.tipo !== 'antigua' ? ` · cargada ${esc(String(c.cargada || '').slice(0, 16))}` : ''}</span><b>${c.tipo === 'antigua' ? `${c.abonos} abonos` : `${c.nuevos} ${c.nuevos === 1 ? 'nuevo' : 'nuevos'} de ${c.abonos}`}</b></div>`).join('')}
+    </details>`;
 }
 // Primera vez: traer lo que ya se concilió en la app antigua (así no vuelve a aparecer)
 function pintarConcInicio(el, sub) {
