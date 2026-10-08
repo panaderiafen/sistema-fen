@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.19.1';
-import * as Caja from './caja.js?v=0.19.1';
-import * as Stock from './stock.js?v=0.19.1';
-import * as Ajustes from './ajustes.js?v=0.19.1';
-import * as Apps from './apps.js?v=0.19.1';
-import * as Agenda from './agenda.js?v=0.19.1';
-import * as Gastos from './gastos.js?v=0.19.1';
-import * as Sii from './sii.js?v=0.19.1';
-import * as Previred from './previred.js?v=0.19.1';
-import * as B2b from './b2b.js?v=0.19.1';
-import * as Cartola from './cartola.js?v=0.19.1';
-import * as SiiFactura from './sii-factura.js?v=0.19.1';
-import * as PdfOrden from './pdf-orden.js?v=0.19.1';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.19.1';
+} from './firebase.js?v=0.20.0';
+import * as Caja from './caja.js?v=0.20.0';
+import * as Stock from './stock.js?v=0.20.0';
+import * as Ajustes from './ajustes.js?v=0.20.0';
+import * as Apps from './apps.js?v=0.20.0';
+import * as Agenda from './agenda.js?v=0.20.0';
+import * as Gastos from './gastos.js?v=0.20.0';
+import * as Sii from './sii.js?v=0.20.0';
+import * as Previred from './previred.js?v=0.20.0';
+import * as B2b from './b2b.js?v=0.20.0';
+import * as Cartola from './cartola.js?v=0.20.0';
+import * as SiiFactura from './sii-factura.js?v=0.20.0';
+import * as PdfOrden from './pdf-orden.js?v=0.20.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.20.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -315,7 +315,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.19.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.20.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2780,8 +2780,9 @@ function abrirAyudaSii(estado, txt) {
     <ol class="pasos-sii">
       <li>Abre en el SII el formulario de <b>Factura electrónica</b> (sistema gratuito).</li>
       <li>Toca <b>Llenar factura Fën</b> en tu barra de favoritos: pone el RUT del cliente y el SII carga sus datos.</li>
-      <li>Toca <b>Llenar factura Fën</b> otra vez: pone los productos, cantidades y precios netos.</li>
+      <li>Toca <b>Llenar factura Fën</b> otra vez: pone los productos, cantidades y precios netos, las referencias (Nota de pedido con el N° de cada orden) y la forma de pago (Crédito con vencimiento a 30 días si el cliente paga a 30 días; si no, Contado).</li>
       <li>Revisa y usa <b>Validar y visualizar</b> como siempre. Nada se emite solo.</li>
+      <li>En la página del SII que dice <b>"Documento enviado exitosamente"</b>, toca <b>Llenar factura Fën</b> una vez más: se abre Sistema Fën para asignar ese folio a las órdenes (te pide confirmar).</li>
     </ol>
     <details class="detalle-an" ${estado ? '' : 'open'}><summary>Primera vez: dejar el botón en favoritos</summary>
       <p class="ayuda">Muestra la barra de favoritos (Chrome: Ctrl + Mayús + B; Mac: Cmd + Mayús + B) y <b>arrastra</b> este botón hasta ella. Si tu navegador no deja arrastrar, haz clic derecho → "Agregar a favoritos".</p>
@@ -2906,7 +2907,7 @@ function pintarB2bAdmin(el, sub) {
     const c = bs.dataset.siiCli, lista = (porCliente[c] || []).filter(o => b2b.sel.has(String(o.n)));
     const cl = d.clientes.find(x => x.id === (lista[0] || {}).clienteId) || cliDe(c) || {};
     let txt;
-    try { txt = SiiFactura.textoParaSii(cl, datosFactura(lista, b2b.folioPre[c]).filas, lista); } catch (e) { alert(e.message); return; }
+    try { const df = datosFactura(lista, b2b.folioPre[c]); txt = SiiFactura.textoParaSii(cl, df.filas, lista, df.total); } catch (e) { alert(e.message); return; }
     const ok = await copiarTexto(txt);
     abrirAyudaSii(ok ? 'copiado' : 'manual', txt);
   }));
@@ -2945,15 +2946,7 @@ function pintarB2bAdmin(el, sub) {
       <div class="campo"><label for="pd-fecha">Fecha del folio</label><input id="pd-fecha" type="date" value="${Caja.diaLocal()}"></div></div>`, 'Asignar folio',
       dd => { const f = dd.querySelector('#pd-folio').value.trim(); if (!/^\d{1,12}$/.test(f)) return { error: 'Escribe el número de folio.' }; return { folio: f, fecha: dd.querySelector('#pd-fecha').value }; });
     if (!r) return;
-    try {
-      const usado = await B2b.folioUsado(r.folio);
-      const mismoCli = u => (u.clienteId && lista[0].clienteId) ? u.clienteId === lista[0].clienteId : String(u.cliente).trim().toLowerCase() === String(lista[0].cliente).trim().toLowerCase();
-      if (usado.some(u => !mismoCli(u))) { alert(`El folio ${r.folio} ya es de ${usado[0].cliente} (N° ${usado.map(u => u.n).join(', ')}).\n\nUn folio es de un solo cliente: revisa el número.`); return; }
-      if (usado.length && !confirm(`El folio ${r.folio} ya está en ${usado.length === 1 ? 'la orden' : 'las órdenes'} N° ${usado.map(u => u.n).join(', ')} de ${lista[0].cliente}. ¿Agregar estas órdenes al mismo folio?`)) return;
-      await B2b.asignarFolio(ns, r.folio, r.fecha);
-      registrar('Asignó folio B2B', `Folio ${r.folio} · N° ${ns.join(', ')}`);
-      ns.forEach(n => b2b.sel.delete(String(n))); delete b2b.folioPre[bf.dataset.folioCli]; B2b.pasarAPlanilla().catch(() => {});
-    } catch (e) { alert(errorB2b(e)); }
+    if (await asignarFolioOrdenes(lista, r.folio, r.fecha)) delete b2b.folioPre[bf.dataset.folioCli];
   }));
   el.querySelectorAll('[data-pago]').forEach(b => b.addEventListener('click', async () => {
     const f = b.dataset.pago, l = porFolio[f], tot = l.reduce((s, o) => s + o.total, 0);
@@ -2985,6 +2978,51 @@ function pintarB2bAdmin(el, sub) {
     try { await B2b.anularOrden(o.n, motivo); registrar('Anuló una orden B2B', `N° ${o.n} · ${motivo}`); b2b.sel.delete(String(o.n)); B2b.pasarAPlanilla().catch(() => {}); }
     catch (e) { alert(errorB2b(e)); }
   }));
+  revisarFolioSii(d, sinFolio);
+}
+// Asignar un folio a órdenes de un cliente (revisa que el folio no sea de otro cliente). true si quedó.
+async function asignarFolioOrdenes(lista, folio, fecha) {
+  const ns = lista.map(o => o.n).sort((a, b) => a - b);
+  try {
+    const usado = await B2b.folioUsado(folio);
+    const mismoCli = u => (u.clienteId && lista[0].clienteId) ? u.clienteId === lista[0].clienteId : String(u.cliente).trim().toLowerCase() === String(lista[0].cliente).trim().toLowerCase();
+    if (usado.some(u => !mismoCli(u))) { alert(`El folio ${folio} ya es de ${usado[0].cliente} (N° ${usado.map(u => u.n).join(', ')}).\n\nUn folio es de un solo cliente: revisa el número.`); return false; }
+    if (usado.length && !confirm(`El folio ${folio} ya está en ${usado.length === 1 ? 'la orden' : 'las órdenes'} N° ${usado.map(u => u.n).join(', ')} de ${lista[0].cliente}. ¿Agregar estas órdenes al mismo folio?`)) return false;
+    await B2b.asignarFolio(ns, folio, fecha);
+    registrar('Asignó folio B2B', `Folio ${folio} · N° ${ns.join(', ')}`);
+    ns.forEach(n => b2b.sel.delete(String(n))); B2b.pasarAPlanilla().catch(() => {});
+    return true;
+  } catch (e) { alert(errorB2b(e)); return false; }
+}
+// v0.20.0 · El folio que trae el botón "Llenar factura Fën" desde la página del SII (?siiFolio=…):
+// se propone para las órdenes que se estaban facturando y se asigna solo si lo confirmas.
+let folioSii = (() => {
+  try {
+    const q = new URLSearchParams(location.search); if (!/^\d{1,12}$/.test(q.get('siiFolio') || '')) return null;
+    const r = { folio: q.get('siiFolio'), rut: String(q.get('rut') || '').toUpperCase().replace(/[^0-9K]/g, ''), total: Number(q.get('total')) || 0, fecha: /^\d{4}-\d{2}-\d{2}$/.test(q.get('fecha') || '') ? q.get('fecha') : '', ordenes: String(q.get('ordenes') || '').split(',').filter(x => /^\d+$/.test(x)) };
+    history.replaceState(null, '', location.pathname + (location.hash || '#b2b'));
+    return r;
+  } catch (e) { return null; }
+})();
+async function revisarFolioSii(d, sinFolio) {
+  if (!folioSii || document.querySelector('dialog[open]')) return;
+  if (!(d.clientes || []).length) return;   // los clientes llegan después de las órdenes: se espera al próximo dibujo
+  const x = folioSii; folioSii = null;
+  const rutN = r => String(r || '').toUpperCase().replace(/[^0-9K]/g, ''), nom = t => String(t || '').trim().toLowerCase();
+  const cli = (d.clientes || []).find(c => x.rut && rutN(c.rut) === x.rut);
+  const deCli = o => cli && (o.clienteId ? o.clienteId === cli.id : nom(o.cliente) === nom(cli.nombre));
+  const cand = sinFolio.filter(o => x.ordenes.includes(String(o.n)) || deCli(o));
+  if (!cand.length) { alert(`El SII emitió la factura N° ${x.folio}${x.total ? ' por ' + pesos(x.total) : ''}, pero no encontré órdenes sin folio de ese cliente${x.rut ? ' (RUT ' + x.rut.slice(0, -1) + '-' + x.rut.slice(-1) + ')' : ''}. Asígnalo a mano en Por facturar.`); return; }
+  const marcadas = new Set(x.ordenes.length ? x.ordenes : []);
+  const r = await pedirDatos(`Folio ${x.folio} del SII`, `<p class="ayuda">El SII emitió la factura <b>N° ${esc(x.folio)}</b>${x.fecha ? ' del ' + esc(diaTexto(x.fecha)) : ''}${x.total ? ' por <b>' + pesos(x.total) + '</b>' : ''}${cli ? ' a ' + esc(cli.nombre) : ''}. Marca las órdenes que van en esa factura:</p>
+    <div class="lista-gastos-cc">${cand.map(o => `<label class="opcion-cc"><input type="checkbox" data-fs="${o.n}" ${marcadas.has(String(o.n)) ? 'checked' : ''}><span><b>N° ${o.n}</b> · ${esc(o.cliente)} · ${esc(diaTexto(o.fecha))} · ${pesos(o.total)}</span></label>`).join('')}</div>
+    ${x.ordenes.length ? '<p class="ayuda">Vienen marcadas las que preparaste para el SII.</p>' : '<p class="ayuda">No se sabe qué órdenes preparaste (otro navegador o computador): márcalas tú.</p>'}`, 'Asignar folio',
+    dd => { const ns = [...dd.querySelectorAll('[data-fs]:checked')].map(i => i.dataset.fs); return ns.length ? { ns } : { error: 'Marca al menos una orden.' }; });
+  if (!r) return;
+  const lista = cand.filter(o => r.ns.includes(String(o.n))), suma = lista.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  if (new Set(lista.map(o => o.clienteId || nom(o.cliente))).size > 1) { alert('Un folio es de un solo cliente: marca órdenes de un mismo cliente.'); return; }
+  if (x.total && Math.abs(suma - x.total) > lista.length && !confirm(`La factura del SII es de ${pesos(x.total)} y las órdenes marcadas suman ${pesos(suma)}. ¿Asignar el folio igual?`)) return;
+  if (await asignarFolioOrdenes(lista, x.folio, x.fecha || Caja.diaLocal())) alert(`Listo: folio ${x.folio} asignado a N° ${lista.map(o => o.n).join(', ')}.`);
 }
 
 function pintarB2bSolicitudes(el, sub) {

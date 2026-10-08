@@ -1,9 +1,27 @@
-# Sistema Fën · v0.19.1
+# Sistema Fën · v0.20.0
 
-**App:** v0.19.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
+**App:** v0.20.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.20.0: referencias, forma de pago y traer el folio del SII
+El botón **Llenar factura Fën** ahora, en el segundo toque, además de los productos:
+- **Referencias:** marca "Referencias" y pone una **Nota de pedido** (código 802) por cada orden, con su N° y su fecha, y la razón "Orden de venta N° …". El SII trae 3 líneas: si la factura junta más de 3 órdenes, la tercera dice "Órdenes de venta N° …, …" con el resto.
+- **Forma de pago:** los clientes que **pagan a 30 días** (Clientes → Frecuencia de pago "30dias") van a **Crédito**, con "Info. Pago": vence 30 días después de la fecha de emisión, por el total con IVA, glosa "Pago a 30 días". **Todos los demás, Contado.**
+- Más de 10 productos: usa el botón del SII "Agrega línea de Detalle".
+
+**Traer el folio (tercer toque):** en la página del SII que dice "Documento tributario electrónico enviado exitosamente", toca **Llenar factura Fën** otra vez. Lee el N° de folio, la fecha y el total, y abre Sistema Fën (pestaña nueva) con una ventana "Folio N° … del SII" y las órdenes que preparaste ya marcadas. Revisas y tocas **Asignar folio** (si el total del SII no calza con las órdenes marcadas, avisa antes). Si preparaste la factura en otro computador o navegador, aparecen las órdenes sin folio de ese cliente para que marques tú.
+
+**Hay que reinstalar el botón** (cambió otra vez): borra el favorito antiguo y arrastra el nuevo desde Preparar para el SII → "Primera vez: dejar el botón en favoritos".
+
+Archivos: cambian `sii-factura.js`, `app.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.20.0**. Incluye la v0.19.x y la v0.18.x (va con el script de Gastos v2.8.0).
+
+### Lista de verificación v0.20.0
+- [ ] Reinstalar el botón.
+- [ ] Un cliente a 30 días: el segundo toque deja Referencias (Nota de pedido + N° de orden) y Crédito con Info. Pago a 30 días.
+- [ ] Un cliente al contado: Referencias y Contado, sin Info. Pago.
+- [ ] Después de emitir, el tercer toque abre Sistema Fën con el folio y las órdenes marcadas; "Asignar folio" las deja en Por cobrar.
 
 ## Novedades de la v0.19.1
 - **Ciudad del cliente** (Clientes → Editar datos y Nuevo cliente). El botón "Llenar factura Fën" la escribe en el formulario del SII si ese campo viene vacío.
