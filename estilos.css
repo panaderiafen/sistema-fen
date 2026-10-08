@@ -594,3 +594,6 @@ details.grupo-b2b:not([open]) { padding-bottom: 2px; }
 .nota-cartola { margin: 2px 0 8px; font-size: 12px; }
 .nota-transf { font-size: 12px; }
 a.chip { text-decoration: none; }
+
+/* v0.15.1 · lo que esconde la lupa se esconde aunque la fila sea flex */
+.fila-cobro[hidden], .fila-hist[hidden], details[data-grupo][hidden] { display: none !important; }

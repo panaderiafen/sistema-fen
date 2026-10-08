@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.15.0';
-import * as FB from './firebase-b2b.js?v=0.15.0';
-import * as Apps from './apps.js?v=0.15.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.15.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.15.1';
+import * as FB from './firebase-b2b.js?v=0.15.1';
+import * as Apps from './apps.js?v=0.15.1';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.15.1';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -262,17 +262,36 @@ export async function ultimasOrdenes(n = 30) {
   uso.lecturas += Math.max(1, sn.size);
   return sn.docs.map(conId).sort(porFechaDesc);
 }
-export async function buscarOrdenes(q) {
+// v0.15.1: también por nombre del cliente (o razón social), solo o con un mes: "café uno" o "café uno 2026-09"
+const sinTildes = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+export function clientesQueCalzan(texto, clientes) {
+  const t = sinTildes(texto); if (t.length < 2) return [];
+  const l = (clientes || []).filter(c => sinTildes(c.nombre).includes(t) || sinTildes(c.razonSocial).includes(t));
+  const exacto = l.filter(c => sinTildes(c.nombre) === t);
+  return exacto.length ? exacto : l;
+}
+export async function buscarOrdenes(q, clientes) {
   const cx = await conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva.');
   const t = String(q || '').trim();
   let docs = [];
-  if (/^\d{4}-\d{2}$/.test(t)) {
+  const mesEn = t.match(/(?:^|\s)(\d{4}-\d{2})$/), nombre = mesEn ? t.slice(0, mesEn.index).trim() : t;
+  if (/[a-záéíóúñü]/i.test(nombre)) {
+    const cs = clientesQueCalzan(nombre, clientes);
+    if (!cs.length) throw new Error(`No hay clientes que digan "${nombre}".`);
+    if (cs.length > 5) throw new Error(`"${nombre}" calza con ${cs.length} clientes (${cs.slice(0, 5).map(c => c.nombre).join(', ')}…): escribe más del nombre.`);
+    const vistos = new Set(), mes = mesEn ? mesEn[1] : null;
+    for (const c of cs) {
+      // Por clienteId y también por el nombre (órdenes antiguas sin clienteId)
+      const qs = [FB.where('clienteId', '==', c.id), FB.where('cliente', '==', c.nombre)].map(w => FB.query(FB.collection(cx.db, 'ordenes'), w, ...(mes ? [FB.where('mes', '==', mes)] : [])));
+      for (const sn of await Promise.all(qs.map(x => FB.getDocs(x)))) sn.docs.forEach(d => { if (!vistos.has(d.id)) { vistos.add(d.id); docs.push(conId(d)); } });
+    }
+  } else if (/^\d{4}-\d{2}$/.test(t)) {
     const sn = await FB.getDocs(FB.query(FB.collection(cx.db, 'ordenes'), FB.where('mes', '==', t))); docs = sn.docs.map(conId);
   } else if (/^\d+$/.test(t)) {
     const [o, f] = await Promise.all([FB.getDoc(FB.doc(cx.db, 'ordenes', String(Number(t)))), FB.getDocs(FB.query(FB.collection(cx.db, 'ordenes'), FB.where('folio', '==', t), FB.limit(50)))]);
     if (o.exists()) docs.push(conId(o));
     f.docs.forEach(d => { if (d.id !== o.id) docs.push(conId(d)); });
-  } else throw new Error('Escribe un N° de orden, un folio o un mes (AAAA-MM).');
+  } else throw new Error('Escribe un N° de orden, un folio, un mes (AAAA-MM) o el nombre del cliente.');
   uso.lecturas += Math.max(1, docs.length);
   return docs.sort(porFechaDesc);
 }

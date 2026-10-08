@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.15.0';
-import * as Caja from './caja.js?v=0.15.0';
-import * as Stock from './stock.js?v=0.15.0';
-import * as Ajustes from './ajustes.js?v=0.15.0';
-import * as Apps from './apps.js?v=0.15.0';
-import * as Agenda from './agenda.js?v=0.15.0';
-import * as Gastos from './gastos.js?v=0.15.0';
-import * as Sii from './sii.js?v=0.15.0';
-import * as Previred from './previred.js?v=0.15.0';
-import * as B2b from './b2b.js?v=0.15.0';
-import * as PdfOrden from './pdf-orden.js?v=0.15.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.15.0';
+} from './firebase.js?v=0.15.1';
+import * as Caja from './caja.js?v=0.15.1';
+import * as Stock from './stock.js?v=0.15.1';
+import * as Ajustes from './ajustes.js?v=0.15.1';
+import * as Apps from './apps.js?v=0.15.1';
+import * as Agenda from './agenda.js?v=0.15.1';
+import * as Gastos from './gastos.js?v=0.15.1';
+import * as Sii from './sii.js?v=0.15.1';
+import * as Previred from './previred.js?v=0.15.1';
+import * as B2b from './b2b.js?v=0.15.1';
+import * as PdfOrden from './pdf-orden.js?v=0.15.1';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.15.1';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -313,7 +313,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.15.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.15.1" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2205,9 +2205,9 @@ function filaOrdenB2b(o) {
     </div></details>`;
 }
 async function pintarB2bOrdenes(el, sub) {
-  el.innerHTML = cabB2b(sub) + `<section class="tarjeta" aria-labelledby="t-b2b-ord"><h2 id="t-b2b-ord">Buscar órdenes ${info('Para qué sirve', 'Para revisar que la copia quedó bien: busca una orden y compárala con la planilla o con la app B2B.\nCada búsqueda gasta una lectura por orden que muestra.')}</h2>
+  el.innerHTML = cabB2b(sub) + `<section class="tarjeta" aria-labelledby="t-b2b-ord"><h2 id="t-b2b-ord">Buscar órdenes ${info('Para qué sirve', 'Busca en todas las órdenes (no solo en las últimas 30) por N° de orden, folio, mes (AAAA-MM) o nombre del cliente. Nombre y mes se pueden juntar: "Café Uno 2026-09".\nAl abrir muestra las últimas 30; el botón "Últimas 30" vuelve a esa lista.\nCada búsqueda gasta una lectura por orden que muestra: un cliente sin mes trae todas sus órdenes.')}</h2>
     <form id="b2b-buscar" class="fila-filtros" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-      <div class="campo" style="flex:1 1 220px"><label for="b2b-q">N° de orden, folio o mes (AAAA-MM)</label><input id="b2b-q" inputmode="numeric" placeholder="Ej: 1002, 5512 o 2026-09"></div>
+      <div class="campo" style="flex:1 1 260px"><label for="b2b-q">N° de orden, folio, mes (AAAA-MM) o cliente</label><input id="b2b-q" list="b2b-q-clientes" autocomplete="off" placeholder="Ej: 1002, 5512, 2026-09, Café Uno o Café Uno 2026-09"><datalist id="b2b-q-clientes">${((b2b.datos && b2b.datos.clientes) || []).map(c => `<option value="${esc(c.nombre)}">`).join('')}</datalist></div>
       <button type="submit" class="btn">Buscar</button><button type="button" class="btn-sec" id="b2b-ultimas">Últimas 30</button></form>
     <div class="error" id="b2b-ord-err" role="alert"></div><div id="b2b-ord-lista"><div class="vacio">Cargando…</div></div></section>`;
   const mostrarLista = async (fn) => {
@@ -2218,7 +2218,7 @@ async function pintarB2bOrdenes(el, sub) {
       cont.innerHTML = l.length ? `<p class="ayuda">${l.length} ${l.length === 1 ? 'orden' : 'órdenes'}${l.length ? ' · ' + pesos(l.filter(o => !o.quitadoEnPlanilla).reduce((s, o) => s + (o.total || 0), 0)) : ''}</p>` + l.map(filaOrdenB2b).join('') : '<div class="vacio">No hay órdenes con eso.</div>';
     } catch (e) { cont.innerHTML = ''; $('b2b-ord-err').textContent = errorB2b(e); }
   };
-  $('b2b-buscar').addEventListener('submit', ev => { ev.preventDefault(); mostrarLista(() => B2b.buscarOrdenes($('b2b-q').value)); });
+  $('b2b-buscar').addEventListener('submit', ev => { ev.preventDefault(); mostrarLista(() => B2b.buscarOrdenes($('b2b-q').value, (b2b.datos && b2b.datos.clientes) || [])); });
   $('b2b-ultimas').addEventListener('click', () => mostrarLista(() => B2b.ultimasOrdenes(30)));
   mostrarLista(() => B2b.ultimasOrdenes(30));
 }

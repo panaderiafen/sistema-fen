@@ -1,9 +1,15 @@
-# Sistema Fën · v0.15.0
+# Sistema Fën · v0.15.1
 
-**App:** v0.15.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.0 · 8 de octubre de 2026
+**App:** v0.15.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.15.1: búsquedas
+- **Por cobrar · lupa:** no escondía nada (las filas de los folios tapaban el "esconder"). Ahora filtra por cliente, folio o N° de orden.
+- **Buscar:** también por **nombre del cliente** (o razón social, sin importar tildes ni mayúsculas); al escribir sugiere los clientes. Se puede juntar con un mes: "Café Uno 2026-09". Si el texto calza con varios clientes, los muestra todos (hasta 5). Un cliente sin mes trae todas sus órdenes (una lectura por orden).
+
+Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.15.1**. Si todavía no instalabas la v0.15.0, haz sus pasos 1 y 2 (reglas y script) y sube esta en vez de esa. Reglas y script, sin cambios respecto de la v0.15.0.
 
 ## Novedades de la v0.15.0: la conciliación como forma principal de registrar pagos
 Las transferencias se registran conciliando la cartola (con la fecha del banco). En Por cobrar quedan los pagos en efectivo u otro medio.
@@ -20,7 +26,7 @@ Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `firestore-b2b.rules`, `con
 ### Instalación de la v0.15.0 (en este orden, unos 10 minutos)
 1. **Reglas de fen-b2b (consola de Firebase):** proyecto **fen-b2b** → Firestore Database → Reglas → borra todo, pega el contenido de `firestore-b2b.rules` (v1.5.0) → **Publicar**.
 2. **Script de B2B v2.8.0 (Apps Script):** sigue el README del zip `b2b-script-v2.8.0` (reemplazar `Seguridad.gs` y `SistemaFen.gs`, nueva versión de la implementación). El ping debe decir **2.8.0**.
-3. **GitHub, repo `sistema-fen`:** sube todos los archivos de esta carpeta (reemplazan a los de antes) → Commit. A los minutos, abajo a la izquierda debe decir **v0.15.0** (si no, recarga con Ctrl+Shift+R o cierra y abre en el celular).
+3. **GitHub, repo `sistema-fen`:** sube todos los archivos de esta carpeta (reemplazan a los de antes) → Commit. A los minutos, abajo a la izquierda debe decir **v0.15.1** (si no, recarga con Ctrl+Shift+R o cierra y abre en el celular).
 
 ### Lista de verificación
 - [ ] Abajo a la izquierda dice v0.15.0.
