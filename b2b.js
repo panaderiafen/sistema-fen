@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.14.5';
-import * as FB from './firebase-b2b.js?v=0.14.5';
-import * as Apps from './apps.js?v=0.14.5';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.14.5';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.15.0';
+import * as FB from './firebase-b2b.js?v=0.15.0';
+import * as Apps from './apps.js?v=0.15.0';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.15.0';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -366,7 +366,7 @@ export async function pasarAPlanilla() {
 // ── Escuchas en vivo (órdenes por facturar y por cobrar, abonos, solicitudes) ──
 export async function escuchar(cb) {
   const db = await dbOk();
-  const datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, clientes: [], productos: [], movimientos: [], conciliacion: null, conciliacionLeida: false, listo: { a: 0 } };
+  const datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, clientes: [], productos: [], movimientos: [], favor: [], conciliacion: null, conciliacionLeida: false, listo: { a: 0 } };
   const avisar = () => cb(datos);
   const desde = hoyTxt(new Date(Date.now() - 7 * 864e5));   // v0.14.1: 7 días (antes 30): lo pendiente llega por sus propias consultas; así lee mucho menos
   const juntar = clave => sn => {
@@ -389,6 +389,8 @@ export async function escuchar(cb) {
     FB.onSnapshot(FB.collection(db, 'clientes'), sn => { uso.lecturas += sn.docChanges().length || 1; datos.clientes = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => !c.quitadoEnPlanilla).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es')); avisar(); }, err),
     // v0.14: movimientos de la cartola por revisar y la configuración de la conciliación
     FB.onSnapshot(FB.query(FB.collection(db, 'movimientos'), FB.where('estado', '==', 'pendiente')), sn => { uso.lecturas += sn.docChanges().length || 1; datos.movimientos = sn.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || (a.orden || 0) - (b.orden || 0)); avisar(); }, err),
+    // v0.15: abonos con saldo a favor por usar
+    FB.onSnapshot(FB.query(FB.collection(db, 'movimientos'), FB.where('favorDisponible', '>', 0)), sn => { uso.lecturas += sn.docChanges().length || 1; datos.favor = sn.docs.map(d => ({ id: d.id, ...d.data() })); avisar(); }, err),
     FB.onSnapshot(FB.doc(db, 'config', 'conciliacion'), sn => { datos.conciliacion = sn.exists() ? sn.data() : null; datos.conciliacionLeida = true; avisar(); }, err),
     FB.onSnapshot(FB.collection(db, 'productos'), sn => { uso.lecturas += sn.docChanges().length || 1; datos.productos = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !p.quitadoEnPlanilla).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es')); avisar(); }, err)
   ];
@@ -988,10 +990,12 @@ export function proponer(movs, ctx) {
 }
 
 // Aplica un abono de la cartola: todo junto o nada (pagos/abonos de cada folio + el movimiento queda conciliado)
-export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender) {
+// v0.15: con aFavor, lo que sobra del abono queda como saldo a favor del cliente (se usa después en sus folios)
+export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender, aFavor) {
   const db = await dbOk();
   const asig = (asignaciones || []).map(a => ({ folio: String(a.folio), monto: Math.round(Number(a.monto) || 0) })).filter(a => a.monto > 0);
-  if (!asig.length) throw new Error('Asigna el monto a al menos un folio.');
+  if (!asig.length && !aFavor) throw new Error('Asigna el monto a al menos un folio.');
+  if (!clienteId) throw new Error('Elige el cliente.');
   const cliente = (await FB.getDoc(FB.doc(db, 'clientes', clienteId))).data() || {};
   await FB.runTransaction(db, async tx => {
     // Las consultas (órdenes y abonos de cada folio) se repiten en cada intento: si otro equipo cambió algo, se ve
@@ -1008,6 +1012,7 @@ export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender
     const mv = ms.data();
     if (mv.estado !== 'pendiente') throw new Error('Ese movimiento ya se registró.');
     const total = asig.reduce((s, a) => s + a.monto, 0);
+    if (aFavor && total >= mv.monto) aFavor = false;
     if (total > mv.monto) throw new Error(`Asignaste ${total.toLocaleString('es-CL')}, más que el abono del banco (${mv.monto.toLocaleString('es-CL')}).`);
     const cref = FB.doc(db, 'config', 'conciliacion'), cs = aprender ? await tx.get(cref) : null;
     const leidas = {};
@@ -1021,17 +1026,193 @@ export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender
       if (a.monto > saldo) throw new Error(`Al folio ${a.folio} le quedan ${saldo.toLocaleString('es-CL')}: no se le puede asignar ${a.monto.toLocaleString('es-CL')}.`);
       const completo = a.monto === saldo, tipo = completo && !info[a.folio].abonado ? 'pago' : 'abono';
       // Pago del saldo completo de un folio sin abonos: queda PAGADO (igual que antes, sin fila en Abonos). Si no, es un abono.
-      if (tipo === 'abono') tx.set(FB.doc(FB.collection(db, 'abonos')), { folio: a.folio, fecha: mv.fecha, monto: a.monto, referencia: 'Transferencia · cartola: ' + mv.descripcion, movimiento: movId, extra: {}, quitadoEnPlanilla: false, planillaPendiente: true, por: authSF.currentUser.email, en: FB.serverTimestamp() });
-      os.filter(o => !/PAGADO/.test(o.estadoPago || '')).forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio(completo ? { estadoPago: 'PAGADO', fechaPago: mv.fecha, medioPago: 'Transferencia (cartola)' } : { estadoPago: 'PARCIAL' })));
-      hechas.push({ folio: a.folio, monto: a.monto, tipo: completo ? (tipo === 'pago' ? 'pago' : 'abono final') : 'abono' });
+      const aref = tipo === 'abono' ? FB.doc(FB.collection(db, 'abonos')) : null;
+      if (aref) tx.set(aref, { folio: a.folio, fecha: mv.fecha, monto: a.monto, referencia: 'Transferencia · cartola: ' + mv.descripcion, movimiento: movId, extra: {}, quitadoEnPlanilla: false, planillaPendiente: true, por: authSF.currentUser.email, en: FB.serverTimestamp() });
+      const tocadas = os.filter(o => !/PAGADO/.test(o.estadoPago || ''));
+      tocadas.forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio(completo ? { estadoPago: 'PAGADO', fechaPago: mv.fecha, medioPago: 'Transferencia (cartola)' } : { estadoPago: 'PARCIAL' })));
+      hechas.push({ folio: a.folio, monto: a.monto, tipo: completo ? (tipo === 'pago' ? 'pago' : 'abono final') : 'abono', abono: aref ? aref.id : null, ordenes: tocadas.map(o => o.id) });
     }
     if (aprender && mv.descNorm) {
       const c = configConciliacion(cs.exists() ? cs.data() : null), eq = c.equivalencias.filter(e => e.desc !== mv.descNorm).concat([{ desc: mv.descNorm, clienteId, nombre: cliente.nombre || '' }]);
       tx.set(cref, { ...(cs.exists() ? cs.data() : {}), ignorar: c.ignorar, equivalencias: eq.slice(-500) });
     }
-    tx.update(mref, { estado: 'conciliado', clienteId, cliente: cliente.nombre || '', asignaciones: hechas, sobra: mv.monto - total, aprendido: !!aprender, resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: true });
+    const favor = aFavor ? mv.monto - total : 0;
+    tx.update(mref, { estado: 'conciliado', clienteId, cliente: cliente.nombre || '', asignaciones: hechas, sobra: mv.monto - total, favorInicial: favor, favorDisponible: favor, favorUsos: [], aprendido: !!aprender, resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: true });
   });
   uso.escrituras += asig.length * 2 + 1;
+}
+
+// ═══════════════════════════════════════════════
+//  v0.15 · Saldo a favor y deshacer (la conciliación como forma principal de registrar pagos)
+// ═══════════════════════════════════════════════
+const msDe = t => (!t ? 0 : typeof t.toMillis === 'function' ? t.toMillis() : t.__ts || (t.seconds ? t.seconds * 1000 : 0) || (typeof t === 'string' ? Date.parse(t) || 0 : 0));
+// Lo que hace falta leer de un folio para poder deshacer (fuera de la transacción: las consultas; dentro: cada documento)
+async function leerFolioTx(db, tx, folio) {
+  const os = await ordenesDelFolio(db, folio);
+  const ab = await FB.getDocs(FB.query(FB.collection(db, 'abonos'), FB.where('folio', '==', String(folio))));
+  uso.lecturas += Math.max(1, ab.size);
+  const ordenes = [], abonos = [];
+  for (const o of os) { const s = await tx.get(FB.doc(db, 'ordenes', o.id)); if (s.exists()) ordenes.push({ id: o.id, ...s.data() }); }
+  for (const d of ab.docs) { const s = await tx.get(FB.doc(db, 'abonos', d.id)); if (s.exists()) abonos.push({ id: d.id, ...s.data() }); }
+  return { ordenes: ordenes.filter(o => o.estado !== 'anulada' && !o.quitadoEnPlanilla), abonos: abonos.filter(a => !a.quitadoEnPlanilla) };
+}
+// Deshace una asignación (pago o abono) en un folio. Solo se puede si después no hubo otro pago en ese folio.
+// h: { folio, tipo ('pago' | 'abono' | 'abono final'), abono (id), ordenes (ids) }; fecha: la del pago; desde: cuándo se registró
+function planDeshacer(f, h, fecha, desde, movId) {
+  // (v0.14 no guardaba el id del abono: se busca por el abono de la cartola y el monto)
+  const quitado = h.abono ? f.abonos.find(a => a.id === h.abono) : h.tipo !== 'pago' ? f.abonos.find(a => a.movimiento === movId && Number(a.monto) === Number(h.monto)) : null;
+  if (h.tipo !== 'pago' && !quitado) throw new Error(`El abono del folio ${h.folio} ya no está (¿ya se deshizo?).`);
+  const resto = f.abonos.filter(a => !quitado || a.id !== quitado.id);
+  const ref = quitado ? msDe(quitado.en) : msDe(desde);
+  const despues = resto.filter(a => msDe(a.en) > ref).sort((a, b) => msDe(a.en) - msDe(b.en))[0];
+  if (despues) throw new Error(`Después hubo otro abono al folio ${h.folio} (${fechaDMY(despues.fecha)}, $${Number(despues.monto).toLocaleString('es-CL')}). Deshaz primero ese.`);
+  const pagado = o => /PAGADO/.test(String(o.estadoPago || '').toUpperCase());
+  const quedan = resto.reduce((s, a) => s + (Number(a.monto) || 0), 0), nuevo = quedan > 0 ? 'PARCIAL' : 'PENDIENTE';
+  let tocar;
+  if (h.tipo === 'abono') {
+    const pag = f.ordenes.find(pagado);
+    if (pag) throw new Error(`El folio ${h.folio} quedó pagado después (${fechaDMY(pag.fechaPago)}). Deshaz primero ese pago.`);
+    tocar = f.ordenes;
+  } else {
+    tocar = f.ordenes.filter(o => (h.ordenes ? h.ordenes.includes(o.id) : pagado(o) && fechaDe(o.fechaPago) === fecha));
+    const otra = tocar.find(o => !pagado(o) || fechaDe(o.fechaPago) !== fecha);
+    if (otra) throw new Error(`El folio ${h.folio} se cambió después (orden N° ${otra.n}). Revísalo en Por cobrar.`);
+    if (!tocar.length) throw new Error(`El folio ${h.folio} ya no está pagado con este abono.`);
+  }
+  return { quitado, tocar, nuevo };
+}
+function aplicarPlan(db, tx, plan, motivo) {
+  const quien = authSF.currentUser.email;
+  if (plan.quitado) tx.update(FB.doc(db, 'abonos', plan.quitado.id), { anulado: { en: ahoraTxt(), por: quien, motivo }, quitadoEnPlanilla: true, planillaPendiente: true });
+  plan.tocar.forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio({ estadoPago: plan.nuevo, fechaPago: null, medioPago: null })));
+}
+// Deshacer un abono de la cartola ya resuelto: vuelve a "por revisar". Si estaba conciliado, sus folios vuelven a
+// por cobrar y sus abonos quedan anulados (no se borran). Si se aprendió el cliente, se olvida.
+// Deshacer necesita el script v2.8.0 (saca de la planilla el abono anulado y la fila del historial)
+export const VERSION_DESHACER = '2.8.0';
+async function scriptParaDeshacer() {
+  const url = (await Apps.leerConexiones()).b2b;
+  if (!url) throw new Error('Falta la dirección del script de B2B (Configuración → Conexiones).');
+  const v = await Apps.probar('b2b', url, VERSION_DESHACER);
+  if (!v.ok) throw new Error(v.version ? `Para deshacer, el script de B2B debe estar en v${VERSION_DESHACER} (está en v${v.version}; ver README).` : v.texto);
+}
+export async function deshacerMovimiento(movId, motivo) {
+  const db = await dbOk();
+  await scriptParaDeshacer();
+  const mref = FB.doc(db, 'movimientos', movId), pre = await FB.getDoc(mref);
+  if (!pre.exists()) throw new Error('Ese abono ya no está.');
+  const m0 = pre.data();
+  if (m0.estado === 'pendiente') throw new Error('Ese abono ya está por revisar.');
+  if (m0.estado === 'conciliado' && m0.origen === 'app antigua') throw new Error('Se concilió en la app antigua: si hay un error, corrígelo en Por cobrar.');
+  if ((m0.favorUsos || []).length) throw new Error(`Primero deshaz el uso del saldo a favor (folio ${m0.favorUsos.map(u => u.folio).join(', ')}).`);
+  const mot = String(motivo || '').trim().slice(0, 200);
+  await FB.runTransaction(db, async tx => {
+    const ms = await tx.get(mref), mv = ms.data();
+    if (mv.estado === 'pendiente') throw new Error('Ese abono ya está por revisar.');
+    if ((mv.favorUsos || []).length) throw new Error('Primero deshaz el uso del saldo a favor.');
+    const hechas = mv.estado === 'conciliado' ? (mv.asignaciones || []) : [];
+    const folios = {};
+    for (const h of hechas) folios[h.folio] = folios[h.folio] || await leerFolioTx(db, tx, h.folio);
+    const cref = FB.doc(db, 'config', 'conciliacion'), cs = mv.aprendido ? await tx.get(cref) : null;
+    const planes = hechas.map(h => planDeshacer(folios[h.folio], h, mv.fecha, mv.resuelto && mv.resuelto.en, movId));
+    planes.forEach(p => aplicarPlan(db, tx, p, 'Deshecho en la conciliación' + (mot ? ': ' + mot : '')));
+    if (cs && cs.exists() && mv.descNorm) { const c = configConciliacion(cs.data()); tx.set(cref, { ...cs.data(), ignorar: c.ignorar, equivalencias: c.equivalencias.filter(e => !(e.desc === mv.descNorm && e.clienteId === mv.clienteId)) }); }
+    const antes = { estado: mv.estado, cliente: mv.cliente || '', clienteId: mv.clienteId || null, asignaciones: hechas, favorInicial: mv.favorInicial || 0, nota: mv.nota || null, resuelto: mv.resuelto || null };
+    const u = { en: ahoraTxt(), por: authSF.currentUser.email, motivo: mot };
+    tx.update(mref, { estado: 'pendiente', deshechos: (mv.deshechos || 0) + 1, ultimoDeshecho: u, deshechosAntes: (mv.deshechosAntes || []).concat([{ ...antes, ...u }]).slice(-10),
+      clienteId: null, cliente: '', asignaciones: [], sobra: null, favorInicial: 0, favorDisponible: 0, favorUsos: [], aprendido: false, nota: null, resuelto: null, planillaPendiente: true });
+  });
+  uso.escrituras += 3;
+}
+// Usar el saldo a favor de un abono en un folio del mismo cliente (queda como abono con la fecha del banco)
+export async function usarFavor(movId, folio, monto) {
+  const db = await dbOk();
+  const m = Math.round(Number(monto) || 0);
+  if (!(m > 0)) throw new Error('El monto debe ser mayor que cero.');
+  let n0 = 0;
+  await FB.runTransaction(db, async tx => {
+    // Se leen dentro: si otro equipo registró un abono al folio mientras tanto, el reintento lo ve
+    const os0 = await ordenesDelFolio(db, folio);
+    if (!os0.length) throw new Error(`No hay órdenes con el folio ${folio}.`);
+    n0 = os0.length;
+    const prev = await FB.getDocs(FB.query(FB.collection(db, 'abonos'), FB.where('folio', '==', String(folio))));
+    uso.lecturas += Math.max(1, prev.size);
+    const abs = []; for (const x of prev.docs) { const s = await tx.get(FB.doc(db, 'abonos', x.id)); if (s.exists()) abs.push(s.data()); }
+    const mref = FB.doc(db, 'movimientos', movId), ms = await tx.get(mref);
+    if (!ms.exists()) throw new Error('Ese abono ya no está.');
+    const mv = ms.data();
+    if (mv.estado !== 'conciliado' || !(mv.favorDisponible > 0)) throw new Error('Ese saldo a favor ya se usó.');
+    if (m > mv.favorDisponible) throw new Error(`El saldo a favor es $${mv.favorDisponible.toLocaleString('es-CL')}.`);
+    const os = []; for (const o of os0) { const s = await tx.get(FB.doc(db, 'ordenes', o.id)); if (s.exists()) os.push({ id: o.id, ...s.data() }); }
+    const vivas = os.filter(o => o.estado !== 'anulada' && !o.quitadoEnPlanilla);
+    const nn = t => String(t || '').trim().toLowerCase();
+    if (vivas.some(o => (o.clienteId ? o.clienteId !== mv.clienteId : nn(o.cliente) !== nn(mv.cliente)))) throw new Error(`El folio ${folio} es de otro cliente.`);
+    const abonado = abs.filter(x => !x.quitadoEnPlanilla).reduce((s, x) => s + (Number(x.monto) || 0), 0);
+    const saldo = Math.round(vivas.reduce((s, o) => s + (Number(o.total) || 0), 0) - abonado);
+    if (vivas.every(o => /PAGADO/.test(o.estadoPago || '')) || saldo <= 0) throw new Error(`El folio ${folio} ya está pagado.`);
+    if (m > saldo) throw new Error(`Al folio ${folio} le quedan $${saldo.toLocaleString('es-CL')}.`);
+    const completo = m === saldo, aref = FB.doc(FB.collection(db, 'abonos'));
+    tx.set(aref, { folio: String(folio), fecha: mv.fecha, monto: m, referencia: `Saldo a favor · cartola ${fechaDMY(mv.fecha)}: ${mv.descripcion}`, movimiento: movId, favor: true, extra: {}, quitadoEnPlanilla: false, planillaPendiente: true, por: authSF.currentUser.email, en: FB.serverTimestamp() });
+    const tocadas = vivas.filter(o => !/PAGADO/.test(o.estadoPago || ''));
+    tocadas.forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio(completo ? { estadoPago: 'PAGADO', fechaPago: mv.fecha, medioPago: 'Transferencia (saldo a favor)' } : { estadoPago: 'PARCIAL' })));
+    tx.update(mref, { favorDisponible: mv.favorDisponible - m, favorUsos: (mv.favorUsos || []).concat([{ folio: String(folio), monto: m, tipo: completo ? 'abono final' : 'abono', abono: aref.id, ordenes: tocadas.map(o => o.id), en: ahoraTxt(), por: authSF.currentUser.email }]) });
+  });
+  uso.escrituras += n0 + 2;
+}
+// Deshacer el uso de un saldo a favor (el último primero): el abono queda anulado y el saldo vuelve
+export async function deshacerUsoFavor(movId, abonoId, motivo) {
+  const db = await dbOk();
+  await scriptParaDeshacer();
+  const mref = FB.doc(db, 'movimientos', movId), pre = await FB.getDoc(mref);
+  const u0 = pre.exists() && (pre.data().favorUsos || []).find(u => u.abono === abonoId);
+  if (!u0) throw new Error('Ese uso del saldo a favor ya no está.');
+  const mot = String(motivo || '').trim().slice(0, 200);
+  await FB.runTransaction(db, async tx => {
+    const ms = await tx.get(mref), mv = ms.data(), u = (mv.favorUsos || []).find(x => x.abono === abonoId);
+    if (!u) throw new Error('Ese uso del saldo a favor ya no está.');
+    const f = await leerFolioTx(db, tx, u.folio);
+    const plan = planDeshacer(f, u, mv.fecha, null, movId);
+    aplicarPlan(db, tx, plan, 'Deshecho el uso del saldo a favor' + (mot ? ': ' + mot : ''));
+    tx.update(mref, { favorDisponible: Math.min(mv.favorInicial || mv.monto, (mv.favorDisponible || 0) + u.monto), favorUsos: mv.favorUsos.filter(x => x.abono !== abonoId),
+      favorUsosDeshechos: (mv.favorUsosDeshechos || []).concat([{ ...u, deshecho: { en: ahoraTxt(), por: authSF.currentUser.email, motivo: mot } }]).slice(-20) });
+  });
+  uso.escrituras += 3;
+}
+// Historial: abonos de la cartola ya resueltos, por fecha del banco (los más nuevos primero)
+export async function historialConciliacion(dias = 60) {
+  const db = await dbOk();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'movimientos'), FB.where('fecha', '>=', masDias(hoyTxt(), -dias))));
+  uso.lecturas += Math.max(1, sn.size);
+  return sn.docs.map(x => ({ id: x.id, ...x.data() })).filter(m => m.estado !== 'pendiente')
+    .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)) || (b.orden || 0) - (a.orden || 0));
+}
+// Saldos a favor que quedan por usar, por cliente
+export function saldosAFavor(favor) {
+  const out = {};
+  (favor || []).filter(m => m.estado === 'conciliado' && m.favorDisponible > 0 && m.clienteId).forEach(m => { const c = out[m.clienteId] || (out[m.clienteId] = { clienteId: m.clienteId, cliente: m.cliente, total: 0, abonos: [] }); c.total += m.favorDisponible; c.abonos.push(m); });
+  Object.values(out).forEach(c => c.abonos.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha))));
+  return out;
+}
+
+// ── v0.15 · Ritmo: qué días se concilia y si ya toca ──
+export const RITMO_DEF = [1, 4];   // lunes y jueves (0 = domingo)
+export const diasRitmo = conf => (conf && conf.ritmo && Array.isArray(conf.ritmo.dias) ? conf.ritmo.dias : RITMO_DEF).filter(n => Number.isInteger(n) && n >= 0 && n <= 6);
+const masDias = (f, n) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() + n); const p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+// El último día de conciliar (hoy o antes) hay que tener revisado hasta el día anterior
+export function tocaConciliar(conf, hoy = hoyTxt()) {
+  const dias = diasRitmo(conf);
+  if (!dias.length) return null;
+  let ultimo = hoy;
+  for (let i = 0; i < 7 && !dias.includes(new Date(ultimo + 'T12:00:00').getDay()); i++) ultimo = masDias(ultimo, -1);
+  const objetivo = masDias(ultimo, -1), cob = coberturaCartolas((conf && conf.cartolas) || []);
+  const toca = !cob.hasta || cob.hasta < objetivo;
+  return { toca, ultimo, objetivo, hasta: cob.hasta, desde: cob.hasta ? masDias(cob.hasta, 1) : null, ayer: masDias(hoy, -1), huecos: cob.huecos, esHoy: ultimo === hoy };
+}
+export async function guardarRitmo(dias) {
+  const db = await dbOk();
+  const l = [...new Set((dias || []).map(Number))].filter(n => Number.isInteger(n) && n >= 0 && n <= 6).sort();
+  await FB.setDoc(FB.doc(db, 'config', 'conciliacion'), { ritmo: { dias: l, en: ahoraTxt(), por: authSF.currentUser.email } }, { merge: true });
+  uso.escrituras++;
 }
 // "Ya estaba registrado" (revisado) o "No es de B2B" (ignorado); con patrón, se ignoran siempre los que lo digan
 export async function marcarMovimiento(movId, estado, nota, patron) {
@@ -1042,7 +1223,7 @@ export async function marcarMovimiento(movId, estado, nota, patron) {
     if (!ms.exists() || ms.data().estado !== 'pendiente') throw new Error('Ese movimiento ya se resolvió.');
     const cref = FB.doc(db, 'config', 'conciliacion'), cs = patron ? await tx.get(cref) : null;
     if (patron) { const c = configConciliacion(cs.exists() ? cs.data() : null), p = normCartola(patron); if (p.length < 4) throw new Error('El texto a ignorar es muy corto.'); tx.set(cref, { ...(cs.exists() ? cs.data() : {}), equivalencias: c.equivalencias, ignorar: [...new Set(c.ignorar.concat([p]))] }); }
-    tx.update(mref, { estado, nota: String(nota || '').trim().slice(0, 200) || null, resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: estado === 'revisado' });
+    tx.update(mref, { estado, nota: String(nota || '').trim().slice(0, 200) || null, resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: estado === 'revisado' || !!ms.data().deshechos });   // deshecho antes: su fila del historial se corrige
   });
   uso.escrituras += patron ? 2 : 1;
 }
@@ -1111,7 +1292,9 @@ export async function movimientosParaHoy() {
   const sn = await FB.getDocs(FB.query(FB.collection(cx.db, 'movimientos'), FB.where('estado', '==', 'pendiente')));
   uso.lecturas += Math.max(1, sn.size);
   const l = sn.docs.map(d => d.data());
-  return { n: l.length, monto: l.reduce((s, m) => s + (Number(m.monto) || 0), 0), desde: l.map(m => m.fecha).sort()[0] || null };
+  let ritmo = null;
+  try { const c = await FB.getDoc(FB.doc(cx.db, 'config', 'conciliacion')); uso.lecturas++; if (c.exists() && c.data().importado) ritmo = tocaConciliar(c.data()); } catch (e) {}
+  return { n: l.length, monto: l.reduce((s, m) => s + (Number(m.monto) || 0), 0), desde: l.map(m => m.fecha).sort()[0] || null, ritmo };
 }
 
 // ═══════════════════════════════════════════════

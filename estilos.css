@@ -575,3 +575,22 @@ details.grupo-b2b:not([open]) { padding-bottom: 2px; }
 .cobertura-conc > div { display: flex; flex-direction: column; gap: 2px; }
 .cobertura-conc span { color: var(--suave); font-size: 12px; }
 .cobertura-conc .hueco b { color: var(--amarillo-t); }
+
+/* v0.15 · Conciliación como forma principal: ritmo, saldos a favor, historial */
+.ritmo-conc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 12px; }
+.ritmo-conc .rotulo-ritmo { font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.ritmo-conc .chips { margin: 0; }
+.ritmo-conc .chip-filtro { min-width: 34px; justify-content: center; }
+.ritmo-conc .ayuda { flex-basis: 100%; margin: 0; }
+.toca-conc { color: var(--azul-t); }
+.favor-cli { padding: 8px 0 10px; border-top: 1px solid var(--linea); }
+.favor-cli:first-of-type { border-top: 0; }
+.favor-cli > .txt { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.favor-cli > .txt span { font-size: 12px; color: var(--suave); }
+.fila-hist { border-top: 1px solid var(--linea); }
+.fila-hist:first-of-type { border-top: 0; }
+.fila-hist .txt small { display: block; }
+.uso-favor { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 0 8px 12px; font-size: 12px; color: var(--suave); }
+.nota-cartola { margin: 2px 0 8px; font-size: 12px; }
+.nota-transf { font-size: 12px; }
+a.chip { text-decoration: none; }

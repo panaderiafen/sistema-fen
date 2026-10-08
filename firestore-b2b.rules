@@ -1,8 +1,10 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.4.0 (2026-10-07)
+//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.5.0 (2026-10-08)
 //
+//  v1.5.0: conciliación: deshacer (un abono resuelto vuelve a "pendiente" solo sumando 1 a
+//          "deshechos") y saldo a favor (favorDisponible entre 0 y el monto del abono).
 //  v1.4.0: conciliación bancaria (movimientos de la cartola), solo administración.
 //  v1.3.0: catálogo editable en Sistema Fën; quien pasa a la planilla (también
 //          logística) puede marcar como pasados clientes y productos.
@@ -156,8 +158,11 @@ service cloud.firestore {
       allow read: if esAdmin();
       allow create: if esAdmin() && nuevo().monto is number && nuevo().huella is string;
       // nunca cambian su huella ni su monto, y uno ya resuelto no vuelve a "pendiente" (así no se aplica dos veces)
+      // v1.5.0: deshacer → vuelve a "pendiente" solo si "deshechos" sube exactamente en 1 (queda registro)
       allow update: if esAdmin() && nuevo().huella == antes().huella && nuevo().monto == antes().monto
-                    && (antes().estado == 'pendiente' || nuevo().estado == antes().estado);
+                    && (antes().estado == 'pendiente' || nuevo().estado == antes().estado
+                        || (nuevo().estado == 'pendiente' && nuevo().deshechos == antes().get('deshechos', 0) + 1))
+                    && (!('favorDisponible' in nuevo()) || (nuevo().favorDisponible is number && nuevo().favorDisponible >= 0 && nuevo().favorDisponible <= nuevo().monto));
       allow delete: if false;
     }
     match /migracion/{id} {

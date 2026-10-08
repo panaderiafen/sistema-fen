@@ -1,9 +1,39 @@
-# Sistema Fën · v0.14.5
+# Sistema Fën · v0.15.0
 
-**App:** v0.14.5 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.4.0 · **Script de B2B:** v2.7.0 · 7 de octubre de 2026
+**App:** v0.15.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.15.0: la conciliación como forma principal de registrar pagos
+Las transferencias se registran conciliando la cartola (con la fecha del banco). En Por cobrar quedan los pagos en efectivo u otro medio.
+
+- **Días de conciliar** (Conciliación, bajo "Elegir cartola"): por defecto lunes y jueves; se cambian tocando las letras. Esos días, si la cartola no está revisada hasta el día anterior, **Hoy** avisa "Toca conciliar la cartola" con las fechas a bajar. El aviso se va solo al subir la cartola.
+- **Saldo a favor:** si un abono trae más que los folios del cliente (pagó de más, o pagó antes de la factura), lo que sobra puede quedar como saldo a favor. La casilla viene marcada cuando pagó de más; si no se asigna a ningún folio o parece un pago ya registrado, hay que marcarla a mano. Los saldos aparecen en **"Saldos a favor"** con un botón "Usar $…" por cada folio por cobrar de ese cliente: queda como abono con la fecha del banco y, si completa el folio, lo deja pagado. En Por cobrar, el folio de un cliente con saldo muestra "A favor $…".
+- **Ya conciliados** (al final de Conciliación): los abonos de la cartola ya resueltos (60 días, con "Ver 60 días más" y búsqueda por cliente, folio, monto o descripción). Muestra a qué folios fue cada uno.
+- **Deshacer:** devuelve el abono a "Para revisar". Sus folios vuelven a Por cobrar como estaban, los abonos que se crearon quedan **anulados** (no se borran) y, si se había aprendido el cliente por ese nombre, se olvida. No deja deshacer si después hubo otro pago en el mismo folio (avisa cuál deshacer primero), ni si se usó su saldo a favor (primero se deshace ese uso, con su propio "Deshacer"). Lo conciliado en la app antigua no se deshace aquí. En la planilla, el abono anulado pasa a la hoja "Abonos anulados" y la fila del historial a "ConciliacionBancaria_Deshechos".
+- **Por cobrar** dice hasta qué fecha están revisadas las transferencias (lo pagado después aparece al conciliar) y cuántos abonos de la cartola faltan por revisar, con enlace a Conciliación.
+- **Pagado y Abono** (Por cobrar) vienen con **Efectivo** por defecto.
+
+Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `firestore-b2b.rules`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Junto con esta va el **script de B2B v2.8.0** (zip aparte).
+
+### Instalación de la v0.15.0 (en este orden, unos 10 minutos)
+1. **Reglas de fen-b2b (consola de Firebase):** proyecto **fen-b2b** → Firestore Database → Reglas → borra todo, pega el contenido de `firestore-b2b.rules` (v1.5.0) → **Publicar**.
+2. **Script de B2B v2.8.0 (Apps Script):** sigue el README del zip `b2b-script-v2.8.0` (reemplazar `Seguridad.gs` y `SistemaFen.gs`, nueva versión de la implementación). El ping debe decir **2.8.0**.
+3. **GitHub, repo `sistema-fen`:** sube todos los archivos de esta carpeta (reemplazan a los de antes) → Commit. A los minutos, abajo a la izquierda debe decir **v0.15.0** (si no, recarga con Ctrl+Shift+R o cierra y abre en el celular).
+
+### Lista de verificación
+- [ ] Abajo a la izquierda dice v0.15.0.
+- [ ] Conciliación muestra "Días de conciliar" con L y J marcados, y dice "Toca conciliar" o "Al día".
+- [ ] Al abrir "Ya conciliados" aparecen los abonos de los últimos 60 días.
+- [ ] (Si hay uno de prueba) Deshacer un abono y volver a confirmarlo: el folio queda igual que antes y en la planilla la fila del historial se actualiza.
+- [ ] Por cobrar dice "Transferencias revisadas hasta el …".
+- [ ] Si algo dice "el script de B2B debe estar en v2.8.0": falta el paso 2.
+
+### Si algo sale mal
+- App: en GitHub, vuelve a subir los archivos del zip v0.14.5.
+- Reglas: en la consola de Firebase, Reglas → historial → la versión anterior → Publicar (la v1.4.0 sigue sirviendo para todo lo de antes; solo no deja deshacer).
+- Script: Implementar → Gestionar implementaciones → lápiz → versión anterior → Implementar.
 
 ## Novedades de la v0.14.5: orden en Por facturar y Por cobrar, medio de pago y seguimiento de cartolas
 - **Por facturar:** cada cliente se pliega. Cerrado muestra su nombre, cuántas órdenes, el total, cómo factura y el período de sus pedidos, con sus botones; al abrirlo se ven sus órdenes. Al marcar órdenes queda abierto con el resumen para facturar.
@@ -12,7 +42,7 @@ Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es s
 - **Pagado y Abono** piden el **medio de pago** (transferencia, efectivo, cheque, tarjeta u otro) y una referencia opcional. Lo que se concilia con la cartola queda como **transferencia**.
 - **Conciliación:** queda anotada cada cartola que subes (histórica con su N°, o en línea), con su período y cuántos abonos traía. Arriba dice **qué período ya está revisado**, **desde qué fecha** bajar la próxima cartola y si **falta algún período** entre medio. También se anota el período de lo que se trajo de la app antigua.
 
-Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos. El script y las reglas no cambian.
+Archivos: los de la v0.14.5 van incluidos en la v0.15.0.
 
 ## Novedades de la v0.14.4: folio y WhatsApp al facturar
 En **"Para facturar"** (Por facturar, con órdenes marcadas):
