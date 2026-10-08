@@ -647,3 +647,13 @@ a.ag-item { text-decoration: none; }
 /* v0.17.0 · SII: sugerencias de cómo clasificar */
 .sugerido-sii { margin: 8px 0; padding: 8px 12px; border-radius: 10px; background: var(--azul); color: var(--azul-t); font-size: 13px; line-height: 1.5; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .producto-sii.con-sugerido select { border-color: var(--azul-t); }
+
+/* v0.18.0 · Cartola en Gastos (cargos) y cuentas en la conciliación */
+.cobertura-conc .cuenta-conc { flex-basis: 100%; font-size: 13px; }
+.aviso-cc { margin: 6px 0 10px; padding: 8px 10px; border-radius: 8px; background: var(--amarillo); color: var(--amarillo-t); font-size: 13px; }
+.lista-gastos-cc { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; }
+.opcion-cc { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--borde); border-radius: 8px; cursor: pointer; font-size: 13px; }
+.opcion-cc small { display: block; color: var(--suave); }
+.opcion-cc:has(input:checked) { border-color: var(--acento); background: var(--acento-suave); }
+.sub-cc { font-size: 14px; margin: 12px 0 4px; }
+.fila-hist[hidden] { display: none !important; }

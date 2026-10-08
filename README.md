@@ -1,9 +1,45 @@
-# Sistema Fën · v0.17.0
+# Sistema Fën · v0.18.0
 
-**App:** v0.17.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.7.0 · 8 de octubre de 2026
+**App:** v0.18.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.18.0: la cartola también para Gastos (cuenta corriente y Chequera)
+**Una sola subida de la cartola** (desde B2B → Conciliación o desde Gastos → Cartola): los **abonos** van a B2B como siempre y los **cargos** a Gastos. Lee la cartola de la **cuenta corriente** (histórica y en línea) además de la Chequera Electrónica. Nada se cuenta dos veces aunque subas la histórica y la en línea de los mismos días.
+
+**Gastos → Cartola** (pestaña nueva). Cada cargo se resuelve de una de cuatro formas:
+- **Paga vencimientos:** uno o varios (obligaciones, compras a crédito, facturas del SII pendientes), con la **fecha del banco**. Los montos deben sumar el cargo. Una obligación pagada por otro monto (por ejemplo, el arriendo) usa lo del banco.
+- **Ya está en Gastos:** un gasto al contado que registraste a mano; solo queda anotado (no se duplica).
+- **Gasto nuevo:** ítem y área, sin foto (el respaldo es la cartola). "No lleva factura" para intereses, comisiones o impuestos.
+- **No es gasto:** traspaso entre tus cuentas, retiro de socios… una vez o **siempre** (los próximos quedan ignorados solos).
+
+Lo que se reconoce solo va a **Listos para confirmar** (un botón para todos): por **lo aprendido** (cada confirmación enseña), por el **RUT de la transferencia** (las facturas del SII de ese proveedor que suman exacto, las más antiguas primero) o por **un gasto del mismo monto**. El resto, a **Para revisar**, con los vencimientos más cercanos a la fecha primero.
+
+**Trazabilidad:** cada gasto y cada vencimiento queda con una columna **"Cartola"** en la planilla, por ejemplo `Cartola N°012 · Cta. Cte. ···1234 · cargo 07-09-2026 · op. 5550101 · subida 08-10-2026 · SII: carga del 01-09-2026 al 30-09-2026 (archivo) [cc1a2b3c4d5e]`.
+
+**Cruce con el SII:**
+- **Pagado sin factura del SII:** gastos nuevos creados desde la cartola que aún no tienen su documento (posible IVA crédito que se pierde). Cuando llegue la factura, en Cargas del SII se vincula por el monto y el aviso se va.
+- **Facturas del SII sin pago en la cartola:** facturas por pagar cuyo vencimiento ya está cubierto por las cartolas subidas.
+- Si el RUT de una transferencia tiene documentos en una carga del SII **sin importar**, lo avisa para importarlos primero.
+
+**Ya revisados:** buscar y **Deshacer** (pide motivo). Nada se borra: el cargo vuelve a revisar, el vencimiento queda por pagar (con el motivo en su observación) y un gasto creado aquí pasa a "Gastos anulados". **Lo aprendido:** se puede quitar.
+
+**Conciliación (B2B):** cada cuenta tiene su "Revisado del… al…". Si usas las dos cuentas, aparecen los botones **Cuentas que se revisan**: los días de conciliar, cada cuenta marcada debe estar al día (Hoy dice cuál falta). Sin marcar, se revisan las que tienen una cartola de los últimos 60 días.
+
+**Hoy:** "N cargos de la cartola por revisar" (con el script de Gastos v2.8.0).
+
+Queda para más adelante (como acordamos): separar los intereses de las cuotas del crédito (por ahora la cuota entera es un gasto) y la tarjeta de crédito. También importar del SII sin decidir pagada/pendiente (que la cartola lo diga sola).
+
+Archivos: archivo NUEVO `cartola.js`; cambian `b2b.js`, `app.js`, `gastos.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.18.0**. Va con el **script de Gastos v2.8.0** (incluye la v2.7.0 y la v2.6.0). Las reglas y el script de B2B no cambian.
+
+### Lista de verificación v0.18.0
+- [ ] Abajo a la izquierda dice v0.18.0 y el ping de Gastos dice 2.8.0.
+- [ ] Gastos → Cartola → sube la cartola histórica de la cuenta corriente: dice cuántos cargos nuevos y que los abonos pasaron a B2B.
+- [ ] Vuelve a subir la misma: "0 nuevos · N ya vistos".
+- [ ] Resuelve un cargo de cada tipo y revisa en la planilla de Gastos la columna "Cartola" (Registro Gasto y Vencimientos).
+- [ ] Deshaz uno: vuelve a "Para revisar".
+- [ ] B2B → Conciliación: aparecen las dos cuentas con su "Revisado".
 
 ## Novedades de la v0.17.0: sugerencias al cargar del SII
 Al subir un archivo del SII, cada documento nuevo viene **clasificado como lo hiciste antes** (marcado "Sugerido…", para revisar):

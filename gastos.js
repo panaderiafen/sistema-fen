@@ -6,8 +6,8 @@
 //  hubiera hecho allá (mismas hojas, misma carpeta de Drive).
 //  Cada envío lleva una clave única (idem): si se repite, no se guarda dos veces.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.17.0';
-import * as Apps from './apps.js?v=0.17.0';
+import { auth } from './firebase.js?v=0.18.0';
+import * as Apps from './apps.js?v=0.18.0';
 
 export const VERSION_MINIMA = '2.2.0';
 let urlOk = null, versionOk = '', cacheDatos = null;
@@ -26,7 +26,7 @@ async function url(minima = VERSION_MINIMA) {
 const nuevaClave = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 12)).replace(/[^a-zA-Z0-9-]/g, '').slice(0, 60);
 
 // Lecturas chicas que se pueden reintentar por la dirección si Google desvía el envío
-const LECTURAS_GET = ['datos', 'sii_cargas', 'sii_detalle', 'sii_ventas', 'sii_archivo'];
+const LECTURAS_GET = ['datos', 'sii_cargas', 'sii_detalle', 'sii_ventas', 'sii_archivo', 'cc_lista'];
 export async function llamar(op, datos = {}, idem, minima) {
   const u = await url(minima);
   const cuerpo = JSON.stringify({ ...datos, action: 'sistema_fen_gastos', op, idToken: await auth.currentUser.getIdToken(), ...(idem ? { idem } : {}) });

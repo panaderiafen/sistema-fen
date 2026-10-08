@@ -6,7 +6,7 @@
 //  y lo deja en Drive como comprobante.
 //  Lectura del PDF: pdf.js 3.11.174 (cdnjs), solo texto (isEvalSupported: false).
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.17.0';
+import * as Gastos from './gastos.js?v=0.18.0';
 
 export const VERSION_MINIMA = '2.5.0';
 const llamar = (op, datos, idem) => Gastos.llamar(op, datos, idem, VERSION_MINIMA);

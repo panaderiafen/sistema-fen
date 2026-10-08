@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.17.0';
-import * as FB from './firebase-b2b.js?v=0.17.0';
-import * as Apps from './apps.js?v=0.17.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.17.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.18.0';
+import * as FB from './firebase-b2b.js?v=0.18.0';
+import * as Apps from './apps.js?v=0.18.0';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.18.0';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -784,8 +784,8 @@ export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
   // Días de conciliar (los que fijaste en Conciliación); los pasados quedan hechos si la cartola ya cubre hasta el día anterior
   const conf = d.conciliacion;
   if (conf && conf.importado) {
-    const dias = diasRitmo(conf), cob = coberturaCartolas(conf.cartolas || []);
-    for (let f = desde; f <= hasta; f = masDiasB(f, 1)) if (dias.includes(new Date(f + 'T12:00:00').getDay())) out.push({ auto: true, cat: 'conciliar', fecha: f, titulo: 'Conciliar la cartola', sub: 'Días de conciliar', url: '#b2b/conciliacion', hecho: f <= hoy && !!cob.hasta && cob.hasta >= masDiasB(f, -1) });
+    const dias = diasRitmo(conf), revisado = hastaRevisado(conf, hoy);
+    for (let f = desde; f <= hasta; f = masDiasB(f, 1)) if (dias.includes(new Date(f + 'T12:00:00').getDay())) out.push({ auto: true, cat: 'conciliar', fecha: f, titulo: 'Conciliar la cartola', sub: 'Días de conciliar', url: '#b2b/conciliacion', hecho: f <= hoy && !!revisado && revisado >= masDiasB(f, -1) });
   }
   // Facturar: hoy, lo que ya toca; hacia adelante, según cómo factura cada cliente (diaria: lunes a sábado; semanal: sábado; mensual: último día del mes)
   const modo = c => { const f = norm(c.facturacion); return /^seman/.test(f) ? 'semanal' : /^mensu/.test(f) ? 'mensual' : 'diaria'; };
@@ -928,8 +928,10 @@ function fechaCartolaISO(v) {
   if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
   return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : t;
 }
-// Histórica: la hoja Movimientos trae "DD/MM"; el año sale de "Fecha Inicio" (si cruza de diciembre a enero, suma 1)
+// Histórica: la hoja Movimientos trae "DD/MM" (Chequera Electrónica) o "DD/MM/AAAA" (cuenta corriente);
+// con "DD/MM" el año sale de "Fecha Inicio" (si cruza de diciembre a enero, suma 1)
 function fechaConAnio(ddmm, inicio) {
+  if (ddmm instanceof Date || /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(ddmm || '').trim())) return fechaCartolaISO(ddmm);
   const d = String(ddmm || '').trim().match(/^(\d{1,2})\/(\d{1,2})$/), i = String(inicio || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (!d || !i) return '';
   const anio = Number(d[2]) < Number(i[2]) ? Number(i[3]) + 1 : Number(i[3]);
@@ -939,31 +941,49 @@ function campoResumen(filas, etiqueta) {
   for (const f of filas) if (String(f[0] || '').trim().toLowerCase() === etiqueta.toLowerCase()) { const v = f.find((c, i) => i > 0 && String(c || '').trim()); if (v) return String(v).trim(); }
   return null;
 }
+// v0.18.0 · De qué cuenta es: la cuenta corriente lo dice en el resumen ("N° Cuenta Corriente" o "Cuenta Corriente");
+// si no, es la Chequera Electrónica (como hasta ahora). El número se guarda para mostrar sus últimos 4 dígitos.
+export const NOMBRE_CUENTA = { cc: 'Cuenta corriente', chequera: 'Chequera Electrónica' };
+function cuentaDeCartola(resumen, filasCrudas) {
+  const num = v => (String(v || '').match(/\d{6,}/) || [''])[0] || null;
+  const cc = campoResumen(resumen, 'N° Cuenta Corriente') || campoResumen(resumen, 'Cuenta Corriente') || (filasCrudas[0] && filasCrudas[0]['N° Cuenta Corriente']);
+  if (cc) return { tipo: 'cc', numero: num(cc) };
+  const ch = campoResumen(resumen, 'N° Cuenta') || campoResumen(resumen, 'Chequera Electrónica') || campoResumen(resumen, 'Chequera Electronica') || (filasCrudas[0] && filasCrudas[0]['N° Cuenta']);
+  return { tipo: 'chequera', numero: num(ch) };
+}
+export const ultimos4 = n => (n ? '···' + String(n).slice(-4) : '');
 // wb: libro leído con SheetJS (XLSX.read(buf, { type: 'array', cellDates: true }))
 export function leerCartola(wb, XLSX) {
   const resumen = wb.SheetNames.includes('Resumen') ? XLSX.utils.sheet_to_json(wb.Sheets['Resumen'], { header: 1, defval: '' }) : [];
   const desc = r => String(r['Descripción'] || r['Descripcion'] || '').trim();
-  let filas, identificador, tipo;
+  const col = (r, ...ns) => { for (const n of ns) if (r[n] !== undefined && r[n] !== '') return r[n]; return ''; };
+  const operacion = r => String(col(r, 'N° Operación', 'N° Operacion', 'Nº Operación')).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+  let filas, identificador, tipo, crudas;
   if (wb.SheetNames.includes('Movimientos')) {
     tipo = 'historica';
     const inicio = campoResumen(resumen, 'Fecha Inicio');
-    filas = XLSX.utils.sheet_to_json(wb.Sheets['Movimientos'], { defval: '' }).map(r => ({ fecha: fechaConAnio(r['Fecha'], inicio), descripcion: desc(r), cargos: montoCartola(r['Cheques / Cargos']), abonos: montoCartola(r['Depósitos / Abonos']), saldo: montoCartola(r['Saldo']) })).filter(f => f.descripcion);
-    if (filas.some(f => f.abonos > 0 && !f.fecha)) throw new Error('No se pudo saber el año de las fechas (falta "Fecha Inicio" en la hoja Resumen).');
-    var nCartola = campoResumen(resumen, 'N° Cartola') || null;
+    crudas = XLSX.utils.sheet_to_json(wb.Sheets['Movimientos'], { defval: '' });
+    filas = crudas.map(r => ({ fecha: fechaConAnio(r['Fecha'], inicio), descripcion: desc(r), cargos: montoCartola(col(r, 'Cheques / Cargos', 'Cargos', 'Cargo')), abonos: montoCartola(col(r, 'Depósitos / Abonos', 'Abonos', 'Abono')), saldo: montoCartola(r['Saldo']), operacion: operacion(r) })).filter(f => f.descripcion);
+    if (filas.some(f => (f.abonos > 0 || f.cargos > 0) && !f.fecha)) throw new Error('No se pudo saber el año de las fechas (falta "Fecha Inicio" en la hoja Resumen).');
+    var nCartola = campoResumen(resumen, 'N° Cartola') || (crudas[0] && String(crudas[0]['N° Cartola'] || '').trim()) || null;
     identificador = `Histórica N°${nCartola || '?'} (${inicio || '?'} a ${campoResumen(resumen, 'Fecha Final') || '?'})`;
     var desdeC = fechaCartolaISO(inicio), hastaC = fechaCartolaISO(campoResumen(resumen, 'Fecha Final'));
   } else {
     tipo = 'enlinea';
     const hoja = wb.SheetNames.includes('Registros') ? 'Registros' : wb.SheetNames[0];
-    filas = XLSX.utils.sheet_to_json(wb.Sheets[hoja], { defval: '' }).map(r => ({ fecha: fechaCartolaISO(r['Fecha']), descripcion: desc(r), cargos: montoCartola(r['Cargos']), abonos: montoCartola(r['Abonos']), saldo: montoCartola(r['Saldo']) })).filter(f => f.descripcion && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha));
+    crudas = XLSX.utils.sheet_to_json(wb.Sheets[hoja], { defval: '' });
+    filas = crudas.map(r => ({ fecha: fechaCartolaISO(r['Fecha']), descripcion: desc(r), cargos: montoCartola(col(r, 'Cargos', 'Cargo', 'Cheques / Cargos')), abonos: montoCartola(col(r, 'Abonos', 'Abono', 'Depósitos / Abonos')), saldo: montoCartola(r['Saldo']), operacion: operacion(r) })).filter(f => f.descripcion && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha));
     let gen = null;
     resumen.forEach(f => f.forEach(c => { const m = String(c || '').match(/Fecha\s*-\s*Hora\s+(\d{2}\/\d{2}\/\d{4})-(\d{2}:\d{2})/); if (m) gen = m[1] + ' ' + m[2]; }));
     const fs = filas.map(f => f.fecha).sort();
     identificador = gen ? 'En línea generada ' + gen : `En línea (${fs[0] || '?'} a ${fs[fs.length - 1] || '?'})`;
   }
   if (!filas.length) throw new Error('El archivo no tiene movimientos. ¿Es la cartola de BancoEstado (histórica o en línea)?');
+  const cuenta = cuentaDeCartola(resumen, crudas);
+  // La Chequera mantiene su identificador de siempre (así lo ya cargado se reconoce); la cuenta corriente lo lleva adelante
+  if (cuenta.tipo === 'cc') identificador = 'Cta. Cte. · ' + identificador;
   const fs = filas.map(f => f.fecha).filter(Boolean).sort();
-  return { tipo, identificador, filas, nCartola: tipo === 'historica' ? nCartola : null, desde: (tipo === 'historica' && desdeC) || fs[0] || null, hasta: (tipo === 'historica' && hastaC) || fs[fs.length - 1] || null };
+  return { tipo, identificador, filas, cuenta, nCartola: tipo === 'historica' ? nCartola : null, desde: (tipo === 'historica' && desdeC) || fs[0] || null, hasta: (tipo === 'historica' && hastaC) || fs[fs.length - 1] || null };
 }
 export const huellaMovimiento = f => `${f.fecha}|${f.saldo}|${f.abonos}|${normCartola(f.descripcion)}`;
 export async function idMovimiento(huella) {
@@ -994,11 +1014,12 @@ export async function cargarCartola(cartola, conf) {
     if (sns[k].exists()) { r.yaVistos++; return; }
     r.nuevos++;
     porEscribir.push([ids[k],  { huella: x.huella, fecha: x.f.fecha, descripcion: x.f.descripcion, descNorm: normCartola(x.f.descripcion), monto: x.f.abonos, saldo: x.f.saldo, orden: x.i,
-      cartola: cartola.identificador, estado: 'pendiente', origen: 'sistema-fen', cargado: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: false }]);
+      cartola: cartola.identificador, cuenta: (cartola.cuenta && cartola.cuenta.tipo) || 'chequera', estado: 'pendiente', origen: 'sistema-fen', cargado: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: false }]);
   });
   for (let i = 0; i < porEscribir.length; i += 400) { const b = FB.writeBatch(db); porEscribir.slice(i, i + 400).forEach(([id, d]) => b.set(FB.doc(db, 'movimientos', id), d)); await b.commit(); uso.escrituras += Math.min(400, porEscribir.length - i); }
   // v0.14.5: queda anotada la cartola (tipo, N°, período) para saber hasta dónde se revisó
-  await anotarCartola({ id: cartola.identificador, tipo: cartola.tipo, nCartola: cartola.nCartola || null, desde: cartola.desde || null, hasta: cartola.hasta || null, abonos: r.abonos, nuevos: r.nuevos, yaVistos: r.yaVistos, ignorados: r.ignorados });
+  await anotarCartola({ id: cartola.identificador, tipo: cartola.tipo, cuenta: (cartola.cuenta && cartola.cuenta.tipo) || 'chequera', cuentaFin: cartola.cuenta && cartola.cuenta.numero ? String(cartola.cuenta.numero).slice(-4) : null,
+    nCartola: cartola.nCartola || null, desde: cartola.desde || null, hasta: cartola.hasta || null, abonos: r.abonos, nuevos: r.nuevos, yaVistos: r.yaVistos, ignorados: r.ignorados });
   return r;
 }
 
@@ -1305,9 +1326,40 @@ export function tocaConciliar(conf, hoy = hoyTxt()) {
   if (!dias.length) return null;
   let ultimo = hoy;
   for (let i = 0; i < 7 && !dias.includes(new Date(ultimo + 'T12:00:00').getDay()); i++) ultimo = masDias(ultimo, -1);
-  const objetivo = masDias(ultimo, -1), cob = coberturaCartolas((conf && conf.cartolas) || []);
-  const toca = !cob.hasta || cob.hasta < objetivo;
-  return { toca, ultimo, objetivo, hasta: cob.hasta, desde: cob.hasta ? masDias(cob.hasta, 1) : null, ayer: masDias(hoy, -1), huecos: cob.huecos, esHoy: ultimo === hoy };
+  const objetivo = masDias(ultimo, -1);
+  // v0.18.0: cada cuenta que se revisa debe estar al día; manda la más atrasada
+  const cuentas = cuentasRevisadas(conf, hoy).map(k => ({ cuenta: k, nombre: NOMBRE_CUENTA[k] || k, ...coberturaCartolas(cartolasDe(conf, k)) }));
+  const peor = cuentas.slice().sort((a, b) => String(a.hasta || '').localeCompare(String(b.hasta || '')))[0] || { hasta: null, huecos: [] };
+  const toca = !peor.hasta || peor.hasta < objetivo;
+  return { toca, ultimo, objetivo, hasta: peor.hasta, desde: peor.hasta ? masDias(peor.hasta, 1) : null, ayer: masDias(hoy, -1), huecos: peor.huecos, esHoy: ultimo === hoy,
+    cuenta: cuentas.length > 1 ? peor.nombre : null, cuentas: cuentas.map(c => ({ ...c, alDia: !!c.hasta && c.hasta >= objetivo })) };
+}
+// Cartolas de una cuenta (las anotadas antes de la v0.18.0 y lo traído de la app antigua son de la Chequera)
+export const cartolasDe = (conf, cuenta) => ((conf && conf.cartolas) || []).filter(c => (c.cuenta || 'chequera') === cuenta);
+// Qué cuentas se revisan: las elegidas en el ritmo o, si no se eligió, las que tienen una cartola de los últimos 60 días (al menos la Chequera)
+export function cuentasRevisadas(conf, hoy = hoyTxt()) {
+  const elegidas = conf && conf.ritmo && Array.isArray(conf.ritmo.cuentas) ? conf.ritmo.cuentas.filter(k => NOMBRE_CUENTA[k]) : null;
+  if (elegidas && elegidas.length) return elegidas;
+  const corte = masDias(hoy, -60), usadas = new Set(((conf && conf.cartolas) || []).filter(c => c.tipo !== 'antigua' && String(c.hasta || c.cargada || '').slice(0, 10) >= corte).map(c => c.cuenta || 'chequera'));
+  if (!usadas.size) usadas.add('chequera');
+  return Object.keys(NOMBRE_CUENTA).filter(k => usadas.has(k));
+}
+// Hasta qué día están revisadas todas las cuentas que se revisan (la que va más atrás)
+export function hastaRevisado(conf, hoy = hoyTxt()) {
+  const hs = cuentasRevisadas(conf, hoy).map(k => coberturaCartolas(cartolasDe(conf, k)).hasta);
+  return hs.some(h => !h) ? null : hs.sort()[0] || null;
+}
+// v0.18.0 · La configuración de la conciliación leída una vez (para subir la cartola desde Gastos)
+export async function leerConfConciliacion() {
+  const db = await dbOk();
+  const sn = await FB.getDoc(FB.doc(db, 'config', 'conciliacion')); uso.lecturas++;
+  return sn.exists() ? sn.data() : null;
+}
+export async function guardarCuentasRitmo(cuentas) {
+  const db = await dbOk();
+  const l = [...new Set(cuentas || [])].filter(k => NOMBRE_CUENTA[k]);
+  await FB.setDoc(FB.doc(db, 'config', 'conciliacion'), { ritmo: { cuentas: l, cuentasEn: ahoraTxt(), cuentasPor: authSF.currentUser.email } }, { merge: true });
+  uso.escrituras++;
 }
 export async function guardarRitmo(dias) {
   const db = await dbOk();
