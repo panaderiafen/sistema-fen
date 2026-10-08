@@ -1,9 +1,14 @@
-# Sistema Fën · v0.18.0
+# Sistema Fën · v0.18.1
 
-**App:** v0.18.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
+**App:** v0.18.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.18.1
+- **Mensaje de la factura con el nombre del contacto** (Por facturar → Copiar mensaje y WhatsApp): "Hola Bárbara, envío factura N° 3448 de la orden de venta N° 2559…". Usa el primer nombre del campo **Contacto** del cliente (Clientes → Editar datos). Si el cliente no tiene contacto, queda "Hola, envío factura…".
+
+Archivos: cambian `app.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.18.1**. Incluye todo lo de la v0.18.0 (si no la subiste, sube directo esta; igual va con el **script de Gastos v2.8.0**).
 
 ## Novedades de la v0.18.0: la cartola también para Gastos (cuenta corriente y Chequera)
 **Una sola subida de la cartola** (desde B2B → Conciliación o desde Gastos → Cartola): los **abonos** van a B2B como siempre y los **cargos** a Gastos. Lee la cartola de la **cuenta corriente** (histórica y en línea) además de la Chequera Electrónica. Nada se cuenta dos veces aunque subas la histórica y la en línea de los mismos días.
