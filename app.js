@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.21.0';
-import * as Caja from './caja.js?v=0.21.0';
-import * as Stock from './stock.js?v=0.21.0';
-import * as Ajustes from './ajustes.js?v=0.21.0';
-import * as Apps from './apps.js?v=0.21.0';
-import * as Agenda from './agenda.js?v=0.21.0';
-import * as Gastos from './gastos.js?v=0.21.0';
-import * as Sii from './sii.js?v=0.21.0';
-import * as Previred from './previred.js?v=0.21.0';
-import * as B2b from './b2b.js?v=0.21.0';
-import * as Cartola from './cartola.js?v=0.21.0';
-import * as SiiFactura from './sii-factura.js?v=0.21.0';
-import * as PdfOrden from './pdf-orden.js?v=0.21.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.21.0';
+} from './firebase.js?v=0.22.0';
+import * as Caja from './caja.js?v=0.22.0';
+import * as Stock from './stock.js?v=0.22.0';
+import * as Ajustes from './ajustes.js?v=0.22.0';
+import * as Apps from './apps.js?v=0.22.0';
+import * as Agenda from './agenda.js?v=0.22.0';
+import * as Gastos from './gastos.js?v=0.22.0';
+import * as Sii from './sii.js?v=0.22.0';
+import * as Previred from './previred.js?v=0.22.0';
+import * as B2b from './b2b.js?v=0.22.0';
+import * as Cartola from './cartola.js?v=0.22.0';
+import * as SiiFactura from './sii-factura.js?v=0.22.0';
+import * as PdfOrden from './pdf-orden.js?v=0.22.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.22.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -315,7 +315,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.21.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.22.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2446,6 +2446,15 @@ async function pintarB2b(sub) {
   if (sub === 'cuenta') return pintarB2bCuenta(el, sub);
   if (sub === 'conciliacion') return pintarB2bConciliacion(el, sub);
   if (sub === 'analisis') return pintarB2bAnalisis(el, sub);
+  // v0.22.0 · Desde la Agenda (un cobro): Por cobrar abierto y filtrado por ese cliente
+  if (sub === 'cobrar') {
+    b2b.buscar.cob = decodeURIComponent(location.hash.split('/')[2] || '');
+    plegar('cob', false);
+    history.replaceState(null, '', location.pathname + location.search + '#b2b');
+    pintarB2bAdmin(el, '');
+    setTimeout(() => { const c = el.querySelector('details[data-plegar="cob"]'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
+    return;
+  }
   pintarB2bAdmin(el, sub);
 }
 function errorB2b(e) {
@@ -2787,17 +2796,24 @@ const NOTA_TRANSF = '<p class="ayuda nota-transf">Las transferencias se registra
 const leerMedio = dd => { const m = dd.querySelector('#pd-medio').value, r = (dd.querySelector('#pd-ref') || {}).value || ''; return m + (r.trim() ? ' · ' + r.trim() : ''); };
 const diasDesde = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); if (!m) return 0; return Math.round((new Date(Caja.diaLocal() + 'T12:00:00') - new Date(`${m[1]}-${m[2]}-${m[3]}T12:00:00`)) / 864e5); };
 // WhatsApp: al número del cliente (mensaje ya escrito); a un grupo (se copia el mensaje y se abre el grupo); sin datos, se elige el chat
+// v0.22.0: en el computador va directo a WhatsApp Web (sin la página que pregunta "app o web"), siempre en la misma
+// pestaña de WhatsApp que abrió Sistema Fën; en el celular, a la app como antes.
+const esCelular = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+function abrirWsp(urlApp, urlWeb) { if (esCelular()) window.open(urlApp, '_blank', 'noopener'); else window.open(urlWeb, 'fen-whatsapp'); }
 async function abrirWhatsapp(cl, msj) {
-  if (cl.grupoWhatsapp) { await copiarTexto(msj); window.open(cl.grupoWhatsapp, '_blank', 'noopener'); return 'grupo'; }
-  if (cl.whatsapp) { window.open(`https://wa.me/${cl.whatsapp}?text=${encodeURIComponent(msj)}`, '_blank', 'noopener'); return 'numero'; }
-  window.open(`https://wa.me/?text=${encodeURIComponent(msj)}`, '_blank', 'noopener'); return 'sin';
+  const t = encodeURIComponent(msj);
+  if (cl.grupoWhatsapp) { await copiarTexto(msj); const cod = String(cl.grupoWhatsapp).split('/').pop(); abrirWsp(cl.grupoWhatsapp, `https://web.whatsapp.com/accept?code=${encodeURIComponent(cod)}`); return 'grupo'; }
+  if (cl.whatsapp) { abrirWsp(`https://wa.me/${cl.whatsapp}?text=${t}`, `https://web.whatsapp.com/send?phone=${cl.whatsapp}&text=${t}`); return 'numero'; }
+  abrirWsp(`https://wa.me/?text=${t}`, `https://web.whatsapp.com/send?text=${t}`); return 'sin';
 }
 // v0.19.0 · Instrucciones del botón "Llenar factura Fën" (y el enlace para dejarlo en favoritos)
 function abrirAyudaSii(estado, txt) {
   const d = dialogo(`<div class="form-dialogo"><h2>Llenar la factura en el SII</h2>
     ${estado === 'copiado' ? '<p><b>Listo, quedó copiado.</b> Ahora, en el computador:</p>' : estado === 'manual' ? `<p>No se pudo copiar solo. Copia este texto (selecciónalo todo):</p><textarea readonly rows="3" style="width:100%">${esc(txt)}</textarea>` : ''}
+    <p style="margin:8px 0"><button type="button" class="btn" id="sii-abrir">Abrir el formulario del SII</button></p>
+    <p class="ayuda">Ábrelo con este botón: así, al final, el folio vuelve a <b>esta misma pestaña</b> de Sistema Fën.</p>
     <ol class="pasos-sii">
-      <li>Abre en el SII el formulario de <b>Factura electrónica</b> (sistema gratuito).</li>
+      <li>Abre en el SII el formulario de <b>Factura electrónica</b> (con el botón de arriba; si el SII te pide entrar, entra y vuelve a tocarlo).</li>
       <li>Toca <b>Llenar factura Fën</b> en tu barra de favoritos: pone el RUT del cliente y el SII carga sus datos.</li>
       <li>Toca <b>Llenar factura Fën</b> otra vez: pone los productos, cantidades y precios netos, las referencias (Nota de pedido con el N° de cada orden) y la forma de pago (Crédito con vencimiento a 30 días si el cliente paga a 30 días; si no, Contado).</li>
       <li>Revisa y usa <b>Validar y visualizar</b> como siempre. Nada se emite solo.</li>
@@ -2809,6 +2825,7 @@ function abrirAyudaSii(estado, txt) {
       <p class="ayuda">El botón solo escribe en el formulario abierto del SII; no envía tus datos a ninguna parte. Funciona en el computador (Chrome, Edge o Safari). La primera vez el navegador puede pedir permiso para leer lo copiado: acepta, o pega el texto cuando te lo pida.</p></details>
     <div class="botones"><button type="button" class="btn" id="sii-cerrar">Entendido</button></div></div>`);
   d.querySelector('#sii-cerrar').onclick = () => d.close();
+  d.querySelector('#sii-abrir').onclick = () => { window.open(SiiFactura.URL_FORMULARIO_SII, 'fen-sii'); d.close(); };
 }
 async function copiarTexto(t) {
   try { await navigator.clipboard.writeText(t); return true; }
@@ -3024,6 +3041,15 @@ let folioSii = (() => {
     return r;
   } catch (e) { return null; }
 })();
+// El folio que manda la página del SII abierta desde aquí (sin abrir otra pestaña de Sistema Fën)
+window.addEventListener('message', e => {
+  const x = SiiFactura.leerMensajeFolio(e);
+  if (!x) return;
+  try { e.source.postMessage({ tipo: 'fen-sii-ok' }, e.origin); } catch (er) {}
+  folioSii = x;
+  if (vistaDesdeHash() !== 'b2b' || subVista()) location.hash = '#b2b';
+  else if (b2b.datos) pintarB2bAdmin($('v-b2b'), '');
+});
 async function revisarFolioSii(d, sinFolio) {
   if (!folioSii || document.querySelector('dialog[open]')) return;
   if (!(d.clientes || []).length) return;   // los clientes llegan después de las órdenes: se espera al próximo dibujo

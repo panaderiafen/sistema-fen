@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.21.0';
-import * as FB from './firebase-b2b.js?v=0.21.0';
-import * as Apps from './apps.js?v=0.21.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.21.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.22.0';
+import * as FB from './firebase-b2b.js?v=0.22.0';
+import * as Apps from './apps.js?v=0.22.0';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.22.0';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -779,7 +779,7 @@ export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
       g.folios.push(f.folio); g.saldo += f.saldo;
     });
   });
-  Object.values(grupos).forEach(g => out.push({ auto: true, cat: 'cobro', fecha: g.fecha, titulo: `Cobro ${g.cliente}`, sub: `${g.folios.length === 1 ? 'Folio ' + g.folios[0] : g.folios.length + ' folios'} · saldo $${Math.round(g.saldo).toLocaleString('es-CL')}`, url: '#b2b', vencido: g.fecha < hoy }));
+  Object.values(grupos).forEach(g => out.push({ auto: true, cat: 'cobro', fecha: g.fecha, titulo: `Cobro ${g.cliente}`, sub: `${g.folios.length === 1 ? 'Folio ' + g.folios[0] : g.folios.length + ' folios'} · saldo $${Math.round(g.saldo).toLocaleString('es-CL')}`, url: '#b2b/cobrar/' + encodeURIComponent(g.cliente), vencido: g.fecha < hoy }));
   if (atrasados.n) out.push({ auto: true, cat: 'cobro', fecha: hoy, titulo: `Cobros atrasados de antes (${atrasados.clientes.size} ${atrasados.clientes.size === 1 ? 'cliente' : 'clientes'})`, sub: `${atrasados.n} ${atrasados.n === 1 ? 'folio' : 'folios'} · $${Math.round(atrasados.saldo).toLocaleString('es-CL')}`, url: '#b2b', vencido: true });
   // Días de conciliar (los que fijaste en Conciliación); los pasados quedan hechos si la cartola ya cubre hasta el día anterior
   const conf = d.conciliacion;

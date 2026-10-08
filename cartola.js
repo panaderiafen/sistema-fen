@@ -6,7 +6,7 @@
 //  (hojas "Cartola Cargos", "Cartolas" y "Cartola Reglas").
 //  Las propuestas se calculan aquí, cada vez, con lo que está por pagar en ese momento.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.21.0';
+import * as Gastos from './gastos.js?v=0.22.0';
 
 export const VERSION_CARTOLA = '2.8.0';
 const op = (o, d, idem) => Gastos.llamar(o, d, idem, VERSION_CARTOLA);

@@ -1,9 +1,17 @@
-# Sistema Fën · v0.21.0
+# Sistema Fën · v0.22.0
 
-**App:** v0.21.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
+**App:** v0.22.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.22.0
+- **El folio vuelve a la misma pestaña.** En la ventana de "Preparar para el SII" hay un botón nuevo: **Abrir el formulario del SII**. Si abres el SII con ese botón, en el tercer toque el folio llega a la pestaña de Sistema Fën que ya tenías abierta (aparece ahí la ventana "Folio N° … del SII"); no se abre otra. Si abriste el SII por tu cuenta, funciona como antes (pestaña nueva).
+- **WhatsApp directo a WhatsApp Web** en el computador: ya no aparece la página que pregunta "abrir la aplicación o WhatsApp Web". Sistema Fën usa siempre la misma pestaña de WhatsApp Web que abrió. Si ya tenías WhatsApp Web abierto en otra pestaña, la primera vez WhatsApp pregunta "¿Usar aquí?": acepta y cierra la antigua. En el celular sigue abriendo la app.
+- **Cobros de la Agenda:** al tocar "Cobro …" se abre Ventas B2B con **Por cobrar abierto y filtrado por ese cliente**, para registrar el pago o el abono ahí mismo.
+- **Hay que reinstalar el botón "Llenar factura Fën"** (cambió): borra el favorito antiguo y arrastra el nuevo.
+
+Archivos: cambian `sii-factura.js`, `app.js`, `b2b.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.22.0**. Incluye la v0.21.0 y anteriores.
 
 ## Novedades de la v0.21.0: mensaje de la factura más simple, y enviarla después de emitir
 - **Mensaje nuevo** (Copiar mensaje, WhatsApp y después de emitir): "Hola Bárbara, te envío la factura N° 3448 por $45.220, de tu pedido del 3 de octubre de 2026 (orden N° 2559)." Con varias órdenes: "…con tus pedidos del 1 al 7 de octubre de 2026 (órdenes N° 2559, 2560 y 2561)." Si el cliente paga a 30 días, agrega "Vence el …".

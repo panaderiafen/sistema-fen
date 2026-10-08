@@ -13,7 +13,7 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction
-} from './firebase.js?v=0.21.0';
+} from './firebase.js?v=0.22.0';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
