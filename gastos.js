@@ -6,8 +6,8 @@
 //  hubiera hecho allá (mismas hojas, misma carpeta de Drive).
 //  Cada envío lleva una clave única (idem): si se repite, no se guarda dos veces.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.15.2';
-import * as Apps from './apps.js?v=0.15.2';
+import { auth } from './firebase.js?v=0.16.0';
+import * as Apps from './apps.js?v=0.16.0';
 
 export const VERSION_MINIMA = '2.2.0';
 let urlOk = null, versionOk = '', cacheDatos = null;
@@ -102,7 +102,7 @@ export async function lista(forzar) {
   cacheLista = { t: Date.now(), d };
   return d;
 }
-const olvidarTodo = () => { cacheLista = null; olvidar(); };
+const olvidarTodo = () => { cacheLista = null; cachePlantillas = null; olvidar(); };
 export { olvidarTodo };
 export async function editar(g, cambios, idem) { const r = await op('g_editar', { fila: g.fila, huella: g.huella, ...cambios }, idem); olvidarTodo(); return r; }
 export async function anular(filas, motivo, idem) { const r = await op('g_anular', { filas: filas.map(g => ({ fila: g.fila, huella: g.huella })), motivo }, idem); olvidarTodo(); return r; }
@@ -113,6 +113,14 @@ export async function reabrirVencimiento(id, motivo) { const r = await op('obl_r
 export async function guardarObligacion(d, idem) { const r = await op('obl_guardar', d, idem); olvidarTodo(); return r; }
 export async function archivarObligacion(id, archivar) { const r = await op(archivar ? 'obl_archivar' : 'obl_activar', { id }); olvidarTodo(); return r; }
 export const itemsTodos = () => op('items_todos');
+// v0.16.0 · Agenda: próximos pagos de las obligaciones (60 s en memoria) y copia a Google Calendar (script v2.6.0)
+let cachePlantillas = null;
+export async function plantillasAgenda() {
+  if (cachePlantillas && Date.now() - cachePlantillas.t < 60000) return cachePlantillas.d;
+  const d = await plantillas(); cachePlantillas = { t: Date.now(), d }; return d;
+}
+export const VERSION_CALENDARIO = '2.6.0';
+export const calendario = eventos => llamar('calendario', { eventos }, null, VERSION_CALENDARIO);
 export async function guardarItem(d) { const r = await op('item_guardar', d); olvidarTodo(); return r; }
 export async function moverItem(item, direccion) { const r = await op('item_mover', { item, direccion }); olvidarTodo(); return r; }
 export async function archivarItem(nombre, archivar) { const r = await op('item_archivar', { nombre, archivar }); olvidarTodo(); return r; }

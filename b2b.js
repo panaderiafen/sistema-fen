@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.15.2';
-import * as FB from './firebase-b2b.js?v=0.15.2';
-import * as Apps from './apps.js?v=0.15.2';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.15.2';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.16.0';
+import * as FB from './firebase-b2b.js?v=0.16.0';
+import * as Apps from './apps.js?v=0.16.0';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.16.0';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -726,6 +726,79 @@ export function correspondeFacturar(facturacion, fecha, hoy = hoyTxt()) {
   if (/^mensu/.test(f)) return fecha.slice(0, 7) < hoy.slice(0, 7);
   return fecha < hoy;
 }
+
+// ═══════════════════════════════════════════════
+//  v0.16.0 · Agenda: cobros por la fecha acordada, días de conciliar, facturar y análisis semanal
+// ═══════════════════════════════════════════════
+let cacheAgendaB2b = null;   // 5 minutos en memoria
+export async function datosAgenda(forzar) {
+  let cx;
+  try { cx = await conexion(); } catch (e) { return null; }
+  if (cx.estado !== 'ok') return null;
+  if (!forzar && cacheAgendaB2b && Date.now() - cacheAgendaB2b.t < 300000) return cacheAgendaB2b.d;
+  const db = cx.db, vivas = sn => sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(o => !o.quitadoEnPlanilla && o.estado !== 'anulada');
+  const [pc, sf, cl, cc] = await Promise.all([
+    FB.getDocs(FB.query(FB.collection(db, 'ordenes'), FB.where('estadoPago', 'in', ['PENDIENTE', 'PARCIAL']))),
+    FB.getDocs(FB.query(FB.collection(db, 'ordenes'), FB.where('sinFolio', '==', true))),
+    FB.getDocs(FB.collection(db, 'clientes')),
+    FB.getDoc(FB.doc(db, 'config', 'conciliacion'))
+  ]);
+  const porCobrar = vivas(pc), sinFolio = vivas(sf), clientes = cl.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => !c.quitadoEnPlanilla);
+  // Abonos solo de los folios con pago parcial (de a 30 por consulta)
+  const folios = [...new Set(porCobrar.filter(o => o.folio && String(o.estadoPago).toUpperCase() === 'PARCIAL').map(o => String(o.folio)))];
+  const abonos = [];
+  for (let i = 0; i < folios.length; i += 30) { const sn = await FB.getDocs(FB.query(FB.collection(db, 'abonos'), FB.where('folio', 'in', folios.slice(i, i + 30)))); sn.docs.forEach(d => { const a = d.data(); if (!a.quitadoEnPlanilla) abonos.push(a); }); }
+  uso.lecturas += pc.size + sf.size + cl.size + abonos.length + 1;
+  const d = { porCobrar, sinFolio, clientes, abonos, conciliacion: cc.exists() ? cc.data() : null };
+  cacheAgendaB2b = { t: Date.now(), d };
+  return d;
+}
+export const olvidarAgendaB2b = () => { cacheAgendaB2b = null; };
+// Lo de B2B para la agenda entre desde y hasta. Cada elemento: { auto, cat, fecha, titulo, sub, url, vencido, hecho }
+export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
+  if (!d) return [];
+  const out = [], norm = t => String(t || '').trim().toLowerCase(), enRango = f => f >= desde && f <= hasta;
+  const clientes = d.clientes.filter(c => c.estado !== 'archivado');
+  // Cobros: cada folio vence en su fecha de factura + lo acordado (diaria 0, semanal 7, mensual o 30 días: 30)
+  const grupos = {}, atrasados = { n: 0, saldo: 0, clientes: new Set() };
+  Object.entries(foliosPorCobrar(d.porCobrar, d.abonos, d.clientes)).forEach(([cid, fs]) => {
+    const c = d.clientes.find(x => x.id === cid), dias = (c && ACORDADO[norm(c.frecuenciaPago)]) || 0;
+    fs.forEach(f => {
+      if (!f.fecha) return;
+      const vence = masDiasB(f.fecha, dias);
+      if (vence < desde && desde <= hoy && hoy <= hasta) { atrasados.n++; atrasados.saldo += f.saldo; atrasados.clientes.add(f.cliente || (c && c.nombre)); return; }
+      if (!enRango(vence)) return;
+      const k = cid + '|' + vence, g = grupos[k] || (grupos[k] = { cliente: (c && c.nombre) || f.cliente, fecha: vence, folios: [], saldo: 0 });
+      g.folios.push(f.folio); g.saldo += f.saldo;
+    });
+  });
+  Object.values(grupos).forEach(g => out.push({ auto: true, cat: 'cobro', fecha: g.fecha, titulo: `Cobro ${g.cliente}`, sub: `${g.folios.length === 1 ? 'Folio ' + g.folios[0] : g.folios.length + ' folios'} · saldo $${Math.round(g.saldo).toLocaleString('es-CL')}`, url: '#b2b', vencido: g.fecha < hoy }));
+  if (atrasados.n) out.push({ auto: true, cat: 'cobro', fecha: hoy, titulo: `Cobros atrasados de antes (${atrasados.clientes.size} ${atrasados.clientes.size === 1 ? 'cliente' : 'clientes'})`, sub: `${atrasados.n} ${atrasados.n === 1 ? 'folio' : 'folios'} · $${Math.round(atrasados.saldo).toLocaleString('es-CL')}`, url: '#b2b', vencido: true });
+  // Días de conciliar (los que fijaste en Conciliación); los pasados quedan hechos si la cartola ya cubre hasta el día anterior
+  const conf = d.conciliacion;
+  if (conf && conf.importado) {
+    const dias = diasRitmo(conf), cob = coberturaCartolas(conf.cartolas || []);
+    for (let f = desde; f <= hasta; f = masDiasB(f, 1)) if (dias.includes(new Date(f + 'T12:00:00').getDay())) out.push({ auto: true, cat: 'conciliar', fecha: f, titulo: 'Conciliar la cartola', sub: 'Días de conciliar', url: '#b2b/conciliacion', hecho: f <= hoy && !!cob.hasta && cob.hasta >= masDiasB(f, -1) });
+  }
+  // Facturar: hoy, lo que ya toca; hacia adelante, según cómo factura cada cliente (diaria: lunes a sábado; semanal: lunes; mensual: el 1)
+  const modo = c => { const f = norm(c.facturacion); return /^seman/.test(f) ? 'semanal' : /^mensu/.test(f) ? 'mensual' : 'diaria'; };
+  if (enRango(hoy)) {
+    const cliDe = o => clientes.find(c => (o.clienteId && c.id === o.clienteId) || norm(c.nombre) === norm(o.cliente));
+    const tocan = d.sinFolio.filter(o => { const c = cliDe(o); return correspondeFacturar(c ? c.facturacion : 'Diaria', o.fecha, hoy); });
+    if (tocan.length) { const n = new Set(tocan.map(o => o.cliente)).size; out.push({ auto: true, cat: 'facturar', fecha: hoy, titulo: `Facturar ${tocan.length} ${tocan.length === 1 ? 'orden' : 'órdenes'}`, sub: `${n} ${n === 1 ? 'cliente' : 'clientes'} · Por facturar`, url: '#b2b' }); }
+  }
+  for (let f = masDiasB(hoy >= desde ? hoy : masDiasB(desde, -1), 1); f <= hasta; f = masDiasB(f, 1)) {
+    const w = new Date(f + 'T12:00:00').getDay(), quienes = [];
+    if (w !== 0 && clientes.some(c => modo(c) === 'diaria')) quienes.push('diarios');
+    const sem = w === 1 ? clientes.filter(c => modo(c) === 'semanal').map(c => c.nombre) : [], mes = f.slice(8) === '01' ? clientes.filter(c => modo(c) === 'mensual').map(c => c.nombre) : [];
+    if (!quienes.length && !sem.length && !mes.length) continue;
+    out.push({ auto: true, cat: 'facturar', fecha: f, titulo: 'Facturar órdenes', sub: [quienes.length ? 'clientes de facturación diaria' : '', sem.length ? 'semanal: ' + sem.join(', ') : '', mes.length ? 'mensual: ' + mes.join(', ') : ''].filter(Boolean).join(' · '), url: '#b2b' });
+  }
+  // Análisis de ventas: cada lunes, la semana pasada
+  for (let f = desde; f <= hasta; f = masDiasB(f, 1)) if (new Date(f + 'T12:00:00').getDay() === 1) out.push({ auto: true, cat: 'analisis', fecha: f, titulo: 'Revisar el análisis de ventas', sub: 'La semana pasada · Análisis B2B', url: '#b2b/analisis' });
+  return out;
+}
+const masDiasB = (f, n) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() + n); return hoyTxt(d); };
 
 // ═══════════════════════════════════════════════
 //  v0.13.2 · Cuánto aporta cada cliente y cómo paga

@@ -4,6 +4,7 @@
   --texto: #25302A; --suave: #626C66; --acento: #2F5A45; --acento-suave: #DFE9E0;
   --amarillo: #F3E5C8; --amarillo-t: #664A10; --azul: #DCE7EC; --azul-t: #24495B;
   --lila: #E8E2EE; --lila-t: #4A3D64; --verde: #DCE9DD; --verde-t: #2B5A3E; --rojo: #F4DCD3; --rojo-t: #82381F;
+  --rosa: #F5DFE7; --rosa-t: #7A2E4E; --naranja: #F6E1CF; --naranja-t: #7A4416; --turquesa: #D6ECE8; --turquesa-t: #1E5B55;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--fondo); color: var(--texto); font-family: 'Manrope', system-ui, sans-serif; font-size: 15px; }
@@ -603,3 +604,42 @@ a.chip { text-decoration: none; }
 .mov-folio-btn:hover { background: var(--menu); }
 .mov-folio-btn:focus-visible { outline: 2px solid var(--verde-t); outline-offset: 2px; }
 .mov-folio-on { border-color: var(--verde-t); background: var(--menu); }
+
+/* v0.16.0 · Agenda: colores por etiqueta y por tipo, filtros, repetir, Google Calendar */
+.ag-c-azul { --ag-f: var(--azul); --ag-t: var(--azul-t); } .ag-c-verde { --ag-f: var(--verde); --ag-t: var(--verde-t); }
+.ag-c-amarillo { --ag-f: var(--amarillo); --ag-t: var(--amarillo-t); } .ag-c-lila { --ag-f: var(--lila); --ag-t: var(--lila-t); }
+.ag-c-rosa { --ag-f: var(--rosa); --ag-t: var(--rosa-t); } .ag-c-naranja { --ag-f: var(--naranja); --ag-t: var(--naranja-t); }
+.ag-c-turquesa { --ag-f: var(--turquesa); --ag-t: var(--turquesa-t); } .ag-c-gris { --ag-f: var(--menu); --ag-t: var(--suave); }
+.ag-c-rojo { --ag-f: var(--rojo); --ag-t: var(--rojo-t); } .ag-c-acento { --ag-f: var(--acento-suave); --ag-t: var(--acento); }
+.mes-item[class*="ag-c-"] { background: var(--ag-f); color: var(--texto); }
+a.mes-item { text-decoration: none; display: block; }
+.mes-item.proyectado, .ag-item.proyectado .ag-punto { background: transparent; outline: 1px dashed var(--ag-t); outline-offset: -1px; }
+.ag-punto { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--ag-f); border: 1px solid var(--ag-t); }
+a.ag-item { text-decoration: none; }
+.filtros-ag { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: -4px 0 12px; }
+.filtros-ag .chips { margin: 0; }
+.rotulo-ag { font-size: 12px; font-weight: 700; color: var(--suave); text-transform: uppercase; letter-spacing: .06em; }
+.chip-ag { display: inline-flex; align-items: center; gap: 6px; }
+.chip-ag[aria-pressed="false"] { opacity: .55; text-decoration: line-through; }
+.botones-ag { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ag-gcal { margin: -4px 0 10px; font-size: 13px; }
+.ag-gcal:empty { display: none; }
+.fila-etiqueta { display: flex; gap: 8px; align-items: center; }
+.fila-etiqueta select { flex: 1; min-width: 0; }
+.et-nueva { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; padding: 10px; border: 1px solid var(--linea); border-radius: 12px; }
+.et-nueva input[type="text"], .et-nueva > input { flex: 1 1 180px; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; }
+.et-colores { display: flex; gap: 6px; flex-wrap: wrap; }
+.et-color { width: 28px; height: 28px; border-radius: 50%; background: var(--ag-f); border: 2px solid var(--ag-t); cursor: pointer; position: relative; display: inline-flex; }
+.et-color input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.et-color:has(input:checked) { box-shadow: 0 0 0 3px var(--tarjeta), 0 0 0 5px var(--ag-t); }
+.et-color:has(input:focus-visible) { outline: 2px solid var(--acento); outline-offset: 3px; }
+.et-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 0; border-top: 1px solid var(--linea); }
+.et-fila > input { flex: 1 1 160px; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; }
+.et-fila.archivada > input { opacity: .55; }
+.dia-chk { position: relative; display: inline-flex; }
+.dia-chk input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.dia-chk span { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; border-radius: 20px; border: 1px solid var(--borde); font-weight: 700; font-size: 13px; }
+.dia-chk input:checked + span { background: var(--acento); border-color: var(--acento); color: #fff; }
+.dia-chk input:focus-visible + span { outline: 2px solid var(--acento); outline-offset: 2px; }
+.rotulo-campo { font-size: 14px; font-weight: 600; }
+.form-agenda .grilla-montos { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }

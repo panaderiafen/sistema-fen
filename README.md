@@ -1,9 +1,36 @@
-# Sistema Fën · v0.15.2
+# Sistema Fën · v0.16.0
 
-**App:** v0.15.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.0 · 8 de octubre de 2026
+**App:** v0.16.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.0 · **Script de Gastos:** v2.6.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.16.0: agenda para planificar el trabajo de oficina
+- **Etiquetas con color** (Conciliación, Cargas del SII, Reuniones, Cobranza, Marketing, Habilitación, Revisión de apps, y las que crees). Se crean desde el mismo modal de agregar ("+ Nueva") o con el botón **Etiquetas** (cambiar nombre, color o archivar; no se borran).
+- **Desde / Hasta:** algo puede durar varios días (aparece en cada día).
+- **Se repite:** cada semana (eliges los días, por ejemplo lunes y jueves) o cada mes (el mismo día, del 1 al 28), con fecha de término opcional. "Hecho" y "Quitar este día" son solo de ese día; "Quitar todos" quita la serie. Al cambiarlo, cambia la serie entera.
+- **Aparece solo, cada uno con su color:**
+  - **Pagos de Gastos:** los vencimientos (los **vencidos sin pago en rojo suave**) y los **próximos pagos de cada obligación** con borde punteado. Antes, un pago recién aparecía 3 días antes de su fecha (así se generan); por eso el IVA no se veía en el mes. Ahora se ve desde antes. Si una obligación no aparece, revisa que esté activa en Gastos → Obligaciones.
+  - **Cobros B2B:** el día que le toca pagar a cada cliente (fecha de la factura + su frecuencia de pago: diaria el mismo día, semanal 7 días, mensual 30 días), agrupado por cliente; los atrasados en rojo suave.
+  - **Facturar:** hoy, cuántas órdenes ya toca facturar; hacia adelante, lunes a sábado (clientes de facturación diaria), los lunes los semanales y el 1 los mensuales.
+  - **Conciliar:** los días de conciliar que fijaste en Conciliación (los pasados quedan hechos si la cartola ya cubre hasta el día anterior).
+  - **Análisis:** cada lunes, revisar el análisis de ventas de la semana pasada.
+  - Cobros, facturar y conciliar necesitan la base nueva de B2B conectada en ese equipo.
+- **Mostrar:** botones para esconder o mostrar cada tipo y cada etiqueta (se recuerda en ese equipo).
+- **Google Calendar:** lo que marques "Copiar a mi Google Calendar" queda en un calendario aparte llamado **"Fën"**, con el **aviso** que elijas (30 minutos antes, 1 día antes… o, si no tiene hora, el día anterior a las 18:00 o a las 9:00). Si lo cambias o lo quitas aquí, allá también. Lo hace el script de Gastos v2.6.0 con tu cuenta de Google. Lo automático (pagos, cobros…) no se copia. Lo agendado antes de esta versión no se copia hasta que lo abras y lo marques.
+
+Archivos: cambian `agenda.js`, `app.js`, `b2b.js`, `gastos.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Las reglas de Firestore no cambian.
+
+### Instalación de la v0.16.0 (unos 10 minutos)
+1. **Script de Gastos v2.6.0 (Apps Script de Gastos):** sigue el README del zip `gastos-script-v2.6.0` (archivo nuevo `Calendario.gs`, dar el permiso de Google Calendar una vez, nueva versión de la implementación). El ping debe decir **2.6.0**.
+2. **GitHub, repo `sistema-fen`:** sube todos los archivos del zip. Abajo a la izquierda debe decir **v0.16.0**.
+
+### Lista de verificación
+- [ ] Agenda: aparecen los pagos de Gastos (vencidos en rojo suave) y los próximos pagos con borde punteado (el IVA, si está como obligación).
+- [ ] Con la base nueva de B2B conectada: aparecen cobros, facturar, conciliar (lunes y jueves) y análisis (lunes).
+- [ ] Agregar "Revisar conciliaciones", etiqueta nueva, cada semana lunes y jueves, a las 9:00, con aviso de 30 minutos y "Copiar a mi Google Calendar": arriba dice "Google Calendar al día" y en tu Google Calendar aparece el calendario **Fën** con la serie.
+- [ ] "Quitar este día" en uno de esos días: desaparece aquí y en Google.
+- [ ] Los botones de "Mostrar" esconden y muestran.
 
 ## Novedades de la v0.15.2: PDF más limpios y conciliación más rápida
 - **PDF nuevos (diseño "compacto")**, pensados para leerse bien en el celular cuando llegan por WhatsApp:
@@ -36,7 +63,7 @@ Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `firestore-b2b.rules`, `con
 ### Instalación de la v0.15.0 (en este orden, unos 10 minutos)
 1. **Reglas de fen-b2b (consola de Firebase):** proyecto **fen-b2b** → Firestore Database → Reglas → borra todo, pega el contenido de `firestore-b2b.rules` (v1.5.0) → **Publicar**.
 2. **Script de B2B v2.8.0 (Apps Script):** sigue el README del zip `b2b-script-v2.8.0` (reemplazar `Seguridad.gs` y `SistemaFen.gs`, nueva versión de la implementación). El ping debe decir **2.8.0**.
-3. **GitHub, repo `sistema-fen`:** sube todos los archivos de esta carpeta (reemplazan a los de antes) → Commit. A los minutos, abajo a la izquierda debe decir **v0.15.2** (si no, recarga con Ctrl+Shift+R o cierra y abre en el celular).
+3. **GitHub, repo `sistema-fen`:** sube todos los archivos de esta carpeta (reemplazan a los de antes) → Commit. A los minutos, abajo a la izquierda debe decir **v0.16.0** (si no, recarga con Ctrl+Shift+R o cierra y abre en el celular).
 
 ### Lista de verificación
 - [ ] Abajo a la izquierda dice v0.15.0.

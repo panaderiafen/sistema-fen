@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.15.2';
-import * as Caja from './caja.js?v=0.15.2';
-import * as Stock from './stock.js?v=0.15.2';
-import * as Ajustes from './ajustes.js?v=0.15.2';
-import * as Apps from './apps.js?v=0.15.2';
-import * as Agenda from './agenda.js?v=0.15.2';
-import * as Gastos from './gastos.js?v=0.15.2';
-import * as Sii from './sii.js?v=0.15.2';
-import * as Previred from './previred.js?v=0.15.2';
-import * as B2b from './b2b.js?v=0.15.2';
-import * as PdfOrden from './pdf-orden.js?v=0.15.2';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.15.2';
+} from './firebase.js?v=0.16.0';
+import * as Caja from './caja.js?v=0.16.0';
+import * as Stock from './stock.js?v=0.16.0';
+import * as Ajustes from './ajustes.js?v=0.16.0';
+import * as Apps from './apps.js?v=0.16.0';
+import * as Agenda from './agenda.js?v=0.16.0';
+import * as Gastos from './gastos.js?v=0.16.0';
+import * as Sii from './sii.js?v=0.16.0';
+import * as Previred from './previred.js?v=0.16.0';
+import * as B2b from './b2b.js?v=0.16.0';
+import * as PdfOrden from './pdf-orden.js?v=0.16.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.16.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -313,7 +313,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.15.2" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.16.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -452,6 +452,7 @@ async function pintarHoy() {
   const hasta7 = Caja.diaLocal(new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 6));
   let propios = null;
   const pintarSemana = () => { if ($('agenda-lista') && propios) pintarAgendaSemana(propios.concat(itemsAuto(estados, hoy, hasta7)), hoy, hasta7); };
+  Agenda.leerEtiquetas().then(e => { agEtiquetas = e; pintarSemana(); }).catch(() => {});
   Agenda.leerAgenda(hoy, hasta7).then(l => { propios = l; pintarSemana(); })
     .catch(e => { if ($('agenda-lista')) $('agenda-lista').innerHTML = `<div class="error">${esc(e.code === 'permission-denied' ? 'Falta publicar las reglas v1.3.0 de Firestore (ver README).' : mensajeError(e))}</div>`; });
   $('ag-agregar').addEventListener('click', () => abrirItemAgenda(null, hoy));
@@ -501,8 +502,22 @@ function agFiltro(v) {
   try { agFiltroMem = localStorage.getItem('fen_sistema_agenda_filtro') || agFiltroMem; } catch (e) {}
   return ['todo', 'fen', 'personal'].includes(agFiltroMem) ? agFiltroMem : 'todo';
 }
-const pasaFiltro = x => agFiltro() === 'todo' || x.tipo === agFiltro();
+// v0.16.0: además se puede esconder cada tipo automático y cada etiqueta (se recuerda en este equipo)
+const AG_CATS = { pago: { nombre: 'Pagos de Gastos', color: 'amarillo' }, cobro: { nombre: 'Cobros B2B', color: 'verde' }, facturar: { nombre: 'Facturar', color: 'lila' }, conciliar: { nombre: 'Conciliar', color: 'azul' }, analisis: { nombre: 'Análisis', color: 'turquesa' } };
+let agOcultosMem = null;
+function agOcultos(nuevo) {
+  if (nuevo) { agOcultosMem = nuevo; try { localStorage.setItem('fen_sistema_agenda_ocultos', JSON.stringify([...nuevo])); } catch (e) {} return nuevo; }
+  if (!agOcultosMem) { try { agOcultosMem = new Set(JSON.parse(localStorage.getItem('fen_sistema_agenda_ocultos') || '[]')); } catch (e) { agOcultosMem = new Set(); } }
+  return agOcultosMem;
+}
+const claveFiltro = x => (x.auto ? 'cat:' + x.cat : 'et:' + (x.etiqueta || ''));
+const pasaFiltro = x => (agFiltro() === 'todo' || x.tipo === agFiltro()) && !agOcultos().has(claveFiltro(x));
+let agEtiquetas = Agenda.ETIQUETAS_BASE;
+const etiquetaDe = x => agEtiquetas.find(e => e.id === x.etiqueta);
+// Color de cada cosa: los automáticos por tipo (vencidos en rojo suave); lo propio por su etiqueta
+const colorAg = x => (x.auto ? (x.vencido ? 'rojo' : (AG_CATS[x.cat] || {}).color || 'gris') : (etiquetaDe(x) || {}).color || (x.tipo === 'personal' ? 'lila' : 'acento'));
 const DIAS_CORTOS = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+const DIAS_LETRA = [[1, 'L'], [2, 'M'], [3, 'X'], [4, 'J'], [5, 'V'], [6, 'S'], [0, 'D']];
 const partesDia = d => { const [y, m, dd] = d.split('-').map(Number); return new Date(y, m - 1, dd); };
 // Pagos de Gastos de esta semana (llegan con el resumen de Gastos: hasta 5, los más próximos)
 function itemsAuto(estados, desde, hasta) {
@@ -510,13 +525,18 @@ function itemsAuto(estados, desde, hasta) {
   if (!g || g.estado !== 'ok') return [];
   const s = (g.pendientes || []).find(x => x.clave === 'semana');
   return ((s && s.detalle) || []).filter(v => v.fecha >= desde && v.fecha <= hasta)
-    .map(v => ({ auto: true, tipo: 'fen', fecha: v.fecha, hora: '', titulo: `Pago de ${v.nombre}`, origen: 'Desde Gastos', monto: v.monto, vencId: v.id }));
+    .map(v => ({ auto: true, cat: 'pago', tipo: 'fen', fecha: v.fecha, hora: '', titulo: `Pago de ${v.nombre}`, origen: 'Desde Gastos', monto: v.monto, vencId: v.id }));
+}
+function subAgenda(x) {
+  if (x.auto) return [x.sub || x.origen || AG_CATS[x.cat].nombre, x.monto ? pesos(x.monto) : '', x.vencido && x.cat === 'pago' ? 'vencido, sin pago registrado' : ''].filter(Boolean).join(' · ');
+  const et = etiquetaDe(x), rep = x.serie ? (x.repetir.tipo === 'semanal' ? 'cada semana' : 'cada mes') : '', tramo = x.tramo ? `del ${diaTexto(x.tramo.de)} al ${diaTexto(x.tramo.a)}` : '';
+  return [x.hora, et ? et.nombre : '', rep, tramo, x.nota || (!et && !rep && !tramo ? 'Agregado por ti' : '')].filter(Boolean).join(' · ');
 }
 function filaAgenda(x, i) {
-  const sub = [x.hora, x.auto ? `${x.origen}${x.monto ? ' · ' + pesos(x.monto) : ''}` : (x.nota || 'Agregado por ti')].filter(Boolean).join(' · ');
-  const cuerpo = `<span class="ag-txt"><b>${esc(x.titulo)}</b><small>${esc(sub)}</small></span>${x.tipo === 'personal' ? '<span class="chip c-lila chip-chico">Personal</span>' : ''}`;
-  if (x.auto) return x.vencId ? `<button type="button" class="ag-item${x.pagado ? ' hecho' : ''}" data-venc="${esc(x.vencId)}">${cuerpo}</button>` : `<div class="ag-item">${cuerpo}</div>`;
-  return `<button type="button" class="ag-item${x.hecho ? ' hecho' : ''}" data-ag="${i}">${cuerpo}</button>`;
+  const cuerpo = `<span class="ag-punto ag-c-${colorAg(x)}" aria-hidden="true"></span><span class="ag-txt"><b>${esc(x.titulo)}</b><small>${esc(subAgenda(x))}</small></span>${x.tipo === 'personal' ? '<span class="chip c-lila chip-chico">Personal</span>' : ''}${x.vencido ? '<span class="chip c-rojo chip-chico">Vencido</span>' : ''}`;
+  const clases = `ag-item${x.hecho || x.pagado ? ' hecho' : ''}${x.proyectado ? ' proyectado' : ''}`;
+  if (x.auto) return x.vencId ? `<button type="button" class="${clases}" data-venc="${esc(x.vencId)}">${cuerpo}</button>` : x.url ? `<a class="${clases}" href="${esc(x.url)}">${cuerpo}</a>` : `<div class="${clases}">${cuerpo}</div>`;
+  return `<button type="button" class="${clases}" data-ag="${i}">${cuerpo}</button>`;
 }
 function pintarAgendaSemana(items, hoy, hasta) {
   const vis = items.filter(pasaFiltro);
@@ -533,6 +553,7 @@ function pintarAgendaSemana(items, hoy, hasta) {
 
 // Vista del mes
 let agMes = null; // 'AAAA-MM'
+const agGcal = { msg: '', error: '', pendientes: 0, copiando: false, fallo: 0 };
 async function pintarAgendaMes() {
   const el = $('v-agenda');
   const hoy = Caja.diaLocal();
@@ -540,33 +561,62 @@ async function pintarAgendaMes() {
   const [y, m] = agMes.split('-').map(Number);
   const primero = new Date(y, m - 1, 1), ultimo = new Date(y, m, 0);
   const desde = Caja.diaLocal(primero), hasta = Caja.diaLocal(ultimo);
-  el.innerHTML = `<div class="cabecera"><div><h1 id="t-agenda">Agenda ${info('Agenda', 'Fën: lo del negocio (lo ve la administración). Personal: solo tú lo ves y no entra en los informes de Fën.\nToca un día para agregar algo ese día, o algo ya agendado para cambiarlo, marcarlo hecho o quitarlo. Quitar no lo borra: queda guardado como quitado.\nLos pagos de Gastos aparecen en Hoy (próximos 7 días). La copia a Google Calendar llega más adelante.')}</h1><p>${esc(MESES_LARGOS[m - 1].replace(/^./, c => c.toUpperCase()))} ${y}</p></div>
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-agenda">Agenda ${info('Agenda', 'Fën: lo del negocio (lo ve la administración). Personal: solo tú lo ves y no entra en los informes de Fën.\nToca un día para agregar algo ese día, o algo ya agendado para cambiarlo, marcarlo hecho o quitarlo. Quitar no lo borra: queda guardado como quitado.\nCada cosa puede tener una etiqueta con color (se crean al agregar), durar varios días o repetirse cada semana o cada mes.\nAparecen solos, cada uno con su color: los pagos de Gastos (los vencidos sin pago en rojo suave y los próximos de cada obligación con borde punteado), los cobros de B2B (el día que le toca pagar a cada cliente según su frecuencia de pago), facturar, los días de conciliar y el análisis de cada lunes. Con los botones de "Mostrar" escondes lo que no quieras ver.\nLo que marques "Copiar a Google Calendar" queda en tu calendario "Fën" con su aviso.')}</h1><p>${esc(MESES_LARGOS[m - 1].replace(/^./, c => c.toUpperCase()))} ${y}</p></div>
       <div class="mes-nav"><button type="button" class="btn-icono" id="mes-ant" aria-label="Mes anterior">${icono('izq', 18)}</button><button type="button" class="btn-sec btn-chico" id="mes-hoy">Hoy</button><button type="button" class="btn-icono" id="mes-sig" aria-label="Mes siguiente">${icono('flecha', 18)}</button></div></div>
     <div class="filtros"><div class="chips" role="group" aria-label="Qué mostrar">${['todo', 'fen', 'personal'].map(f => `<button type="button" class="chip-filtro" data-ag-filtro="${f}" aria-pressed="${agFiltro() === f}">${{ todo: 'Todo', fen: 'Fën', personal: 'Personal' }[f]}</button>`).join('')}</div>
-      <button type="button" class="btn" id="mes-agregar">${icono('mas', 16)} Agregar</button></div>
+      <div class="botones-ag"><button type="button" class="btn-sec btn-chico" id="ag-etiquetas">Etiquetas</button><button type="button" class="btn" id="mes-agregar">${icono('mas', 16)} Agregar</button></div></div>
+    <div class="filtros-ag" id="ag-mostrar"></div>
+    <div id="ag-gcal" class="ag-gcal" role="status"></div>
     <section class="tarjeta" id="mes-cuerpo"><div class="vacio" style="border:0">Cargando…</div></section>`;
   $('mes-ant').onclick = () => { agMes = Caja.diaLocal(new Date(y, m - 2, 1)).slice(0, 7); pintarAgendaMes(); };
   $('mes-sig').onclick = () => { agMes = Caja.diaLocal(new Date(y, m, 1)).slice(0, 7); pintarAgendaMes(); };
   $('mes-hoy').onclick = () => { agMes = hoy.slice(0, 7); pintarAgendaMes(); };
   $('mes-agregar').onclick = () => abrirItemAgenda(null, agMes === hoy.slice(0, 7) ? hoy : desde);
+  $('ag-etiquetas').onclick = () => abrirEtiquetas();
   el.querySelectorAll('[data-ag-filtro]').forEach(b => b.addEventListener('click', () => { agFiltro(b.dataset.agFiltro); pintarAgendaMes(); }));
+  pintarGcalEstado();
   let items;
-  // Vencimientos de Gastos del mes (si Gastos responde; si no, la agenda se ve igual sin ellos)
-  const vencPromesa = agFiltro() === 'personal' ? Promise.resolve([]) : Gastos.datos().then(d => (d.vencimientos || []).filter(v => v.fecha >= desde && v.fecha <= hasta)
-    .map(v => ({ auto: true, tipo: 'fen', fecha: v.fecha, hora: '', titulo: `Pago de ${v.nombre}`, origen: v.estado === 'PAGADO' ? 'Desde Gastos · pagado' : 'Desde Gastos', monto: Number(v.montoPago || v.montoEstimado) || 0, vencId: v.id, pagado: v.estado === 'PAGADO' }))).catch(() => []);
-  try { items = (await Agenda.leerAgenda(desde, hasta)).filter(pasaFiltro).concat(await vencPromesa).sort((a, b) => (a.fecha + (a.hora || '99:99')).localeCompare(b.fecha + (b.hora || '99:99'))); }
-  catch (e) { $('mes-cuerpo').innerHTML = `<div class="error">${esc(e.code === 'permission-denied' ? 'Falta publicar las reglas v1.3.0 de Firestore (ver README).' : mensajeError(e))}</div>`; return; }
+  // Lo automático: si una app no responde, la agenda se ve igual sin eso
+  const autoPromesa = agFiltro() === 'personal' ? Promise.resolve([]) : Promise.all([
+    Gastos.datos().then(d => d.vencimientos || []).catch(() => null),
+    Gastos.plantillasAgenda().then(r => r.plantillas || []).catch(() => []),
+    B2b.datosAgenda().catch(() => null)
+  ]).then(([vencs, plantillas, b2bD]) => {
+    const pagos = (vencs || []).filter(v => v.fecha >= desde && v.fecha <= hasta).map(v => ({ auto: true, cat: 'pago', tipo: 'fen', fecha: v.fecha, hora: '', titulo: `Pago de ${v.nombre}`,
+      origen: v.estado === 'PAGADO' ? 'Desde Gastos · pagado' : 'Desde Gastos', monto: Number(v.montoPago || v.montoEstimado) || 0, vencId: v.id, pagado: v.estado === 'PAGADO', vencido: v.estado !== 'PAGADO' && v.fecha < hoy }));
+    const proy = vencs ? Agenda.proyectarObligaciones(plantillas, vencs, desde, hasta).map(x => ({ ...x, tipo: 'fen' })) : [];
+    return pagos.concat(proy, B2b.itemsAgendaB2b(b2bD, desde, hasta, hoy).map(x => ({ ...x, tipo: 'fen' })));
+  });
+  try {
+    const [propios, auto, ets] = await Promise.all([Agenda.leerAgenda(desde, hasta), autoPromesa, Agenda.leerEtiquetas().catch(() => agEtiquetas)]);
+    agEtiquetas = ets;
+    items = propios.concat(auto).sort((a, b) => (a.fecha + (a.hora || '99:99')).localeCompare(b.fecha + (b.hora || '99:99')));
+  } catch (e) { $('mes-cuerpo').innerHTML = `<div class="error">${esc(e.code === 'permission-denied' ? 'Falta publicar las reglas v1.3.0 de Firestore (ver README).' : mensajeError(e))}</div>`; return; }
   if (!$('mes-cuerpo')) return;
+  // "Mostrar": los tipos automáticos y las etiquetas que aparecen este mes
+  const claves = [...new Set(items.filter(x => agFiltro() === 'todo' || x.tipo === agFiltro()).map(claveFiltro))];
+  const chipM = (k, nombre, color) => `<button type="button" class="chip-filtro chip-ag" data-ag-ver="${esc(k)}" aria-pressed="${!agOcultos().has(k)}"><span class="ag-punto ag-c-${color}" aria-hidden="true"></span>${esc(nombre)}</button>`;
+  $('ag-mostrar').innerHTML = claves.length ? `<span class="rotulo-ag">Mostrar</span><div class="chips chips-chicos" role="group" aria-label="Mostrar">${
+    Object.keys(AG_CATS).filter(c => claves.includes('cat:' + c)).map(c => chipM('cat:' + c, AG_CATS[c].nombre, AG_CATS[c].color)).join('')
+    + agEtiquetas.filter(e => claves.includes('et:' + e.id)).map(e => chipM('et:' + e.id, e.nombre, e.color)).join('')
+    + (claves.includes('et:') ? chipM('et:', 'Sin etiqueta', 'acento') : '')}</div>` : '';
+  $('ag-mostrar').querySelectorAll('[data-ag-ver]').forEach(b => b.addEventListener('click', () => { const o = new Set(agOcultos()), k = b.dataset.agVer; if (o.has(k)) o.delete(k); else o.add(k); agOcultos(o); pintarAgendaMes(); }));
+  items = items.filter(pasaFiltro);
   const porDia = {}; items.forEach(x => (porDia[x.fecha] = porDia[x.fecha] || []).push(x));
   const hueco = (primero.getDay() + 6) % 7; // lunes primero
   const celdas = [];
+  const pastilla = x => {
+    const cl = `mes-item ag-c-${colorAg(x)}${x.tipo === 'personal' ? ' personal' : ''}${x.cat === 'pago' ? ' gasto' : ''}${x.hecho || x.pagado ? ' hecho' : ''}${x.proyectado ? ' proyectado' : ''}`, txt = `${x.hora ? `<span>${esc(x.hora)}</span> ` : ''}${esc(x.titulo)}`;
+    if (x.vencId) return `<button type="button" class="${cl}" data-venc="${esc(x.vencId)}">${txt}</button>`;
+    if (x.auto) return x.url ? `<a class="${cl}" href="${esc(x.url)}" title="${esc(subAgenda(x))}">${txt}</a>` : `<span class="${cl}">${txt}</span>`;
+    return `<button type="button" class="${cl}" data-ag="${items.indexOf(x)}">${txt}</button>`;
+  };
   for (let i = 0; i < hueco; i++) celdas.push('<div class="mes-dia vacio-dia" aria-hidden="true"></div>');
   for (let d = 1; d <= ultimo.getDate(); d++) {
     const dia = Caja.diaLocal(new Date(y, m - 1, d)), lista = porDia[dia] || [];
     celdas.push(`<div class="mes-dia${dia === hoy ? ' es-hoy' : ''}${dia < hoy ? ' pasado' : ''}" data-dia="${dia}">
       <button type="button" class="mes-num" data-nuevo="${dia}" aria-label="Agregar el ${d}">${d}</button>
-      ${lista.slice(0, 3).map(x => x.vencId ? `<button type="button" class="mes-item gasto${x.pagado ? ' hecho' : ''}" data-venc="${esc(x.vencId)}">${esc(x.titulo)}</button>`
-        : `<button type="button" class="mes-item${x.tipo === 'personal' ? ' personal' : ''}${x.hecho ? ' hecho' : ''}" data-ag="${items.indexOf(x)}">${x.hora ? `<span>${esc(x.hora)}</span> ` : ''}${esc(x.titulo)}</button>`).join('')}
+      ${lista.slice(0, 3).map(pastilla).join('')}
       ${lista.length > 3 ? `<button type="button" class="mes-mas" data-ver-dia="${dia}">+${lista.length - 3} más</button>` : ''}</div>`);
   }
   while (celdas.length % 7) celdas.push('<div class="mes-dia vacio-dia" aria-hidden="true"></div>');
@@ -583,44 +633,156 @@ async function pintarAgendaMes() {
     dlg.querySelector('#dd-cerrar').onclick = () => dlg.close();
     dlg.querySelectorAll('[data-ag]').forEach(x => x.addEventListener('click', () => { dlg.close(); abrirItemAgenda(items[+x.dataset.ag]); }));
     dlg.querySelectorAll('[data-venc]').forEach(x => x.addEventListener('click', () => { dlg.close(); abrirPagoPorId(x.dataset.venc); }));
+    dlg.querySelectorAll('a.ag-item').forEach(x => x.addEventListener('click', () => dlg.close()));
   }));
+  copiarGcal();
+}
+
+// ── Copia a Google Calendar (con el script de Gastos v2.6.0) ──
+function pintarGcalEstado() {
+  const c = $('ag-gcal'); if (!c) return;
+  c.innerHTML = agGcal.copiando ? '<span class="ayuda">Copiando a Google Calendar…</span>'
+    : agGcal.error ? `<span class="error">${esc(agGcal.error)}</span>${agGcal.pendientes ? ` <button type="button" class="btn-link" id="ag-gcal-otra">Intentar de nuevo</button>` : ''}`
+    : agGcal.msg ? `<span class="ayuda">${esc(agGcal.msg)}</span>` : '';
+  if ($('ag-gcal-otra')) $('ag-gcal-otra').onclick = () => copiarGcal(true);
+}
+let gcalEnCurso = null;
+async function copiarGcal(forzar) {
+  if (gcalEnCurso) return gcalEnCurso;
+  if (!forzar && agGcal.fallo && Date.now() - agGcal.fallo < 120000) return null;   // después de un error se reintenta a los 2 minutos (o con "Intentar de nuevo")
+  gcalEnCurso = (async () => {
+    let copiados = 0;
+    try {
+      const pend = await Agenda.pendientesGcal();
+      agGcal.pendientes = pend.length;
+      if (!pend.length) { if (forzar) agGcal.error = ''; return; }
+      agGcal.copiando = true; agGcal.error = ''; pintarGcalEstado();
+      const ets = await Agenda.leerEtiquetas().catch(() => agEtiquetas);
+      let hechos = 0;
+      for (let i = 0; i < pend.length; i += 40) {
+        const lote = pend.slice(i, i + 40), r = await Gastos.calendario(lote.map(x => Agenda.paraCalendario(x, ets)));
+        await Agenda.anotarGcal(lote, r.resultados);
+        hechos += (r.resultados || []).filter(x => x.ok).length;
+        const malos = (r.resultados || []).filter(x => !x.ok);
+        if (malos.length) { agGcal.error = `Google Calendar: ${malos.length} no se ${malos.length === 1 ? 'pudo' : 'pudieron'} copiar (${malos[0].error}).`; agGcal.fallo = Date.now(); }
+      }
+      copiados = hechos;
+      agGcal.pendientes = pend.length - hechos;
+      if (!agGcal.error) agGcal.fallo = 0;
+      agGcal.msg = hechos ? `Google Calendar al día (${hechos} ${hechos === 1 ? 'cambio copiado' : 'cambios copiados'} al calendario "Fën").` : '';
+    } catch (e) {
+      agGcal.fallo = Date.now();
+      agGcal.error = e.code === 'actualizar' || e.code === 'sin_url' ? `Para copiar a Google Calendar: ${e.message}` : `No se pudo copiar a Google Calendar: ${mensajeError(e)}. Queda pendiente.`;
+    } finally {
+      agGcal.copiando = false; gcalEnCurso = null; pintarGcalEstado();
+      // La agenda en pantalla queda con los datos al día (el id de Google recién anotado)
+      if (copiados && vistaDesdeHash() === 'agenda' && !document.querySelector('dialog[open]')) pintarAgendaMes();
+    }
+  })();
+  return gcalEnCurso;
+}
+
+// Etiquetas: cambiar nombre o color, archivar (no se borran: las cosas que la usan siguen con ella)
+async function abrirEtiquetas() {
+  let lista;
+  try { lista = (await Agenda.leerEtiquetas()).map(e => ({ ...e })); } catch (e) { alert(mensajeError(e)); return; }
+  const fila = (e, i) => `<div class="et-fila${e.archivada ? ' archivada' : ''}"><input data-et-nombre="${i}" maxlength="40" value="${esc(e.nombre)}" aria-label="Nombre de la etiqueta">
+    <div class="et-colores" role="radiogroup" aria-label="Color">${Agenda.COLORES.map(c => `<label class="et-color ag-c-${c}"><input type="radio" name="et-c-${i}" value="${c}" ${e.color === c ? 'checked' : ''}><span class="sr">${c}</span></label>`).join('')}</div>
+    <button type="button" class="btn-link" data-et-arch="${i}">${e.archivada ? 'Reactivar' : 'Archivar'}</button></div>`;
+  const d = dialogo(`<form class="form-dialogo" novalidate><h2>Etiquetas ${info('Etiquetas', 'Para ordenar la agenda por tipo de trabajo, cada una con su color. Se crean también al agregar algo ("+ Nueva").\nArchivar la saca de la lista para elegir; lo que ya la tiene sigue igual. No se borran.')}</h2>
+    <div id="et-lista">${lista.map(fila).join('')}</div>
+    <button type="button" class="btn-sec btn-chico" id="et-nueva" style="align-self:flex-start">+ Nueva etiqueta</button>
+    <div class="error" id="et-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="et-cancelar">Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
+  const leer = () => { d.querySelectorAll('[data-et-nombre]').forEach(inp => { const i = +inp.dataset.etNombre; lista[i].nombre = inp.value; const c = d.querySelector(`input[name="et-c-${i}"]:checked`); if (c) lista[i].color = c.value; }); };
+  const repintar = () => { leer(); d.querySelector('#et-lista').innerHTML = lista.map(fila).join(''); conectar(); };
+  const conectar = () => d.querySelectorAll('[data-et-arch]').forEach(b => b.onclick = () => { leer(); lista[+b.dataset.etArch].archivada = !lista[+b.dataset.etArch].archivada; repintar(); });
+  conectar();
+  d.querySelector('#et-nueva').onclick = () => { leer(); lista.push({ id: Agenda.nuevaEtiquetaId('nueva'), nombre: '', color: Agenda.COLORES[lista.length % Agenda.COLORES.length] }); repintar(); const ins = d.querySelectorAll('[data-et-nombre]'); ins[ins.length - 1].focus(); };
+  d.querySelector('#et-cancelar').onclick = () => d.close();
+  d.querySelector('form').addEventListener('submit', async ev => {
+    ev.preventDefault(); leer();
+    try { agEtiquetas = await Agenda.guardarEtiquetas(lista.filter(e => e.nombre.trim() || !String(e.id).startsWith('nueva-'))); registrar('Cambió las etiquetas de la agenda', agEtiquetas.map(e => e.nombre).join(', ')); d.close(); refrescarAgenda(); }
+    catch (er) { d.querySelector('#et-error').textContent = er.message || mensajeError(er); }
+  });
 }
 
 // Agregar o cambiar algo de la agenda
-function abrirItemAgenda(item, fecha) {
-  const it = item || { titulo: '', fecha: fecha || Caja.diaLocal(), hora: '', nota: '', tipo: agFiltro() === 'personal' ? 'personal' : 'fen' };
-  const d = dialogo(`<form class="form-dialogo" novalidate>
-    <h2>${item ? 'Cambiar' : 'Agregar a la agenda'}</h2>
+const AVISOS_HORA = [[-1, 'Sin aviso'], [0, 'A la hora'], [10, '10 minutos antes'], [30, '30 minutos antes'], [60, '1 hora antes'], [1440, '1 día antes']];
+const AVISOS_DIA = [[-1, 'Sin aviso'], [360, 'El día anterior a las 18:00'], [900, 'El día anterior a las 9:00'], [2340, 'Dos días antes a las 9:00']];
+async function abrirItemAgenda(item, fecha) {
+  const it = item ? { ...item, fecha: item.serie || item.tramo ? item.fechaBase : item.fecha } : { titulo: '', fecha: fecha || Caja.diaLocal(), hora: '', nota: '', etiqueta: '', tipo: agFiltro() === 'personal' ? 'personal' : 'fen', gcal: { copiar: true, aviso: null } };
+  try { agEtiquetas = await Agenda.leerEtiquetas(); } catch (e) {}
+  const rp = it.repite && it.repetir ? it.repetir : null;
+  const g = it.gcal || {};
+  const avisoDe = (conHora, v) => { const l = conHora ? AVISOS_HORA : AVISOS_DIA, def = conHora ? 30 : 360; const sel = v == null ? def : v; return l.map(([n, t]) => `<option value="${n}" ${n === sel ? 'selected' : ''}>${t}</option>`).join('') + (l.some(([n]) => n === sel) ? '' : `<option value="${sel}" selected>${sel} minutos antes</option>`); };
+  const etiquetasOpc = sel => `<option value="">Sin etiqueta</option>${agEtiquetas.filter(e => !e.archivada || e.id === sel).map(e => `<option value="${esc(e.id)}" ${e.id === sel ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}`;
+  const serieDia = item && item.serie ? item.fecha : null;
+  const d = dialogo(`<form class="form-dialogo form-agenda" novalidate>
+    <h2>${item ? 'Cambiar' : 'Agregar a la agenda'}${item && item.serie ? ' <small class="ayuda">(se repite: cambia todos los días)</small>' : ''}</h2>
     <div class="campo"><label for="ag-titulo">Qué es</label><input id="ag-titulo" type="text" maxlength="120" value="${esc(it.titulo)}" placeholder="Por ejemplo: Reunión con proveedor de harina" autocomplete="off"></div>
-    <div class="grilla-montos"><div class="campo"><label for="ag-fecha">Fecha</label><input id="ag-fecha" type="date" value="${esc(it.fecha)}"></div>
+    <div class="campo"><label for="ag-etiqueta">Etiqueta</label><div class="fila-etiqueta"><select id="ag-etiqueta">${etiquetasOpc(it.etiqueta || '')}</select><button type="button" class="btn-sec btn-chico" id="ag-et-nueva">+ Nueva</button></div>
+      <div class="et-nueva oculto" id="ag-et-form"><input id="ag-et-nombre" maxlength="40" placeholder="Nombre de la etiqueta" aria-label="Nombre de la etiqueta nueva">
+        <div class="et-colores" role="radiogroup" aria-label="Color">${Agenda.COLORES.map((c, i) => `<label class="et-color ag-c-${c}"><input type="radio" name="ag-et-color" value="${c}" ${i === 0 ? 'checked' : ''}><span class="sr">${c}</span></label>`).join('')}</div>
+        <button type="button" class="btn btn-chico" id="ag-et-crear">Crear</button></div></div>
+    <div class="grilla-montos"><div class="campo"><label for="ag-fecha">${rp ? 'Desde (primer día)' : 'Desde'}</label><input id="ag-fecha" type="date" value="${esc(it.fecha)}"></div>
+      <div class="campo" id="ag-fin-campo"><label for="ag-fin">Hasta (opcional)</label><input id="ag-fin" type="date" value="${esc(it.fechaFin || '')}"></div>
       <div class="campo"><label for="ag-hora">Hora (opcional)</label><input id="ag-hora" type="time" value="${esc(it.hora || '')}"></div></div>
+    <div class="campo"><label for="ag-repite">Se repite</label><select id="ag-repite"><option value="">No se repite</option><option value="semanal" ${rp && rp.tipo === 'semanal' ? 'selected' : ''}>Cada semana</option><option value="mensual" ${rp && rp.tipo === 'mensual' ? 'selected' : ''}>Cada mes, el mismo día</option></select></div>
+    <div id="ag-rep-semana" class="campo ${rp && rp.tipo === 'semanal' ? '' : 'oculto'}"><span class="rotulo-campo">Qué días</span><div class="chips chips-chicos" role="group" aria-label="Días de la semana">${DIAS_LETRA.map(([n, l]) => `<label class="dia-chk"><input type="checkbox" value="${n}" ${rp && rp.tipo === 'semanal' && (rp.dias || []).includes(n) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
+    <div id="ag-rep-hasta" class="campo ${rp ? '' : 'oculto'}"><label for="ag-rep-fin">Se repite hasta (opcional)</label><input id="ag-rep-fin" type="date" value="${esc(it.repetirHasta || '')}"></div>
     <fieldset class="campo tipo-ag"><legend>Es de</legend>
       <label><input type="radio" name="ag-tipo" value="fen" ${it.tipo !== 'personal' ? 'checked' : ''}> Fën</label>
       <label><input type="radio" name="ag-tipo" value="personal" ${it.tipo === 'personal' ? 'checked' : ''}> Personal <small>solo tú lo ves</small></label></fieldset>
+    <div class="campo"><label class="check-linea"><input type="checkbox" id="ag-copiar-gcal" ${g.copiar === true ? 'checked' : ''}> Copiar a mi Google Calendar ${info('Google Calendar', 'Queda en un calendario aparte llamado "Fën" en tu Google Calendar, con el aviso que elijas (te llega al celular si tienes la app de Google Calendar). Si aquí lo cambias o lo quitas, allá también.\nLo hace el script de Gastos (v2.6.0). Lo automático (pagos, cobros…) no se copia: los pagos ya te llegan por correo.')}</label>
+      <div id="ag-aviso-campo" class="${g.copiar === true ? '' : 'oculto'}"><label for="ag-aviso" class="sr">Aviso</label><select id="ag-aviso">${avisoDe(!!it.hora, g.aviso)}</select></div>
+      ${g.error ? `<p class="error">${esc(g.error)}</p>` : ''}</div>
     <div class="campo"><label for="ag-nota">Nota (opcional)</label><textarea id="ag-nota" rows="2" maxlength="500">${esc(it.nota || '')}</textarea></div>
     <div class="error" id="ag-error" role="alert"></div>
-    <div class="botones">${item ? `<button type="button" class="btn-sec btn-peligro" id="ag-quitar">Quitar</button><button type="button" class="btn-sec" id="ag-hecho">${item.hecho ? 'Desmarcar hecho' : 'Marcar hecho'}</button>` : ''}
+    <div class="botones">${item ? (item.serie ? `<button type="button" class="btn-sec btn-peligro" id="ag-quitar-serie">Quitar todos</button><button type="button" class="btn-sec btn-peligro" id="ag-quitar">Quitar este día</button>` : `<button type="button" class="btn-sec btn-peligro" id="ag-quitar">Quitar</button>`)
+      + `<button type="button" class="btn-sec" id="ag-hecho">${item.hecho ? 'Desmarcar hecho' : (item.serie ? 'Hecho este día' : 'Marcar hecho')}</button>` : ''}
       <button type="button" class="btn-sec" id="ag-cancelar">Cancelar</button><button type="submit" class="btn" id="ag-guardar">Guardar</button></div>
   </form>`);
-  const listo = texto => { if (texto) registrar(texto[0], texto[1]); d.close(); refrescarAgenda(); };
-  const detalle = (tipo, titulo, fecha) => (tipo === 'personal' ? `personal · ${fechaCaja(fecha)}` : `${titulo} · ${fechaCaja(fecha)}`);
-  d.querySelector('#ag-cancelar').onclick = () => d.close();
+  const $d = s => d.querySelector(s);
+  const listo = texto => { if (texto) registrar(texto[0], texto[1]); d.close(); refrescarAgenda(); copiarGcal(true); };
+  const detalle = (tipo, titulo, f) => (tipo === 'personal' ? `personal · ${fechaCaja(f)}` : `${titulo} · ${fechaCaja(f)}`);
+  // Repetir y "hasta" no van juntos; el aviso depende de si tiene hora
+  const verRepite = () => { const v = $d('#ag-repite').value; $d('#ag-rep-semana').classList.toggle('oculto', v !== 'semanal'); $d('#ag-rep-hasta').classList.toggle('oculto', !v); $d('#ag-fin-campo').classList.toggle('oculto', !!v);
+    if (v === 'semanal' && !d.querySelector('#ag-rep-semana input:checked')) { const w = partesDia($d('#ag-fecha').value || Caja.diaLocal()).getDay(); const c = d.querySelector(`#ag-rep-semana input[value="${w}"]`); if (c) c.checked = true; } };
+  $d('#ag-repite').onchange = verRepite; verRepite();
+  let conHora = !!it.hora;
+  $d('#ag-hora').addEventListener('input', () => { const h = !!$d('#ag-hora').value; if (h !== conHora) { conHora = h; $d('#ag-aviso').innerHTML = avisoDe(h, null); } });
+  $d('#ag-copiar-gcal').onchange = () => $d('#ag-aviso-campo').classList.toggle('oculto', !$d('#ag-copiar-gcal').checked);
+  $d('#ag-et-nueva').onclick = () => { $d('#ag-et-form').classList.toggle('oculto'); $d('#ag-et-nombre').focus(); };
+  $d('#ag-et-crear').onclick = async () => {
+    const nombre = $d('#ag-et-nombre').value.trim(); if (!nombre) { $d('#ag-et-nombre').focus(); return; }
+    const nueva = { id: Agenda.nuevaEtiquetaId(nombre), nombre, color: (d.querySelector('input[name="ag-et-color"]:checked') || {}).value || 'gris' };
+    try { agEtiquetas = await Agenda.guardarEtiquetas(agEtiquetas.concat([nueva])); $d('#ag-etiqueta').innerHTML = etiquetasOpc(nueva.id); $d('#ag-et-form').classList.add('oculto'); $d('#ag-et-nombre').value = ''; registrar('Creó una etiqueta de la agenda', nombre); }
+    catch (er) { $d('#ag-error').textContent = er.message || mensajeError(er); }
+  };
+  $d('#ag-cancelar').onclick = () => d.close();
   d.querySelector('form').addEventListener('submit', async e => {
     e.preventDefault();
-    const tipo = d.querySelector('input[name="ag-tipo"]:checked').value;
-    const datos = { titulo: d.querySelector('#ag-titulo').value, fecha: d.querySelector('#ag-fecha').value, hora: d.querySelector('#ag-hora').value, nota: d.querySelector('#ag-nota').value };
-    const b = d.querySelector('#ag-guardar'); b.disabled = true;
+    const tipo = d.querySelector('input[name="ag-tipo"]:checked').value, rep = $d('#ag-repite').value;
+    const datos = { titulo: $d('#ag-titulo').value, fecha: $d('#ag-fecha').value, fechaFin: rep ? '' : $d('#ag-fin').value, hora: $d('#ag-hora').value, nota: $d('#ag-nota').value, etiqueta: $d('#ag-etiqueta').value,
+      repetir: rep ? { tipo: rep, dias: [...d.querySelectorAll('#ag-rep-semana input:checked')].map(c => Number(c.value)) } : null, repetirHasta: rep ? $d('#ag-rep-fin').value : '',
+      copiarGcal: $d('#ag-copiar-gcal').checked, aviso: Number($d('#ag-aviso').value) };
+    const b = $d('#ag-guardar'); b.disabled = true;
     try { await Agenda.guardar(item, datos, tipo); listo([item ? 'Cambió la agenda' : 'Agregó a la agenda', detalle(tipo, datos.titulo.trim(), datos.fecha)]); }
-    catch (er) { d.querySelector('#ag-error').textContent = er.code === 'permission-denied' ? 'Falta publicar las reglas v1.3.0 de Firestore (ver README).' : (er.message || mensajeError(er)); b.disabled = false; }
+    catch (er) { $d('#ag-error').textContent = er.code === 'permission-denied' ? 'Falta publicar las reglas v1.3.0 de Firestore (ver README).' : (er.message || mensajeError(er)); b.disabled = false; }
   });
   if (item) {
-    d.querySelector('#ag-hecho').onclick = async () => { try { await Agenda.marcarHecho(item, !item.hecho); listo(); } catch (er) { d.querySelector('#ag-error').textContent = er.message || mensajeError(er); } };
-    d.querySelector('#ag-quitar').onclick = async () => {
-      if (!window.confirm(`¿Quitar "${item.titulo}" de la agenda?`)) return;
-      try { await Agenda.quitar(item); listo(['Quitó de la agenda', detalle(item.tipo, item.titulo, item.fecha)]); } catch (er) { d.querySelector('#ag-error').textContent = er.message || mensajeError(er); }
+    $d('#ag-hecho').onclick = async () => { try { await Agenda.marcarHecho(item, !item.hecho); listo(); } catch (er) { $d('#ag-error').textContent = er.message || mensajeError(er); } };
+    $d('#ag-quitar').onclick = async () => {
+      if (!window.confirm(item.serie ? `¿Quitar "${item.titulo}" solo el ${fechaCaja(serieDia)}?` : `¿Quitar "${item.titulo}" de la agenda?`)) return;
+      try { await Agenda.quitar(item, !!item.serie); listo([item.serie ? 'Quitó un día de la agenda' : 'Quitó de la agenda', detalle(item.tipo, item.titulo, item.fecha)]); } catch (er) { $d('#ag-error').textContent = er.message || mensajeError(er); }
+    };
+    if ($d('#ag-quitar-serie')) $d('#ag-quitar-serie').onclick = async () => {
+      if (!window.confirm(`¿Quitar "${item.titulo}" todos los días que se repite?`)) return;
+      try { await Agenda.quitar(item, false); listo(['Quitó de la agenda (todos los días)', detalle(item.tipo, item.titulo, item.fechaBase)]); } catch (er) { $d('#ag-error').textContent = er.message || mensajeError(er); }
     };
   }
-  setTimeout(() => d.querySelector('#ag-titulo').focus(), 30);
+  setTimeout(() => $d('#ag-titulo').focus(), 30);
 }
 function refrescarAgenda() { const v = vistaDesdeHash(); if (v === 'agenda') pintarAgendaMes(); else if (v === 'hoy') pintarHoy(); else if (v === 'gastos') pintarGastos(subVista()); }
 
