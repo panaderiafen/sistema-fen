@@ -9,18 +9,18 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.16.3';
-import * as Caja from './caja.js?v=0.16.3';
-import * as Stock from './stock.js?v=0.16.3';
-import * as Ajustes from './ajustes.js?v=0.16.3';
-import * as Apps from './apps.js?v=0.16.3';
-import * as Agenda from './agenda.js?v=0.16.3';
-import * as Gastos from './gastos.js?v=0.16.3';
-import * as Sii from './sii.js?v=0.16.3';
-import * as Previred from './previred.js?v=0.16.3';
-import * as B2b from './b2b.js?v=0.16.3';
-import * as PdfOrden from './pdf-orden.js?v=0.16.3';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.16.3';
+} from './firebase.js?v=0.17.0';
+import * as Caja from './caja.js?v=0.17.0';
+import * as Stock from './stock.js?v=0.17.0';
+import * as Ajustes from './ajustes.js?v=0.17.0';
+import * as Apps from './apps.js?v=0.17.0';
+import * as Agenda from './agenda.js?v=0.17.0';
+import * as Gastos from './gastos.js?v=0.17.0';
+import * as Sii from './sii.js?v=0.17.0';
+import * as Previred from './previred.js?v=0.17.0';
+import * as B2b from './b2b.js?v=0.17.0';
+import * as PdfOrden from './pdf-orden.js?v=0.17.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.17.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -313,7 +313,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.16.3" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.17.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -1079,6 +1079,9 @@ async function procesarSii(contenido, nombre, { guardar, tipo } = {}) {
     if (e.code === 'actualizar' || e.code === 'sin_url') { if (msg) msg.textContent = e.message; sii.facturas = []; pintarTrabajoSii(); return; }
     sii.aviso = `No se pudo revisar qué documentos ya están en Gastos (${e.message}). Puedes clasificar igual: al importar, Gastos revisa los repetidos y no guarda nada dos veces.`;
   }
+  // v0.17.0: lo que se puede, viene sugerido según cómo clasificaste antes a ese proveedor y producto
+  try { const c = await Sii.clasificacion(); Sii.sugerir(facturas, c, sii.items, AREAS_GASTO); sii.sinSugerencias = ''; }
+  catch (e) { sii.sinSugerencias = e.code === 'actualizar' ? 'Para ver sugerencias de cómo clasificar, falta el script de Gastos v2.7.0.' : ''; }
   Sii.precargarVencimientos(facturas);
   if (sii.facturas !== facturas) return; // mientras tanto se abrió otro archivo
   if (msg) msg.textContent = '';
@@ -1105,7 +1108,7 @@ function pintarTrabajoSii(revisando) {
   cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-sii-arch">
       <div class="titulo-fila"><h2 id="t-sii-arch">${esc(sii.nombre)}</h2><span>${F.length} ${F.length === 1 ? 'documento' : 'documentos'}</span></div>
       <p class="ayuda">${FORMATO_SII[sii.formato] || ''}</p>
-      ${sii.aviso ? `<div class="aviso">${esc(sii.aviso)}</div>` : ''}
+      ${sii.aviso ? `<div class="aviso">${esc(sii.aviso)}</div>` : ''}${sii.sinSugerencias ? `<p class="ayuda">${esc(sii.sinSugerencias)}</p>` : ''}
       <div class="desglose desglose-grande"><span>Por importar <b>${pend.length}</b></span><span>Total <b>${pesos(pend.reduce((s, f) => s + f.total, 0))}</b></span>${F.length - pend.length ? `<span>Ya en Gastos <b>${F.length - pend.length}</b></span>` : ''}${nc ? `<span>Notas de crédito <b>${nc}</b> (restan)</span>` : ''}${harina ? `<span>Con impuesto a la harina <b>${harina}</b></span>` : ''}</div>
       ${pend.length ? `<div class="sii-lote">
           <span class="etiqueta">Aplicar a todas ${info('Aplicar a todas', 'Marca de una vez todas las facturas como pagadas o pendientes, o les pone la misma fecha. Después puedes cambiar cualquiera una por una.\nPagada: el gasto queda pagado en esa fecha.\nPendiente: el gasto queda a crédito y se crea un vencimiento en esa fecha, para pagarlo desde Vencimientos.\nLas notas de crédito no llevan estado: se registran con su fecha.')}</span>
@@ -1175,6 +1178,7 @@ function tarjetaSii(f, i) {
         ${c.areas && c.areas.length ? `<span>${c.areas.map(a => `${esc(a.area)} ${pesos(a.monto)}`).join(' · ')}</span>` : ''}${c.obs ? `<span class="nota">${esc(c.obs)}</span>` : ''}</div>
         <div class="acciones"><button type="button" class="btn-sec" data-vincular="${ci}">Sí, es este gasto</button></div></div>`).join('')}
       <button type="button" class="btn-link" data-descartar>No, es una compra distinta</button></div>` : ''}
+    ${f.sugerido ? `<p class="sugerido-sii">${f.sugerido.productos ? `${f.sugerido.productos} de ${f.sugerido.de} ${f.sugerido.de === 1 ? 'producto viene' : 'productos vienen'} con ítem sugerido (como los clasificaste antes). Revísalos.` : `Sugerido como clasificaste ${f.sugerido.n} de las ${f.sugerido.de} facturas anteriores de este proveedor${f.sugerido.de > 1 ? '' : ''} (la última, ${esc(fechaSii(f.sugerido.ultima))}). Revísalo.`} ${info('Sugerencias', 'Al cargar, cada documento nuevo viene con el ítem y el reparto por área que más usaste para ese proveedor (últimos 2 años), con las proporciones de la vez más reciente. Si trae productos, cada producto viene con lo que le pusiste antes a ese mismo producto de ese proveedor; si es nuevo, con lo más usado para ese proveedor.\nNada se importa sin que lo veas: puedes cambiar todo. Lo que importes queda como ejemplo para la próxima.')}</p>` : ''}
     <div class="clasif-sii">${lineasSii(f, i)}</div>
     ${!(f.detalle && f.detalle.length) ? `<button type="button" class="btn-sec btn-chico" data-dividir>Dividir en otro ítem</button>` : ''}
     ${tot ? `<p class="sii-ok${tot.ok ? '' : ' dif-mal'}" id="sii-total-${i}">${esc(tot.texto)}</p>` : ''}
@@ -1194,7 +1198,7 @@ function lineasSii(f, i) {
     const factor = Sii.factorBruto(f), sinItem = f.detalle.filter(d => !d.item).length;
     const productos = `<div class="bloque-sii"><div class="titulo-fila"><b>Asignar productos ${info('Asignar productos', 'El documento trae el detalle de productos: elige el ítem de cada uno y los montos se calculan solos (los del SII vienen netos y se llevan al total real con IVA e impuestos).\nSi el ítem se reparte por área (por ejemplo MATERIA PRIMA), elige también el área de cada producto.')}</b><span class="${sinItem ? 'dif-mal' : 'sii-ok'}">${sinItem ? `${sinItem} sin ítem` : 'todos con ítem'}</span></div>
       ${f.detalle.map((d, di) => { const it = sii.items.find(x => x.item === d.item);
-        return `<div class="producto-sii"><div class="txt"><span class="desc">${esc(d.descripcion)}</span><span>${d.cantidad ? `${esc(Sii.fmtCantidad(d.cantidad, d.unidad))} a ${pesos(Math.abs(d.precioUnitario || 0) * factor)} · ` : ''}${pesos(Math.abs(d.monto) * factor)}${d.descuento ? ` · dto. ${pesos(Math.abs(d.descuento) * factor)}` : ''}</span></div>
+        return `<div class="producto-sii${d.sugerido ? ' con-sugerido' : ''}"><div class="txt"><span class="desc">${esc(d.descripcion)}${d.sugerido ? ` <span class="chip c-azul chip-chico" title="${d.sugerido.producto ? `Este producto: ${d.sugerido.n} de ${d.sugerido.de} veces` : 'Lo más usado con este proveedor'}">sugerido</span>` : ''}</span><span>${d.cantidad ? `${esc(Sii.fmtCantidad(d.cantidad, d.unidad))} a ${pesos(Math.abs(d.precioUnitario || 0) * factor)} · ` : ''}${pesos(Math.abs(d.monto) * factor)}${d.descuento ? ` · dto. ${pesos(Math.abs(d.descuento) * factor)}` : ''}</span></div>
           <div class="selects"><select data-det-item="${di}" aria-label="Ítem de ${esc(d.descripcion)}">${opcionesItems(d.item)}</select>
           ${it && it.area === 'SELECCIONAR' ? `<select data-det-area="${di}" aria-label="Área de ${esc(d.descripcion)}">${opcionesAreas(d.area)}</select>` : ''}</div></div>`; }).join('')}
       ${f.detalle.length > 1 ? `<div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" data-todo-det="item">Mismo ítem a todos</button><button type="button" class="btn-sec btn-chico" data-todo-det="area">Misma área a todos</button></div>` : ''}</div>`;
@@ -1257,11 +1261,11 @@ function eventosTrabajoSii(cont) {
   cont.addEventListener('change', e => {
     const t = e.target, art = t.closest('.doc-sii'); if (!art) return;
     const i = +art.dataset.i, f = sii.facturas[i];
-    if (t.dataset.lineaItem !== undefined) { const ln = f.lineas[+t.dataset.lineaItem]; ln.item = t.value; ln.sugerencia = ''; repintarDocSii(i); }
+    if (t.dataset.lineaItem !== undefined) { const ln = f.lineas[+t.dataset.lineaItem]; ln.item = t.value; ln.sugerencia = ''; f.sugerido = null; repintarDocSii(i); }
     else if (t.dataset.detItem !== undefined || t.dataset.detArea !== undefined) {
       const campo = t.dataset.detItem !== undefined ? 'item' : 'area';
       const d = f.detalle[+(t.dataset.detItem ?? t.dataset.detArea)];
-      d[campo] = t.value;
+      d[campo] = t.value; d.sugerido = null;
       // El área por producto solo vale para ítems que se reparten producto por producto
       if (campo === 'item') { const it = sii.items.find(x => x.item === d.item); if (!it || it.area !== 'SELECCIONAR') d.area = ''; }
       Sii.sincronizarLineasDesdeDetalle(f, sii.items); repintarDocSii(i);
@@ -1364,6 +1368,7 @@ async function importarSii(omitir) {
     listas.forEach(l => { const f = sii.facturas.find(x => Sii.clave(x) === Sii.clave(l)); if (f) f.yaImportada = true; });
     sii.hint = `<p class="sii-ok">Importado: ${r.facturas} ${r.facturas === 1 ? 'documento' : 'documentos'} · ${r.filas} ${r.filas === 1 ? 'línea' : 'líneas'} de gasto${r.vencimientos ? ` · ${r.vencimientos} ${r.vencimientos === 1 ? 'vencimiento' : 'vencimientos'}` : ''}${r.detalle ? ` · ${r.detalle} productos en Detalle Compras` : ''}</p>`;
     registrar('Importó documentos del SII', `${r.facturas} documento(s) · ${sii.nombre}`);
+    Sii.olvidarClasificacion();   // lo recién importado ya cuenta para las próximas sugerencias
     pintarTrabajoSii(); cargarHistorialSii();
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Importar las clasificadas'; }

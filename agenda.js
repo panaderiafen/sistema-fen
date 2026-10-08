@@ -9,7 +9,7 @@
 //  v0.16.0: etiquetas con color (config/agenda), fecha de término, repetir cada
 //  semana o cada mes (con días quitados y "hecho" por día) y copia a Google Calendar.
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, addDoc, getDoc, getDocs, setDoc, updateDoc, query, where, Timestamp, runTransaction } from './firebase.js?v=0.16.3';
+import { auth, db, collection, doc, addDoc, getDoc, getDocs, setDoc, updateDoc, query, where, Timestamp, runTransaction } from './firebase.js?v=0.17.0';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 const uid = () => (auth.currentUser && auth.currentUser.uid) || '';

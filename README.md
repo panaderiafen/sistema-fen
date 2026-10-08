@@ -1,9 +1,18 @@
-# Sistema Fën · v0.16.3
+# Sistema Fën · v0.17.0
 
-**App:** v0.16.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.6.0 · 8 de octubre de 2026
+**App:** v0.17.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.7.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.17.0: sugerencias al cargar del SII
+Al subir un archivo del SII, cada documento nuevo viene **clasificado como lo hiciste antes** (marcado "Sugerido…", para revisar):
+- **Por proveedor:** el ítem y el reparto por área que más usaste con ese RUT en los últimos 2 años, con las proporciones de la vez más reciente (por ejemplo ASEO, PAN 70% · BOL 30%). Dice cuántas veces de cuántas.
+- **Por producto** (XML o XLS con detalle): cada producto con el ítem y área que le pusiste antes a ese mismo producto de ese proveedor; si es nuevo, lo más usado con ese proveedor. Llevan la marca "sugerido".
+- Si cambias algo, la marca se va. Nada se importa sin que lo veas, y lo que importes queda como ejemplo para la próxima.
+- Necesita el **script de Gastos v2.7.0**; sin él, la carga funciona igual pero sin sugerencias (lo avisa).
+
+Archivos: cambian `sii.js`, `app.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.17.0**. Va con el **script de Gastos v2.7.0** (incluye la v2.6.0: si no la instalaste, instala directo esta). Incluye todo lo de la v0.16.x.
 
 ## Novedades de la v0.16.3
 - **Copiar mensaje** (Por facturar, varias órdenes): cada orden va con la fecha corta: "Orden N° 2536, pedido del 1 oct, 2026" (antes "… del 1 de octubre de 2026.").
@@ -52,7 +61,7 @@ Archivos: cambian `agenda.js`, `app.js`, `b2b.js`, `gastos.js`, `estilos.css`, `
 
 ### Instalación de la v0.16.0 (unos 10 minutos)
 1. **Script de Gastos v2.6.0 (Apps Script de Gastos):** sigue el README del zip `gastos-script-v2.6.0` (archivo nuevo `Calendario.gs`, dar el permiso de Google Calendar una vez, nueva versión de la implementación). El ping debe decir **2.6.0**.
-2. **GitHub, repo `sistema-fen`:** sube todos los archivos del zip. Abajo a la izquierda debe decir **v0.16.3**.
+2. **GitHub, repo `sistema-fen`:** sube todos los archivos del zip. Abajo a la izquierda debe decir **v0.17.0**.
 
 ### Lista de verificación
 - [ ] Agenda: aparecen los pagos de Gastos (vencidos en rojo suave) y los próximos pagos con borde punteado (el IVA, si está como obligación).

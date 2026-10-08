@@ -6,7 +6,7 @@
 //  Lo que se guarda pasa por el Apps Script de Gastos (SistemaFen.gs v1.2.0),
 //  que vuelve a revisar todo antes de escribir.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.16.3';
+import * as Gastos from './gastos.js?v=0.17.0';
 
 export const VERSION_MINIMA = '2.4.0';
 // v0.10.0: un documento se reconoce por RUT, folio y si es nota de crédito (tipo 61):
@@ -423,3 +423,55 @@ export const vincular = (f, c, idem) => llamar('sii_vincular', { rut: f.rut, fol
 export const notaDoc = (f, nota) => llamar('sii_nota_doc', { rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', razonSocial: f.razonSocial, nota });
 export const notaCarga = (id, nota) => llamar('sii_nota_carga', { id, nota });
 export const quitarCarga = id => llamar('sii_quitar_carga', { id });
+
+// ── v0.17.0 · Sugerencias: cómo clasificaste antes a ese proveedor y a ese producto (script de Gastos v2.7.0) ──
+export const VERSION_CLASIF = '2.7.0';
+let clasifCache = null;
+export async function clasificacion() {
+  if (!clasifCache || Date.now() - clasifCache.t > 600000) clasifCache = { t: Date.now(), d: await Gastos.llamar('sii_clasif', {}, null, VERSION_CLASIF) };
+  return clasifCache.d;
+}
+export const olvidarClasificacion = () => { clasifCache = null; };
+const rutClave = r => String(r || '').toUpperCase().replace(/[^0-9K]/g, '');
+const descClave = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 80);
+// Deja cada documento nuevo con lo sugerido (marcado, para revisar). No toca lo que ya tiene ítem.
+export function sugerir(facturas, clasif, ITEMS, AREAS) {
+  if (!clasif) return 0;
+  const activo = item => ITEMS.find(x => x.item === item), areaOk = a => AREAS.includes(a);
+  let n = 0;
+  facturas.forEach(f => {
+    if (f.yaImportada || f.esNotaCredito) return;
+    const rut = rutClave(f.rut), prov = (clasif.porRut || {})[rut], top = prov && prov.patrones && prov.patrones.find(p => p.lineas.every(l => activo(l.item)));
+    if (f.detalle && f.detalle.length) {
+      let sug = 0;
+      f.detalle.forEach(d => {
+        if (d.item) return;
+        const p = (d.codigo && clasif.productos[rut + '|c:' + descClave(d.codigo)]) || clasif.productos[rut + '|d:' + descClave(d.descripcion)];
+        let item = '', area = '', motivo = null;
+        if (p && activo(p[0])) { item = p[0]; area = p[1]; motivo = { producto: true, n: p[2], de: p[3] }; }
+        else if (top && top.lineas.length === 1) { const l = top.lineas[0]; item = l.item; area = l.areas.length === 1 ? l.areas[0].area : ''; motivo = { producto: false, n: top.n, de: prov.docs }; }
+        if (!item) return;
+        const it = activo(item);
+        d.item = item; d.area = it.area === 'SELECCIONAR' && areaOk(area) ? area : ''; d.sugerido = motivo; sug++;
+      });
+      if (sug) { sincronizarLineasDesdeDetalle(f, ITEMS); f.sugerido = { productos: sug, de: f.detalle.length }; n++; }
+      return;
+    }
+    if (!top || (f.lineas && (f.lineas.length > 1 || (f.lineas[0] && f.lineas[0].item)))) return;
+    const total = Math.abs(f.total), lineas = top.lineas.map(l => {
+      const it = activo(l.item), areas = l.areas.filter(a => areaOk(a.area));
+      const ln = { item: l.item, areas: [], modoArea: 'monto' };
+      if (top.lineas.length > 1) ln.monto = Math.round(total * l.parte);
+      if (necesitaAreas(it) && areas.length) {
+        ln.modoArea = 'pct'; ln.areas = areas.map(a => ({ area: a.area, valor: a.pct }));
+        const suma = ln.areas.reduce((s, a) => s + a.valor, 0); ln.areas[ln.areas.length - 1].valor += 100 - suma;
+      }
+      return ln;
+    });
+    if (lineas.length > 1) { const suma = lineas.reduce((s, l) => s + l.monto, 0); lineas[lineas.length - 1].monto += total - suma; }
+    f.lineas = lineas;
+    f.sugerido = { n: top.n, de: prov.docs, ultima: top.ultima };
+    n++;
+  });
+  return n;
+}
