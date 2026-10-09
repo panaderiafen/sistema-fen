@@ -673,3 +673,12 @@ a.ag-item { text-decoration: none; }
 /* v0.28.0 · folios con pedidos posteriores al pago */
 .mov-folio-post { opacity: .55; }
 .mov-folio-post.mov-folio-on { opacity: 1; }
+/* v0.29.0 · cobertura cartola y SII */
+.cob-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+@media (max-width: 700px) { .cob-dos { grid-template-columns: 1fr; } }
+.cob-tit { font-size: 13px; color: var(--suave); margin: 0 0 6px; text-transform: uppercase; letter-spacing: .04em; }
+.cob-fila { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--menu); margin-bottom: 6px; }
+.cob-fila span { font-size: 12px; color: var(--suave); }
+.cob-falta { color: var(--rojo-t); font-size: 12px; }
+.cob-meses { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.conc-sii { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--linea); }

@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.28.4';
-import * as Caja from './caja.js?v=0.28.4';
-import * as Stock from './stock.js?v=0.28.4';
-import * as Ajustes from './ajustes.js?v=0.28.4';
-import * as Apps from './apps.js?v=0.28.4';
-import * as Agenda from './agenda.js?v=0.28.4';
-import * as Gastos from './gastos.js?v=0.28.4';
-import * as Sii from './sii.js?v=0.28.4';
-import * as Previred from './previred.js?v=0.28.4';
-import * as B2b from './b2b.js?v=0.28.4';
-import * as Cartola from './cartola.js?v=0.28.4';
-import * as SiiFactura from './sii-factura.js?v=0.28.4';
-import * as PdfOrden from './pdf-orden.js?v=0.28.4';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.28.4';
+} from './firebase.js?v=0.29.0';
+import * as Caja from './caja.js?v=0.29.0';
+import * as Stock from './stock.js?v=0.29.0';
+import * as Ajustes from './ajustes.js?v=0.29.0';
+import * as Apps from './apps.js?v=0.29.0';
+import * as Agenda from './agenda.js?v=0.29.0';
+import * as Gastos from './gastos.js?v=0.29.0';
+import * as Sii from './sii.js?v=0.29.0';
+import * as Previred from './previred.js?v=0.29.0';
+import * as B2b from './b2b.js?v=0.29.0';
+import * as Cartola from './cartola.js?v=0.29.0';
+import * as SiiFactura from './sii-factura.js?v=0.29.0';
+import * as PdfOrden from './pdf-orden.js?v=0.29.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.29.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -316,7 +316,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.28.4" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.29.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -1057,6 +1057,8 @@ const fechaSii = iso => (iso ? fechaCaja(iso) : 'sin fecha');
 
 async function pintarSII(el, sub, d) {
   sii.items = d.itemsSii || d.items || [];
+  // v0.29.0: si la carga del SII estaba abierta en Conciliación, se cierra allá (una sola copia en la página)
+  cart.siiAbierto = false; const cs = document.getElementById('conc-sii'); if (cs) cs.remove();
   el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Todo lo de la app de Gastos, aquí</p></div>${pestanasGastos(sub)}</div>
     <section class="tarjeta" aria-labelledby="t-sii-subir">
       <div class="titulo-fila"><h2 id="t-sii-subir">Subir un archivo del SII ${info('Archivos del SII', 'Sirven tres archivos del SII (sección compras):\n• XML (Documentos recibidos → Descargar XML): el más completo, con detalle de productos, fecha de vencimiento y forma de pago.\n• XLS (Documentos recibidos): con detalle de productos, sin vencimiento.\n• CSV (Registro de Compras y Ventas): el mes completo, solo totales.\nAl subirlo se marca lo que ya está en Gastos, y una copia del archivo queda en Drive (carpeta "Cargas SII", privada) para volver a abrirlo desde el historial.')}</h2></div>
@@ -1081,7 +1083,7 @@ async function pintarSII(el, sub, d) {
 async function cargarHistorialSii() {
   try { sii.cargas = (await Sii.cargas()).cargas || []; sii.errorCargas = ''; }
   catch (e) { sii.errorCargas = e.message || mensajeError(e); sii.errorCode = e.code; }
-  pintarHistorialSii();
+  pintarHistorialSii(); repintarCobDos();
 }
 
 // ── Abrir un archivo ──
@@ -1785,7 +1787,7 @@ function pintarCartola(el, sub, dg) {
     ${cart.msg ? `<p class="ayuda" role="status">${cart.msg}</p>` : ''}${cart.err ? `<p class="error" role="alert">${esc(cart.err)}</p>${cart.errCode === 'actualizar' || cart.errCode === 'sin_url' ? '<p class="ayuda"><a href="#ajustes/conexiones">Ir a Conexiones</a></p>' : ''}` : ''}
     ${D ? coberturaCcHtml(D) : ''}</section>`;
   const conectarArriba = () => { if (compartida) conectarTarjetaConc(el, bd.conciliacion, () => pintarCartola(concEl(), 'cargos', cart.dg), async (id, fn) => { b2bConc.ocupado = id; b2bConc.error = ''; try { await fn(); } catch (e) { b2bConc.error = errorB2b(e); } b2bConc.ocupado = ''; pintarCartola(concEl(), 'cargos', cart.dg); }); else conectarSubida(el); };
-  if (!D) { el.innerHTML = cabConc('cargos') + subir + (cart.err ? '' : '<section class="tarjeta"><div class="vacio" style="border:0">Cargando los cargos…</div></section>'); conectarArriba(); return; }
+  if (!D) { el.innerHTML = cabConc('cargos') + subir + coberturaDosHtml(null) + (cart.err ? '' : '<section class="tarjeta"><div class="vacio" style="border:0">Cargando los cargos…</div></section>'); conectarArriba(); conectarCobDos(el); return; }
   const props = {}, pend = D.cargos.filter(c => c.estado === 'POR_REVISAR'), hechos = D.cargos.filter(c => c.estado !== 'POR_REVISAR');
   pend.forEach(c => { props[c.id] = Cartola.proponer(c, D); });
   const listos = pend.filter(c => props[c.id] && props[c.id].seguro && !cart.modo[c.id]), revisar = pend.filter(c => !listos.includes(c));
@@ -1793,12 +1795,66 @@ function pintarCartola(el, sub, dg) {
       <div class="acciones">${auto ? `<span class="mov-prop">${textoProp(p)}</span><button type="button" class="btn btn-chico" data-cc-auto="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${cart.abierto === c.id ? editorCargo(c, p, dg) : ''}</details>`; };
   const seccion = (k, titulo, l, ayuda, extra = '') => `<details class="tarjeta plegable" data-plegar="cc-${k}" ${plegadas()['cc-' + k] === true && l.length ? '' : 'open'}><summary class="titulo-fila"><h2>${titulo}</h2><span>${l.length} ${l.length === 1 ? 'cargo' : 'cargos'} · ${pesos(l.reduce((s, c) => s + c.monto, 0))}</span></summary>
     ${l.length ? `<p class="ayuda">${ayuda}</p>${extra}${l.map(fila).join('')}` : '<div class="vacio" style="border:0">Nada aquí.</div>'}</details>`;
-  el.innerHTML = cabConc('cargos') + subir
+  el.innerHTML = cabConc('cargos') + subir + coberturaDosHtml(D)
     + seccion('listos', 'Listos para confirmar', listos, 'Se reconoció qué es cada uno (por lo aprendido, el RUT de la transferencia o un gasto del mismo monto). Revisa y confirma; si alguno no corresponde, ábrelo para cambiarlo.', listos.length > 1 ? `<div class="botones" style="justify-content:flex-start;margin:4px 0 8px"><button type="button" class="btn btn-chico" id="cc-todos" ${cart.ocupado ? 'disabled' : ''}>Confirmar los ${listos.length} · ${pesos(listos.reduce((s, c) => s + c.monto, 0))}</button></div>` : '')
     + seccion('revisar', 'Para revisar', revisar, 'Ábrelo y elige qué es: los vencimientos por pagar más cercanos a la fecha aparecen primero.')
     + avisosCcHtml(D, props) + histCcHtml(hechos) + reglasCcHtml(D)
     + `<p class="nota-i">(i) Pagar un vencimiento aquí hace lo mismo que en Vencimientos (crea el gasto o completa el de la compra a crédito), con la fecha del banco. Cada gasto y cada vencimiento queda con la columna "Cartola" en la planilla: de qué cartola, cuenta y operación salió el pago, cuándo se subió y, si era una factura del SII, de qué carga venía. Deshacer no borra nada: el cargo vuelve a revisar, el vencimiento queda por pagar y un gasto creado aquí pasa a "Gastos anulados".</p>`;
-  conectarArriba(); conectarCartola(el, dg, props, listos);
+  conectarArriba(); conectarCartola(el, dg, props, listos); conectarCobDos(el);
+}
+// ── v0.29.0 · Cobertura de la cartola y de las cargas del SII, lado a lado (Conciliación → Cargos) ──
+// Meses desde la primera carga del SII hasta hoy: con carga (hasta qué día llegan sus documentos) o sin carga
+function coberturaSii(cargas, hoy = Caja.diaLocal()) {
+  const iv = (cargas || []).filter(c => /^\d{4}-\d{2}-\d{2}/.test(String(c.desde || ''))).map(c => [String(c.desde).slice(0, 10), String(c.hasta || c.desde).slice(0, 10), c]);
+  if (!iv.length) return null;
+  const desde = iv.map(x => x[0]).sort()[0], hasta = iv.map(x => x[1]).sort().pop(), meses = [];
+  const sig = m => { const [y, mm] = m.split('-').map(Number); return mm === 12 ? `${y + 1}-01` : `${y}-${String(mm + 1).padStart(2, '0')}`; };
+  for (let m = desde.slice(0, 7); m <= hoy.slice(0, 7) && meses.length < 36; m = sig(m)) {
+    const ini = m + '-01', fin = Caja.diaLocal(new Date(Number(m.slice(0, 4)), Number(m.slice(5)), 0));
+    const cs = iv.filter(([a, b]) => a <= fin && b >= ini);
+    const pend = cs.reduce((x, [, , c]) => x + Math.max(0, (+c.total || 0) - (+c.importados || 0)), 0);
+    meses.push({ mes: m, carga: cs.length > 0, hasta: cs.length ? cs.map(([, b]) => (b > fin ? fin : b)).sort().pop() : null, pend });
+  }
+  return { desde, hasta, meses: meses.slice(-6), pend: meses.reduce((x, mm) => x + mm.pend, 0) };
+}
+function coberturaDosHtml(D) {
+  const fd = f => (f ? diaTexto(f) + ' ' + f.slice(0, 4) : '?');
+  const cob = D ? Cartola.coberturaPorCuenta(D.cartolas, B2b.coberturaCartolas) : {}, ks = Object.keys(cob);
+  const cart_ = ks.map(k => { const c = cob[k]; return `<div class="cob-fila"><span>${esc(B2b.NOMBRE_CUENTA[k] || k)}</span><b>${c.desde ? `del ${esc(fd(c.desde))} al ${esc(fd(c.hasta))}` : 'sin cartola'}</b>${c.huecos.length ? `<small class="cob-falta">Falta: ${c.huecos.map(h => h[0] === h[1] ? esc(fd(h[0])) : `${esc(fd(h[0]))} al ${esc(fd(h[1]))}`).join(' · ')}</small>` : ''}</div>`; }).join('') || '<div class="cob-fila"><span>Cartola</span><b>todavía no se sube</b></div>';
+  const S = sii.cargas ? coberturaSii(sii.cargas) : null;
+  const nombreMes = m => { const [y, mm] = m.split('-'); return MESES_LARGOS[Number(mm) - 1].slice(0, 3) + ' ' + y; };
+  const sii_ = !sii.cargas ? `<div class="cob-fila"><span>Cargas del SII</span><b>${sii.errorCargas ? esc(sii.errorCargas) : 'leyendo…'}</b></div>`
+    : !S ? '<div class="cob-fila"><span>Cargas del SII</span><b>todavía no hay cargas</b></div>'
+    : `<div class="cob-fila"><span>Cargas del SII</span><b>documentos hasta el ${esc(fd(S.hasta))}</b>${S.pend ? `<small class="cob-falta">${S.pend} ${S.pend === 1 ? 'documento' : 'documentos'} por importar a Gastos</small>` : ''}</div>
+      <div class="cob-meses">${S.meses.map(m => `<span class="chip chip-chico ${!m.carga ? 'c-rojo' : m.pend ? 'c-amarillo' : 'c-verde'}" title="${m.carga ? 'Documentos hasta el ' + esc(fd(m.hasta)) : 'Sin carga del SII'}">${esc(nombreMes(m.mes))}${!m.carga ? ' · sin carga' : m.pend ? ' · ' + m.pend + ' por importar' : ''}</span>`).join('')}</div>`;
+  // ¿La cartola llega más lejos que el SII? Los pagos de esos días aún no tienen su factura para cruzar
+  const hc = ks.map(k => cob[k].hasta).filter(Boolean).sort().pop();
+  const aviso = S && hc && S.hasta < hc ? `<p class="aviso-cc">La cartola llega hasta el ${esc(fd(hc))} y las cargas del SII hasta el ${esc(fd(S.hasta))}: carga del SII lo que falta para cruzar esos pagos con sus facturas.</p>` : '';
+  return `<section class="tarjeta" aria-labelledby="t-cob-dos"><div class="titulo-fila"><h2 id="t-cob-dos">Qué está cubierto ${info('Cartola y SII', 'Hasta dónde llegan la cartola (por cuenta) y las cargas del SII (por mes de los documentos).\nPara cruzar bien los cargos con las facturas, los dos deberían cubrir las mismas fechas.\n"Cargar del SII" es la misma carga de Gastos → Cargas del SII: clasificas e importas aquí mismo.')}</h2>
+      <button type="button" class="btn-sec btn-chico" id="cob-sii-abrir" aria-expanded="${!!cart.siiAbierto}">${cart.siiAbierto ? 'Cerrar la carga del SII' : 'Cargar del SII'}</button></div>
+    <div class="cob-dos"><div><h3 class="cob-tit">Cartola</h3>${cart_}</div><div><h3 class="cob-tit">SII</h3>${sii_}</div></div>${aviso}
+    ${cart.siiAbierto ? `<div id="conc-sii" class="conc-sii"><div class="campo"><label for="sii-archivo">Archivo del SII (XML, XLS o CSV)</label><input id="sii-archivo" type="file" accept=".xml,.xls,.xlsx,.csv,.txt,.html,text/xml,application/xml,text/csv"></div>
+      <div id="sii-msg" class="ayuda" role="status"></div><div id="sii-trabajo"></div><p class="ayuda"><a href="#gastos/sii">Ver el historial de cargas en Gastos</a></p></div>` : ''}</section>`;
+}
+// Conecta la tarjeta: abrir/cerrar la carga del SII aquí (los mismos elementos que en Gastos → Cargas del SII)
+function conectarCobDos(el) {
+  const b = el.querySelector('#cob-sii-abrir');
+  if (b) b.addEventListener('click', () => { cart.siiAbierto = !cart.siiAbierto; pintarCartola(concEl(), 'cargos', cart.dg); });
+  if (!sii.cargas && !sii.cargasPidiendo && !sii.errorCargas) { sii.cargasPidiendo = true; Sii.cargas().then(r => { sii.cargas = r.cargas || []; sii.errorCargas = ''; }).catch(e => { sii.errorCargas = e.message || mensajeError(e); }).finally(() => { sii.cargasPidiendo = false; repintarCobDos(); }); }
+  if (!cart.siiAbierto || !$('conc-sii')) return;
+  // Una sola copia de estos elementos en la página: la de Gastos se vacía
+  const vg = $('v-gastos'); if (vg && vg.querySelector('#sii-archivo')) vg.innerHTML = '';
+  if (cart.dg) sii.items = cart.dg.itemsSii || cart.dg.items || sii.items || [];
+  $('sii-archivo').addEventListener('change', e => { const f = e.target.files[0]; if (f) leerArchivoSii(f); e.target.value = ''; });
+  eventosTrabajoSii($('sii-trabajo'));
+  pintarTrabajoSii();
+}
+// Solo la parte de cobertura (después de una carga del SII o al llegar el historial)
+function repintarCobDos() {
+  const t = document.getElementById('t-cob-dos'); if (!t || !enConc('cargos')) return;
+  const sec = t.closest('section'), abierta = $('conc-sii');
+  if (abierta) { const h = document.createElement('div'); h.innerHTML = coberturaDosHtml(cart.d); const nueva = h.firstElementChild; nueva.replaceChild(abierta, nueva.querySelector('#conc-sii')); sec.replaceWith(nueva); const b = nueva.querySelector('#cob-sii-abrir'); b.addEventListener('click', () => { cart.siiAbierto = false; pintarCartola(concEl(), 'cargos', cart.dg); }); }
+  else { sec.outerHTML = coberturaDosHtml(cart.d); conectarCobDos(concEl()); }
 }
 function coberturaCcHtml(D) {
   const cob = Cartola.coberturaPorCuenta(D.cartolas, B2b.coberturaCartolas), ks = Object.keys(cob);

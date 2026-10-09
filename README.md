@@ -1,9 +1,24 @@
-# Sistema Fën · v0.28.4
+# Sistema Fën · v0.29.0
 
-**App:** v0.28.4 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
+**App:** v0.29.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.29.0: cartola y SII lado a lado en Conciliación → Cargos
+- **Nueva tarjeta "Qué está cubierto"** en Conciliación → Cargos, con dos columnas:
+  - **Cartola:** hasta dónde está revisada cada cuenta y los días que faltan.
+  - **SII:** hasta qué fecha llegan los documentos cargados y cuántos faltan por importar a Gastos. Además, los últimos meses como etiquetas: verde (cargado), amarillo (con documentos por importar), rojo (mes sin carga).
+- Si la cartola llega más lejos que las cargas del SII, avisa: los pagos de esos días aún no tienen su factura para cruzar.
+- **Botón "Cargar del SII"** en la misma tarjeta. Abre aquí mismo la carga de Gastos → Cargas del SII: subes el archivo, clasificas e importas sin salir de Conciliación. Al terminar, la cobertura se actualiza sola.
+- **Cargas del SII sigue en Gastos** como siempre, con su historial. Es la misma carga, no una copia: si la abres en un lugar, se cierra en el otro.
+
+Archivos: cambian `app.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.29.0**. No cambian las reglas ni los scripts. Incluye la v0.28.x.
+
+### Lista de verificación v0.29.0
+- [ ] Conciliación → Cargos muestra "Qué está cubierto" con la cartola de cada cuenta y las cargas del SII por mes.
+- [ ] "Cargar del SII": sube un archivo del SII, clasifica e importa. Al terminar, la tarjeta muestra los nuevos documentos.
+- [ ] Gastos → Cargas del SII sigue igual.
 
 ## Novedades de la v0.28.4: menos gracia en la cobranza
 La gracia depende de cómo factura el cliente (Clientes → Facturación):
