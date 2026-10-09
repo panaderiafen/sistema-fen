@@ -1,9 +1,16 @@
-# Sistema Fën · v0.24.2
+# Sistema Fën · v0.24.3
 
-**App:** v0.24.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
+**App:** v0.24.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.24.3: "Ya estaba registrado" también aprende el cliente
+- En Conciliación → Abonos, si eliges el cliente de un abono "Sin cliente" y después tocas **Ya estaba registrado**, ahora también queda aprendido quién pagó, igual que al confirmar. La próxima cartola lo reconoce sola. La ventana lo dice: "Queda aprendido que este abono es de …".
+- Antes solo se aprendía al confirmar un pago, por eso el mismo pagador volvía a salir "Sin cliente".
+- Si algo no se puede guardar en la conciliación, ahora aparece un aviso en pantalla (antes el error quedaba solo arriba, en la tarjeta de la cartola).
+
+Archivos: cambian `app.js`, `b2b.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.24.3**. Incluye la v0.24.0 a v0.24.2 (si no instalaste la v0.24.2, reinstala el botón "Llenar factura Fën").
 
 ## Novedades de la v0.24.2: referencias más ordenadas en facturas de más de 3 órdenes
 - **De 1 a 3 órdenes:** igual que antes, una Nota de pedido por orden, con su N° y su fecha.

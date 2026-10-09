@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.24.2';
-import * as Caja from './caja.js?v=0.24.2';
-import * as Stock from './stock.js?v=0.24.2';
-import * as Ajustes from './ajustes.js?v=0.24.2';
-import * as Apps from './apps.js?v=0.24.2';
-import * as Agenda from './agenda.js?v=0.24.2';
-import * as Gastos from './gastos.js?v=0.24.2';
-import * as Sii from './sii.js?v=0.24.2';
-import * as Previred from './previred.js?v=0.24.2';
-import * as B2b from './b2b.js?v=0.24.2';
-import * as Cartola from './cartola.js?v=0.24.2';
-import * as SiiFactura from './sii-factura.js?v=0.24.2';
-import * as PdfOrden from './pdf-orden.js?v=0.24.2';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.24.2';
+} from './firebase.js?v=0.24.3';
+import * as Caja from './caja.js?v=0.24.3';
+import * as Stock from './stock.js?v=0.24.3';
+import * as Ajustes from './ajustes.js?v=0.24.3';
+import * as Apps from './apps.js?v=0.24.3';
+import * as Agenda from './agenda.js?v=0.24.3';
+import * as Gastos from './gastos.js?v=0.24.3';
+import * as Sii from './sii.js?v=0.24.3';
+import * as Previred from './previred.js?v=0.24.3';
+import * as B2b from './b2b.js?v=0.24.3';
+import * as Cartola from './cartola.js?v=0.24.3';
+import * as SiiFactura from './sii-factura.js?v=0.24.3';
+import * as PdfOrden from './pdf-orden.js?v=0.24.3';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.24.3';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -316,7 +316,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.24.2" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.24.3" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -3655,7 +3655,7 @@ function pintarB2bConciliacion(el, sub) {
     delete b2bConc.edit[id]; delete b2bConc.forzados[id]; delete b2bConc.favor[id]; b2bConc.hist = null;
     registrar('Concilió abono', `${pesos(m.monto)} · ${p.cliente} · ${asign.filter(a => Number(a.monto) > 0).map(a => 'folio ' + a.folio).join(', ') || 'sin folio'}${aFavor ? ` · ${pesos(sobra)} a favor` : ''}`);
   };
-  const ocupado = async (id, fn) => { b2bConc.ocupado = id; b2bConc.error = ''; repintar(); try { await fn(); B2b.pasarAPlanilla().catch(() => {}); } catch (e) { b2bConc.error = errorB2b(e); } b2bConc.ocupado = ''; repintar(); };
+  const ocupado = async (id, fn) => { b2bConc.ocupado = id; b2bConc.error = ''; repintar(); try { await fn(); B2b.pasarAPlanilla().catch(() => {}); } catch (e) { b2bConc.error = errorB2b(e); alert('No se pudo: ' + b2bConc.error); } b2bConc.ocupado = ''; repintar(); };
   el.querySelectorAll('[data-mov-auto]').forEach(b => b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); ocupado(b.dataset.movAuto, () => confirmar(b.dataset.movAuto, false)); }));
   el.querySelectorAll('[data-mov-ok]').forEach(b => b.addEventListener('click', () => ocupado(b.dataset.movOk, () => confirmar(b.dataset.movOk, true))));
   if ($('conc-todos')) $('conc-todos').addEventListener('click', () => ocupado('todos', async () => {
@@ -3718,11 +3718,13 @@ function pintarB2bConciliacion(el, sub) {
     inp.addEventListener('change', () => { b2bConc.abierto = inp.dataset.movMonto; repintar(); });
   });
   el.querySelectorAll('[data-mov-rev]').forEach(b => b.addEventListener('click', async () => {
-    const id = b.dataset.movRev, m = d.movimientos.find(x => x.id === id);
-    const r = await pedirDatos('Ya estaba registrado', `<p class="ayuda">${pesos(m.monto)} · ${esc(m.descripcion)} (${esc(diaTexto(m.fecha))})</p><p class="ayuda">No se registra ningún pago: el abono queda como revisado (por ejemplo, un pago que ya anotaste a mano o un anticipo).</p>
+    const id = b.dataset.movRev, m = d.movimientos.find(x => x.id === id), p = props[id] || {};
+    // Si elegiste el cliente a mano (o se adivinó por parte del nombre), queda aprendido igual que al confirmar
+    const cli = p.clienteId && (p.por === 'manual' || p.por === 'nombre-parcial') ? (d.clientes.find(c => c.id === p.clienteId) || null) : null;
+    const r = await pedirDatos('Ya estaba registrado', `<p class="ayuda">${pesos(m.monto)} · ${esc(m.descripcion)} (${esc(diaTexto(m.fecha))})</p><p class="ayuda">No se registra ningún pago: el abono queda como revisado (por ejemplo, un pago que ya anotaste a mano o un anticipo).${cli ? ` Queda aprendido que este abono es de <b>${esc(cli.nombre)}</b>, para la próxima cartola.` : ''}</p>
       <div class="campo"><label for="pd-nota">Nota (opcional)</label><input id="pd-nota" maxlength="200" placeholder="Ej: ya registrado el folio 5512"></div>`, 'Marcar revisado', dd => ({ nota: dd.querySelector('#pd-nota').value }));
     if (!r) return;
-    ocupado(id, async () => { await B2b.marcarMovimiento(id, 'revisado', r.nota); b2bConc.hist = null; registrar('Abono de cartola revisado', `${pesos(m.monto)} · ${m.descripcion}`); });
+    ocupado(id, async () => { await B2b.marcarMovimiento(id, 'revisado', r.nota, '', cli); delete b2bConc.forzados[id]; b2bConc.hist = null; registrar('Abono de cartola revisado', `${pesos(m.monto)} · ${m.descripcion}`); });
   }));
   el.querySelectorAll('[data-mov-ign]').forEach(b => b.addEventListener('click', async () => {
     const id = b.dataset.movIgn, m = d.movimientos.find(x => x.id === id), patron = B2b.normCartola(m.descripcion).replace(/^(TEF( BANCOESTADO)?( DE)+)\s*/, '');

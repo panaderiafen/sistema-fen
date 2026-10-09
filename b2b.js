@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.24.2';
-import * as FB from './firebase-b2b.js?v=0.24.2';
-import * as Apps from './apps.js?v=0.24.2';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.24.2';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.24.3';
+import * as FB from './firebase-b2b.js?v=0.24.3';
+import * as Apps from './apps.js?v=0.24.3';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.24.3';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1390,17 +1390,20 @@ export async function guardarRitmo(dias) {
   uso.escrituras++;
 }
 // "Ya estaba registrado" (revisado) o "No es de B2B" (ignorado); con patrón, se ignoran siempre los que lo digan
-export async function marcarMovimiento(movId, estado, nota, patron) {
+// v0.24.3: "Ya estaba registrado" con un cliente elegido a mano: también se aprende quién pagó (para la próxima cartola)
+export async function marcarMovimiento(movId, estado, nota, patron, cliente) {
   const db = await dbOk();
   if (!['revisado', 'ignorado'].includes(estado)) throw new Error('Estado no válido.');
   await FB.runTransaction(db, async tx => {
     const mref = FB.doc(db, 'movimientos', movId), ms = await tx.get(mref);
     if (!ms.exists() || ms.data().estado !== 'pendiente') throw new Error('Ese movimiento ya se resolvió.');
-    const cref = FB.doc(db, 'config', 'conciliacion'), cs = patron ? await tx.get(cref) : null;
+    const aprender = estado === 'revisado' && cliente && cliente.id && ms.data().descNorm;
+    const cref = FB.doc(db, 'config', 'conciliacion'), cs = patron || aprender ? await tx.get(cref) : null;
+    if (aprender) { const c = configConciliacion(cs.exists() ? cs.data() : null), dn = ms.data().descNorm; tx.set(cref, { ...(cs.exists() ? cs.data() : {}), ignorar: c.ignorar, equivalencias: c.equivalencias.filter(e => e.desc !== dn).concat([{ desc: dn, clienteId: cliente.id, nombre: cliente.nombre || '' }]).slice(-500) }); }
     if (patron) { const c = configConciliacion(cs.exists() ? cs.data() : null), p = normCartola(patron); if (p.length < 4) throw new Error('El texto a ignorar es muy corto.'); tx.set(cref, { ...(cs.exists() ? cs.data() : {}), equivalencias: c.equivalencias, ignorar: [...new Set(c.ignorar.concat([p]))] }); }
-    tx.update(mref, { estado, nota: String(nota || '').trim().slice(0, 200) || null, resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: estado === 'revisado' || !!ms.data().deshechos });   // deshecho antes: su fila del historial se corrige
+    tx.update(mref, { estado, nota: String(nota || '').trim().slice(0, 200) || null, ...(cliente && cliente.id && estado === 'revisado' ? { clienteId: cliente.id, cliente: cliente.nombre || '', aprendido: !!aprender } : {}), resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: estado === 'revisado' || !!ms.data().deshechos });   // deshecho antes: su fila del historial se corrige
   });
-  uso.escrituras += patron ? 2 : 1;
+  uso.escrituras += patron || cliente ? 2 : 1;
 }
 
 // ── Una sola vez: traer lo ya conciliado en la app antigua (historial, lo aprendido, lo ignorado y lo pendiente) ──
