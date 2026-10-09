@@ -1,9 +1,26 @@
-# Sistema Fën · v0.26.0
+# Sistema Fën · v0.27.0
 
-**App:** v0.26.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
+**App:** v0.27.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.27.0: RUT de quien transfiere (archivo "Transferencias recibidas")
+La cartola no trae el RUT de quien transfiere: solo la descripción, que el banco corta ("TEF DE PROSUMER SPA"). El archivo de BancoEstado **"Consulta de transferencias recibidas"** sí lo trae, junto con el nombre completo y el banco.
+- **Se sube por el mismo botón** de Conciliación ("Elegir cartola"). Sistema Fën reconoce solo qué archivo es.
+- Cada abono de la cartola se cruza con su transferencia por cuenta, monto y día (o ±1 día). Si hay dos iguales, desempata por el nombre. El abono muestra: "Transfirió: NOMBRE COMPLETO · RUT · Banco · hora".
+- **Si el RUT es el de un cliente** (Clientes → RUT), el abono se reconoce solo. El RUT pesa más que lo aprendido por el nombre.
+- **Si el RUT no es de ningún cliente** (por ejemplo, paga el dueño con su cuenta personal), al elegir el cliente y confirmar se aprende ese RUT. La próxima vez se reconoce solo.
+- Se guardan las transferencias de los últimos 180 días, en la base de B2B (no en GitHub). Subir el mismo archivo otra vez no repite nada.
+- Lo práctico: baja el archivo de transferencias con las mismas fechas de la cartola y súbelo **después** de la cartola, o antes: el cruce se hace igual.
+
+Archivos: cambian `app.js`, `b2b.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.27.0**. No cambian las reglas ni los scripts. Incluye la v0.26.0, la v0.25.0 y la v0.24.x.
+
+### Lista de verificación v0.27.0
+- [ ] Subir el archivo de transferencias recibidas: el mensaje dice cuántas transferencias trae y cuántas son nuevas.
+- [ ] Los abonos de "Sin cliente" muestran "Transfirió: … · RUT …".
+- [ ] Un abono de un cliente con RUT en Clientes pasa a "Listos para confirmar" o a "Para revisar" con su nombre.
+- [ ] Elegir el cliente de uno con RUT desconocido y confirmar. La próxima vez que aparezca ese RUT, se reconoce solo.
 
 ## Novedades de la v0.26.0: pagos por orden dentro de un folio
 Para los clientes que pagan por pedido aunque la factura junte varias órdenes.
