@@ -1,16 +1,22 @@
-# Sistema Fën · v0.28.3
+# Sistema Fën · v0.28.4
 
-**App:** v0.28.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
+**App:** v0.28.4 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
 
-## Novedades de la v0.28.3: gracia de 1 día para la facturación semanal
-- Los clientes con **facturación semanal** (Clientes → Facturación "Semanal") tienen **1 día de gracia**: la factura del sábado entra a cobranza el lunes si no está pagada (si se facturó el domingo, el martes).
-- Facturación diaria y mensual: siguen con 3 días de gracia. Los que pagan a 30 días: sin gracia, desde el día 31.
-- La Agenda ("Entran a cobranza si no pagan") usa la misma regla.
+## Novedades de la v0.28.4: menos gracia en la cobranza
+La gracia depende de cómo factura el cliente (Clientes → Facturación):
+- **Diaria y semanal: 1 día.** Si la factura no está pagada, al **2.º día** ya está en cobranza:
+  - factura del lunes → en cobranza el miércoles;
+  - factura del sábado → en cobranza el lunes.
+- **Mensual: 3 días** (sin cambio).
+- **Los que pagan a 30 días:** sin gracia, desde el día 31.
+- Un cliente sin facturación anotada se trata como diaria.
 
-Archivos: cambian `app.js`, `b2b.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.28.3**. Incluye la v0.28.2.
+La Agenda ("Entran a cobranza si no pagan") y el (i) de Cobranza usan la misma regla.
+
+Archivos: cambian `app.js`, `b2b.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.28.4**. Incluye la v0.28.2.
 
 ## Novedades de la v0.28.2: recordatorios de cobranza
 - **Tono amable:** igual que antes (folios, fechas y saldos, sin días de atraso).

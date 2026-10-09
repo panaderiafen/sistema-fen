@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.28.3';
-import * as Caja from './caja.js?v=0.28.3';
-import * as Stock from './stock.js?v=0.28.3';
-import * as Ajustes from './ajustes.js?v=0.28.3';
-import * as Apps from './apps.js?v=0.28.3';
-import * as Agenda from './agenda.js?v=0.28.3';
-import * as Gastos from './gastos.js?v=0.28.3';
-import * as Sii from './sii.js?v=0.28.3';
-import * as Previred from './previred.js?v=0.28.3';
-import * as B2b from './b2b.js?v=0.28.3';
-import * as Cartola from './cartola.js?v=0.28.3';
-import * as SiiFactura from './sii-factura.js?v=0.28.3';
-import * as PdfOrden from './pdf-orden.js?v=0.28.3';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.28.3';
+} from './firebase.js?v=0.28.4';
+import * as Caja from './caja.js?v=0.28.4';
+import * as Stock from './stock.js?v=0.28.4';
+import * as Ajustes from './ajustes.js?v=0.28.4';
+import * as Apps from './apps.js?v=0.28.4';
+import * as Agenda from './agenda.js?v=0.28.4';
+import * as Gastos from './gastos.js?v=0.28.4';
+import * as Sii from './sii.js?v=0.28.4';
+import * as Previred from './previred.js?v=0.28.4';
+import * as B2b from './b2b.js?v=0.28.4';
+import * as Cartola from './cartola.js?v=0.28.4';
+import * as SiiFactura from './sii-factura.js?v=0.28.4';
+import * as PdfOrden from './pdf-orden.js?v=0.28.4';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.28.4';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -316,7 +316,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.28.3" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.28.4" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -3061,7 +3061,7 @@ function pintarB2bCobranza(el, sub) {
     : nMov ? `<p class="aviso-cc">Hay ${nMov} ${nMov === 1 ? 'abono' : 'abonos'} de la cartola por revisar: puede que alguien de aquí ya haya pagado. <a href="#conciliacion">Revisar</a></p>`
     : `<p class="ayuda nota-cartola">${cob.revisado ? `Transferencias revisadas hasta el ${fecha(cob.revisado)}.` : 'Todavía no se concilia ninguna cartola.'} <a href="#conciliacion">Conciliación</a></p>`;
   el.innerHTML = cabB2b(sub) + `
-    <section class="tarjeta" aria-labelledby="t-cob"><div class="titulo-fila"><h2 id="t-cob">Cobranza ${info('Cobranza', 'Cada folio vence el día de la factura (clientes que pagan diario, semanal o mensual) o 30 días después (los que pagan a 30 días; se cambia en Clientes → Frecuencia de pago).\nPasa a cobranza si no está pagado al 4.º día después del vencimiento (3 días de gracia). Los que facturan semanal tienen 1 día de gracia: facturados el sábado, el lunes ya están en cobranza. Los de 30 días, al día siguiente del vencimiento, sin gracia.\nEl recordatorio lleva los folios en cobranza con su fecha y saldo. Tono amable para el primero; el firme se propone desde el segundo.\nCompromiso de pago: el cliente sale de la lista hasta ese día. Dice que ya pagó: sale hasta que concilies una cartola que llegue a ese día.\nUn recordatorio nuevo deja sin efecto el compromiso anterior. Todo queda en las gestiones del cliente; nada se borra.')}</h2>
+    <section class="tarjeta" aria-labelledby="t-cob"><div class="titulo-fila"><h2 id="t-cob">Cobranza ${info('Cobranza', 'Cada folio vence el día de la factura (clientes que pagan diario, semanal o mensual) o 30 días después (los que pagan a 30 días; se cambia en Clientes → Frecuencia de pago).\nGracia según cómo factura el cliente (Clientes → Facturación): diaria y semanal, 1 día (al 2.º día después de la factura ya está en cobranza; la del sábado, el lunes); mensual, 3 días. Los que pagan a 30 días, al día siguiente del vencimiento, sin gracia.\nEl recordatorio lleva los folios en cobranza con su fecha y saldo. Tono amable para el primero; el firme se propone desde el segundo.\nCompromiso de pago: el cliente sale de la lista hasta ese día. Dice que ya pagó: sale hasta que concilies una cartola que llegue a ese día.\nUn recordatorio nuevo deja sin efecto el compromiso anterior. Todo queda en las gestiones del cliente; nada se borra.')}</h2>
       <button type="button" class="btn-link" data-msj-editar>Datos para transferir</button></div>
       ${aviso}
       <div class="cifras cifras-3" style="margin-top:10px"><div class="tarjeta cifra"><span class="rotulo">En cobranza</span><span class="valor" style="color:var(--rojo-t)">${pesos(sum(cob.cobrar))}</span><span class="nota">${cob.cobrar.length} ${cob.cobrar.length === 1 ? 'cliente' : 'clientes'}</span></div>
