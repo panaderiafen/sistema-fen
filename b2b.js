@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.28.2';
-import * as FB from './firebase-b2b.js?v=0.28.2';
-import * as Apps from './apps.js?v=0.28.2';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.28.2';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.28.3';
+import * as FB from './firebase-b2b.js?v=0.28.3';
+import * as Apps from './apps.js?v=0.28.3';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.28.3';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1796,7 +1796,8 @@ export function armarCobranza(porCliente, clientes, docs, conf, hoy = hoyTxt()) 
   const out = { cobrar: [], esperando: [], alDia: [], revisado };
   Object.entries(porCliente || {}).forEach(([cid, fs]) => {
     const c = (clientes || []).find(x => x.id === cid) || { id: cid, nombre: (fs[0] && fs[0].cliente) || cid };
-    const plazo = plazoCliente(c), gracia = plazo ? 0 : GRACIA_COBRANZA;
+    // v0.28.3: facturación semanal (sábado) → 1 día de gracia (el lunes ya está en cobranza); 30 días → sin gracia
+    const plazo = plazoCliente(c), gracia = plazo ? 0 : /^seman/i.test(String(c.facturacion || '').trim()) ? 1 : GRACIA_COBRANZA;
     const folios = fs.map(f => {
       const vence = f.fecha ? masDiasB(f.fecha, plazo) : '', desde = vence ? masDiasB(vence, gracia + 1) : '';
       return { ...f, vence, cobrarDesde: desde, atraso: vence ? Math.max(0, diasEntre(vence, hoy)) : 0, enCobranza: !desde || hoy >= desde };
