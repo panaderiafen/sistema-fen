@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.28.0';
-import * as Caja from './caja.js?v=0.28.0';
-import * as Stock from './stock.js?v=0.28.0';
-import * as Ajustes from './ajustes.js?v=0.28.0';
-import * as Apps from './apps.js?v=0.28.0';
-import * as Agenda from './agenda.js?v=0.28.0';
-import * as Gastos from './gastos.js?v=0.28.0';
-import * as Sii from './sii.js?v=0.28.0';
-import * as Previred from './previred.js?v=0.28.0';
-import * as B2b from './b2b.js?v=0.28.0';
-import * as Cartola from './cartola.js?v=0.28.0';
-import * as SiiFactura from './sii-factura.js?v=0.28.0';
-import * as PdfOrden from './pdf-orden.js?v=0.28.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.28.0';
+} from './firebase.js?v=0.28.1';
+import * as Caja from './caja.js?v=0.28.1';
+import * as Stock from './stock.js?v=0.28.1';
+import * as Ajustes from './ajustes.js?v=0.28.1';
+import * as Apps from './apps.js?v=0.28.1';
+import * as Agenda from './agenda.js?v=0.28.1';
+import * as Gastos from './gastos.js?v=0.28.1';
+import * as Sii from './sii.js?v=0.28.1';
+import * as Previred from './previred.js?v=0.28.1';
+import * as B2b from './b2b.js?v=0.28.1';
+import * as Cartola from './cartola.js?v=0.28.1';
+import * as SiiFactura from './sii-factura.js?v=0.28.1';
+import * as PdfOrden from './pdf-orden.js?v=0.28.1';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.28.1';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -316,7 +316,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.28.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.28.1" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>

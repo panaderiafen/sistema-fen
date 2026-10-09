@@ -1,9 +1,15 @@
-# Sistema Fën · v0.28.0
+# Sistema Fën · v0.28.1
 
-**App:** v0.28.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
+**App:** v0.28.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.28.1: días de atraso en el recordatorio
+- En el mensaje de cobranza (tono amable y firme), cada folio lleva sus días de atraso, igual que en la app: "• Folio N° 3456 del 26 de septiembre: $124.567 · 12 días de atraso".
+- Los días se cuentan desde el vencimiento: la fecha de la factura, o 30 días después para los clientes que pagan a 30 días.
+
+Archivos: cambian `b2b.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.28.1**. Incluye la v0.28.0 y anteriores.
 
 ## Novedades de la v0.28.0: la conciliación ya no fuerza calces
 Antes, si un abono no calzaba con nada, se repartía por antigüedad y el folio quedaba "lleno" con lo que alcanzara. Parecía un calce sin serlo, y además no se miraban las fechas.

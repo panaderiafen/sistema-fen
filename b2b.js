@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.28.0';
-import * as FB from './firebase-b2b.js?v=0.28.0';
-import * as Apps from './apps.js?v=0.28.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.28.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.28.1';
+import * as FB from './firebase-b2b.js?v=0.28.1';
+import * as Apps from './apps.js?v=0.28.1';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.28.1';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1834,7 +1834,9 @@ export function mensajeCobranza(g, tono, revisado, transferencia) {
   const hola = nombre ? `Hola ${nombre.charAt(0).toUpperCase() + nombre.slice(1)},` : 'Hola,';
   const pesosC = n => '$' + Math.round(n).toLocaleString('es-CL');
   const faltan = f => { const d = f.detalle || []; if (!d.some(x => x.pagadaEl)) return ''; const l = d.filter(x => !x.pagadaEl).map(x => x.n); return l.length ? ` (${l.length === 1 ? 'orden' : 'órdenes'} N° ${l.length === 1 ? l[0] : l.slice(0, -1).join(', ') + ' y ' + l[l.length - 1]})` : ''; };
-  const lineas = g.folios.map(f => `• Folio N° ${f.folio}${f.fecha ? ' del ' + fechaCobranza(f.fecha) : ''}: ${pesosC(f.saldo)}${f.abonado ? ' (saldo)' : ''}${faltan(f)}`).join('\n');
+  // v0.28.1: cada folio con sus días de atraso (desde que venció), igual que en la app
+  const atraso = f => f.atraso > 0 ? ` · ${f.atraso} ${f.atraso === 1 ? 'día' : 'días'} de atraso` : '';
+  const lineas = g.folios.map(f => `• Folio N° ${f.folio}${f.fecha ? ' del ' + fechaCobranza(f.fecha) : ''}: ${pesosC(f.saldo)}${f.abonado ? ' (saldo)' : ''}${faltan(f)}${atraso(f)}`).join('\n');
   const total = g.folios.length > 1 ? `\nTotal: ${pesosC(g.saldo)}` : '';
   if (Number(tono) === 2) {
     return `${hola} te escribimos nuevamente porque aún tenemos pendiente el pago de:\n${lineas}${total}\n\nNecesitamos regularizarlo a la brevedad. ¿Nos confirmas hoy la fecha de pago? Si ya pagaste, envíanos el comprobante y lo revisamos.`
