@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.22.0';
-import * as FB from './firebase-b2b.js?v=0.22.0';
-import * as Apps from './apps.js?v=0.22.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.22.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.23.0';
+import * as FB from './firebase-b2b.js?v=0.23.0';
+import * as Apps from './apps.js?v=0.23.0';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.23.0';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -785,7 +785,7 @@ export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
   const conf = d.conciliacion;
   if (conf && conf.importado) {
     const dias = diasRitmo(conf), revisado = hastaRevisado(conf, hoy);
-    for (let f = desde; f <= hasta; f = masDiasB(f, 1)) if (dias.includes(new Date(f + 'T12:00:00').getDay())) out.push({ auto: true, cat: 'conciliar', fecha: f, titulo: 'Conciliar la cartola', sub: 'Días de conciliar', url: '#b2b/conciliacion', hecho: f <= hoy && !!revisado && revisado >= masDiasB(f, -1) });
+    for (let f = desde; f <= hasta; f = masDiasB(f, 1)) if (dias.includes(new Date(f + 'T12:00:00').getDay())) out.push({ auto: true, cat: 'conciliar', fecha: f, titulo: 'Conciliar la cartola', sub: 'Días de conciliar', url: '#conciliacion', hecho: f <= hoy && !!revisado && revisado >= masDiasB(f, -1) });
   }
   // Facturar: hoy, lo que ya toca; hacia adelante, según cómo factura cada cliente (diaria: lunes a sábado; semanal: sábado; mensual: último día del mes)
   const modo = c => { const f = norm(c.facturacion); return /^seman/.test(f) ? 'semanal' : /^mensu/.test(f) ? 'mensual' : 'diaria'; };

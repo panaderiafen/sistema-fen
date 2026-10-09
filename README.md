@@ -1,9 +1,19 @@
-# Sistema Fën · v0.22.0
+# Sistema Fën · v0.23.0
 
-**App:** v0.22.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
+**App:** v0.23.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.23.0: menú ordenado según el trabajo
+- **Conciliación tiene su propia sección** en el menú (entre Gastos y Ventas B2B), con dos pestañas: **Abonos (B2B)** (pagos de clientes) y **Cargos (Gastos)**. Arriba, en las dos, la misma tarjeta: subir la cartola (una vez, de cualquier cuenta), días de conciliar, cuentas que se revisan y hasta dónde está revisada cada cuenta. Cada pestaña muestra cuántos quedan por revisar. Nada de lo ya conciliado cambia: solo cambió de lugar.
+- **Ventas B2B:** Órdenes · Estado de cuenta · Buscar · Solicitudes · Análisis · Clientes · Productos.
+- **Gastos:** Vencimientos · Cargas del SII · Previred · Registrar · Registrados · Análisis · Obligaciones · Ítems.
+- **Base nueva** pasó a **Configuración** (tarjeta "Ventas B2B · base nueva").
+- **Hoy:** las solicitudes de logística suben al primer lugar de Pendientes.
+- Los enlaces antiguos (#b2b/conciliacion, #gastos/cartola) llevan solos a la sección nueva. El botón "Llenar factura Fën" no cambió.
+
+Archivos: cambian `app.js`, `b2b.js`, `index.html`, `config.js`, `README.md` y los demás `.js` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.23.0**. Incluye la v0.22.0 y anteriores.
 
 ## Novedades de la v0.22.0
 - **El folio vuelve a la misma pestaña.** En la ventana de "Preparar para el SII" hay un botón nuevo: **Abrir el formulario del SII**. Si abres el SII con ese botón, en el tercer toque el folio llega a la pestaña de Sistema Fën que ya tenías abierta (aparece ahí la ventana "Folio N° … del SII"); no se abre otra. Si abriste el SII por tu cuenta, funciona como antes (pestaña nueva).
