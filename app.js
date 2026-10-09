@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.27.0';
-import * as Caja from './caja.js?v=0.27.0';
-import * as Stock from './stock.js?v=0.27.0';
-import * as Ajustes from './ajustes.js?v=0.27.0';
-import * as Apps from './apps.js?v=0.27.0';
-import * as Agenda from './agenda.js?v=0.27.0';
-import * as Gastos from './gastos.js?v=0.27.0';
-import * as Sii from './sii.js?v=0.27.0';
-import * as Previred from './previred.js?v=0.27.0';
-import * as B2b from './b2b.js?v=0.27.0';
-import * as Cartola from './cartola.js?v=0.27.0';
-import * as SiiFactura from './sii-factura.js?v=0.27.0';
-import * as PdfOrden from './pdf-orden.js?v=0.27.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.27.0';
+} from './firebase.js?v=0.28.0';
+import * as Caja from './caja.js?v=0.28.0';
+import * as Stock from './stock.js?v=0.28.0';
+import * as Ajustes from './ajustes.js?v=0.28.0';
+import * as Apps from './apps.js?v=0.28.0';
+import * as Agenda from './agenda.js?v=0.28.0';
+import * as Gastos from './gastos.js?v=0.28.0';
+import * as Sii from './sii.js?v=0.28.0';
+import * as Previred from './previred.js?v=0.28.0';
+import * as B2b from './b2b.js?v=0.28.0';
+import * as Cartola from './cartola.js?v=0.28.0';
+import * as SiiFactura from './sii-factura.js?v=0.28.0';
+import * as PdfOrden from './pdf-orden.js?v=0.28.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.28.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -316,7 +316,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.27.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.28.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -3633,7 +3633,9 @@ function pintarB2bConciliacion(el, sub) {
   };
   // Editor de un movimiento: cliente, folios por cobrar con el monto de cada uno
   const editor = m => {
-    const p = props[m.id], e = b2bConc.edit[m.id] || {}, fol = (p.clienteId && porCobrar[p.clienteId]) || [];
+    const p = props[m.id], e = b2bConc.edit[m.id] || {}, post = new Set(p.posteriores || []);
+    // v0.28.0: primero los folios con pedidos hasta el día siguiente al pago; los posteriores, al final y más claros
+    const fol0 = (p.clienteId && porCobrar[p.clienteId]) || [], fol = fol0.filter(f => !post.has(f.folio)).concat(fol0.filter(f => post.has(f.folio)));
     const val = f => e.montos && f.folio in e.montos ? e.montos[f.folio] : ((p.asignaciones || []).find(a => a.folio === f.folio) || {}).monto || 0;
     const asignado = fol.reduce((s, f) => s + (Number(val(f)) || 0), 0), sobra = m.monto - asignado, favorOn = favorMarcado(m.id, p, asignado);
     const puede = sobra >= 0 && (asignado > 0 || (favorOn && sobra > 0)) && !b2bConc.ocupado;
@@ -3641,13 +3643,13 @@ function pintarB2bConciliacion(el, sub) {
     return `<div class="mov-edit" data-mov="${esc(m.id)}">
       <div class="campo"><label for="mc-${esc(m.id)}">Cliente</label><select id="mc-${esc(m.id)}" data-mov-cli="${esc(m.id)}">${optsCli(p.clienteId)}</select></div>
       ${p.motivo ? `<p class="ayuda">${esc(p.motivo)}</p>` : ''}
-      ${p.clienteId ? (fol.length ? `<p class="ayuda">Toca un folio para asignarle su saldo (o lo que queda del abono); tócalo otra vez para quitarlo.</p><div class="mov-folios">${fol.map(f => `<div class="mov-folio${Number(val(f)) > 0 ? ' mov-folio-on' : ''}"><button type="button" class="mov-folio-btn" data-mov-usar="${esc(m.id)}" data-folio="${esc(f.folio)}" aria-pressed="${Number(val(f)) > 0}"><b>Folio ${esc(f.folio)}</b><small>${esc(diaTexto(f.fecha))} · saldo ${pesos(f.saldo)}${f.abonado ? ` (abonado ${pesos(f.abonado)})` : ''}</small></button>
+      ${p.clienteId ? (fol.length ? `<p class="ayuda">Toca un folio para asignarle su saldo (o lo que queda del abono); tócalo otra vez para quitarlo.</p><div class="mov-folios">${fol.map(f => `<div class="mov-folio${Number(val(f)) > 0 ? ' mov-folio-on' : ''}${post.has(f.folio) ? ' mov-folio-post' : ''}"><button type="button" class="mov-folio-btn" data-mov-usar="${esc(m.id)}" data-folio="${esc(f.folio)}" aria-pressed="${Number(val(f)) > 0}"><b>Folio ${esc(f.folio)}</b><small>${esc(diaTexto(f.fecha))} · saldo ${pesos(f.saldo)}${f.abonado ? ` (abonado ${pesos(f.abonado)})` : ''}${post.has(f.folio) ? ' · pedidos después del pago' : ''}</small></button>
           <input inputmode="numeric" data-mov-monto="${esc(m.id)}" data-folio="${esc(f.folio)}" value="${val(f) ? Number(val(f)).toLocaleString('es-CL') : ''}" placeholder="0" aria-label="Monto para el folio ${esc(f.folio)}"></div>${ordsHtml(m, f)}`).join('')}</div>
         <p class="mov-suma ${sobra < 0 ? 'error' : ''}">Asignado ${pesos(asignado)} de ${pesos(m.monto)}${sobra > 0 ? ` · quedan ${pesos(sobra)} sin asignar` : sobra < 0 ? ` · te pasaste en ${pesos(-sobra)}` : ' · calza exacto'}</p>`
         : '<p class="ayuda">Este cliente no tiene folios por cobrar.</p>') : ''}
       ${p.clienteId && sobra > 0 ? `<label class="check-linea"><input type="checkbox" data-mov-favor="${esc(m.id)}" ${favorOn ? 'checked' : ''}> Dejar ${pesos(sobra)} como saldo a favor de ${esc(p.cliente)} ${info('Saldo a favor', 'Lo que sobra de este abono queda guardado para el cliente: aparece arriba, en "Saldos a favor", y se usa en su próximo folio con un botón.\nSirve cuando el cliente paga de más o paga antes de que exista la factura.\nSi lo desmarcas, lo que sobra no se registra en ninguna parte (por ejemplo, si una parte del abono no era de B2B).')}</label>` : ''}
       <div class="botones" style="justify-content:flex-start">${p.clienteId ? `<button type="button" class="btn btn-chico" data-mov-ok="${esc(m.id)}" ${puede ? '' : 'disabled'}>${txtOk}</button>` : ''}
-        <button type="button" class="btn-sec btn-chico" data-mov-rev="${esc(m.id)}">Ya estaba registrado</button>
+        <button type="button" class="${p.sinCalce && (p.similares || []).length && asignado === 0 ? 'btn' : 'btn-sec'} btn-chico" data-mov-rev="${esc(m.id)}">Ya estaba registrado</button>
         <button type="button" class="btn-sec btn-chico" data-mov-ign="${esc(m.id)}">No es de B2B</button></div></div>`;
   };
   const fila = (m, conEditor) => `<details class="fila-orden-b2b mov" data-movd="${esc(m.id)}" ${conEditor && b2bConc.abierto === m.id ? 'open' : ''}><summary class="fila-caja">${cab(m)}

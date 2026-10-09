@@ -1,9 +1,32 @@
-# Sistema Fën · v0.27.0
+# Sistema Fën · v0.28.0
 
-**App:** v0.27.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
+**App:** v0.28.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.28.0: la conciliación ya no fuerza calces
+Antes, si un abono no calzaba con nada, se repartía por antigüedad y el folio quedaba "lleno" con lo que alcanzara. Parecía un calce sin serlo, y además no se miraban las fechas.
+- **Fechas:** para cruzar un pago solo cuentan los pedidos con fecha **hasta el día siguiente al pago**. Un día de margen, porque el comprobante puede llegar el 28 y la cartola mostrarlo el 29. Se usa la fecha del pedido, no la del folio, porque se puede pagar antes de facturar. Los folios con pedidos posteriores siguen en la lista, al final, más claros y con la nota "pedidos después del pago".
+- **Se busca en este orden** (siempre con pedidos anteriores al pago):
+  1. un folio completo;
+  2. varios folios completos;
+  3. folios completos más órdenes del siguiente;
+  4. **una sola orden** que calce, la más antigua primero;
+  5. si pagó más de lo que debe, todos sus folios y el resto a favor.
+
+  Si hay un calce único, va a "Listos para confirmar".
+- **Si no calza con nada, no se propone nada.** La tarjeta dice "No calza con ningún folio ni orden pedida hasta el …" y queda en ti:
+  - tocar un folio para dejarlo como abono (cuotas);
+  - o marcar "Ya estaba registrado".
+- **Pagos ya registrados con el mismo monto:** se avisan **todos** los del cliente desde 15 días antes del pago hasta 3 días después, con su folio y fecha, y con $3 de margen por el redondeo. Si no calza con nada y hay alguno, **"Ya estaba registrado" pasa a ser el botón principal.**
+
+Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.28.0**. No cambian las reglas ni los scripts. Incluye las versiones v0.24 a v0.27.
+
+### Lista de verificación v0.28.0
+- [ ] El abono de $140.111 del 10 sep (Café La Oveja) ya no se cruza con el folio 3370, que es de pedidos del 14 y 15 sep. Ese folio aparece al final y más claro.
+- [ ] Un abono que calza con una sola orden de un folio de varias se propone con esa orden ("Paga la orden N° … del folio …").
+- [ ] Un abono que no calza con nada no llena ningún folio. Si hay pagos ya registrados con ese monto, se listan y "Ya estaba registrado" se ve como botón principal.
 
 ## Novedades de la v0.27.0: RUT de quien transfiere (archivo "Transferencias recibidas")
 La cartola no trae el RUT de quien transfiere: solo la descripción, que el banco corta ("TEF DE PROSUMER SPA"). El archivo de BancoEstado **"Consulta de transferencias recibidas"** sí lo trae, junto con el nombre completo y el banco.

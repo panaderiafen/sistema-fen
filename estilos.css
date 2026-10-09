@@ -670,3 +670,6 @@ a.ag-item { text-decoration: none; }
 .mov-ord span:first-child { display: flex; gap: 8px; align-items: center; }
 .mov-ord input { width: 18px; height: 18px; }
 .mov-ord-pagada { color: var(--suave); }
+/* v0.28.0 · folios con pedidos posteriores al pago */
+.mov-folio-post { opacity: .55; }
+.mov-folio-post.mov-folio-on { opacity: 1; }

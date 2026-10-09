@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.27.0';
-import * as FB from './firebase-b2b.js?v=0.27.0';
-import * as Apps from './apps.js?v=0.27.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.27.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.28.0';
+import * as FB from './firebase-b2b.js?v=0.28.0';
+import * as Apps from './apps.js?v=0.28.0';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.28.0';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1163,6 +1163,7 @@ function ordenesQueSuman(f, monto) {
 // mov: movimientos pendientes (en orden); ctx: { clientes, ordenes, abonos, equivalencias, pagados: [{clienteId, total, fechaPago, folio}] }
 export function proponer(movs, ctx) {
   const porCobrar = foliosPorCobrar(ctx.ordenes, ctx.abonos, ctx.clientes), reservados = new Set(), out = {}, tefUsadas = new Set();
+  const listaN = n => n.length === 1 ? 'la orden N° ' + n[0] : 'las órdenes N° ' + n.slice(0, -1).join(', ') + ' y ' + n[n.length - 1];
   movs.forEach(mv => {
     // v0.27.0: el RUT de la transferencia (archivo "transferencias recibidas") manda sobre lo aprendido y el nombre
     const tef = transferenciaDe(mv, ctx.transferencias, tefUsadas); if (tef) tefUsadas.add(tef);
@@ -1171,44 +1172,68 @@ export function proponer(movs, ctx) {
     const forz = ctx.forzados && ctx.forzados[mv.id] && ctx.clientes.find(c => c.id === ctx.forzados[mv.id]);
     const id = forz ? { cliente: forz, por: 'manual' } : porTef ? { cliente: porTef, por: 'transferencia' } : identificarCliente(mv, ctx.clientes, ctx.equivalencias);
     if (!id) { out[mv.id] = { tipo: 'sinCliente', tef }; return; }
-    const c = id.cliente, folios = (porCobrar[c.id] || []).filter(f => !reservados.has(f.folio));
-    const base = { clienteId: c.id, cliente: c.nombre, por: id.por, folios, tef };
-    // ¿Ya se registró a mano un pago del mismo monto, cerca de esa fecha?
-    // (igual que antes: un pago registrado con el mismo monto hace dudar, aunque se haya anotado días después)
-    const yaPagado = (ctx.pagados || []).filter(p => p.clienteId === c.id && Math.round(p.total) === mv.monto && p.fechaPago && Math.abs(diasEntre(p.fechaPago, mv.fecha)) <= 60).sort((a, b) => Math.abs(diasEntre(a.fechaPago, mv.fecha)) - Math.abs(diasEntre(b.fechaPago, mv.fecha)))[0] || null;
-    if (!folios.length) { out[mv.id] = { ...base, tipo: 'revisar', motivo: yaPagado ? `Parece el pago del folio ${yaPagado.folio}, que ya está registrado (pagado el ${fechaDMY(yaPagado.fechaPago)}).` : (porCobrar[c.id] || []).length ? 'Sus folios por cobrar ya están propuestos para otro abono (arriba). Si este también paga alguno, asígnalo aquí.' : 'No tiene folios por cobrar.', yaPagado, asignaciones: [], sobra: mv.monto }; return; }
+    const c = id.cliente, todos = (porCobrar[c.id] || []).filter(f => !reservados.has(f.folio));
+    // v0.28.0 · Solo cuenta lo pedido hasta el día siguiente al pago (el banco puede anotar la transferencia un día después)
+    const limite = mv.fecha ? masDiasB(mv.fecha, 1) : '9999-12-31';
+    const ordAntes = f => (f.detalle || []).filter(d => !d.pagadaEl && (!d.fecha || d.fecha <= limite));
+    const folioAntes = f => { const d = (f.detalle || []).filter(x => !x.pagadaEl); return !d.length || d.every(x => !x.fecha || x.fecha <= limite); };
+    const folios = todos.filter(folioAntes), posteriores = todos.filter(f => !folioAntes(f)).map(f => f.folio);
+    const base = { clienteId: c.id, cliente: c.nombre, por: id.por, folios: todos, posteriores, limite, tef };
+    // ¿Ya se registró a mano un pago de ese monto? (v0.28.0: todos los del cliente en los 15 días antes del pago, o hasta 3 después)
+    const cerca = p => p.fechaPago && diasEntre(p.fechaPago, mv.fecha) <= 15 && diasEntre(mv.fecha, p.fechaPago) <= 3;
+    const similares = (ctx.pagados || []).filter(p => p.clienteId === c.id && Math.abs(Math.round(p.total) - mv.monto) <= 3 && cerca(p)).sort((a, b) => String(b.fechaPago).localeCompare(String(a.fechaPago)));
+    const yaPagado = similares[0] || null;
+    const avisoYa = similares.length ? `Ojo: ${similares.length === 1 ? 'el folio ' + similares[0].folio + ' ya se registró pagado el ' + fechaDMY(similares[0].fechaPago) : 'ya hay ' + similares.length + ' folios pagados con este monto en esos días: ' + similares.map(p => `${p.folio} (${fechaDMY(p.fechaPago)})`).join(', ')}. Si es el mismo pago, marca "Ya estaba registrado".` : '';
+    if (!folios.length) { out[mv.id] = { ...base, tipo: 'revisar', sinCalce: true, similares, motivo: avisoYa || (todos.length ? `Sus folios por cobrar son de pedidos posteriores al pago (${fechaDMY(mv.fecha)}). ¿Es un pago ya registrado o un abono adelantado?` : 'No tiene folios por cobrar.'), yaPagado, asignaciones: [], sobra: mv.monto }; return; }
+    // 1) un folio completo  2) varios folios completos
     const exactos = folios.filter(f => f.saldo === mv.monto), comb = exactos.length ? [] : combinacionesExactas(folios, mv.monto);
-    let asign = null, motivo = '';
-    let porOrden = null;
-    if (exactos.length) { asign = [exactos[0]]; motivo = exactos.length > 1 ? `Hay ${exactos.length} folios con ese mismo saldo: se propone el más antiguo.` : 'Calza exacto con un folio.'; }
-    else if (comb.length) { asign = comb[0]; motivo = comb.length > 1 ? 'Más de una combinación de folios suma ese monto: se propone la de los más antiguos.' : `Paga ${asign.length} folios juntos.`; }
+    let asignaciones = null, motivo = '', unica = false;
+    if (exactos.length) { asignaciones = [{ folio: exactos[0].folio, monto: exactos[0].saldo }]; unica = exactos.length === 1; motivo = exactos.length > 1 ? `Hay ${exactos.length} folios con ese mismo saldo: se propone el más antiguo.` : 'Calza exacto con un folio.'; }
+    else if (comb.length) { asignaciones = comb[0].map(f => ({ folio: f.folio, monto: f.saldo })); unica = comb.length === 1; motivo = comb.length > 1 ? 'Más de una combinación de folios suma ese monto: se propone la de los más antiguos.' : `Paga ${comb[0].length} folios juntos.`; }
     else {
-      // v0.26.0: los folios más antiguos completos y, del siguiente, algunas de sus órdenes (clientes que pagan por pedido)
-      let acc = 0; const previos = [];
+      // 3) folios más antiguos completos + algunas órdenes (anteriores al pago) del siguiente
+      let acc = 0; const previos = []; let porOrden = null;
       for (const f of folios) {
         const r = mv.monto - acc; if (r <= 0) break;
-        const subs = ordenesQueSuman(f, r);
+        const subs = ordenesQueSuman({ detalle: ordAntes(f) }, r);
         if (subs.length) { porOrden = { previos: previos.slice(), folio: f, ordenes: subs[0], monto: r, varias: subs.length > 1 }; break; }
         acc += f.saldo; previos.push(f);
       }
+      // 4) una sola orden (anterior al pago) que calce: la más antigua
+      if (!porOrden) {
+        const una = [];
+        todos.forEach(f => ordAntes(f).forEach(d => { if (d.total === mv.monto && (f.detalle || []).filter(x => !x.pagadaEl).length > 1) una.push({ f, d }); }));
+        una.sort((a, b) => String(a.d.fecha).localeCompare(String(b.d.fecha)) || a.d.n - b.d.n);
+        if (una.length) porOrden = { previos: [], folio: una[0].f, ordenes: [una[0].d.n], monto: mv.monto, varias: una.length > 1 };
+      }
       if (porOrden) {
-        const y = n => n.length === 1 ? 'la orden N° ' + n[0] : 'las órdenes N° ' + n.slice(0, -1).join(', ') + ' y ' + n[n.length - 1];
-        motivo = (porOrden.previos.length ? `Paga ${porOrden.previos.length === 1 ? 'el folio ' + porOrden.previos[0].folio : 'los folios ' + porOrden.previos.map(f => f.folio).join(', ')} y ` : 'Paga ') + `${y(porOrden.ordenes)} del folio ${porOrden.folio.folio}.` + (porOrden.varias ? ' Hay otra combinación de órdenes que suma lo mismo: revisa.' : '');
+        asignaciones = porOrden.previos.map(f => ({ folio: f.folio, monto: f.saldo })).concat([{ folio: porOrden.folio.folio, monto: porOrden.monto, ordenes: porOrden.ordenes }]);
+        unica = !porOrden.varias;
+        motivo = (porOrden.previos.length ? `Paga ${porOrden.previos.length === 1 ? 'el folio ' + porOrden.previos[0].folio : 'los folios ' + porOrden.previos.map(f => f.folio).join(', ')} y ` : 'Paga ') + `${listaN(porOrden.ordenes)} del folio ${porOrden.folio.folio}.` + (porOrden.varias ? ' Hay otra orden o combinación que suma lo mismo: se propone la más antigua.' : '');
       }
     }
-    // Se confirma sola solo si no hay ninguna duda: una sola forma de calzar exacto y ningún pago igual ya registrado
-    const unica = exactos.length === 1 || (!exactos.length && comb.length === 1) || (!!porOrden && !porOrden.varias);
     const seguro = id.por !== 'nombre-parcial';
-    if (!seguro && !motivo) motivo = 'El nombre se reconoció solo en parte (el banco corta la descripción): confirma que es este cliente.';
-    else if (!seguro) motivo = 'El nombre se reconoció solo en parte: confirma que es este cliente. ' + motivo;
-    const asignOrden = porOrden ? porOrden.previos.map(f => ({ folio: f.folio, monto: f.saldo })).concat([{ folio: porOrden.folio.folio, monto: porOrden.monto, ordenes: porOrden.ordenes }]) : null;
-    if ((asign || asignOrden) && unica && !yaPagado && seguro) {
-      (asign || porOrden.previos.concat([porOrden.folio])).forEach(f => reservados.add(f.folio));
-      out[mv.id] = { ...base, tipo: 'auto', motivo, asignaciones: asign ? asign.map(f => ({ folio: f.folio, monto: f.saldo })) : asignOrden, sobra: 0 };
+    const parcial = 'El nombre se reconoció solo en parte (el banco corta la descripción): confirma que es este cliente.';
+    // Se confirma sola solo si no hay ninguna duda: una sola forma de calzar y ningún pago igual ya registrado
+    if (asignaciones && unica && !yaPagado && seguro) {
+      asignaciones.forEach(a => reservados.add(a.folio));
+      out[mv.id] = { ...base, tipo: 'auto', motivo, asignaciones, sobra: 0 };
       return;
     }
-    const sug = asign ? { asignaciones: asign.map(f => ({ folio: f.folio, monto: f.saldo })), sobra: 0 } : asignOrden ? { asignaciones: asignOrden, sobra: 0 } : repartoFIFO(folios, mv.monto);
-    out[mv.id] = { ...base, tipo: 'revisar', motivo: yaPagado ? `Ojo: el folio ${yaPagado.folio} ya se registró pagado el ${fechaDMY(yaPagado.fechaPago)} con este mismo monto. Si es el mismo pago, marca "Ya estaba registrado".` : motivo || 'No calza exacto: se propone pagar primero los folios más antiguos.', yaPagado, ...sug };
+    // 5) paga más que todo lo que debe (pedidos anteriores al pago): todos sus folios y lo que sobra, a favor
+    const deuda = folios.reduce((x, f) => x + f.saldo, 0);
+    if (!asignaciones && mv.monto > deuda && !similares.length) {   // con un pago igual ya registrado, lo probable es que sea ese
+      out[mv.id] = { ...base, tipo: 'revisar', similares, yaPagado, asignaciones: folios.map(f => ({ folio: f.folio, monto: f.saldo })), sobra: mv.monto - deuda,
+        motivo: [!seguro ? parcial : '', avisoYa, `Paga ${folios.length === 1 ? 'su folio' : 'sus ' + folios.length + ' folios'} y sobran $${(mv.monto - deuda).toLocaleString('es-CL')}: pagó de más o adelantó un pago.`].filter(Boolean).join(' ') };
+      return;
+    }
+    // v0.28.0: si no calza con nada, no se inventa un reparto: abono a un folio (lo eliges tú) o pago ya registrado
+    if (!asignaciones) {
+      out[mv.id] = { ...base, tipo: 'revisar', sinCalce: true, similares, yaPagado, asignaciones: [], sobra: mv.monto,
+        motivo: [!seguro ? parcial : '', avisoYa || `No calza con ningún folio ni orden pedida hasta el ${fechaDMY(limite)}. ¿Es un abono a un folio (tócalo abajo) o un pago que ya estaba registrado?`].filter(Boolean).join(' ') };
+      return;
+    }
+    out[mv.id] = { ...base, tipo: 'revisar', similares, yaPagado, asignaciones, sobra: 0, motivo: [!seguro ? parcial : '', avisoYa, motivo].filter(Boolean).join(' ') };
   });
   return out;
 }
