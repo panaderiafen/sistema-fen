@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.24.0';
-import * as Caja from './caja.js?v=0.24.0';
-import * as Stock from './stock.js?v=0.24.0';
-import * as Ajustes from './ajustes.js?v=0.24.0';
-import * as Apps from './apps.js?v=0.24.0';
-import * as Agenda from './agenda.js?v=0.24.0';
-import * as Gastos from './gastos.js?v=0.24.0';
-import * as Sii from './sii.js?v=0.24.0';
-import * as Previred from './previred.js?v=0.24.0';
-import * as B2b from './b2b.js?v=0.24.0';
-import * as Cartola from './cartola.js?v=0.24.0';
-import * as SiiFactura from './sii-factura.js?v=0.24.0';
-import * as PdfOrden from './pdf-orden.js?v=0.24.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.24.0';
+} from './firebase.js?v=0.24.1';
+import * as Caja from './caja.js?v=0.24.1';
+import * as Stock from './stock.js?v=0.24.1';
+import * as Ajustes from './ajustes.js?v=0.24.1';
+import * as Apps from './apps.js?v=0.24.1';
+import * as Agenda from './agenda.js?v=0.24.1';
+import * as Gastos from './gastos.js?v=0.24.1';
+import * as Sii from './sii.js?v=0.24.1';
+import * as Previred from './previred.js?v=0.24.1';
+import * as B2b from './b2b.js?v=0.24.1';
+import * as Cartola from './cartola.js?v=0.24.1';
+import * as SiiFactura from './sii-factura.js?v=0.24.1';
+import * as PdfOrden from './pdf-orden.js?v=0.24.1';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.24.1';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -316,7 +316,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.24.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.24.1" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2840,10 +2840,10 @@ async function abrirWhatsapp(cl, msj) {
 function abrirAyudaSii(estado, txt) {
   const d = dialogo(`<div class="form-dialogo"><h2>Llenar la factura en el SII</h2>
     ${estado === 'copiado' ? '<p><b>Listo, quedó copiado.</b> Ahora, en el computador:</p>' : estado === 'manual' ? `<p>No se pudo copiar solo. Copia este texto (selecciónalo todo):</p><textarea readonly rows="3" style="width:100%">${esc(txt)}</textarea>` : ''}
-    <p style="margin:8px 0"><button type="button" class="btn" id="sii-abrir">Abrir el formulario del SII</button></p>
-    <p class="ayuda">Ábrelo con este botón: así, al final, el folio vuelve a <b>esta misma pestaña</b> de Sistema Fën.</p>
+    <p style="margin:8px 0"><button type="button" class="btn" id="sii-abrir">Ir a la pestaña del SII</button></p>
+    <p class="ayuda">Si ya tienes abierta la pestaña del SII que abrió este botón, te lleva a ella <b>sin recargarla</b>. Si no, abre el SII: entra y, en esa misma pestaña, ve por el menú a Factura electrónica → Emitir factura. Así, al final, el folio vuelve a <b>esta misma pestaña</b> de Sistema Fën.</p>
     <ol class="pasos-sii">
-      <li>Abre en el SII el formulario de <b>Factura electrónica</b> (con el botón de arriba; si el SII te pide entrar, entra y vuelve a tocarlo).</li>
+      <li>Abre en el SII el formulario de <b>Factura electrónica</b> desde el menú del SII, en la pestaña del botón de arriba. (Si entras directo desde otra página, el SII responde "Error 501 · ptr NULL": no recibe tu sesión.)</li>
       <li>Toca <b>Llenar factura Fën</b> en tu barra de favoritos: pone el RUT del cliente y el SII carga sus datos.</li>
       <li>Toca <b>Llenar factura Fën</b> otra vez: pone los productos, cantidades y precios netos, las referencias (Nota de pedido con el N° de cada orden) y la forma de pago (Crédito con vencimiento a 30 días si el cliente paga a 30 días; si no, Contado).</li>
       <li>Revisa y usa <b>Validar y visualizar</b> como siempre. Nada se emite solo.</li>
@@ -2855,7 +2855,13 @@ function abrirAyudaSii(estado, txt) {
       <p class="ayuda">El botón solo escribe en el formulario abierto del SII; no envía tus datos a ninguna parte. Funciona en el computador (Chrome, Edge o Safari). La primera vez el navegador puede pedir permiso para leer lo copiado: acepta, o pega el texto cuando te lo pida.</p></details>
     <div class="botones"><button type="button" class="btn" id="sii-cerrar">Entendido</button></div></div>`);
   d.querySelector('#sii-cerrar').onclick = () => d.close();
-  d.querySelector('#sii-abrir').onclick = () => { window.open(SiiFactura.URL_FORMULARIO_SII, 'fen-sii'); d.close(); };
+  // v0.24.1: si la pestaña del SII ya existe, solo se trae (no se recarga: recargarla desde aquí la deja sin sesión);
+  // si es nueva, se abre la portada del SII
+  d.querySelector('#sii-abrir').onclick = () => {
+    const w = window.open('', 'fen-sii');
+    if (w) { let nueva = false; try { nueva = w.location.href === 'about:blank'; } catch (e) { nueva = false; } if (nueva) w.location.href = SiiFactura.URL_INICIO_SII; try { w.focus(); } catch (e) {} }
+    d.close();
+  };
 }
 async function copiarTexto(t) {
   try { await navigator.clipboard.writeText(t); return true; }

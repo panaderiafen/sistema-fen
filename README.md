@@ -1,9 +1,17 @@
-# Sistema Fën · v0.24.0
+# Sistema Fën · v0.24.1
 
-**App:** v0.24.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
+**App:** v0.24.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.24.1: botón del SII sin "Error 501"
+- El botón **"Ir a la pestaña del SII"** (en Preparar para el SII) ya no carga el formulario directo. Desde Sistema Fën, el SII no recibe tu sesión y responde "Error 501 · ptr NULL (ptrTkn)", aunque tengas la sesión abierta.
+- Si la pestaña del SII que abrió este botón ya está abierta, te lleva a ella **sin recargarla**.
+- Si no está abierta, abre la portada del SII. Ahí entras y vas por el menú a Factura electrónica → Emitir factura, **en esa misma pestaña**. Así, al final, el folio vuelve a la pestaña de Sistema Fën.
+- El botón "Llenar factura Fën" no cambió: no hay que reinstalarlo.
+
+Archivos: cambian `app.js`, `sii-factura.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.24.1**. Incluye la v0.24.0 (Cobranza): si no la habías instalado, publica también las reglas de fen-b2b v1.6.0 (ver abajo).
 
 ## Novedades de la v0.24.0: Cobranza, y la Agenda más rápida
 **Ventas B2B → Cobranza** (pestaña nueva, segunda). "Por cobrar" salió de Órdenes y vive aquí. Órdenes queda con Por facturar.

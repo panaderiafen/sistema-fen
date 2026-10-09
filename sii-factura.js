@@ -17,6 +17,9 @@
 // ═══════════════════════════════════════════════
 export const PREFIJO = 'FENSII1:';
 export const URL_FORMULARIO_SII = 'https://www1.sii.cl/cgi-bin/Portal001/mipeGenFacEx.cgi?PTDC_CODIGO=33';
+// v0.24.1: el formulario no se abre directo desde Sistema Fën: el SII no recibe tu sesión cuando llegas desde otro sitio
+// (Error 501 "ptr NULL (ptrTkn)"). Se abre la portada del SII y desde su menú se llega a Emitir factura.
+export const URL_INICIO_SII = 'https://www.sii.cl/';
 // Mensaje que llega desde la página del SII con el folio (solo se acepta de una página de sii.cl)
 export function leerMensajeFolio(e) {
   if (!e || !/^https:\/\/([a-z0-9-]+\.)*sii\.cl$/.test(String(e.origin || ''))) return null;
