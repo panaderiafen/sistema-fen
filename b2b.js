@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.24.3';
-import * as FB from './firebase-b2b.js?v=0.24.3';
-import * as Apps from './apps.js?v=0.24.3';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.24.3';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.25.0';
+import * as FB from './firebase-b2b.js?v=0.25.0';
+import * as Apps from './apps.js?v=0.25.0';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.25.0';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -420,7 +420,8 @@ export async function escuchar(cb) {
 
 const marcaCambio = extra => ({ ...extra, planillaPendiente: true, cambiadaEn: FB.serverTimestamp(), cambiadaPor: authSF.currentUser.email });
 // Asignar un folio a varias órdenes (sin folio) de una vez
-export async function asignarFolio(ns, folio, fechaFolio) {
+// v0.25.0: totalSii = el TOTAL que leyó el botón en la página del SII (queda como lo que se cobra del folio)
+export async function asignarFolio(ns, folio, fechaFolio, totalSii) {
   const db = await dbOk();
   const f = String(folio || '').trim();
   if (!/^\d{1,12}$/.test(f)) throw new Error('El folio debe ser un número.');
@@ -435,7 +436,10 @@ export async function asignarFolio(ns, folio, fechaFolio) {
     sns.forEach(sn => { if (!sn.exists()) throw new Error('Una de las órdenes ya no existe.'); const o = sn.data(); if (o.folio) throw new Error(`La orden N° ${o.n} ya tiene el folio ${o.folio}.`); if (o.estado === 'anulada') throw new Error(`La orden N° ${o.n} está anulada.`); });
     const todas = sns.map(sn => sn.data()).concat(yaEnFolio);
     if (new Set(todas.map(cliDe)).size > 1) throw new Error(yaEnFolio.length ? `El folio ${f} ya es de ${yaEnFolio[0].cliente} (N° ${yaEnFolio.map(o => o.n).join(', ')}). Un folio es de un solo cliente: revisa el número.` : 'Un folio es de un solo cliente: marca solo órdenes del mismo cliente.');
-    refs.forEach(r => tx.update(r, marcaCambio({ folio: f, sinFolio: false, fechaFolio: fechaFolio || hoyTxt() })));
+    const tf = Math.round(Number(totalSii) || 0) > 0 ? Math.round(Number(totalSii)) : null;
+    refs.forEach(r => tx.update(r, marcaCambio({ folio: f, sinFolio: false, fechaFolio: fechaFolio || hoyTxt(), totalFactura: tf })));
+    // Órdenes que ya estaban en ese folio: si cambia la factura (se agregan órdenes), su total también
+    yaEnFolio.forEach(o => { if ((o.totalFactura || null) !== tf) tx.update(FB.doc(db, 'ordenes', o.id), { totalFactura: tf }); });
   });
   uso.escrituras += ns.length;
 }
@@ -466,7 +470,7 @@ export async function registrarAbono(folio, monto, fecha, referencia) {
   const prev = await FB.getDocs(FB.query(FB.collection(db, 'abonos'), FB.where('folio', '==', String(folio))));
   uso.lecturas += Math.max(1, prev.size);
   const abonado = prev.docs.map(d => d.data()).filter(a => !a.quitadoEnPlanilla).reduce((s, a) => s + (Number(a.monto) || 0), 0) + m;
-  const total = os.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const total = totalFolio(os).total;   // v0.25.0: el total de la factura
   const pagado = abonado >= total;
   const b = FB.writeBatch(db);
   b.set(FB.doc(FB.collection(db, 'abonos')), { folio: String(folio), fecha: fecha || hoyTxt(), monto: m, referencia: String(referencia || '').trim(), extra: {}, quitadoEnPlanilla: false, planillaPendiente: true, por: authSF.currentUser.email, en: FB.serverTimestamp() });
@@ -485,6 +489,9 @@ export async function anularOrden(n, motivo) {
     if (sn.data().estado === 'anulada') throw new Error('Ya estaba anulada.');
     tx.update(ref, marcaCambio({ estado: 'anulada', anulada: { por: authSF.currentUser.email, en: ahoraTxt(), motivo: mt } }));
   });
+  // v0.25.0: si tenía folio, el total leído del SII ya no corresponde: las demás órdenes del folio vuelven al total calculado
+  const o = (await FB.getDoc(FB.doc(db, 'ordenes', String(n)))).data() || {};
+  if (o.folio) for (const x of await ordenesDelFolio(db, o.folio)) if (x.totalFactura) { await FB.updateDoc(FB.doc(db, 'ordenes', x.id), { totalFactura: null }); uso.escrituras++; }
   uso.escrituras++;
 }
 
@@ -670,8 +677,8 @@ export async function ordenesDeCliente(clienteId) {
   // Un folio con abonos que incluye órdenes de otro cliente: el saldo se reparte sobre el total de todo el folio
   const parciales = [...new Set(os.filter(o => o.folio && String(o.estadoPago || '').toUpperCase() === 'PARCIAL').map(o => String(o.folio)))];
   for (const f of parciales) {
-    const t = (await ordenesDelFolio(db, f)).reduce((s, o) => s + (Number(o.total) || 0), 0);
-    os.forEach(o => { if (String(o.folio) === f) o._totalFolio = t; });
+    const t = totalFolio(await ordenesDelFolio(db, f));   // v0.25.0: total de la factura y suma de todas sus órdenes
+    os.forEach(o => { if (String(o.folio) === f) { o._totalFolio = t.total; o._sumaFolio = t.suma; } });
   }
   return os;
 }
@@ -682,28 +689,33 @@ export function estadoDeCuenta(ordenes, abonos, desde, hasta, modo) {
   ordenes.forEach(o => { if (o.folio) (porFolio[o.folio] = porFolio[o.folio] || []).push(o); });
   const abonado = f => abonos.filter(a => String(a.folio) === String(f)).reduce((s, a) => s + (Number(a.monto) || 0), 0);
   const ultimoAbono = f => abonos.filter(a => String(a.folio) === String(f)).map(a => a.fecha).sort().pop() || null;
-  const totalFolio = f => (porFolio[f] || []).reduce((s, o) => s + o.total, 0);
+  // v0.25.0: un folio debe el total de su factura; por orden, su parte (proporcional a la orden)
+  const tFolio = f => { const l = porFolio[f] || []; return (l[0] && l[0]._totalFolio) || totalFolio(l).total; };
+  // Suma de TODAS las órdenes del folio (un folio antiguo puede tener órdenes de otro cliente)
+  const sumaFolio = f => { const l = porFolio[f] || []; return (l[0] && (l[0]._sumaFolio || l[0]._totalFolio)) || l.reduce((s, o) => s + o.total, 0); };
   const saldo = o => {
     const e = String(o.estadoPago || '').toUpperCase();
     if (e.includes('PAGADO')) return 0;
-    if (!o.folio || e !== 'PARCIAL') return o.total;
-    const t = o._totalFolio || totalFolio(o.folio); if (t <= 0) return 0;
-    return Math.round(Math.max(0, t - abonado(o.folio)) * o.total / t);
+    if (!o.folio) return o.total;
+    const t = tFolio(o.folio), sf = sumaFolio(o.folio); if (t <= 0 || sf <= 0) return 0;
+    return Math.round(Math.max(0, t - abonado(o.folio)) * o.total / sf);
   };
   let filas;
   if (modo === 'folio') {
     const grupos = {}, sueltas = [];
     os.forEach(o => { if (o.folio) (grupos[o.folio] = grupos[o.folio] || []).push(o); else sueltas.push(o); });
     filas = Object.keys(grupos).map(f => {
-      const l = grupos[f], total = l.reduce((s, o) => s + o.total, 0), sal = l.reduce((s, o) => s + saldo(o), 0);
-      const est = l.some(o => !/PAGADO|PARCIAL/.test(String(o.estadoPago || '').toUpperCase())) ? 'PENDIENTE' : l.some(o => String(o.estadoPago).toUpperCase() === 'PARCIAL') ? 'PARCIAL' : 'PAGADO';
+      const l = grupos[f], est = l.some(o => !/PAGADO|PARCIAL/.test(String(o.estadoPago || '').toUpperCase())) ? 'PENDIENTE' : l.some(o => String(o.estadoPago).toUpperCase() === 'PARCIAL') ? 'PARCIAL' : 'PAGADO';
+      const completo = sumaFolio(f) === (porFolio[f] || []).reduce((s, o) => s + o.total, 0), total = completo ? tFolio(f) : l.reduce((s, o) => s + o.total, 0);
+      const sal = est === 'PAGADO' ? 0 : completo ? Math.max(0, total - abonado(f)) : l.reduce((s, o) => s + saldo(o), 0);
       return { principal: f, secundaria: l.map(o => o.n).join(', '), fecha: l.map(o => o.fechaFolio).filter(Boolean).sort()[0] || l[0].fecha, neto: l.reduce((s, o) => s + o.neto, 0), total, saldo: sal, abonado: est === 'PARCIAL' ? total - sal : 0, ultimoAbono: est === 'PARCIAL' ? ultimoAbono(f) : null, estado: est, fechaPago: l.map(o => o.fechaPago).filter(Boolean).sort().pop() || null };
     }).concat(sueltas.map(o => { const e = String(o.estadoPago || 'PENDIENTE').toUpperCase(), pag = e.includes('PAGADO'); return { principal: 'Sin folio', secundaria: String(o.n), fecha: o.fecha, neto: o.neto, total: o.total, saldo: saldo(o), abonado: 0, estado: pag ? 'PAGADO' : 'PENDIENTE', fechaPago: pag ? o.fechaPago : null }; }))
       .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
   } else {
     filas = os.map(o => { const e = String(o.estadoPago || 'PENDIENTE').toUpperCase(), sal = saldo(o); return { principal: String(o.n), secundaria: o.folio || 'Pendiente', fecha: o.fecha, neto: o.neto, total: o.total, saldo: sal, abonado: e === 'PARCIAL' ? o.total - sal : 0, ultimoAbono: e === 'PARCIAL' && o.folio ? ultimoAbono(o.folio) : null, estado: e.includes('PAGADO') ? 'PAGADO' : e, fechaPago: o.fechaPago }; });
   }
-  const comprado = os.reduce((s, o) => s + o.total, 0), pendiente = os.reduce((s, o) => s + saldo(o), 0);
+  const comprado = modo === 'folio' ? filas.reduce((s, f) => s + f.total, 0) : os.reduce((s, o) => s + o.total, 0);
+  const pendiente = modo === 'folio' ? filas.reduce((s, f) => s + f.saldo, 0) : os.reduce((s, o) => s + saldo(o), 0);
   return { filas, n: os.length, comprado, pagado: comprado - pendiente, pendiente };
 }
 
@@ -1046,6 +1058,32 @@ export function identificarCliente(mov, clientes, equivalencias) {
 // Dígito verificador de un RUT chileno
 function dvRut(num) { let s = 0, m = 2; for (let i = String(num).length - 1; i >= 0; i--) { s += Number(String(num)[i]) * m; m = m === 7 ? 2 : m + 1; } const r = 11 - (s % 11); return r === 11 ? '0' : r === 10 ? 'K' : String(r); }
 // Folios por cobrar de cada cliente, con su saldo (total − abonos), del más antiguo al más nuevo
+// ═══ v0.25.0 · Lo que se cobra de un folio es el total de la FACTURA, no la suma de sus órdenes ═══
+// El SII suma los netos de todas las líneas y calcula el IVA una sola vez (redondeado); cada orden redondea su propio IVA.
+// Por eso, con varias órdenes, la factura puede diferir en ±$1 a ±$3 de la suma de las órdenes.
+// Filas como en la factura: una por producto y precio; neto de la fila = cantidad × precio redondeado (como el SII).
+export function calcularFactura(ordenes) {
+  const F = {};
+  (ordenes || []).forEach(o => (o.lineas || []).forEach(l => {
+    const precio = Math.round(Number(l.precio) || 0), k = String(l.producto).trim() + '|' + precio;
+    const f = F[k] || (F[k] = { producto: String(l.producto).trim(), precio, cantidad: 0 });
+    f.cantidad = Math.round((f.cantidad + (Number(l.cantidad) || 0)) * 1e6) / 1e6;
+  }));
+  const filas = Object.values(F).map(f => ({ ...f, neto: Math.round(f.cantidad * f.precio) })).sort((a, b) => a.producto.localeCompare(b.producto, 'es') || a.precio - b.precio);
+  const neto = filas.reduce((x, f) => x + f.neto, 0), iva = Math.round(neto * 0.19);
+  return { filas, neto, iva, total: neto + iva };
+}
+// Total del folio: el que leyó el botón en el SII (totalFactura); si no, el calculado como el SII.
+// Si una orden no trae líneas, o el cálculo se aleja más de lo que explica el redondeo, se usa la suma de las órdenes.
+export function totalFolio(ordenes) {
+  const vivas = (ordenes || []).filter(o => o.estado !== 'anulada' && !o.quitadoEnPlanilla);
+  const suma = Math.round(vivas.reduce((x, o) => x + (Number(o.total) || 0), 0));
+  const sii = vivas.map(o => Number(o.totalFactura)).find(x => x > 0);
+  if (sii) return { total: sii, suma, fuente: 'sii', ajuste: sii - suma };
+  if (!vivas.length || vivas.some(o => !(o.lineas || []).length)) return { total: suma, suma, fuente: 'ordenes', ajuste: 0 };
+  const c = calcularFactura(vivas).total;
+  return Math.abs(c - suma) <= Math.ceil(vivas.length / 2) + 1 ? { total: c, suma, fuente: 'calculado', ajuste: c - suma } : { total: suma, suma, fuente: 'ordenes', ajuste: 0 };
+}
 export function foliosPorCobrar(ordenes, abonos, clientes) {
   const norm = t => String(t || '').trim().toLowerCase(), porNombre = {};
   clientes.forEach(c => { porNombre[norm(c.nombre)] = c.id; });
@@ -1054,11 +1092,11 @@ export function foliosPorCobrar(ordenes, abonos, clientes) {
   ordenes.forEach(o => {
     if (vistos.has(String(o.n))) return; vistos.add(String(o.n));
     if (!o.folio || o.estado === 'anulada' || o.quitadoEnPlanilla || /PAGADO/.test(String(o.estadoPago || '').toUpperCase())) return;
-    const k = String(o.folio), f = F[k] || (F[k] = { folio: k, total: 0, ordenes: [], clienteId: o.clienteId || porNombre[norm(o.cliente)] || null, cliente: o.cliente, fecha: fechaDe(o.fechaFolio) || fechaDe(o.fecha) || '' });
-    f.total += Number(o.total) || 0; f.ordenes.push(o.n);
+    const k = String(o.folio), f = F[k] || (F[k] = { folio: k, total: 0, ordenes: [], _os: [], clienteId: o.clienteId || porNombre[norm(o.cliente)] || null, cliente: o.cliente, fecha: fechaDe(o.fechaFolio) || fechaDe(o.fecha) || '' });
+    f._os.push(o); f.ordenes.push(o.n);
   });
   const out = {};
-  Object.values(F).forEach(f => { f.abonado = ab[f.folio] || 0; f.saldo = Math.max(0, Math.round(f.total - f.abonado)); if (f.saldo > 0 && f.clienteId) (out[f.clienteId] = out[f.clienteId] || []).push(f); });
+  Object.values(F).forEach(f => { const t = totalFolio(f._os); delete f._os; f.total = t.total; f.suma = t.suma; f.ajuste = t.ajuste; f.fuente = t.fuente; f.abonado = ab[f.folio] || 0; f.saldo = Math.max(0, Math.round(f.total - f.abonado)); if (f.saldo > 0 && f.clienteId) (out[f.clienteId] = out[f.clienteId] || []).push(f); });
   Object.values(out).forEach(l => l.sort((a, b) => a.fecha.localeCompare(b.fecha) || Number(a.folio) - Number(b.folio)));
   return out;
 }
@@ -1140,7 +1178,7 @@ export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender
     for (const a of asig) {
       const os = leidas[a.folio].filter(o => o.estado !== 'anulada' && !o.quitadoEnPlanilla);
       if (os.some(o => o.clienteId && o.clienteId !== clienteId)) throw new Error(`El folio ${a.folio} es de otro cliente.`);
-      const tot = os.reduce((s, o) => s + (Number(o.total) || 0), 0), saldo = Math.round(tot - info[a.folio].abonado);
+      const tot = totalFolio(os).total, saldo = Math.round(tot - info[a.folio].abonado);   // v0.25.0: total de la factura
       if (os.every(o => /PAGADO/.test(o.estadoPago || '')) || saldo <= 0) throw new Error(`El folio ${a.folio} ya está pagado.`);
       if (a.monto > saldo) throw new Error(`Al folio ${a.folio} le quedan ${saldo.toLocaleString('es-CL')}: no se le puede asignar ${a.monto.toLocaleString('es-CL')}.`);
       const completo = a.monto === saldo, tipo = completo && !info[a.folio].abonado ? 'pago' : 'abono';
@@ -1189,7 +1227,8 @@ function planDeshacer(f, h, fecha, desde, movId) {
   const quedan = resto.reduce((s, a) => s + (Number(a.monto) || 0), 0), nuevo = quedan > 0 ? 'PARCIAL' : 'PENDIENTE';
   let tocar;
   if (h.tipo === 'abono') {
-    const pag = f.ordenes.find(pagado);
+    // v0.25.0: las órdenes cerradas por redondeo vuelven con el abono (no bloquean)
+    const pag = f.ordenes.find(o => pagado(o) && o.medioPago !== 'Ajuste de redondeo de la factura');
     if (pag) throw new Error(`El folio ${h.folio} quedó pagado después (${fechaDMY(pag.fechaPago)}). Deshaz primero ese pago.`);
     tocar = f.ordenes;
   } else {
@@ -1223,12 +1262,13 @@ export async function deshacerMovimiento(movId, motivo) {
   const m0 = pre.data();
   if (m0.estado === 'pendiente') throw new Error('Ese abono ya está por revisar.');
   if (m0.estado === 'conciliado' && m0.origen === 'app antigua') throw new Error('Se concilió en la app antigua: si hay un error, corrígelo en Por cobrar.');
-  if ((m0.favorUsos || []).length) throw new Error(`Primero deshaz el uso del saldo a favor (folio ${m0.favorUsos.map(u => u.folio).join(', ')}).`);
+  const usosReales = m => (m.favorUsos || []).filter(u => u.tipo !== 'redondeo');   // v0.25.0: el cierre por redondeo no bloquea
+  if (usosReales(m0).length) throw new Error(`Primero deshaz el uso del saldo a favor (folio ${usosReales(m0).map(u => u.folio).join(', ')}).`);
   const mot = String(motivo || '').trim().slice(0, 200);
   await FB.runTransaction(db, async tx => {
     const ms = await tx.get(mref), mv = ms.data();
     if (mv.estado === 'pendiente') throw new Error('Ese abono ya está por revisar.');
-    if ((mv.favorUsos || []).length) throw new Error('Primero deshaz el uso del saldo a favor.');
+    if (usosReales(mv).length) throw new Error('Primero deshaz el uso del saldo a favor.');
     const hechas = mv.estado === 'conciliado' ? (mv.asignaciones || []) : [];
     const folios = {};
     for (const h of hechas) folios[h.folio] = folios[h.folio] || await leerFolioTx(db, tx, h.folio);
@@ -1267,7 +1307,7 @@ export async function usarFavor(movId, folio, monto) {
     const nn = t => String(t || '').trim().toLowerCase();
     if (vivas.some(o => (o.clienteId ? o.clienteId !== mv.clienteId : nn(o.cliente) !== nn(mv.cliente)))) throw new Error(`El folio ${folio} es de otro cliente.`);
     const abonado = abs.filter(x => !x.quitadoEnPlanilla).reduce((s, x) => s + (Number(x.monto) || 0), 0);
-    const saldo = Math.round(vivas.reduce((s, o) => s + (Number(o.total) || 0), 0) - abonado);
+    const saldo = Math.round(totalFolio(vivas).total - abonado);   // v0.25.0: total de la factura
     if (vivas.every(o => /PAGADO/.test(o.estadoPago || '')) || saldo <= 0) throw new Error(`El folio ${folio} ya está pagado.`);
     if (m > saldo) throw new Error(`Al folio ${folio} le quedan $${saldo.toLocaleString('es-CL')}.`);
     const completo = m === saldo, aref = FB.doc(FB.collection(db, 'abonos'));
@@ -1277,6 +1317,39 @@ export async function usarFavor(movId, folio, monto) {
     tx.update(mref, { favorDisponible: mv.favorDisponible - m, favorUsos: (mv.favorUsos || []).concat([{ folio: String(folio), monto: m, tipo: completo ? 'abono final' : 'abono', abono: aref.id, ordenes: tocadas.map(o => o.id), en: ahoraTxt(), por: authSF.currentUser.email }]) });
   });
   uso.escrituras += n0 + 2;
+}
+// v0.25.0 · Folios en PARCIAL que, contando el total de la factura, ya están pagados (les faltaba $1–$3 por redondeo):
+// quedan PAGADO con la fecha del último abono y la nota "Ajuste de redondeo de la factura". No se crea ningún abono.
+export async function cerrarPorRedondeo(folio) {
+  const db = await dbOk();
+  let n = 0;
+  await FB.runTransaction(db, async tx => {
+    const f = await leerFolioTx(db, tx, folio);
+    if (!f.ordenes.length) throw new Error(`No hay órdenes con el folio ${folio}.`);
+    const t = totalFolio(f.ordenes), abonado = f.abonos.reduce((x, a) => x + (Number(a.monto) || 0), 0);
+    const tocar = f.ordenes.filter(o => !/PAGADO/.test(String(o.estadoPago || '').toUpperCase()));
+    if (!tocar.length) throw new Error(`El folio ${folio} ya está pagado.`);
+    if (abonado < t.total) throw new Error(`Al folio ${folio} le faltan $${(t.total - abonado).toLocaleString('es-CL')}: no es redondeo.`);
+    if (t.suma - abonado > 3) throw new Error(`Al folio ${folio} le faltan $${(t.suma - abonado).toLocaleString('es-CL')} según las órdenes: es más que un redondeo, revísalo.`);
+    const fecha = f.abonos.map(a => fechaDe(a.fecha)).filter(Boolean).sort().pop() || hoyTxt();
+    tocar.forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio({ estadoPago: 'PAGADO', fechaPago: fecha, medioPago: 'Ajuste de redondeo de la factura' })));
+    n = tocar.length;
+  });
+  uso.escrituras += n; cacheAgendaB2b = null;
+  return n;
+}
+// v0.25.0 · Saldo a favor de $1 a $3 que vino del redondeo: se cierra (queda anotado en sus usos; no se borra)
+export async function favorRedondeo(movId) {
+  const db = await dbOk();
+  await FB.runTransaction(db, async tx => {
+    const mref = FB.doc(db, 'movimientos', movId), ms = await tx.get(mref);
+    if (!ms.exists()) throw new Error('Ese abono ya no está.');
+    const mv = ms.data(), m = Number(mv.favorDisponible) || 0;
+    if (!(m > 0)) throw new Error('Ese saldo a favor ya se usó.');
+    if (m > 3) throw new Error('Solo los saldos a favor de $1 a $3 se cierran como redondeo.');
+    tx.update(mref, { favorDisponible: 0, favorUsos: (mv.favorUsos || []).concat([{ tipo: 'redondeo', folio: '', monto: m, en: ahoraTxt(), por: authSF.currentUser.email }]) });
+  });
+  uso.escrituras++;
 }
 // Deshacer el uso de un saldo a favor (el último primero): el abono queda anulado y el saldo vuelve
 export async function deshacerUsoFavor(movId, abonoId, motivo) {

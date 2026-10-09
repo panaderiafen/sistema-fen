@@ -1,9 +1,40 @@
-# Sistema Fën · v0.24.3
+# Sistema Fën · v0.25.0
 
-**App:** v0.24.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
+**App:** v0.25.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.25.0: se cobra el total de la factura (adiós a los ±$1)
+**Por qué había descuadres:** cada orden calcula su IVA y lo redondea. La factura del SII suma los netos de todas las órdenes y calcula el IVA **una sola vez**. Con varias órdenes, la factura puede ser $1 a $3 distinta de la suma de las órdenes. El cliente paga la factura, y antes Sistema Fën comparaba ese pago contra la suma de las órdenes: por eso quedaba +$1 a favor o −$1 por cobrar.
+
+**Ahora, lo que se cobra de un folio es el total de la factura:**
+- **Si el folio se asignó con el tercer toque del botón**, se usa el **TOTAL que leyó de la página del SII**. Queda guardado en el folio como el monto oficial.
+- **Si se asignó a mano, o es un folio anterior**, se calcula igual que el SII:
+  - una fila por producto y precio, con cantidad × precio redondeado;
+  - el IVA una vez sobre el neto total.
+- Por seguridad, si una orden no trae sus líneas, o el cálculo se aleja de la suma de las órdenes más de lo que explica el redondeo, se usa la suma de las órdenes, como antes.
+- Si al traer el folio el total del SII **no calza** con el calculado (por ejemplo, cambiaste algo a mano en el SII), te avisa antes de asignar. El mensaje de la factura usa el total del SII.
+- Se usa en todo:
+  - Cobranza: saldo, recordatorio y estado de cuenta PDF.
+  - Conciliación: el pago de la factura calza exacto y queda en "Listos para confirmar".
+  - Pagado y Abono.
+  - Saldo a favor.
+  - Estado de cuenta.
+- En Cobranza, cuando hay diferencia, el folio muestra una línea chica: "Factura $8.335 · órdenes $8.334 · ajuste de redondeo del IVA +$1".
+- **Las órdenes y la planilla no cambian:** cada orden mantiene su total. Logística no cambia.
+
+**Lo que quedó descuadrado antes:**
+- **Folios en "parcial" a los que les faltaba $1 a $3:** aparecen en Cobranza → **"Pagados por el total de la factura"**. Con **Cerrar por redondeo** quedan PAGADO, con la fecha del último abono y la nota "Ajuste de redondeo de la factura". No se crea ningún abono. Si después deshaces ese abono en Conciliación, vuelven a parcial.
+- **Saldos a favor de $1 a $3:** en Conciliación → Saldos a favor aparece **"Es redondeo"**. Lo cierra y queda anotado en el historial ("cerrado: era redondeo de la factura"). No se borra.
+
+Archivos: cambian `app.js`, `b2b.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.25.0**. No cambian las reglas ni los scripts. Incluye la v0.24.x (si no instalaste la v0.24.2, reinstala el botón "Llenar factura Fën"; si no publicaste las reglas de fen-b2b v1.6.0, publícalas).
+
+### Lista de verificación v0.25.0
+- [ ] Cobranza → "Pagados por el total de la factura": aparecen los folios a los que les faltaba $1. "Cerrar por redondeo" los saca de la lista.
+- [ ] Conciliación → Saldos a favor: un saldo de $1 muestra "Es redondeo" y al tocarlo desaparece. En el historial dice "cerrado: era redondeo".
+- [ ] La próxima factura de varias órdenes: asígnala con el tercer toque. En Cobranza, el saldo es igual al total de la factura del SII.
+- [ ] Cuando el cliente la pague, la conciliación propone el folio exacto, sin saldo a favor ni saldo pendiente.
 
 ## Novedades de la v0.24.3: "Ya estaba registrado" también aprende el cliente
 - En Conciliación → Abonos, si eliges el cliente de un abono "Sin cliente" y después tocas **Ya estaba registrado**, ahora también queda aprendido quién pagó, igual que al confirmar. La próxima cartola lo reconoce sola. La ventana lo dice: "Queda aprendido que este abono es de …".

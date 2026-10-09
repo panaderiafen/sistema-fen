@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.24.3';
-import * as Caja from './caja.js?v=0.24.3';
-import * as Stock from './stock.js?v=0.24.3';
-import * as Ajustes from './ajustes.js?v=0.24.3';
-import * as Apps from './apps.js?v=0.24.3';
-import * as Agenda from './agenda.js?v=0.24.3';
-import * as Gastos from './gastos.js?v=0.24.3';
-import * as Sii from './sii.js?v=0.24.3';
-import * as Previred from './previred.js?v=0.24.3';
-import * as B2b from './b2b.js?v=0.24.3';
-import * as Cartola from './cartola.js?v=0.24.3';
-import * as SiiFactura from './sii-factura.js?v=0.24.3';
-import * as PdfOrden from './pdf-orden.js?v=0.24.3';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.24.3';
+} from './firebase.js?v=0.25.0';
+import * as Caja from './caja.js?v=0.25.0';
+import * as Stock from './stock.js?v=0.25.0';
+import * as Ajustes from './ajustes.js?v=0.25.0';
+import * as Apps from './apps.js?v=0.25.0';
+import * as Agenda from './agenda.js?v=0.25.0';
+import * as Gastos from './gastos.js?v=0.25.0';
+import * as Sii from './sii.js?v=0.25.0';
+import * as Previred from './previred.js?v=0.25.0';
+import * as B2b from './b2b.js?v=0.25.0';
+import * as Cartola from './cartola.js?v=0.25.0';
+import * as SiiFactura from './sii-factura.js?v=0.25.0';
+import * as PdfOrden from './pdf-orden.js?v=0.25.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.25.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -316,7 +316,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.24.3" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.25.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2768,14 +2768,8 @@ const fechaCortaMsj = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || '');
 function datosFactura(ordenes, folio) {
   const os = ordenes.slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || a.n - b.n);
   // Una fila por producto y precio (si un producto tuvo dos precios, salen dos filas: así calza con la factura)
-  const F = {};
-  os.forEach(o => (o.lineas || []).forEach(l => {
-    const precio = Math.round(Number(l.precio) || 0), k = String(l.producto).trim() + '|' + precio;
-    const f = F[k] || (F[k] = { producto: String(l.producto).trim(), precio, cantidad: 0, neto: 0 });
-    f.cantidad += Number(l.cantidad) || 0; f.neto += Number(l.neto) || Math.round((Number(l.cantidad) || 0) * precio);
-  }));
-  const filas = Object.values(F).sort((a, b) => a.producto.localeCompare(b.producto, 'es') || a.precio - b.precio);
-  const neto = filas.reduce((s, f) => s + f.neto, 0), iva = Math.round(neto * 0.19), sumaOrdenes = os.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  // v0.25.0: el mismo cálculo que se usa para cobrar el folio (B2b.calcularFactura, igual que el SII)
+  const { filas, neto, iva } = B2b.calcularFactura(os), sumaOrdenes = os.reduce((s, o) => s + (Number(o.total) || 0), 0);
   // v0.18.1: "Hola Bárbara," con el primer nombre del contacto del cliente (Clientes → Contacto); sin contacto, "Hola,"
   const clis = (b2b.datos && b2b.datos.clientes) || [], o0 = os[0] || {};
   const cli = clis.find(c => o0.clienteId && c.id === o0.clienteId) || clis.find(c => String(c.nombre || '').trim().toLowerCase() === String(o0.cliente || '').trim().toLowerCase());
@@ -2785,8 +2779,9 @@ function datosFactura(ordenes, folio) {
 }
 // v0.21.0 · Mensaje para enviar la factura: corto, con el nombre del contacto, folio, total y (a 30 días) vencimiento.
 // El cierre cambia cada día (3 cierres que se turnan) y la primera factura de un cliente lleva los datos de transferencia.
-async function mensajeFactura(ordenes, folio, fechaFolio) {
+async function mensajeFactura(ordenes, folio, fechaFolio, totalSii) {
   const f = datosFactura(ordenes, folio), os = f.os, cl = f.cli || {};
+  if (totalSii > 0) f.total = totalSii;   // v0.25.0: el total de la factura emitida
   const M = await B2b.mensajesFactura().catch(() => ({ cierres: B2b.CIERRES_DEF, transferencia: '' }));
   const ns = os.map(o => o.n), ords = ns.length <= 5 ? 'órdenes N° ' + ns.slice(0, -1).join(', ') + ' y ' + ns[ns.length - 1] : ns.length + ' órdenes';
   let t = `${f.hola} te envío la factura${folio ? ' N° ' + folio : ''} por ${pesos(f.total)}, ` + (os.length === 1 ? `de tu pedido del ${fechaLarga(os[0].fecha)} (orden N° ${os[0].n}).` : `con tus pedidos ${rangoLargo(os[0].fecha, os[os.length - 1].fecha)} (${ords}).`);
@@ -3028,7 +3023,9 @@ function pintarB2bCobranza(el, sub) {
   d.abonos.forEach(a => { abonadoFolio[a.folio] = (abonadoFolio[a.folio] || 0) + (Number(a.monto) || 0); });
   // Folios cuyo cliente no se reconoce (no entran a la cobranza por cliente): se muestran aparte para no perderlos
   const conCli = new Set([...cob.cobrar, ...cob.esperando, ...cob.alDia].flatMap(g => g.folios.concat(g.alDia).map(f => String(f.folio))));
-  const sueltos = Object.keys(porFolio).filter(f => !conCli.has(String(f)));
+  const sueltos = Object.keys(porFolio).filter(f => !conCli.has(String(f)) && B2b.totalFolio(porFolio[f]).total - (abonadoFolio[f] || 0) > 0);
+  // v0.25.0: folios en PARCIAL que con el total de la factura ya están pagados (les faltaba el redondeo)
+  const cerrables = Object.keys(porFolio).filter(f => { const t = B2b.totalFolio(porFolio[f]), ab = abonadoFolio[f] || 0; return ab > 0 && ab >= t.total && t.suma - ab <= 3; });
   const favCli = B2b.saldosAFavor(d.favor || []);
   const toca = conf && conf.importado ? B2b.tocaConciliar(conf) : null, nMov = (d.movimientos || []).length;
   const fecha = f => f ? esc(diaTexto(f)) : '—';
@@ -3036,7 +3033,8 @@ function pintarB2bCobranza(el, sub) {
   const txtG = g => esc([g.cliente.nombre, g.cliente.contacto, ...g.folios.concat(g.alDia).flatMap(f => [f.folio, ...f.ordenes])].join(' ').toLowerCase());
   const ultimaTxt = g => { const u = g.ultima; return u ? `${TIPO_GESTION[u.tipo] || u.tipo}${u.tono ? ' (tono ' + u.tono + ')' : ''} el ${fecha(u.fecha)}` : 'Sin gestiones'; };
   const filaFolio = f => `<div class="fila-caja fila-cobro"><div class="txt"><b>Folio ${esc(f.folio)} · ${pesos(f.saldo)}${f.abonado ? ` <span class="chip c-amarillo chip-chico">Parcial</span>` : ''}</b>
-      <span>Factura del ${fecha(f.fecha)}${f.vence && f.vence !== f.fecha ? ` · vencía el ${fecha(f.vence)}` : ''}${f.enCobranza ? (f.atraso ? ` · <b>${f.atraso} ${f.atraso === 1 ? 'día' : 'días'} de atraso</b>` : '') : ` · entra a cobranza el ${fecha(f.cobrarDesde)}`} · N° ${f.ordenes.join(', ')}</span></div>
+      <span>Factura del ${fecha(f.fecha)}${f.vence && f.vence !== f.fecha ? ` · vencía el ${fecha(f.vence)}` : ''}${f.enCobranza ? (f.atraso ? ` · <b>${f.atraso} ${f.atraso === 1 ? 'día' : 'días'} de atraso</b>` : '') : ` · entra a cobranza el ${fecha(f.cobrarDesde)}`} · N° ${f.ordenes.join(', ')}</span>
+      ${f.ajuste ? `<small class="fechas-cobro">Factura ${pesos(f.total)}${f.fuente === 'sii' ? ' (del SII)' : ''} · órdenes ${pesos(f.suma)} · ajuste de redondeo del IVA ${f.ajuste > 0 ? '+' : '−'}${pesos(Math.abs(f.ajuste))}</small>` : ''}</div>
     <div class="acciones"><button type="button" class="btn-sec btn-chico" data-abono="${esc(f.folio)}">Abono</button><button type="button" class="btn-sec btn-chico" data-pago="${esc(f.folio)}">Pagado</button></div></div>`;
   const tarjeta = g => {
     const id = g.cliente.id, tono = b2bCob.tono[id] || (g.recordatorios ? 2 : 1), abierto = b2bCob.abiertos.has(id) || b2bCob.abiertos.has(g.cliente.nombre);
@@ -3069,13 +3067,15 @@ function pintarB2bCobranza(el, sub) {
         <div class="tarjeta cifra"><span class="rotulo">Aún no vence</span><span class="valor">${pesos(cob.alDia.reduce((s, g) => s + g.saldoTotal, 0) + [...cob.cobrar, ...cob.esperando].reduce((s, g) => s + g.saldoTotal - g.saldo, 0))}</span><span class="nota">dentro del plazo</span></div></div>
       <div class="buscar-b2b"><input type="search" data-cob-buscar value="${esc(b2bCob.buscar)}" placeholder="Cliente o folio" aria-label="Buscar cliente o folio"></div>
       ${b2bCob.msg ? `<p class="ayuda" role="status">${esc(b2bCob.msg)}</p>` : ''}${d.cobranzaError ? `<p class="error">No se pudieron leer las gestiones: falta publicar las reglas de fen-b2b v1.6.0 (ver README). Los folios sí se ven.</p>` : ''}</section>
+    ${cerrables.length ? `<section class="tarjeta" aria-labelledby="t-cob-red"><h2 id="t-cob-red">Pagados por el total de la factura ${info('Pagados por el total de la factura', 'Estos folios quedaron "parcial" porque se comparaba lo abonado con la suma de las órdenes. Con el total de la factura (el IVA calculado una vez, como el SII) ya están pagados: les faltaba $1 a $3 de redondeo.\nAl cerrarlos quedan PAGADO con la fecha del último abono y la nota "Ajuste de redondeo de la factura". No se crea ningún abono.')}</h2>
+      ${cerrables.map(f => { const t = B2b.totalFolio(porFolio[f]); return `<div class="fila-caja"><div class="txt"><b>Folio ${esc(f)} · ${esc(porFolio[f][0].cliente)}</b><span>Factura ${pesos(t.total)} · abonado ${pesos(abonadoFolio[f] || 0)} · órdenes ${pesos(t.suma)}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico" data-cob-redondeo="${esc(f)}">Cerrar por redondeo</button></div></div>`; }).join('')}</section>` : ''}
     <section class="tarjeta" aria-labelledby="t-cob-1"><h2 id="t-cob-1">En cobranza <span class="chip c-rojo">${cob.cobrar.length}</span></h2>
       ${cob.cobrar.map(tarjeta).join('') || '<div class="vacio" style="border:0">Nadie en cobranza. 🎉</div>'}</section>
     ${cob.esperando.length ? `<section class="tarjeta" aria-labelledby="t-cob-2"><h2 id="t-cob-2">Esperando ${info('Esperando', 'Clientes con un compromiso de pago (vuelven a la lista ese día) o que dicen que ya pagaron (vuelven si la cartola revisada llega a ese día y el pago no está).')}</h2>${cob.esperando.map(tarjeta).join('')}</section>` : ''}
     <details class="tarjeta plegable" data-plegar="cob-aldia" ${plegada('cob-aldia') ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-cob-3">Aún no vencen</h2><span>${cob.alDia.length} ${cob.alDia.length === 1 ? 'cliente' : 'clientes'}</span></summary>
       ${cob.alDia.map(g => `<div class="grupo-cob" data-txt="${txtG(g)}"><p style="margin:10px 0 2px"><b>${esc(g.cliente.nombre)}</b> <span class="ayuda">· ${pesos(g.saldoTotal)} · entra a cobranza el ${fecha(g.proximo)} si no paga</span>${favCli[g.cliente.id] ? ` <a class="chip c-verde chip-chico" href="#conciliacion" title="Saldo a favor: se usa en Conciliación">A favor ${pesos(favCli[g.cliente.id].total)}</a>` : ''}</p>${g.alDia.map(filaFolio).join('')}</div>`).join('') || '<div class="vacio" style="border:0">Nada dentro del plazo.</div>'}</details>
     ${sueltos.length ? `<section class="tarjeta" aria-labelledby="t-cob-4"><h2 id="t-cob-4">Folios sin cliente reconocido ${info('Folios sin cliente reconocido', 'Sus órdenes tienen un nombre de cliente que no está en Clientes. Revisa el nombre en la orden o crea el cliente.')}</h2>
-      ${sueltos.map(f => { const l = porFolio[f], tot = l.reduce((s, o) => s + o.total, 0); return `<div class="fila-caja fila-cobro grupo-cob" data-txt="${esc((f + ' ' + l[0].cliente).toLowerCase())}"><div class="txt"><b>Folio ${esc(f)} · ${esc(l[0].cliente)}</b><span>${pesos(Math.max(0, tot - (abonadoFolio[f] || 0)))} · N° ${l.map(o => o.n).join(', ')}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico" data-abono="${esc(f)}">Abono</button><button type="button" class="btn-sec btn-chico" data-pago="${esc(f)}">Pagado</button></div></div>`; }).join('')}</section>` : ''}`;
+      ${sueltos.map(f => { const l = porFolio[f], tot = B2b.totalFolio(l).total; return `<div class="fila-caja fila-cobro grupo-cob" data-txt="${esc((f + ' ' + l[0].cliente).toLowerCase())}"><div class="txt"><b>Folio ${esc(f)} · ${esc(l[0].cliente)}</b><span>${pesos(Math.max(0, tot - (abonadoFolio[f] || 0)))} · N° ${l.map(o => o.n).join(', ')}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico" data-abono="${esc(f)}">Abono</button><button type="button" class="btn-sec btn-chico" data-pago="${esc(f)}">Pagado</button></div></div>`; }).join('')}</section>` : ''}`;
   const todos = [...cob.cobrar, ...cob.esperando, ...cob.alDia], grupoDe = id => todos.find(g => g.cliente.id === id);
   // Buscar
   // Al buscar, lo que calza se abre (cliente y "Aún no vencen")
@@ -3151,12 +3151,17 @@ function pintarB2bCobranza(el, sub) {
     if (!confirm(`${g.cliente.nombre} vuelve a la lista de cobranza ahora (el compromiso o el pago informado queda en las gestiones).`)) return;
     anotar(g, { tipo: 'quitarCompromiso' }, 'volvió a cobrar');
   }));
+  el.querySelectorAll('[data-cob-redondeo]').forEach(b => b.addEventListener('click', async () => {
+    const f = b.dataset.cobRedondeo; b.disabled = true;
+    try { const n = await B2b.cerrarPorRedondeo(f); Object.keys(agAuto).forEach(k => delete agAuto[k]); registrar('Cerró folio por redondeo', `Folio ${f} · ${n} órdenes`); B2b.pasarAPlanilla().catch(() => {}); }
+    catch (e) { alert(errorB2b(e)); b.disabled = false; }
+  }));
   conectarPagos(el, porFolio, abonadoFolio);
 }
 // Pagado y Abono de un folio (Cobranza). porFolio: { folio: [órdenes] }, abonadoFolio: { folio: monto }
 function conectarPagos(el, porFolio, abonadoFolio) {
   el.querySelectorAll('[data-pago]').forEach(b => b.addEventListener('click', async () => {
-    const f = b.dataset.pago, l = porFolio[f], tot = l.reduce((s, o) => s + o.total, 0);
+    const f = b.dataset.pago, l = porFolio[f], tot = B2b.totalFolio(l).total;
     const r = await pedirDatos(`Folio ${f} pagado`, `<p class="ayuda">${l.length} ${l.length === 1 ? 'orden' : 'órdenes'} · ${pesos(tot)}${abonadoFolio[f] ? ` · ya abonado ${pesos(abonadoFolio[f])}` : ''}</p>
       <div class="fila-campos"><div class="campo"><label for="pd-fecha">Fecha de pago</label><input id="pd-fecha" type="date" value="${Caja.diaLocal()}"></div>${campoMedio()}</div>
       <div class="campo"><label for="pd-ref">Referencia (opcional)</label><input id="pd-ref" placeholder="Ej: quién pagó, N° de recibo"></div>${NOTA_TRANSF}`, 'Marcar pagado', dd => ({ fecha: dd.querySelector('#pd-fecha').value, medio: leerMedio(dd) }));
@@ -3165,7 +3170,7 @@ function conectarPagos(el, porFolio, abonadoFolio) {
     catch (e) { alert(errorB2b(e)); }
   }));
   el.querySelectorAll('[data-abono]').forEach(b => b.addEventListener('click', async () => {
-    const f = b.dataset.abono, l = porFolio[f], tot = l.reduce((s, o) => s + o.total, 0), ab = abonadoFolio[f] || 0;
+    const f = b.dataset.abono, l = porFolio[f], tot = B2b.totalFolio(l).total, ab = abonadoFolio[f] || 0;
     const r = await pedirDatos(`Abono al folio ${f}`, `<p class="ayuda">Total ${pesos(tot)}${ab ? ` · ya abonado ${pesos(ab)}` : ''} · saldo ${pesos(Math.max(0, tot - ab))}</p>
       <div class="fila-campos"><div class="campo"><label for="pd-monto">Monto</label><input id="pd-monto" inputmode="numeric" placeholder="Ej: 50000"></div>
       <div class="campo"><label for="pd-fecha">Fecha</label><input id="pd-fecha" type="date" value="${Caja.diaLocal()}"></div></div>
@@ -3178,15 +3183,15 @@ function conectarPagos(el, porFolio, abonadoFolio) {
   }));
 }
 // Asignar un folio a órdenes de un cliente (revisa que el folio no sea de otro cliente). true si quedó.
-async function asignarFolioOrdenes(lista, folio, fecha) {
+async function asignarFolioOrdenes(lista, folio, fecha, totalSii) {
   const ns = lista.map(o => o.n).sort((a, b) => a - b);
   try {
     const usado = await B2b.folioUsado(folio);
     const mismoCli = u => (u.clienteId && lista[0].clienteId) ? u.clienteId === lista[0].clienteId : String(u.cliente).trim().toLowerCase() === String(lista[0].cliente).trim().toLowerCase();
     if (usado.some(u => !mismoCli(u))) { alert(`El folio ${folio} ya es de ${usado[0].cliente} (N° ${usado.map(u => u.n).join(', ')}).\n\nUn folio es de un solo cliente: revisa el número.`); return false; }
     if (usado.length && !confirm(`El folio ${folio} ya está en ${usado.length === 1 ? 'la orden' : 'las órdenes'} N° ${usado.map(u => u.n).join(', ')} de ${lista[0].cliente}. ¿Agregar estas órdenes al mismo folio?`)) return false;
-    await B2b.asignarFolio(ns, folio, fecha);
-    registrar('Asignó folio B2B', `Folio ${folio} · N° ${ns.join(', ')}`);
+    await B2b.asignarFolio(ns, folio, fecha, usado.length ? null : totalSii);   // si se agregan órdenes a un folio ya usado, el total se recalcula
+    registrar('Asignó folio B2B', `Folio ${folio} · N° ${ns.join(', ')}${totalSii ? ' · total SII ' + pesos(totalSii) : ''}`);
     ns.forEach(n => b2b.sel.delete(String(n))); B2b.pasarAPlanilla().catch(() => {});
     return true;
   } catch (e) { alert(errorB2b(e)); return false; }
@@ -3227,11 +3232,13 @@ async function revisarFolioSii(d, sinFolio) {
   if (!r) return;
   const lista = cand.filter(o => r.ns.includes(String(o.n))), suma = lista.reduce((s, o) => s + (Number(o.total) || 0), 0);
   if (new Set(lista.map(o => o.clienteId || nom(o.cliente))).size > 1) { alert('Un folio es de un solo cliente: marca órdenes de un mismo cliente.'); return; }
-  if (x.total && Math.abs(suma - x.total) > lista.length && !confirm(`La factura del SII es de ${pesos(x.total)} y las órdenes marcadas suman ${pesos(suma)}. ¿Asignar el folio igual?`)) return;
+  // v0.25.0: se compara con el total calculado como el SII; lo que se cobra es el total de la factura del SII
+  const calc = B2b.calcularFactura(lista).total;
+  if (x.total && x.total !== calc && !confirm(`La factura del SII es de ${pesos(x.total)} y las órdenes marcadas calculan ${pesos(calc)} (suman ${pesos(suma)}).\n\n¿Cambiaste algo a mano en el SII? Si asignas el folio, se cobra lo de la factura: ${pesos(x.total)}.`)) return;
   const fechaF = x.fecha || Caja.diaLocal();
-  if (!(await asignarFolioOrdenes(lista, x.folio, fechaF))) return;
+  if (!(await asignarFolioOrdenes(lista, x.folio, fechaF, x.total || null))) return;
   // Enviar la factura: el mensaje queda listo con el folio y el total
-  const msj = await mensajeFactura(lista, x.folio, fechaF), clE = cli || (d.clientes || []).find(c => c.id === lista[0].clienteId) || {};
+  const msj = await mensajeFactura(lista, x.folio, fechaF, x.total || 0), clE = cli || (d.clientes || []).find(c => c.id === lista[0].clienteId) || {};
   const dlg = dialogo(`<div class="form-dialogo"><h2>Folio ${esc(x.folio)} asignado</h2><p class="ayuda">N° ${lista.map(o => o.n).join(', ')} quedaron en Por cobrar. Ahora envía la factura (descárgala del SII con "Ver Documento" y adjúntala):</p>
     <textarea id="fs-msj" rows="7" style="width:100%">${esc(msj)}</textarea>
     <div class="botones"><button type="button" class="btn-sec" id="fs-cerrar">Listo</button><button type="button" class="btn-sec" id="fs-copiar">Copiar mensaje</button><button type="button" class="btn btn-wsp" id="fs-wsp">Enviar por WhatsApp</button></div></div>`);
@@ -3666,6 +3673,12 @@ function pintarB2bConciliacion(el, sub) {
   }));
   conectarTarjetaConc(el, conf, repintar, ocupado);
   // v0.15 · usar un saldo a favor en un folio
+  // v0.25.0: saldo a favor de $1 a $3 que vino del redondeo de la factura
+  el.querySelectorAll('[data-favor-redondeo]').forEach(b => b.addEventListener('click', () => {
+    const m = (d.favor || []).find(x => x.id === b.dataset.favorRedondeo); if (!m) return;
+    if (!confirm(`¿Cerrar el saldo a favor de ${pesos(m.favorDisponible)} de ${m.cliente}? Vino del redondeo del IVA de la factura. Queda anotado en el historial.`)) return;
+    ocupado('favor', async () => { await B2b.favorRedondeo(m.id); b2bConc.hist = null; registrar('Cerró saldo a favor por redondeo', `${m.cliente} · ${pesos(m.favorDisponible)}`); });
+  }));
   el.querySelectorAll('[data-favor-mov]').forEach(b => b.addEventListener('click', () => ocupado('favor', async () => {
     const monto = Number(b.dataset.favorMonto), mv = (d.favor || []).find(x => x.id === b.dataset.favorMov);
     await B2b.usarFavor(b.dataset.favorMov, b.dataset.favorFolio, monto);
@@ -3768,7 +3781,7 @@ function favorHtml(porCobrar) {
   const sal = Object.values(B2b.saldosAFavor(b2b.datos.favor));
   if (!sal.length) return '';
   return `<section class="tarjeta" aria-labelledby="t-favor"><div class="titulo-fila"><h2 id="t-favor">Saldos a favor ${info('Saldos a favor', 'Lo que sobró de abonos de la cartola (pagaron de más o antes de la factura). Se usa en un folio del mismo cliente con el botón: queda como abono con la fecha del banco y, si completa el folio, lo deja PAGADO.\nPrimero se usa el saldo más antiguo.')}</h2><span>${sal.length} ${sal.length === 1 ? 'cliente' : 'clientes'} · ${pesos(sal.reduce((x, c) => x + c.total, 0))}</span></div>
-    ${sal.map(c => { const fol = porCobrar[c.clienteId] || [], a0 = c.abonos[0]; return `<div class="favor-cli"><div class="txt"><b>${esc(c.cliente)} · ${pesos(c.total)} a favor</b><span>${c.abonos.map(a => `del abono del ${esc(diaTexto(a.fecha))}: ${pesos(a.favorDisponible)}`).join(' · ')}</span></div>
+    ${sal.map(c => { const fol = porCobrar[c.clienteId] || [], a0 = c.abonos[0]; return `<div class="favor-cli"><div class="txt"><b>${esc(c.cliente)} · ${pesos(c.total)} a favor</b><span>${c.abonos.map(a => `del abono del ${esc(diaTexto(a.fecha))}: ${pesos(a.favorDisponible)}${a.favorDisponible <= 3 ? ` <button type="button" class="btn-link" data-favor-redondeo="${esc(a.id)}" title="Cierra este saldo: vino del redondeo del IVA de la factura">Es redondeo</button>` : ''}`).join(' · ')}</span></div>
       ${fol.length ? fol.map(f => { const usar = Math.min(a0.favorDisponible, f.saldo); return `<div class="fila-caja"><div class="txt"><b>Folio ${esc(f.folio)}</b><span>${esc(diaTexto(f.fecha))} · saldo ${pesos(f.saldo)}</span></div><div class="acciones"><button type="button" class="btn btn-chico" data-favor-mov="${esc(a0.id)}" data-favor-folio="${esc(f.folio)}" data-favor-monto="${usar}" ${b2bConc.ocupado ? 'disabled' : ''}>Usar ${pesos(usar)}</button></div></div>`; }).join('')
         : '<p class="ayuda">No tiene folios por cobrar: se podrá usar cuando tenga uno.</p>'}</div>`; }).join('')}</section>`;
 }
@@ -3788,7 +3801,7 @@ function histConcHtml() {
     const txt = [m.cliente, m.descripcion, (m.asignaciones || []).map(a => a.folio).join(' '), m.folios, m.monto, et].join(' ').toLowerCase();
     return `<div class="fila-hist" data-txt="${esc(txt)}"><div class="fila-caja"><div class="txt"><b>${pesos(m.monto)}${m.cliente ? ' · ' + esc(m.cliente) : ''}</b><span>${esc(diaTexto(m.fecha))} · ${esc(m.descripcion)}</span>${detalle ? `<small class="fechas-cobro">${detalle}</small>` : ''}${m.deshechos ? `<small class="fechas-cobro">Deshecho ${m.deshechos === 1 ? 'una vez' : m.deshechos + ' veces'} antes</small>` : ''}</div>
       <div class="acciones"><span class="chip chip-chico ${cl}">${et}</span>${puede ? `<button type="button" class="btn-sec btn-chico" data-deshacer="${esc(m.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Deshacer</button>` : ''}</div></div>
-      ${(m.favorUsos || []).map(u => `<div class="uso-favor"><span>Saldo a favor usado en el folio ${esc(u.folio)}: ${pesos(u.monto)}</span><button type="button" class="btn-link" data-deshacer-uso="${esc(m.id)}" data-abono="${esc(u.abono)}" ${b2bConc.ocupado ? 'disabled' : ''}>Deshacer</button></div>`).join('')}</div>`;
+      ${(m.favorUsos || []).map(u => u.tipo === 'redondeo' ? `<div class="uso-favor"><span>Saldo a favor de ${pesos(u.monto)} cerrado: era redondeo de la factura</span></div>` : `<div class="uso-favor"><span>Saldo a favor usado en el folio ${esc(u.folio)}: ${pesos(u.monto)}</span><button type="button" class="btn-link" data-deshacer-uso="${esc(m.id)}" data-abono="${esc(u.abono)}" ${b2bConc.ocupado ? 'disabled' : ''}>Deshacer</button></div>`).join('')}</div>`;
   };
   const cuerpo = b2bConc.histCargando || (b2bConc.histAbierto && !l) ? '<div class="vacio" style="border:0">Leyendo…</div>'
     : !l ? '' : `<p class="ayuda">Abonos de la cartola ya resueltos, por fecha del banco. "Deshacer" lo devuelve a Para revisar: sus folios vuelven a Por cobrar y sus abonos quedan anulados (no se borra nada).</p>
