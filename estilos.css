@@ -657,3 +657,9 @@ a.ag-item { text-decoration: none; }
 .opcion-cc:has(input:checked) { border-color: var(--acento); background: var(--acento-suave); }
 .sub-cc { font-size: 14px; margin: 12px 0 4px; }
 .fila-hist[hidden] { display: none !important; }
+/* v0.24.0 · Cobranza */
+.cob-acciones { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 4px; padding-top: 10px; border-top: 1px dashed var(--linea); }
+.cob-acciones .botones { margin: 0; flex-wrap: wrap; }
+.cob-hist { margin: 8px 0; }
+.cob-hist > summary { cursor: pointer; font-size: 13px; color: var(--suave); min-height: 32px; }
+.cob-hist .ayuda { margin: 4px 0; }

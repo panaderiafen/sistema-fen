@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.23.0';
-import * as FB from './firebase-b2b.js?v=0.23.0';
-import * as Apps from './apps.js?v=0.23.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.23.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.24.0';
+import * as FB from './firebase-b2b.js?v=0.24.0';
+import * as Apps from './apps.js?v=0.24.0';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.24.0';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -385,7 +385,7 @@ export async function pasarAPlanilla() {
 // ── Escuchas en vivo (órdenes por facturar y por cobrar, abonos, solicitudes) ──
 export async function escuchar(cb) {
   const db = await dbOk();
-  const datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, clientes: [], productos: [], movimientos: [], favor: [], conciliacion: null, conciliacionLeida: false, listo: { a: 0 } };
+  const datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, clientes: [], productos: [], movimientos: [], favor: [], conciliacion: null, conciliacionLeida: false, cobranza: {}, listo: { a: 0 } };
   const avisar = () => cb(datos);
   const desde = hoyTxt(new Date(Date.now() - 7 * 864e5));   // v0.14.1: 7 días (antes 30): lo pendiente llega por sus propias consultas; así lee mucho menos
   const juntar = clave => sn => {
@@ -411,6 +411,8 @@ export async function escuchar(cb) {
     // v0.15: abonos con saldo a favor por usar
     FB.onSnapshot(FB.query(FB.collection(db, 'movimientos'), FB.where('favorDisponible', '>', 0)), sn => { uso.lecturas += sn.docChanges().length || 1; datos.favor = sn.docs.map(d => ({ id: d.id, ...d.data() })); avisar(); }, err),
     FB.onSnapshot(FB.doc(db, 'config', 'conciliacion'), sn => { datos.conciliacion = sn.exists() ? sn.data() : null; datos.conciliacionLeida = true; avisar(); }, err),
+    // v0.24.0: cobranza (compromisos, "dice que ya pagó" y gestiones por cliente); sin las reglas v1.6.0 queda vacío sin cortar lo demás
+    FB.onSnapshot(FB.collection(db, 'cobranza'), sn => { uso.lecturas += sn.docChanges().length || 1; const m = {}; sn.docs.forEach(x => { m[x.id] = x.data(); }); datos.cobranza = m; datos.cobranzaLeida = true; avisar(); }, e => { datos.cobranzaError = e && e.code; datos.cobranzaLeida = true; avisar(); }),
     FB.onSnapshot(FB.collection(db, 'productos'), sn => { uso.lecturas += sn.docChanges().length || 1; datos.productos = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !p.quitadoEnPlanilla).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es')); avisar(); }, err)
   ];
   return () => fin.forEach(f => { try { f(); } catch (e) {} });
@@ -451,7 +453,7 @@ export async function registrarPago(folio, fechaPago, medio) {
   if (!os.length) throw new Error('Ese folio no tiene órdenes por pagar.');
   const b = FB.writeBatch(db);
   os.forEach(o => b.update(FB.doc(db, 'ordenes', o.id), marcaCambio({ estadoPago: 'PAGADO', fechaPago: fechaPago || hoyTxt(), medioPago: String(medio || '').trim().slice(0, 120) || null })));
-  await b.commit(); uso.escrituras += os.length;
+  await b.commit(); cacheAgendaB2b = null; uso.escrituras += os.length;
   return os.length;
 }
 // Abono a un folio: queda en abonos; si con esto se completa el total, el folio queda PAGADO; si no, PARCIAL
@@ -469,7 +471,7 @@ export async function registrarAbono(folio, monto, fecha, referencia) {
   const b = FB.writeBatch(db);
   b.set(FB.doc(FB.collection(db, 'abonos')), { folio: String(folio), fecha: fecha || hoyTxt(), monto: m, referencia: String(referencia || '').trim(), extra: {}, quitadoEnPlanilla: false, planillaPendiente: true, por: authSF.currentUser.email, en: FB.serverTimestamp() });
   os.filter(o => !/PAGADO/.test(o.estadoPago || '')).forEach(o => b.update(FB.doc(db, 'ordenes', o.id), marcaCambio(pagado ? { estadoPago: 'PAGADO', fechaPago: fecha || hoyTxt() } : { estadoPago: 'PARCIAL' })));
-  await b.commit(); uso.escrituras += os.length + 1;
+  await b.commit(); cacheAgendaB2b = null; uso.escrituras += os.length + 1;
   return { pagado, saldo: Math.max(0, total - abonado) };
 }
 // Anular: no se borra; queda "anulada" con quién, cuándo y por qué (en la planilla pasa a "Ordenes anuladas")
@@ -744,11 +746,12 @@ export async function datosAgenda(forzar) {
   if (cx.estado !== 'ok') return null;
   if (!forzar && cacheAgendaB2b && Date.now() - cacheAgendaB2b.t < 300000) return cacheAgendaB2b.d;
   const db = cx.db, vivas = sn => sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(o => !o.quitadoEnPlanilla && o.estado !== 'anulada');
-  const [pc, sf, cl, cc] = await Promise.all([
+  const [pc, sf, cl, cc, cb] = await Promise.all([
     FB.getDocs(FB.query(FB.collection(db, 'ordenes'), FB.where('estadoPago', 'in', ['PENDIENTE', 'PARCIAL']))),
     FB.getDocs(FB.query(FB.collection(db, 'ordenes'), FB.where('sinFolio', '==', true))),
     FB.getDocs(FB.collection(db, 'clientes')),
-    FB.getDoc(FB.doc(db, 'config', 'conciliacion'))
+    FB.getDoc(FB.doc(db, 'config', 'conciliacion')),
+    FB.getDocs(FB.collection(db, 'cobranza')).catch(() => null)   // sin las reglas v1.6.0: la agenda sigue sin compromisos
   ]);
   const porCobrar = vivas(pc), sinFolio = vivas(sf), clientes = cl.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => !c.quitadoEnPlanilla);
   // Abonos solo de los folios con pago parcial (de a 30 por consulta)
@@ -756,7 +759,8 @@ export async function datosAgenda(forzar) {
   const abonos = [];
   for (let i = 0; i < folios.length; i += 30) { const sn = await FB.getDocs(FB.query(FB.collection(db, 'abonos'), FB.where('folio', 'in', folios.slice(i, i + 30)))); sn.docs.forEach(d => { const a = d.data(); if (!a.quitadoEnPlanilla) abonos.push(a); }); }
   uso.lecturas += pc.size + sf.size + cl.size + abonos.length + 1;
-  const d = { porCobrar, sinFolio, clientes, abonos, conciliacion: cc.exists() ? cc.data() : null };
+  const cobranza = {}; if (cb) cb.docs.forEach(x => { cobranza[x.id] = x.data(); });
+  const d = { porCobrar, sinFolio, clientes, abonos, conciliacion: cc.exists() ? cc.data() : null, cobranza };
   cacheAgendaB2b = { t: Date.now(), d };
   return d;
 }
@@ -766,21 +770,14 @@ export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
   if (!d) return [];
   const out = [], norm = t => String(t || '').trim().toLowerCase(), enRango = f => f >= desde && f <= hasta;
   const clientes = d.clientes.filter(c => c.estado !== 'archivado');
-  // Cobros: cada folio se cobra desde su fecha de factura (diaria, semanal y mensual) o 30 días después ("30 días")
-  const grupos = {}, atrasados = { n: 0, saldo: 0, clientes: new Set() };
-  Object.entries(foliosPorCobrar(d.porCobrar, d.abonos, d.clientes)).forEach(([cid, fs]) => {
-    const c = d.clientes.find(x => x.id === cid), dias = (c && ACORDADO[norm(c.frecuenciaPago)]) || 0;
-    fs.forEach(f => {
-      if (!f.fecha) return;
-      const vence = masDiasB(f.fecha, dias);
-      if (vence < desde && desde <= hoy && hoy <= hasta) { atrasados.n++; atrasados.saldo += f.saldo; atrasados.clientes.add(f.cliente || (c && c.nombre)); return; }
-      if (!enRango(vence)) return;
-      const k = cid + '|' + vence, g = grupos[k] || (grupos[k] = { cliente: (c && c.nombre) || f.cliente, fecha: vence, folios: [], saldo: 0 });
-      g.folios.push(f.folio); g.saldo += f.saldo;
-    });
-  });
-  Object.values(grupos).forEach(g => out.push({ auto: true, cat: 'cobro', fecha: g.fecha, titulo: `Cobro ${g.cliente}`, sub: `${g.folios.length === 1 ? 'Folio ' + g.folios[0] : g.folios.length + ' folios'} · saldo $${Math.round(g.saldo).toLocaleString('es-CL')}`, url: '#b2b/cobrar/' + encodeURIComponent(g.cliente), vencido: g.fecha < hoy }));
-  if (atrasados.n) out.push({ auto: true, cat: 'cobro', fecha: hoy, titulo: `Cobros atrasados de antes (${atrasados.clientes.size} ${atrasados.clientes.size === 1 ? 'cliente' : 'clientes'})`, sub: `${atrasados.n} ${atrasados.n === 1 ? 'folio' : 'folios'} · $${Math.round(atrasados.saldo).toLocaleString('es-CL')}`, url: '#b2b', vencido: true });
+  // v0.24.0 · Cobranza resumida: hoy, cuántos clientes están en cobranza; los compromisos de pago en su día;
+  // y, hacia adelante, el día en que un folio entraría en cobranza si no se paga
+  const cob = armarCobranza(foliosPorCobrar(d.porCobrar, d.abonos, d.clientes), d.clientes, d.cobranza || {}, d.conciliacion, hoy);
+  if (enRango(hoy) && cob.cobrar.length) out.push({ auto: true, cat: 'cobro', fecha: hoy, titulo: `Cobranza: ${cob.cobrar.length} ${cob.cobrar.length === 1 ? 'cliente' : 'clientes'}`, sub: `${cob.cobrar.reduce((s, g) => s + g.folios.length, 0)} folios · $${Math.round(cob.cobrar.reduce((s, g) => s + g.saldo, 0)).toLocaleString('es-CL')}`, url: '#b2b/cobranza', vencido: true });
+  cob.esperando.forEach(g => { const x = g.compromiso || g.dice; if (g.compromiso && enRango(x.fecha)) out.push({ auto: true, cat: 'cobro', fecha: x.fecha, titulo: `Compromiso de pago: ${g.cliente.nombre}`, sub: `${g.folios.length === 1 ? 'Folio ' + g.folios[0].folio : g.folios.length + ' folios'} · $${Math.round(g.saldo).toLocaleString('es-CL')}`, url: '#b2b/cobranza/' + encodeURIComponent(g.cliente.nombre) }); });
+  const entran = {};
+  [...cob.cobrar, ...cob.esperando, ...cob.alDia].forEach(g => g.alDia.forEach(f => { if (f.cobrarDesde > hoy && enRango(f.cobrarDesde)) { const k = f.cobrarDesde; (entran[k] = entran[k] || { n: 0, saldo: 0, cli: new Set() }); entran[k].n++; entran[k].saldo += f.saldo; entran[k].cli.add(g.cliente.nombre); } }));
+  Object.entries(entran).forEach(([f, e]) => out.push({ auto: true, cat: 'cobro', fecha: f, titulo: `Entran a cobranza si no pagan (${e.cli.size} ${e.cli.size === 1 ? 'cliente' : 'clientes'})`, sub: `${[...e.cli].slice(0, 3).join(', ')}${e.cli.size > 3 ? '…' : ''} · ${e.n} ${e.n === 1 ? 'folio' : 'folios'} · $${Math.round(e.saldo).toLocaleString('es-CL')}`, url: '#b2b/cobranza' }));
   // Días de conciliar (los que fijaste en Conciliación); los pasados quedan hechos si la cartola ya cubre hasta el día anterior
   const conf = d.conciliacion;
   if (conf && conf.importado) {
@@ -1607,4 +1604,108 @@ export function coberturaCartolas(cartolas) {
   r.forEach(([a, b]) => { const u = unidos[unidos.length - 1]; if (u && a <= mas(u[1], 1)) { if (b > u[1]) u[1] = b; } else unidos.push([a, b]); });
   const huecos = unidos.slice(1).map((u, i) => [mas(unidos[i][1], 1), mas(u[0], -1)]);
   return { desde: unidos[0][0], hasta: unidos[unidos.length - 1][1], huecos };
+}
+
+// ═══════════════════════════════════════════════
+//  v0.24.0 · Cobranza
+//  Cada folio vence en su fecha de factura (diaria, semanal y mensual) o 30 días después ("30 días").
+//  Pasa a cobranza al 4.º día después del vencimiento (3 días de gracia); los de 30 días, al día siguiente (sin gracia).
+//  Lo que se hace con cada cliente queda en cobranza/{clienteId}: compromisos de pago, "dice que ya pagó" y las gestiones.
+// ═══════════════════════════════════════════════
+export const GRACIA_COBRANZA = 3;
+export const plazoCliente = c => ACORDADO[String((c && c.frecuenciaPago) || '').trim().toLowerCase()] || 0;
+const MESES_C = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+export const fechaCobranza = (f, conAnio) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); return m ? `${Number(m[3])} de ${MESES_C[Number(m[2]) - 1]}${conAnio ? ' de ' + m[1] : ''}` : String(f || ''); };
+// porCliente: lo de foliosPorCobrar; docs: { clienteId: doc de cobranza }; conf: config/conciliacion
+// → { cobrar: [grupo], esperando: [grupo], alDia: [grupo], revisado }
+export function armarCobranza(porCliente, clientes, docs, conf, hoy = hoyTxt()) {
+  const revisado = conf && conf.importado ? hastaRevisado(conf, hoy) : null;
+  const out = { cobrar: [], esperando: [], alDia: [], revisado };
+  Object.entries(porCliente || {}).forEach(([cid, fs]) => {
+    const c = (clientes || []).find(x => x.id === cid) || { id: cid, nombre: (fs[0] && fs[0].cliente) || cid };
+    const plazo = plazoCliente(c), gracia = plazo ? 0 : GRACIA_COBRANZA;
+    const folios = fs.map(f => {
+      const vence = f.fecha ? masDiasB(f.fecha, plazo) : '', desde = vence ? masDiasB(vence, gracia + 1) : '';
+      return { ...f, vence, cobrarDesde: desde, atraso: vence ? Math.max(0, diasEntre(vence, hoy)) : 0, enCobranza: !desde || hoy >= desde };
+    });
+    const venc = folios.filter(f => f.enCobranza), resto = folios.filter(f => !f.enCobranza);
+    const doc = (docs && docs[cid]) || {}, gestiones = Array.isArray(doc.gestiones) ? doc.gestiones : [];
+    const g = { cliente: c, plazo, gracia, folios: venc, alDia: resto, saldo: venc.reduce((s, f) => s + f.saldo, 0), saldoTotal: folios.reduce((s, f) => s + f.saldo, 0),
+      atraso: venc.reduce((m, f) => Math.max(m, f.atraso), 0), gestiones, ultima: gestiones[gestiones.length - 1] || null, recordatorios: 0, notas: [], estado: 'cobrar' };
+    if (!venc.length) { out.alDia.push({ ...g, proximo: resto.map(f => f.cobrarDesde).sort()[0] }); return; }
+    // Lo anotado cuenta solo si se anotó después de la factura más antigua en cobranza (lo viejo no se arrastra)
+    const desdeF = venc.map(f => f.fecha).filter(Boolean).sort()[0] || '';
+    const vale = x => x && x.fecha && String(x.registrado || '') >= desdeF;
+    g.recordatorios = gestiones.filter(x => x.tipo === 'recordatorio' && String(x.fecha || '') >= desdeF).length;
+    const dice = vale(doc.diceQuePago) ? doc.diceQuePago : null, comp = vale(doc.compromiso) ? doc.compromiso : null;
+    if (dice) {
+      g.dice = dice;
+      if (!revisado || revisado < dice.fecha) { g.estado = 'pagoInformado'; out.esperando.push(g); return; }
+      g.notas.push(`Dijo que pagó el ${fechaCobranza(dice.fecha)}; la cartola revisada hasta el ${fechaCobranza(revisado)} no muestra ese pago.`);
+    }
+    if (comp) {
+      g.compromiso = comp;
+      if (hoy < comp.fecha) { g.estado = 'compromiso'; out.esperando.push(g); return; }
+      g.notas.push(hoy === comp.fecha ? `Hoy es el día que se comprometió a pagar.` : `Se comprometió a pagar el ${fechaCobranza(comp.fecha)}.`);
+    }
+    out.cobrar.push(g);
+  });
+  out.cobrar.sort((a, b) => b.atraso - a.atraso || b.saldo - a.saldo);
+  out.esperando.sort((a, b) => String((a.compromiso || a.dice || {}).fecha).localeCompare(String((b.compromiso || b.dice || {}).fecha)));
+  out.alDia.sort((a, b) => String(a.proximo).localeCompare(String(b.proximo)));
+  return out;
+}
+// Mensaje de cobranza. tono 1: amable; tono 2: más firme (y con los datos para transferir, si están guardados)
+export function mensajeCobranza(g, tono, revisado, transferencia) {
+  const nombre = String((g.cliente && g.cliente.contacto) || '').trim().split(/\s+/)[0] || '';
+  const hola = nombre ? `Hola ${nombre.charAt(0).toUpperCase() + nombre.slice(1)},` : 'Hola,';
+  const pesosC = n => '$' + Math.round(n).toLocaleString('es-CL');
+  const lineas = g.folios.map(f => `• Folio N° ${f.folio}${f.fecha ? ' del ' + fechaCobranza(f.fecha) : ''}: ${pesosC(f.saldo)}${f.abonado ? ' (saldo)' : ''}`).join('\n');
+  const total = g.folios.length > 1 ? `\nTotal: ${pesosC(g.saldo)}` : '';
+  if (Number(tono) === 2) {
+    return `${hola} te escribimos nuevamente porque aún tenemos pendiente el pago de:\n${lineas}${total}\n\nNecesitamos regularizarlo a la brevedad. ¿Nos confirmas hoy la fecha de pago? Si ya pagaste, envíanos el comprobante y lo revisamos.`
+      + (transferencia ? `\n\nPara transferir:\n${transferencia}` : '') + '\n\nGracias.';
+  }
+  return `${hola} según nuestra última revisión de pagos${revisado ? ` (hasta el ${fechaCobranza(revisado)})` : ''}, no hemos recibido el pago de:\n${lineas}${total}\n\n¿Nos puedes indicar la fecha de pago? Si ya lo hiciste, avísanos y lo revisamos. ¡Gracias!`;
+}
+// Anota una gestión (recordatorio, compromiso, "dice que ya pagó", nota). Nada se borra: las gestiones solo se agregan.
+// Un recordatorio nuevo deja sin efecto el compromiso y el "dice que ya pagó" anteriores (quedan en las gestiones).
+export async function registrarGestion(cliente, gestion) {
+  const db = await dbOk(), ref = FB.doc(db, 'cobranza', cliente.id);
+  const tipo = gestion.tipo, hoy = hoyTxt();
+  if (!['recordatorio', 'compromiso', 'dicePago', 'nota', 'quitarCompromiso'].includes(tipo)) throw new Error('Gestión desconocida.');
+  if ((tipo === 'compromiso' || tipo === 'dicePago') && !/^\d{4}-\d{2}-\d{2}$/.test(gestion.fecha || '')) throw new Error('Elige la fecha.');
+  const g = { tipo, fecha: hoy, en: ahoraTxt(), por: authSF.currentUser.email };
+  if (gestion.tono) g.tono = Number(gestion.tono);
+  if (gestion.folios) g.folios = gestion.folios.map(String).slice(0, 60);
+  if (gestion.saldo != null) g.saldo = Math.round(Number(gestion.saldo) || 0);
+  if (gestion.fecha && tipo !== 'recordatorio' && tipo !== 'nota') g.para = gestion.fecha;
+  if (gestion.nota) g.nota = String(gestion.nota).trim().slice(0, 300);
+  await FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref); uso.lecturas++;
+    const prev = sn.exists() ? sn.data() : {}, lista = Array.isArray(prev.gestiones) ? prev.gestiones : [];
+    const cambio = { cliente: cliente.nombre || '', gestiones: lista.concat([g]), actualizado: g.en };
+    if (tipo === 'compromiso') cambio.compromiso = { fecha: gestion.fecha, registrado: hoy, nota: g.nota || '', por: g.por };
+    if (tipo === 'dicePago') cambio.diceQuePago = { fecha: gestion.fecha, registrado: hoy, nota: g.nota || '', por: g.por };
+    if (tipo === 'recordatorio' || tipo === 'quitarCompromiso') { cambio.compromiso = null; cambio.diceQuePago = null; }
+    tx.set(ref, cambio, { merge: true }); uso.escrituras++;
+  });
+  cacheAgendaB2b = null;   // Hoy y la Agenda lo ven al tiro
+  return g;
+}
+// Para Hoy y la Agenda (sin el escuchador): los documentos de cobranza
+export async function leerCobranza() {
+  const db = await dbOk();
+  const sn = await FB.getDocs(FB.collection(db, 'cobranza')); uso.lecturas += Math.max(1, sn.size);
+  const out = {}; sn.docs.forEach(d => { out[d.id] = d.data(); });
+  return out;
+}
+// Para Hoy: la cobranza resumida (usa lo mismo que la agenda, 5 minutos en memoria). null si la base nueva no está en uso.
+export async function cobranzaParaHoy() {
+  const d = await datosAgenda();
+  if (!d) return null;
+  const cx = await conexion(); const cfg = await FB.getDoc(FB.doc(cx.db, 'config', 'b2b')); uso.lecturas++;
+  if (!cfg.exists() || !cfg.data().activa) return null;
+  const hoy = hoyTxt(), c = armarCobranza(foliosPorCobrar(d.porCobrar, d.abonos, d.clientes), d.clientes, d.cobranza || {}, d.conciliacion, hoy);
+  return { ...c, compromisosHoy: c.cobrar.filter(g => g.compromiso && g.compromiso.fecha === hoy) };
 }

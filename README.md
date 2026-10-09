@@ -1,9 +1,48 @@
-# Sistema Fën · v0.23.0
+# Sistema Fën · v0.24.0
 
-**App:** v0.23.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.5.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 · 8 de octubre de 2026
+**App:** v0.24.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.24.0: Cobranza, y la Agenda más rápida
+**Ventas B2B → Cobranza** (pestaña nueva, segunda). "Por cobrar" salió de Órdenes y vive aquí. Órdenes queda con Por facturar.
+- **Cuándo un folio pasa a cobranza.** Se cuenta desde la **fecha de la factura** (la fecha del folio):
+  - Clientes que pagan diario, semanal o mensual: el folio vence ese mismo día. Tienen **3 días de gracia**: si no está pagado, entra a cobranza el **4.º día**. Ejemplo: factura del 26 de septiembre → en cobranza el 30.
+  - Clientes que pagan **a 30 días**: vence 30 días después de la factura. **Sin gracia**: entra a cobranza al día siguiente (el día 31).
+  - La frecuencia de pago de cada cliente se cambia en Clientes → Frecuencia de pago.
+- **Una tarjeta por cliente** con sus folios: N°, fecha de la factura, días de atraso y saldo. Cada folio tiene sus botones **Abono** y **Pagado**. Los folios que todavía no vencen salen aparte, con el día en que entrarían.
+- **Recordatorio en 2 tonos.** El **amable** se propone para el primer recordatorio. El **firme** se propone desde el segundo y lleva los datos para transferir, si están guardados. Puedes enviarlo con **Recordatorio por WhatsApp** o **Copiar mensaje**. Ejemplo del tono amable: "Hola Bárbara, según nuestra última revisión de pagos (hasta el 28 de septiembre), no hemos recibido el pago de: • Folio N° 3456 del 26 de septiembre: $124.567 … ¿Nos puedes indicar la fecha de pago?"
+- **Antes de enviar, revisa la cartola.** Si toca conciliar, o si hay abonos de la cartola por revisar, te avisa: puede que el cliente ya haya pagado.
+- **Estado de cuenta PDF**: el mismo de Estado de cuenta, solo con lo pendiente del cliente.
+- **Compromiso de pago:** el cliente sale de la lista hasta esa fecha. Ese día aparece en la Agenda y, si no ha pagado, vuelve a la lista con una nota.
+- **Dice que ya pagó:** el cliente sale de la lista hasta que concilies una cartola que llegue a ese día.
+  - Si el pago aparece, al conciliar el folio queda pagado y el cliente sale de cobranza.
+  - Si el pago no aparece, el cliente vuelve con la nota "la cartola no muestra ese pago".
+- **Gestiones:** cada recordatorio, compromiso, nota o "dice que pagó" queda anotado en el cliente (fecha, tono, folios y monto). Nada se borra. Un recordatorio nuevo deja sin efecto el compromiso anterior, que sigue en las gestiones.
+- **Hoy** muestra "N clientes en cobranza", sacado de la base nueva. Reemplaza el "Cobros atrasados" de la planilla.
+- **La Agenda queda resumida:**
+  - Hoy, una línea "Cobranza: N clientes".
+  - Los compromisos de pago, en su día.
+  - Los días en que un folio entraría a cobranza si no se paga.
+  - Ya no hay un "Cobro …" por cada cliente.
+- **La Agenda es más rápida.** Muestra al tiro lo tuyo y después agrega lo de Gastos y B2B, que demoran más: arriba dice "Cargando pagos, cobros y facturación…". Si cambias de mes y vuelves, lo de Gastos y B2B queda guardado 2 minutos. Se vuelve a leer al tiro cuando guardas algo en la Agenda, pagas un vencimiento o registras un pago o una gestión de cobranza.
+
+### Instalación v0.24.0 (unos 5 minutos)
+1. **Reglas de fen-b2b v1.6.0** (Firebase): en la consola de Firebase, proyecto **fen-b2b** → Firestore Database → Reglas → pega todo `firestore-b2b.rules` → **Publicar**. Sin estas reglas, Cobranza muestra los folios pero no guarda gestiones (lo avisa en rojo).
+2. **Sistema Fën** (GitHub, repositorio `sistema-fen`): sube todos los archivos del zip. Cambian `app.js`, `b2b.js`, `estilos.css`, `firestore-b2b.rules`, `config.js`, `README.md`, y los demás `.js` e `index.html` (solo versión). Abajo a la izquierda debe decir **v0.24.0**.
+3. El botón "Llenar factura Fën" **no cambió**: no hay que reinstalarlo. Los scripts de Apps Script tampoco cambian.
+
+### Lista de verificación v0.24.0
+- [ ] Ventas B2B muestra las pestañas Órdenes · **Cobranza** · Estado de cuenta · Buscar · Solicitudes · Análisis · Clientes · Productos.
+- [ ] Órdenes ya no tiene "Por cobrar". En Cobranza están todos los folios sin pagar: en cobranza, esperando o aún no vencen.
+- [ ] Un cliente diario con una factura de hace 4 días o más está en cobranza; uno a 30 días entra recién el día 31.
+- [ ] "Copiar mensaje" con tono amable: el mensaje trae el nombre del contacto, los folios con fecha y saldo, y el total.
+- [ ] Después del primer recordatorio, la tarjeta propone el tono firme.
+- [ ] "Compromiso de pago" para pasado mañana: el cliente pasa a Esperando, y ese día sale en la Agenda.
+- [ ] "Volver a cobrar" lo devuelve a la lista. En "Gestiones" queda todo.
+- [ ] Hoy dice "N clientes en cobranza".
+- [ ] La Agenda muestra primero lo tuyo y después agrega pagos, cobros y facturación.
 
 ## Novedades de la v0.23.0: menú ordenado según el trabajo
 - **Conciliación tiene su propia sección** en el menú (entre Gastos y Ventas B2B), con dos pestañas: **Abonos (B2B)** (pagos de clientes) y **Cargos (Gastos)**. Arriba, en las dos, la misma tarjeta: subir la cartola (una vez, de cualquier cuenta), días de conciliar, cuentas que se revisan y hasta dónde está revisada cada cuenta. Cada pestaña muestra cuántos quedan por revisar. Nada de lo ya conciliado cambia: solo cambió de lugar.

@@ -1,8 +1,10 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.5.0 (2026-10-08)
+//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.6.0 (2026-10-08)
 //
+//  v1.6.0: cobranza/{clienteId}: compromisos de pago, "dice que ya pagó" y gestiones de cobranza;
+//          solo administración; las gestiones solo se agregan (nunca se quitan).
 //  v1.5.0: conciliación: deshacer (un abono resuelto vuelve a "pendiente" solo sumando 1 a
 //          "deshechos") y saldo a favor (favorDisponible entre 0 y el monto del abono).
 //  v1.4.0: conciliación bancaria (movimientos de la cartola), solo administración.
@@ -167,6 +169,15 @@ service cloud.firestore {
     }
     match /migracion/{id} {
       allow read, create, update: if esAdmin();
+      allow delete: if false;
+    }
+    match /cobranza/{clienteId} {
+      allow read: if esAdmin();
+      allow create: if esAdmin() && nuevo().gestiones is list && nuevo().gestiones.size() <= 5000;
+      // la lista de gestiones solo crece (y empieza igual que antes): lo anotado no se borra ni se cambia
+      allow update: if esAdmin() && nuevo().gestiones is list && nuevo().gestiones.size() >= antes().gestiones.size()
+                    && nuevo().gestiones.size() <= 5000
+                    && (antes().gestiones.size() == 0 || nuevo().gestiones[0:antes().gestiones.size()] == antes().gestiones);
       allow delete: if false;
     }
     match /config/{id} {
