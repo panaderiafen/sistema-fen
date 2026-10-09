@@ -1,9 +1,18 @@
-# Sistema Fën · v0.24.1
+# Sistema Fën · v0.24.2
 
-**App:** v0.24.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
+**App:** v0.24.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.24.2: referencias más ordenadas en facturas de más de 3 órdenes
+- **De 1 a 3 órdenes:** igual que antes, una Nota de pedido por orden, con su N° y su fecha.
+- **Más de 3 órdenes:** **una sola referencia**. La Nota de pedido lleva el N° y la fecha de la primera orden, y en la razón van todas las órdenes. Ejemplo: "Órdenes N° 2539, 2549, 2561, 2575, 2589, 2606 y 2616 (1 al 7 oct)".
+- **Si no caben** en los 90 caracteres del SII (una factura mensual, por ejemplo), la razón dice cuántas órdenes son, el período y del N° al N°. Ejemplo: "23 órdenes del 1 al 31 oct · N° 2539 a 2876 · detalle en resumen adjunto". En ese caso, el aviso del botón te recuerda enviar el **PDF resumen** (Por facturar → "PDF de N" → Resumen) junto con la factura.
+- Si quedaban líneas de referencia llenas de una vez anterior, el botón las deja vacías.
+- **Hay que reinstalar el botón "Llenar factura Fën"** (cambió): borra el favorito antiguo y arrastra el nuevo desde Preparar para el SII → "Primera vez: dejar el botón en favoritos".
+
+Archivos: cambian `sii-factura.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.24.2**. Incluye la v0.24.1 y la v0.24.0 (Cobranza: reglas de fen-b2b v1.6.0).
 
 ## Novedades de la v0.24.1: botón del SII sin "Error 501"
 - El botón **"Ir a la pestaña del SII"** (en Preparar para el SII) ya no carga el formulario directo. Desde Sistema Fën, el SII no recibe tu sesión y responde "Error 501 · ptr NULL (ptrTkn)", aunque tengas la sesión abierta.

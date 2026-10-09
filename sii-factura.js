@@ -127,7 +127,9 @@ async function llenarFacturaFen(SF) {
   // Líneas que sobraban de antes: vacías
   for (let i = L.length; campo('EFXP_NMB_' + k2(i)); i++) { if (String(campo('EFXP_NMB_' + k2(i)).value).trim()) { poner('EFXP_NMB_' + k2(i), ''); poner('EFXP_QTY_' + k2(i), ''); poner('EFXP_PRC_' + k2(i), ''); } }
   const neto = L.reduce((s, x) => s + Math.round(x.q * x.p), 0);
-  // Referencias: una "Nota de pedido" (802) por orden, hasta 3; si son más, la tercera nombra el resto
+  // Referencias: una "Nota de pedido" (802) por orden, hasta 3.
+  // v0.24.2: con más de 3 órdenes, UNA sola línea (N° y fecha de la primera); la razón lista todas si caben en 90
+  // letras; si no, cuántas son, el período y del N° al N° (el detalle va en el PDF resumen).
   const os = (d.ordenes || []).map(o => (typeof o === 'object' ? o : { n: o, f: '' }));
   const ponerFecha = (pre, k, iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); if (!m) return true; let ok = true; [['dia', m[3]], ['mes', m[2]], ['anio', m[1]]].forEach(([p, v]) => { const e = campo('cbo_' + p + '_boleta_' + pre + '_' + k); if (!e || !Array.from(e.options).some(o => o.value === v)) { ok = false; return; } e.value = v; avisar(e, 'change'); }); return ok; };
   const avisos = [];
@@ -137,12 +139,26 @@ async function llenarFacturaFen(SF) {
   if ((os.length && ref) || (d.pago30 && pag)) { if (typeof window.printReferencias === 'function') window.printReferencias(); }
   if (os.length) {
     if (!campo('EFXP_TPO_DOC_REF_001')) avisos.push('No aparecieron las referencias: márcalas a mano (Nota de pedido, N° de orden).');
-    else os.slice(0, 3).forEach((o, i) => {
-      const k = '00' + (i + 1), resto = i === 2 && os.length > 3 ? os.slice(2) : null;
+    else if (os.length <= 3) os.forEach((o, i) => {
+      const k = '00' + (i + 1);
       poner('EFXP_TPO_DOC_REF_' + k, '802'); poner('EFXP_FOLIO_REF_' + k, String(o.n));
       if (!ponerFecha('ref', k.slice(-2), o.f)) avisos.push('Revisa la fecha de la referencia ' + (i + 1) + '.');
-      poner('EFXP_RAZON_REF_' + k, (resto ? 'Órdenes de venta N° ' + resto.map(x => x.n).join(', ') : 'Orden de venta N° ' + o.n).slice(0, 90));
+      poner('EFXP_RAZON_REF_' + k, ('Orden de venta N° ' + o.n).slice(0, 90));
     });
+    else {
+      const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+      const fd = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? { d: Number(m[3]), m: MES[Number(m[2]) - 1], y: m[1] } : null; };
+      const fs = os.map(o => o.f).filter(Boolean).sort(), a = fd(fs[0]), b = fd(fs[fs.length - 1]);
+      const rango = !a || !b ? '' : fs[0] === fs[fs.length - 1] ? a.d + ' ' + a.m : a.m === b.m && a.y === b.y ? a.d + ' al ' + b.d + ' ' + b.m : a.d + ' ' + a.m + ' al ' + b.d + ' ' + b.m;
+      const ns = os.map(o => Number(o.n)), lista = 'Órdenes N° ' + ns.slice(0, -1).join(', ') + ' y ' + ns[ns.length - 1] + (rango ? ' (' + rango + ')' : '');
+      const razon = lista.length <= 90 ? lista : os.length + ' órdenes' + (rango ? ' del ' + rango : '') + ' · N° ' + Math.min.apply(null, ns) + ' a ' + Math.max.apply(null, ns) + ' · detalle en resumen adjunto';
+      poner('EFXP_TPO_DOC_REF_001', '802'); poner('EFXP_FOLIO_REF_001', String(os[0].n));
+      if (!ponerFecha('ref', '01', os[0].f)) avisos.push('Revisa la fecha de la referencia.');
+      poner('EFXP_RAZON_REF_001', razon.slice(0, 90));
+      d.refCompleta = lista.length <= 90;
+    }
+    // Líneas de referencia que sobraban (de una vez anterior): vacías
+    for (let i = Math.min(os.length, os.length > 3 ? 1 : 3) + 1; i <= 3; i++) { const k = '00' + i; if (campo('EFXP_FOLIO_REF_' + k) && String(campo('EFXP_FOLIO_REF_' + k).value).trim()) { poner('EFXP_FOLIO_REF_' + k, ''); poner('EFXP_RAZON_REF_' + k, ''); } }
   }
   // Forma de pago: Crédito con su vencimiento si el cliente paga a 30 días; si no, Contado
   if (campo('EFXP_FMA_PAGO')) poner('EFXP_FMA_PAGO', d.pago30 ? '2' : '1');
@@ -160,7 +176,7 @@ async function llenarFacturaFen(SF) {
     let m = 'Paso 2 de 2 listo: ' + (L.length - faltan.length) + ' de ' + L.length + ' productos.\nNeto según Sistema Fën: $' + neto.toLocaleString('es-CL') + (enSii ? '\nNeto que calcula el SII: $' + enSii.toLocaleString('es-CL') + (enSii === neto ? ' ✓' : ' ← revisa, no calza') : '');
     if (faltan.length) m += '\n\nNo cupieron en el formulario: ' + faltan.join(', ') + '. Agrégalos a mano o haz dos facturas.';
     if (cortados.length) m += '\n\nNombres cortados (el SII acepta pocas letras): ' + cortados.join(', ') + '.';
-    if (os.length) m += '\nReferencias: Nota de pedido N° ' + os.slice(0, 3).map(o => o.n).join(', ') + (os.length > 3 ? ' (y ' + (os.length - 3) + ' más en la razón)' : '') + '.';
+    if (os.length) m += os.length <= 3 ? '\nReferencias: Nota de pedido N° ' + os.map(o => o.n).join(', ') + '.' : '\nReferencia: una Nota de pedido con las ' + os.length + ' órdenes' + (d.refCompleta ? ' en la razón.' : ' (no caben todas: la razón dice cuántas y del N° al N°; envía el PDF resumen con la factura).');
     m += '\nForma de pago: ' + (d.pago30 ? 'Crédito, a 30 días' : 'Contado') + '.';
     if (avisos.length) m += '\n\n' + avisos.join('\n');
     alert(m + '\n\nRevisa y usa "Validar y visualizar" como siempre. Después de emitir, en la página del folio, toca el botón otra vez para llevarlo a Sistema Fën.');
