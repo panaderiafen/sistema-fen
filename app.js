@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.28.1';
-import * as Caja from './caja.js?v=0.28.1';
-import * as Stock from './stock.js?v=0.28.1';
-import * as Ajustes from './ajustes.js?v=0.28.1';
-import * as Apps from './apps.js?v=0.28.1';
-import * as Agenda from './agenda.js?v=0.28.1';
-import * as Gastos from './gastos.js?v=0.28.1';
-import * as Sii from './sii.js?v=0.28.1';
-import * as Previred from './previred.js?v=0.28.1';
-import * as B2b from './b2b.js?v=0.28.1';
-import * as Cartola from './cartola.js?v=0.28.1';
-import * as SiiFactura from './sii-factura.js?v=0.28.1';
-import * as PdfOrden from './pdf-orden.js?v=0.28.1';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.28.1';
+} from './firebase.js?v=0.28.2';
+import * as Caja from './caja.js?v=0.28.2';
+import * as Stock from './stock.js?v=0.28.2';
+import * as Ajustes from './ajustes.js?v=0.28.2';
+import * as Apps from './apps.js?v=0.28.2';
+import * as Agenda from './agenda.js?v=0.28.2';
+import * as Gastos from './gastos.js?v=0.28.2';
+import * as Sii from './sii.js?v=0.28.2';
+import * as Previred from './previred.js?v=0.28.2';
+import * as B2b from './b2b.js?v=0.28.2';
+import * as Cartola from './cartola.js?v=0.28.2';
+import * as SiiFactura from './sii-factura.js?v=0.28.2';
+import * as PdfOrden from './pdf-orden.js?v=0.28.2';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.28.2';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -316,7 +316,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.28.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.28.2" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -3008,7 +3008,7 @@ function pintarB2bAdmin(el, sub) {
 // ── v0.24.0 · Cobranza ─────────────────────────────
 // Por cliente: los folios que pasaron su plazo (+3 días de gracia; a 30 días sin gracia), recordatorio en 2 tonos,
 // estado de cuenta, compromiso de pago y "dice que ya pagó" (espera la cartola). Todo queda anotado en sus gestiones.
-const b2bCob = { buscar: '', abiertos: new Set(), tono: {}, msg: '' };
+const b2bCob = { buscar: '', abiertos: new Set(), tono: {}, vigentes: {}, msg: '' };
 function cobranzaActual() {
   const d = b2b.datos, os = b2bOrdenes();
   return B2b.armarCobranza(B2b.foliosPorCobrar(os, d.abonos || [], d.clientes || []), d.clientes || [], d.cobranza || {}, d.conciliacion);
@@ -3050,6 +3050,7 @@ function pintarB2bCobranza(el, sub) {
       ${g.alDia.length ? `<p class="ayuda" style="margin-top:8px">Aún no vencen:</p>${g.alDia.map(filaFolio).join('')}` : ''}
       <div class="cob-acciones">
         <div class="pastillas" role="group" aria-label="Tono del recordatorio"><button type="button" class="pastilla" data-cob-tono="1" data-cli="${esc(id)}" aria-pressed="${tono === 1}">Tono amable</button><button type="button" class="pastilla" data-cob-tono="2" data-cli="${esc(id)}" aria-pressed="${tono === 2}">Tono firme</button></div>
+        ${g.alDia.length ? `<label class="check-linea"><input type="checkbox" data-cob-vig="${esc(id)}" ${b2bCob.vigentes[id] ? 'checked' : ''}> Agregar lo que aún está en plazo (${g.alDia.length} ${g.alDia.length === 1 ? 'folio' : 'folios'} · ${pesos(g.alDia.reduce((x, f) => x + f.saldo, 0))}), en un párrafo aparte</label>` : ''}
         <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico btn-wsp" data-cob-wsp="${esc(id)}">Recordatorio por WhatsApp</button><button type="button" class="btn-sec btn-chico" data-cob-copiar="${esc(id)}">Copiar mensaje</button><button type="button" class="btn-sec btn-chico" data-cob-pdf="${esc(id)}">Estado de cuenta PDF</button></div>
         <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" data-cob-comp="${esc(id)}">Compromiso de pago</button><button type="button" class="btn-sec btn-chico" data-cob-dice="${esc(id)}">Dice que ya pagó</button><button type="button" class="btn-sec btn-chico" data-cob-nota="${esc(id)}">Anotar</button>${g.estado !== 'cobrar' ? `<button type="button" class="btn-link" data-cob-quitar="${esc(id)}">Volver a cobrar</button>` : ''}</div>
       </div>
@@ -3096,7 +3097,8 @@ function pintarB2bCobranza(el, sub) {
     if (nMov) return confirm(`Hay ${nMov} ${nMov === 1 ? 'abono' : 'abonos'} de la cartola por revisar: puede que uno sea de ${g.cliente.nombre}.\n\n¿Enviar el recordatorio igual?`);
     return true;
   };
-  const mensaje = async g => { const tono = b2bCob.tono[g.cliente.id] || (g.recordatorios ? 2 : 1); const M = await B2b.mensajesFactura().catch(() => ({ transferencia: '' })); return { tono, txt: B2b.mensajeCobranza(g, tono, cob.revisado, M.transferencia) }; };
+  const mensaje = async g => { const tono = b2bCob.tono[g.cliente.id] || (g.recordatorios ? 2 : 1); const M = await B2b.mensajesFactura().catch(() => ({ transferencia: '' })); return { tono, txt: B2b.mensajeCobranza(g, tono, cob.revisado, M.transferencia, { vigentes: !!b2bCob.vigentes[g.cliente.id] }) }; };
+  el.querySelectorAll('[data-cob-vig]').forEach(c => c.addEventListener('change', () => { b2bCob.vigentes[c.dataset.cobVig] = c.checked; }));
   const registroEnvio = (g, tono, via) => anotar(g, { tipo: 'recordatorio', tono, folios: g.folios.map(f => f.folio), saldo: g.saldo, nota: via }, `recordatorio tono ${tono} (${via}) · ${pesos(g.saldo)}`);
   el.querySelectorAll('[data-cob-wsp]').forEach(b => b.addEventListener('click', async () => {
     const g = grupoDe(b.dataset.cobWsp); if (!g || !conciliacionAlDia(g)) return;

@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.28.1';
-import * as FB from './firebase-b2b.js?v=0.28.1';
-import * as Apps from './apps.js?v=0.28.1';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.28.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.28.2';
+import * as FB from './firebase-b2b.js?v=0.28.2';
+import * as Apps from './apps.js?v=0.28.2';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.28.2';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1829,20 +1829,24 @@ export function armarCobranza(porCliente, clientes, docs, conf, hoy = hoyTxt()) 
   return out;
 }
 // Mensaje de cobranza. tono 1: amable; tono 2: más firme (y con los datos para transferir, si están guardados)
-export function mensajeCobranza(g, tono, revisado, transferencia) {
+// v0.28.2: tono 1 sin días; tono 2 con los días de atraso en negrita (*así* en WhatsApp);
+// opciones.vigentes: agrega en un párrafo aparte lo que aún está en plazo, con su propio total
+export function mensajeCobranza(g, tono, revisado, transferencia, opciones = {}) {
   const nombre = String((g.cliente && g.cliente.contacto) || '').trim().split(/\s+/)[0] || '';
   const hola = nombre ? `Hola ${nombre.charAt(0).toUpperCase() + nombre.slice(1)},` : 'Hola,';
   const pesosC = n => '$' + Math.round(n).toLocaleString('es-CL');
   const faltan = f => { const d = f.detalle || []; if (!d.some(x => x.pagadaEl)) return ''; const l = d.filter(x => !x.pagadaEl).map(x => x.n); return l.length ? ` (${l.length === 1 ? 'orden' : 'órdenes'} N° ${l.length === 1 ? l[0] : l.slice(0, -1).join(', ') + ' y ' + l[l.length - 1]})` : ''; };
-  // v0.28.1: cada folio con sus días de atraso (desde que venció), igual que en la app
-  const atraso = f => f.atraso > 0 ? ` · ${f.atraso} ${f.atraso === 1 ? 'día' : 'días'} de atraso` : '';
+  const firme = Number(tono) === 2;
+  const atraso = f => firme && f.atraso > 0 ? ` · *${f.atraso} ${f.atraso === 1 ? 'día' : 'días'} de atraso*` : '';
   const lineas = g.folios.map(f => `• Folio N° ${f.folio}${f.fecha ? ' del ' + fechaCobranza(f.fecha) : ''}: ${pesosC(f.saldo)}${f.abonado ? ' (saldo)' : ''}${faltan(f)}${atraso(f)}`).join('\n');
   const total = g.folios.length > 1 ? `\nTotal: ${pesosC(g.saldo)}` : '';
-  if (Number(tono) === 2) {
-    return `${hola} te escribimos nuevamente porque aún tenemos pendiente el pago de:\n${lineas}${total}\n\nNecesitamos regularizarlo a la brevedad. ¿Nos confirmas hoy la fecha de pago? Si ya pagaste, envíanos el comprobante y lo revisamos.`
+  const al = opciones.vigentes ? (g.alDia || []) : [];
+  const vigentes = al.length ? `\n\nAdemás, ${al.length === 1 ? 'esta factura aún está' : 'estas facturas aún están'} en plazo:\n` + al.map(f => `• Folio N° ${f.folio}${f.fecha ? ' del ' + fechaCobranza(f.fecha) : ''}: ${pesosC(f.saldo)}${f.vence && f.vence !== f.fecha ? ' (vence el ' + fechaCobranza(f.vence) + ')' : ''}`).join('\n') + (al.length > 1 ? `\nTotal en plazo: ${pesosC(al.reduce((x, f) => x + f.saldo, 0))}` : '') : '';
+  if (firme) {
+    return `${hola} te escribimos nuevamente porque aún tenemos pendiente el pago de:\n${lineas}${total}${vigentes}\n\nNecesitamos regularizarlo a la brevedad. ¿Nos confirmas hoy la fecha de pago? Si ya pagaste, envíanos el comprobante y lo revisamos.`
       + (transferencia ? `\n\nPara transferir:\n${transferencia}` : '') + '\n\nGracias.';
   }
-  return `${hola} según nuestra última revisión de pagos${revisado ? ` (hasta el ${fechaCobranza(revisado)})` : ''}, no hemos recibido el pago de:\n${lineas}${total}\n\n¿Nos puedes indicar la fecha de pago? Si ya lo hiciste, avísanos y lo revisamos. ¡Gracias!`;
+  return `${hola} según nuestra última revisión de pagos${revisado ? ` (hasta el ${fechaCobranza(revisado)})` : ''}, no hemos recibido el pago de:\n${lineas}${total}${vigentes}\n\n¿Nos puedes indicar la fecha de pago? Si ya lo hiciste, avísanos y lo revisamos. ¡Gracias!`;
 }
 // Anota una gestión (recordatorio, compromiso, "dice que ya pagó", nota). Nada se borra: las gestiones solo se agregan.
 // Un recordatorio nuevo deja sin efecto el compromiso y el "dice que ya pagó" anteriores (quedan en las gestiones).
