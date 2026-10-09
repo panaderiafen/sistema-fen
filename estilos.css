@@ -663,3 +663,10 @@ a.ag-item { text-decoration: none; }
 .cob-hist { margin: 8px 0; }
 .cob-hist > summary { cursor: pointer; font-size: 13px; color: var(--suave); min-height: 32px; }
 .cob-hist .ayuda { margin: 4px 0; }
+/* v0.26.0 · órdenes de un folio en la conciliación */
+.mov-ords { margin: -2px 0 4px 12px; font-size: 13px; }
+.mov-ords > summary { cursor: pointer; color: var(--suave); min-height: 32px; display: flex; align-items: center; }
+.mov-ord { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 6px 4px; border-bottom: 1px dashed var(--linea); }
+.mov-ord span:first-child { display: flex; gap: 8px; align-items: center; }
+.mov-ord input { width: 18px; height: 18px; }
+.mov-ord-pagada { color: var(--suave); }

@@ -1,9 +1,31 @@
-# Sistema Fën · v0.25.0
+# Sistema Fën · v0.26.0
 
-**App:** v0.25.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
+**App:** v0.26.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.26.0: pagos por orden dentro de un folio
+Para los clientes que pagan por pedido aunque la factura junte varias órdenes.
+- **Conciliación → cada folio de más de una orden** tiene un desplegable discreto ("3 órdenes"). Muestra cada orden con su N°, fecha y monto, y las que ya están pagadas.
+  - Marca las órdenes que paga el abono: el monto del folio se llena solo.
+  - Si marcas todas las que faltan, se usa el saldo de la factura, así que el redondeo queda cuadrado.
+- **La conciliación lo propone sola:** prueba los folios más antiguos completos más algunas órdenes del folio siguiente. Ejemplo: $15.494 = folio 3398 completo + orden N° 2535 del folio 3439. Si hay una sola forma de calzar, va a **"Listos para confirmar"**.
+- **El abono guarda qué órdenes pagó.** También lo dice en su referencia de la planilla: "orden N° 2535".
+- **Cobranza:**
+  - El folio muestra "Pagadas: N° 2535 (1 oct) · faltan: N° 2541, 2550".
+  - El recordatorio dice "Folio N° 3439: $16.590 (saldo) (órdenes N° 2541 y 2550)".
+  - Si el folio solo tiene abonos sueltos, muestra "Abonado $X de $Y".
+- **Abonos que no calzan con órdenes** (cuotas, por ejemplo: un cliente a 30 días que divide la factura en 3 o 4 pagos): escribe el monto en el folio como siempre y queda como abono al folio, sin órdenes. Cobranza muestra lo abonado y el saldo. El folio entra a cobranza solo si el día 31 todavía tiene saldo.
+- **En la planilla no cambia nada:** todas las órdenes del folio quedan "PARCIAL" hasta completarlo (decisión de Emmanuel). El detalle de qué orden se pagó vive en Sistema Fën.
+
+Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.26.0**. No cambian las reglas ni los scripts. Incluye la v0.25.0 y la v0.24.x.
+
+### Lista de verificación v0.26.0
+- [ ] Un abono como el de Café Rivoz (un folio + una orden del siguiente) aparece en "Listos para confirmar" con el motivo "Paga el folio … y la orden N° … del folio …".
+- [ ] En un abono por revisar, abrir "N órdenes" y marcar una orden: el monto del folio se llena con esa orden.
+- [ ] Después de confirmar, en Cobranza el folio dice "Pagadas: N° … · faltan: …".
+- [ ] Un abono de cuota (monto suelto) escrito a mano en el folio queda como abono y Cobranza muestra "Abonado $X de $Y".
 
 ## Novedades de la v0.25.0: se cobra el total de la factura (adiós a los ±$1)
 **Por qué había descuadres:** cada orden calcula su IVA y lo redondea. La factura del SII suma los netos de todas las órdenes y calcula el IVA **una sola vez**. Con varias órdenes, la factura puede ser $1 a $3 distinta de la suma de las órdenes. El cliente paga la factura, y antes Sistema Fën comparaba ese pago contra la suma de las órdenes: por eso quedaba +$1 a favor o −$1 por cobrar.
