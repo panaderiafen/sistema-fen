@@ -1,9 +1,15 @@
-# Sistema Fën · v0.30.1
+# Sistema Fën · v0.30.2
 
-**App:** v0.30.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.2 (recomendado) · 8 de octubre de 2026
+**App:** v0.30.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.2 (recomendado) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.30.2: textos de los cargos sin desordenar los botones
+- En Conciliación → Cargos, la propuesta de cada cargo ("Ya en Gastos: Factura N° … · clasificación") va **debajo de la descripción**, en su propia línea. El botón Confirmar queda siempre a la derecha, sin que el texto lo empuje ni se monte encima.
+- Solo cambia cómo se ve. Gastos no tiene otros cambios (decisión: queda tal cual hasta pasarlo a Firebase).
+
+Archivos: cambian `app.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.30.2**. Incluye la v0.30.1. No cambian los scripts.
 
 ## Novedades de la v0.30.1: cómo quedó clasificado el gasto, al cruzarlo con la cartola
 - En Conciliación → Cargos, cuando un cargo es un gasto ya registrado ("Ya en Gastos"), la propuesta muestra la factura, el proveedor, la fecha y **cómo quedó clasificado**: cada ítem con su área, o con sus áreas y montos si se repartió.

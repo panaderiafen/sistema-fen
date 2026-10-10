@@ -682,3 +682,7 @@ a.ag-item { text-decoration: none; }
 .cob-falta { color: var(--rojo-t); font-size: 12px; }
 .cob-meses { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .conc-sii { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--linea); }
+/* v0.30.2 · la propuesta de un cargo va bajo la descripción (no empuja el botón) */
+.prop-cc { display: block; font-size: 13px; color: var(--texto); margin-top: 2px; overflow-wrap: anywhere; }
+.prop-cc small { color: var(--suave); }
+.fila-orden-b2b.mov > summary .acciones { flex: 0 0 auto; }

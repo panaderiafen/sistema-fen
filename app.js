@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.30.1';
-import * as Caja from './caja.js?v=0.30.1';
-import * as Stock from './stock.js?v=0.30.1';
-import * as Ajustes from './ajustes.js?v=0.30.1';
-import * as Apps from './apps.js?v=0.30.1';
-import * as Agenda from './agenda.js?v=0.30.1';
-import * as Gastos from './gastos.js?v=0.30.1';
-import * as Sii from './sii.js?v=0.30.1';
-import * as Previred from './previred.js?v=0.30.1';
-import * as B2b from './b2b.js?v=0.30.1';
-import * as Cartola from './cartola.js?v=0.30.1';
-import * as SiiFactura from './sii-factura.js?v=0.30.1';
-import * as PdfOrden from './pdf-orden.js?v=0.30.1';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.30.1';
+} from './firebase.js?v=0.30.2';
+import * as Caja from './caja.js?v=0.30.2';
+import * as Stock from './stock.js?v=0.30.2';
+import * as Ajustes from './ajustes.js?v=0.30.2';
+import * as Apps from './apps.js?v=0.30.2';
+import * as Agenda from './agenda.js?v=0.30.2';
+import * as Gastos from './gastos.js?v=0.30.2';
+import * as Sii from './sii.js?v=0.30.2';
+import * as Previred from './previred.js?v=0.30.2';
+import * as B2b from './b2b.js?v=0.30.2';
+import * as Cartola from './cartola.js?v=0.30.2';
+import * as SiiFactura from './sii-factura.js?v=0.30.2';
+import * as PdfOrden from './pdf-orden.js?v=0.30.2';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.30.2';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -316,7 +316,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.30.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.30.2" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -1793,8 +1793,8 @@ function pintarCartola(el, sub, dg) {
   const props = {}, pend = D.cargos.filter(c => c.estado === 'POR_REVISAR'), hechos = D.cargos.filter(c => c.estado !== 'POR_REVISAR');
   pend.forEach(c => { props[c.id] = Cartola.proponer(c, D); });
   const listos = pend.filter(c => props[c.id] && props[c.id].seguro && !cart.modo[c.id]), revisar = pend.filter(c => !listos.includes(c));
-  const fila = c => { const p = props[c.id], auto = listos.includes(c); return `<details class="fila-orden-b2b mov" data-ccd="${esc(c.id)}" ${cart.abierto === c.id ? 'open' : ''}><summary class="fila-caja"><div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))}${p && !auto ? ' · ' + textoProp(p) : ''}</span></div>
-      <div class="acciones">${auto ? `<span class="mov-prop">${textoProp(p)}</span><button type="button" class="btn btn-chico" data-cc-auto="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${cart.abierto === c.id ? editorCargo(c, p, dg) : ''}</details>`; };
+  const fila = c => { const p = props[c.id], auto = listos.includes(c); return `<details class="fila-orden-b2b mov" data-ccd="${esc(c.id)}" ${cart.abierto === c.id ? 'open' : ''}><summary class="fila-caja"><div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))}</span>${p ? `<small class="prop-cc">${textoProp(p)}</small>` : ''}</div>
+      <div class="acciones">${auto ? `<button type="button" class="btn btn-chico" data-cc-auto="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${cart.abierto === c.id ? editorCargo(c, p, dg) : ''}</details>`; };
   const seccion = (k, titulo, l, ayuda, extra = '') => `<details class="tarjeta plegable" data-plegar="cc-${k}" ${plegadas()['cc-' + k] === true && l.length ? '' : 'open'}><summary class="titulo-fila"><h2>${titulo}</h2><span>${l.length} ${l.length === 1 ? 'cargo' : 'cargos'} · ${pesos(l.reduce((s, c) => s + c.monto, 0))}</span></summary>
     ${l.length ? `<p class="ayuda">${ayuda}</p>${extra}${l.map(fila).join('')}` : '<div class="vacio" style="border:0">Nada aquí.</div>'}</details>`;
   el.innerHTML = cabConc('cargos') + subir + coberturaDosHtml(D)
