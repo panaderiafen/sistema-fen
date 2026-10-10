@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.30.2';
-import * as Caja from './caja.js?v=0.30.2';
-import * as Stock from './stock.js?v=0.30.2';
-import * as Ajustes from './ajustes.js?v=0.30.2';
-import * as Apps from './apps.js?v=0.30.2';
-import * as Agenda from './agenda.js?v=0.30.2';
-import * as Gastos from './gastos.js?v=0.30.2';
-import * as Sii from './sii.js?v=0.30.2';
-import * as Previred from './previred.js?v=0.30.2';
-import * as B2b from './b2b.js?v=0.30.2';
-import * as Cartola from './cartola.js?v=0.30.2';
-import * as SiiFactura from './sii-factura.js?v=0.30.2';
-import * as PdfOrden from './pdf-orden.js?v=0.30.2';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.30.2';
+} from './firebase.js?v=0.30.3';
+import * as Caja from './caja.js?v=0.30.3';
+import * as Stock from './stock.js?v=0.30.3';
+import * as Ajustes from './ajustes.js?v=0.30.3';
+import * as Apps from './apps.js?v=0.30.3';
+import * as Agenda from './agenda.js?v=0.30.3';
+import * as Gastos from './gastos.js?v=0.30.3';
+import * as Sii from './sii.js?v=0.30.3';
+import * as Previred from './previred.js?v=0.30.3';
+import * as B2b from './b2b.js?v=0.30.3';
+import * as Cartola from './cartola.js?v=0.30.3';
+import * as SiiFactura from './sii-factura.js?v=0.30.3';
+import * as PdfOrden from './pdf-orden.js?v=0.30.3';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.30.3';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -316,7 +316,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.30.2" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.30.3" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -2898,7 +2898,7 @@ function abrirAyudaSii(estado, txt) {
     <ol class="pasos-sii">
       <li>Abre en el SII el formulario de <b>Factura electrónica</b> desde el menú del SII, en la pestaña del botón de arriba. (Si entras directo desde otra página, el SII responde "Error 501 · ptr NULL": no recibe tu sesión.)</li>
       <li>Toca <b>Llenar factura Fën</b> en tu barra de favoritos: pone el RUT del cliente y el SII carga sus datos.</li>
-      <li>Toca <b>Llenar factura Fën</b> otra vez: pone los productos, cantidades y precios netos, las referencias (Nota de pedido con el N° de cada orden) y la forma de pago (Crédito con vencimiento a 30 días si el cliente paga a 30 días; si no, Contado).</li>
+      <li>Toca <b>Llenar factura Fën</b> otra vez: pone los productos, cantidades y precios netos, la referencia (Nota de pedido: con una orden, su N°; con varias, "6 O.V. desde:" con la fecha de la primera y los N° en la razón) y la forma de pago (Crédito con vencimiento a 30 días si el cliente paga a 30 días; si no, Contado).</li>
       <li>Revisa y usa <b>Validar y visualizar</b> como siempre. Nada se emite solo.</li>
       <li>En la página del SII que dice <b>"Documento enviado exitosamente"</b>, toca <b>Llenar factura Fën</b> una vez más: se abre Sistema Fën para asignar ese folio a las órdenes (te pide confirmar).</li>
     </ol>

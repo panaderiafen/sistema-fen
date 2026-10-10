@@ -1,9 +1,28 @@
-# Sistema Fën · v0.30.2
+# Sistema Fën · v0.30.3
 
-**App:** v0.30.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.2 (recomendado) · 8 de octubre de 2026
+**App:** v0.30.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (si aún no las instalas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.2 (recomendado) · 10 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.30.3: la Nota de pedido de la factura, más ordenada
+El botón **Llenar factura Fën** ahora pone **una sola** referencia "Nota de pedido" (802):
+
+| Órdenes en la factura | Folio de referencia | Fecha | Razón de referencia |
+|---|---|---|---|
+| 1 | el N° de la orden (ej. `1201`) | la de la orden | vacía |
+| 2 o más | `6 O.V. desde:` | la de la primera orden | `O.V. 1201, 1202, 1203, 1204, 1205, 1206` |
+| muchas (no caben en 90 letras) | `23 O.V. desde:` | la de la primera orden | `O.V. N° 2539 a 2869 hasta el 21 oct · detalle en resumen adjunto` |
+
+- Antes, con 2 o 3 órdenes iba una línea por orden. Ahora es siempre una sola línea.
+- Si el formulario del SII no dejara escribir letras en el folio, el botón pone el N° de la primera orden y pasa el "6 O.V. desde …" a la razón.
+- **Prueba una vez con "Validar y visualizar"** antes de emitir, para confirmar que el SII acepta el folio con letras.
+
+**Importante: vuelve a dejar el botón en favoritos.** El botón guarda su código en el favorito, así que el viejo sigue haciendo lo de antes:
+1. Borra el favorito "Llenar factura Fën".
+2. En Sistema Fën → B2B → Por facturar → "Preparar para el SII" → "Primera vez: dejar el botón en favoritos", arrástralo de nuevo a la barra.
+
+Archivos: cambian `sii-factura.js`, `app.js` (texto de ayuda), `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.30.3**. Incluye la v0.30.2. No cambian scripts ni reglas.
 
 ## Novedades de la v0.30.2: textos de los cargos sin desordenar los botones
 - En Conciliación → Cargos, la propuesta de cada cargo ("Ya en Gastos: Factura N° … · clasificación") va **debajo de la descripción**, en su propia línea. El botón Confirmar queda siempre a la derecha, sin que el texto lo empuje ni se monte encima.
