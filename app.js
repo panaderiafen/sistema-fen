@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.29.0';
-import * as Caja from './caja.js?v=0.29.0';
-import * as Stock from './stock.js?v=0.29.0';
-import * as Ajustes from './ajustes.js?v=0.29.0';
-import * as Apps from './apps.js?v=0.29.0';
-import * as Agenda from './agenda.js?v=0.29.0';
-import * as Gastos from './gastos.js?v=0.29.0';
-import * as Sii from './sii.js?v=0.29.0';
-import * as Previred from './previred.js?v=0.29.0';
-import * as B2b from './b2b.js?v=0.29.0';
-import * as Cartola from './cartola.js?v=0.29.0';
-import * as SiiFactura from './sii-factura.js?v=0.29.0';
-import * as PdfOrden from './pdf-orden.js?v=0.29.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.29.0';
+} from './firebase.js?v=0.30.0';
+import * as Caja from './caja.js?v=0.30.0';
+import * as Stock from './stock.js?v=0.30.0';
+import * as Ajustes from './ajustes.js?v=0.30.0';
+import * as Apps from './apps.js?v=0.30.0';
+import * as Agenda from './agenda.js?v=0.30.0';
+import * as Gastos from './gastos.js?v=0.30.0';
+import * as Sii from './sii.js?v=0.30.0';
+import * as Previred from './previred.js?v=0.30.0';
+import * as B2b from './b2b.js?v=0.30.0';
+import * as Cartola from './cartola.js?v=0.30.0';
+import * as SiiFactura from './sii-factura.js?v=0.30.0';
+import * as PdfOrden from './pdf-orden.js?v=0.30.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.30.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -316,7 +316,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.29.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.30.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -1111,9 +1111,11 @@ async function procesarSii(contenido, nombre, { guardar, tipo } = {}) {
     sii.aviso = `No se pudo revisar qué documentos ya están en Gastos (${e.message}). Puedes clasificar igual: al importar, Gastos revisa los repetidos y no guarda nada dos veces.`;
   }
   // v0.17.0: lo que se puede, viene sugerido según cómo clasificaste antes a ese proveedor y producto
-  try { const c = await Sii.clasificacion(); Sii.sugerir(facturas, c, sii.items, AREAS_GASTO); sii.sinSugerencias = ''; }
+  let clasif = null;
+  try { clasif = await Sii.clasificacion(); Sii.sugerir(facturas, clasif, sii.items, AREAS_GASTO); sii.sinSugerencias = ''; }
   catch (e) { sii.sinSugerencias = e.code === 'actualizar' ? 'Para ver sugerencias de cómo clasificar, falta el script de Gastos v2.7.0.' : ''; }
   Sii.precargarVencimientos(facturas);
+  Sii.sugerirPendientes(facturas, clasif);   // v0.30.0: después del crédito formal (ese manda)
   if (sii.facturas !== facturas) return; // mientras tanto se abrió otro archivo
   if (msg) msg.textContent = '';
   pintarTrabajoSii();
@@ -1214,7 +1216,7 @@ function tarjetaSii(f, i) {
     ${!(f.detalle && f.detalle.length) ? `<button type="button" class="btn-sec btn-chico" data-dividir>Dividir en otro ítem</button>` : ''}
     ${tot ? `<p class="sii-ok${tot.ok ? '' : ' dif-mal'}" id="sii-total-${i}">${esc(tot.texto)}</p>` : ''}
     ${f.esNotaCredito ? '<p class="ayuda">Una nota de crédito descuenta un cobro anterior: se registra como gasto negativo con la fecha del documento.</p>'
-      : `<div class="chips" role="group" aria-label="Estado de pago"><button type="button" class="chip-filtro" data-estado="pagada" aria-pressed="${f.estado === 'pagada'}">Pagada</button><button type="button" class="chip-filtro" data-estado="pendiente" aria-pressed="${f.estado === 'pendiente'}">Pendiente</button></div>`}
+      : `<div class="chips" role="group" aria-label="Estado de pago"><button type="button" class="chip-filtro" data-estado="pagada" aria-pressed="${f.estado === 'pagada'}">Pagada</button><button type="button" class="chip-filtro" data-estado="pendiente" aria-pressed="${f.estado === 'pendiente'}">Pendiente</button></div>${f.estadoSugerido && f.estado === 'pendiente' ? '<span class="chip c-azul chip-chico" title="El documento anterior de este proveedor quedó pendiente en Gastos">Sugerido: la vez anterior lo postergaste · elige la fecha de pago</span>' : ''}`}
     ${etFecha ? `<div class="campo campo-fecha-sii"><label for="sii-fecha-${i}">${etFecha}</label><input id="sii-fecha-${i}" type="date" data-fecha value="${esc(f.fechaEstado || '')}"></div>` : ''}
   </article>`;
 }

@@ -6,7 +6,7 @@
 //  (hojas "Cartola Cargos", "Cartolas" y "Cartola Reglas").
 //  Las propuestas se calculan aquí, cada vez, con lo que está por pagar en ese momento.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.29.0';
+import * as Gastos from './gastos.js?v=0.30.0';
 
 export const VERSION_CARTOLA = '2.8.0';
 const op = (o, d, idem) => Gastos.llamar(o, d, idem, VERSION_CARTOLA);
@@ -61,6 +61,12 @@ const pagosDe = l => l.map(v => ({ id: v.id, monto: v.monto }));
 const nombresV = l => l.map(v => v.nombre).join(' + ');
 
 // Para un cargo: qué parece ser. seguro = va a "Listos para confirmar".
+// v0.30.0 · ¿La descripción del banco nombra al proveedor? (una palabra propia de su razón social, de 4+ letras)
+const GENERICAS = new Set(['SOCIEDAD', 'COMERCIAL', 'COMERCIALIZADORA', 'EMPRESA', 'EMPRESAS', 'LIMITADA', 'LTDA', 'CHILE', 'SERVICIOS', 'INVERSIONES', 'DISTRIBUIDORA', 'ALIMENTOS', 'INDUSTRIAL', 'COMPANIA', 'IMPORTADORA']);
+export function nombreCalza(descripcion, razon) {
+  const dsc = ' ' + norm(descripcion) + ' ';
+  return norm(razon).split(' ').filter(w => w.length >= 4 && !GENERICAS.has(w)).some(w => dsc.includes(' ' + w + ' ') || dsc.includes(' ' + w.slice(0, 6)));
+}
 export function proponer(c, d) {
   const reglas = {}; (d.reglas || []).forEach(r => { reglas[r.clave] = r; });
   const regla = reglas[c.clave];
@@ -84,16 +90,25 @@ export function proponer(c, d) {
     const cand = vencs.filter(v => v.rut === c.rut), comb = combinacion(cand, c.monto);
     if (comb) return { tipo: 'vencimientos', seguro: true, pagos: pagosDe(comb), texto: nombresV(comb), por: 'rut' };
   }
-  // 3) Un gasto al contado ya registrado, del mismo monto y de esos días
-  const gs = (d.gastos || []).filter(g => Math.abs(g.monto - c.monto) <= g.filas.length && dias(c.fecha, g.fecha) >= -3 && dias(c.fecha, g.fecha) <= 10 && (!c.rut || !g.rut || g.rut === c.rut));
-  if (gs.length === 1 && (c.rut ? gs[0].rut === c.rut : true)) return { tipo: 'gasto', seguro: !!(c.rut && gs[0].rut === c.rut), gasto: gs[0], texto: `${gs[0].items.join(' + ')} del ${fCorta(gs[0].fecha)}`, por: 'monto' };
+  // 3) Un gasto al contado ya registrado (factura pagada al comprar), del mismo monto y de esos días.
+  // v0.30.0: si hay varios del mismo monto (leche, mantequilla…), el de fecha más cercana; seguro solo si es uno
+  // claro (el más cercano, a ≤3 días, sin empate) y el RUT o el nombre del proveedor calzan con la descripción del banco
+  const gs = (d.gastos || []).filter(g => Math.abs(g.monto - c.monto) <= g.filas.length && dias(c.fecha, g.fecha) >= -3 && dias(c.fecha, g.fecha) <= 10 && (!c.rut || !g.rut || g.rut === c.rut))
+    .map(g => ({ g, dist: Math.abs(dias(c.fecha, g.fecha)), nombre: nombreCalza(c.descripcion, g.razon), rut: !!(c.rut && g.rut === c.rut) }))
+    .sort((a, b) => (b.rut - a.rut) || (b.nombre - a.nombre) || a.dist - b.dist);
+  const txtG = g => `${g.folio ? 'Factura N° ' + g.folio + ' · ' : ''}${g.razon ? g.razon + ' · ' : ''}${g.items.join(' + ')} del ${fCorta(g.fecha)}`;
+  if (gs.length) {
+    const [a, b] = gs, empate = b && (b.rut === a.rut) && (b.nombre === a.nombre) && b.dist === a.dist;
+    const seguro = !empate && (a.rut || (a.nombre && a.dist <= 3));
+    if (seguro || gs.length === 1) return { tipo: 'gasto', seguro: !!seguro, gasto: a.g, texto: txtG(a.g) + (gs.length > 1 ? ` (hay ${gs.length - 1} más del mismo monto: se propone el de fecha más cercana)` : ''), por: a.rut ? 'rut' : 'monto', otros: gs.slice(1, 4).map(x => x.g) };
+  }
   // 4) Lo aprendido como gasto nuevo
   // Gasto nuevo aprendido: seguro si ya se confirmó así más de una vez y el monto se parece al último (±50%)
   if (regla && regla.accion === 'gasto') return { tipo: 'nuevo', seguro: regla.veces >= 2 && (!regla.monto || Math.abs(c.monto - regla.monto) <= regla.monto * 0.5), item: regla.item, area: regla.area, sinFactura: !!regla.sinFactura, texto: regla.item, por: 'aprendido' };
   // 5) Un vencimiento por pagar con el monto exacto (sin nada más que lo confirme: a revisar)
   const ex = vencs.filter(v => v.monto === c.monto && cerca(v));
   if (ex.length === 1) return { tipo: 'vencimientos', seguro: false, pagos: [{ id: ex[0].id, monto: c.monto }], texto: ex[0].nombre, por: 'monto' };
-  if (gs.length) return { tipo: 'gasto', seguro: false, gasto: gs[0], texto: `${gs[0].items.join(' + ')} del ${fCorta(gs[0].fecha)}`, por: 'monto' };
+  if (gs.length) return { tipo: 'gasto', seguro: false, gasto: gs[0].g, texto: txtG(gs[0].g) + (gs.length > 1 ? ` (hay ${gs.length - 1} más del mismo monto: revisa cuál es)` : ''), por: 'monto', otros: gs.slice(1, 4).map(x => x.g) };
   return null;
 }
 

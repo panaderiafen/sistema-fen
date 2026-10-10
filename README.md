@@ -1,9 +1,32 @@
-# Sistema Fën · v0.29.0
+# Sistema Fën · v0.30.0
 
-**App:** v0.29.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.0 (sin cambios) · 8 de octubre de 2026
+**App:** v0.30.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.1 (opcional) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.30.0: conciliación de cargos con menos trabajo
+**Cargos de la cartola contra facturas ya pagadas** (compras al contado: supermercado, lácteos…):
+- Si hay varias facturas del mismo monto (la leche o la mantequilla de cada semana), se propone **la de fecha más cercana** al cargo.
+- Se confirma sola (en "Listos para confirmar") solo si es un calce claro:
+  - el RUT de la transferencia es el del proveedor, **o**
+  - la descripción del banco nombra al proveedor ("COMPRA … LACTEOS DEL SUR") y la factura es de hasta 3 días antes o después.
+
+  Si dos facturas quedan igual de cerca, va a "Para revisar".
+- La propuesta muestra **el N° de la factura**, el proveedor y la fecha: "Factura N° 102 · Lácteos del Sur · del 6 oct". Así sabes cuál es sin abrir nada. No hace falta poner el folio en el mensaje de la transferencia: la cartola no trae ese mensaje.
+
+**Cargas del SII · proveedores a los que les postergas el pago:**
+- Los que dan crédito formal (la factura trae vencimiento posterior) siguen entrando solos como **Pendiente** con su fecha.
+- **Nuevo:** si el documento anterior de un proveedor quedó pendiente en Gastos, el nuevo viene **sugerido como Pendiente** ("la vez anterior lo postergaste"). Tú eliges la fecha de pago. Si esta vez lo pagaste, toca "Pagada".
+- Nada se marca pagada solo: lo que no es crédito ni postergado lo sigues marcando tú, como hoy.
+- Para la sugerencia hace falta el **script de Gastos v2.8.1**. Sin él, todo funciona igual, solo que sin esa sugerencia.
+
+Archivos: cambian `app.js`, `cartola.js`, `sii.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.30.0**. Script de Gastos v2.8.1: ver su README (Apps Script, nueva versión de la implementación). No cambian las reglas.
+
+### Lista de verificación v0.30.0
+- [ ] Un cargo de una compra al contado con descripción del proveedor aparece en "Listos para confirmar" con "Factura N° …".
+- [ ] Dos compras iguales en días distintos: cada cargo propone la factura de su día.
+- [ ] Con el script v2.8.1: al cargar del SII una factura de un proveedor postergado, viene "Pendiente" sugerido. Pon la fecha y se importa como vencimiento.
 
 ## Novedades de la v0.29.0: cartola y SII lado a lado en Conciliación → Cargos
 - **Nueva tarjeta "Qué está cubierto"** en Conciliación → Cargos, con dos columnas:

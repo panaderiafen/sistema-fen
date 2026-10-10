@@ -6,7 +6,7 @@
 //  Lo que se guarda pasa por el Apps Script de Gastos (SistemaFen.gs v1.2.0),
 //  que vuelve a revisar todo antes de escribir.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.29.0';
+import * as Gastos from './gastos.js?v=0.30.0';
 
 export const VERSION_MINIMA = '2.4.0';
 // v0.10.0: un documento se reconoce por RUT, folio y si es nota de crédito (tipo 61):
@@ -306,7 +306,7 @@ export function prepararLineas(f, ITEMS) {
 // Una fecha escrita a mano no se pisa.
 export function ponerEstado(f, estado) {
   if (f.yaImportada || f.esNotaCredito) return;
-  f.estado = estado;
+  f.estado = estado; f.estadoSugerido = false;
   const sugPagada = fechaDDMMYYYYaISO(f.fecha), sugPendiente = f.fechaVencISO || '';
   if (!f.fechaEstado || f.fechaEstado === sugPagada || f.fechaEstado === sugPendiente) f.fechaEstado = estado === 'pagada' ? sugPagada : sugPendiente;
 }
@@ -435,6 +435,18 @@ export const olvidarClasificacion = () => { clasifCache = null; };
 const rutClave = r => String(r || '').toUpperCase().replace(/[^0-9K]/g, '');
 const descClave = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 80);
 // Deja cada documento nuevo con lo sugerido (marcado, para revisar). No toca lo que ya tiene ítem.
+// v0.30.0 · Proveedores a los que les postergas el pago (sin crédito formal en la factura): si su documento más
+// reciente quedó "pendiente" en Gastos, este se sugiere "Pendiente" (sin fecha: la eliges tú). Nunca se marca pagada sola.
+export function sugerirPendientes(facturas, clasif) {
+  let n = 0;
+  (facturas || []).forEach(f => {
+    if (f.yaImportada || f.esNotaCredito || f.estado) return;
+    const prov = clasif && (clasif.porRut || {})[rutClave(f.rut)];
+    if (!prov || !/prove/i.test(String(prov.forma || ''))) return;
+    f.estado = 'pendiente'; f.fechaEstado = ''; f.estadoSugerido = true; n++;
+  });
+  return n;
+}
 export function sugerir(facturas, clasif, ITEMS, AREAS) {
   if (!clasif) return 0;
   const activo = item => ITEMS.find(x => x.item === item), areaOk = a => AREAS.includes(a);
