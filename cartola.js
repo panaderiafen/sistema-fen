@@ -6,7 +6,7 @@
 //  (hojas "Cartola Cargos", "Cartolas" y "Cartola Reglas").
 //  Las propuestas se calculan aquí, cada vez, con lo que está por pagar en ese momento.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.30.0';
+import * as Gastos from './gastos.js?v=0.30.1';
 
 export const VERSION_CARTOLA = '2.8.0';
 const op = (o, d, idem) => Gastos.llamar(o, d, idem, VERSION_CARTOLA);
@@ -67,6 +67,16 @@ export function nombreCalza(descripcion, razon) {
   const dsc = ' ' + norm(descripcion) + ' ';
   return norm(razon).split(' ').filter(w => w.length >= 4 && !GENERICAS.has(w)).some(w => dsc.includes(' ' + w + ' ') || dsc.includes(' ' + w.slice(0, 6)));
 }
+// v0.30.1 · Cómo quedó clasificado un gasto: cada ítem con sus áreas y montos ("LACTEOS: PAN $8.000 · BOL $4.000").
+// Con el script de Gastos anterior a 2.8.2 las filas no traen área: se muestran solo los ítems.
+const pesosC = n => '$' + Math.round(n).toLocaleString('es-CL');
+export function clasificacionGasto(g) {
+  const fs = (g.filas || []).filter(f => f.item);
+  if (!fs.length) return (g.items || []).join(' + ');
+  const porItem = {};
+  fs.forEach(f => { const it = porItem[f.item] || (porItem[f.item] = {}); const a = f.area || '—'; it[a] = (it[a] || 0) + (Number(f.monto) || 0); });
+  return Object.entries(porItem).map(([item, areas]) => { const l = Object.entries(areas); return l.length === 1 ? `${item} · ${l[0][0]}` : `${item}: ${l.map(([a, m]) => `${a} ${pesosC(m)}`).join(' · ')}`; }).join(' | ');
+}
 export function proponer(c, d) {
   const reglas = {}; (d.reglas || []).forEach(r => { reglas[r.clave] = r; });
   const regla = reglas[c.clave];
@@ -96,7 +106,7 @@ export function proponer(c, d) {
   const gs = (d.gastos || []).filter(g => Math.abs(g.monto - c.monto) <= g.filas.length && dias(c.fecha, g.fecha) >= -3 && dias(c.fecha, g.fecha) <= 10 && (!c.rut || !g.rut || g.rut === c.rut))
     .map(g => ({ g, dist: Math.abs(dias(c.fecha, g.fecha)), nombre: nombreCalza(c.descripcion, g.razon), rut: !!(c.rut && g.rut === c.rut) }))
     .sort((a, b) => (b.rut - a.rut) || (b.nombre - a.nombre) || a.dist - b.dist);
-  const txtG = g => `${g.folio ? 'Factura N° ' + g.folio + ' · ' : ''}${g.razon ? g.razon + ' · ' : ''}${g.items.join(' + ')} del ${fCorta(g.fecha)}`;
+  const txtG = g => `${g.folio ? 'Factura N° ' + g.folio + ' · ' : ''}${g.razon ? g.razon + ' · ' : ''}del ${fCorta(g.fecha)} · ${clasificacionGasto(g)}`;
   if (gs.length) {
     const [a, b] = gs, empate = b && (b.rut === a.rut) && (b.nombre === a.nombre) && b.dist === a.dist;
     const seguro = !empate && (a.rut || (a.nombre && a.dist <= 3));

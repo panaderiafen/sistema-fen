@@ -1,9 +1,18 @@
-# Sistema Fën · v0.30.0
+# Sistema Fën · v0.30.1
 
-**App:** v0.30.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.1 (opcional) · 8 de octubre de 2026
+**App:** v0.30.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (nuevas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.2 (recomendado) · 8 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.30.1: cómo quedó clasificado el gasto, al cruzarlo con la cartola
+- En Conciliación → Cargos, cuando un cargo es un gasto ya registrado ("Ya en Gastos"), la propuesta muestra la factura, el proveedor, la fecha y **cómo quedó clasificado**: cada ítem con su área, o con sus áreas y montos si se repartió.
+  > Ya en Gastos: Factura N° 102 · Lácteos del Sur · del 6 oct · LACTEOS: PAN $8.000 · BOL $4.000 | ASEO · ADMIN
+- Lo mismo en la lista "Es un gasto ya registrado" al abrir un cargo.
+- Al confirmar, ese gasto queda con la huella de la cartola (columna Cartola: cartola, cuenta, operación), es decir: ingresado, clasificado y con su pago confirmado por el banco.
+- Para ver las áreas hace falta el **script de Gastos v2.8.2** (incluye la v2.8.1). Sin él se ven solo los ítems.
+
+Archivos: cambian `app.js`, `cartola.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). Sube todos a GitHub (`sistema-fen`); abajo a la izquierda debe decir **v0.30.1**. Incluye la v0.30.0.
 
 ## Novedades de la v0.30.0: conciliación de cargos con menos trabajo
 **Cargos de la cartola contra facturas ya pagadas** (compras al contado: supermercado, lácteos…):

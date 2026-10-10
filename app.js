@@ -9,20 +9,20 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.30.0';
-import * as Caja from './caja.js?v=0.30.0';
-import * as Stock from './stock.js?v=0.30.0';
-import * as Ajustes from './ajustes.js?v=0.30.0';
-import * as Apps from './apps.js?v=0.30.0';
-import * as Agenda from './agenda.js?v=0.30.0';
-import * as Gastos from './gastos.js?v=0.30.0';
-import * as Sii from './sii.js?v=0.30.0';
-import * as Previred from './previred.js?v=0.30.0';
-import * as B2b from './b2b.js?v=0.30.0';
-import * as Cartola from './cartola.js?v=0.30.0';
-import * as SiiFactura from './sii-factura.js?v=0.30.0';
-import * as PdfOrden from './pdf-orden.js?v=0.30.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.30.0';
+} from './firebase.js?v=0.30.1';
+import * as Caja from './caja.js?v=0.30.1';
+import * as Stock from './stock.js?v=0.30.1';
+import * as Ajustes from './ajustes.js?v=0.30.1';
+import * as Apps from './apps.js?v=0.30.1';
+import * as Agenda from './agenda.js?v=0.30.1';
+import * as Gastos from './gastos.js?v=0.30.1';
+import * as Sii from './sii.js?v=0.30.1';
+import * as Previred from './previred.js?v=0.30.1';
+import * as B2b from './b2b.js?v=0.30.1';
+import * as Cartola from './cartola.js?v=0.30.1';
+import * as SiiFactura from './sii-factura.js?v=0.30.1';
+import * as PdfOrden from './pdf-orden.js?v=0.30.1';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.30.1';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -316,7 +316,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.30.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.30.1" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -1755,7 +1755,7 @@ function editorCargo(c, p, dg) {
     const gs = (D.gastos || []).filter(g => d0(g) <= 45).sort((a, b) => Math.abs(a.monto - c.monto) - Math.abs(b.monto - c.monto) || d0(a) - d0(b)).slice(0, 8);
     const elegido = cart.gasto[c.id] || (p && p.tipo === 'gasto' ? [p.gasto.fecha, p.gasto.hora, p.gasto.monto, p.gasto.filas[0].fila].join('|') : '');
     const g = gs.find(x => [x.fecha, x.hora, x.monto, x.filas[0].fila].join('|') === elegido);
-    cuerpo = gs.length ? `<p class="ayuda">Gastos al contado sin cartola, de esos días, los de monto más parecido primero:</p><div class="lista-gastos-cc">${gs.map(x => { const k = [x.fecha, x.hora, x.monto, x.filas[0].fila].join('|'); return `<label class="opcion-cc"><input type="radio" name="cc-g-${esc(c.id)}" data-cc-gasto="${esc(c.id)}" value="${esc(k)}" ${k === elegido ? 'checked' : ''}><span><b>${pesos(x.monto)}</b> · ${esc(x.items.join(' + '))} · ${esc(diaTexto(x.fecha))}${x.razon ? ' · ' + esc(x.razon) : ''}${x.obs ? `<small>${esc(x.obs)}</small>` : ''}</span></label>`; }).join('')}</div>
+    cuerpo = gs.length ? `<p class="ayuda">Gastos al contado sin cartola, de esos días, los de monto más parecido primero:</p><div class="lista-gastos-cc">${gs.map(x => { const k = [x.fecha, x.hora, x.monto, x.filas[0].fila].join('|'); return `<label class="opcion-cc"><input type="radio" name="cc-g-${esc(c.id)}" data-cc-gasto="${esc(c.id)}" value="${esc(k)}" ${k === elegido ? 'checked' : ''}><span><b>${pesos(x.monto)}</b>${x.folio ? ' · Factura N° ' + esc(x.folio) : ''} · ${esc(diaTexto(x.fecha))}${x.razon ? ' · ' + esc(x.razon) : ''}<small>${esc(Cartola.clasificacionGasto(x))}</small>${x.obs ? `<small>${esc(x.obs)}</small>` : ''}</span></label>`; }).join('')}</div>
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="gasto" data-cc="${esc(c.id)}" ${g && Math.abs(g.monto - c.monto) <= g.filas.length && !cart.ocupado ? '' : 'disabled'}>Es este gasto</button>${g && Math.abs(g.monto - c.monto) > g.filas.length ? `<span class="ayuda">El gasto es de ${pesos(g.monto)}: debe ser igual al cargo. Corrígelo en <a href="#gastos/registrados">Registrados</a> si corresponde.</span>` : ''}</div>`
       : '<p class="ayuda">No hay gastos al contado sin cartola cerca de esa fecha.</p>';
   } else if (m === 'nuevo') {
