@@ -9,22 +9,22 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.37.0';
-import * as Caja from './caja.js?v=0.37.0';
-import * as Stock from './stock.js?v=0.37.0';
-import * as Ajustes from './ajustes.js?v=0.37.0';
-import * as Apps from './apps.js?v=0.37.0';
-import * as Agenda from './agenda.js?v=0.37.0';
-import * as Gastos from './gastos.js?v=0.37.0';
-import * as Sii from './sii.js?v=0.37.0';
-import * as Previred from './previred.js?v=0.37.0';
-import * as B2b from './b2b.js?v=0.37.0';
-import * as Cartola from './cartola.js?v=0.37.0';
-import * as SiiFactura from './sii-factura.js?v=0.37.0';
-import * as PdfOrden from './pdf-orden.js?v=0.37.0';
-import * as Prod from './produccion.js?v=0.37.0';
-import * as VistaProd from './vista-produccion.js?v=0.37.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.37.0';
+} from './firebase.js?v=0.38.0';
+import * as Caja from './caja.js?v=0.38.0';
+import * as Stock from './stock.js?v=0.38.0';
+import * as Ajustes from './ajustes.js?v=0.38.0';
+import * as Apps from './apps.js?v=0.38.0';
+import * as Agenda from './agenda.js?v=0.38.0';
+import * as Gastos from './gastos.js?v=0.38.0';
+import * as Sii from './sii.js?v=0.38.0';
+import * as Previred from './previred.js?v=0.38.0';
+import * as B2b from './b2b.js?v=0.38.0';
+import * as Cartola from './cartola.js?v=0.38.0';
+import * as SiiFactura from './sii-factura.js?v=0.38.0';
+import * as PdfOrden from './pdf-orden.js?v=0.38.0';
+import * as Prod from './produccion.js?v=0.38.0';
+import * as VistaProd from './vista-produccion.js?v=0.38.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.38.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -187,7 +187,9 @@ function mostrarEntrada(aviso) {
   a.textContent = aviso || '';
   a.classList.toggle('oculto', !aviso);
   if (auth.currentUser && auth.currentUser.email && !$('correo').value) $('correo').value = auth.currentUser.email;
-  $('error-entrada').textContent = '';
+  // v0.38.0: el error de un intento que se acaba de rechazar (por ejemplo, una cuenta que no es de administración)
+  // no se borra cuando la salida de esa cuenta vuelve a mostrar esta pantalla
+  $('error-entrada').textContent = estado.errorEntrada || '';   // se borra recién al volver a intentar
   $('btn-entrar').disabled = false;
   pintarDuraciones();
 }
@@ -205,7 +207,7 @@ $('form-entrar').addEventListener('submit', async ev => {
   if (!nombre) { err.textContent = 'Ponle un nombre a este equipo.'; return; }
   const vence = calcularVence(estado.duracion, $('fecha-hasta').value);
   if (!vence) { err.textContent = 'Elige una fecha que todavía no haya pasado.'; return; }
-  err.textContent = ''; btn.disabled = true; btn.textContent = 'Entrando…';
+  err.textContent = ''; estado.errorEntrada = ''; btn.disabled = true; btn.textContent = 'Entrando…';
   estado.entrando = true;
   try {
     await setPersistence(auth, estado.duracion === 'sesion' ? browserSessionPersistence : browserLocalPersistence);
@@ -217,9 +219,10 @@ $('form-entrar').addEventListener('submit', async ev => {
       user = (await signInWithEmailAndPassword(auth, correo, clave)).user;
     }
     if (!(await esAdmin(user))) {
-      await signOut(auth);
+      estado.errorEntrada = 'Esta cuenta no es de administración.';
+      err.textContent = estado.errorEntrada;
       estado.entrando = false;
-      err.textContent = 'Esta cuenta no es de administración.';
+      await signOut(auth);
       return;
     }
     const ref = await addDoc(collection(db, 'equipos'), {
@@ -320,7 +323,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.37.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.38.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>

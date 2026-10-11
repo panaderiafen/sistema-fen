@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.7.0
+//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.8.0
 //  La usa Sistema Fën (que lee las cuatro áreas; copia exacta en sistema-fen/cocina/).
 //
 //  Bodega común: un stock por materia prima.
@@ -9,6 +9,9 @@
 //      Bollería (bitácora): "Elaboré masas" = la masa base y su empaste; "Formé" = lo demás del producto
 //        (la masa y el empaste ya se contaron al elaborarlos).
 //      Todas: la merma anotada de una materia prima (la de una receta ya se contó al hacerla).
+//      Cafetería (v0.8.0): lo VENDIDO en la caja de productos con receta de Cafetería (datos.ventas, lo arma
+//        Sistema Fën con los resúmenes de la caja) y los gramos de café de la bitácora de turno (calibraciones,
+//        café botado y pruebas) descontados de la materia prima config/CAF.mp_cafe.
 //    Una sub receta que es de OTRA área no se baja: la cuenta el área que la hace (la crema pastelera la
 //    cuenta Pastelería cuando la termina, no Bollería al rellenar). En Pastelería tampoco se bajan sus propias
 //    sub recetas: las marca terminadas aparte (la crema no se cuenta otra vez dentro de la torta).
@@ -16,13 +19,13 @@
 //  · Stock = último conteo + llegadas − consumo, en orden de hora (dias/{AREA}_{fecha}.bodega).
 //      bodega = { id: { tipo: 'llegada'|'conteo', mp, nombre, cantidad (g, ml o un), por, en, anulado } }
 //  · Proyección (para avisar antes de quedarse corto): lo planificado de Panadería, las masas por elaborar y
-//    las metas de Bollería; Pastelería al ritmo de los últimos 14 días.
+//    las metas de Bollería; Pastelería y Cafetería al ritmo de los últimos 14 días.
 //  · Qué materias primas llevan stock (críticas) y su mínimo: stockmp/{mpId} = { critica, seguridad }
 //    (la pone Administración); si no hay, lo de la planilla (es_critica, stock_seguridad en kg, l o un).
 // ═══════════════════════════════════════════════
-import * as M from './modelo.js?v=0.7.0';
-import * as B from './bolleria.js?v=0.7.0';
-import * as R from './registros.js?v=0.7.0';
+import * as M from './modelo.js?v=0.8.0';
+import * as B from './bolleria.js?v=0.8.0';
+import * as R from './registros.js?v=0.8.0';
 
 const n0 = v => M.num(v);
 const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -132,8 +135,19 @@ export function consumo(datos, desde = '0000-00-00', hasta = '9999-12-31') {
           if (q > 0) agregar(area, fecha, h.en, r.nombre, bajar(r, q, ctx, { ...op, parar }));
         });
       }
+      // Cafetería: el café de la bitácora de turno (calibraciones, café botado, pruebas)
+      const mpCafe = area === 'CAF' && ((datos.config || {}).CAF || {}).mp_cafe;
+      if (mpCafe) Object.values(d.turno || {}).forEach(a => { if (a && !a.anulado && n0(a.gramos) > 0) ev.push({ area, fecha, en: enDe(fecha, a.en), mp: mpCafe, cantidad: n0(a.gramos), origen: 'Bitácora de turno' }); });
       Object.values(d.merma || {}).forEach(a => { if (a && !a.anulado && a.tipo === 'mp' && n0(a.cantidad) > 0) ev.push({ area, fecha, en: enDe(fecha, a.en), mp: a.item, cantidad: n0(a.cantidad), origen: 'Merma' }); });
     });
+  });
+  // Cafetería: lo vendido (ventas: [{ fecha, en, receta, cantidad }]); solo recetas de Cafetería (lo demás lo cuenta su área)
+  const ctxC = ctxDe('CAF');
+  (datos.ventas || []).forEach(v => {
+    if (!v || v.fecha < desde || v.fecha > hasta || !(n0(v.cantidad) > 0)) return;
+    const r = recetaPorId(ctxC, v.receta); if (!r || r.area !== 'CAF') return;
+    const aj = ajustesDe(((datos.ajustes || {}).CAF) || {}, v.fecha);
+    agregar('CAF', v.fecha, v.en, r.nombre + ' (venta)', bajar(r, n0(v.cantidad), ctxC, { ajustes: aj, parar: rs => rs.area && rs.area !== 'CAF', sinId }));
   });
   return { eventos: ev.sort((a, b) => a.en.localeCompare(b.en)), sinId };
 }
@@ -201,9 +215,9 @@ export function proyeccion(datos, desde, dias = 7, eventos = []) {
       add(f, bajar(p, n0(piezas) / 7, ctxB, { parar: rs => deOtraB(rs) || B.esMasaBase(rs) || B.esEmpaste(rs), sinId }));
     });
   });
-  // Pastelería: al ritmo de lo hecho en los últimos 14 días
+  // Pastelería y Cafetería: al ritmo de los últimos 14 días (lo hecho, lo vendido y el café de la bitácora)
   const hoy = datos.hoy || desde, d14 = M.sumarDias(hoy, -14);
-  const ritmo = {}; (eventos || []).filter(e => e.area === 'PAS' && e.origen !== 'Merma' && e.fecha >= d14 && e.fecha < hoy).forEach(e => { ritmo[e.mp] = (ritmo[e.mp] || 0) + e.cantidad / 14; });
+  const ritmo = {}; (eventos || []).filter(e => (e.area === 'PAS' || e.area === 'CAF') && e.origen !== 'Merma' && e.fecha >= d14 && e.fecha < hoy).forEach(e => { ritmo[e.mp] = (ritmo[e.mp] || 0) + e.cantidad / 14; });
   fechas.forEach(f => Object.entries(ritmo).forEach(([mp, q]) => { const x = r[f] || (r[f] = {}); x[mp] = (x[mp] || 0) + q; }));
   return { porDia: r, fechas, sinId };
 }

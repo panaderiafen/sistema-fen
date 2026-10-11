@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.37.0
+//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.38.0
 //  · Conexión: la configuración web de fen-produccion se guarda en Firestore de Sistema Fën
 //    (config/sistemaFen → produccionFirebase). No es secreta: solo identifica el proyecto.
 //    Lo que protege los datos son las reglas de fen-produccion y tu cuenta (admins/{uid}).
@@ -17,19 +17,21 @@
 //    aquí se actualiza la base nueva: recetas/{id}, la versión anterior queda en versiones/{id}_v{n}.
 //    Las materias primas pedidas (solicitudes/) se crean con su precio o se habilitan para el área.
 //  · v0.34.0 (P4): mover recetas entre áreas (Bollería → Pastelería) con el mismo ID (script v2.5.0).
+//  · v0.38.0: consumo de Cafetería en la bodega: lo vendido en la caja (resúmenes de cada cierre y, en la caja
+//    abierta, sus ventas) de productos vinculados a una receta de Cafetería, más el café de la bitácora de turno.
 //  · v0.37.0 (P5): Bodega — stock de las materias primas críticas (bodega común), consumo por área con lo hecho
 //    en Cocina, proyección con lo planificado y alerta en Hoy. El cálculo es el de Cocina (copia en cocina/).
 //  · v0.36.0 (P4b): merma de las cuatro áreas (anotada en Cocina) valorizada con los costos de la planilla,
 //    y la bitácora de turno de Cafetería (gramos de café); gramos por shot en la configuración de Cafetería.
 //  · v0.35.0: una cuenta de área puede entrar a varias áreas (cuentas/{uid}.areas; reglas v1.4.0, script v2.6.0).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.37.0';
-import * as FB from './firebase-produccion.js?v=0.37.0';
-import * as Apps from './apps.js?v=0.37.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.37.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.37.0';
-import * as K from './cocina/consumo.js?v=0.7.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
-import * as CM from './cocina/modelo.js?v=0.7.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.38.0';
+import * as FB from './firebase-produccion.js?v=0.38.0';
+import * as Apps from './apps.js?v=0.38.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.38.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.38.0';
+import * as K from './cocina/consumo.js?v=0.8.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
+import * as CM from './cocina/modelo.js?v=0.8.0';
 
 export { AREAS };
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
@@ -428,6 +430,10 @@ export async function calcularBodega({ guardar = true, hoy = CM.hoyTxt() } = {})
   pl.docs.forEach(d => { datos.planes[d.id] = d.data(); });
   mt.docs.forEach(d => { datos.metas[d.id] = d.data(); });
   const control = {}; sm.docs.forEach(d => { control[d.id] = d.data(); });
+  // Cafetería: lo vendido en la caja (fen-ventas)
+  let cafe = { ventas: [], sinReceta: {}, error: '' };
+  try { cafe = await ventasCafeteria(desde, datos.recetas); } catch (e) { cafe.error = e.message || String(e); }
+  datos.ventas = cafe.ventas;
   const { eventos, sinId } = K.consumo(datos);
   const movs = K.movimientos(datos.dias);
   const proy = K.proyeccion(datos, CM.sumarDias(hoy, 1), 7, eventos);   // desde mañana: lo de hoy se descuenta al marcarlo hecho
@@ -445,8 +451,50 @@ export async function calcularBodega({ guardar = true, hoy = CM.hoyTxt() } = {})
   // Llegadas anotadas aquí que todavía no pasan a la planilla (si el script falló al anotarlas)
   const pendientes = Object.entries((datos.dias.ADM) || {}).flatMap(([fecha, d]) => Object.entries(d.bodega || {}).filter(([, b]) => b && !b.planilla).map(([id, b]) => ({ ...b, id, fecha })));
   if (pendientes.length) pasarLlegadasAdm(db, pendientes).catch(() => {});
-  return { hoy, desde, datos, control, eventos, movs, proy, criticas, sinId, en };
+  return { hoy, desde, datos, control, eventos, movs, proy, criticas, sinId, en, cafe };
 }
+// Lo vendido desde "desde": los resúmenes de cada cierre (un día por caja) y, de las cajas abiertas, sus ventas
+// (con su hora). Cada línea va con la receta vinculada al producto en la caja (idRecetaFen); las de Cafetería
+// que no tienen receta se avisan (no descuentan).
+const esCafeteriaCaja = a => /^(caf|cafeter)/i.test(String(a || ''));
+async function ventasCafeteria(desde, recetas) {
+  const [prods, res, abiertas] = await Promise.all([
+    getDocsSF(colSF(dbSF, 'productos')),
+    getDocsSF(querySF(colSF(dbSF, 'resumenes_caja'), whereSF('fecha', '>=', desde))),
+    getDocsSF(querySF(colSF(dbSF, 'cajas'), whereSF('estado', '==', 'abierta')))
+  ]);
+  const prod = {}; prods.docs.forEach(d => { prod[d.id] = d.data(); });
+  const deCaf = new Set((recetas || []).filter(r => r.area === 'CAF').map(r => r.id));
+  const ventas = [], sinReceta = {}, conResumen = new Set();
+  const linea = (fecha, en, pid, nombre, area, cantidad) => {
+    const rid = (prod[pid] && prod[pid].idRecetaFen) || '';
+    if (rid) { if (deCaf.has(rid)) ventas.push({ fecha, en, receta: rid, cantidad }); return; }
+    if (esCafeteriaCaja(area || (prod[pid] && prod[pid].area))) sinReceta[nombre || pid] = (sinReceta[nombre || pid] || 0) + cantidad;
+  };
+  res.docs.forEach(d => {
+    const r = d.data(); if (!r.fecha) return;
+    conResumen.add(r.cajaId || d.id);
+    const en = new Date(r.fecha + 'T23:59:00').toISOString();   // un cierre cuenta al final de su día
+    Object.entries(r.porProducto || {}).forEach(([pid, pp]) => {
+      const rid = pp.idRecetaFen || (prod[pid] && prod[pid].idRecetaFen) || '';
+      if (rid) { if (deCaf.has(rid)) ventas.push({ fecha: r.fecha, en, receta: rid, cantidad: Number(pp.cantidad) || 0 }); }
+      else if (esCafeteriaCaja(pp.area)) sinReceta[pp.nombre || pid] = (sinReceta[pp.nombre || pid] || 0) + (Number(pp.cantidad) || 0);
+    });
+  });
+  for (const c of abiertas.docs) {
+    if (conResumen.has(c.id)) continue;
+    const vs = await getDocsSF(querySF(colSF(dbSF, 'ventas'), whereSF('cajaId', '==', c.id)));
+    vs.docs.forEach(x => {
+      const v = x.data(); if (v.anulada === true) return;
+      const t = v.fecha && v.fecha.toDate ? v.fecha.toDate() : null; if (!t) return;
+      const fecha = CM.hoyTxt(t); if (fecha < desde) return;
+      (v.lineas || []).forEach(l => linea(fecha, t.toISOString(), l.id, l.nombre, null, parseFloat(l.cantidad) || 0));
+    });
+  }
+  return { ventas, sinReceta, error: '' };
+}
+// De qué materia prima sale el café de la bitácora de turno de Cafetería (config/CAF.mp_cafe)
+export async function guardarMpCafe(mpId) { await guardarConfigArea('CAF', { mp_cafe: mpId || null }); }
 // Las llegadas de Sistema Fën pasan a MP_stock_movimientos con el script (sin duplicar); quedan marcadas al pasar
 async function pasarLlegadasAdm(db, lista) {
   const r = await script('bodega_adm', { movimientos: lista.map(b => ({ id: b.id, fecha: b.fecha, mp: b.mp, nombre: b.nombre, tipo: b.tipo, cantidad: b.cantidad, unidad: b.unidad, nota: b.nota || '', por: b.por || '', anulado: !!b.anulado })) }, VERSION_BODEGA);

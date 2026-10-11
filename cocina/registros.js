@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — merma (las cuatro áreas) y bitácora de turno de Cafetería (sin pantalla)  v0.7.0
+//  fën · Cocina — merma (las cuatro áreas) y bitácora de turno de Cafetería (sin pantalla)  v0.8.0
 //
 //  Se guarda en el día del área (dias/{AREA}_{fecha}), sin precios (las jefas no ven costos):
 //  · merma = { id: { tipo: 'receta'|'mp', item, nombre, sub, cantidad, unidad: 'un'|'g'|'ml',
@@ -9,7 +9,7 @@
 //  · registrosPendientes = true → el script copia a "Registro_merma" y "CAF_registros" (sin duplicar).
 //  Nada se borra: se anula. Sistema Fën valoriza la merma con los costos de la planilla.
 // ═══════════════════════════════════════════════
-import * as M from './modelo.js?v=0.7.0';
+import * as M from './modelo.js?v=0.8.0';
 
 export const MOTIVOS = {
   derrame_error: 'Derrame o error', quemado: 'Quemado o mal horneado', vencimiento: 'Vencimiento',

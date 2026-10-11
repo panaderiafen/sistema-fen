@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.37.0
+//  Sistema Fën — pantalla Producción  v0.38.0
 //  Base nueva de Producción (fen-produccion): conexión, cuentas de las áreas (las tablets
 //  de la app Cocina), copia desde la planilla con control de totales y Configuración de
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.37.0';
-import * as K from './cocina/consumo.js?v=0.7.0';
+import * as P from './produccion.js?v=0.38.0';
+import * as K from './cocina/consumo.js?v=0.8.0';
 
 const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '' } };
 const $ = id => document.getElementById(id);
@@ -290,6 +290,13 @@ function seccionBodega(H) {
     ${cons.length ? `<div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Materia prima</th>${AR.map(a => `<th scope="col" style="text-align:right">${H.esc(P.AREAS[a])}</th>`).join('')}<th scope="col" style="text-align:right">Total</th></tr></thead><tbody>
       ${cons.map(x => `<tr><td>${H.esc(x.nombre)}</td>${AR.map(a => `<td style="text-align:right">${x.porArea[a] ? H.esc(K.texto(x.porArea[a], x.unidad)) : ''}</td>`).join('')}<td style="text-align:right"><b>${H.esc(K.texto(x.total, x.unidad))}</b></td></tr>`).join('')}
       </tbody></table></div>` : '<p class="ayuda">Nada marcado como hecho en este período.</p>'}
+    <h3 style="margin:16px 0 4px">Cafetería ${H.info('Consumo de Cafetería', 'Cafetería descuenta lo VENDIDO en la caja: cada producto vinculado a una receta de Cafetería (en la caja, Configuración → Conexión con fën-producción) se baja por su receta hasta las materias primas. Los cierres cuentan al final de su día; la caja abierta, venta por venta.\nAdemás, los gramos de café de la bitácora de turno (calibraciones, café botado, pruebas) se descuentan de la materia prima que elijas aquí.\nLos productos de otras áreas que se venden en la cafetería (croissant, pan) no descuentan aquí: los cuenta su área al hacerlos.')}</h3>
+    <div class="fila-campos" style="align-items:flex-end">
+      <div class="campo" style="flex:2"><label for="prod-bod-cafe">El café de la bitácora de turno sale de</label><select id="prod-bod-cafe"><option value="">(no descuenta)</option>${c.datos.mps.filter(m => m.tipo !== 'sub_receta' && (m.estado || 'activa') === 'activa').sort((a, x) => a.nombre.localeCompare(x.nombre, 'es')).map(m => `<option value="${H.esc(m.id)}" ${((c.datos.config.CAF || {}).mp_cafe) === m.id ? 'selected' : ''}>${H.esc(m.nombre)}</option>`).join('')}</select></div>
+      <button type="button" class="btn-sec" id="prod-bod-cafe-ok">Guardar</button>
+    </div>
+    ${c.cafe && c.cafe.error ? `<p class="error">No se pudieron leer las ventas de la caja: ${H.esc(c.cafe.error)}</p>` : ''}
+    ${c.cafe && Object.keys(c.cafe.sinReceta).length ? `<p class="ayuda">Vendidos en Cafetería sin receta vinculada en la caja (no descuentan): ${H.esc(Object.entries(c.cafe.sinReceta).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([n, q]) => `${n} (${Math.round(q)})`).join(', '))}${Object.keys(c.cafe.sinReceta).length > 10 ? '…' : ''}. Vincúlalos en la caja para que cuenten.</p>` : ''}
     ${sinId.length ? `<p class="ayuda">Ingredientes sin materia prima en el maestro (no se cuentan): ${H.esc(sinId.slice(0, 8).join(', '))}${sinId.length > 8 ? '…' : ''}.</p>` : ''}`;
 }
 function conectarBodega(H) {
@@ -325,6 +332,12 @@ function conectarBodega(H) {
     if (!confirm(`¿Quitar ${e.mp.nombre} de las críticas? Deja de llevar stock y alerta. Sus llegadas y conteos quedan guardados.`)) return;
     guardar([[e.mp.id, { critica: false, seguridad: e.cfg.seguridad }]], 'Quitó una materia prima crítica (Bodega)');
   }));
+  const cf = $b('prod-bod-cafe-ok');
+  if (cf) cf.addEventListener('click', async () => {
+    cf.disabled = true;
+    try { const id = $b('prod-bod-cafe').value; await P.guardarMpCafe(id); H.registrar('Eligió la materia prima del café de Cafetería (Bodega)', id ? (mp(id) || {}).nombre || id : 'ninguna'); await calcular(); }
+    catch (e) { b.msg = error(e, H); repintarB(); }
+  });
   const ll = $b('prod-bod-llegada');
   if (ll) ll.addEventListener('click', async () => {
     const m = mp($b('prod-bod-ll-mp').value), u = K.unidadMp(m), q = leerCant($b('prod-bod-ll-cant').value, u);

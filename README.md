@@ -1,9 +1,21 @@
-# Sistema Fën · v0.37.0
+# Sistema Fën · v0.38.0
 
-**App:** v0.37.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.5.0 (vienen con Cocina v0.7.0)** · **Script de Producción:** **v2.8.0** · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
+**App:** v0.38.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** v1.5.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.38.0: consumo de Cafetería en la bodega
+En **Producción → Bodega**, Cafetería ya descuenta:
+- **Lo vendido en la caja:** cada producto vinculado a una receta de Cafetería se baja por su receta hasta las materias primas.
+  - Los cierres de caja cuentan al final de su día; la caja abierta cuenta venta por venta.
+  - Se usa el vínculo producto → receta que ya tiene la caja (Configuración → Conexión con fën-producción).
+- **El café de la bitácora de turno** (calibraciones, café botado, pruebas): eliges en "Cafetería" de qué materia prima sale.
+- **Aviso** de los productos de Cafetería vendidos **sin receta vinculada**: no descuentan hasta que los vincules en la caja.
+- **Proyección:** Cafetería entra a su ritmo de los últimos 14 días.
+- **Entrada:** se corrigió que, al entrar con una cuenta que no es de administración, el aviso "Esta cuenta no es de administración" a veces se borraba solo.
+
+Archivos: `produccion.js`, `vista-produccion.js`, `app.js` (entrada), carpeta `cocina/` (copia de Cocina v0.8.0), `config.js`, `README.md` y los demás `.js` (solo versión). Abajo a la izquierda: **v0.38.0**.
 
 ## Novedades de la v0.37.0: Bodega (P5)
 En **Producción → Bodega → Calcular** (lee 120 días de Cocina):
