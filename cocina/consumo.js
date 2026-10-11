@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.10.0
+//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.10.1
 //  La usa Sistema Fën (que lee las cuatro áreas; copia exacta en sistema-fen/cocina/).
 //
 //  Bodega común: un stock por materia prima.
@@ -25,9 +25,9 @@
 //    v0.10.0: stockmp/{mpId}.envase = { nombre: 'saco', tamano: 25000 (g, ml o un) } → se cuenta y se recibe en sacos
 //    (más lo suelto) y el stock también se muestra en sacos. Sin envase: en kg, litros o unidades.
 // ═══════════════════════════════════════════════
-import * as M from './modelo.js?v=0.10.0';
-import * as B from './bolleria.js?v=0.10.0';
-import * as R from './registros.js?v=0.10.0';
+import * as M from './modelo.js?v=0.10.1';
+import * as B from './bolleria.js?v=0.10.1';
+import * as R from './registros.js?v=0.10.1';
 
 const n0 = v => M.num(v);
 const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -41,11 +41,24 @@ export function control(mp, sm) {
     critica: tiene && sm.critica !== undefined ? !!sm.critica : !!(mp && mp.critica),
     seguridad: tiene && sm.seguridad !== undefined && sm.seguridad !== null ? n0(sm.seguridad) : n0(mp && mp.stockSeguridad) * f,
     unidad: u,
-    envase: tiene && sm.envase && String(sm.envase.nombre || '').trim() && n0(sm.envase.tamano) > 0 ? { nombre: String(sm.envase.nombre).trim().slice(0, 20), tamano: n0(sm.envase.tamano) } : null
+    envase: tiene && sm.envase && String(sm.envase.nombre || '').trim() && n0(sm.envase.tamano) > 0 ? { nombre: singular(sm.envase.nombre).slice(0, 20), tamano: n0(sm.envase.tamano) } : null
   };
 }
-// Plural simple para el envase (saco → sacos, caja → cajas, bidón → bidones)
-export const envases = (nombre, n) => Math.abs(n0(n)) === 1 ? nombre : /[aeiou]$/i.test(nombre) ? nombre + 's' : /ó?n$/i.test(nombre) ? nombre.replace(/ón$/i, 'ones').replace(/n$/i, 'nes') : nombre + 'es';
+// El envase en singular, aunque lo hayan escrito en plural (sacos → saco, bidones → bidón, barriles → barril)
+export function singular(nombre) {
+  const t = String(nombre || '').trim().toLowerCase();
+  if (/ones$/.test(t)) return t.replace(/ones$/, 'ón');
+  if (/[lrndzj]es$/.test(t)) return t.slice(0, -2);            // barriles → barril
+  if (/[aeiouáéíóú]s$/.test(t)) return t.slice(0, -1);         // sacos → saco, paquetes → paquete
+  return t;
+}
+// Singular o plural según la cantidad (saco / sacos, caja / cajas, bidón / bidones, barril / barriles)
+export function envases(nombre, n) {
+  const s = singular(nombre);
+  if (Math.abs(n0(n)) === 1) return s;
+  if (/ón$/.test(s)) return s.replace(/ón$/, 'ones');
+  return /[aeiouáéíóú]$/.test(s) ? s + 's' : s + 'es';
+}
 // Cantidad con su equivalente en envases: "212 kg · 8,5 sacos"
 export function textoEnv(n, u, env) {
   const t = texto(n, u);

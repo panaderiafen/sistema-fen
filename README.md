@@ -1,9 +1,13 @@
-# Sistema Fën · v0.41.0
+# Sistema Fën · v0.41.1
 
-**App:** v0.41.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
+**App:** v0.41.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.41.1
+- El envase se guarda en singular aunque lo escribas en plural ("Sacos" → "saco"), para que Cocina diga bien "1 saco" / "3 sacos".
+- La carpeta `cocina/` se actualiza a la copia de Cocina v0.10.1.
 
 ## Novedades de la v0.41.0: cada crítica en su formato (sacos, kg…)
 En **Producción → Cocina → Bodega**, la tabla de críticas tiene la columna **"Se cuenta en"**:

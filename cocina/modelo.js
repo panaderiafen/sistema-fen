@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — cálculos (sin pantalla)  v0.10.0
+//  fën · Cocina — cálculos (sin pantalla)  v0.10.1
 //  Semanas por fechas, escalado de recetas, ajuste de harina/agua del día,
 //  tandas, elaboraciones previas (sub recetas), insumos y pie de masa madre.
 //  Todo es función pura: recibe los datos y devuelve el resultado.

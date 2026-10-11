@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.41.0
+//  Sistema Fën — pantalla Producción  v0.41.1
 //  Base nueva de Producción (fen-produccion): conexión, cuentas de las áreas (las tablets
 //  de la app Cocina), copia desde la planilla con control de totales y Configuración de
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.41.0';
-import * as K from './cocina/consumo.js?v=0.10.0';
+import * as P from './produccion.js?v=0.41.1';
+import * as K from './cocina/consumo.js?v=0.10.1';
 
 const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '' } };
 const $ = id => document.getElementById(id);
@@ -348,7 +348,7 @@ function conectarBodega(H) {
       if (n.trim() || tt.trim()) {
         const tam = leerCant(tt, e.cfg.unidad);
         if (!n.trim() || !(tam > 0)) { $b('prod-bod-err').textContent = `${e.mp.nombre}: el envase necesita nombre y tamaño (por ejemplo, saco de 25 ${K.unidadEntrada(e.cfg.unidad)}), o déjalo vacío.`; return; }
-        env = { nombre: n.trim().toLowerCase(), tamano: tam };
+        env = { nombre: K.singular(n), tamano: tam };   // se guarda en singular ("sacos" → "saco")
       }
       const envAntes = e.cfg.envase ? `${e.cfg.envase.nombre}|${e.cfg.envase.tamano}` : '', envAhora = env ? `${env.nombre}|${env.tamano}` : '';
       if (Math.abs(v - e.cfg.seguridad) > 0.001 || envAntes !== envAhora) lista.push([e.mp.id, { critica: true, seguridad: v, envase: env }]);

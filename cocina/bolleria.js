@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — cálculos de Bollería (sin pantalla)  v0.10.0
+//  fën · Cocina — cálculos de Bollería (sin pantalla)  v0.10.1
 //  Metas semanales de productos → masas base y empastes que hay que elaborar la semana
 //  ANTERIOR, en masas enteras, y tandas según la amasadora.
 //
@@ -10,7 +10,7 @@
 //  · Producto: receta del área que lleva una masa base. Ej. Croissant XL = 0,1 un de Masa Base
 //    (1 masa rinde 10) + 30 g de Empaste (300 g por masa).
 // ═══════════════════════════════════════════════
-import * as M from './modelo.js?v=0.10.0';
+import * as M from './modelo.js?v=0.10.1';
 
 const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 // (el empaste y el poolish no son masas base aunque en la planilla tengan esa clasificación)
