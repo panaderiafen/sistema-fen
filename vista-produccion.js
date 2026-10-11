@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.34.0
+//  Sistema Fën — pantalla Producción  v0.35.0
 //  Base nueva de Producción (fen-produccion): conexión, cuentas de las áreas (las tablets
 //  de la app Cocina), copia desde la planilla con control de totales y Configuración de
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.34.0';
+import * as P from './produccion.js?v=0.35.0';
 
 const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '' };
 const $ = id => document.getElementById(id);
@@ -93,16 +93,23 @@ async function pintarBase(el, H, cx) {
   let cuentas = [], personas = [], cfgs = {};
   try { [cuentas, st.tot, cfgs] = await Promise.all([P.cuentas(), P.totales(), P.leerConfigs()]); } catch (e) { st.msg = error(e, H); }
   const t = st.tot, p = st.prep, ult = t && t.ultima;
-  const porArea = a => cuentas.filter(c => c.area === a);
+  const porArea = a => cuentas.filter(c => P.areasDeCuenta(c).includes(a));
   el.innerHTML = cab(H) + `
     <section class="tarjeta" aria-labelledby="t-prod-revision" id="prod-cocina"><div class="vacio" style="border:0">Revisando lo que llegó desde Cocina…</div></section>
     <section class="tarjeta" aria-labelledby="t-prod-cuentas">
-      <div class="titulo-fila"><h2 id="t-prod-cuentas">Cuentas de las áreas ${H.info('Cuentas de las áreas', 'Cada tablet de la cocina se autoriza una vez con la cuenta de su área (la creas en la consola de Firebase de fen-produccion → Authentication). Aquí dices de qué área es cada cuenta: con eso, esa tablet solo ve y cambia lo de su área.\nEl UID está en la consola → Authentication → Usuarios. No es secreto.\nLa contraseña de cada cuenta no pasa por aquí: la escribes tú en la tablet al autorizarla.')}</h2><span>${H.esc(cx.cfg.projectId)}</span></div>
-      <div class="lista-simple">${Object.keys(P.AREAS).map(a => `<div class="fila-caja fila-compacta"><div class="txt"><b>${P.AREAS[a]}</b><span>${porArea(a).length ? porArea(a).map(c => H.esc(c.uid)).join(' · ') : 'Sin cuenta asignada'}</span></div>${porArea(a).length ? '<span class="chip c-verde">Lista</span>' : '<span class="chip c-gris">Falta</span>'}</div>`).join('')}</div>
-      <form id="prod-cuenta" class="fila-campos" style="margin-top:12px;align-items:flex-end">
-        <div class="campo"><label for="prod-cta-area">Área</label><select id="prod-cta-area">${Object.entries(P.AREAS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
-        <div class="campo" style="flex:2"><label for="prod-cta-uid">UID de la cuenta del área</label><input id="prod-cta-uid" spellcheck="false" autocomplete="off"></div>
-        <button type="submit" class="btn-sec">Asignar</button>
+      <div class="titulo-fila"><h2 id="t-prod-cuentas">Cuentas de las áreas ${H.info('Cuentas de las áreas', 'Cada tablet de la cocina se autoriza una vez con la cuenta de su área (la creas en la consola de Firebase de fen-produccion → Authentication). Aquí dices de qué área es cada cuenta: con eso, esa tablet solo ve y cambia lo de su área. Una cuenta puede tener más de un área ("También entra a").\nEl UID está en la consola → Authentication → Usuarios. No es secreto.\nLa contraseña de cada cuenta no pasa por aquí: la escribes tú en la tablet al autorizarla.')}</h2><span>${H.esc(cx.cfg.projectId)}</span></div>
+      <div class="lista-simple">${Object.keys(P.AREAS).map(a => `<div class="fila-caja fila-compacta"><div class="txt"><b>${P.AREAS[a]}</b><span>${porArea(a).length ? porArea(a).map(c => H.esc(c.uid) + (c.area !== a ? ` (también; principal ${H.esc(P.AREAS[c.area] || c.area)})` : '')).join(' · ') : 'Sin cuenta asignada'}</span></div>${porArea(a).length ? '<span class="chip c-verde">Lista</span>' : '<span class="chip c-gris">Falta</span>'}</div>`).join('')}</div>
+      ${cuentas.length ? `<h3 style="margin:14px 0 4px;font-size:15px">Cuentas ${H.info('Cambiar las áreas de una cuenta', 'Toca "Cambiar" para cargar la cuenta en el formulario de abajo, marca o desmarca áreas y presiona Guardar.\nSi una tablet ya estaba abierta, toma el cambio en la próxima carga.')}</h3>
+      <div class="lista-simple">${cuentas.map(c => `<div class="fila-caja fila-compacta"><div class="txt"><b>${P.areasDeCuenta(c).map(a => H.esc(P.AREAS[a])).join(' + ') || 'Sin área'}</b><span>${H.esc(c.uid)}</span></div><button type="button" class="btn-sec" data-cta-editar="${H.esc(c.uid)}">Cambiar</button></div>`).join('')}</div>` : ''}
+      <form id="prod-cuenta" style="margin-top:12px">
+        <div class="fila-campos" style="align-items:flex-end">
+          <div class="campo"><label for="prod-cta-area">Área principal ${H.info('Área principal', 'Con esta área abre la tablet la primera vez. Después recuerda la última en que estuvo.')}</label><select id="prod-cta-area">${Object.entries(P.AREAS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
+          <div class="campo" style="flex:2"><label for="prod-cta-uid">UID de la cuenta del área</label><input id="prod-cta-uid" spellcheck="false" autocomplete="off"></div>
+        </div>
+        <fieldset style="border:0;padding:0;margin:8px 0 0"><legend style="font-weight:600;font-size:14px;margin-bottom:4px">También entra a ${H.info('Más de un área', 'Marca las otras áreas a las que puede entrar esta tablet (por ejemplo, una tablet compartida entre Bollería y Pastelería).\nArriba de la app aparece "Cambiar de área". En cada área se pide el PIN de una persona de esa área, y la tablet ve y cambia solo lo de esa área mientras está en ella.')}</legend>
+          <div style="display:flex;gap:16px;flex-wrap:wrap">${Object.entries(P.AREAS).map(([k, v]) => `<label style="display:flex;gap:6px;align-items:center;min-height:44px"><input type="checkbox" name="prod-cta-otras" value="${k}">${v}</label>`).join('')}</div>
+        </fieldset>
+        <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn-sec">Guardar</button></div>
       </form>
       <div class="error" id="prod-cta-err" role="alert"></div>
     </section>
@@ -145,9 +152,19 @@ async function pintarBase(el, H, cx) {
     } catch (e) { st.moverMsg = error(e, H); }
     pintarBase(el, H, cx);
   });
+  const marcarPrincipal = () => el.querySelectorAll('[name="prod-cta-otras"]').forEach(x => { const es = x.value === $('prod-cta-area').value; x.disabled = es; if (es) x.checked = false; });
+  $('prod-cta-area').addEventListener('change', marcarPrincipal); marcarPrincipal();
+  el.querySelectorAll('[data-cta-editar]').forEach(b => b.addEventListener('click', () => {
+    const c = cuentas.find(x => x.uid === b.dataset.ctaEditar); if (!c) return;
+    $('prod-cta-uid').value = c.uid; $('prod-cta-area').value = P.AREAS[c.area] ? c.area : 'PAN';
+    const otras = P.areasDeCuenta(c).filter(a => a !== c.area);
+    el.querySelectorAll('[name="prod-cta-otras"]').forEach(x => { x.checked = otras.includes(x.value); });
+    marcarPrincipal(); $('prod-cta-uid').focus();
+  }));
   $('prod-cuenta').addEventListener('submit', async ev => {
     ev.preventDefault(); $('prod-cta-err').textContent = '';
-    try { await P.asignarCuenta($('prod-cta-uid').value, $('prod-cta-area').value); H.registrar('Asignó una cuenta de área (Producción)', `${P.AREAS[$('prod-cta-area').value]} · ${$('prod-cta-uid').value.trim()}`); pintarBase(el, H, cx); }
+    const principal = $('prod-cta-area').value, otras = [...el.querySelectorAll('[name="prod-cta-otras"]:checked')].map(x => x.value).filter(a => a !== principal);
+    try { await P.asignarCuenta($('prod-cta-uid').value, principal, otras); H.registrar('Asignó una cuenta de área (Producción)', `${[principal, ...otras].map(a => P.AREAS[a]).join(' + ')} · ${$('prod-cta-uid').value.trim()}`); pintarBase(el, H, cx); }
     catch (e) { $('prod-cta-err').textContent = error(e, H); }
   });
   el.querySelectorAll('[data-cfg-area]').forEach(f => f.addEventListener('submit', async ev => {

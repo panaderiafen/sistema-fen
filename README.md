@@ -1,9 +1,18 @@
-# Sistema Fën · v0.34.0
+# Sistema Fën · v0.35.0
 
-**App:** v0.34.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.3.0 (vienen con Cocina v0.5.0)** · **Script de Producción:** **v2.5.0** · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
+**App:** v0.35.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.4.0 (vienen con Cocina v0.5.1)** · **Script de Producción:** **v2.6.0** · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.35.0: una tablet en más de un área
+En **Producción → Cuentas de las áreas**:
+- Cada cuenta tiene un **Área principal** y, si quieres, **También entra a** (otras áreas). Por ejemplo, una tablet compartida entre Pastelería y Bollería.
+- Para cambiar una cuenta que ya existe: **Cambiar** en la lista "Cuentas", marca o desmarca y **Guardar**.
+- Arriba, en cada área, la cuenta aparece como "(también; principal …)".
+- Necesita las reglas **v1.4.0** (vienen con Cocina v0.5.1) y el script de Producción **v2.6.0**. Sin ellos, la tablet no puede leer ni escribir en la segunda área.
+
+Archivos: cambian `produccion.js`, `vista-produccion.js`, `config.js`, `README.md` y los demás `.js` (solo versión). Abajo a la izquierda: **v0.35.0**.
 
 ## Novedades de la v0.34.0: pasar recetas de Bollería a Pastelería (P4)
 En **Producción**, sección **Pasar recetas de Bollería a Pastelería** → "Ver las recetas de Bollería".

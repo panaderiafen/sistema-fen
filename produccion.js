@@ -1,10 +1,10 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.34.0
+//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.35.0
 //  · Conexión: la configuración web de fen-produccion se guarda en Firestore de Sistema Fën
 //    (config/sistemaFen → produccionFirebase). No es secreta: solo identifica el proyecto.
 //    Lo que protege los datos son las reglas de fen-produccion y tu cuenta (admins/{uid}).
 //  · Cuentas de las áreas: cada tablet se autoriza con la cuenta de su área; aquí se dice
-//    qué área es cada cuenta (cuentas/{uid} = { area }).
+//    qué área es cada cuenta (cuentas/{uid} = { area, areas }: v0.35.0, una tablet puede entrar a varias áreas).
 //  · Copia desde la planilla: el script de Producción (v2.3.0) entrega las hojas (sin costos)
 //    y produccion-modelo.js arma los documentos. Recetas, materias primas, configuración y
 //    personas se copian enteras. Un plan semanal que ya se cambió en la app Cocina NO se
@@ -17,12 +17,13 @@
 //    aquí se actualiza la base nueva: recetas/{id}, la versión anterior queda en versiones/{id}_v{n}.
 //    Las materias primas pedidas (solicitudes/) se crean con su precio o se habilitan para el área.
 //  · v0.34.0 (P4): mover recetas entre áreas (Bollería → Pastelería) con el mismo ID (script v2.5.0).
+//  · v0.35.0: una cuenta de área puede entrar a varias áreas (cuentas/{uid}.areas; reglas v1.4.0, script v2.6.0).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.34.0';
-import * as FB from './firebase-produccion.js?v=0.34.0';
-import * as Apps from './apps.js?v=0.34.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.34.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.34.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.35.0';
+import * as FB from './firebase-produccion.js?v=0.35.0';
+import * as Apps from './apps.js?v=0.35.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.35.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.35.0';
 
 export { AREAS };
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
@@ -81,14 +82,18 @@ export async function cuentas() {
   const sn = await FB.getDocs(FB.collection(db, 'cuentas'));
   return sn.docs.map(d => ({ uid: d.id, ...d.data() }));
 }
-export async function asignarCuenta(uid, area) {
+// v0.35.0: una cuenta puede entrar a varias áreas. "area" = la principal (con la que abre la tablet la primera vez);
+// "areas" = todas (la principal primero). Las reglas v1.4.0 y el script v2.6.0 leen las dos.
+export const areasDeCuenta = c => [...new Set([c && c.area, ...((c && Array.isArray(c.areas)) ? c.areas : [])])].filter(a => AREAS[a]);
+export async function asignarCuenta(uid, area, otras = []) {
   const u = String(uid || '').trim();
   if (!/^[A-Za-z0-9]{20,40}$/.test(u)) throw new Error('El UID no se ve bien: cópialo de la consola de Firebase → Authentication → Usuarios (columna "UID de usuario").');
   if (!AREAS[area]) throw new Error('Área no válida.');
+  const areas = [area, ...[...new Set(otras || [])].filter(a => AREAS[a] && a !== area)];
   const db = await dbOk();
   const yo = await conexion();
   if (u === yo.uid) throw new Error('Ese UID es el de tu cuenta de administración: usa el de la cuenta del área.');
-  await FB.setDoc(FB.doc(db, 'cuentas', u), { area, asignadaPor: authSF.currentUser.email, en: FB.serverTimestamp() });
+  await FB.setDoc(FB.doc(db, 'cuentas', u), { area, areas, asignadaPor: authSF.currentUser.email, en: FB.serverTimestamp() });
 }
 
 // ── Leer la planilla (script de Producción) ──
