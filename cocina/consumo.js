@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.10.1
+//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.11.0
 //  La usa Sistema Fën (que lee las cuatro áreas; copia exacta en sistema-fen/cocina/).
 //
 //  Bodega común: un stock por materia prima.
@@ -16,7 +16,10 @@
 //    cuenta Pastelería cuando la termina, no Bollería al rellenar). En Pastelería tampoco se bajan sus propias
 //    sub recetas: las marca terminadas aparte (la crema no se cuenta otra vez dentro de la torta).
 //    El pie de masa madre no se cuenta.
-//  · Stock = último conteo + llegadas − consumo, en orden de hora (dias/{AREA}_{fecha}.bodega).
+//  · Stock = último conteo + llegadas − consumo (dias/{AREA}_{fecha}.bodega).
+//    v0.11.0: el conteo vale como CIERRE DE SU DÍA (regla de Fën: se cuenta después de la producción). Lo hecho ese
+//    día —antes o después de contar— ya está en el conteo; se descuenta lo de los días siguientes. Las llegadas van
+//    por hora (lo que llega después de contar se suma).
 //      bodega = { id: { tipo: 'llegada'|'conteo', mp, nombre, cantidad (g, ml o un), por, en, anulado } }
 //  · Proyección (para avisar antes de quedarse corto): lo planificado de Panadería, las masas por elaborar y
 //    las metas de Bollería; Pastelería y Cafetería al ritmo de los últimos 14 días.
@@ -25,9 +28,9 @@
 //    v0.10.0: stockmp/{mpId}.envase = { nombre: 'saco', tamano: 25000 (g, ml o un) } → se cuenta y se recibe en sacos
 //    (más lo suelto) y el stock también se muestra en sacos. Sin envase: en kg, litros o unidades.
 // ═══════════════════════════════════════════════
-import * as M from './modelo.js?v=0.10.1';
-import * as B from './bolleria.js?v=0.10.1';
-import * as R from './registros.js?v=0.10.1';
+import * as M from './modelo.js?v=0.11.0';
+import * as B from './bolleria.js?v=0.11.0';
+import * as R from './registros.js?v=0.11.0';
 
 const n0 = v => M.num(v);
 const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -197,12 +200,12 @@ export function stock(mpId, movs, eventos) {
   let ini = -1; ms.forEach((m, i) => { if (m.tipo === 'conteo') ini = i; });
   if (ini < 0) return { contado: false, stock: null, conteo: null, llegadas: 0, consumo: 0 };
   const c = ms[ini], llegadas = ms.slice(ini + 1).filter(m => m.tipo === 'llegada').reduce((s, m) => s + m.cantidad, 0);
-  const consumo = (eventos || []).filter(e => e.mp === mpId && e.en > c.en).reduce((s, e) => s + e.cantidad, 0);
+  const consumo = (eventos || []).filter(e => e.mp === mpId && e.fecha > c.fecha).reduce((s, e) => s + e.cantidad, 0);   // desde el día siguiente
   // Lo que decía la cuenta justo antes de ese conteo (la diferencia es lo que se pierde sin anotar)
   let antes = null, k = -1; ms.slice(0, ini).forEach((m, i) => { if (m.tipo === 'conteo') k = i; });
   if (k >= 0) {
     const p = ms[k], ll = ms.slice(k + 1, ini).filter(m => m.tipo === 'llegada').reduce((s, m) => s + m.cantidad, 0);
-    antes = p.cantidad + ll - (eventos || []).filter(e => e.mp === mpId && e.en > p.en && e.en <= c.en).reduce((s, e) => s + e.cantidad, 0);
+    antes = p.cantidad + ll - (eventos || []).filter(e => e.mp === mpId && e.fecha > p.fecha && e.fecha <= c.fecha).reduce((s, e) => s + e.cantidad, 0);
   }
   return { contado: true, stock: c.cantidad + llegadas - consumo, conteo: c, llegadas, consumo, teoricoAlContar: antes };
 }

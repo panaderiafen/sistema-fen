@@ -26,13 +26,13 @@
 //    y la bitácora de turno de Cafetería (gramos de café); gramos por shot en la configuración de Cafetería.
 //  · v0.35.0: una cuenta de área puede entrar a varias áreas (cuentas/{uid}.areas; reglas v1.4.0, script v2.6.0).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.41.1';
-import * as FB from './firebase-produccion.js?v=0.41.1';
-import * as Apps from './apps.js?v=0.41.1';
-import { armar, AREAS } from './produccion-modelo.js?v=0.41.1';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.41.1';
-import * as K from './cocina/consumo.js?v=0.10.1';      // el cálculo de la bodega es el de Cocina (copia exacta)
-import * as CM from './cocina/modelo.js?v=0.10.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.42.0';
+import * as FB from './firebase-produccion.js?v=0.42.0';
+import * as Apps from './apps.js?v=0.42.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.42.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.42.0';
+import * as K from './cocina/consumo.js?v=0.11.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
+import * as CM from './cocina/modelo.js?v=0.11.0';
 
 export { AREAS };
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
