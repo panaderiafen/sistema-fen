@@ -9,22 +9,22 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.36.0';
-import * as Caja from './caja.js?v=0.36.0';
-import * as Stock from './stock.js?v=0.36.0';
-import * as Ajustes from './ajustes.js?v=0.36.0';
-import * as Apps from './apps.js?v=0.36.0';
-import * as Agenda from './agenda.js?v=0.36.0';
-import * as Gastos from './gastos.js?v=0.36.0';
-import * as Sii from './sii.js?v=0.36.0';
-import * as Previred from './previred.js?v=0.36.0';
-import * as B2b from './b2b.js?v=0.36.0';
-import * as Cartola from './cartola.js?v=0.36.0';
-import * as SiiFactura from './sii-factura.js?v=0.36.0';
-import * as PdfOrden from './pdf-orden.js?v=0.36.0';
-import * as Prod from './produccion.js?v=0.36.0';
-import * as VistaProd from './vista-produccion.js?v=0.36.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.36.0';
+} from './firebase.js?v=0.37.0';
+import * as Caja from './caja.js?v=0.37.0';
+import * as Stock from './stock.js?v=0.37.0';
+import * as Ajustes from './ajustes.js?v=0.37.0';
+import * as Apps from './apps.js?v=0.37.0';
+import * as Agenda from './agenda.js?v=0.37.0';
+import * as Gastos from './gastos.js?v=0.37.0';
+import * as Sii from './sii.js?v=0.37.0';
+import * as Previred from './previred.js?v=0.37.0';
+import * as B2b from './b2b.js?v=0.37.0';
+import * as Cartola from './cartola.js?v=0.37.0';
+import * as SiiFactura from './sii-factura.js?v=0.37.0';
+import * as PdfOrden from './pdf-orden.js?v=0.37.0';
+import * as Prod from './produccion.js?v=0.37.0';
+import * as VistaProd from './vista-produccion.js?v=0.37.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.37.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -320,7 +320,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.36.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.37.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -492,6 +492,13 @@ async function pintarHoy() {
     if (r.recetas.length) pend.push({ orden: 3.05, color: 'lila', icono: 'libro', chip: 'Revisar', url: '#produccion', origen: 'Cocina', titulo: `${r.recetas.length} ${r.recetas.length === 1 ? 'receta' : 'recetas'} de Cocina por aprobar`, detalle: lista(r.recetas) });
     if (r.mps.length) pend.push({ orden: 3.15, color: 'lila', icono: 'libro', chip: 'Resolver', url: '#produccion', origen: 'Cocina', titulo: `${r.mps.length} ${r.mps.length === 1 ? 'materia prima pedida' : 'materias primas pedidas'} en Cocina`, detalle: lista(r.mps) });
     if (r.recetas.length || r.mps.length) pintarLista();
+  }).catch(() => {});
+  // v0.37.0: bodega — materias primas críticas bajo el mínimo (o que quedarán bajo el mínimo en la semana)
+  Prod.alertasBodega().then(r => {
+    if (!r || !r.bajos.length) return;
+    const t = x => x.bajoAhora ? `${x.nombre} (ya)` : `${x.nombre} (${['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][new Date(x.bajoDesde + 'T12:00:00').getDay()]} ${Number(x.bajoDesde.slice(8, 10))})`;
+    pend.push({ orden: 2.9, color: 'amarillo', icono: 'alerta', chip: 'Ver', url: '#produccion', origen: 'Bodega', titulo: `${r.bajos.length} ${r.bajos.length === 1 ? 'materia prima queda' : 'materias primas quedan'} bajo el mínimo`, detalle: r.bajos.slice(0, 4).map(t).join(', ') + (r.bajos.length > 4 ? '…' : '') });
+    pintarLista();
   }).catch(() => {});
   // v0.14: abonos de la cartola por revisar
   B2b.movimientosParaHoy().then(r => {

@@ -46,7 +46,7 @@ export function armar(hojas, personasAreas) {
     docs.mps[id] = {
       nombre: texto(r.nombre), categoria: texto(r.categoria), tipo: texto(r.tipo), unidad: texto(r.unidad_compra) || 'kg',
       estado: texto(r.estado) || 'activa', areas: texto(r.areas_habilitadas).split(',').map(x => x.trim()).filter(Boolean),
-      recetaOrigen: texto(r.receta_id_origen), reemplazadaPor: texto(r.reemplazada_por), critica: siNo(r.es_critica),
+      recetaOrigen: texto(r.receta_id_origen), reemplazadaPor: texto(r.reemplazada_por), critica: siNo(r.es_critica), stockSeguridad: num(r.stock_seguridad),
       solicitadaPor: texto(r.solicitada_por), origen: { hoja: 'MP_maestro', fila: r._fila }
     };
   });

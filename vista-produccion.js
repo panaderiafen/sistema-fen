@@ -1,13 +1,14 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.36.0
+//  Sistema Fën — pantalla Producción  v0.37.0
 //  Base nueva de Producción (fen-produccion): conexión, cuentas de las áreas (las tablets
 //  de la app Cocina), copia desde la planilla con control de totales y Configuración de
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.36.0';
+import * as P from './produccion.js?v=0.37.0';
+import * as K from './cocina/consumo.js?v=0.7.0';
 
-const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false } };
+const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '' } };
 const $ = id => document.getElementById(id);
 const n = v => Number(v || 0).toLocaleString('es-CL');
 
@@ -121,6 +122,8 @@ async function pintarBase(el, H, cx) {
       <div id="prod-avance" class="ayuda" aria-live="polite">${H.esc(st.msg)}</div>
     </section>
 
+    <section class="tarjeta" aria-labelledby="t-prod-bodega" id="prod-bodega">${seccionBodega(H)}</section>
+
     <section class="tarjeta" aria-labelledby="t-prod-merma" id="prod-merma">${seccionMerma(H)}</section>
 
     ${seccionConfig(cfgs, H)}
@@ -134,7 +137,7 @@ async function pintarBase(el, H, cx) {
     ${t ? `<section class="tarjeta" aria-labelledby="t-prod-control"><h2 id="t-prod-control">Control de totales</h2>${tablaControl(p, t)}</section>` : ''}`;
 
   pintarCocina(el, H, true);
-  conectarMerma(el, H);
+  conectarMerma(el, H); conectarBodega(H);
   const verMover = $('prod-mover-ver');
   if (verMover) verMover.addEventListener('click', async () => {
     verMover.disabled = true; verMover.textContent = 'Cargando…';
@@ -243,6 +246,93 @@ function seccionConfig(cfgs, H) {
     <h2 id="t-prod-config">Configuración de Producción ${H.info('Configuración de Producción', 'Lo que define cómo calcula Cocina en cada área: amasadora, tandas por día, merma, congeladores, días del pie de masa madre.\nLa cambias tú; las jefas la ven en Cocina sin poder cambiarla. Una configuración que guardas aquí no se pisa al volver a copiar desde la planilla.')}</h2>
     ${bloque('PAN')}${bloque('BOL')}${bloque('CAF')}
   </section>`;
+}
+
+// ═══════════════ Bodega (P5): stock de las críticas, consumo por área y llegadas ═══════════════
+const fechaC = f => f ? f.slice(8, 10) + '/' + f.slice(5, 7) : '';
+function seccionBodega(H) {
+  const b = st.bodega, c = b.calc;
+  const cab = `<div class="titulo-fila"><h2 id="t-prod-bodega">Bodega ${H.info('Bodega (materias primas críticas)', 'Bodega común: un stock por materia prima.\nStock = último conteo + llegadas − lo consumido. El consumo sale de lo que marcan como hecho en Cocina (Panadería y Pastelería: recetas terminadas; Bollería: masas elaboradas con su empaste y productos formados), bajado por las recetas hasta las materias primas, más la merma de materias primas.\nLas jefas anotan llegadas y conteos en Cocina → Bodega. El conteo corrige la cuenta: la diferencia es lo que se pierde sin anotar (o lo que no se marcó como hecho).\n"Alcanza" y "bajo el mínimo" usan lo planificado de los próximos 7 días (Panadería: el plan; Bollería: masas por elaborar y metas; Pastelería: su ritmo de los últimos 14 días). Cafetería todavía no descuenta (va con las ventas).\nLas críticas y su mínimo se marcan aquí; si no, se usa lo de la planilla (es_critica, stock_seguridad).')}</h2>
+    <button type="button" class="btn-sec" id="prod-bod-calc" ${b.cargando ? 'disabled' : ''}>${b.cargando ? 'Calculando…' : c ? 'Calcular de nuevo' : 'Calcular'}</button></div>`;
+  if (!c) return cab + (b.msg ? `<p class="error">${H.esc(b.msg)}</p>` : '<p class="ayuda">Presiona "Calcular" (lee los últimos 120 días de Cocina).</p>');
+  const est = e => !e.st.contado ? '<span class="chip c-gris" title="No hay conteo en los últimos 120 días">Falta conteo</span>' : e.bajoAhora ? '<span class="chip c-rojo">Bajo el mínimo</span>' : e.bajoDesde ? `<span class="chip c-amarillo">Bajo el ${H.esc(fechaC(e.bajoDesde))}</span>` : '<span class="chip c-verde">Bien</span>';
+  const dif = e => { const t = e.st.teoricoAlContar; if (t === null || t === undefined) return ''; const d = e.st.conteo.cantidad - t; return Math.abs(d) < 1 ? ' · cuadró' : ` · ${d < 0 ? 'faltaron' : 'sobraron'} ${H.esc(K.texto(Math.abs(d), e.cfg.unidad))}`; };
+  const filas = c.criticas.map(e => `<tr>
+      <td>${H.esc(e.mp.nombre)}</td><td>${est(e)}</td>
+      <td style="text-align:right">${e.st.contado ? H.esc(K.texto(e.st.stock, e.cfg.unidad)) : '—'}</td>
+      <td><input class="bod-min" data-bod-min="${H.esc(e.mp.id)}" inputmode="decimal" value="${H.esc(String(K.deBase(e.cfg.seguridad, e.cfg.unidad)).replace('.', ','))}" aria-label="Mínimo de ${H.esc(e.mp.nombre)}" style="width:80px"> ${K.unidadEntrada(e.cfg.unidad)}</td>
+      <td>${e.alcanza === null ? '—' : H.esc((Math.round(e.alcanza * 10) / 10).toLocaleString('es-CL')) + ' días'}<br><span class="ayuda">${e.prom ? H.esc(K.texto(e.prom, e.cfg.unidad)) + '/día' : ''}</span></td>
+      <td class="ayuda">${e.st.conteo ? `${H.esc(fechaC(e.st.conteo.fecha))} · ${H.esc(P.AREAS[e.st.conteo.area] || e.st.conteo.area)}${dif(e)}` : 'nunca'}</td>
+      <td><button type="button" class="btn-link" data-bod-quitar="${H.esc(e.mp.id)}">Quitar</button></td></tr>`).join('');
+  const otras = c.datos.mps.filter(m => (m.estado || 'activa') === 'activa' && m.tipo !== 'sub_receta' && !c.criticas.some(e => e.mp.id === m.id)).sort((a, x) => a.nombre.localeCompare(x.nombre, 'es'));
+  const per = P.periodoMerma(b.periodo), cons = P.consumoPeriodo(c, per);
+  const AR = ['PAN', 'BOL', 'PAS', 'CAF'].filter(a => cons.some(x => x.porArea[a]));
+  const sinId = Object.keys(c.sinId || {});
+  return cab + `
+    <p class="ayuda">Calculado el ${H.esc(fechaC(c.hoy))} a las ${H.esc(new Date(c.en).toTimeString().slice(0, 5))} · las jefas ven en Cocina lo que está bajo el mínimo.</p>
+    ${c.criticas.length ? `<div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Materia prima</th><th scope="col">Estado</th><th scope="col" style="text-align:right">Stock</th><th scope="col">Mínimo</th><th scope="col">Alcanza</th><th scope="col">Último conteo</th><th scope="col"><span class="sr">Quitar</span></th></tr></thead><tbody>${filas}</tbody></table></div>
+      <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="prod-bod-min">Guardar mínimos</button></div>` : '<p class="ayuda">Todavía no hay materias primas críticas. Agrega las que quieres controlar (harina, mantequilla, leche…).</p>'}
+    <div class="fila-campos" style="align-items:flex-end;margin-top:8px">
+      <div class="campo" style="flex:2"><label for="prod-bod-nueva">Agregar crítica</label><select id="prod-bod-nueva"><option value="">Elige una materia prima…</option>${otras.map(m => `<option value="${H.esc(m.id)}">${H.esc(m.nombre)}</option>`).join('')}</select></div>
+      <div class="campo"><label for="prod-bod-nueva-min">Mínimo</label><input id="prod-bod-nueva-min" inputmode="decimal" placeholder="kg, l o un"></div>
+      <button type="button" class="btn-sec" id="prod-bod-agregar">Agregar</button>
+    </div>
+    ${c.criticas.length ? `<h3 style="margin:16px 0 4px">Llegó mercadería</h3>
+    <div class="fila-campos" style="align-items:flex-end">
+      <div class="campo" style="flex:2"><label for="prod-bod-ll-mp">Materia prima</label><select id="prod-bod-ll-mp">${c.criticas.map(e => `<option value="${H.esc(e.mp.id)}">${H.esc(e.mp.nombre)} (${K.unidadEntrada(e.cfg.unidad)})</option>`).join('')}</select></div>
+      <div class="campo"><label for="prod-bod-ll-cant">Cantidad</label><input id="prod-bod-ll-cant" inputmode="decimal"></div>
+      <div class="campo" style="flex:2"><label for="prod-bod-ll-nota">Proveedor o factura</label><input id="prod-bod-ll-nota" maxlength="120"></div>
+      <button type="button" class="btn-sec" id="prod-bod-llegada">Anotar llegada</button>
+    </div>` : ''}
+    <div class="error" id="prod-bod-err" role="alert">${H.esc(b.msg)}</div>
+    <div class="titulo-fila" style="margin-top:18px"><h3 style="margin:0">Consumo por área ${H.info('Consumo por área', 'Todas las materias primas (no solo las críticas), con lo que se marcó como hecho en Cocina y la merma de materias primas. Las sub recetas se bajan hasta sus materias primas; la de otra área la cuenta el área que la hace.')}</h3>
+      <select id="prod-bod-per" aria-label="Período">${Object.entries(P.PERIODOS_MERMA).map(([k, t]) => `<option value="${k}" ${b.periodo === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+    ${cons.length ? `<div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Materia prima</th>${AR.map(a => `<th scope="col" style="text-align:right">${H.esc(P.AREAS[a])}</th>`).join('')}<th scope="col" style="text-align:right">Total</th></tr></thead><tbody>
+      ${cons.map(x => `<tr><td>${H.esc(x.nombre)}</td>${AR.map(a => `<td style="text-align:right">${x.porArea[a] ? H.esc(K.texto(x.porArea[a], x.unidad)) : ''}</td>`).join('')}<td style="text-align:right"><b>${H.esc(K.texto(x.total, x.unidad))}</b></td></tr>`).join('')}
+      </tbody></table></div>` : '<p class="ayuda">Nada marcado como hecho en este período.</p>'}
+    ${sinId.length ? `<p class="ayuda">Ingredientes sin materia prima en el maestro (no se cuentan): ${H.esc(sinId.slice(0, 8).join(', '))}${sinId.length > 8 ? '…' : ''}.</p>` : ''}`;
+}
+function conectarBodega(H) {
+  const $b = id => document.getElementById(id), b = st.bodega;
+  const repintarB = () => { $b('prod-bodega').innerHTML = seccionBodega(H); conectarBodega(H); };
+  const calcular = async () => { b.cargando = true; b.msg = ''; repintarB(); try { b.calc = await P.calcularBodega(); } catch (e) { b.msg = error(e, H); } b.cargando = false; repintarB(); };
+  const boton = $b('prod-bod-calc'); if (!boton) return;
+  boton.addEventListener('click', calcular);
+  const per = $b('prod-bod-per'); if (per) per.addEventListener('change', () => { b.periodo = per.value; repintarB(); });
+  const mp = id => b.calc.datos.mps.find(m => m.id === id);
+  const leerCant = (t, u) => { const v = String(t || '').trim(); if (!/^\d+([.,]\d+)?$/.test(v)) return null; return K.aBase(v, u); };
+  const guardar = async (lista, msg) => { try { for (const [id, x] of lista) await P.guardarControl(id, x); H.registrar(msg, lista.map(([id]) => (mp(id) || {}).nombre || id).join(', ')); await calcular(); } catch (e) { b.msg = error(e, H); repintarB(); } };
+  const ag = $b('prod-bod-agregar');
+  if (ag) ag.addEventListener('click', () => {
+    const id = $b('prod-bod-nueva').value; if (!id) { $b('prod-bod-err').textContent = 'Elige una materia prima.'; return; }
+    const u = K.unidadMp(mp(id)), t = $b('prod-bod-nueva-min').value, seg = t.trim() === '' ? 0 : leerCant(t, u);
+    if (seg === null) { $b('prod-bod-err').textContent = 'El mínimo es un número (en kg, l o un).'; return; }
+    guardar([[id, { critica: true, seguridad: seg }]], 'Marcó una materia prima crítica (Bodega)');
+  });
+  const gm = $b('prod-bod-min');
+  if (gm) gm.addEventListener('click', () => {
+    const lista = [];
+    for (const inp of document.querySelectorAll('[data-bod-min]')) {
+      const e = b.calc.criticas.find(x => x.mp.id === inp.dataset.bodMin), v = inp.value.trim() === '' ? 0 : leerCant(inp.value, e.cfg.unidad);
+      if (v === null) { $b('prod-bod-err').textContent = `${e.mp.nombre}: el mínimo es un número.`; return; }
+      if (Math.abs(v - e.cfg.seguridad) > 0.001) lista.push([e.mp.id, { critica: true, seguridad: v }]);
+    }
+    if (!lista.length) { $b('prod-bod-err').textContent = 'No cambiaste ningún mínimo.'; return; }
+    guardar(lista, 'Cambió mínimos de bodega');
+  });
+  document.querySelectorAll('[data-bod-quitar]').forEach(x => x.addEventListener('click', () => {
+    const e = b.calc.criticas.find(y => y.mp.id === x.dataset.bodQuitar);
+    if (!confirm(`¿Quitar ${e.mp.nombre} de las críticas? Deja de llevar stock y alerta. Sus llegadas y conteos quedan guardados.`)) return;
+    guardar([[e.mp.id, { critica: false, seguridad: e.cfg.seguridad }]], 'Quitó una materia prima crítica (Bodega)');
+  }));
+  const ll = $b('prod-bod-llegada');
+  if (ll) ll.addEventListener('click', async () => {
+    const m = mp($b('prod-bod-ll-mp').value), u = K.unidadMp(m), q = leerCant($b('prod-bod-ll-cant').value, u);
+    if (!(q > 0)) { $b('prod-bod-err').textContent = 'Escribe la cantidad que llegó (en ' + K.unidadEntrada(u) + ').'; return; }
+    ll.disabled = true;
+    try { await P.registrarLlegada(m, q, $b('prod-bod-ll-nota').value); H.registrar('Anotó una llegada a bodega', `${m.nombre} · ${K.texto(q, u)}`); await calcular(); }
+    catch (e) { b.msg = error(e, H); repintarB(); }
+  });
 }
 
 // ═══════════════ Merma (P4b): lo que anotan las áreas en Cocina, valorizado ═══════════════

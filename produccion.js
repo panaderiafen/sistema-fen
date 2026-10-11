@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.36.0
+//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.37.0
 //  · Conexión: la configuración web de fen-produccion se guarda en Firestore de Sistema Fën
 //    (config/sistemaFen → produccionFirebase). No es secreta: solo identifica el proyecto.
 //    Lo que protege los datos son las reglas de fen-produccion y tu cuenta (admins/{uid}).
@@ -17,21 +17,26 @@
 //    aquí se actualiza la base nueva: recetas/{id}, la versión anterior queda en versiones/{id}_v{n}.
 //    Las materias primas pedidas (solicitudes/) se crean con su precio o se habilitan para el área.
 //  · v0.34.0 (P4): mover recetas entre áreas (Bollería → Pastelería) con el mismo ID (script v2.5.0).
+//  · v0.37.0 (P5): Bodega — stock de las materias primas críticas (bodega común), consumo por área con lo hecho
+//    en Cocina, proyección con lo planificado y alerta en Hoy. El cálculo es el de Cocina (copia en cocina/).
 //  · v0.36.0 (P4b): merma de las cuatro áreas (anotada en Cocina) valorizada con los costos de la planilla,
 //    y la bitácora de turno de Cafetería (gramos de café); gramos por shot en la configuración de Cafetería.
 //  · v0.35.0: una cuenta de área puede entrar a varias áreas (cuentas/{uid}.areas; reglas v1.4.0, script v2.6.0).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.36.0';
-import * as FB from './firebase-produccion.js?v=0.36.0';
-import * as Apps from './apps.js?v=0.36.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.36.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.36.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.37.0';
+import * as FB from './firebase-produccion.js?v=0.37.0';
+import * as Apps from './apps.js?v=0.37.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.37.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.37.0';
+import * as K from './cocina/consumo.js?v=0.7.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
+import * as CM from './cocina/modelo.js?v=0.7.0';
 
 export { AREAS };
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
 export const VERSION_MERMA = '2.7.0';    // script con costos_merma (SistemaFen.gs v2.4)
+export const VERSION_BODEGA = '2.8.0';   // script con bodega_adm (SistemaFen.gs v2.5)
 const K_CFG = 'fen_sistema_prod_cfg';
 const LOTE = 400;
 
@@ -399,4 +404,95 @@ export function resumenMerma(datos) {
   const cafe = { calibracion: 0, merma: 0, prueba_receta: 0, total: 0 };
   (datos.cafe || []).forEach(a => { const g = Number(a.gramos) || 0; if (a.tipo in cafe) cafe[a.tipo] += g; cafe.total += g; });
   return { areas: lista, total: lista.reduce((s, a) => s + a.total, 0), cafe };
+}
+
+
+// ═══════════════ P5: Bodega (materias primas críticas, bodega común) ═══════════════
+// Lee lo necesario de la base nueva (120 días de Cocina, planes, metas, ajustes, recetas, materias primas), calcula
+// con cocina/consumo.js (el mismo cálculo de Cocina) y deja en stockmp/{id}.estado lo que ven las jefas.
+export const DIAS_BODEGA = 120;
+export async function calcularBodega({ guardar = true, hoy = CM.hoyTxt() } = {}) {
+  const db = await dbOk();
+  const desde = CM.sumarDias(hoy, -DIAS_BODEGA), lunes = CM.lunesDe(hoy);
+  const [rs, ms, cf, aj, sm, ds, pl, mt] = await Promise.all([
+    FB.getDocs(FB.collection(db, 'recetas')), FB.getDocs(FB.collection(db, 'mps')), FB.getDocs(FB.collection(db, 'config')),
+    FB.getDocs(FB.collection(db, 'ajustes')), FB.getDocs(FB.collection(db, 'stockmp')),
+    FB.getDocs(FB.query(FB.collection(db, 'dias'), FB.where('fecha', '>=', desde))),
+    FB.getDocs(FB.query(FB.collection(db, 'planes'), FB.where('lunes', '>=', CM.lunesDe(desde)))),   // Panadería toma del plan la cantidad de lo hecho
+    FB.getDocs(FB.query(FB.collection(db, 'metas'), FB.where('lunes', '>=', lunes)))
+  ]);
+  const datos = { recetas: rs.docs.map(d => ({ id: d.id, ...d.data() })), mps: ms.docs.map(d => ({ id: d.id, ...d.data() })), config: {}, ajustes: {}, dias: {}, planes: {}, metas: {}, hoy };
+  cf.docs.forEach(d => { datos.config[d.id] = d.data(); });
+  aj.docs.forEach(d => { const a = d.data(); (datos.ajustes[a.area] || (datos.ajustes[a.area] = {}))[a.recetaId] = a; });
+  ds.docs.forEach(d => { const x = d.data(); if (x.area && x.fecha) (datos.dias[x.area] || (datos.dias[x.area] = {}))[x.fecha] = x; });
+  pl.docs.forEach(d => { datos.planes[d.id] = d.data(); });
+  mt.docs.forEach(d => { datos.metas[d.id] = d.data(); });
+  const control = {}; sm.docs.forEach(d => { control[d.id] = d.data(); });
+  const { eventos, sinId } = K.consumo(datos);
+  const movs = K.movimientos(datos.dias);
+  const proy = K.proyeccion(datos, CM.sumarDias(hoy, 1), 7, eventos);   // desde mañana: lo de hoy se descuenta al marcarlo hecho
+  const criticas = datos.mps.filter(m => (m.estado || 'activa') === 'activa' && m.tipo !== 'sub_receta' && K.control(m, control[m.id]).critica)
+    .map(m => { const cfg = K.control(m, control[m.id]); return K.estado(m, cfg, K.stock(m.id, movs, eventos), proy); })
+    .sort((a, b) => (b.bajoAhora - a.bajoAhora) || ((a.bajoDesde || '9') < (b.bajoDesde || '9') ? -1 : (a.bajoDesde || '9') > (b.bajoDesde || '9') ? 1 : 0) || a.mp.nombre.localeCompare(b.mp.nombre, 'es'));
+  const en = new Date().toISOString();
+  if (guardar && criticas.length) {
+    const b = FB.writeBatch(db);
+    criticas.forEach(e => b.set(FB.doc(db, 'stockmp', e.mp.id), { estado: {
+      contado: e.st.contado, stock: e.st.contado ? Math.round(e.st.stock) : null, alcanza: e.alcanza === null ? null : Math.round(e.alcanza * 10) / 10,
+      bajoAhora: !!e.bajoAhora, bajoDesde: e.bajoDesde || null, en } }, { merge: true }));
+    await b.commit();
+  }
+  // Llegadas anotadas aquí que todavía no pasan a la planilla (si el script falló al anotarlas)
+  const pendientes = Object.entries((datos.dias.ADM) || {}).flatMap(([fecha, d]) => Object.entries(d.bodega || {}).filter(([, b]) => b && !b.planilla).map(([id, b]) => ({ ...b, id, fecha })));
+  if (pendientes.length) pasarLlegadasAdm(db, pendientes).catch(() => {});
+  return { hoy, desde, datos, control, eventos, movs, proy, criticas, sinId, en };
+}
+// Las llegadas de Sistema Fën pasan a MP_stock_movimientos con el script (sin duplicar); quedan marcadas al pasar
+async function pasarLlegadasAdm(db, lista) {
+  const r = await script('bodega_adm', { movimientos: lista.map(b => ({ id: b.id, fecha: b.fecha, mp: b.mp, nombre: b.nombre, tipo: b.tipo, cantidad: b.cantidad, unidad: b.unidad, nota: b.nota || '', por: b.por || '', anulado: !!b.anulado })) }, VERSION_BODEGA);
+  const porDia = {}; lista.filter(b => (r.ids || []).includes(b.id)).forEach(b => { (porDia[b.fecha] || (porDia[b.fecha] = {}))[b.id] = { planilla: true }; });
+  await Promise.all(Object.entries(porDia).map(([fecha, bod]) => FB.setDoc(FB.doc(db, 'dias', 'ADM_' + fecha), { bodega: bod }, { merge: true })));
+}
+// Consumo de un período por materia prima y área (todas las materias primas, no solo las críticas)
+export function consumoPeriodo(calc, { desde, hasta }) {
+  const t = K.porMp(calc.eventos.filter(e => e.fecha >= desde && e.fecha <= hasta));
+  // Sin la materia prima en el maestro: el nombre con que aparece en las recetas
+  const deReceta = id => { for (const r of calc.datos.recetas) { const i = [...(r.ingredientes || []), ...(r.insumos || [])].find(x => x.id === id); if (i && i.nombre) return i.nombre + ' (no está en el maestro)'; } return id; };
+  return Object.entries(t).map(([id, x]) => { const m = calc.datos.mps.find(y => y.id === id); return { id, nombre: m ? m.nombre : deReceta(id), unidad: m ? K.unidadMp(m) : 'g', ...x }; })
+    .sort((a, b) => b.total - a.total);
+}
+// Crítica y mínimo de una materia prima (seguridad en g, ml o un)
+export async function guardarControl(mpId, { critica, seguridad }) {
+  const db = await dbOk();
+  await FB.setDoc(FB.doc(db, 'stockmp', mpId), { critica: !!critica, seguridad: Math.max(0, Number(seguridad) || 0), editado: { por: authSF.currentUser.email, en: FB.serverTimestamp() } }, { merge: true });
+}
+// Llegada desde Sistema Fën (va al día de Administración: dias/ADM_{fecha})
+export async function registrarLlegada(mp, cantidadBase, nota) {
+  const db = await dbOk(), hoy = CM.hoyTxt(), id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  if (!(Number(cantidadBase) > 0)) throw new Error('La cantidad tiene que ser mayor que 0.');
+  const b = { tipo: 'llegada', mp: mp.id, nombre: mp.nombre, cantidad: Math.round(Number(cantidadBase) * 100) / 100, unidad: K.unidadMp(mp), nota: String(nota || '').slice(0, 120), por: authSF.currentUser.email, en: new Date().toISOString() };
+  await FB.setDoc(FB.doc(db, 'dias', 'ADM_' + hoy), { area: 'ADM', fecha: hoy, bodega: { [id]: b } }, { merge: true });
+  try { await pasarLlegadasAdm(db, [{ ...b, id, fecha: hoy }]); } catch (e) {}   // si falla, se reintenta al calcular la bodega
+}
+// Para Hoy: lo que está o queda bajo el mínimo. Usa el último cálculo si es de las últimas 6 horas; si no, calcula.
+export async function alertasBodega() {
+  try {
+    const cx = await conexion(); if (cx.estado !== 'ok') return null;
+    const sn = await FB.getDocs(FB.collection(cx.db, 'stockmp'));
+    const ultimo = sn.docs.map(d => (d.data().estado || {}).en).filter(Boolean).sort().pop();
+    let lista;
+    let fresco = !!ultimo && Date.now() - new Date(ultimo).getTime() < 6 * 3600000;
+    if (fresco) {
+      // Las críticas de hoy (activas): todas tienen que venir del último cálculo; si no, se calcula de nuevo
+      const ms = await FB.getDocs(FB.collection(cx.db, 'mps')), sm = {}; sn.docs.forEach(d => { sm[d.id] = d.data(); });
+      const crit = ms.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => (m.estado || 'activa') === 'activa' && m.tipo !== 'sub_receta' && K.control(m, sm[m.id]).critica);
+      fresco = crit.every(m => sm[m.id] && sm[m.id].estado && sm[m.id].estado.en === ultimo);
+      if (fresco) lista = crit.map(m => ({ nombre: m.nombre, ...sm[m.id].estado }));
+    }
+    if (!fresco) {
+      const c = await calcularBodega();
+      lista = c.criticas.map(e => ({ nombre: e.mp.nombre, contado: e.st.contado, bajoAhora: e.bajoAhora, bajoDesde: e.bajoDesde }));
+    }
+    return { bajos: lista.filter(x => x.contado && (x.bajoAhora || x.bajoDesde)), sinContar: lista.filter(x => !x.contado).length };
+  } catch (e) { return null; }
 }

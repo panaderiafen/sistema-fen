@@ -1,9 +1,23 @@
-# Sistema Fën · v0.36.0
+# Sistema Fën · v0.37.0
 
-**App:** v0.36.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** v1.4.0 (sin cambios) · **Script de Producción:** **v2.7.0** · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
+**App:** v0.37.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.5.0 (vienen con Cocina v0.7.0)** · **Script de Producción:** **v2.8.0** · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.37.0: Bodega (P5)
+En **Producción → Bodega → Calcular** (lee 120 días de Cocina):
+- **Materias primas críticas:** estado, stock, mínimo, para cuántos días alcanza (con lo planificado de los próximos 7 días) y último conteo. El último conteo muestra si faltó o sobró contra lo que decía la cuenta, que es lo que se pierde sin anotar.
+- **Marcar críticas y su mínimo:** "Agregar crítica", cambiar mínimos o quitar. Si no marcas nada aquí, se usa lo de la planilla (es_critica, stock_seguridad).
+- **Llegó mercadería** desde aquí. Las jefas también la anotan en Cocina → Bodega, junto con los conteos.
+- **Consumo por área** (esta semana, la pasada, este mes o el pasado): todas las materias primas, con lo hecho en Cocina.
+- **Hoy:** avisa cuando una crítica está o queda bajo el mínimo en la semana. Usa el último cálculo (hasta 6 horas) o calcula de nuevo.
+- **Cómo se calcula:**
+  - Stock = último conteo + llegadas − consumo.
+  - Consumo = lo marcado como hecho, bajado por las recetas, más la merma de materias primas.
+  - El cálculo es el mismo de Cocina: carpeta `cocina/`, copia exacta de `consumo.js`, `modelo.js`, `bolleria.js` y `registros.js` de Cocina v0.7.0.
+
+Archivos: **carpeta nueva `cocina/`** (4 archivos), `produccion.js`, `produccion-modelo.js` (copia el stock de seguridad de la planilla), `vista-produccion.js`, `app.js` (aviso en Hoy), `config.js`, `README.md` y los demás `.js` (solo versión). Abajo a la izquierda: **v0.37.0**.
 
 ## Novedades de la v0.36.0: merma valorizada (P4b)
 En **Producción → Merma**: eliges el período (esta semana, semana pasada, este mes o mes pasado) y presionas **Ver**.
