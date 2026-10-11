@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.32.0
+//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.33.0
 //  · Conexión: la configuración web de fen-produccion se guarda en Firestore de Sistema Fën
 //    (config/sistemaFen → produccionFirebase). No es secreta: solo identifica el proyecto.
 //    Lo que protege los datos son las reglas de fen-produccion y tu cuenta (admins/{uid}).
@@ -11,15 +11,21 @@
 //    pisa (la app nueva manda desde que se usa).
 //  · v0.32.0: Configuración de Producción por área (config/{AREA}) se edita aquí. Una configuración
 //    editada en Sistema Fën tampoco se pisa al copiar desde la planilla.
+//  · v0.33.0 (P3): las recetas que proponen las jefas en Cocina (propuestas/) se revisan aquí con su
+//    costo (lo calcula el script con los precios de la planilla, en neto) y se aprueban o devuelven.
+//    Al aprobar, el script escribe la receta en la planilla (costeo, catálogo, Looker siguen igual) y
+//    aquí se actualiza la base nueva: recetas/{id}, la versión anterior queda en versiones/{id}_v{n}.
+//    Las materias primas pedidas (solicitudes/) se crean con su precio o se habilitan para el área.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.32.0';
-import * as FB from './firebase-produccion.js?v=0.32.0';
-import * as Apps from './apps.js?v=0.32.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.32.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.32.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.33.0';
+import * as FB from './firebase-produccion.js?v=0.33.0';
+import * as Apps from './apps.js?v=0.33.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.33.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.33.0';
 
 export { AREAS };
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
+export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 const K_CFG = 'fen_sistema_prod_cfg';
 const LOTE = 400;
 
@@ -179,3 +185,130 @@ export async function totales() {
   p.docs.forEach(d => { const x = d.data(); if (!(x.area in unidades)) return; Object.values(x.filas || {}).forEach(f => Object.values(f || {}).forEach(v => { unidades[x.area] += Number(v) || 0; if (x.origen === 'planilla' && !x.actualizado) planillaUn[x.area] += Number(v) || 0; })); });
   return { recetas: r.size, recetasPorArea: porArea, mps: m.size, planes: p.size, unidades, unidadesSinCambiar: planillaUn, personas: pe.size, ultima: ult.exists() ? ult.data() : null };
 }
+
+// ═══════════════ P3: recetas propuestas y materias primas pedidas ═══════════════
+async function script(op, datos) {
+  const url = (await Apps.leerConexiones()).produccion;
+  if (!url) { const e = new Error('Falta la dirección del script de Producción (Configuración → Conexiones).'); e.code = 'sin_url'; throw e; }
+  const v = await Apps.probar('produccion', url, VERSION_RECETAS);
+  if (!v.ok) { const e = new Error(v.version ? `El script de Producción está en v${v.version}: para aprobar recetas necesita v${VERSION_RECETAS} (ver README).` : v.texto); e.code = 'actualizar'; throw e; }
+  const cuerpo = JSON.stringify({ action: 'sistema_fen_produccion', accion: 'sistema_fen_produccion', op, ...datos, idToken: await authSF.currentUser.getIdToken() });
+  const pedir = (u, o) => Promise.race([fetch(u, o).then(x => x.json()), new Promise((_, no) => setTimeout(() => no(new Error('El script no respondió en 2 minutos. Prueba de nuevo.')), 120000))]);
+  let r = await pedir(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: cuerpo });
+  if (r && r.code === 'version') r = await pedir(url + '?p=' + encodeURIComponent(cuerpo), {});
+  if (!r || r.ok !== true) { const e = new Error((r && (r.error || r.msg)) || 'Respuesta inesperada del script de Producción.'); e.code = r && r.code; e.datos = r; throw e; }
+  return r;
+}
+// Lo que se costea de una receta de la base nueva (mismo formato que una propuesta)
+export function datosDeReceta(r) {
+  return {
+    nombre: r.nombre, tipo: r.tipo, porciones: r.porciones, unidad: r.unidad, harinaTotal: r.harinaTotal,
+    ingredientes: (r.ingredientes || []).map(i => ({ id: i.id, nombre: i.nombre, gramos: Number(i.gramos) || 0, unidades: i.unidades ?? null })),
+    insumos: (r.insumos || []).map(i => ({ id: i.id, nombre: i.nombre, cantidad: Number(i.cantidad ?? i.unidades) || 0 })),
+    pasos: r.pasos || [], notas: r.notas || '', clasificacion: r.clasificacion || '', pesoUnidad: r.pesoUnidad || 0,
+    planificable: r.planificable !== false, seCongela: !!r.seCongela, unidadesPorCaja: r.unidadesPorCaja || 0
+  };
+}
+export async function propuestasEnRevision() {
+  const db = await dbOk();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'propuestas'), FB.where('estado', 'in', ['en_revision', 'aprobando'])));
+  const lista = sn.docs.map(d => ({ docId: d.id, ...d.data() }));
+  const ids = [...new Set(lista.map(p => p.recetaId).filter(Boolean))];
+  const vig = {}; await Promise.all(ids.map(async id => { const x = await FB.getDoc(FB.doc(db, 'recetas', id)); if (x.exists()) vig[id] = { id, ...x.data() }; }));
+  return lista.map(p => ({ ...p, vigente: p.recetaId ? vig[p.recetaId] || null : null }))
+    .sort((a, b) => String(((a.historial || []).slice(-1)[0] || {}).en || '').localeCompare(String(((b.historial || []).slice(-1)[0] || {}).en || '')));
+}
+export async function solicitudesPendientes() {
+  const db = await dbOk();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'solicitudes'), FB.where('estado', '==', 'pendiente')));
+  return sn.docs.map(d => ({ docId: d.id, ...d.data() })).sort((a, b) => String(a.en || '').localeCompare(String(b.en || '')));
+}
+// Para Hoy: cuántas recetas y materias primas esperan (null si la base nueva no está conectada)
+export async function pendientesCocina() {
+  try {
+    const cx = await conexion(); if (cx.estado !== 'ok') return null;
+    const [p, s] = await Promise.all([propuestasEnRevision(), solicitudesPendientes()]);
+    return { recetas: p.map(x => ({ nombre: (x.datos || {}).nombre, area: x.area })), mps: s.map(x => ({ nombre: x.nombre, area: x.area, tipo: x.tipo })) };
+  } catch (e) { return null; }
+}
+// Costo por unidad de la propuesta y de la versión vigente (con los precios de la planilla)
+export async function costear(prop) {
+  const recetas = [{ clave: 'propuesta', datos: prop.datos }];
+  if (prop.vigente) recetas.push({ clave: 'vigente', datos: datosDeReceta(prop.vigente) });
+  const r = await script('costear', { recetas });
+  return r.costos;
+}
+const paso = (prop, estado, comentario, extra = {}) => ({
+  estado, ...extra,
+  historial: [...(prop.historial || []), { estado, por: authSF.currentUser.email, en: new Date().toISOString(), comentario: comentario || '' }].slice(-40),
+  actualizado: { por: authSF.currentUser.email, en: FB.serverTimestamp() }
+});
+// Cambia el estado de una propuesta solo si sigue en el estado esperado (transacción: el historial no se pisa)
+async function pasar(db, docId, desde, estado, comentario, extra = {}) {
+  const ref = FB.doc(db, 'propuestas', docId);
+  return FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref);
+    if (!sn.exists() || !desde.includes(sn.data().estado)) { const e = new Error('La propuesta cambió mientras la revisabas (la retiraron, la anularon o ya se resolvió). Vuelve a cargar la lista.'); e.code = 'cambio'; throw e; }
+    const p = sn.data();
+    tx.set(ref, paso(p, estado, comentario, extra), { merge: true });
+    return p;
+  });
+}
+export async function devolver(prop, comentario) {
+  if (!String(comentario || '').trim()) throw new Error('Escribe qué hay que corregir: la jefa lo ve en Cocina.');
+  const db = await dbOk();
+  await pasar(db, prop.docId, ['en_revision'], 'devuelta', String(comentario).trim().slice(0, 500));
+}
+// Una aprobación que quedó a medias (se cortó internet o se cerró la página): vuelve a revisión para reintentar.
+// Reintentar no duplica: la receta nueva usa el ID de la propuesta y el cambio a una vigente escribe la misma versión.
+export async function destrabar(prop) {
+  const db = await dbOk();
+  await pasar(db, prop.docId, ['aprobando'], 'en_revision', 'La aprobación quedó a medias: vuelve a revisión');
+}
+export async function aprobar(prop, comentario) {
+  const db = await dbOk();
+  // 1) Se bloquea ("aprobando"): desde aquí la jefa no puede cambiarla ni retirarla (reglas v1.2.0)
+  const p = { ...prop, ...(await pasar(db, prop.docId, ['en_revision'], 'aprobando', '')) };
+  const volver = async msg => { try { await pasar(db, p.docId, ['aprobando'], 'en_revision', msg); } catch (e) {} };
+  let r, vig = null, version;
+  try {
+    if (p.recetaId) { const x = await FB.getDoc(FB.doc(db, 'recetas', p.recetaId)); vig = x.exists() ? { id: p.recetaId, ...x.data() } : null; }
+    // Una propuesta hecha sobre una versión anterior no pisa un cambio aprobado después
+    if (vig && p.versionBase && Number(vig.version) !== Number(p.versionBase)) {
+      const e = new Error(`La receta vigente cambió desde que se hizo esta propuesta (era v${p.versionBase}, ahora v${vig.version}). Devuélvela para que la rehagan sobre la vigente.`); e.code = 'version'; throw e;
+    }
+    version = (vig ? Number(vig.version) || 1 : 0) + 1;
+    r = await script('aprobar', { area: p.area, recetaId: p.recetaId || '', idNuevo: p.recetaId ? '' : (p.area + String(p.pid)).toUpperCase(), datos: p.datos, version, creadaPor: p.creadaPor || '', aprobadaPor: authSF.currentUser.email });
+  } catch (e) { await volver(''); throw e; }
+  // 2) La planilla ya la tiene: se pasa a la base nueva
+  const a = armar(r.hojas, null);
+  const doc = a.docs.recetas[r.id];
+  if (!doc) { await volver('La planilla la aprobó, pero no volvió la receta'); throw new Error('El script aprobó, pero no devolvió la receta. Usa "Leer la planilla" y "Copiar" para traerla.'); }
+  const b = FB.writeBatch(db);
+  if (vig) b.set(FB.doc(db, 'versiones', `${vig.id}_v${Number(vig.version) || 1}`), { ...vig, archivadaEn: FB.serverTimestamp(), reemplazadaPor: version });
+  b.set(FB.doc(db, 'recetas', r.id), { ...doc, propuesta: p.pid, copiadoEn: FB.serverTimestamp() });
+  Object.entries(a.docs.mps).forEach(([id, m]) => b.set(FB.doc(db, 'mps', id), { ...m, copiadoEn: FB.serverTimestamp() }));
+  await b.commit();
+  await pasar(db, p.docId, ['aprobando'], 'aprobada', comentario, { recetaId: r.id, versionAprobada: version });
+  return { id: r.id, nueva: r.nueva, version, costo: r.costo };
+}
+// Materias primas pedidas: crear (con precio neto y unidad de compra) o habilitar una existente
+export const UNIDAD_COMPRA = /^(\d+([.,]\d+)?)?\s*(kg|g|lt|l|ml|un|unidad|unidades)$/i;
+export async function resolverSolicitud(sol, datos = {}) {
+  if (!(sol.tipo === 'habilitar' || datos.habilitarId) && !UNIDAD_COMPRA.test(String(datos.unidad || '').trim())) throw new Error(`"${datos.unidad || ''}" no es una unidad de compra válida. Usa por ejemplo: kg, 25kg, g, lt, 500ml, un, 10un.`);
+  const db = await dbOk();
+  const r = sol.tipo === 'habilitar' || datos.habilitarId
+    ? await script('mp_habilitar', { area: sol.area, mpId: datos.habilitarId || sol.mpId })
+    : await script('mp_crear', { area: sol.area, nombre: datos.nombre || sol.nombre, tipo: datos.tipo || (sol.esInsumo ? 'insumo' : 'mp'), categoria: datos.categoria || '', unidad_compra: String(datos.unidad).trim().toLowerCase(), costo_neto: datos.costoNeto });
+  const a = armar({ MP_maestro: r.hojas.MP_maestro }, null);
+  const b = FB.writeBatch(db);
+  Object.entries(a.docs.mps).forEach(([id, m]) => b.set(FB.doc(db, 'mps', id), { ...m, copiadoEn: FB.serverTimestamp() }));
+  b.set(FB.doc(db, 'solicitudes', sol.docId), { estado: 'resuelta', mpId: r.id, resueltaPor: authSF.currentUser.email, resueltaEn: new Date().toISOString() }, { merge: true });
+  await b.commit();
+  return r.id;
+}
+export async function rechazarSolicitud(sol, motivo) {
+  const db = await dbOk();
+  await FB.setDoc(FB.doc(db, 'solicitudes', sol.docId), { estado: 'rechazada', motivo: String(motivo || '').slice(0, 300), resueltaPor: authSF.currentUser.email, resueltaEn: new Date().toISOString() }, { merge: true });
+}
+

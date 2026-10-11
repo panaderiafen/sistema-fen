@@ -1,9 +1,25 @@
-# Sistema Fën · v0.32.0
+# Sistema Fën · v0.33.0
 
-**App:** v0.32.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.1.0 (vienen con Cocina v0.2.0)** · **Script de Producción:** v2.3.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
+**App:** v0.33.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.2.0 (vienen con Cocina v0.4.0)** · **Script de Producción:** **v2.4.0** · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.33.0: recetas de Cocina por aprobar (P3)
+En **Producción**, arriba, una sección nueva: **Desde Cocina**. **Hoy** avisa cuando hay recetas por aprobar o materias primas pedidas.
+- **Recetas por aprobar** (las que Panadería y Bollería envían a revisión desde Cocina). "Revisar" muestra:
+  - qué cambió: ingredientes vigente → propuesta (los nuevos y los que salen marcados), rinde, pasos, clasificación;
+  - el **costo por unidad**, neto y bruto, de la vigente y de la propuesta, con la diferencia en %, y el costo del lote. Lo calcula el script con los precios de la planilla;
+  - avisos de ingredientes sin precio.
+  - **Aprobar**: la receta queda en la planilla (costeo, catálogo y Looker siguen igual) y en la base nueva. La versión anterior queda guardada. Mientras se aprueba, la jefa no puede cambiarla. Si una propuesta se hizo sobre una versión que ya cambió, no se aprueba: devuélvela.
+  - **Devolver** con un comentario: la jefa lo ve en Cocina y la corrige.
+  - Si una aprobación se corta (internet), queda "Aprobándose" con **Volver a revisión** para reintentarla sin duplicar nada.
+- **Materias primas pedidas**:
+  - **nueva**: pones si es materia prima o insumo, la categoría, cómo se compra (kg, 25kg, lt, un, 10un…) y el **costo neto** de esa unidad → se crea en la planilla habilitada para el área y aparece en Cocina. Si ya existe con ese nombre, ofrece habilitarla;
+  - **habilitar**: una que existe en otra área.
+  - **No crear**: la jefa ve que no se creó.
+
+Archivos: cambian `produccion.js`, `vista-produccion.js`, `produccion-modelo.js`, `app.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` (solo versión). Abajo a la izquierda debe decir **v0.33.0**.
 
 ## Novedades de la v0.32.0: Configuración de Producción
 En **Producción**, una sección nueva, **Configuración de Producción**. La editas tú y las jefas la usan en Cocina sin poder cambiarla:

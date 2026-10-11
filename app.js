@@ -9,22 +9,22 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.32.0';
-import * as Caja from './caja.js?v=0.32.0';
-import * as Stock from './stock.js?v=0.32.0';
-import * as Ajustes from './ajustes.js?v=0.32.0';
-import * as Apps from './apps.js?v=0.32.0';
-import * as Agenda from './agenda.js?v=0.32.0';
-import * as Gastos from './gastos.js?v=0.32.0';
-import * as Sii from './sii.js?v=0.32.0';
-import * as Previred from './previred.js?v=0.32.0';
-import * as B2b from './b2b.js?v=0.32.0';
-import * as Cartola from './cartola.js?v=0.32.0';
-import * as SiiFactura from './sii-factura.js?v=0.32.0';
-import * as PdfOrden from './pdf-orden.js?v=0.32.0';
-import * as Prod from './produccion.js?v=0.32.0';
-import * as VistaProd from './vista-produccion.js?v=0.32.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.32.0';
+} from './firebase.js?v=0.33.0';
+import * as Caja from './caja.js?v=0.33.0';
+import * as Stock from './stock.js?v=0.33.0';
+import * as Ajustes from './ajustes.js?v=0.33.0';
+import * as Apps from './apps.js?v=0.33.0';
+import * as Agenda from './agenda.js?v=0.33.0';
+import * as Gastos from './gastos.js?v=0.33.0';
+import * as Sii from './sii.js?v=0.33.0';
+import * as Previred from './previred.js?v=0.33.0';
+import * as B2b from './b2b.js?v=0.33.0';
+import * as Cartola from './cartola.js?v=0.33.0';
+import * as SiiFactura from './sii-factura.js?v=0.33.0';
+import * as PdfOrden from './pdf-orden.js?v=0.33.0';
+import * as Prod from './produccion.js?v=0.33.0';
+import * as VistaProd from './vista-produccion.js?v=0.33.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.33.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -320,7 +320,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.32.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.33.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -484,6 +484,14 @@ async function pintarHoy() {
     pend.push({ orden: 0.3, color: 'amarillo', icono: 'camion', chip: 'Responder', url: '#b2b/solicitudes', origen: 'Ventas B2B', titulo: `${l.length === 1 ? 'Solicitud' : 'Solicitudes'} de logística`,
       detalle: Object.entries(cuenta).map(([t, n]) => `${n} de ${t}`).join(' · ') });
     pintarLista();
+  }).catch(() => {});
+  // v0.33.0: recetas propuestas y materias primas pedidas desde Cocina (base nueva de Producción)
+  Prod.pendientesCocina().then(r => {
+    if (!r) return;
+    const lista = (l, n = 3) => l.slice(0, n).map(x => `${x.nombre || 'Sin nombre'} (${Prod.AREAS[x.area] || x.area})`).join(', ') + (l.length > n ? '…' : '');
+    if (r.recetas.length) pend.push({ orden: 3.05, color: 'lila', icono: 'libro', chip: 'Revisar', url: '#produccion', origen: 'Cocina', titulo: `${r.recetas.length} ${r.recetas.length === 1 ? 'receta' : 'recetas'} de Cocina por aprobar`, detalle: lista(r.recetas) });
+    if (r.mps.length) pend.push({ orden: 3.15, color: 'lila', icono: 'libro', chip: 'Resolver', url: '#produccion', origen: 'Cocina', titulo: `${r.mps.length} ${r.mps.length === 1 ? 'materia prima pedida' : 'materias primas pedidas'} en Cocina`, detalle: lista(r.mps) });
+    if (r.recetas.length || r.mps.length) pintarLista();
   }).catch(() => {});
   // v0.14: abonos de la cartola por revisar
   B2b.movimientosParaHoy().then(r => {

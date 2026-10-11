@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.32.0
+//  Sistema Fën — pantalla Producción  v0.33.0
 //  Base nueva de Producción (fen-produccion): conexión, cuentas de las áreas (las tablets
 //  de la app Cocina), copia desde la planilla con control de totales y Configuración de
-//  Producción por área (v0.32.0).
+//  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.32.0';
+import * as P from './produccion.js?v=0.33.0';
 
-const st = { prep: null, tot: null, copiando: false, msg: '' };
+const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '' };
 const $ = id => document.getElementById(id);
 const n = v => Number(v || 0).toLocaleString('es-CL');
 
@@ -95,6 +95,7 @@ async function pintarBase(el, H, cx) {
   const t = st.tot, p = st.prep, ult = t && t.ultima;
   const porArea = a => cuentas.filter(c => c.area === a);
   el.innerHTML = cab(H) + `
+    <section class="tarjeta" aria-labelledby="t-prod-revision" id="prod-cocina"><div class="vacio" style="border:0">Revisando lo que llegó desde Cocina…</div></section>
     <section class="tarjeta" aria-labelledby="t-prod-cuentas">
       <div class="titulo-fila"><h2 id="t-prod-cuentas">Cuentas de las áreas ${H.info('Cuentas de las áreas', 'Cada tablet de la cocina se autoriza una vez con la cuenta de su área (la creas en la consola de Firebase de fen-produccion → Authentication). Aquí dices de qué área es cada cuenta: con eso, esa tablet solo ve y cambia lo de su área.\nEl UID está en la consola → Authentication → Usuarios. No es secreto.\nLa contraseña de cada cuenta no pasa por aquí: la escribes tú en la tablet al autorizarla.')}</h2><span>${H.esc(cx.cfg.projectId)}</span></div>
       <div class="lista-simple">${Object.keys(P.AREAS).map(a => `<div class="fila-caja fila-compacta"><div class="txt"><b>${P.AREAS[a]}</b><span>${porArea(a).length ? porArea(a).map(c => H.esc(c.uid)).join(' · ') : 'Sin cuenta asignada'}</span></div>${porArea(a).length ? '<span class="chip c-verde">Lista</span>' : '<span class="chip c-gris">Falta</span>'}</div>`).join('')}</div>
@@ -117,6 +118,7 @@ async function pintarBase(el, H, cx) {
 
     ${t ? `<section class="tarjeta" aria-labelledby="t-prod-control"><h2 id="t-prod-control">Control de totales</h2>${tablaControl(p, t)}</section>` : ''}`;
 
+  pintarCocina(el, H, true);
   $('prod-cuenta').addEventListener('submit', async ev => {
     ev.preventDefault(); $('prod-cta-err').textContent = '';
     try { await P.asignarCuenta($('prod-cta-uid').value, $('prod-cta-area').value); H.registrar('Asignó una cuenta de área (Producción)', `${P.AREAS[$('prod-cta-area').value]} · ${$('prod-cta-uid').value.trim()}`); pintarBase(el, H, cx); }
@@ -195,5 +197,148 @@ function seccionConfig(cfgs, H) {
     <h2 id="t-prod-config">Configuración de Producción ${H.info('Configuración de Producción', 'Lo que define cómo calcula Cocina en cada área: amasadora, tandas por día, merma, congeladores, días del pie de masa madre.\nLa cambias tú; las jefas la ven en Cocina sin poder cambiarla. Una configuración que guardas aquí no se pisa al volver a copiar desde la planilla.')}</h2>
     ${bloque('PAN')}${bloque('BOL')}
   </section>`;
+}
+
+// ═══════════════ Recetas por aprobar y materias primas pedidas (desde Cocina) ═══════════════
+const pesosN = v => '$' + Math.round(Number(v) || 0).toLocaleString('es-CL');
+const pesosD = v => '$' + (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('es-CL');
+const ESTADO_TXT = { en_revision: 'En revisión', devuelta: 'Devuelta', aprobada: 'Aprobada' };
+async function pintarCocina(el, H, leer) {
+  const caja = $('prod-cocina'); if (!caja) return;
+  if (leer) {
+    try { [st.props, st.sols] = await Promise.all([P.propuestasEnRevision(), P.solicitudesPendientes()]); st.cocinaMsg = ''; }
+    catch (e) { st.props = st.props || []; st.sols = st.sols || []; st.cocinaMsg = error(e, H); }
+  }
+  if (!$('prod-cocina')) return;
+  const props = st.props || [], sols = st.sols || [];
+  const cuando = p => String(((p.historial || []).slice(-1)[0] || {}).en || '').slice(0, 10);
+  caja.innerHTML = `
+    <div class="titulo-fila"><h2 id="t-prod-revision">Desde Cocina ${H.info('Desde Cocina', 'Las jefas de Panadería y Bollería crean y cambian recetas en Cocina. Cada cambio llega aquí como propuesta: la receta vigente sigue igual hasta que la apruebas.\nEl costo lo calcula el script de Producción con los precios de la planilla (neto, sin IVA). Al aprobar, la receta queda en la planilla (costeo, catálogo de caja/B2B y Looker siguen igual) y en la base nueva; la versión anterior queda guardada.\nSi la devuelves, la jefa ve tu comentario y la corrige.')}</h2></div>
+    ${st.cocinaMsg ? `<p class="error">${H.esc(st.cocinaMsg)}</p>` : ''}
+    <h3 style="margin:8px 0">Recetas por aprobar · ${props.length}</h3>
+    ${props.length ? `<div class="lista-simple">${props.map(p => `<div class="fila-caja" data-prop="${H.esc(p.docId)}" style="flex-wrap:wrap">
+        <div class="txt"><b>${H.esc((p.datos || {}).nombre || 'Sin nombre')}</b><span>${P.AREAS[p.area] || p.area} · ${p.recetaId ? `cambio a la v${H.esc(String((p.vigente || {}).version || 1))}` : 'receta nueva'}${p.origen === 'ajuste' ? ' · desde el ajuste de harina/agua' : ''} · ${H.esc(p.creadaPor || '')} · ${H.esc(cuando(p))}</span></div>
+        ${p.estado === 'aprobando' ? `<span class="chip c-amarillo">Aprobándose</span><button type="button" class="btn-sec" data-prop-destrabar="${H.esc(p.docId)}" title="Si se cortó la aprobación, vuelve a revisión para reintentarla">Volver a revisión</button>`
+          : `<button type="button" class="btn-sec" data-prop-revisar="${H.esc(p.docId)}">${st.abierta === p.docId ? 'Cerrar' : 'Revisar'}</button>`}
+        ${st.abierta === p.docId ? `<div style="flex-basis:100%">${detallePropuesta(p, H)}</div>` : ''}
+      </div>`).join('')}</div>` : '<p class="ayuda">No hay recetas esperando.</p>'}
+    <h3 style="margin:16px 0 8px">Materias primas pedidas · ${sols.length}</h3>
+    ${sols.length ? `<div class="lista-simple">${sols.map(s => filaSolicitud(s, H)).join('')}</div>` : '<p class="ayuda">No hay pedidos.</p>'}`;
+  caja.querySelectorAll('[data-prop-revisar]').forEach(b => b.addEventListener('click', async () => {
+    const id = b.dataset.propRevisar;
+    st.abierta = st.abierta === id ? null : id;
+    pintarCocina(el, H, false);
+    if (st.abierta && !st.costos[id]) {
+      const p = props.find(x => x.docId === id);
+      try { st.costos[id] = await P.costear(p); } catch (e) { st.costos[id] = { error: error(e, H) }; }
+      pintarCocina(el, H, false);
+    }
+  }));
+  caja.querySelectorAll('[data-prop-destrabar]').forEach(b => b.addEventListener('click', async () => {
+    b.disabled = true;
+    try { await P.destrabar(props.find(x => x.docId === b.dataset.propDestrabar)); } catch (e) { st.cocinaMsg = error(e, H); }
+    pintarCocina(el, H, true);
+  }));
+  caja.querySelectorAll('[data-prop-accion]').forEach(b => b.addEventListener('click', async () => {
+    const p = props.find(x => x.docId === b.dataset.propId), com = ($('prop-com') || {}).value || '', err = $('prop-err');
+    err.textContent = ''; b.disabled = true;
+    try {
+      if (b.dataset.propAccion === 'aprobar') {
+        const r = await P.aprobar(p, com);
+        H.registrar('Aprobó una receta de Cocina', `${(p.datos || {}).nombre} · ${P.AREAS[p.area]} · v${r.version}`);
+        st.cocinaMsg = '';
+      } else {
+        await P.devolver(p, com);
+        H.registrar('Devolvió una receta a Cocina', `${(p.datos || {}).nombre} · ${P.AREAS[p.area]}`);
+      }
+      st.abierta = null; delete st.costos[p.docId];
+      pintarCocina(el, H, true);
+    } catch (e) {
+      if (e.code === 'cambio') { st.abierta = null; st.cocinaMsg = error(e, H); pintarCocina(el, H, true); return; }
+      err.textContent = error(e, H); b.disabled = false;
+    }
+  }));
+  caja.querySelectorAll('[data-sol-accion]').forEach(b => b.addEventListener('click', async () => {
+    const s = sols.find(x => x.docId === b.dataset.solId), f = b.closest('[data-sol]'), err = f.querySelector('.error'), v = k => (f.querySelector(`[data-k="${k}"]`) || {}).value || '';
+    err.textContent = ''; b.disabled = true;
+    try {
+      if (b.dataset.solAccion === 'rechazar') {
+        const motivo = prompt('¿Por qué no se crea? (lo ve la jefa)', ''); if (motivo === null) { b.disabled = false; return; }
+        await P.rechazarSolicitud(s, motivo);
+      } else if (b.dataset.solAccion === 'habilitar') {
+        await P.resolverSolicitud(s, { habilitarId: b.dataset.mpId || s.mpId });
+        H.registrar('Habilitó una materia prima para un área', `${s.nombre} → ${P.AREAS[s.area]}`);
+      } else {
+        const costo = Number(v('costo').replace(/\./g, '').replace(',', '.'));
+        if (!(costo > 0)) { err.textContent = 'Escribe el costo neto (sin IVA) de la unidad de compra.'; b.disabled = false; return; }
+        await P.resolverSolicitud(s, { nombre: v('nombre').trim() || s.nombre, tipo: v('tipo'), categoria: v('categoria').trim(), unidad: v('unidad').trim(), costoNeto: costo });
+        H.registrar('Creó una materia prima pedida en Cocina', `${s.nombre} · ${P.AREAS[s.area]}`);
+      }
+      pintarCocina(el, H, true);
+    } catch (e) {
+      err.innerHTML = H.esc(error(e, H)) + (e.code === 'existe' && e.datos && e.datos.id ? ` <button type="button" class="btn-sec" data-sol-accion="habilitar" data-sol-id="${H.esc(s.docId)}" data-mp-id="${H.esc(e.datos.id)}">Habilitar esa</button>` : '');
+      err.querySelectorAll('[data-sol-accion]').forEach(x => x.addEventListener('click', async () => {
+        try { await P.resolverSolicitud(s, { habilitarId: x.dataset.mpId }); pintarCocina(el, H, true); } catch (e2) { err.textContent = error(e2, H); }
+      }));
+      b.disabled = false;
+    }
+  }));
+}
+
+function detallePropuesta(p, H) {
+  const d = p.datos || {}, v = p.vigente, c = st.costos[p.docId];
+  const cant = i => i ? (i.unidades !== null && i.unidades !== undefined && i.unidades !== '' ? `${String(i.unidades).replace('.', ',')} un · ` : '') + `${(Math.round((Number(i.gramos) || 0) * 10) / 10).toLocaleString('es-CL')} g` : '—';
+  const vIngs = v ? v.ingredientes || [] : [];
+  const ids = [...new Set([...(d.ingredientes || []).map(i => i.id), ...vIngs.map(i => i.id)])];
+  const filas = ids.map(id => {
+    const a = vIngs.find(i => i.id === id), b = (d.ingredientes || []).find(i => i.id === id), igual = a && b && cant(a) === cant(b);
+    return `<tr${igual ? '' : ' class="cambio"'}><td>${H.esc((b || a).nombre)}</td>${v ? `<td>${cant(a)}</td>` : ''}<td>${cant(b)}${!a && v ? ' <span class="chip c-verde">nuevo</span>' : !b ? ' <span class="chip c-rojo">sale</span>' : ''}</td></tr>`;
+  }).join('');
+  const otros = [];
+  const cmp = (t, x, y) => { if (String(x ?? '') !== String(y ?? '')) otros.push(`${t}: ${H.esc(String(x ?? '—'))} → <b>${H.esc(String(y ?? '—'))}</b>`); };
+  if (v) {
+    cmp('Nombre', v.nombre, d.nombre); cmp('Rinde', `${v.porciones} ${v.unidad}`, `${d.porciones} ${d.unidad}`); cmp('Tipo', v.tipo, d.tipo);
+    cmp('Clasificación', v.clasificacion, d.clasificacion); cmp('Peso por unidad', v.pesoUnidad || '', d.pesoUnidad || '');
+    if (JSON.stringify(v.pasos || []) !== JSON.stringify(d.pasos || [])) otros.push(`Pasos: ${(v.pasos || []).length} → <b>${(d.pasos || []).length}</b> (cambiaron)`);
+    if (JSON.stringify((v.insumos || []).map(i => i.id)) !== JSON.stringify((d.insumos || []).map(i => i.id))) otros.push('Insumos: cambiaron');
+  } else otros.push(`Rinde ${H.esc(String(d.porciones))} ${d.unidad === 'g' ? 'g' : 'un'} · ${d.tipo === 'sub_receta' ? 'sub receta' : 'receta'}${d.clasificacion ? ' · ' + H.esc(d.clasificacion) : ''} · ${(d.pasos || []).length} pasos`);
+  const costo = !c ? '<p class="ayuda">Calculando el costo con los precios de la planilla…</p>' : c.error ? `<p class="error">${H.esc(c.error)}</p>` : (() => {
+    const n = c.propuesta, o = c.vigente, dif = o && o.unidadNeto ? (n.unidadNeto - o.unidadNeto) / o.unidadNeto * 100 : null;
+    const avisos = [...(n.faltan || []).map(x => `${x}: no está en MP_maestro`), ...(n.sinPrecio || []).map(x => `${x}: sin precio`)];
+    return `<div class="cifras" style="margin:10px 0">
+      ${o ? `<div class="tarjeta cifra"><span class="rotulo">Vigente · por ${v.unidad === 'g' ? 'gramo' : 'unidad'}</span><span class="valor">${pesosD(o.unidadNeto)}</span><span class="nota">neto · bruto ${pesosD(o.unidadBruto)}</span></div>` : ''}
+      <div class="tarjeta cifra"><span class="rotulo">Propuesta · por ${d.unidad === 'g' ? 'gramo' : 'unidad'}</span><span class="valor">${pesosD(n.unidadNeto)}</span><span class="nota">neto · bruto ${pesosD(n.unidadBruto)}${dif !== null ? ` · <b>${dif >= 0 ? '+' : ''}${(Math.round(dif * 10) / 10).toLocaleString('es-CL')} %</b>` : ''}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Lote completo</span><span class="valor">${pesosN(n.loteNeto)}</span><span class="nota">neto · ${H.esc(String(d.porciones))} ${d.unidad === 'g' ? 'g' : 'un'}</span></div>
+    </div>${avisos.length ? `<p class="aviso">${avisos.map(H.esc).join(' · ')}</p>` : ''}`;
+  })();
+  const ult = [...(p.historial || [])].reverse().find(h => h.comentario);
+  return `<div style="border-top:1px solid var(--borde);margin-top:10px;padding-top:10px">
+    ${ult ? `<p class="ayuda">Nota de ${H.esc(ult.por || '')}: ${H.esc(ult.comentario)}</p>` : ''}
+    <div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Ingrediente</th>${v ? '<th scope="col">Vigente</th>' : ''}<th scope="col">Propuesta</th></tr></thead><tbody>${filas}</tbody></table></div>
+    ${otros.length ? `<ul class="ayuda" style="margin:8px 0 0 18px">${otros.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
+    ${costo}
+    <div class="campo"><label for="prop-com">Comentario (si la devuelves, la jefa lo ve; si la apruebas, queda en el registro)</label><textarea id="prop-com" rows="2" maxlength="500" style="font:inherit;padding:10px;border-radius:10px;border:1px solid var(--borde)"></textarea></div>
+    <div class="error" id="prop-err" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" data-prop-accion="devolver" data-prop-id="${H.esc(p.docId)}">Devolver</button><button type="button" class="btn" data-prop-accion="aprobar" data-prop-id="${H.esc(p.docId)}" ${c && !c.error && !(c.propuesta.faltan || []).length ? '' : 'disabled'}>Aprobar${p.recetaId ? ' y reemplazar la vigente' : ''}</button></div>
+  </div>`;
+}
+
+function filaSolicitud(s, H) {
+  const base = `<div class="txt"><b>${s.tipo === 'habilitar' ? 'Habilitar' : 'Nueva'}: ${H.esc(s.nombre)}</b><span>${P.AREAS[s.area] || s.area} · ${H.esc(s.por || '')}${s.receta ? ' · para ' + H.esc(s.receta) : ''}${s.nota ? ' · “' + H.esc(s.nota) + '”' : ''}</span></div>`;
+  if (s.tipo === 'habilitar') return `<div class="fila-caja" data-sol="${H.esc(s.docId)}" style="flex-wrap:wrap">${base}
+      <div class="botones"><button type="button" class="btn-sec" data-sol-accion="rechazar" data-sol-id="${H.esc(s.docId)}">No</button><button type="button" class="btn" data-sol-accion="habilitar" data-sol-id="${H.esc(s.docId)}">Habilitar para ${P.AREAS[s.area] || s.area}</button></div>
+      <div class="error" role="alert" style="flex-basis:100%"></div></div>`;
+  const id = k => `sol-${s.docId}-${k}`;
+  return `<div class="fila-caja" data-sol="${H.esc(s.docId)}" style="flex-wrap:wrap">${base}
+    <div class="fila-campos" style="flex-basis:100%;flex-wrap:wrap;align-items:flex-end">
+      <div class="campo"><label for="${id('n')}">Nombre</label><input id="${id('n')}" data-k="nombre" value="${H.esc(s.nombre)}"></div>
+      <div class="campo"><label for="${id('t')}">Es</label><select id="${id('t')}" data-k="tipo"><option value="mp" ${s.esInsumo ? '' : 'selected'}>Materia prima</option><option value="insumo" ${s.esInsumo ? 'selected' : ''}>Insumo</option></select></div>
+      <div class="campo"><label for="${id('c')}">Categoría</label><input id="${id('c')}" data-k="categoria" placeholder="Secos, Lácteos…"></div>
+      <div class="campo"><label for="${id('u')}">Se compra por</label><input id="${id('u')}" data-k="unidad" value="${H.esc(P.UNIDAD_COMPRA.test(s.unidadCompra || '') ? s.unidadCompra : (s.esInsumo ? 'un' : 'kg'))}" placeholder="kg, 25kg, lt, un, 10un">${s.unidadCompra && !P.UNIDAD_COMPRA.test(s.unidadCompra) ? `<small class="ayuda">La jefa escribió “${H.esc(s.unidadCompra)}”</small>` : ''}</div>
+      <div class="campo"><label for="${id('p')}">Costo neto de esa unidad ($, sin IVA)</label><input id="${id('p')}" data-k="costo" inputmode="decimal"></div>
+    </div>
+    <div class="error" role="alert" style="flex-basis:100%"></div>
+    <div class="botones" style="flex-basis:100%"><button type="button" class="btn-sec" data-sol-accion="rechazar" data-sol-id="${H.esc(s.docId)}">No crear</button><button type="button" class="btn" data-sol-accion="crear" data-sol-id="${H.esc(s.docId)}">Crear y habilitar para ${P.AREAS[s.area] || s.area}</button></div>
+  </div>`;
 }
 

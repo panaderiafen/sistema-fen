@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Producción: de la planilla a la base nueva (fen-produccion)  v0.31.0
+//  Sistema Fën — Producción: de la planilla a la base nueva (fen-produccion)  v0.33.0
+//  v0.33.0: la versión real sale de la columna version_sistema (la escribe la aprobación desde Sistema Fën).
 //  Arma los documentos desde las hojas que entrega el script de Producción (v2.2.0).
 //  Sin costos: la base de las jefas no guarda costos ni precios (el script ya los quita).
 //  Función pura (sin red): se puede probar sola.
@@ -79,7 +80,7 @@ export function armar(hojas, personasAreas) {
         procedimiento: texto(r.observaciones_procedimiento), notas: texto(r.sistematizacion_notas),
         clasificacion: texto(r.tipo_preparacion), pesoUnidad: num(r.peso_unidad_mb_g), planificable: texto(r.planificable_directo) !== 'no',
         vendeDirecto: texto(r.vende_directo) !== 'no', varianteDe: texto(r.variante_de_id), seCongela: siNo(r.se_congela),
-        unidadesPorCaja: num(r.unidades_por_caja), version: version(r.version), aprobadaPor: texto(r.aprobada_por),
+        unidadesPorCaja: num(r.unidades_por_caja), version: num(r.version_sistema) > 0 ? Math.round(num(r.version_sistema)) : version(r.version), aprobadaPor: texto(r.aprobada_por),
         aprobadaEn: texto(r.fecha_consolidacion), mpId: mp ? mp[0] : '', origen: { hoja, fila: r._fila }
       };
       if (!ingredientes.length) aviso(hoja, r._fila, `${nombre}: sin ingredientes.`);

@@ -686,3 +686,6 @@ a.ag-item { text-decoration: none; }
 .prop-cc { display: block; font-size: 13px; color: var(--texto); margin-top: 2px; overflow-wrap: anywhere; }
 .prop-cc small { color: var(--suave); }
 .fila-orden-b2b.mov > summary .acciones { flex: 0 0 auto; }
+
+/* v0.33.0 · Recetas por aprobar: filas que cambian */
+.tabla-tiempos tr.cambio td { background: #FBF6EA; }
