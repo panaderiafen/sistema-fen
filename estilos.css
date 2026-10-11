@@ -689,3 +689,17 @@ a.ag-item { text-decoration: none; }
 
 /* v0.33.0 · Recetas por aprobar: filas que cambian */
 .tabla-tiempos tr.cambio td { background: #FBF6EA; }
+
+/* v0.39.0 · Producción: tarjetas con partes plegables */
+.grupo-pliegues > h2 { margin-bottom: 10px; }
+.pliegue { border-top: 1px solid var(--linea); }
+.pliegue > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 2px; }
+.pliegue > summary::-webkit-details-marker { display: none; }
+.pliegue > summary::before { content: ''; width: 8px; height: 8px; border-right: 2px solid var(--suave); border-bottom: 2px solid var(--suave); transform: rotate(-45deg); transition: transform .15s; flex: none; margin: 0 4px; }
+.pliegue[open] > summary::before { transform: rotate(45deg); }
+.pliegue > summary:hover .pl-tit { color: var(--acento); }
+.pliegue > summary:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 8px; }
+.pl-tit { font-weight: 700; font-size: 15.5px; }
+.pl-res { margin-left: auto; font-size: 13px; color: var(--suave); text-align: right; }
+.pliegue-cuerpo { padding: 2px 0 18px 26px; }
+@media (max-width: 640px) { .pliegue > summary { flex-wrap: wrap; } .pl-res { margin-left: 26px; text-align: left; width: 100%; } .pliegue-cuerpo { padding-left: 0; } }

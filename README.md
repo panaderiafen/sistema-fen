@@ -1,9 +1,20 @@
-# Sistema Fën · v0.38.0
+# Sistema Fën · v0.39.0
 
-**App:** v0.38.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** v1.5.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
+**App:** v0.39.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** v1.5.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.39.0: Producción más ordenada
+La pestaña **Producción** queda en tres tarjetas:
+- **Desde Cocina:** lo que espera tu aprobación (recetas y materias primas pedidas). Si no hay nada, ocupa una sola línea.
+- **Cocina:** Bodega, Merma y Configuración de Producción.
+- **Sistema:** Cuentas de las áreas, Copia desde la planilla, Pasar recetas de Bollería a Pastelería y Control de totales.
+
+Cada parte se **abre y cierra** tocando su título, y a la derecha muestra un resumen. Por ejemplo: "4 de 4 áreas con cuenta", "Última: hace 2 h", "3 críticas · 1 bajo el mínimo", "Todo cuadra".
+- Lo que dejas abierto o cerrado se recuerda en este equipo.
+
+Archivos: `vista-produccion.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` (solo versión). Abajo a la izquierda: **v0.39.0**.
 
 ## Novedades de la v0.38.0: consumo de Cafetería en la bodega
 En **Producción → Bodega**, Cafetería ya descuenta:

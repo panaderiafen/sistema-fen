@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.38.0
+//  Sistema Fën — pantalla Producción  v0.39.0
 //  Base nueva de Producción (fen-produccion): conexión, cuentas de las áreas (las tablets
 //  de la app Cocina), copia desde la planilla con control de totales y Configuración de
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.38.0';
+import * as P from './produccion.js?v=0.39.0';
 import * as K from './cocina/consumo.js?v=0.8.0';
 
 const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '' } };
@@ -20,6 +20,24 @@ function error(e, H) {
   if (/failed-precondition/.test(c)) return 'Firestore todavía no está creado en fen-produccion (consola → Firestore Database → Crear base de datos).';
   return (e && e.message) || H.mensajeError(e);
 }
+// v0.39.0: la pestaña se ordena en dos tarjetas (Cocina y Sistema) con partes plegables; lo abierto se recuerda en el equipo
+const K_PLIEGUES = 'fen_sf_prod_pliegues';
+const abiertos = (() => { try { return new Set(JSON.parse(localStorage.getItem(K_PLIEGUES) || '[]')); } catch (e) { return new Set(); } })();
+const pliegue = (clave, titulo, resumen, cuerpo) => `<details class="pliegue" data-pliegue="${clave}" ${abiertos.has(clave) ? 'open' : ''}>
+    <summary><span class="pl-tit">${titulo}</span><span class="pl-res" id="pl-res-${clave}">${resumen || ''}</span></summary>
+    <div class="pliegue-cuerpo">${cuerpo}</div></details>`;
+function conectarPliegues(el) {
+  el.querySelectorAll('details.pliegue').forEach(d => d.addEventListener('toggle', () => {
+    if (d.open) abiertos.add(d.dataset.pliegue); else abiertos.delete(d.dataset.pliegue);
+    try { localStorage.setItem(K_PLIEGUES, JSON.stringify([...abiertos])); } catch (e) {}
+  }));
+}
+const resumenBodega = () => {
+  const c = st.bodega.calc; if (!c) return 'Toca para ver el stock';
+  const bajos = c.criticas.filter(e => e.st.contado && (e.bajoAhora || e.bajoDesde)).length, sin = c.criticas.filter(e => !e.st.contado).length;
+  return `${c.criticas.length} ${c.criticas.length === 1 ? 'crítica' : 'críticas'}${bajos ? ` · <span class="chip c-rojo">${bajos} bajo el mínimo</span>` : c.criticas.length ? ' · bien' : ''}${sin ? ` · ${sin} sin conteo` : ''}`;
+};
+const resumenMerma = () => st.merma.datos ? `${P.PERIODOS_MERMA[st.merma.periodo]}: ${pesosN(P.resumenMerma(st.merma.datos).total)} neto` : 'Toca para ver lo perdido';
 const cab = H => `<div class="cabecera"><div><h1 id="t-produccion">Producción</h1><p>Base nueva de la cocina (fen-produccion) · la app actual sigue funcionando igual</p></div></div>`;
 
 export async function pintar(el, sub, H) {
@@ -95,10 +113,22 @@ async function pintarBase(el, H, cx) {
   try { [cuentas, st.tot, cfgs] = await Promise.all([P.cuentas(), P.totales(), P.leerConfigs()]); } catch (e) { st.msg = error(e, H); }
   const t = st.tot, p = st.prep, ult = t && t.ultima;
   const porArea = a => cuentas.filter(c => P.areasDeCuenta(c).includes(a));
+  const listas = Object.keys(P.AREAS).filter(a => porArea(a).length).length;
+  const control = t ? tablaControl(p, t) : '';
+  const resControl = !t ? '' : !p ? 'Lee la planilla para comparar' : /Todo cuadra/.test(control) ? '<span class="chip c-verde">Todo cuadra</span>' : '<span class="chip c-rojo">Hay diferencias</span>';
   el.innerHTML = cab(H) + `
     <section class="tarjeta" aria-labelledby="t-prod-revision" id="prod-cocina"><div class="vacio" style="border:0">Revisando lo que llegó desde Cocina…</div></section>
-    <section class="tarjeta" aria-labelledby="t-prod-cuentas">
-      <div class="titulo-fila"><h2 id="t-prod-cuentas">Cuentas de las áreas ${H.info('Cuentas de las áreas', 'Cada tablet de la cocina se autoriza una vez con la cuenta de su área (la creas en la consola de Firebase de fen-produccion → Authentication). Aquí dices de qué área es cada cuenta: con eso, esa tablet solo ve y cambia lo de su área. Una cuenta puede tener más de un área ("También entra a").\nEl UID está en la consola → Authentication → Usuarios. No es secreto.\nLa contraseña de cada cuenta no pasa por aquí: la escribes tú en la tablet al autorizarla.')}</h2><span>${H.esc(cx.cfg.projectId)}</span></div>
+
+    <section class="tarjeta grupo-pliegues" aria-labelledby="t-prod-g-cocina">
+      <h2 id="t-prod-g-cocina">Cocina</h2>
+      ${pliegue('bodega', 'Bodega', resumenBodega(), `<div id="prod-bodega">${seccionBodega(H)}</div>`)}
+      ${pliegue('merma', 'Merma', resumenMerma(), `<div id="prod-merma">${seccionMerma(H)}</div>`)}
+      ${pliegue('config', 'Configuración de Producción', ['PAN', 'BOL', 'CAF'].map(a => P.AREAS[a] + (cfgs[a] && cfgs[a].editado ? ' ✓' : '')).join(' · '), seccionConfig(cfgs, H))}
+    </section>
+
+    <section class="tarjeta grupo-pliegues" aria-labelledby="t-prod-g-sistema">
+      <h2 id="t-prod-g-sistema">Sistema</h2>
+      ${pliegue('cuentas', 'Cuentas de las áreas', `${listas} de ${Object.keys(P.AREAS).length} áreas con cuenta`, `<p class="ayuda">Las tablets de la cocina y sus áreas · ${H.esc(cx.cfg.projectId)} ${H.info('Cuentas de las áreas', 'Cada tablet de la cocina se autoriza una vez con la cuenta de su área (la creas en la consola de Firebase de fen-produccion → Authentication). Aquí dices de qué área es cada cuenta: con eso, esa tablet solo ve y cambia lo de su área. Una cuenta puede tener más de un área ("También entra a").\nEl UID está en la consola → Authentication → Usuarios. No es secreto.\nLa contraseña de cada cuenta no pasa por aquí: la escribes tú en la tablet al autorizarla.')}</p>
       <div class="lista-simple">${Object.keys(P.AREAS).map(a => `<div class="fila-caja fila-compacta"><div class="txt"><b>${P.AREAS[a]}</b><span>${porArea(a).length ? porArea(a).map(c => H.esc(c.uid) + (c.area !== a ? ` (también; principal ${H.esc(P.AREAS[c.area] || c.area)})` : '')).join(' · ') : 'Sin cuenta asignada'}</span></div>${porArea(a).length ? '<span class="chip c-verde">Lista</span>' : '<span class="chip c-gris">Falta</span>'}</div>`).join('')}</div>
       ${cuentas.length ? `<h3 style="margin:14px 0 4px;font-size:15px">Cuentas ${H.info('Cambiar las áreas de una cuenta', 'Toca "Cambiar" para cargar la cuenta en el formulario de abajo, marca o desmarca áreas y presiona Guardar.\nSi una tablet ya estaba abierta, toma el cambio en la próxima carga.')}</h3>
       <div class="lista-simple">${cuentas.map(c => `<div class="fila-caja fila-compacta"><div class="txt"><b>${P.areasDeCuenta(c).map(a => H.esc(P.AREAS[a])).join(' + ') || 'Sin área'}</b><span>${H.esc(c.uid)}</span></div><button type="button" class="btn-sec" data-cta-editar="${H.esc(c.uid)}">Cambiar</button></div>`).join('')}</div>` : ''}
@@ -113,28 +143,19 @@ async function pintarBase(el, H, cx) {
         <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn-sec">Guardar</button></div>
       </form>
       <div class="error" id="prod-cta-err" role="alert"></div>
-    </section>
-
-    <section class="tarjeta" aria-labelledby="t-prod-copia">
-      <div class="titulo-fila"><h2 id="t-prod-copia">Copia desde la planilla ${H.info('Copia desde la planilla', 'Lee la planilla de Producción con el script (v2.3.0) y copia a la base nueva: recetas, materias primas (sin costos), configuración de masa madre y poolish, planes semanales y quién entra a cada área con su PIN.\nSe puede repetir las veces que quieras. Un plan semanal que ya se cambió en la app Cocina no se pisa: desde que un área usa Cocina, su plan manda ahí.\nNada se borra.')}</h2><span>${ult && ult.ultima ? 'Última: ' + H.esc(H.hace(ult.ultima)) : 'Nunca copiada'}</span></div>
+`)}
+      ${pliegue('copia', 'Copia desde la planilla', ult && ult.ultima ? 'Última: ' + H.esc(H.hace(ult.ultima)) : 'Nunca copiada', `<p class="ayuda">Recetas, materias primas, configuración, planes y personas, desde la planilla ${H.info('Copia desde la planilla', 'Lee la planilla de Producción con el script (v2.3.0) y copia a la base nueva: recetas, materias primas (sin costos), configuración de masa madre y poolish, planes semanales y quién entra a cada área con su PIN.\nSe puede repetir las veces que quieras. Un plan semanal que ya se cambió en la app Cocina no se pisa: desde que un área usa Cocina, su plan manda ahí.\nNada se borra.')}</p>
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="prod-leer">Leer la planilla</button></div>
       <div id="prod-prep">${p ? resumenPrep(p, H) : ''}</div>
       <div id="prod-avance" class="ayuda" aria-live="polite">${H.esc(st.msg)}</div>
-    </section>
-
-    <section class="tarjeta" aria-labelledby="t-prod-bodega" id="prod-bodega">${seccionBodega(H)}</section>
-
-    <section class="tarjeta" aria-labelledby="t-prod-merma" id="prod-merma">${seccionMerma(H)}</section>
-
-    ${seccionConfig(cfgs, H)}
-
-    <section class="tarjeta" aria-labelledby="t-prod-mover" id="prod-mover">
-      <div class="titulo-fila"><h2 id="t-prod-mover">Pasar recetas de Bollería a Pastelería ${H.info('Pasar recetas a Pastelería', 'Los rellenos, cremas y otras preparaciones del día pasan a Pastelería. Marca cuáles: se mueven en la planilla con el mismo ID (la fila se copia a PAS_recetas y recién después sale de BOL_recetas; queda registro en "Movimientos_recetas") y en la base nueva.\nLos productos de Bollería que las usan siguen funcionando: la sub receta queda habilitada para las dos áreas.')}</h2></div>
+`)}
+      ${pliegue('mover', 'Pasar recetas de Bollería a Pastelería', '', `<div id="prod-mover"><p class="ayuda">Rellenos, cremas y preparaciones del día ${H.info('Pasar recetas a Pastelería', 'Los rellenos, cremas y otras preparaciones del día pasan a Pastelería. Marca cuáles: se mueven en la planilla con el mismo ID (la fila se copia a PAS_recetas y recién después sale de BOL_recetas; queda registro en "Movimientos_recetas") y en la base nueva.\nLos productos de Bollería que las usan siguen funcionando: la sub receta queda habilitada para las dos áreas.')}</p>
       ${st.mover ? listaMover(H) : '<div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="prod-mover-ver">Ver las recetas de Bollería</button></div>'}
       ${st.moverMsg ? `<p class="ayuda" role="status">${H.esc(st.moverMsg)}</p>` : ''}
-    </section>
-
-    ${t ? `<section class="tarjeta" aria-labelledby="t-prod-control"><h2 id="t-prod-control">Control de totales</h2>${tablaControl(p, t)}</section>` : ''}`;
+</div>`)}
+      ${t ? pliegue('control', 'Control de totales', resControl, control) : ''}
+    </section>`;
+  conectarPliegues(el);
 
   pintarCocina(el, H, true);
   conectarMerma(el, H); conectarBodega(H);
@@ -242,17 +263,15 @@ function seccionConfig(cfgs, H) {
       <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn-sec">Guardar ${P.AREAS[area]}</button></div>
     </form>`;
   };
-  return `<section class="tarjeta" aria-labelledby="t-prod-config">
-    <h2 id="t-prod-config">Configuración de Producción ${H.info('Configuración de Producción', 'Lo que define cómo calcula Cocina en cada área: amasadora, tandas por día, merma, congeladores, días del pie de masa madre.\nLa cambias tú; las jefas la ven en Cocina sin poder cambiarla. Una configuración que guardas aquí no se pisa al volver a copiar desde la planilla.')}</h2>
-    ${bloque('PAN')}${bloque('BOL')}${bloque('CAF')}
-  </section>`;
+  return `<p class="ayuda">Cómo calcula Cocina en cada área ${H.info('Configuración de Producción', 'Lo que define cómo calcula Cocina en cada área: amasadora, tandas por día, merma, congeladores, días del pie de masa madre.\nLa cambias tú; las jefas la ven en Cocina sin poder cambiarla. Una configuración que guardas aquí no se pisa al volver a copiar desde la planilla.')}</p>
+    ${bloque('PAN')}${bloque('BOL')}${bloque('CAF')}`;
 }
 
 // ═══════════════ Bodega (P5): stock de las críticas, consumo por área y llegadas ═══════════════
 const fechaC = f => f ? f.slice(8, 10) + '/' + f.slice(5, 7) : '';
 function seccionBodega(H) {
   const b = st.bodega, c = b.calc;
-  const cab = `<div class="titulo-fila"><h2 id="t-prod-bodega">Bodega ${H.info('Bodega (materias primas críticas)', 'Bodega común: un stock por materia prima.\nStock = último conteo + llegadas − lo consumido. El consumo sale de lo que marcan como hecho en Cocina (Panadería y Pastelería: recetas terminadas; Bollería: masas elaboradas con su empaste y productos formados), bajado por las recetas hasta las materias primas, más la merma de materias primas.\nLas jefas anotan llegadas y conteos en Cocina → Bodega. El conteo corrige la cuenta: la diferencia es lo que se pierde sin anotar (o lo que no se marcó como hecho).\n"Alcanza" y "bajo el mínimo" usan lo planificado de los próximos 7 días (Panadería: el plan; Bollería: masas por elaborar y metas; Pastelería: su ritmo de los últimos 14 días). Cafetería todavía no descuenta (va con las ventas).\nLas críticas y su mínimo se marcan aquí; si no, se usa lo de la planilla (es_critica, stock_seguridad).')}</h2>
+  const cab = `<div class="titulo-fila"><span class="ayuda">Stock de las críticas, consumo por área y llegadas ${H.info('Bodega (materias primas críticas)', 'Bodega común: un stock por materia prima.\nStock = último conteo + llegadas − lo consumido. El consumo sale de lo que marcan como hecho en Cocina (Panadería y Pastelería: recetas terminadas; Bollería: masas elaboradas con su empaste y productos formados), bajado por las recetas hasta las materias primas, más la merma de materias primas.\nLas jefas anotan llegadas y conteos en Cocina → Bodega. El conteo corrige la cuenta: la diferencia es lo que se pierde sin anotar (o lo que no se marcó como hecho).\n"Alcanza" y "bajo el mínimo" usan lo planificado de los próximos 7 días (Panadería: el plan; Bollería: masas por elaborar y metas; Pastelería y Cafetería: su ritmo de los últimos 14 días). Cafetería descuenta lo vendido en la caja y el café de la bitácora (ver más abajo).\nLas críticas y su mínimo se marcan aquí; si no, se usa lo de la planilla (es_critica, stock_seguridad).')}</span>
     <button type="button" class="btn-sec" id="prod-bod-calc" ${b.cargando ? 'disabled' : ''}>${b.cargando ? 'Calculando…' : c ? 'Calcular de nuevo' : 'Calcular'}</button></div>`;
   if (!c) return cab + (b.msg ? `<p class="error">${H.esc(b.msg)}</p>` : '<p class="ayuda">Presiona "Calcular" (lee los últimos 120 días de Cocina).</p>');
   const est = e => !e.st.contado ? '<span class="chip c-gris" title="No hay conteo en los últimos 120 días">Falta conteo</span>' : e.bajoAhora ? '<span class="chip c-rojo">Bajo el mínimo</span>' : e.bajoDesde ? `<span class="chip c-amarillo">Bajo el ${H.esc(fechaC(e.bajoDesde))}</span>` : '<span class="chip c-verde">Bien</span>';
@@ -301,7 +320,7 @@ function seccionBodega(H) {
 }
 function conectarBodega(H) {
   const $b = id => document.getElementById(id), b = st.bodega;
-  const repintarB = () => { $b('prod-bodega').innerHTML = seccionBodega(H); conectarBodega(H); };
+  const repintarB = () => { $b('prod-bodega').innerHTML = seccionBodega(H); const r = $b('pl-res-bodega'); if (r) r.innerHTML = resumenBodega(); conectarBodega(H); };
   const calcular = async () => { b.cargando = true; b.msg = ''; repintarB(); try { b.calc = await P.calcularBodega(); } catch (e) { b.msg = error(e, H); } b.cargando = false; repintarB(); };
   const boton = $b('prod-bod-calc'); if (!boton) return;
   boton.addEventListener('click', calcular);
@@ -353,7 +372,7 @@ const UNID = { un: 'un', g: 'g', ml: 'ml' };
 const cantM = (n, u) => `${(Math.round((Number(n) || 0) * 10) / 10).toLocaleString('es-CL')} ${UNID[u] || ''}`;   // solo unidades conocidas (lo demás no se muestra)
 function seccionMerma(H) {
   const m = st.merma, r = m.datos ? P.resumenMerma(m.datos) : null;
-  const cab = `<div class="titulo-fila"><h2 id="t-prod-merma">Merma ${H.info('Merma', 'Lo que las áreas anotan en Cocina como perdido (productos, preparaciones o materias primas), con su motivo.\nEl costo es neto (sin IVA), con los costos de la planilla: el de la receta en Maestro_recetas o el de la materia prima en MP_maestro. Las jefas no ven precios.\nSe copia sola a la hoja "Registro_merma" para Looker.\nLas anotaciones anuladas no cuentan.')}</h2>
+  const cab = `<div class="titulo-fila"><span class="ayuda">Lo perdido por área, valorizado ${H.info('Merma', 'Lo que las áreas anotan en Cocina como perdido (productos, preparaciones o materias primas), con su motivo.\nEl costo es neto (sin IVA), con los costos de la planilla: el de la receta en Maestro_recetas o el de la materia prima en MP_maestro. Las jefas no ven precios.\nSe copia sola a la hoja "Registro_merma" para Looker.\nLas anotaciones anuladas no cuentan.')}</span>
       <div class="fila-campos" style="align-items:flex-end;gap:8px;flex-wrap:nowrap"><select id="prod-merma-per" aria-label="Período">${Object.entries(P.PERIODOS_MERMA).map(([k, t]) => `<option value="${k}" ${m.periodo === k ? 'selected' : ''}>${t}</option>`).join('')}</select><button type="button" class="btn-sec" id="prod-merma-ver" ${m.cargando ? 'disabled' : ''}>${m.cargando ? 'Leyendo…' : m.datos ? 'Actualizar' : 'Ver'}</button></div></div>`;
   if (!r) return cab + (m.msg ? `<p class="error">${H.esc(m.msg)}</p>` : '<p class="ayuda">Elige el período y presiona "Ver".</p>');
   const d = m.datos, rango = `${d.desde.split('-').reverse().slice(0, 2).join('/')} al ${d.hasta.split('-').reverse().slice(0, 2).join('/')}`;
@@ -376,7 +395,7 @@ function conectarMerma(el, H) {
   b.addEventListener('click', async () => {
     st.merma.periodo = sel.value; st.merma.cargando = true; st.merma.msg = ''; $('prod-merma').innerHTML = seccionMerma(H); conectarMerma(el, H);
     try { st.merma.datos = await P.mermaDelPeriodo(P.periodoMerma(st.merma.periodo)); } catch (e) { st.merma.datos = null; st.merma.msg = error(e, H); }
-    st.merma.cargando = false; $('prod-merma').innerHTML = seccionMerma(H); conectarMerma(el, H);
+    st.merma.cargando = false; $('prod-merma').innerHTML = seccionMerma(H); if ($('pl-res-merma')) $('pl-res-merma').innerHTML = resumenMerma(); conectarMerma(el, H);
   });
 }
 
@@ -393,8 +412,13 @@ async function pintarCocina(el, H, leer) {
   if (!$('prod-cocina')) return;
   const props = st.props || [], sols = st.sols || [];
   const cuando = p => String(((p.historial || []).slice(-1)[0] || {}).en || '').slice(0, 10);
+  // Sin nada esperando: una sola línea
+  if (!props.length && !sols.length && !st.cocinaMsg) {
+    caja.innerHTML = `<div class="titulo-fila"><h2 id="t-prod-revision">Desde Cocina</h2><span class="ayuda">Nada esperando: recetas por aprobar · 0 · materias primas pedidas · 0</span></div>`;
+    return;
+  }
   caja.innerHTML = `
-    <div class="titulo-fila"><h2 id="t-prod-revision">Desde Cocina ${H.info('Desde Cocina', 'Las jefas de Panadería y Bollería crean y cambian recetas en Cocina. Cada cambio llega aquí como propuesta: la receta vigente sigue igual hasta que la apruebas.\nEl costo lo calcula el script de Producción con los precios de la planilla (neto, sin IVA). Al aprobar, la receta queda en la planilla (costeo, catálogo de caja/B2B y Looker siguen igual) y en la base nueva; la versión anterior queda guardada.\nSi la devuelves, la jefa ve tu comentario y la corrige.')}</h2></div>
+    <div class="titulo-fila"><h2 id="t-prod-revision">Desde Cocina ${H.info('Desde Cocina', 'Las jefas de cada área crean y cambian recetas en Cocina. Cada cambio llega aquí como propuesta: la receta vigente sigue igual hasta que la apruebas.\nEl costo lo calcula el script de Producción con los precios de la planilla (neto, sin IVA). Al aprobar, la receta queda en la planilla (costeo, catálogo de caja/B2B y Looker siguen igual) y en la base nueva; la versión anterior queda guardada.\nSi la devuelves, la jefa ve tu comentario y la corrige.')}</h2></div>
     ${st.cocinaMsg ? `<p class="error">${H.esc(st.cocinaMsg)}</p>` : ''}
     <h3 style="margin:8px 0">Recetas por aprobar · ${props.length}</h3>
     ${props.length ? `<div class="lista-simple">${props.map(p => `<div class="fila-caja" data-prop="${H.esc(p.docId)}" style="flex-wrap:wrap">
