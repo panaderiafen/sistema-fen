@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.40.0
+//  Sistema Fën — pantalla Producción  v0.41.0
 //  Base nueva de Producción (fen-produccion): conexión, cuentas de las áreas (las tablets
 //  de la app Cocina), copia desde la planilla con control de totales y Configuración de
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.40.0';
-import * as K from './cocina/consumo.js?v=0.9.0';
+import * as P from './produccion.js?v=0.41.0';
+import * as K from './cocina/consumo.js?v=0.10.0';
 
 const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '' } };
 const $ = id => document.getElementById(id);
@@ -278,8 +278,9 @@ function seccionBodega(H) {
   const dif = e => { const t = e.st.teoricoAlContar; if (t === null || t === undefined) return ''; const d = e.st.conteo.cantidad - t; return Math.abs(d) < 1 ? ' · cuadró' : d < 0 ? ` · faltaron ${H.esc(K.texto(-d, e.cfg.unidad))} (uso sin anotar: mesón, pruebas…)` : ` · sobraron ${H.esc(K.texto(d, e.cfg.unidad))} (llegada o hecho sin anotar)`; };
   const filas = c.criticas.map(e => `<tr>
       <td>${H.esc(e.mp.nombre)}</td><td>${est(e)}</td>
-      <td style="text-align:right">${e.st.contado ? H.esc(K.texto(e.st.stock, e.cfg.unidad)) : '—'}</td>
+      <td style="text-align:right">${e.st.contado ? H.esc(K.texto(e.st.stock, e.cfg.unidad)) + (e.cfg.envase ? `<br><span class="ayuda">${H.esc((Math.round(e.st.stock / e.cfg.envase.tamano * 10) / 10).toLocaleString('es-CL'))} ${H.esc(K.envases(e.cfg.envase.nombre, 2))}</span>` : '') : '—'}</td>
       <td><input class="bod-min" data-bod-min="${H.esc(e.mp.id)}" inputmode="decimal" value="${H.esc(String(K.deBase(e.cfg.seguridad, e.cfg.unidad)).replace('.', ','))}" aria-label="Mínimo de ${H.esc(e.mp.nombre)}" style="width:80px"> ${K.unidadEntrada(e.cfg.unidad)}</td>
+      <td class="bod-env"><input data-bod-env-n="${H.esc(e.mp.id)}" value="${H.esc(e.cfg.envase ? e.cfg.envase.nombre : '')}" placeholder="${K.unidadEntrada(e.cfg.unidad)}" maxlength="20" aria-label="Envase de ${H.esc(e.mp.nombre)}" style="width:72px"> de <input data-bod-env-t="${H.esc(e.mp.id)}" inputmode="decimal" value="${e.cfg.envase ? H.esc(String(K.deBase(e.cfg.envase.tamano, e.cfg.unidad)).replace('.', ',')) : ''}" aria-label="Tamaño del envase de ${H.esc(e.mp.nombre)}" style="width:56px"> ${K.unidadEntrada(e.cfg.unidad)}</td>
       <td>${e.alcanza === null ? '—' : H.esc((Math.round(e.alcanza * 10) / 10).toLocaleString('es-CL')) + ' días'}<br><span class="ayuda">${e.prom ? H.esc(K.texto(e.prom, e.cfg.unidad)) + '/día' : ''}</span></td>
       <td class="ayuda">${e.st.conteo ? `${H.esc(fechaC(e.st.conteo.fecha))} · ${H.esc(P.AREAS[e.st.conteo.area] || e.st.conteo.area)}${dif(e)}` : 'nunca'}</td>
       <td><button type="button" class="btn-link" data-bod-quitar="${H.esc(e.mp.id)}">Quitar</button></td></tr>`).join('');
@@ -289,8 +290,8 @@ function seccionBodega(H) {
   const sinId = Object.keys(c.sinId || {});
   return cab + `
     <p class="ayuda">Calculado el ${H.esc(fechaC(c.hoy))} a las ${H.esc(new Date(c.en).toTimeString().slice(0, 5))} · las jefas ven en Cocina lo que está bajo el mínimo.</p>
-    ${c.criticas.length ? `<div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Materia prima</th><th scope="col">Estado</th><th scope="col" style="text-align:right">Stock</th><th scope="col">Mínimo</th><th scope="col">Alcanza</th><th scope="col">Último conteo</th><th scope="col"><span class="sr">Quitar</span></th></tr></thead><tbody>${filas}</tbody></table></div>
-      <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="prod-bod-min">Guardar mínimos</button></div>` : '<p class="ayuda">Todavía no hay materias primas críticas. Agrega las que quieres controlar (harina, mantequilla, leche…).</p>'}
+    ${c.criticas.length ? `<div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Materia prima</th><th scope="col">Estado</th><th scope="col" style="text-align:right">Stock</th><th scope="col">Mínimo</th><th scope="col">Se cuenta en ${H.info('Se cuenta en', 'Vacío: se cuenta y se recibe en kg, litros o unidades.\nCon un envase (por ejemplo "saco" de 25 kg), en Cocina se escriben los sacos más lo suelto (3 sacos + 5 kg = 80 kg), y el stock también se ve en sacos. Si cambia el formato (centeno en sacos de 20 kg), lo cambias aquí.')}</th><th scope="col">Alcanza</th><th scope="col">Último conteo</th><th scope="col"><span class="sr">Quitar</span></th></tr></thead><tbody>${filas}</tbody></table></div>
+      <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="prod-bod-min">Guardar cambios</button></div>` : '<p class="ayuda">Todavía no hay materias primas críticas. Agrega las que quieres controlar (harina, mantequilla, leche…).</p>'}
     <div class="fila-campos" style="align-items:flex-end;margin-top:8px">
       <div class="campo" style="flex:2"><label for="prod-bod-nueva">Agregar crítica</label><select id="prod-bod-nueva"><option value="">Elige una materia prima…</option>${otras.map(m => `<option value="${H.esc(m.id)}">${H.esc(m.nombre)}</option>`).join('')}</select></div>
       <div class="campo"><label for="prod-bod-nueva-min">Mínimo</label><input id="prod-bod-nueva-min" inputmode="decimal" placeholder="kg, l o un"></div>
@@ -341,10 +342,19 @@ function conectarBodega(H) {
     for (const inp of document.querySelectorAll('[data-bod-min]')) {
       const e = b.calc.criticas.find(x => x.mp.id === inp.dataset.bodMin), v = inp.value.trim() === '' ? 0 : leerCant(inp.value, e.cfg.unidad);
       if (v === null) { $b('prod-bod-err').textContent = `${e.mp.nombre}: el mínimo es un número.`; return; }
-      if (Math.abs(v - e.cfg.seguridad) > 0.001) lista.push([e.mp.id, { critica: true, seguridad: v }]);
+      // Envase: nombre + tamaño (los dos o ninguno)
+      const n = (document.querySelector(`[data-bod-env-n="${CSS.escape(e.mp.id)}"]`) || {}).value || '', tt = (document.querySelector(`[data-bod-env-t="${CSS.escape(e.mp.id)}"]`) || {}).value || '';
+      let env = null;
+      if (n.trim() || tt.trim()) {
+        const tam = leerCant(tt, e.cfg.unidad);
+        if (!n.trim() || !(tam > 0)) { $b('prod-bod-err').textContent = `${e.mp.nombre}: el envase necesita nombre y tamaño (por ejemplo, saco de 25 ${K.unidadEntrada(e.cfg.unidad)}), o déjalo vacío.`; return; }
+        env = { nombre: n.trim().toLowerCase(), tamano: tam };
+      }
+      const envAntes = e.cfg.envase ? `${e.cfg.envase.nombre}|${e.cfg.envase.tamano}` : '', envAhora = env ? `${env.nombre}|${env.tamano}` : '';
+      if (Math.abs(v - e.cfg.seguridad) > 0.001 || envAntes !== envAhora) lista.push([e.mp.id, { critica: true, seguridad: v, envase: env }]);
     }
-    if (!lista.length) { $b('prod-bod-err').textContent = 'No cambiaste ningún mínimo.'; return; }
-    guardar(lista, 'Cambió mínimos de bodega');
+    if (!lista.length) { $b('prod-bod-err').textContent = 'No cambiaste nada.'; return; }
+    guardar(lista, 'Cambió mínimos o envases de bodega');
   });
   document.querySelectorAll('[data-bod-quitar]').forEach(x => x.addEventListener('click', () => {
     const e = b.calc.criticas.find(y => y.mp.id === x.dataset.bodQuitar);

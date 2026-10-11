@@ -19,19 +19,20 @@
 //  · v0.34.0 (P4): mover recetas entre áreas (Bollería → Pastelería) con el mismo ID (script v2.5.0).
 //  · v0.38.0: consumo de Cafetería en la bodega: lo vendido en la caja (resúmenes de cada cierre y, en la caja
 //    abierta, sus ventas) de productos vinculados a una receta de Cafetería, más el café de la bitácora de turno.
+//  · v0.41.0: cada crítica puede contarse en envases (saco de 25 kg…): stockmp/{id}.envase.
 //  · v0.37.0 (P5): Bodega — stock de las materias primas críticas (bodega común), consumo por área con lo hecho
 //    en Cocina, proyección con lo planificado y alerta en Hoy. El cálculo es el de Cocina (copia en cocina/).
 //  · v0.36.0 (P4b): merma de las cuatro áreas (anotada en Cocina) valorizada con los costos de la planilla,
 //    y la bitácora de turno de Cafetería (gramos de café); gramos por shot en la configuración de Cafetería.
 //  · v0.35.0: una cuenta de área puede entrar a varias áreas (cuentas/{uid}.areas; reglas v1.4.0, script v2.6.0).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.40.0';
-import * as FB from './firebase-produccion.js?v=0.40.0';
-import * as Apps from './apps.js?v=0.40.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.40.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.40.0';
-import * as K from './cocina/consumo.js?v=0.9.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
-import * as CM from './cocina/modelo.js?v=0.9.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.41.0';
+import * as FB from './firebase-produccion.js?v=0.41.0';
+import * as Apps from './apps.js?v=0.41.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.41.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.41.0';
+import * as K from './cocina/consumo.js?v=0.10.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
+import * as CM from './cocina/modelo.js?v=0.10.0';
 
 export { AREAS };
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
@@ -510,9 +511,11 @@ export function consumoPeriodo(calc, { desde, hasta }) {
     .sort((a, b) => b.total - a.total);
 }
 // Crítica y mínimo de una materia prima (seguridad en g, ml o un)
-export async function guardarControl(mpId, { critica, seguridad }) {
-  const db = await dbOk();
-  await FB.setDoc(FB.doc(db, 'stockmp', mpId), { critica: !!critica, seguridad: Math.max(0, Number(seguridad) || 0), editado: { por: authSF.currentUser.email, en: FB.serverTimestamp() } }, { merge: true });
+// envase: { nombre: 'saco', tamano: 25000 (g, ml o un) } o null (se cuenta en kg, l o un)
+export async function guardarControl(mpId, { critica, seguridad, envase }) {
+  const db = await dbOk(), datos = { critica: !!critica, seguridad: Math.max(0, Number(seguridad) || 0), editado: { por: authSF.currentUser.email, en: FB.serverTimestamp() } };
+  if (envase !== undefined) datos.envase = envase && String(envase.nombre || '').trim() && Number(envase.tamano) > 0 ? { nombre: String(envase.nombre).trim().slice(0, 20), tamano: Number(envase.tamano) } : null;
+  await FB.setDoc(FB.doc(db, 'stockmp', mpId), datos, { merge: true });
 }
 // Llegada desde Sistema Fën (va al día de Administración: dias/ADM_{fecha})
 export async function registrarLlegada(mp, cantidadBase, nota) {

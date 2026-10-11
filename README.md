@@ -1,9 +1,17 @@
-# Sistema Fën · v0.40.0
+# Sistema Fën · v0.41.0
 
-**App:** v0.40.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.6.0 (vienen con Cocina v0.9.0)** · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
+**App:** v0.41.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.41.0: cada crítica en su formato (sacos, kg…)
+En **Producción → Cocina → Bodega**, la tabla de críticas tiene la columna **"Se cuenta en"**:
+- **Vacío:** se cuenta y se recibe en kg, litros o unidades, como hasta ahora.
+- **Con envase:** nombre y tamaño, por ejemplo "saco" de 25 kg. En Cocina se escriben los sacos más lo suelto, y el stock también se ve en sacos. Si mañana compras centeno en sacos de 20 kg, le pones "saco" y 20.
+- Se guarda con **Guardar cambios**, junto con los mínimos.
+
+Archivos: `produccion.js`, `vista-produccion.js`, carpeta `cocina/` (copia de Cocina v0.10.0), `config.js`, `README.md` y los demás `.js` (solo versión). Abajo a la izquierda: **v0.41.0**.
 
 ## Novedades de la v0.40.0: qué significa la diferencia del conteo
 En **Bodega**, la columna "Último conteo" explica la diferencia:

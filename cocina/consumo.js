@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.9.0
+//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.10.0
 //  La usa Sistema Fën (que lee las cuatro áreas; copia exacta en sistema-fen/cocina/).
 //
 //  Bodega común: un stock por materia prima.
@@ -22,10 +22,12 @@
 //    las metas de Bollería; Pastelería y Cafetería al ritmo de los últimos 14 días.
 //  · Qué materias primas llevan stock (críticas) y su mínimo: stockmp/{mpId} = { critica, seguridad }
 //    (la pone Administración); si no hay, lo de la planilla (es_critica, stock_seguridad en kg, l o un).
+//    v0.10.0: stockmp/{mpId}.envase = { nombre: 'saco', tamano: 25000 (g, ml o un) } → se cuenta y se recibe en sacos
+//    (más lo suelto) y el stock también se muestra en sacos. Sin envase: en kg, litros o unidades.
 // ═══════════════════════════════════════════════
-import * as M from './modelo.js?v=0.9.0';
-import * as B from './bolleria.js?v=0.9.0';
-import * as R from './registros.js?v=0.9.0';
+import * as M from './modelo.js?v=0.10.0';
+import * as B from './bolleria.js?v=0.10.0';
+import * as R from './registros.js?v=0.10.0';
 
 const n0 = v => M.num(v);
 const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -38,8 +40,18 @@ export function control(mp, sm) {
   return {
     critica: tiene && sm.critica !== undefined ? !!sm.critica : !!(mp && mp.critica),
     seguridad: tiene && sm.seguridad !== undefined && sm.seguridad !== null ? n0(sm.seguridad) : n0(mp && mp.stockSeguridad) * f,
-    unidad: u
+    unidad: u,
+    envase: tiene && sm.envase && String(sm.envase.nombre || '').trim() && n0(sm.envase.tamano) > 0 ? { nombre: String(sm.envase.nombre).trim().slice(0, 20), tamano: n0(sm.envase.tamano) } : null
   };
+}
+// Plural simple para el envase (saco → sacos, caja → cajas, bidón → bidones)
+export const envases = (nombre, n) => Math.abs(n0(n)) === 1 ? nombre : /[aeiou]$/i.test(nombre) ? nombre + 's' : /ó?n$/i.test(nombre) ? nombre.replace(/ón$/i, 'ones').replace(/n$/i, 'nes') : nombre + 'es';
+// Cantidad con su equivalente en envases: "212 kg · 8,5 sacos"
+export function textoEnv(n, u, env) {
+  const t = texto(n, u);
+  if (!env) return t;
+  const k = Math.round(n0(n) / env.tamano * 10) / 10;
+  return `${t} · ${k.toLocaleString('es-CL')} ${envases(env.nombre, k)}`;
 }
 // Cantidad para mostrar: kg o l cuando pasa de 1.000 g / ml
 export function texto(n, u) {
