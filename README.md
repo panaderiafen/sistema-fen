@@ -1,9 +1,30 @@
-# Sistema Fën · v0.31.0
+# Sistema Fën · v0.32.0
 
-**App:** v0.31.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.0.0 (nuevas, vienen con Cocina)** · **Script de Producción:** **v2.3.0** · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 10 de octubre de 2026
+**App:** v0.32.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.1.0 (vienen con Cocina v0.2.0)** · **Script de Producción:** v2.3.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.32.0: Configuración de Producción
+En **Producción**, una sección nueva, **Configuración de Producción**. La editas tú y las jefas la usan en Cocina sin poder cambiarla:
+- **Panadería:**
+  - días del pie de masa madre;
+  - reserva (%);
+  - masa madre madura (%);
+  - agua del pie (%).
+- **Bollería:**
+  - **amasadora en kg de masa por tanda**: las tandas van en masas enteras; con 8 kg y masas de 1,6 kg son 5 por tanda. Si lo dejas vacío, se usa "masas por tanda" de la app actual;
+  - tandas por día (Cocina avisa cuando un día se pasa);
+  - merma de laminado (%), que se suma a las masas necesarias. Déjala en 0 si el rendimiento de la receta ya la considera;
+  - capacidad de los congeladores, que se usará con la bitácora.
+
+Lo que guardas aquí **no se pisa** al volver a copiar desde la planilla. "Mantequilla por empaste" no pasa: el empaste ya está en las recetas (30 g por croissant XL = 300 g por masa).
+
+Archivos: cambian `produccion.js`, `vista-produccion.js`, `config.js`, `README.md` y los demás `.js` (solo versión). Sube todos a GitHub (`sistema-fen`). Abajo a la izquierda debe decir **v0.32.0**.
+
+**Lista de verificación**
+- [ ] Producción → Configuración de Producción → Bollería: pon la amasadora en kg → Guardar. Aparece "editada aquí".
+- [ ] "Leer la planilla" → "Copiar": la amasadora sigue con tus kg.
 
 ## Novedades de la v0.31.0: Producción, base nueva (etapa P1)
 Nueva sección **Producción** en el menú (la app actual sigue en "Abren la app actual"):

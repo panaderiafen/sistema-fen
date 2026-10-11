@@ -1,10 +1,11 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.31.0
+//  Sistema Fën — pantalla Producción  v0.32.0
 //  Base nueva de Producción (fen-produccion): conexión, cuentas de las áreas (las tablets
-//  de la app Cocina) y copia desde la planilla con control de totales.
+//  de la app Cocina), copia desde la planilla con control de totales y Configuración de
+//  Producción por área (v0.32.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.31.0';
+import * as P from './produccion.js?v=0.32.0';
 
 const st = { prep: null, tot: null, copiando: false, msg: '' };
 const $ = id => document.getElementById(id);
@@ -89,8 +90,8 @@ function tablaControl(prep, tot) {
 }
 
 async function pintarBase(el, H, cx) {
-  let cuentas = [], personas = [];
-  try { [cuentas, st.tot] = await Promise.all([P.cuentas(), P.totales()]); } catch (e) { st.msg = error(e, H); }
+  let cuentas = [], personas = [], cfgs = {};
+  try { [cuentas, st.tot, cfgs] = await Promise.all([P.cuentas(), P.totales(), P.leerConfigs()]); } catch (e) { st.msg = error(e, H); }
   const t = st.tot, p = st.prep, ult = t && t.ultima;
   const porArea = a => cuentas.filter(c => c.area === a);
   el.innerHTML = cab(H) + `
@@ -112,6 +113,8 @@ async function pintarBase(el, H, cx) {
       <div id="prod-avance" class="ayuda" aria-live="polite">${H.esc(st.msg)}</div>
     </section>
 
+    ${seccionConfig(cfgs, H)}
+
     ${t ? `<section class="tarjeta" aria-labelledby="t-prod-control"><h2 id="t-prod-control">Control de totales</h2>${tablaControl(p, t)}</section>` : ''}`;
 
   $('prod-cuenta').addEventListener('submit', async ev => {
@@ -119,6 +122,23 @@ async function pintarBase(el, H, cx) {
     try { await P.asignarCuenta($('prod-cta-uid').value, $('prod-cta-area').value); H.registrar('Asignó una cuenta de área (Producción)', `${P.AREAS[$('prod-cta-area').value]} · ${$('prod-cta-uid').value.trim()}`); pintarBase(el, H, cx); }
     catch (e) { $('prod-cta-err').textContent = error(e, H); }
   });
+  el.querySelectorAll('[data-cfg-area]').forEach(f => f.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const area = f.dataset.cfgArea, err = f.querySelector('.error'), btn = f.querySelector('button[type=submit]');
+    err.textContent = '';
+    const cambios = {};
+    for (const c of P.CAMPOS_CONFIG[area]) {
+      if (c.t === 'dias') { cambios[c.k] = [...f.querySelectorAll(`[name="${area}-${c.k}"]:checked`)].map(x => Number(x.value)); if (!cambios[c.k].length) { err.textContent = `${c.etiqueta}: marca al menos un día.`; return; } continue; }
+      const t = f.querySelector(`[data-k="${c.k}"]`).value.trim();
+      if (t === '') { cambios[c.k] = null; continue; }
+      const v = Number(t.replace(',', '.'));
+      if (!isFinite(v) || v < 0 || v > 100000) { err.textContent = `${c.etiqueta}: escribe un número (0 o más).`; return; }
+      cambios[c.k] = v;
+    }
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try { await P.guardarConfigArea(area, cambios); H.registrar('Cambió la configuración de Producción', P.AREAS[area]); pintarBase(el, H, cx); }
+    catch (e) { err.textContent = error(e, H); btn.disabled = false; btn.textContent = 'Guardar'; }
+  }));
   $('prod-leer').addEventListener('click', async () => {
     const b = $('prod-leer'); b.disabled = true; b.textContent = 'Leyendo la planilla…'; st.msg = '';
     try { st.prep = await P.preparar(); } catch (e) { st.msg = error(e, H); }
@@ -147,3 +167,33 @@ function resumenPrep(p, H) {
     ${p.avisos.length ? `<details class="aviso" style="margin-top:10px"><summary><b>${p.avisos.length} ${p.avisos.length === 1 ? 'aviso' : 'avisos'} de la planilla</b> · no frenan la copia</summary><ul>${p.avisos.slice(0, 150).map(a => `<li>${H.esc(a.hoja)}${a.fila ? ', fila ' + a.fila : ''}: ${H.esc(a.texto)}</li>`).join('')}${p.avisos.length > 150 ? `<li>… y ${p.avisos.length - 150} más</li>` : ''}</ul></details>` : ''}
     <div class="botones" style="justify-content:flex-start;margin-top:12px"><button type="button" class="btn" id="prod-copiar" ${st.copiando ? 'disabled' : ''}>Copiar ${n(docs)} documentos a la base nueva</button></div>`;
 }
+
+// Configuración de Producción por área: la editas tú; las jefas la ven en Cocina (solo lectura)
+const DIAS_C = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+function seccionConfig(cfgs, H) {
+  const bloque = area => {
+    const c = cfgs[area] || {}, campos = P.CAMPOS_CONFIG[area];
+    const viejo = area === 'BOL' && !(Number(c.amasadora_kg) > 0) && c.amasadora_max_por_tanda ? `<p class="ayuda">Hoy (app actual): ${H.esc(String(c.amasadora_max_por_tanda))} masas por tanda.</p>` : '';
+    return `<form class="cfg-area" data-cfg-area="${area}" style="margin-top:14px">
+      <h3 style="margin:0 0 6px">${P.AREAS[area]}${c.editado ? ' <span class="chip c-gris">editada aquí</span>' : ''}</h3>${viejo}
+      ${campos.filter(f => f.t === 'dias').map(f => {
+        const v = P.valorEn(c, f.k), sel = Array.isArray(v) ? v.map(Number) : [1, 4];
+        return `<fieldset style="border:0;padding:0;margin:0 0 10px"><legend style="font-weight:600;font-size:14px;margin-bottom:4px">${H.esc(f.etiqueta)}</legend><div style="display:flex;gap:16px;flex-wrap:wrap">${DIAS_C.map((d, i) => `<label style="display:flex;gap:6px;align-items:center;min-height:44px"><input type="checkbox" name="${area}-${f.k}" value="${i}" ${sel.includes(i) ? 'checked' : ''}>${d}</label>`).join('')}</div><small class="ayuda">${H.esc(f.ayuda)}</small></fieldset>`;
+      }).join('')}
+      <div class="fila-campos" style="flex-wrap:wrap;align-items:flex-end">
+        ${campos.filter(f => f.t !== 'dias').map(f => {
+          const v = P.valorEn(c, f.k);
+          const id = `cfg-${area}-${f.k.replace(/\./g, '-')}`;
+          return `<div class="campo" style="min-width:200px"><label for="${id}">${H.esc(f.etiqueta)}</label><input id="${id}" data-k="${f.k}" inputmode="decimal" value="${v === undefined || v === null ? '' : H.esc(String(v).replace('.', ','))}" placeholder="${f.def !== undefined ? f.def : ''}"><small class="ayuda">${H.esc(f.ayuda)}</small></div>`;
+        }).join('')}
+      </div>
+      <div class="error" role="alert"></div>
+      <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn-sec">Guardar ${P.AREAS[area]}</button></div>
+    </form>`;
+  };
+  return `<section class="tarjeta" aria-labelledby="t-prod-config">
+    <h2 id="t-prod-config">Configuración de Producción ${H.info('Configuración de Producción', 'Lo que define cómo calcula Cocina en cada área: amasadora, tandas por día, merma, congeladores, días del pie de masa madre.\nLa cambias tú; las jefas la ven en Cocina sin poder cambiarla. Una configuración que guardas aquí no se pisa al volver a copiar desde la planilla.')}</h2>
+    ${bloque('PAN')}${bloque('BOL')}
+  </section>`;
+}
+

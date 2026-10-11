@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.31.0
+//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.32.0
 //  · Conexión: la configuración web de fen-produccion se guarda en Firestore de Sistema Fën
 //    (config/sistemaFen → produccionFirebase). No es secreta: solo identifica el proyecto.
 //    Lo que protege los datos son las reglas de fen-produccion y tu cuenta (admins/{uid}).
@@ -9,12 +9,14 @@
 //    y produccion-modelo.js arma los documentos. Recetas, materias primas, configuración y
 //    personas se copian enteras. Un plan semanal que ya se cambió en la app Cocina NO se
 //    pisa (la app nueva manda desde que se usa).
+//  · v0.32.0: Configuración de Producción por área (config/{AREA}) se edita aquí. Una configuración
+//    editada en Sistema Fën tampoco se pisa al copiar desde la planilla.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.31.0';
-import * as FB from './firebase-produccion.js?v=0.31.0';
-import * as Apps from './apps.js?v=0.31.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.31.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.31.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.32.0';
+import * as FB from './firebase-produccion.js?v=0.32.0';
+import * as Apps from './apps.js?v=0.32.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.32.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.32.0';
 
 export { AREAS };
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
@@ -112,8 +114,10 @@ export async function copiar(prep, avance) {
   const ahora = await FB.getDocs(FB.collection(db, 'planes'));
   const editadosAhora = new Set(ahora.docs.filter(d => d.data().actualizado || d.data().origen !== 'planilla').map(d => d.id));
   const planes = prep.planesACopiar.filter(id => !editadosAhora.has(id));
+  const cfgs = await FB.getDocs(FB.collection(db, 'config'));
+  const cfgEditadas = new Set(cfgs.docs.filter(d => d.data().editado).map(d => d.id));
   const ops = [];
-  ['recetas', 'mps', 'config', 'personas'].forEach(col => Object.entries(prep.docs[col]).forEach(([id, d]) => ops.push([col, id, d])));
+  ['recetas', 'mps', 'config', 'personas'].forEach(col => Object.entries(prep.docs[col]).forEach(([id, d]) => { if (!(col === 'config' && cfgEditadas.has(id))) ops.push([col, id, d]); }));
   planes.forEach(id => ops.push(['planes', id, prep.docs.planes[id]]));
   let hechos = 0;
   for (let i = 0; i < ops.length; i += LOTE) {
@@ -128,6 +132,41 @@ export async function copiar(prep, avance) {
     escritos: ops.length, planesRespetados: prep.planesRespetados.length, avisos: prep.avisos.slice(0, 200), totalAvisos: prep.avisos.length
   });
   return { escritos: ops.length };
+}
+
+// ── Configuración de Producción por área (config/{AREA}); las jefas la leen en Cocina ──
+export const CAMPOS_CONFIG = {
+  PAN: [
+    { k: 'pie_mm.dias_elaboracion', t: 'dias', etiqueta: 'Días del pie de masa madre', ayuda: 'Al terminar la jornada; cubre hasta el próximo día marcado.' },
+    { k: 'pie_mm.reserva_pct', etiqueta: 'Reserva del pie (%)', ayuda: 'Del período siguiente.', def: 20 },
+    { k: 'pie_mm.mm_madura_pct', etiqueta: 'Masa madre madura en el pie (%)', ayuda: 'Sobre la harina del pie.', def: 20 },
+    { k: 'pie_mm.agua_pct', etiqueta: 'Agua del pie (%)', ayuda: 'Sobre la harina del pie.', def: 90 }
+  ],
+  BOL: [
+    { k: 'amasadora_kg', etiqueta: 'Amasadora (kg de masa por tanda)', ayuda: 'Las tandas van siempre en masas enteras: con 10 kg y masas de 1,6 kg son 6 por tanda. Vacío = se usa "masas por tanda" de la app actual.' },
+    { k: 'amasadora_tandas_dia', etiqueta: 'Tandas por día (normal)', ayuda: 'Cocina avisa cuando un día se pasa.', def: 2 },
+    { k: 'merma_laminado_pct', etiqueta: 'Merma de laminado (%)', ayuda: 'Se suma a las masas necesarias. 0 si el rendimiento de la receta ya la considera.', def: 0 },
+    { k: 'capacidad_congelacion_masas', etiqueta: 'Congelador de masas (espacios)', ayuda: 'Para el stock congelado (bitácora).', def: 40 },
+    { k: 'capacidad_productos', etiqueta: 'Congelador de productos (cajas)', ayuda: 'Para el stock congelado (bitácora).', def: 25 }
+  ]
+};
+export const valorEn = (o, k) => k.split('.').reduce((x, p) => (x && typeof x === 'object' ? x[p] : undefined), o);
+export async function leerConfigs() {
+  const db = await dbOk();
+  const sn = await FB.getDocs(FB.collection(db, 'config'));
+  const r = {}; sn.docs.forEach(d => { r[d.id] = d.data(); });
+  return r;
+}
+// cambios: { 'pie_mm.reserva_pct': 25, 'amasadora_kg': 10, … } → se mezcla con lo que hay (merge)
+export async function guardarConfigArea(area, cambios) {
+  if (!CAMPOS_CONFIG[area]) throw new Error('Área sin configuración.');
+  const db = await dbOk(), datos = {};
+  Object.entries(cambios).forEach(([k, v]) => {
+    const partes = k.split('.'); let o = datos;
+    partes.slice(0, -1).forEach(p => { o = o[p] = o[p] || {}; });
+    o[partes[partes.length - 1]] = v;
+  });
+  await FB.setDoc(FB.doc(db, 'config', area), { ...datos, editado: { por: authSF.currentUser.email, en: FB.serverTimestamp() } }, { merge: true });
 }
 
 // Control: lo que hay en la base nueva comparado con la planilla
