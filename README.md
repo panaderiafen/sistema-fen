@@ -1,9 +1,18 @@
-# Sistema Fën · v0.35.0
+# Sistema Fën · v0.36.0
 
-**App:** v0.35.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.4.0 (vienen con Cocina v0.5.1)** · **Script de Producción:** **v2.6.0** · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
+**App:** v0.36.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** v1.4.0 (sin cambios) · **Script de Producción:** **v2.7.0** · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.36.0: merma valorizada (P4b)
+En **Producción → Merma**: eliges el período (esta semana, semana pasada, este mes o mes pasado) y presionas **Ver**.
+- **Por área:** lo que anotaron en Cocina como perdido, sumado por ítem, con cantidad, motivo y **costo neto** (sin IVA). Los costos salen de la planilla (Maestro_recetas y MP_maestro), con el script v2.7.0.
+- **Totales:** de cada área, del período y **por motivo**. Lo que no tiene costo en la planilla aparece como "sin costo" y no suma.
+- **Café de Cafetería:** gramos de calibración, café botado y pruebas, desde la bitácora de turno.
+- **Configuración de Producción → Cafetería:** gramos de café por shot. Cocina los usa en las calibraciones.
+
+Archivos: cambian `produccion.js`, `vista-produccion.js`, `config.js`, `README.md` y los demás `.js` (solo versión). Abajo a la izquierda: **v0.36.0**.
 
 ## Novedades de la v0.35.0: una tablet en más de un área
 En **Producción → Cuentas de las áreas**:

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.35.0
+//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.36.0
 //  · Conexión: la configuración web de fen-produccion se guarda en Firestore de Sistema Fën
 //    (config/sistemaFen → produccionFirebase). No es secreta: solo identifica el proyecto.
 //    Lo que protege los datos son las reglas de fen-produccion y tu cuenta (admins/{uid}).
@@ -17,18 +17,21 @@
 //    aquí se actualiza la base nueva: recetas/{id}, la versión anterior queda en versiones/{id}_v{n}.
 //    Las materias primas pedidas (solicitudes/) se crean con su precio o se habilitan para el área.
 //  · v0.34.0 (P4): mover recetas entre áreas (Bollería → Pastelería) con el mismo ID (script v2.5.0).
+//  · v0.36.0 (P4b): merma de las cuatro áreas (anotada en Cocina) valorizada con los costos de la planilla,
+//    y la bitácora de turno de Cafetería (gramos de café); gramos por shot en la configuración de Cafetería.
 //  · v0.35.0: una cuenta de área puede entrar a varias áreas (cuentas/{uid}.areas; reglas v1.4.0, script v2.6.0).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.35.0';
-import * as FB from './firebase-produccion.js?v=0.35.0';
-import * as Apps from './apps.js?v=0.35.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.35.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.35.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.36.0';
+import * as FB from './firebase-produccion.js?v=0.36.0';
+import * as Apps from './apps.js?v=0.36.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.36.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.36.0';
 
 export { AREAS };
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
+export const VERSION_MERMA = '2.7.0';    // script con costos_merma (SistemaFen.gs v2.4)
 const K_CFG = 'fen_sistema_prod_cfg';
 const LOTE = 400;
 
@@ -161,6 +164,9 @@ export const CAMPOS_CONFIG = {
     { k: 'merma_laminado_pct', etiqueta: 'Merma de laminado (%)', ayuda: 'Se suma a las masas necesarias. 0 si el rendimiento de la receta ya la considera.', def: 0 },
     { k: 'capacidad_congelacion_masas', etiqueta: 'Congelador de masas (espacios)', ayuda: 'Para el stock congelado (bitácora).', def: 40 },
     { k: 'capacidad_productos', etiqueta: 'Congelador de productos (cajas)', ayuda: 'Para el stock congelado (bitácora).', def: 25 }
+  ],
+  CAF: [
+    { k: 'gramos_por_shot', etiqueta: 'Gramos de café por shot', ayuda: 'Para las calibraciones de la bitácora de turno (Cocina). Vacío = 14 g, como la app actual.', def: 14 }
   ]
 };
 export const valorEn = (o, k) => k.split('.').reduce((x, p) => (x && typeof x === 'object' ? x[p] : undefined), o);
@@ -340,3 +346,57 @@ export async function moverRecetas(ids, desde = 'BOL', hacia = 'PAS') {
   return { movidas: r.movidas, saltadas: r.saltadas };
 }
 
+
+
+// ═══════════════ P4b: merma valorizada (Cocina la anota sin precios) ═══════════════
+export const MOTIVOS = {
+  derrame_error: 'Derrame o error', quemado: 'Quemado o mal horneado', vencimiento: 'Vencimiento',
+  devolucion_cliente: 'Devolución de cliente', prueba_receta: 'Prueba de receta', otro: 'Otro'
+};
+const txtF = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const masDias = (t, n) => { const d = new Date(t + 'T12:00:00'); d.setDate(d.getDate() + n); return txtF(d); };
+const lunesDe = t => { const d = new Date(t + 'T12:00:00'); return masDias(t, -((d.getDay() + 6) % 7)); };
+const finDeMes = p => { const y = Number(p.slice(0, 4)), m = Number(p.slice(5, 7)); return masDias(`${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, '0')}-01`, -1); };
+export const PERIODOS_MERMA = { semana: 'Esta semana', semana_ant: 'Semana pasada', mes: 'Este mes', mes_ant: 'Mes pasado' };
+export function periodoMerma(clave, hoy = txtF(new Date())) {
+  if (clave === 'semana_ant') { const l = masDias(lunesDe(hoy), -7); return { desde: l, hasta: masDias(l, 6) }; }
+  if (clave === 'mes') { const p = hoy.slice(0, 8) + '01'; return { desde: p, hasta: finDeMes(p) }; }
+  if (clave === 'mes_ant') { const p = masDias(hoy.slice(0, 8) + '01', -1).slice(0, 8) + '01'; return { desde: p, hasta: finDeMes(p) }; }
+  const l = lunesDe(hoy); return { desde: l, hasta: masDias(l, 6) };
+}
+// Lo anotado en el período (sin anuladas) y su costo por unidad (script: Maestro_recetas y MP_maestro)
+export async function mermaDelPeriodo({ desde, hasta }) {
+  const db = await dbOk();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'dias'), FB.where('fecha', '>=', desde), FB.where('fecha', '<=', hasta)));
+  const merma = [], cafe = [];
+  sn.docs.forEach(d => {
+    const x = d.data();
+    Object.entries(x.merma || {}).forEach(([id, a]) => { if (a && !a.anulado) merma.push({ ...a, id, fecha: x.fecha, area: x.area }); });
+    Object.entries(x.turno || {}).forEach(([id, a]) => { if (a && !a.anulado) cafe.push({ ...a, id, fecha: x.fecha, area: x.area }); });
+  });
+  const claves = [...new Set(merma.map(a => (a.tipo === 'mp' ? 'mp' : 'receta') + ':' + a.item))];
+  let costos = {}, errorCostos = '';
+  if (claves.length) {
+    try { costos = (await script('costos_merma', { items: claves.map(k => { const [tipo, ...r] = k.split(':'); return { tipo, id: r.join(':') }; }) }, VERSION_MERMA)).costos || {}; }
+    catch (e) { errorCostos = e.message || String(e); }
+  }
+  return { desde, hasta, merma, cafe, costos, errorCostos };
+}
+// Por área: ítems sumados con su costo neto (null si no hay precio), total, y por motivo
+export function resumenMerma(datos) {
+  const areas = {};
+  (datos.merma || []).forEach(a => {
+    const ar = areas[a.area] || (areas[a.area] = { area: a.area, items: {}, total: 0, sinCosto: 0, motivos: {} });
+    const tipo = a.tipo === 'mp' ? 'mp' : 'receta', k = tipo + ':' + a.item + ':' + a.unidad;
+    const c = (datos.costos || {})[tipo + ':' + a.item], neto = c && !c.falta ? Number(a.cantidad) * c.neto : null;
+    const it = ar.items[k] || (ar.items[k] = { nombre: a.nombre, tipo, unidad: a.unidad, cantidad: 0, neto: 0, sinCosto: false, motivos: {} });
+    it.cantidad += Number(a.cantidad) || 0;
+    it.motivos[a.motivo] = (it.motivos[a.motivo] || 0) + 1;
+    if (neto === null) { it.sinCosto = true; ar.sinCosto++; } else { it.neto += neto; ar.total += neto; ar.motivos[a.motivo] = (ar.motivos[a.motivo] || 0) + neto; }
+  });
+  const lista = Object.values(areas).map(a => ({ ...a, items: Object.values(a.items).sort((x, y) => (y.neto || 0) - (x.neto || 0) || x.nombre.localeCompare(y.nombre, 'es')) }))
+    .sort((a, b) => Object.keys(AREAS).indexOf(a.area) - Object.keys(AREAS).indexOf(b.area));
+  const cafe = { calibracion: 0, merma: 0, prueba_receta: 0, total: 0 };
+  (datos.cafe || []).forEach(a => { const g = Number(a.gramos) || 0; if (a.tipo in cafe) cafe[a.tipo] += g; cafe.total += g; });
+  return { areas: lista, total: lista.reduce((s, a) => s + a.total, 0), cafe };
+}

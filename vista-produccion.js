@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.35.0
+//  Sistema Fën — pantalla Producción  v0.36.0
 //  Base nueva de Producción (fen-produccion): conexión, cuentas de las áreas (las tablets
 //  de la app Cocina), copia desde la planilla con control de totales y Configuración de
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.35.0';
+import * as P from './produccion.js?v=0.36.0';
 
-const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '' };
+const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false } };
 const $ = id => document.getElementById(id);
 const n = v => Number(v || 0).toLocaleString('es-CL');
 
@@ -121,6 +121,8 @@ async function pintarBase(el, H, cx) {
       <div id="prod-avance" class="ayuda" aria-live="polite">${H.esc(st.msg)}</div>
     </section>
 
+    <section class="tarjeta" aria-labelledby="t-prod-merma" id="prod-merma">${seccionMerma(H)}</section>
+
     ${seccionConfig(cfgs, H)}
 
     <section class="tarjeta" aria-labelledby="t-prod-mover" id="prod-mover">
@@ -132,6 +134,7 @@ async function pintarBase(el, H, cx) {
     ${t ? `<section class="tarjeta" aria-labelledby="t-prod-control"><h2 id="t-prod-control">Control de totales</h2>${tablaControl(p, t)}</section>` : ''}`;
 
   pintarCocina(el, H, true);
+  conectarMerma(el, H);
   const verMover = $('prod-mover-ver');
   if (verMover) verMover.addEventListener('click', async () => {
     verMover.disabled = true; verMover.textContent = 'Cargando…';
@@ -238,8 +241,40 @@ function seccionConfig(cfgs, H) {
   };
   return `<section class="tarjeta" aria-labelledby="t-prod-config">
     <h2 id="t-prod-config">Configuración de Producción ${H.info('Configuración de Producción', 'Lo que define cómo calcula Cocina en cada área: amasadora, tandas por día, merma, congeladores, días del pie de masa madre.\nLa cambias tú; las jefas la ven en Cocina sin poder cambiarla. Una configuración que guardas aquí no se pisa al volver a copiar desde la planilla.')}</h2>
-    ${bloque('PAN')}${bloque('BOL')}
+    ${bloque('PAN')}${bloque('BOL')}${bloque('CAF')}
   </section>`;
+}
+
+// ═══════════════ Merma (P4b): lo que anotan las áreas en Cocina, valorizado ═══════════════
+const UNID = { un: 'un', g: 'g', ml: 'ml' };
+const cantM = (n, u) => `${(Math.round((Number(n) || 0) * 10) / 10).toLocaleString('es-CL')} ${UNID[u] || ''}`;   // solo unidades conocidas (lo demás no se muestra)
+function seccionMerma(H) {
+  const m = st.merma, r = m.datos ? P.resumenMerma(m.datos) : null;
+  const cab = `<div class="titulo-fila"><h2 id="t-prod-merma">Merma ${H.info('Merma', 'Lo que las áreas anotan en Cocina como perdido (productos, preparaciones o materias primas), con su motivo.\nEl costo es neto (sin IVA), con los costos de la planilla: el de la receta en Maestro_recetas o el de la materia prima en MP_maestro. Las jefas no ven precios.\nSe copia sola a la hoja "Registro_merma" para Looker.\nLas anotaciones anuladas no cuentan.')}</h2>
+      <div class="fila-campos" style="align-items:flex-end;gap:8px;flex-wrap:nowrap"><select id="prod-merma-per" aria-label="Período">${Object.entries(P.PERIODOS_MERMA).map(([k, t]) => `<option value="${k}" ${m.periodo === k ? 'selected' : ''}>${t}</option>`).join('')}</select><button type="button" class="btn-sec" id="prod-merma-ver" ${m.cargando ? 'disabled' : ''}>${m.cargando ? 'Leyendo…' : m.datos ? 'Actualizar' : 'Ver'}</button></div></div>`;
+  if (!r) return cab + (m.msg ? `<p class="error">${H.esc(m.msg)}</p>` : '<p class="ayuda">Elige el período y presiona "Ver".</p>');
+  const d = m.datos, rango = `${d.desde.split('-').reverse().slice(0, 2).join('/')} al ${d.hasta.split('-').reverse().slice(0, 2).join('/')}`;
+  const area = a => `<div class="merma-area">
+      <div class="titulo-fila" style="margin-top:10px"><h3 style="margin:0">${H.esc(P.AREAS[a.area] || a.area)}</h3><b>${pesosN(a.total)}${a.sinCosto ? ' <span class="chip c-amarillo">' + a.sinCosto + ' sin costo</span>' : ''}</b></div>
+      <div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Ítem</th><th scope="col">Cantidad</th><th scope="col">Motivo</th><th scope="col" style="text-align:right">Costo neto</th></tr></thead><tbody>
+      ${a.items.map(it => `<tr><td>${H.esc(it.nombre)}${it.tipo === 'mp' ? ' <span class="ayuda">(MP)</span>' : ''}</td><td>${cantM(it.cantidad, it.unidad)}</td><td>${Object.entries(it.motivos).map(([k, n]) => H.esc(P.MOTIVOS[k] || k) + (n > 1 ? ` (${n})` : '')).join(', ')}</td><td style="text-align:right">${it.sinCosto && !it.neto ? '<span class="ayuda">sin costo</span>' : pesosN(it.neto) + (it.sinCosto ? ' <span class="ayuda">(parcial)</span>' : '')}</td></tr>`).join('')}
+      </tbody></table></div>
+      ${Object.keys(a.motivos).length > 1 ? `<p class="ayuda">Por motivo: ${Object.entries(a.motivos).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${H.esc(P.MOTIVOS[k] || k)} ${pesosN(v)}`).join(' · ')}</p>` : ''}
+    </div>`;
+  return cab + `
+    <p class="ayuda">${H.esc(rango)} · Total: <b>${pesosN(r.total)}</b> neto${r.areas.some(a => a.sinCosto) ? ' (hay ítems sin costo en la planilla: no suman)' : ''}</p>
+    ${d.errorCostos ? `<p class="error">No se pudieron leer los costos: ${H.esc(d.errorCostos)}</p>` : ''}
+    ${r.areas.length ? r.areas.map(area).join('') : '<p class="ayuda">Nada anotado como merma en este período.</p>'}
+    ${r.cafe.total ? `<h3 style="margin:16px 0 4px">Café de Cafetería (bitácora de turno)</h3><p class="ayuda">Calibración ${cantM(r.cafe.calibracion, 'g')} · café botado ${cantM(r.cafe.merma, 'g')} · pruebas ${cantM(r.cafe.prueba_receta, 'g')} · <b>total ${cantM(r.cafe.total, 'g')}</b></p>` : ''}`;
+}
+function conectarMerma(el, H) {
+  const b = $('prod-merma-ver'), sel = $('prod-merma-per'); if (!b) return;
+  sel.addEventListener('change', () => { st.merma.periodo = sel.value; });
+  b.addEventListener('click', async () => {
+    st.merma.periodo = sel.value; st.merma.cargando = true; st.merma.msg = ''; $('prod-merma').innerHTML = seccionMerma(H); conectarMerma(el, H);
+    try { st.merma.datos = await P.mermaDelPeriodo(P.periodoMerma(st.merma.periodo)); } catch (e) { st.merma.datos = null; st.merma.msg = error(e, H); }
+    st.merma.cargando = false; $('prod-merma').innerHTML = seccionMerma(H); conectarMerma(el, H);
+  });
 }
 
 // ═══════════════ Recetas por aprobar y materias primas pedidas (desde Cocina) ═══════════════
