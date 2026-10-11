@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.8.0
+//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.9.0
 //  La usa Sistema Fën (que lee las cuatro áreas; copia exacta en sistema-fen/cocina/).
 //
 //  Bodega común: un stock por materia prima.
@@ -23,9 +23,9 @@
 //  · Qué materias primas llevan stock (críticas) y su mínimo: stockmp/{mpId} = { critica, seguridad }
 //    (la pone Administración); si no hay, lo de la planilla (es_critica, stock_seguridad en kg, l o un).
 // ═══════════════════════════════════════════════
-import * as M from './modelo.js?v=0.8.0';
-import * as B from './bolleria.js?v=0.8.0';
-import * as R from './registros.js?v=0.8.0';
+import * as M from './modelo.js?v=0.9.0';
+import * as B from './bolleria.js?v=0.9.0';
+import * as R from './registros.js?v=0.9.0';
 
 const n0 = v => M.num(v);
 const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();

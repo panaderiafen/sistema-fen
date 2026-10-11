@@ -1,9 +1,18 @@
-# Sistema Fën · v0.39.0
+# Sistema Fën · v0.40.0
 
-**App:** v0.39.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** v1.5.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
+**App:** v0.40.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.6.0 (vienen con Cocina v0.9.0)** · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.40.0: qué significa la diferencia del conteo
+En **Bodega**, la columna "Último conteo" explica la diferencia:
+- **Faltaron:** "uso sin anotar: mesón, pruebas…". Es la harina de mesón y los usos chicos que no se anotan día a día, o algo hecho que no se marcó.
+- **Sobraron:** "llegada o hecho sin anotar".
+
+La carpeta `cocina/` se actualiza a la copia de Cocina v0.9.0 (solo cambia la versión).
+
+Archivos: `vista-produccion.js`, carpeta `cocina/`, `config.js`, `README.md` y los demás `.js` (solo versión). Abajo a la izquierda: **v0.40.0**.
 
 ## Novedades de la v0.39.0: Producción más ordenada
 La pestaña **Producción** queda en tres tarjetas:

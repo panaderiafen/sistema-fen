@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.39.0
+//  Sistema Fën — pantalla Producción  v0.40.0
 //  Base nueva de Producción (fen-produccion): conexión, cuentas de las áreas (las tablets
 //  de la app Cocina), copia desde la planilla con control de totales y Configuración de
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.39.0';
-import * as K from './cocina/consumo.js?v=0.8.0';
+import * as P from './produccion.js?v=0.40.0';
+import * as K from './cocina/consumo.js?v=0.9.0';
 
 const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '' } };
 const $ = id => document.getElementById(id);
@@ -271,11 +271,11 @@ function seccionConfig(cfgs, H) {
 const fechaC = f => f ? f.slice(8, 10) + '/' + f.slice(5, 7) : '';
 function seccionBodega(H) {
   const b = st.bodega, c = b.calc;
-  const cab = `<div class="titulo-fila"><span class="ayuda">Stock de las críticas, consumo por área y llegadas ${H.info('Bodega (materias primas críticas)', 'Bodega común: un stock por materia prima.\nStock = último conteo + llegadas − lo consumido. El consumo sale de lo que marcan como hecho en Cocina (Panadería y Pastelería: recetas terminadas; Bollería: masas elaboradas con su empaste y productos formados), bajado por las recetas hasta las materias primas, más la merma de materias primas.\nLas jefas anotan llegadas y conteos en Cocina → Bodega. El conteo corrige la cuenta: la diferencia es lo que se pierde sin anotar (o lo que no se marcó como hecho).\n"Alcanza" y "bajo el mínimo" usan lo planificado de los próximos 7 días (Panadería: el plan; Bollería: masas por elaborar y metas; Pastelería y Cafetería: su ritmo de los últimos 14 días). Cafetería descuenta lo vendido en la caja y el café de la bitácora (ver más abajo).\nLas críticas y su mínimo se marcan aquí; si no, se usa lo de la planilla (es_critica, stock_seguridad).')}</span>
+  const cab = `<div class="titulo-fila"><span class="ayuda">Stock de las críticas, consumo por área y llegadas ${H.info('Bodega (materias primas críticas)', 'Bodega común: un stock por materia prima.\nStock = último conteo + llegadas − lo consumido. El consumo sale de lo que marcan como hecho en Cocina (Panadería y Pastelería: recetas terminadas; Bollería: masas elaboradas con su empaste y productos formados), bajado por las recetas hasta las materias primas, más la merma de materias primas.\nLas jefas anotan llegadas y conteos en Cocina → Bodega. El conteo corrige la cuenta. Si faltó, es lo que se usa sin anotar (harina de mesón, pruebas, pérdidas chicas) o algo hecho que no se marcó; si sobró, una llegada o un hecho que no se anotó como corresponde.\n"Alcanza" y "bajo el mínimo" usan lo planificado de los próximos 7 días (Panadería: el plan; Bollería: masas por elaborar y metas; Pastelería y Cafetería: su ritmo de los últimos 14 días). Cafetería descuenta lo vendido en la caja y el café de la bitácora (ver más abajo).\nLas críticas y su mínimo se marcan aquí; si no, se usa lo de la planilla (es_critica, stock_seguridad).')}</span>
     <button type="button" class="btn-sec" id="prod-bod-calc" ${b.cargando ? 'disabled' : ''}>${b.cargando ? 'Calculando…' : c ? 'Calcular de nuevo' : 'Calcular'}</button></div>`;
   if (!c) return cab + (b.msg ? `<p class="error">${H.esc(b.msg)}</p>` : '<p class="ayuda">Presiona "Calcular" (lee los últimos 120 días de Cocina).</p>');
   const est = e => !e.st.contado ? '<span class="chip c-gris" title="No hay conteo en los últimos 120 días">Falta conteo</span>' : e.bajoAhora ? '<span class="chip c-rojo">Bajo el mínimo</span>' : e.bajoDesde ? `<span class="chip c-amarillo">Bajo el ${H.esc(fechaC(e.bajoDesde))}</span>` : '<span class="chip c-verde">Bien</span>';
-  const dif = e => { const t = e.st.teoricoAlContar; if (t === null || t === undefined) return ''; const d = e.st.conteo.cantidad - t; return Math.abs(d) < 1 ? ' · cuadró' : ` · ${d < 0 ? 'faltaron' : 'sobraron'} ${H.esc(K.texto(Math.abs(d), e.cfg.unidad))}`; };
+  const dif = e => { const t = e.st.teoricoAlContar; if (t === null || t === undefined) return ''; const d = e.st.conteo.cantidad - t; return Math.abs(d) < 1 ? ' · cuadró' : d < 0 ? ` · faltaron ${H.esc(K.texto(-d, e.cfg.unidad))} (uso sin anotar: mesón, pruebas…)` : ` · sobraron ${H.esc(K.texto(d, e.cfg.unidad))} (llegada o hecho sin anotar)`; };
   const filas = c.criticas.map(e => `<tr>
       <td>${H.esc(e.mp.nombre)}</td><td>${est(e)}</td>
       <td style="text-align:right">${e.st.contado ? H.esc(K.texto(e.st.stock, e.cfg.unidad)) : '—'}</td>
