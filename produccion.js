@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.33.0
+//  Sistema Fën — Producción: base nueva (fen-produccion)  v0.34.0
 //  · Conexión: la configuración web de fen-produccion se guarda en Firestore de Sistema Fën
 //    (config/sistemaFen → produccionFirebase). No es secreta: solo identifica el proyecto.
 //    Lo que protege los datos son las reglas de fen-produccion y tu cuenta (admins/{uid}).
@@ -16,16 +16,18 @@
 //    Al aprobar, el script escribe la receta en la planilla (costeo, catálogo, Looker siguen igual) y
 //    aquí se actualiza la base nueva: recetas/{id}, la versión anterior queda en versiones/{id}_v{n}.
 //    Las materias primas pedidas (solicitudes/) se crean con su precio o se habilitan para el área.
+//  · v0.34.0 (P4): mover recetas entre áreas (Bollería → Pastelería) con el mismo ID (script v2.5.0).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.33.0';
-import * as FB from './firebase-produccion.js?v=0.33.0';
-import * as Apps from './apps.js?v=0.33.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.33.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.33.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.34.0';
+import * as FB from './firebase-produccion.js?v=0.34.0';
+import * as Apps from './apps.js?v=0.34.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.34.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.34.0';
 
 export { AREAS };
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
+export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
 const K_CFG = 'fen_sistema_prod_cfg';
 const LOTE = 400;
 
@@ -187,11 +189,11 @@ export async function totales() {
 }
 
 // ═══════════════ P3: recetas propuestas y materias primas pedidas ═══════════════
-async function script(op, datos) {
+async function script(op, datos, minima = VERSION_RECETAS) {
   const url = (await Apps.leerConexiones()).produccion;
   if (!url) { const e = new Error('Falta la dirección del script de Producción (Configuración → Conexiones).'); e.code = 'sin_url'; throw e; }
-  const v = await Apps.probar('produccion', url, VERSION_RECETAS);
-  if (!v.ok) { const e = new Error(v.version ? `El script de Producción está en v${v.version}: para aprobar recetas necesita v${VERSION_RECETAS} (ver README).` : v.texto); e.code = 'actualizar'; throw e; }
+  const v = await Apps.probar('produccion', url, minima);
+  if (!v.ok) { const e = new Error(v.version ? `El script de Producción está en v${v.version}: para esto necesita v${minima} (ver README).` : v.texto); e.code = 'actualizar'; throw e; }
   const cuerpo = JSON.stringify({ action: 'sistema_fen_produccion', accion: 'sistema_fen_produccion', op, ...datos, idToken: await authSF.currentUser.getIdToken() });
   const pedir = (u, o) => Promise.race([fetch(u, o).then(x => x.json()), new Promise((_, no) => setTimeout(() => no(new Error('El script no respondió en 2 minutos. Prueba de nuevo.')), 120000))]);
   let r = await pedir(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: cuerpo });
@@ -310,5 +312,26 @@ export async function resolverSolicitud(sol, datos = {}) {
 export async function rechazarSolicitud(sol, motivo) {
   const db = await dbOk();
   await FB.setDoc(FB.doc(db, 'solicitudes', sol.docId), { estado: 'rechazada', motivo: String(motivo || '').slice(0, 300), resueltaPor: authSF.currentUser.email, resueltaEn: new Date().toISOString() }, { merge: true });
+}
+
+// ═══════════════ P4: mover recetas entre áreas ═══════════════
+// Las que parecen de Pastelería vienen marcadas: sub recetas (preparaciones) clasificadas como relleno o con nombre
+// de crema, ganache, glaseado… Un producto ("Croissant relleno") no se marca: es de Bollería. Tú eliges.
+const PARECE_PAS = /relleno|crema|ganache|glase|glaseado|alm[ií]bar|pastelera|frangipane|caramelo|mermelada|dulce de leche|manjar|cobertura|merengue|chantilly|curd|coulis|ba[ñn]o/i;
+export async function recetasDeArea(area) {
+  const db = await dbOk();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'recetas'), FB.where('area', '==', area)));
+  return sn.docs.map(d => ({ id: d.id, ...d.data() })).map(r => ({ ...r, sugerida: r.tipo === 'sub_receta' && r.clasificacion !== 'masa_base' && (r.clasificacion === 'relleno' || PARECE_PAS.test(r.nombre || '')) }))
+    .sort((a, b) => (b.sugerida - a.sugerida) || String(a.nombre).localeCompare(String(b.nombre), 'es'));
+}
+export async function moverRecetas(ids, desde = 'BOL', hacia = 'PAS') {
+  const db = await dbOk();
+  const r = await script('mover_area', { desde, hacia, ids }, VERSION_MOVER);
+  const a = armar(r.hojas, null);
+  const b = FB.writeBatch(db);
+  Object.entries(a.docs.recetas).forEach(([id, d]) => b.set(FB.doc(db, 'recetas', id), { ...d, movidaDesde: desde, copiadoEn: FB.serverTimestamp() }));
+  Object.entries(a.docs.mps).forEach(([id, m]) => b.set(FB.doc(db, 'mps', id), { ...m, copiadoEn: FB.serverTimestamp() }));
+  await b.commit();
+  return { movidas: r.movidas, saltadas: r.saltadas };
 }
 

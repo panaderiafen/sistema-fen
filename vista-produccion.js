@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.33.0
+//  Sistema Fën — pantalla Producción  v0.34.0
 //  Base nueva de Producción (fen-produccion): conexión, cuentas de las áreas (las tablets
 //  de la app Cocina), copia desde la planilla con control de totales y Configuración de
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.33.0';
+import * as P from './produccion.js?v=0.34.0';
 
-const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '' };
+const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '' };
 const $ = id => document.getElementById(id);
 const n = v => Number(v || 0).toLocaleString('es-CL');
 
@@ -116,9 +116,35 @@ async function pintarBase(el, H, cx) {
 
     ${seccionConfig(cfgs, H)}
 
+    <section class="tarjeta" aria-labelledby="t-prod-mover" id="prod-mover">
+      <div class="titulo-fila"><h2 id="t-prod-mover">Pasar recetas de Bollería a Pastelería ${H.info('Pasar recetas a Pastelería', 'Los rellenos, cremas y otras preparaciones del día pasan a Pastelería. Marca cuáles: se mueven en la planilla con el mismo ID (la fila se copia a PAS_recetas y recién después sale de BOL_recetas; queda registro en "Movimientos_recetas") y en la base nueva.\nLos productos de Bollería que las usan siguen funcionando: la sub receta queda habilitada para las dos áreas.')}</h2></div>
+      ${st.mover ? listaMover(H) : '<div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="prod-mover-ver">Ver las recetas de Bollería</button></div>'}
+      ${st.moverMsg ? `<p class="ayuda" role="status">${H.esc(st.moverMsg)}</p>` : ''}
+    </section>
+
     ${t ? `<section class="tarjeta" aria-labelledby="t-prod-control"><h2 id="t-prod-control">Control de totales</h2>${tablaControl(p, t)}</section>` : ''}`;
 
   pintarCocina(el, H, true);
+  const verMover = $('prod-mover-ver');
+  if (verMover) verMover.addEventListener('click', async () => {
+    verMover.disabled = true; verMover.textContent = 'Cargando…';
+    try { st.mover = await P.recetasDeArea('BOL'); st.moverMsg = ''; } catch (e) { st.moverMsg = error(e, H); }
+    pintarBase(el, H, cx);
+  });
+  const btnMover = $('prod-mover-ok');
+  if (btnMover) btnMover.addEventListener('click', async () => {
+    const ids = [...el.querySelectorAll('[data-mover]:checked')].map(x => x.dataset.mover);
+    if (!ids.length) { st.moverMsg = 'Marca al menos una receta.'; pintarBase(el, H, cx); return; }
+    if (!confirm(`¿Pasar ${ids.length} ${ids.length === 1 ? 'receta' : 'recetas'} a Pastelería? Se mueven en la planilla y en la base nueva, con el mismo ID.`)) return;
+    btnMover.disabled = true; btnMover.textContent = 'Moviendo…';
+    try {
+      const r = await P.moverRecetas(ids);
+      H.registrar('Pasó recetas de Bollería a Pastelería', `${r.movidas.length} recetas`);
+      st.moverMsg = `Listo: ${r.movidas.length} ${r.movidas.length === 1 ? 'receta pasó' : 'recetas pasaron'} a Pastelería.${r.saltadas.length ? ' No se movieron: ' + r.saltadas.map(x => `${x.id} (${x.motivo})`).join(', ') + '.' : ''}`;
+      st.mover = await P.recetasDeArea('BOL');
+    } catch (e) { st.moverMsg = error(e, H); }
+    pintarBase(el, H, cx);
+  });
   $('prod-cuenta').addEventListener('submit', async ev => {
     ev.preventDefault(); $('prod-cta-err').textContent = '';
     try { await P.asignarCuenta($('prod-cta-uid').value, $('prod-cta-area').value); H.registrar('Asignó una cuenta de área (Producción)', `${P.AREAS[$('prod-cta-area').value]} · ${$('prod-cta-uid').value.trim()}`); pintarBase(el, H, cx); }
@@ -340,5 +366,15 @@ function filaSolicitud(s, H) {
     <div class="error" role="alert" style="flex-basis:100%"></div>
     <div class="botones" style="flex-basis:100%"><button type="button" class="btn-sec" data-sol-accion="rechazar" data-sol-id="${H.esc(s.docId)}">No crear</button><button type="button" class="btn" data-sol-accion="crear" data-sol-id="${H.esc(s.docId)}">Crear y habilitar para ${P.AREAS[s.area] || s.area}</button></div>
   </div>`;
+}
+
+function listaMover(H) {
+  const l = st.mover || [];
+  if (!l.length) return '<p class="ayuda">Bollería no tiene recetas en la base nueva.</p>';
+  const sug = l.filter(r => r.sugerida).length;
+  return `<p class="ayuda">${sug ? `Marcadas las ${sug} que parecen de Pastelería (rellenos, cremas, glaseados…). Revisa y cambia lo que haga falta.` : 'Marca las que pasan a Pastelería.'}</p>
+    <div class="lista-simple">${l.map(r => `<label class="fila-caja" style="cursor:pointer"><input type="checkbox" data-mover="${H.esc(r.id)}" ${r.sugerida ? 'checked' : ''} style="width:22px;height:22px">
+      <div class="txt"><b>${H.esc(r.nombre)}</b><span>${r.tipo === 'sub_receta' ? 'Sub receta' : 'Receta'}${r.clasificacion ? ' · ' + H.esc(r.clasificacion) : ''} · ${H.esc(r.estado || '')}</span></div></label>`).join('')}</div>
+    <div class="botones" style="justify-content:flex-start;margin-top:10px"><button type="button" class="btn" id="prod-mover-ok">Pasar las marcadas a Pastelería</button></div>`;
 }
 

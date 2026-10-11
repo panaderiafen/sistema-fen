@@ -1,9 +1,17 @@
-# Sistema Fën · v0.33.0
+# Sistema Fën · v0.34.0
 
-**App:** v0.33.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.2.0 (vienen con Cocina v0.4.0)** · **Script de Producción:** **v2.4.0** · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
+**App:** v0.34.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.3.0 (vienen con Cocina v0.5.0)** · **Script de Producción:** **v2.5.0** · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.34.0: pasar recetas de Bollería a Pastelería (P4)
+En **Producción**, sección **Pasar recetas de Bollería a Pastelería** → "Ver las recetas de Bollería".
+- Vienen **marcadas** las que parecen de Pastelería: sub recetas clasificadas como relleno o con nombre de crema, ganache, glaseado, almíbar, merengue… Un producto como "Croissant relleno" no se marca, porque es de Bollería.
+- Revisas, cambias lo que haga falta y "Pasar las marcadas a Pastelería". Se mueven en la planilla (script v2.5.0) y en la base nueva, con el mismo ID.
+- Los productos de Bollería que las usan siguen funcionando.
+
+Archivos: cambian `produccion.js`, `vista-produccion.js`, `config.js`, `README.md` y los demás `.js` (solo versión). Abajo a la izquierda: **v0.34.0**.
 
 ## Novedades de la v0.33.0: recetas de Cocina por aprobar (P3)
 En **Producción**, arriba, una sección nueva: **Desde Cocina**. **Hoy** avisa cuando hay recetas por aprobar o materias primas pedidas.
