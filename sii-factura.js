@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Llenar la factura en el portal gratuito del SII  v0.30.3
+//  Sistema Fën — Llenar la factura en el portal gratuito del SII  v0.31.0
 //  1) En Por facturar, "Preparar para el SII" copia el RUT del cliente y el detalle
 //     (producto, cantidad y precio neto) como un texto que empieza con "FENSII1:".
 //  2) En el formulario "Factura electrónica" del SII, el botón "Llenar factura Fën"
@@ -11,7 +11,7 @@
 //  Tercer toque, en la página "Documento enviado exitosamente": lee el folio y abre Sistema Fën
 //  para asignarlo a esas órdenes (pide confirmar). Las órdenes que se están facturando quedan
 //  anotadas en ese navegador (almacenamiento del sitio del SII), nada más.
-//  v0.30.3: una sola referencia: N° de la orden (sin razón) o "6 O.V. desde:" + fecha + N° en la razón.
+//  v0.31.0: una sola referencia: N° de la orden (sin razón) o "6 O.V. desde:" + fecha + N° en la razón.
 //  v0.22.0: si el SII se abrió desde Sistema Fën ("Abrir el formulario del SII"), el folio vuelve a esa
 //  misma pestaña (mensaje entre pestañas); si no, se abre Sistema Fën en una pestaña nueva, como antes.
 //  El botón no manda nada a ninguna parte: solo escribe en el formulario abierto.
@@ -129,7 +129,7 @@ async function llenarFacturaFen(SF) {
   for (let i = L.length; campo('EFXP_NMB_' + k2(i)); i++) { if (String(campo('EFXP_NMB_' + k2(i)).value).trim()) { poner('EFXP_NMB_' + k2(i), ''); poner('EFXP_QTY_' + k2(i), ''); poner('EFXP_PRC_' + k2(i), ''); } }
   const neto = L.reduce((s, x) => s + Math.round(x.q * x.p), 0);
   // Referencias: UNA "Nota de pedido" (802).
-  // v0.30.3 · Una orden: folio = N° de la orden, fecha = la de la orden, razón vacía.
+  // v0.31.0 · Una orden: folio = N° de la orden, fecha = la de la orden, razón vacía.
   // Varias: folio = "6 O.V. desde:" y al lado la fecha de la primera; la razón lista los N° si caben en 90
   // letras; si no, del N° al N° y hasta qué día (el detalle va en el PDF resumen).
   const os = (d.ordenes || []).map(o => (typeof o === 'object' ? o : { n: o, f: '' }));

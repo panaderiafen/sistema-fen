@@ -1,9 +1,25 @@
-# Sistema Fën · v0.30.3
+# Sistema Fën · v0.31.0
 
-**App:** v0.30.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** **v1.6.0** (si aún no las instalas) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.8.2 (recomendado) · 10 de octubre de 2026
+**App:** v0.31.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** **v1.0.0 (nuevas, vienen con Cocina)** · **Script de Producción:** **v2.3.0** · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 10 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.31.0: Producción, base nueva (etapa P1)
+Nueva sección **Producción** en el menú (la app actual sigue en "Abren la app actual"):
+- **Conectar** la base nueva **fen-produccion**: pegas su firebaseConfig y entras con tu misma contraseña. Después entra sola al abrir Sistema Fën.
+- **Cuentas de las áreas:** el UID de la cuenta de cada área (Panadería, Bollería, Pastelería, Cafetería). Con eso, cada tablet de la app **Cocina** ve y cambia solo lo de su área.
+- **Copia desde la planilla:**
+  - Copia recetas, materias primas **sin costos**, configuración de masa madre y poolish, planes semanales y quién entra a cada área con su PIN.
+  - Se puede repetir las veces que haga falta.
+  - Un plan que ya se cambió en Cocina **no se pisa**.
+  - Nada se borra.
+- **Control de totales:** recetas por área, materias primas, personas y unidades planificadas. Debe decir **Todo cuadra**.
+- **Hoy:** aparecen las **recetas por aprobar** (además de las materias primas y las habilitaciones), con el script de Producción v2.3.0.
+
+Archivos: **nuevos** `produccion.js`, `produccion-modelo.js`, `vista-produccion.js`, `firebase-produccion.js`. Cambian `app.js`, `index.html`, `config.js`, `README.md` y los demás `.js` (solo versión). Sube todos a GitHub (`sistema-fen`). Abajo a la izquierda debe decir **v0.31.0**. Incluye la v0.30.3.
+
+Instalación completa de la etapa: ver el README de **fen-cocina v0.1.0** (Firebase, reglas, cuentas) y el del **script de Producción v2.3.0**.
 
 ## Novedades de la v0.30.3: la Nota de pedido de la factura, más ordenada
 El botón **Llenar factura Fën** ahora pone **una sola** referencia "Nota de pedido" (802):

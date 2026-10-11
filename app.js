@@ -9,20 +9,22 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.30.3';
-import * as Caja from './caja.js?v=0.30.3';
-import * as Stock from './stock.js?v=0.30.3';
-import * as Ajustes from './ajustes.js?v=0.30.3';
-import * as Apps from './apps.js?v=0.30.3';
-import * as Agenda from './agenda.js?v=0.30.3';
-import * as Gastos from './gastos.js?v=0.30.3';
-import * as Sii from './sii.js?v=0.30.3';
-import * as Previred from './previred.js?v=0.30.3';
-import * as B2b from './b2b.js?v=0.30.3';
-import * as Cartola from './cartola.js?v=0.30.3';
-import * as SiiFactura from './sii-factura.js?v=0.30.3';
-import * as PdfOrden from './pdf-orden.js?v=0.30.3';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.30.3';
+} from './firebase.js?v=0.31.0';
+import * as Caja from './caja.js?v=0.31.0';
+import * as Stock from './stock.js?v=0.31.0';
+import * as Ajustes from './ajustes.js?v=0.31.0';
+import * as Apps from './apps.js?v=0.31.0';
+import * as Agenda from './agenda.js?v=0.31.0';
+import * as Gastos from './gastos.js?v=0.31.0';
+import * as Sii from './sii.js?v=0.31.0';
+import * as Previred from './previred.js?v=0.31.0';
+import * as B2b from './b2b.js?v=0.31.0';
+import * as Cartola from './cartola.js?v=0.31.0';
+import * as SiiFactura from './sii-factura.js?v=0.31.0';
+import * as PdfOrden from './pdf-orden.js?v=0.31.0';
+import * as Prod from './produccion.js?v=0.31.0';
+import * as VistaProd from './vista-produccion.js?v=0.31.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.31.0';
 
 const F = window.FEN_SIS;
 const $ = id => document.getElementById(id);
@@ -228,6 +230,8 @@ $('form-entrar').addEventListener('submit', async ev => {
     guardarEquipoId(ref.id, estado.duracion === 'sesion');
     // Base nueva de B2B (si ya está conectada): misma cuenta y contraseña, se entra de una vez
     B2b.leerConfig().then(cfg => cfg && B2b.entrar(clave, estado.duracion === 'sesion')).catch(() => {});
+    // v0.31.0: lo mismo con la base nueva de Producción
+    Prod.leerConfig().then(cfg => cfg && Prod.entrar(clave, estado.duracion === 'sesion')).catch(() => {});
     $('clave').value = '';
     estado.equipo = { nombre };
     registrar('Autorizó un equipo', `${nombre} · ${nombreDuracion(estado.duracion)}`);
@@ -241,7 +245,7 @@ $('form-entrar').addEventListener('submit', async ev => {
   }
 });
 
-$('btn-otra-cuenta').addEventListener('click', async () => { olvidarEquipo(); await B2b.salir(); await signOut(auth); });
+$('btn-otra-cuenta').addEventListener('click', async () => { olvidarEquipo(); await B2b.salir(); await Prod.salir(); await signOut(auth); });
 
 // ── Abrir: revisa que este equipo siga autorizado ───
 function revisarEquipo(snap, user) {
@@ -270,7 +274,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 async function bloquear(motivo) {
   cerrarEscucha(); olvidarEquipo(); ponerMotivo(motivo);
   estado.user = null; estado.equipo = null; estado.equipoId = null;
-  await B2b.salir();
+  await B2b.salir(); await Prod.salir();
   try { await signOut(auth); } catch (e) { mostrarEntrada(motivo); }
 }
 
@@ -304,7 +308,7 @@ onAuthStateChanged(auth, async user => {
 });
 
 // ── Navegación ─────────────────────────────────────
-const VISTAS = ['hoy', 'agenda', 'gastos', 'conciliacion', 'b2b', 'caja', 'ajustes', 'seguridad', 'menu'];
+const VISTAS = ['hoy', 'agenda', 'gastos', 'conciliacion', 'b2b', 'produccion', 'caja', 'ajustes', 'seguridad', 'menu'];
 // #caja = cierres, #caja/anulaciones = anulaciones
 const vistaDesdeHash = () => { const v = (location.hash || '').replace('#', '').split('/')[0]; return VISTAS.includes(v) ? v : 'hoy'; };
 const subVista = () => (location.hash || '').split('/')[1] || '';
@@ -316,12 +320,13 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.30.3" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.31.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
     <a class="nav-item" href="#conciliacion" data-vista="conciliacion">${icono('banco')}Conciliación</a>
     <a class="nav-item" href="#b2b" data-vista="b2b">${icono('camion')}Ventas B2B</a>
+    <a class="nav-item" href="#produccion" data-vista="produccion">${icono('libro')}Producción</a>
     <a class="nav-item" href="#caja" data-vista="caja">${icono('cajon')}Ventas de caja</a>
     <a class="nav-item" href="#ajustes" data-vista="ajustes">${icono('ajustes')}Configuración</a>
     <a class="nav-item" href="#seguridad" data-vista="seguridad">${icono('seguridad')}Seguridad</a>
@@ -352,6 +357,7 @@ function irA(v) {
   if (v === 'gastos') pintarGastos(subVista());
   if (v === 'conciliacion') pintarConciliacion(subVista());
   if (v === 'b2b') pintarB2b(subVista());
+  if (v === 'produccion') VistaProd.pintar($('v-produccion'), subVista(), { esc, info, icono, registrar, mensajeError, hace });
   if (v !== 'b2b' && v !== 'conciliacion' && b2b.vivo) { b2b.vivo(); b2b.vivo = null; b2b.datos = null; }
   if (v === 'menu') pintarMenuCelular();
   window.scrollTo(0, 0);
@@ -2401,6 +2407,10 @@ function pendientesApps(estados) {
     detalle: `${veces(mp.cantidad, 'solicitud', 'solicitudes')} · ${(mp.detalle || []).slice(0, 3).map(x => `${x.nombre} (${x.area})`).join(', ')}${mp.cantidad > 3 ? '…' : ''}` });
   if (hb && hb.cantidad > 0) L.push({ orden: 3.3, color: 'lila', icono: 'libro', chip: 'Resolver', url: url('produccion'), origen: 'Producción', titulo: 'Habilitaciones por resolver',
     detalle: `${veces(hb.cantidad, 'solicitud', 'solicitudes')} · ${(hb.detalle || []).slice(0, 3).map(x => `${x.nombre} → ${x.area}`).join(', ')}${hb.cantidad > 3 ? '…' : ''}` });
+  // v0.31.0 · recetas enviadas a revisión (script de Producción v2.2.0)
+  const rv = de('produccion', 'recetas_revision');
+  if (rv && rv.cantidad > 0) L.push({ orden: 3.1, color: 'lila', icono: 'libro', chip: 'Aprobar', url: url('produccion'), origen: 'Producción', titulo: `${veces(rv.cantidad, 'receta', 'recetas')} por aprobar`,
+    detalle: (rv.detalle || []).slice(0, 3).map(x => `${x.nombre} (${x.area})`).join(', ') + (rv.cantidad > 3 ? '…' : '') });
   return L;
 }
 
