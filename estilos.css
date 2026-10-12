@@ -703,3 +703,9 @@ a.ag-item { text-decoration: none; }
 .pl-res { margin-left: auto; font-size: 13px; color: var(--suave); text-align: right; }
 .pliegue-cuerpo { padding: 2px 0 18px 26px; }
 @media (max-width: 640px) { .pliegue > summary { flex-wrap: wrap; } .pl-res { margin-left: 26px; text-align: left; width: 100%; } .pliegue-cuerpo { padding-left: 0; } }
+
+/* v0.49.0 · Gastos con la base nueva: botones de Vencimientos (Subir boleta, Vencimiento suelto) y la bandeja */
+.botones-venc { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 16px; }
+.botones-venc .btn-info { margin-right: 8px; }
+.acciones-bandeja { justify-content: flex-start; }
+.fila-caja .txt > .chip-chico { align-self: flex-start; width: auto; }

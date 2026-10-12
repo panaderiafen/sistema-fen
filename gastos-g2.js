@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Gastos en la base nueva (etapa G2): reglas puras  v0.47.0
+//  Sistema Fën — Gastos en la base nueva (etapa G2): reglas puras  v0.47.0 · v0.49.0
 //  Lo mismo que hace hoy el script de Gastos (Code.gs v2.5.0 y SistemaFen.gs v1.10.0), escrito para la base nueva:
 //  · Registrar (sfItemsLimpios + registrarGasto): una línea por ítem y área, neto/IVA con la harina (19% + 12%);
 //    a crédito, UN vencimiento por compra (como hoy).
@@ -11,9 +11,13 @@
 //  v0.47.0 (G2, tercera parte): obligaciones (sfOblGuardar + savePlantilla, archivar, activar, getPlantillas con la
 //  próxima fecha, getHistorialPagos), ítems (sfItemGuardar + saveItem, moverItem, sfItemArchivar, sfItemsTodos) y las
 //  cuentas del Análisis (las mismas que hacía app.js con la lista del script).
+//  v0.49.0 (G3, segunda parte): los vencimientos con el estado nuevo (gastos-g3.js) se ven en las pantallas de siempre
+//  como PENDIENTE / VENCIDA / PAGADO / ANULADO (estadoBase lleva el nuevo); lo copiado de la planilla se ve igual que antes.
+//  generarVencimientos acepta la antelación por obligación (tipo documento: antes, para esperar la boleta).
 //  Sin red: se prueba sola. Fechas y horas en hora de Chile (America/Santiago).
 // ═══════════════════════════════════════════════
-import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.47.0';
+import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.49.0';
+import * as G3 from './gastos-g3.js?v=0.49.0';
 
 export const AREAS = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS'];
 export const ANTELACION_DIAS = 3;          // un vencimiento se crea 3 días antes (como el script)
@@ -210,8 +214,13 @@ export const idVencimiento = (plantillaId, fecha) => `${idLimpio(plantillaId) ||
 const vivo = d => d && !d.quitadoEnPlanilla;
 // plantillas / vencs: { id, d } (documentos de la base). hoy: aaaa-mm-dd.
 // Devuelve { nuevos: [{ id, d }], archivar: [id de la obligación] }. Idempotente: con lo ya generado no crea nada.
-export function generarVencimientos(plantillas, vencs, hoy) {
-  const limite = sumarDias(hoy, ANTELACION_DIAS), nuevos = [], archivar = [];
+// opciones.antelacion(p): días antes para esa obligación (sin opciones: 3, como el script)
+export const docVencDeObligacion = (pid, p, fecha, estado) => { const id = idVencimiento(pid, fecha);
+  return { id, d: docVencimiento({ id, plantillaID: pid, nombre: p.nombre || '', item: p.item || '', periodoKey: fecha.slice(0, 7), fechaVencimiento: fecha, montoEstimado: p.montoEstimado || '',
+    obs: p.obs || '', area: p.area || '', categoria: p.categoria || '', tipo: p.tipo || '', subTipo: p.subTipo || '', multiArea: typeof p.multiArea === 'string' ? p.multiArea : (p.multiArea ? JSON.stringify(p.multiArea) : ''), estado,
+    pArea1: p.pArea1 || '', pPct1: p.pPct1 || '', pArea2: p.pArea2 || '', pPct2: p.pPct2 || '', pArea3: p.pArea3 || '', pPct3: p.pPct3 || '', tipoMonto: p.tipoMonto || '' }) }; };
+export function generarVencimientos(plantillas, vencs, hoy, opciones) {
+  const limite0 = sumarDias(hoy, ANTELACION_DIAS), nuevos = [], archivar = [];
   const porPlantilla = {};
   (vencs || []).filter(x => vivo(x.d)).forEach(x => { const p = s(x.d.plantillaID); if (p) (porPlantilla[p] = porPlantilla[p] || []).push(x.d); });
   const ids = new Set((vencs || []).map(x => x.id));
@@ -219,12 +228,11 @@ export function generarVencimientos(plantillas, vencs, hoy) {
     const pid = s(p.id) || docId;
     if (s(p.estado) !== 'ACTIVA') return;
     const frec = s(p.frecuencia), existentes = porPlantilla[pid] || [];
+    const limite = opciones && opciones.antelacion ? sumarDias(hoy, Math.max(ANTELACION_DIAS, opciones.antelacion(p) || 0)) : limite0;
     const poner = (fecha, estado) => {
       const id = idVencimiento(pid, fecha); if (ids.has(id)) return; ids.add(id);
       // Cada valor tal cual viene de la obligación (como row[col]||'' del script: un número sigue siendo número)
-      nuevos.push({ id, d: docVencimiento({ id, plantillaID: pid, nombre: p.nombre || '', item: p.item || '', periodoKey: fecha.slice(0, 7), fechaVencimiento: fecha, montoEstimado: p.montoEstimado || '',
-        obs: p.obs || '', area: p.area || '', categoria: p.categoria || '', tipo: p.tipo || '', subTipo: p.subTipo || '', multiArea: typeof p.multiArea === 'string' ? p.multiArea : (p.multiArea ? JSON.stringify(p.multiArea) : ''), estado,
-        pArea1: p.pArea1 || '', pPct1: p.pPct1 || '', pArea2: p.pArea2 || '', pPct2: p.pPct2 || '', pArea3: p.pArea3 || '', pPct3: p.pPct3 || '', tipoMonto: p.tipoMonto || '' }) });
+      nuevos.push({ ...docVencDeObligacion(pid, p, fecha, estado), plantillaDocId: docId });
     };
     if (frec === 'variable') {
       if (existentes.length) return;                        // ya se generó su único vencimiento
@@ -253,7 +261,19 @@ export function cambiosDeEstado(vencs, hoy) {
 
 // ── Lo que ven las pantallas (la misma forma que entrega el script) ──
 const json = v => { if (Array.isArray(v) || (v && typeof v === 'object')) return v; try { return v ? JSON.parse(v) : null; } catch (e) { return null; } };
-export function vistaVencimiento(id, d) {
+// v0.49.0: "estado" para las pantallas de siempre (lo nuevo se traduce; lo de la planilla queda tal cual) y, si el
+// vencimiento ya usa lo nuevo, sus datos: estadoBase, tipo de la obligación, documento, abonos, fecha estimada.
+const G3_CAMPOS = ['tipoObligacion', 'montoDocumento', 'fechaDocumento', 'documento', 'abonos', 'fechaEstimada', 'suelto', 'cerrado', 'diasAviso'];
+export function vistaVencimiento(id, d, hoy) {
+  const nuevo = G3.ESTADOS.includes(s(d.estado)) || G3_CAMPOS.some(k => d[k] !== undefined && d[k] !== '');
+  const v = vistaVencimiento0(id, d);
+  if (!nuevo) return v;
+  return { ...v, estado: G3.estadoVista(d, hoy || ahoraChile().dia), estadoBase: G3.estadoBase(d), fecha: G3.fechaReal(d), fechaEstimada: dia(d.fechaEstimada) || '',
+    tipoObligacion: s(d.tipoObligacion), montoDocumento: d.montoDocumento === undefined ? '' : s(d.montoDocumento), fechaDocumento: dia(d.fechaDocumento) || '',
+    documento: d.documento && typeof d.documento === 'object' ? d.documento : null, abonos: Array.isArray(d.abonos) ? d.abonos : [], suelto: d.suelto === true,
+    cerrado: d.cerrado || null, diasAviso: d.diasAviso === undefined ? '' : d.diasAviso };
+}
+function vistaVencimiento0(id, d) {
   return { id, plantillaId: s(d.plantillaID), nombre: s(d.nombre), item: s(d.item), periodoKey: s(d.periodoKey), fecha: dia(d.fechaVencimiento) || s(d.fechaVencimiento),
     montoEstimado: s(d.montoEstimado), obs: s(d.obs), area: s(d.area), categoria: s(d.categoria), tipo: s(d.tipo), subTipo: s(d.subTipo), multiArea: json(d.multiArea),
     estado: s(d.estado), fechaPago: dia(d.fechaPago), montoPago: s(d.montoPago), obsPago: s(d.obsPago), urlComprobante: s(d.urlComprobante),
@@ -262,17 +282,16 @@ export function vistaVencimiento(id, d) {
 // Vencimientos para "datos" (getVencimientos): sin anulados ni pagados de hace más de 7 días
 export function vencimientosVisibles(vencs, hoy) {
   const corte = sumarDias(hoy, -DIAS_MOSTRAR_PAGADOS);
-  return (vencs || []).filter(x => vivo(x.d)).map(x => vistaVencimiento(x.id, x.d))
+  return (vencs || []).filter(x => vivo(x.d)).map(x => vistaVencimiento(x.id, x.d, hoy))
     .filter(v => v.id && v.estado !== 'ANULADO' && (v.estado !== 'PAGADO' || v.fechaPago >= corte));
 }
 // Pendientes para Hoy (sfPendientes): atrasados y próximos 7 días, de los vencimientos PENDIENTE o VENCIDA
 export function pendientesHoy(vencs, hoy) {
   const en7 = sumarDias(hoy, 7), atrasados = [], semana = [];
   (vencs || []).filter(x => vivo(x.d)).forEach(({ id, d }) => {
-    const est = s(d.estado);
-    if (est !== 'PENDIENTE' && est !== 'VENCIDA') return;
-    const f = dia(d.fechaVencimiento); if (!f) return;
-    const v = { id, nombre: s(d.nombre), fecha: f, monto: n(d.montoEstimado) };
+    if (!G3.abierto(d)) return;              // v0.49.0: PENDIENTE, VENCIDA o los estados nuevos abiertos
+    const f = dia(G3.fechaReal(d)); if (!f) return;
+    const v = { id, nombre: s(d.nombre), fecha: f, monto: n(d.montoDocumento) || n(d.montoEstimado) };
     if (f < hoy) atrasados.push(v); else if (f <= en7) semana.push(v);
   });
   atrasados.sort((a, b) => a.fecha.localeCompare(b.fecha)); semana.sort((a, b) => a.fecha.localeCompare(b.fecha));
@@ -311,7 +330,7 @@ export function mapaCreditos(vencs) {
   const porClave = {}, porId = {};
   (vencs || []).filter(x => vivo(x.d)).forEach(({ id, d }) => {
     if (s(d.plantillaID)) return;
-    const v = { id, fecha: dia(d.fechaVencimiento), estado: s(d.estado) };
+    const v = { id, fecha: dia(d.fechaVencimiento), estado: G3.ESTADOS.includes(s(d.estado)) ? G3.estadoVista(d, ahoraChile().dia) : s(d.estado) };
     porId[id] = v;
     const fc = dia(d.fechaCompra); if (fc) porClave[s(d.item).trim().toUpperCase() + '|' + fc] = v;
   });
@@ -402,8 +421,7 @@ export function vistaPlantilla(docId, d, vencs, hoy) {
   let abierta = null, ultima = null;
   (vencs || []).filter(x => vivo(x.d) && s(x.d.plantillaID) === id).forEach(({ d: v }) => {
     const f = dia(v.fechaVencimiento); if (!f) return;
-    const e = s(v.estado);
-    if (e !== 'PAGADO' && e !== 'ANULADO' && (!abierta || f < abierta)) abierta = f;
+    if (G3.abierto(v) && (!abierta || f < abierta)) abierta = f;
     if (!ultima || f > ultima) ultima = f;
   });
   let proxima = abierta;
@@ -414,7 +432,9 @@ export function vistaPlantilla(docId, d, vencs, hoy) {
   return { id, nombre: s(d.nombre), item: s(d.item), frecuencia, dia: s(d.dia), fechaEsp: dia(d.fechaEsp), montoEstimado: s(d.montoEstimado), obs: s(d.obs),
     area: s(d.area), categoria: s(d.categoria), tipo: s(d.tipo), subTipo: s(d.subTipo),
     pArea1: s(d.pArea1), pPct1: s(d.pPct1), pArea2: s(d.pArea2), pPct2: s(d.pPct2), pArea3: s(d.pArea3), pPct3: s(d.pPct3),
-    multiArea: json(d.multiArea), estado, fechaCreacion: dia(d.fechaCreacion), tipoMonto: s(d.tipoMonto), cuotas: json(d.cuotas), proximaFecha: proxima || '' };
+    multiArea: json(d.multiArea), estado, fechaCreacion: dia(d.fechaCreacion), tipoMonto: s(d.tipoMonto), cuotas: json(d.cuotas), proximaFecha: proxima || '',
+    // v0.49.0: tipo e identificador (solo si ya está clasificada: lo copiado de la planilla se ve igual que antes)
+    ...(d.tipoObligacion !== undefined ? { tipoObligacion: s(d.tipoObligacion), identificador: s(d.identificador), diasAviso: d.diasAviso === undefined ? '' : d.diasAviso } : {}) };
 }
 export const plantillasVista = (plantillas, vencs, hoy) => (plantillas || []).filter(x => vivo(x.d)).map(x => vistaPlantilla(x.id, x.d, vencs, hoy)).filter(p => p.id);
 

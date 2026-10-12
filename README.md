@@ -1,9 +1,74 @@
-# Sistema Fën · v0.47.0
+# Sistema Fën · v0.49.0
 
-**App:** v0.47.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.13.0 · 12 de octubre de 2026
+**App:** v0.49.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.15.0 · 12 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.49.0: Gastos, base nueva (etapa G3, segunda parte): la forma de trabajar acordada (tipos de obligación, boletas, abonos)
+**Para el día a día no cambia nada:** Gastos sigue con la planilla y todo funciona igual que en la v0.48.0 (Vencimientos, Obligaciones y Agenda se ven igual). El botón **Pasar Gastos a la base nueva** sigue gris: de G3 faltan la cartola y Previred. Lo nuevo, para cuando se haga el cambio:
+
+- **Tipo de cada obligación** (Obligaciones → Editar, con su (i)): **Monto fijo** (arriendo, cuotas), **Según documento del mes** (luz, agua: el monto y la fecha real vienen de la boleta; internet, gas o teléfono, de la factura del SII) o **Libre (abonos)** (sueldos líquidos: varias transferencias). Las de tipo documento llevan el **N° de cliente** (o el RUT del proveedor) y cuántos días antes recordar. Las que vienen de la planilla dicen **Sin clasificar** y funcionan como monto fijo hasta que les elijas un tipo. Una nueva parte como monto fijo.
+- **Vencimientos con su estado**: *esperando documento* (muestra la **fecha estimada**), *por pagar*, *con abonos*, *pagado* o *anulado*. Los de tipo documento se crean 20 días antes (para esperar la boleta); los demás, 3 días antes, como siempre.
+- **Subir boleta** (Vencimientos, botón arriba o en el vencimiento que la espera): el PDF o la foto va a Drive (**Fën · Gastos / Boletas y facturas / año**, privada). Del PDF se leen solos el N° de cliente, el total a pagar y la fecha de vencimiento ($35.000, 35.000, dd-mm-aaaa, dd/mm/aaaa, "Total a pagar", "Vencimiento", "N° Cliente", "Número de cliente", "Servicio N°"); de una foto se escriben a mano. Siempre se pueden corregir antes de guardar. Con el N° de cliente se busca la obligación y se completa su vencimiento del mes (monto y fecha real, o se crea si todavía no estaba). **Pagar** propone el monto de la boleta.
+- **Documentos sin obligación** (abajo en Vencimientos, con su (i)): una boleta cuyo N° de cliente no tiene ninguna obligación (o tiene más de una) queda ahí. Se puede **asignar a una obligación** (completa su vencimiento y le guarda el N° de cliente si no lo tenía), **registrar como gasto** (abre Registrar con la boleta ya en Drive), **crear obligación** (formulario ya lleno: según documento, con el N° de cliente) o **descartar** (no se borra: queda con quién y cuándo).
+- **Abonos** (tipo libre): **Agregar abono** (monto, fecha y comprobante opcional) crea un gasto por abono con el ítem y las áreas de la obligación. El vencimiento muestra "2 abonos: ab. 1 $250.000 · ab. 2 $180.000 · total $430.000" y **Cerrar** lo deja pagado (con quién y cuándo).
+- **Vencimiento suelto** (botón en Vencimientos): un pago de una vez sin obligación (patente, permiso): nombre, ítem, áreas, monto, fecha y tipo de monto. Al pagarlo se registra el gasto como el de una obligación.
+- **Agenda**: con la base nueva muestra solo los vencimientos que ya existen (ya no proyecta las obligaciones) y el recordatorio **"Subir boleta de …"** unos días antes de la fecha estimada, mientras el vencimiento espera su boleta (si se atrasa, sigue apareciendo hoy). Los recordatorios propios de la Agenda siguen igual.
+- **Copia a la planilla** (script v2.15.0): la columna Estado de Vencimientos recibe lo que entiende la app antigua (esperando documento, por pagar y con abonos → PENDIENTE; pagado → PAGADO; anulado → ANULADO). Lo nuevo va en columnas nuevas al final (TipoObligacion, EstadoBase, FechaEstimada, MontoDocumento, FechaDocumento, Documento, Abonos, Suelto, Cerrado; en Obligaciones: TipoObligacion, Identificador, DiasAviso), solo cuando se usan. Ninguna columna se mueve. La bandeja no pasa a la planilla.
+
+Por dentro: reglas nuevas en `gastos-g3.js` (estados, leer la boleta, abonos, agenda, vencimiento suelto); `gastos-fs.js` suma `subirBoleta`, `documentosPendientes`, `resolverPendiente`, `agregarAbono(vencId, { monto, fecha, origen: 'cartola', cargoId })` (la cartola lo usará en la próxima parte: el mismo cargo no se agrega dos veces), `cerrarVencimiento` y `crearSuelto`. Colección nueva **`documentos_pendientes`** (id `dp-…`); vencimiento suelto `vl-…`; gastos de un abono `gp-…`. El recordatorio "Subir boleta" se calcula (no se guarda): desaparece solo cuando llega la boleta. Lo copiado de la planilla se lee igual que antes (PENDIENTE / VENCIDA / PAGADO / ANULADO). La copia a la planilla pide el script v2.15.0.
+
+Archivos: **nuevo** `gastos-g3.js`. Cambian `gastos.js`, `gastos-fs.js`, `gastos-g2.js`, `gastos-sii-fs.js`, `app.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.49.0**.
+
+### Instalación v0.49.0 (unos 8 minutos)
+**A. Script de Gastos v2.15.0** → ver el README de `gastos-script-v2.15.0.zip` (reemplaza `BaseNueva.gs` y `Seguridad.gs`; nueva versión de la implementación). El ping debe decir **2.15.0**.
+
+**B. Sistema Fën v0.49.0** → en GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → arrastra todos los archivos del zip (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R). Abajo a la izquierda debe decir **v0.49.0**.
+
+Las reglas de fen-gastos no cambian (v0.1.0: la cuenta en `admins` lee y escribe todo, también `documentos_pendientes`). No hay que crear índices.
+
+### Lista de verificación v0.49.0
+- [ ] Abajo a la izquierda dice **v0.49.0**; el ping del script de Gastos dice **2.15.0**.
+- [ ] **Gastos → Base nueva**: el botón del cambio sigue gris con **El cambio se habilita cuando estén listos G2 y G3**.
+- [ ] Vencimientos, Obligaciones y Agenda se ven igual que antes (con la planilla no aparecen "Subir boleta", tipos ni bandeja).
+- [ ] Paga un vencimiento de prueba: igual que antes, en la planilla.
+
+### Si algo sale mal
+- **"Falta actualizarlo a v2.15.0"**: solo puede aparecer con Gastos en la base nueva (en la Copia a la planilla); paso A.
+- Para volver atrás: sube los archivos de la v0.48.0 y, si quieres, el script v2.14.0. Antes del cambio esta versión no escribe nada nuevo en fen-gastos.
+
+## Novedades de la v0.48.0: Gastos, base nueva (etapa G3, primera parte): Cargas del SII con la base
+**Para el día a día no cambia nada:** Gastos sigue con la planilla y las Cargas del SII funcionan igual que en la v0.47.0 (mismas llamadas al script). El botón **Pasar Gastos a la base nueva** sigue gris: de G3 faltan la cartola y Previred. Lo nuevo, para cuando se haga el cambio:
+
+- **Cargas del SII con la base nueva.** Subir el archivo (XML, XLS o CSV), ver qué ya está en Gastos, las notas, las coincidencias con gastos a mano, **importar**, **vincular**, el **detalle** de un documento, la **nota de la carga** y **quitar del historial**: todo igual que hoy, con los mismos montos. El archivo del SII sigue yendo a Drive con el script (**Fën · Gastos / Cargas SII / año**, privado) y **Reabrir carga** lo vuelve a leer desde ahí.
+- **Importar** crea los gastos como hoy: una línea por ítem y área, el neto en la proporción real del documento (así el IVA y el 12% de la harina cuadran con lo declarado), la nota de crédito en negativo (**NC.folio**), un vencimiento si queda pendiente y los productos en Detalle Compras. Cada gasto queda con su documento (RUT, tipo y folio). Si se corta a medias, presionar Importar de nuevo **no repite** lo que ya quedó.
+- **Quitar una carga** no borra nada: queda marcada con la fecha y quién, y sus gastos no se tocan (como hoy). **Borrar una nota** la deja vacía (en la planilla la fila queda, con la nota en blanco).
+- **Proveedores** (nuevo, **Gastos → Base nueva → Proveedores**): las sugerencias al cargar del SII (cómo clasificaste antes a cada proveedor y a cada producto, últimos 2 años) quedan guardadas en una ficha por proveedor. Cada importación y cada vínculo la actualiza sola. **Armar fichas de proveedores** las arma desde cero con lo que hay en la base: hacerlo una vez, después del cambio (repetirlo no hace daño). Muestra cuántas hay y cuándo se actualizaron.
+- **Copia a la planilla** (script v2.14.0): las cargas pasan a **Cargas SII**, los productos al final de **Detalle Compras** y las notas a **Notas Documentos**, cada fila con su "ID base". Copiar dos veces no duplica y nunca borra filas.
+
+**Ojo:** la copia G1 trae lo de 2026. Con la base nueva, las sugerencias se arman con eso más lo que se importe después (el script miraba 2 años de la planilla): los primeros meses pueden sugerir algo menos para proveedores que solo aparecían en 2025.
+
+Por dentro: `sii.js` manda a `gastos-sii-fs.js` cuando `config/gastos` dice **base**; las reglas están en `gastos-sii.js` (probadas contra el script real con las mismas entradas: importar, repetidos, coincidencias, historial, detalle y la clasificación por proveedor). Colecciones: `sii_cargas` (id `sc-<huella de sus documentos>`; las copiadas en G1 conservan el suyo), `sii_docs` (como los arma G1: líneas y notas) y **`proveedores/{rut}`** (nueva; no pasa a la planilla). Gastos importados: `gs-…`; vencimiento: `vs-…`. Hoy (documentos del SII sin gasto) sigue contándolo el script con la planilla, que ya tiene lo copiado.
+
+Archivos: **nuevos** `gastos-sii.js` y `gastos-sii-fs.js`. Cambian `sii.js`, `gastos.js`, `gastos-fs.js`, `gastos-base.js`, `vista-gastos-base.js`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.48.0**.
+
+### Instalación v0.48.0 (unos 8 minutos)
+**A. Script de Gastos v2.14.0** → ver el README de `gastos-script-v2.14.0.zip` (reemplaza `Code.gs`, `SistemaFen.gs`, `BaseNueva.gs` y `Seguridad.gs`; nueva versión de la implementación). El ping debe decir **2.14.0**.
+
+**B. Sistema Fën v0.48.0** → en GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → arrastra todos los archivos del zip (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R). Abajo a la izquierda debe decir **v0.48.0**.
+
+Las reglas de fen-gastos no cambian (v0.1.0: la cuenta en `admins` lee y escribe todo, también `proveedores`). No hay que crear índices en la consola de Firebase.
+
+### Lista de verificación v0.48.0
+- [ ] Abajo a la izquierda dice **v0.48.0**; el ping del script de Gastos dice **2.14.0**.
+- [ ] **Gastos → Base nueva**: el botón del cambio sigue gris con **El cambio se habilita cuando estén listos G2 y G3**; aparece **Proveedores** (antes del cambio puede decir "Todavía no hay fichas": no se usa hasta el cambio).
+- [ ] **Cargas del SII**: sube un archivo, clasifica e importa uno de prueba: igual que antes (en la planilla, con sus sugerencias). Reabre una carga del historial y deja una nota.
+- [ ] La app antigua de Gastos sigue cargando del SII igual (con la planilla).
+
+### Si algo sale mal
+- **"Falta actualizarlo a v2.14.0"**: solo puede aparecer con Gastos en la base nueva (al subir o reabrir un archivo del SII); paso A.
+- Para volver atrás: sube los archivos de la v0.47.0 y, si quieres, el script v2.13.5. Antes del cambio esta versión no escribe nada nuevo en fen-gastos (salvo las fichas, si presionas "Armar fichas de proveedores").
 
 ## Novedades de la v0.47.0: Gastos, base nueva (etapa G2 completa): obligaciones, ítems, análisis y agenda con la base
 **Para el día a día no cambia nada:** Gastos sigue con la planilla y todo funciona igual que en la v0.46.0. Con esta versión la etapa G2 queda completa, pero el botón **Pasar Gastos a la base nueva** sigue gris: el cambio también necesita la etapa G3 (SII, cartola y Previred con la base nueva), así que ahora dice **"El cambio se habilita cuando estén listos G2 y G3"** (`G2_COMPLETO: false` en `config.js`). Lo nuevo, para cuando se haga el cambio:

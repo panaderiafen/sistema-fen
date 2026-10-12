@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Gastos  v0.10.0 · v0.47.0
+//  Sistema Fën — Gastos  v0.10.0 · v0.49.0
 //  Habla con el Apps Script de Gastos (v2.2.0+, archivo SistemaFen.gs; registrados, obligaciones, ítems y SII piden v2.4.0)
 //  con la sesión de administración de Sistema Fën. El script usa las mismas
 //  funciones de la app de Gastos: un pago o un gasto queda igual que si se
@@ -12,9 +12,13 @@
 //  v0.47.0 (etapa G2): con la base nueva también obligaciones (lista, historial, crear/editar, archivar, reactivar)
 //  e ítems (lista, crear/editar, subir/bajar, archivar). La Agenda lee los vencimientos y obligaciones de la base;
 //  la copia a Google Calendar y "Sugerir % según ventas" siguen con el script. Con la planilla, igual que en la v0.46.0.
+//  v0.48.0 (etapa G3): con la base nueva también las Cargas del SII (sii.js → gastos-sii-fs.js). El archivo del SII va a
+//  Drive con el script (archivo_subir tipo "sii") y se vuelve a abrir con él (sii_archivo con su enlace): v2.14.0.
+//  v0.49.0 (etapa G3, segunda parte): solo con la base nueva: subir la boleta del mes, la bandeja "Documentos sin
+//  obligación", abonos y cerrar (tipo libre) y vencimientos sueltos. Con la planilla no existen (responden "solo_base").
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.47.0';
-import * as Apps from './apps.js?v=0.47.0';
+import { auth } from './firebase.js?v=0.49.0';
+import * as Apps from './apps.js?v=0.49.0';
 
 export const VERSION_MINIMA = '2.2.0';
 let urlOk = null, versionOk = '', cacheDatos = null;
@@ -60,27 +64,27 @@ export function usarFuente(f) {
 }
 export async function enBase() {
   if (fuenteActual === null) {
-    leyendoFuente = leyendoFuente || import('./gastos-base.js?v=0.47.0').then(GB => GB.cargarFuente()).then(f => { if (fuenteActual === null) usarFuente(f && !f.sinConexion ? f.fuente : 'planilla'); })
+    leyendoFuente = leyendoFuente || import('./gastos-base.js?v=0.49.0').then(GB => GB.cargarFuente()).then(f => { if (fuenteActual === null) usarFuente(f && !f.sinConexion ? f.fuente : 'planilla'); })
       .catch(() => { if (fuenteActual === null) fuenteActual = 'planilla'; }).finally(() => { leyendoFuente = null; });
     await leyendoFuente;
   }
   return fuenteActual === 'base';
 }
-const fs = () => import('./gastos-fs.js?v=0.47.0');
+const fs = () => import('./gastos-fs.js?v=0.49.0');
 // Marca de ids por envío (un reintento con la misma clave usa los mismos ids: no duplica) y archivo ya subido por envío
 const marcas = new Map(), subidos = new Map();
-async function marcaDe(idem) {
-  const M = await import('./gastos-g2.js?v=0.47.0');
+export async function marcaDe(idem) {
+  const M = await import('./gastos-g2.js?v=0.49.0');
   const k = idem || nuevaClave();
   if (!marcas.has(k)) marcas.set(k, M.marcaNueva());
   return marcas.get(k);
 }
 // v0.46.0 · Archivo a Drive (privado, "Fën · Gastos / <tipo> / <año>") con el script v2.12.0; una vez por envío
 export const VERSION_ARCHIVO = '2.12.0';
-const subidor = idem => async a => {
+export const subidor = idem => async a => {
   const k = (idem || '') + '|' + a.tipo;
   if (idem && subidos.has(k)) return subidos.get(k);
-  const r = await llamar('archivo_subir', a, null, VERSION_ARCHIVO);
+  const r = await llamar('archivo_subir', a, null, a.tipo === 'sii' ? VERSION_G3 : VERSION_ARCHIVO);
   if (idem) subidos.set(k, r);
   return r;
 };
@@ -201,6 +205,22 @@ export const dejarPrivados = siguiente => llamar('drive_privados', siguiente ? {
 // planilla_sync copia a la planilla lo que cambió en la base nueva (con la sesión de fen-gastos: tokenBase);
 // cambio deja la planilla cerrada para escribir (fuente "base") o la vuelve a abrir ("planilla").
 export const VERSION_G2 = '2.11.0';
-export const planillaSync = tokenBase => llamar('planilla_sync', { tokenBase }, null, VERSION_G2);
+// v0.49.0: la copia necesita el script v2.15.0 (el estado nuevo de los vencimientos pasa a la planilla como lo entiende la app antigua)
+export const VERSION_COPIA = '2.15.0';
+export const planillaSync = tokenBase => llamar('planilla_sync', { tokenBase }, null, VERSION_COPIA);
 export const cambioFuente = fuente => llamar('cambio', { fuente }, null, VERSION_G2);
 export const fuenteScript = () => llamar('fuente', {}, null, VERSION_G2);
+
+// v0.48.0 · Etapa G3 (script de Gastos v2.14.0): con la base nueva, el archivo de una carga del SII se sube a Drive
+// con archivo_subir (tipo "sii") y se vuelve a abrir con sii_archivo y su enlace (la carga está en la base, no en la planilla).
+export const VERSION_G3 = '2.14.0';
+export const leerArchivoSii = enlace => llamar('sii_archivo', { url: enlace }, null, VERSION_G3);
+
+// v0.49.0 · Solo con la base nueva (la planilla no tiene estas piezas: la app antigua sigue igual)
+const soloBase = async () => { if (!(await enBase())) throw Object.assign(new Error('Esto se usa cuando Gastos trabaje con la base nueva.'), { code: 'solo_base' }); return fs(); };
+export async function subirBoleta(p, idem) { const F = await soloBase(); const r = await F.subirBoleta(p, await marcaDe(idem), subidor(idem)); olvidarTodo(); return r; }
+export const bandeja = async () => (await soloBase()).documentosPendientes();
+export async function resolverPendiente(id, accion, datos) { const r = await (await soloBase()).resolverPendiente(id, accion, datos); olvidarTodo(); return r; }
+export async function agregarAbono(vencId, a, idem) { const F = await soloBase(); const r = await F.agregarAbono(vencId, a, await marcaDe(idem), subidor(idem)); olvidarTodo(); return r; }
+export async function cerrarVencimiento(id) { const r = await (await soloBase()).cerrarVencimiento(id); olvidarTodo(); return r; }
+export async function crearSuelto(p, idem) { const F = await soloBase(); const r = await F.crearSuelto(p, await marcaDe(idem)); olvidarTodo(); return r; }

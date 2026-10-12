@@ -9,11 +9,11 @@
 //    copia (migracion/{coleccion} guarda una huella por documento, como en B2B).
 //  · En G1 nada cambia en el uso: Gastos sigue leyendo y escribiendo la planilla con el script.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.47.0';
-import * as FB from './firebase-gastos.js?v=0.47.0';
-import * as Gastos from './gastos.js?v=0.47.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.47.0';
-import { armar, cambios, comparar, totalesGastos, COLECCIONES, ANIO } from './gastos-modelo.js?v=0.47.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.49.0';
+import * as FB from './firebase-gastos.js?v=0.49.0';
+import * as Gastos from './gastos.js?v=0.49.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.49.0';
+import { armar, cambios, comparar, totalesGastos, COLECCIONES, ANIO } from './gastos-modelo.js?v=0.49.0';
 
 export { ANIO };
 export const VERSION_EXPORTAR = '2.9.0';   // script de Gastos con la op "exportar" (SistemaFen.gs v1.8.0)
@@ -242,7 +242,8 @@ export async function ultimaCopia() {
 //    y "Volver a la planilla" sabe que ya no se puede.
 // ═══════════════════════════════════════════════
 export const G2_COMPLETO = () => window.FEN_SIS.G2_COMPLETO === true;
-export const COLECCIONES_PLANILLA = ['gastos', 'vencimientos', 'obligaciones', 'items'];
+// v0.48.0 (G3): también las cargas y documentos del SII (Cargas SII, Detalle Compras y Notas Documentos)
+export const COLECCIONES_PLANILLA = ['gastos', 'vencimientos', 'obligaciones', 'items', 'sii_cargas', 'sii_docs'];
 let fuenteCache = null;
 export async function dbBase() { return dbOk(); }
 export async function tokenBase() { await dbOk(); return FB.idToken(); }

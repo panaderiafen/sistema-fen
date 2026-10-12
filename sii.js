@@ -5,8 +5,10 @@
 //  harina, notas de crédito, detalle de productos y reparto por área.
 //  Lo que se guarda pasa por el Apps Script de Gastos (SistemaFen.gs v1.2.0),
 //  que vuelve a revisar todo antes de escribir.
+//  v0.48.0 (etapa G3): con Gastos en la base nueva (config/gastos: fuente "base"), las llamadas van a fen-gastos
+//  (gastos-sii-fs.js) con las mismas respuestas; "Sugerir % según ventas" sigue con el script. Con la planilla, igual que antes.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.47.0';
+import * as Gastos from './gastos.js?v=0.49.0';
 
 export const VERSION_MINIMA = '2.4.0';
 // v0.10.0: un documento se reconoce por RUT, folio y si es nota de crédito (tipo 61):
@@ -410,25 +412,40 @@ export function formatoDeArchivo(nombre) {
 const base64Utf8 = texto => { const b = new TextEncoder().encode(texto); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
 const docsDe = facturas => facturas.map(f => ({ rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', total: f.total, fecha: fechaDDMMYYYYaISO(f.fecha), razonSocial: f.razonSocial }));
 
-export const estado = facturas => llamar('sii_estado', { documentos: docsDe(facturas) });
-export const registrarCarga = (facturas, nombre, tipo, contenido, idem) =>
-  llamar('sii_carga', { nombreArchivo: nombre, mimeType: tipo || 'text/plain', archivoBase64: base64Utf8(contenido), documentos: docsDe(facturas) }, idem);
-export const cargas = () => llamar('sii_cargas');
-export const archivo = id => llamar('sii_archivo', { id });
-export const detalle = (rut, folio, tipo) => llamar('sii_detalle', { rut, folio, ...(tipo !== undefined ? { tipo } : {}) });
+// v0.48.0 · Con la base nueva, lo mismo en fen-gastos (gastos-sii-fs.js)
+const fsSii = () => import('./gastos-sii-fs.js?v=0.49.0');
+const enBase = () => Gastos.enBase();
+export async function estado(facturas) { return (await enBase()) ? (await fsSii()).estado(docsDe(facturas)) : llamar('sii_estado', { documentos: docsDe(facturas) }); }
+export async function registrarCarga(facturas, nombre, tipo, contenido, idem) {
+  const p = { nombreArchivo: nombre, mimeType: tipo || 'text/plain', archivoBase64: base64Utf8(contenido), documentos: docsDe(facturas) };
+  return (await enBase()) ? (await fsSii()).registrarCarga(p, Gastos.subidor(idem)) : llamar('sii_carga', p, idem);
+}
+export async function cargas() { return (await enBase()) ? (await fsSii()).cargas() : llamar('sii_cargas'); }
+export async function archivo(id) { return (await enBase()) ? (await fsSii()).archivo(id, Gastos.leerArchivoSii) : llamar('sii_archivo', { id }); }
+export async function detalle(rut, folio, tipo) { return (await enBase()) ? (await fsSii()).detalle(rut, folio, tipo) : llamar('sii_detalle', { rut, folio, ...(tipo !== undefined ? { tipo } : {}) }); }
 let ventasCache = null;
 export async function ventas() { if (!ventasCache || Date.now() - ventasCache.t > 600000) ventasCache = { t: Date.now(), d: await llamar('sii_ventas') }; return ventasCache.d; }
-export async function importar(listas, omitirRepetidas, idem) { const r = await llamar('sii_importar', { facturas: listas, omitirRepetidas: !!omitirRepetidas }, idem); Gastos.olvidar(); return r; }
-export const vincular = (f, c, idem) => llamar('sii_vincular', { rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', razonSocial: f.razonSocial, filas: c.filas, fecha: c.fecha, total: c.total }, idem);
-export const notaDoc = (f, nota) => llamar('sii_nota_doc', { rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', razonSocial: f.razonSocial, nota });
-export const notaCarga = (id, nota) => llamar('sii_nota_carga', { id, nota });
-export const quitarCarga = id => llamar('sii_quitar_carga', { id });
+export async function importar(listas, omitirRepetidas, idem) {
+  if (await enBase()) { const r = await (await fsSii()).importar(listas, !!omitirRepetidas, await Gastos.marcaDe(idem)); Gastos.olvidarTodo(); return r; }
+  const r = await llamar('sii_importar', { facturas: listas, omitirRepetidas: !!omitirRepetidas }, idem); Gastos.olvidar(); return r;
+}
+export async function vincular(f, c, idem) {
+  const p = { rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', razonSocial: f.razonSocial, filas: c.filas, fecha: c.fecha, total: c.total };
+  if (await enBase()) { const r = await (await fsSii()).vincular(p); Gastos.olvidarTodo(); return r; }
+  return llamar('sii_vincular', p, idem);
+}
+export async function notaDoc(f, nota) {
+  const p = { rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', razonSocial: f.razonSocial, nota };
+  return (await enBase()) ? (await fsSii()).notaDoc(p) : llamar('sii_nota_doc', p);
+}
+export async function notaCarga(id, nota) { return (await enBase()) ? (await fsSii()).notaCarga(id, nota) : llamar('sii_nota_carga', { id, nota }); }
+export async function quitarCarga(id) { return (await enBase()) ? (await fsSii()).quitarCarga(id) : llamar('sii_quitar_carga', { id }); }
 
 // ── v0.17.0 · Sugerencias: cómo clasificaste antes a ese proveedor y a ese producto (script de Gastos v2.7.0) ──
 export const VERSION_CLASIF = '2.7.0';
 let clasifCache = null;
 export async function clasificacion() {
-  if (!clasifCache || Date.now() - clasifCache.t > 600000) clasifCache = { t: Date.now(), d: await Gastos.llamar('sii_clasif', {}, null, VERSION_CLASIF) };
+  if (!clasifCache || Date.now() - clasifCache.t > 600000) clasifCache = { t: Date.now(), d: (await enBase()) ? await (await fsSii()).clasif() : await Gastos.llamar('sii_clasif', {}, null, VERSION_CLASIF) };
   return clasifCache.d;
 }
 export const olvidarClasificacion = () => { clasifCache = null; };

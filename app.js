@@ -9,29 +9,30 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.47.0';
-import * as Caja from './caja.js?v=0.47.0';
-import * as Stock from './stock.js?v=0.47.0';
-import * as Ajustes from './ajustes.js?v=0.47.0';
-import * as Apps from './apps.js?v=0.47.0';
-import * as Agenda from './agenda.js?v=0.47.0';
-import * as Gastos from './gastos.js?v=0.47.0';
-import { resumenAnalisis } from './gastos-g2.js?v=0.47.0';
-import * as Sii from './sii.js?v=0.47.0';
-import * as Previred from './previred.js?v=0.47.0';
-import * as B2b from './b2b.js?v=0.47.0';
-import * as Cartola from './cartola.js?v=0.47.0';
-import * as SiiFactura from './sii-factura.js?v=0.47.0';
-import * as PdfOrden from './pdf-orden.js?v=0.47.0';
-import * as Prod from './produccion.js?v=0.47.0';
-import * as VistaProd from './vista-produccion.js?v=0.47.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.47.0';
+} from './firebase.js?v=0.49.0';
+import * as Caja from './caja.js?v=0.49.0';
+import * as Stock from './stock.js?v=0.49.0';
+import * as Ajustes from './ajustes.js?v=0.49.0';
+import * as Apps from './apps.js?v=0.49.0';
+import * as Agenda from './agenda.js?v=0.49.0';
+import * as Gastos from './gastos.js?v=0.49.0';
+import * as G3 from './gastos-g3.js?v=0.49.0';
+import { resumenAnalisis } from './gastos-g2.js?v=0.49.0';
+import * as Sii from './sii.js?v=0.49.0';
+import * as Previred from './previred.js?v=0.49.0';
+import * as B2b from './b2b.js?v=0.49.0';
+import * as Cartola from './cartola.js?v=0.49.0';
+import * as SiiFactura from './sii-factura.js?v=0.49.0';
+import * as PdfOrden from './pdf-orden.js?v=0.49.0';
+import * as Prod from './produccion.js?v=0.49.0';
+import * as VistaProd from './vista-produccion.js?v=0.49.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.49.0';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.47.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.49.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.47.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.49.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -332,7 +333,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.47.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.49.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -566,7 +567,7 @@ function agFiltro(v) {
   return ['todo', 'fen', 'personal'].includes(agFiltroMem) ? agFiltroMem : 'todo';
 }
 // v0.16.0: además se puede esconder cada tipo automático y cada etiqueta (se recuerda en este equipo)
-const AG_CATS = { pago: { nombre: 'Pagos de Gastos', color: 'amarillo' }, cobro: { nombre: 'Cobros B2B', color: 'verde' }, facturar: { nombre: 'Facturar', color: 'lila' }, conciliar: { nombre: 'Conciliar', color: 'azul' }, analisis: { nombre: 'Análisis', color: 'turquesa' } };
+const AG_CATS = { pago: { nombre: 'Pagos de Gastos', color: 'amarillo' }, cobro: { nombre: 'Cobros B2B', color: 'verde' }, facturar: { nombre: 'Facturar', color: 'lila' }, conciliar: { nombre: 'Conciliar', color: 'azul' }, analisis: { nombre: 'Análisis', color: 'turquesa' }, recordatorio: { nombre: 'Recordatorios de Gastos', color: 'naranja' } };
 let agOcultosMem = null;
 function agOcultos(nuevo) {
   if (nuevo) { agOcultosMem = nuevo; try { localStorage.setItem('fen_sistema_agenda_ocultos', JSON.stringify([...nuevo])); } catch (e) {} return nuevo; }
@@ -624,7 +625,7 @@ async function pintarAgendaMes() {
   const [y, m] = agMes.split('-').map(Number);
   const primero = new Date(y, m - 1, 1), ultimo = new Date(y, m, 0);
   const desde = Caja.diaLocal(primero), hasta = Caja.diaLocal(ultimo);
-  el.innerHTML = `<div class="cabecera"><div><h1 id="t-agenda">Agenda ${info('Agenda', 'Fën: lo del negocio (lo ve la administración). Personal: solo tú lo ves y no entra en los informes de Fën.\nToca un día para agregar algo ese día, o algo ya agendado para cambiarlo, marcarlo hecho o quitarlo. Quitar no lo borra: queda guardado como quitado.\nCada cosa puede tener una etiqueta con color (se crean al agregar), durar varios días o repetirse cada semana o cada mes.\nAparecen solos, cada uno con su color: los pagos de Gastos (los vencidos sin pago en rojo suave y los próximos de cada obligación con borde punteado), los cobros de B2B (el día que le toca pagar a cada cliente según su frecuencia de pago), facturar, los días de conciliar y el análisis de cada lunes. Con los botones de "Mostrar" escondes lo que no quieras ver.\nLo que marques "Copiar a Google Calendar" queda en tu calendario "Fën" con su aviso.')}</h1><p>${esc(MESES_LARGOS[m - 1].replace(/^./, c => c.toUpperCase()))} ${y}</p></div>
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-agenda">Agenda ${info('Agenda', 'Fën: lo del negocio (lo ve la administración). Personal: solo tú lo ves y no entra en los informes de Fën.\nToca un día para agregar algo ese día, o algo ya agendado para cambiarlo, marcarlo hecho o quitarlo. Quitar no lo borra: queda guardado como quitado.\nCada cosa puede tener una etiqueta con color (se crean al agregar), durar varios días o repetirse cada semana o cada mes.\nAparecen solos, cada uno con su color: los pagos de Gastos (los vencidos sin pago en rojo suave y los próximos de cada obligación con borde punteado; con la base nueva, solo los vencimientos ya creados y el recordatorio "Subir boleta" de los que esperan su boleta), los cobros de B2B (el día que le toca pagar a cada cliente según su frecuencia de pago), facturar, los días de conciliar y el análisis de cada lunes. Con los botones de "Mostrar" escondes lo que no quieras ver.\nLo que marques "Copiar a Google Calendar" queda en tu calendario "Fën" con su aviso.')}</h1><p>${esc(MESES_LARGOS[m - 1].replace(/^./, c => c.toUpperCase()))} ${y}</p></div>
       <div class="mes-nav"><button type="button" class="btn-icono" id="mes-ant" aria-label="Mes anterior">${icono('izq', 18)}</button><button type="button" class="btn-sec btn-chico" id="mes-hoy">Hoy</button><button type="button" class="btn-icono" id="mes-sig" aria-label="Mes siguiente">${icono('flecha', 18)}</button></div></div>
     <div class="filtros"><div class="chips" role="group" aria-label="Qué mostrar">${['todo', 'fen', 'personal'].map(f => `<button type="button" class="chip-filtro" data-ag-filtro="${f}" aria-pressed="${agFiltro() === f}">${{ todo: 'Todo', fen: 'Fën', personal: 'Personal' }[f]}</button>`).join('')}</div>
       <div class="botones-ag"><button type="button" class="btn-sec btn-chico" id="ag-etiquetas">Etiquetas</button><button type="button" class="btn" id="mes-agregar">${icono('mas', 16)} Agregar</button></div></div>
@@ -641,11 +642,14 @@ async function pintarAgendaMes() {
   pintarGcalEstado();
   // Lo automático: si una app no responde, la agenda se ve igual sin eso
   const claveAuto = agFiltro() + '|' + desde, enMemoria = agAuto[claveAuto] && Date.now() - agAuto[claveAuto].t < 120000 ? agAuto[claveAuto].d : null;
+  // v0.49.0: con Gastos en la base nueva, solo los vencimientos que existen (sin proyectar las obligaciones) y los
+  // recordatorios "Subir boleta" (se calculan de los vencimientos que esperan su boleta). Con la planilla, como antes.
   const autoPromesa = enMemoria ? Promise.resolve(enMemoria) : agFiltro() === 'personal' ? Promise.resolve([]) : Promise.all([
     Gastos.datos().then(d => d.vencimientos || []).catch(() => null),
-    Gastos.plantillasAgenda().then(r => r.plantillas || []).catch(() => []),
+    Gastos.enBase().then(b => (b ? null : Gastos.plantillasAgenda().then(r => r.plantillas || []))).catch(() => []),
     B2b.datosAgenda().catch(() => null)
   ]).then(([vencs, plantillas, b2bD]) => {
+    if (plantillas === null) return (vencs ? G3.agendaBase(vencs, desde, hasta, hoy) : []).concat(B2b.itemsAgendaB2b(b2bD, desde, hasta, hoy).map(x => ({ ...x, tipo: 'fen' })));
     const pagos = (vencs || []).filter(v => v.fecha >= desde && v.fecha <= hasta).map(v => ({ auto: true, cat: 'pago', tipo: 'fen', fecha: v.fecha, hora: '', titulo: `Pago de ${v.nombre}`,
       origen: v.estado === 'PAGADO' ? 'Desde Gastos · pagado' : 'Desde Gastos', monto: Number(v.montoPago || v.montoEstimado) || 0, vencId: v.id, pagado: v.estado === 'PAGADO', vencido: v.estado !== 'PAGADO' && v.fecha < hoy }));
     const proy = vencs ? Agenda.proyectarObligaciones(plantillas, vencs, desde, hasta).map(x => ({ ...x, tipo: 'fen' })) : [];
@@ -861,7 +865,7 @@ function refrescarAgenda() { Object.keys(agAuto).forEach(k => delete agAuto[k]);
 
 // ── Gastos ─────────────────────────────────────────
 const AREAS_GASTO = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS'];
-const montoV = v => (v.multiArea && v.multiArea.length ? v.multiArea.reduce((s, a) => s + (Number(a.monto) || 0), 0) : Number(String(v.montoEstimado || '').replace(/[^0-9]/g, '')) || 0);
+const montoV = v => (Number(v.montoDocumento) > 0 ? Number(v.montoDocumento) : v.multiArea && v.multiArea.length ? v.multiArea.reduce((s, a) => s + (Number(a.monto) || 0), 0) : Number(String(v.montoEstimado || '').replace(/[^0-9]/g, '')) || 0);
 // v0.23.0: en el orden del trabajo (lo diario primero, la configuración al final); la cartola pasó a Conciliación
 // v0.43.0: "Base nueva" (fen-gastos, etapa G1): copia y control; Gastos sigue con la planilla
 const SUBS_GASTOS = [['', 'Vencimientos'], ['sii', 'Cargas del SII'], ['previred', 'Previred'], ['registrar', 'Registrar'], ['registrados', 'Registrados'], ['analisis', 'Análisis'], ['obligaciones', 'Obligaciones'], ['items', 'Ítems'], ['base', 'Base nueva']];
@@ -875,9 +879,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.47.0').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.49.0').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.47.0').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.49.0').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -920,7 +924,8 @@ function pintarVencimientos(el, sub, d) {
     { t: 'Más adelante', l: pend.filter(v => v.fecha > finMes && v.fecha > en7) }
   ];
   const pagados = (d.vencimientos || []).filter(v => v.estado === 'PAGADO').sort((a, b) => (b.fechaPago || '').localeCompare(a.fechaPago || ''));
-  const fila = (v, rojo) => `<div class="fila-caja"><div class="txt"><b>${esc(v.nombre)}</b>
+  const base = d.fuente === 'base';
+  const fila = (v, rojo) => base ? filaVencBase(v, rojo) : `<div class="fila-caja"><div class="txt"><b>${esc(v.nombre)}</b>
       <span>${esc(fechaCaja(v.fecha))}${v.area && v.area !== 'MULTI' ? ' · ' + esc(v.area) : v.area === 'MULTI' ? ' · varias áreas' : ''}${v.item && v.item !== v.nombre ? ' · ' + esc(v.item) : ''}</span>${v.obs ? `<span class="nota">${esc(v.obs)}</span>` : ''}</div>
       <div class="acciones"><span class="chip ${rojo ? 'c-rojo' : 'c-gris'}">${montoV(v) ? esc(pesos(montoV(v))) : 'Sin monto'}</span><button type="button" class="btn-sec" data-pagar="${esc(v.id)}">Pagar</button><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-v="${esc(v.id)}" aria-label="Anular ${esc(v.nombre)}">Anular</button></div></div>`;
   el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Todo lo de la app de Gastos, aquí</p></div>${pestanasGastos(sub)}</div>
@@ -932,9 +937,19 @@ function pintarVencimientos(el, sub, d) {
     ${grupos.filter(g => g.l.length).map((g, i) => `<section class="tarjeta" aria-labelledby="t-venc-${i}"><div class="titulo-fila"><h2 id="t-venc-${i}">${g.t}</h2><span>${g.l.length}</span></div>
       <div data-colapsar="6">${g.l.map(v => fila(v, g.rojo)).join('')}</div></section>`).join('') || '<section class="tarjeta"><div class="vacio">No hay vencimientos por pagar.</div></section>'}
     ${pagados.length ? `<section class="tarjeta" aria-labelledby="t-venc-pag"><div class="titulo-fila"><h2 id="t-venc-pag">Pagados ${infoDrive()}</h2><span>Últimos 7 días</span></div>
-      <div data-colapsar="3">${pagados.map(v => `<div class="fila-caja"><div class="txt"><b>${esc(v.nombre)}</b><span>Pagado el ${esc(fechaCaja(v.fechaPago))}${v.urlComprobante ? ' · <a href="' + esc(v.urlComprobante) + '" target="_blank" rel="noopener">comprobante</a>' : ''}</span></div>
+      <div data-colapsar="3">${pagados.map(v => `<div class="fila-caja"><div class="txt"><b>${esc(v.nombre)}</b><span>Pagado el ${esc(fechaCaja(v.fechaPago))}${v.urlComprobante ? ' · <a href="' + esc(v.urlComprobante) + '" target="_blank" rel="noopener">comprobante</a>' : ''}</span>${v.abonos && v.abonos.length ? `<span class="nota">${esc(G3.textoAbonos(v.abonos, pesos))}</span>` : ''}</div>
         <div class="acciones"><span class="chip c-verde">${esc(pesos(Number(v.montoPago) || 0))}</span></div></div>`).join('')}</div></section>` : ''}
+    ${base ? `<section class="tarjeta" aria-labelledby="t-bandeja" id="vb-bandeja-sec"><div class="titulo-fila"><h2 id="t-bandeja">Documentos sin obligación ${info('Documentos sin obligación', TXT_BANDEJA)}</h2><span id="vb-bandeja-n"></span></div><div id="vb-bandeja"><p class="ayuda">Cargando…</p></div></section>` : ''}
     <p class="nota-i">(i) Pagar aquí hace lo mismo que en la app de Gastos: marca el vencimiento pagado, crea el gasto (o completa el de la compra a crédito) y genera el siguiente si es recurrente. El historial de pagos y las reglas están en Obligaciones. Anular un vencimiento no lo borra: queda ANULADO con su motivo.</p>`;
+  if (base) {
+    el.querySelector('.cifras').insertAdjacentHTML('afterend', `<div class="botones-venc"><button type="button" class="btn" id="vb-boleta">${icono('mas', 16)} Subir boleta</button>${info('Subir boleta', TXT_SUBIR_BOLETA)}<button type="button" class="btn-sec" id="vb-suelto">Vencimiento suelto</button>${info('Vencimiento suelto', TXT_SUELTO)}</div>`);
+    $('vb-boleta').onclick = () => abrirSubirBoleta(null, d);
+    $('vb-suelto').onclick = () => abrirSuelto(d);
+    el.querySelectorAll('[data-boleta-v]').forEach(b => b.addEventListener('click', () => abrirSubirBoleta((d.vencimientos || []).find(v => v.id === b.dataset.boletaV), d)));
+    el.querySelectorAll('[data-abono-v]').forEach(b => b.addEventListener('click', () => abrirAbono((d.vencimientos || []).find(v => v.id === b.dataset.abonoV))));
+    el.querySelectorAll('[data-cerrar-v]').forEach(b => b.addEventListener('click', () => cerrarVencUI((d.vencimientos || []).find(v => v.id === b.dataset.cerrarV))));
+    pintarBandeja(d);
+  }
   el.querySelectorAll('[data-pagar]').forEach(b => b.addEventListener('click', () => abrirPago((d.vencimientos || []).find(v => v.id === b.dataset.pagar))));
   el.querySelectorAll('[data-anular-v]').forEach(b => b.addEventListener('click', () => anularVencimientoUI((d.vencimientos || []).find(v => v.id === b.dataset.anularV))));
   colapsar(el);
@@ -1012,6 +1027,8 @@ function abrirPago(v) {
 function pintarRegistrarGasto(el, sub, d) {
   const items = d.items || [];
   const hoy = Caja.diaLocal();
+  // v0.49.0: "Registrar como gasto" desde la bandeja (base nueva): la boleta ya está en Drive
+  const pre = d.fuente === 'base' ? prefillRegistro : null; prefillRegistro = null;
   el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Todo lo de la app de Gastos, aquí</p></div>${pestanasGastos(sub)}</div>
     <form class="tarjeta form-gasto" id="form-gasto" novalidate>
       <div class="grilla-montos"><div class="campo"><label for="gs-fecha">Fecha de la compra</label><input id="gs-fecha" type="date" value="${hoy}" max="${hoy}"></div>
@@ -1021,8 +1038,9 @@ function pintarRegistrarGasto(el, sub, d) {
       <div class="desglose desglose-grande" id="gs-total"></div>
       <div class="campo"><span class="etiqueta">Forma de pago</span><div class="chips" role="radiogroup" aria-label="Forma de pago">${[['contado', 'Contado'], ['tarjeta', 'Tarjeta de crédito'], ['proveedor', 'Crédito proveedor']].map(([k, t]) => `<label class="chip-radio"><input type="radio" name="gs-forma" value="${k}" ${k === 'contado' ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div></div>
       <div class="campo oculto" id="gs-campo-fpago"><label for="gs-fpago">Fecha de pago ${info('Crédito', 'Con tarjeta o crédito de proveedor se crea un vencimiento en esa fecha, para pagarlo después desde Vencimientos.')}</label><input id="gs-fpago" type="date" min="${hoy}"></div>
-      <div class="campo"><label for="gs-archivo">Foto o archivo de la boleta</label><input id="gs-archivo" type="file" accept="image/*,application/pdf" capture="environment"><span class="ayuda">Obligatoria, como en la app de Gastos. Se guarda en Drive, carpeta "Boletas Gastos".</span></div>
-      <div class="campo"><label for="gs-obs">Observación (opcional)</label><input id="gs-obs" type="text" maxlength="300"></div>
+      ${pre ? `<div class="campo"><span class="etiqueta">Boleta</span><p class="ayuda" id="gs-pre">Desde "Documentos sin obligación": la boleta ya está en Drive${pre.urlArchivo ? ` (<a href="${esc(pre.urlArchivo)}" target="_blank" rel="noopener">ver</a>)` : ''}${pre.monto ? ' · total ' + esc(pesos(pre.monto)) : ''}. Elige el ítem y escribe el monto.</p></div>`
+        : `<div class="campo"><label for="gs-archivo">Foto o archivo de la boleta</label><input id="gs-archivo" type="file" accept="image/*,application/pdf" capture="environment"><span class="ayuda">Obligatoria, como en la app de Gastos. Se guarda en Drive, carpeta "Boletas Gastos".</span></div>`}
+      <div class="campo"><label for="gs-obs">Observación (opcional)</label><input id="gs-obs" type="text" maxlength="300" value="${esc(pre ? pre.obs || '' : '')}"></div>
       <div class="error" id="gs-error" role="alert"></div>
       <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn" id="gs-guardar">Registrar gasto</button></div>
     </form>
@@ -1086,19 +1104,19 @@ function pintarRegistrarGasto(el, sub, d) {
     }
     const forma = el.querySelector('input[name="gs-forma"]:checked').value, fpago = $('gs-fpago').value;
     if (forma !== 'contado' && !fpago) { err.textContent = 'Elige la fecha de pago del crédito.'; return; }
-    const f = $('gs-archivo').files[0];
-    if (!f) { err.textContent = 'Falta la foto o el archivo de la boleta.'; return; }
+    const f = pre ? null : $('gs-archivo').files[0];
+    if (!f && !pre) { err.textContent = 'Falta la foto o el archivo de la boleta.'; return; }
     const fecha = $('gs-fecha').value; if (!fecha) { err.textContent = 'Elige la fecha de la compra.'; return; }
     const b = $('gs-guardar'); b.disabled = true; b.textContent = 'Guardando…';
     try {
-      const archivo = await Gastos.prepararArchivo(f);
+      const archivo = pre ? { urlArchivo: pre.urlArchivo, fileName: pre.nombreArchivo, pendienteId: pre.pendienteId } : await Gastos.prepararArchivo(f);
       const ahora = new Date();
       await Gastos.registrar({ fecha: fecha.split('-').reverse().join('-'), hora: `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`, items: secs, tipoMonto: tipo(), formaPago: forma, fechaPago: forma === 'contado' ? '' : fpago, observacion: $('gs-obs').value, ...archivo }, idem);
       const total = secs.reduce((s, x) => s + Gastos.desglose(x.montoTotal, tipo(), x.esHarina).total, 0);
       registrar('Registró un gasto', `${secs.map(x => x.item).join(' + ')} · ${pesos(total)}`);
       idem = 'gasto-' + Gastos.nuevaClave();
       alert(`Gasto registrado: ${secs.map(x => x.item).join(' + ')} · ${pesos(total)}${forma !== 'contado' ? `\n\nQuedó un vencimiento para el ${fechaCaja(fpago)}.` : ''}`);
-      pintarGastos('registrar');
+      if (pre) location.hash = '#gastos'; else pintarGastos('registrar');
     } catch (er) {
       // Si Gastos respondió (error de datos, ya pagado…), no se guardó nada: el próximo intento es un envío nuevo.
       // Si no hubo respuesta (internet), pudo guardarse: se reintenta con la misma clave, que no duplica.
@@ -1625,6 +1643,207 @@ async function anularVencimientoUI(v) {
   catch (e) { alert(e.message || mensajeError(e)); }
 }
 
+// ═══ v0.49.0 · Gastos con la base nueva (etapa G3, segunda parte): tipos de obligación, boletas, bandeja, abonos y sueltos ═══
+const TXT_TIPOS = 'Monto fijo: siempre el mismo monto (arriendo, cuotas de un crédito). Se paga con Pagar.\nSegún documento del mes: el monto y la fecha real vienen de la boleta (luz, agua) o de la factura del SII (internet, gas, teléfono). Su vencimiento espera el documento y, unos días antes de la fecha estimada, la Agenda recuerda "Subir boleta". Para reconocer la boleta sola, anota el N° de cliente (o el RUT del proveedor si llega por el SII).\nLibre (abonos): sin monto de antes; se paga con varias transferencias (sueldos líquidos). Cada abono queda como gasto y al final se cierra.\nLas que vienen de la planilla dicen "Sin clasificar": funcionan como monto fijo hasta que les elijas un tipo.';
+const TXT_BANDEJA = 'Boletas que subiste y no calzaron con ninguna obligación (el N° de cliente no está en ninguna, o está en más de una).\nAsignar: la pasa al vencimiento de esa obligación y le guarda el N° de cliente si no lo tenía.\nRegistrar como gasto: para un gasto de una vez (abre Registrar con la boleta ya en Drive).\nCrear obligación: si es un pago que se repite cada mes.\nDescartar no borra: queda guardado con quién y cuándo.';
+const TXT_SUBIR_BOLETA = 'Sube el PDF o la foto de la boleta de luz, agua u otra cuenta. Queda en Drive (Fën · Gastos / Boletas y facturas / año, privada).\nDe un PDF se leen solos el N° de cliente, el total a pagar y la fecha de vencimiento: revísalos antes de guardar. De una foto se escriben a mano.\nCon el N° de cliente se busca la obligación y se completa su vencimiento del mes (monto y fecha real). Si no calza con ninguna, queda en "Documentos sin obligación".';
+const TXT_SUELTO = 'Un pago de una sola vez, sin obligación: una patente, un permiso, una multa. Queda en Vencimientos y en la Agenda hasta que lo pagues (al pagar se registra el gasto con su ítem y áreas).';
+const NOMBRE_EB = { esperando_documento: ['Esperando boleta', 'c-amarillo'], con_abonos: ['Con abonos', 'c-azul'] };
+function filaVencBase(v, rojo) {
+  const eb = v.estadoBase || '', libre = v.tipoObligacion === 'libre', espera = eb === 'esperando_documento', doc = v.documento;
+  const fechaTxt = espera ? `Fecha estimada ${fechaCaja(v.fechaEstimada || v.fecha)}` : fechaCaja(v.fecha);
+  const det = [fechaTxt, v.area && v.area !== 'MULTI' ? v.area : v.area === 'MULTI' ? 'varias áreas' : '', v.item && v.item !== v.nombre ? v.item : '', v.suelto ? 'suelto' : ''].filter(Boolean).map(esc).join(' · ');
+  const chipE = NOMBRE_EB[eb] ? `<span class="chip ${NOMBRE_EB[eb][1]} chip-chico">${NOMBRE_EB[eb][0]}</span>` : '';
+  const monto = libre ? G3.totalAbonos(v) : montoV(v);
+  const acciones = (espera ? `<button type="button" class="btn-sec" data-boleta-v="${esc(v.id)}">Subir boleta</button>` : '')
+    + (libre ? `<button type="button" class="btn-sec" data-abono-v="${esc(v.id)}">Agregar abono</button>${(v.abonos || []).length ? `<button type="button" class="btn-sec" data-cerrar-v="${esc(v.id)}">Cerrar</button>` : ''}`
+      : `<button type="button" class="btn-sec" data-pagar="${esc(v.id)}">Pagar</button>`)
+    + ((v.abonos || []).length ? '' : `<button type="button" class="btn-sec btn-chico btn-peligro" data-anular-v="${esc(v.id)}" aria-label="Anular ${esc(v.nombre)}">Anular</button>`);
+  return `<div class="fila-caja" data-venc-fila="${esc(v.id)}"><div class="txt"><b>${esc(v.nombre)}</b> ${chipE}<span>${det}</span>
+    ${doc ? `<span>Boleta${doc.cliente ? ' N° cliente ' + esc(doc.cliente) : ''} · vence ${esc(fechaCaja(v.fechaDocumento || v.fecha))}${doc.url ? ` · <a href="${esc(doc.url)}" target="_blank" rel="noopener">ver boleta</a>` : ''}</span>` : ''}
+    ${(v.abonos || []).length ? `<span class="nota">${esc(G3.textoAbonos(v.abonos, pesos))}</span>` : ''}${v.obs ? `<span class="nota">${esc(v.obs)}</span>` : ''}</div>
+    <div class="acciones"><span class="chip ${rojo ? 'c-rojo' : 'c-gris'}">${monto ? esc(pesos(monto)) : libre ? 'Sin abonos' : espera ? 'Falta la boleta' : 'Sin monto'}</span>${acciones}</div></div>`;
+}
+
+// Subir boleta: el PDF se lee aquí (pdf.js, el mismo de Previred); la foto se completa a mano. Todo queda editable.
+function abrirSubirBoleta(v, d) {
+  const dlg = dialogo(`<form class="form-dialogo" novalidate>
+    <h2>Subir boleta ${info('Subir boleta', TXT_SUBIR_BOLETA)}</h2>
+    ${v ? `<p class="ayuda"><b>${esc(v.nombre)}</b> · fecha estimada ${esc(fechaCaja(v.fechaEstimada || v.fecha))}</p>` : ''}
+    <div class="campo"><label for="sb-archivo">PDF o foto de la boleta</label><input id="sb-archivo" type="file" accept="application/pdf,.pdf,image/*"></div>
+    <p class="ayuda" id="sb-leido" role="status"></p>
+    <div class="grilla-montos"><div class="campo"><label for="sb-cliente">N° de cliente</label><input id="sb-cliente" type="text" maxlength="40" autocomplete="off"></div>
+      <div class="campo"><label for="sb-monto">Total a pagar</label><input id="sb-monto" type="number" inputmode="numeric" min="0" step="1"></div>
+      <div class="campo"><label for="sb-fecha">Fecha de vencimiento</label><input id="sb-fecha" type="date"></div></div>
+    <div class="campo"><label for="sb-empresa">Empresa (opcional)</label><input id="sb-empresa" type="text" maxlength="80"></div>
+    <div class="error" id="sb-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="sb-cancelar">Cancelar</button><button type="submit" class="btn" id="sb-guardar">Guardar boleta</button></div></form>`);
+  const q = s => dlg.querySelector(s);
+  q('#sb-cancelar').onclick = () => dlg.close();
+  let archivo = null, idem = 'boleta-' + Gastos.nuevaClave();
+  q('#sb-archivo').addEventListener('change', async e => {
+    archivo = e.target.files[0] || null; idem = 'boleta-' + Gastos.nuevaClave();
+    const msg = q('#sb-leido'); msg.textContent = '';
+    if (!archivo) return;
+    if (!/pdf$/i.test(archivo.type) && !/\.pdf$/i.test(archivo.name || '')) { msg.textContent = 'Es una foto: escribe el N° de cliente, el total y la fecha de vencimiento.'; return; }
+    msg.textContent = 'Leyendo el PDF…';
+    try {
+      const r = G3.parsearBoleta((await Previred.lineasDelPdf(archivo)).join('\n'));
+      if (r.cliente) q('#sb-cliente').value = r.cliente;
+      if (r.monto) q('#sb-monto').value = r.monto;
+      if (r.fechaVencimiento) q('#sb-fecha').value = r.fechaVencimiento;
+      if (r.empresa && !q('#sb-empresa').value) q('#sb-empresa').value = r.empresa;
+      const faltan = [!r.cliente && 'N° de cliente', !r.monto && 'total', !r.fechaVencimiento && 'fecha'].filter(Boolean);
+      msg.textContent = faltan.length ? `Leído del PDF. No se encontró: ${faltan.join(', ')}. Escríbelo a mano.` : 'Leído del PDF: revisa los datos antes de guardar.';
+    } catch (er) { msg.textContent = 'No se pudo leer el PDF (' + (er.message || er) + '): escribe los datos a mano.'; }
+  });
+  q('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = q('#sb-error'); err.textContent = '';
+    const datos = { cliente: q('#sb-cliente').value.trim(), monto: Number(q('#sb-monto').value) || 0, fechaVencimiento: q('#sb-fecha').value, empresa: q('#sb-empresa').value.trim(), vencId: v ? v.id : '' };
+    if (!archivo) { err.textContent = 'Elige el PDF o la foto de la boleta.'; return; }
+    if (!(datos.monto > 0)) { err.textContent = 'Escribe el total a pagar.'; return; }
+    if (!datos.fechaVencimiento) { err.textContent = 'Escribe la fecha de vencimiento.'; return; }
+    const b = q('#sb-guardar'); b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      const a = await Gastos.prepararArchivo(archivo);
+      const r = await Gastos.subirBoleta({ ...datos, ...a }, idem);
+      registrar('Subió una boleta', `${datos.empresa || datos.cliente || 'Boleta'} · ${pesos(datos.monto)} · ${fechaCaja(datos.fechaVencimiento)}`);
+      dlg.close();
+      alert(r.destino === 'bandeja' ? `${r.motivo || 'No calzó con una obligación'}: la boleta quedó en "Documentos sin obligación" (abajo en Vencimientos).` : `Listo: la boleta completó el vencimiento${r.obligacion ? ' de ' + r.obligacion : ''} (${pesos(datos.monto)}, vence ${fechaCaja(datos.fechaVencimiento)}).`);
+      refrescarAgenda();
+    } catch (er) {
+      if (er.code && er.code !== 'en_curso') idem = 'boleta-' + Gastos.nuevaClave();
+      err.textContent = (er.message || mensajeError(er)) + (er.code ? '' : ' Si vuelves a tocar Guardar no se duplica.');
+      b.disabled = false; b.textContent = 'Guardar boleta';
+    }
+  });
+}
+
+// Bandeja "Documentos sin obligación"
+async function pintarBandeja(d) {
+  const cont = $('vb-bandeja'); if (!cont) return;
+  let L;
+  try { L = ((await Gastos.bandeja()).documentos || []).filter(x => x.estado === 'pendiente'); } catch (e) { cont.innerHTML = `<p class="error">${esc(e.message || mensajeError(e))}</p>`; return; }
+  if (!$('vb-bandeja')) return;
+  $('vb-bandeja-n').textContent = L.length || '';
+  cont.innerHTML = L.length ? L.map(x => `<div class="fila-caja" id="dp-${esc(x.id)}"><div class="txt"><b>${esc(x.empresa || 'Boleta')}</b>
+      <span>${[x.cliente ? 'N° cliente ' + x.cliente : 'Sin N° de cliente', x.monto ? pesos(x.monto) : '', x.fechaVencimiento ? 'vence ' + fechaCaja(x.fechaVencimiento) : ''].filter(Boolean).map(esc).join(' · ')}</span>
+      <span class="nota">${esc(x.motivo || '')}${x.archivo && x.archivo.url ? ` · <a href="${esc(x.archivo.url)}" target="_blank" rel="noopener">ver archivo</a>` : ''}</span></div>
+    <div class="acciones acciones-bandeja"><button type="button" class="btn-sec btn-chico" data-dp-asignar="${esc(x.id)}">Asignar a una obligación</button><button type="button" class="btn-sec btn-chico" data-dp-gasto="${esc(x.id)}">Registrar como gasto</button>
+      <button type="button" class="btn-sec btn-chico" data-dp-obl="${esc(x.id)}">Crear obligación</button><button type="button" class="btn-sec btn-chico btn-peligro" data-dp-descartar="${esc(x.id)}">Descartar</button></div></div>`).join('')
+    : '<div class="vacio">No hay documentos sin obligación.</div>';
+  const de = id => L.find(x => x.id === id);
+  cont.querySelectorAll('[data-dp-asignar]').forEach(b => b.onclick = () => asignarPendiente(de(b.dataset.dpAsignar)));
+  cont.querySelectorAll('[data-dp-gasto]').forEach(b => b.onclick = () => { const x = de(b.dataset.dpGasto); prefillRegistro = { pendienteId: x.id, urlArchivo: (x.archivo || {}).url || '', nombreArchivo: (x.archivo || {}).nombre || '', monto: x.monto, obs: [x.empresa, x.cliente ? 'N° cliente ' + x.cliente : ''].filter(Boolean).join(' · ') }; location.hash = '#gastos/registrar'; });
+  cont.querySelectorAll('[data-dp-obl]').forEach(b => b.onclick = () => { const x = de(b.dataset.dpObl); abrirObligacion(null, d, { pendienteId: x.id, nombre: x.empresa || '', identificador: x.cliente || '', monto: x.monto, fecha: x.fechaVencimiento }); });
+  cont.querySelectorAll('[data-dp-descartar]').forEach(b => b.onclick = async () => {
+    const x = de(b.dataset.dpDescartar);
+    const motivo = await pedirMotivo('Descartar documento', `<p class="ayuda"><b>${esc(x.empresa || 'Boleta')}</b>${x.monto ? ' · ' + esc(pesos(x.monto)) : ''}</p><p class="ayuda">No se borra: queda guardado como descartado, con quién y cuándo. El archivo sigue en Drive.</p>`, 'Descartar');
+    if (!motivo) return;
+    try { await Gastos.resolverPendiente(x.id, 'descartar', { motivo }); registrar('Descartó un documento', `${x.empresa || x.cliente || 'Boleta'} · ${motivo}`); refrescarAgenda(); } catch (e) { alert(e.message || mensajeError(e)); }
+  });
+}
+async function asignarPendiente(x) {
+  let P;
+  try { P = ((await Gastos.plantillas()).plantillas || []).filter(p => p.estado === 'ACTIVA').sort((a, b) => a.nombre.localeCompare(b.nombre)); } catch (e) { alert(e.message || mensajeError(e)); return; }
+  const dlg = dialogo(`<form class="form-dialogo" novalidate><h2>Asignar a una obligación</h2>
+    <p class="ayuda"><b>${esc(x.empresa || 'Boleta')}</b> · ${esc(x.cliente ? 'N° cliente ' + x.cliente : 'sin N° de cliente')} · ${esc(pesos(x.monto || 0))} · vence ${esc(fechaCaja(x.fechaVencimiento))}</p>
+    <div class="campo"><label for="as-obl">Obligación</label><select id="as-obl"><option value="">Elige</option>${P.map(p => `<option value="${esc(p.id)}">${esc(p.nombre)}${p.identificador ? ' · ' + esc(p.identificador) : ''}</option>`).join('')}</select></div>
+    <p class="ayuda">Completa su vencimiento del mes (o lo crea). Si la obligación no tiene N° de cliente, se le guarda este.</p>
+    <div class="error" id="as-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="as-cancelar">Cancelar</button><button type="submit" class="btn" id="as-guardar">Asignar</button></div></form>`);
+  dlg.querySelector('#as-cancelar').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id = dlg.querySelector('#as-obl').value, err = dlg.querySelector('#as-error'); err.textContent = '';
+    if (!id) { err.textContent = 'Elige la obligación.'; return; }
+    const b = dlg.querySelector('#as-guardar'); b.disabled = true;
+    try { const r = await Gastos.resolverPendiente(x.id, 'asignar', { obligacionId: id }); registrar('Asignó un documento', `${x.empresa || x.cliente || 'Boleta'} → ${r.obligacion}`); dlg.close(); refrescarAgenda(); }
+    catch (er) { err.textContent = er.message || mensajeError(er); b.disabled = false; }
+  });
+}
+
+// Abonos (obligación de tipo libre)
+function abrirAbono(v) {
+  if (!v) return;
+  const hoy = Caja.diaLocal();
+  const dlg = dialogo(`<form class="form-dialogo" novalidate><h2>Agregar abono</h2>
+    <p class="ayuda"><b>${esc(v.nombre)}</b>${(v.abonos || []).length ? ' · ' + esc(G3.textoAbonos(v.abonos, pesos)) : ''}</p>
+    <div class="grilla-montos"><div class="campo"><label for="ab-monto">Monto del abono</label><input id="ab-monto" type="number" inputmode="numeric" min="0" step="1"></div>
+      <div class="campo"><label for="ab-fecha">Fecha</label><input id="ab-fecha" type="date" value="${hoy}" max="${hoy}"></div></div>
+    <div class="campo"><label for="ab-archivo">Comprobante (opcional)</label><input id="ab-archivo" type="file" accept="image/*,application/pdf"></div>
+    <div class="campo"><label for="ab-obs">Observación (opcional)</label><input id="ab-obs" type="text" maxlength="300"></div>
+    <p class="ayuda">Cada abono queda como un gasto con el ítem y las áreas de la obligación. Cuando esté todo pagado, toca Cerrar.</p>
+    <div class="error" id="ab-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="ab-cancelar">Cancelar</button><button type="submit" class="btn" id="ab-guardar">Agregar abono</button></div></form>`);
+  const q = s => dlg.querySelector(s);
+  q('#ab-cancelar').onclick = () => dlg.close();
+  let idem = 'abono-' + Gastos.nuevaClave();
+  q('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = q('#ab-error'); err.textContent = '';
+    const monto = Number(q('#ab-monto').value) || 0, fecha = q('#ab-fecha').value;
+    if (!(monto > 0)) { err.textContent = 'Escribe el monto del abono.'; return; }
+    if (!fecha) { err.textContent = 'Elige la fecha.'; return; }
+    const b = q('#ab-guardar'); b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      const a = await Gastos.prepararArchivo(q('#ab-archivo').files[0]);
+      const r = await Gastos.agregarAbono(v.id, { monto, fecha, origen: 'mano', obs: q('#ab-obs').value, ...(a || {}) }, idem);
+      registrar('Agregó un abono', `${v.nombre} · ${pesos(monto)} · ${fechaCaja(fecha)}`);
+      dlg.close(); refrescarAgenda();
+      return r;
+    } catch (er) {
+      if (er.code && er.code !== 'en_curso') idem = 'abono-' + Gastos.nuevaClave();
+      err.textContent = (er.message || mensajeError(er)) + (er.code ? '' : ' Si vuelves a tocar Agregar abono no se duplica.');
+      b.disabled = false; b.textContent = 'Agregar abono';
+    }
+  });
+}
+async function cerrarVencUI(v) {
+  if (!v) return;
+  if (!confirm(`¿Cerrar "${v.nombre}"?\n\nQueda pagado con ${G3.textoAbonos(v.abonos, pesos)}. Si después falta algo, se puede dejar por pagar de nuevo anulando el gasto del último abono.`)) return;
+  try { await Gastos.cerrarVencimiento(v.id); registrar('Cerró un vencimiento', `${v.nombre} · ${pesos(G3.totalAbonos(v))}`); refrescarAgenda(); }
+  catch (e) { alert(e.message || mensajeError(e)); }
+}
+
+// Vencimiento suelto (sin obligación)
+function abrirSuelto(d) {
+  const items = d.itemsSii || d.items || [], hoy = Caja.diaLocal();
+  const selArea = (c, v) => `<select class="${c}" aria-label="Área"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === v ? 'selected' : ''}>${a}</option>`).join('')}</select>`;
+  const dlg = dialogo(`<form class="form-dialogo" novalidate><h2>Vencimiento suelto ${info('Vencimiento suelto', TXT_SUELTO)}</h2>
+    <div class="campo"><label for="vs-nombre">Nombre</label><input id="vs-nombre" type="text" maxlength="80" placeholder="Ej: Patente municipal 2° semestre"></div>
+    <div class="campo"><label for="vs-item">Ítem de gasto</label><select id="vs-item"><option value="">Elige un ítem</option>${items.map(i => `<option value="${esc(i.item)}">${esc(i.item)}</option>`).join('')}</select></div>
+    <div id="vs-areas"></div>
+    <div class="grilla-montos"><div class="campo" id="vs-c-monto"><label for="vs-monto">Monto</label><input id="vs-monto" type="number" inputmode="numeric" min="0" step="1"></div>
+      <div class="campo"><label for="vs-fecha">Fecha de vencimiento</label><input id="vs-fecha" type="date" min="${hoy}"></div></div>
+    <div class="campo"><span class="etiqueta">Tipo de monto</span>${chipsTipoMonto('vs-tipo', 'bruto')}</div>
+    <div class="campo"><label for="vs-obs">Observación (opcional)</label><input id="vs-obs" type="text" maxlength="300"></div>
+    <div class="error" id="vs-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="vs-cancelar">Cancelar</button><button type="submit" class="btn" id="vs-guardar">Crear vencimiento</button></div></form>`);
+  const q = s => dlg.querySelector(s);
+  const pintar = () => { const it = items.find(i => i.item === q('#vs-item').value), c = q('#vs-areas');
+    q('#vs-c-monto').classList.toggle('oculto', !!(it && it.area === 'SELECCIONAR'));
+    c.innerHTML = !it ? '' : it.area === 'SELECCIONAR' ? `<div class="campo"><span class="etiqueta">Monto por área</span><div id="vs-multi">${filaArea('vs')}</div><button type="button" class="btn-sec btn-chico" id="vs-mas-area">Agregar área</button></div>`
+      : it.area === 'PRORRATEADO' ? `<div class="campo"><span class="etiqueta">Reparto por área (%)</span>${[1, 2, 3].map(k => `<div class="fila-area">${selArea('vs-pa' + k, '')}<input class="vs-pp${k}" type="number" min="0" max="100" step="1" placeholder="%" aria-label="Porcentaje área ${k}"></div>`).join('')}</div>`
+      : `<p class="ayuda">Área ${esc(it.area)}</p>`; };
+  q('#vs-item').addEventListener('change', pintar);
+  dlg.addEventListener('click', e => { if (e.target.closest('#vs-mas-area')) q('#vs-multi').insertAdjacentHTML('beforeend', filaArea('vs')); else if (e.target.closest('[data-quitar-area]')) { const f = e.target.closest('.fila-area'); if (f.parentElement.children.length > 1) f.remove(); } });
+  q('#vs-cancelar').onclick = () => dlg.close();
+  let idem = 'suelto-' + Gastos.nuevaClave();
+  q('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = q('#vs-error'); err.textContent = '';
+    const p = { nombre: q('#vs-nombre').value.trim(), item: q('#vs-item').value, monto: q('#vs-monto').value, fecha: q('#vs-fecha').value, tipoMonto: q('input[name="vs-tipo"]:checked').value, obs: q('#vs-obs').value.trim(),
+      areas: [...dlg.querySelectorAll('#vs-multi .fila-area')].map(f => ({ area: f.querySelector('.vs-area').value, monto: Number(f.querySelector('.vs-monto').value) || 0 })) };
+    [1, 2, 3].forEach(k => { const a = q('.vs-pa' + k); if (a) { p['pArea' + k] = a.value; p['pPct' + k] = q('.vs-pp' + k).value; } });
+    const b = q('#vs-guardar'); b.disabled = true;
+    try { await Gastos.crearSuelto(p, idem); registrar('Creó un vencimiento suelto', `${p.nombre} · ${fechaCaja(p.fecha)}`); dlg.close(); refrescarAgenda(); }
+    catch (er) { if (er.code && er.code !== 'en_curso') idem = 'suelto-' + Gastos.nuevaClave(); err.textContent = er.message || mensajeError(er); b.disabled = false; }
+  });
+}
+let prefillRegistro = null;   // "Registrar como gasto" desde la bandeja: la boleta ya está en Drive
+
 // ── Obligaciones (reglas) ──
 async function pintarObligaciones(el, sub, d) {
   el.innerHTML = cabGastos(sub) + `<div class="tarjeta"><div class="vacio" style="border:0">Cargando obligaciones…</div></div>`;
@@ -1635,11 +1854,14 @@ async function pintarObligaciones(el, sub, d) {
   const archivadas = P.filter(p => p.estado !== 'ACTIVA').sort((a, b) => a.nombre.localeCompare(b.nombre));
   const detalle = p => [FRECUENCIAS[p.frecuencia] || p.frecuencia, p.frecuencia === 'mensual_dia' && p.dia ? 'día ' + p.dia : '', p.frecuencia === 'variable' && p.fechaEsp ? fechaIso(p.fechaEsp) : '',
     Number(p.montoEstimado) ? pesos(Number(p.montoEstimado)) + ' est.' : 'sin monto estimado', p.item ? p.item : '', p.area === 'PRORRATEADO' ? [[p.pArea1, p.pPct1], [p.pArea2, p.pPct2], [p.pArea3, p.pPct3]].filter(x => x[0]).map(x => `${x[0]} ${x[1]}%`).join(' · ') : p.area === 'MULTI' ? (p.multiArea || []).map(a => a.area).join(' + ') : p.area].filter(Boolean).map(esc).join(' · ');
-  const fila = (p, activa) => `<div class="fila-caja"><div class="txt"><b>${esc(p.nombre)}</b><span>${detalle(p)}</span>${activa && p.proximaFecha ? `<span>Próxima: ${esc(fechaIso(p.proximaFecha))}</span>` : ''}${p.obs ? `<span class="nota">${esc(p.obs)}</span>` : ''}</div>
+  const base = d.fuente === 'base';
+  // v0.49.0 (base nueva): el tipo de cada obligación; las que vienen de la planilla dicen "Sin clasificar"
+  const chipTipo = p => (!base ? '' : G3.sinClasificar(p) ? ' <span class="chip c-amarillo chip-chico">Sin clasificar</span>' : ` <span class="chip c-gris chip-chico">${esc(G3.NOMBRE_TIPO[p.tipoObligacion])}</span>`);
+  const fila = (p, activa) => `<div class="fila-caja"><div class="txt"><b>${esc(p.nombre)}</b>${chipTipo(p)}<span>${detalle(p)}</span>${base && p.identificador ? `<span>N° cliente / RUT: ${esc(p.identificador)}</span>` : ''}${activa && p.proximaFecha ? `<span>Próxima: ${esc(fechaIso(p.proximaFecha))}</span>` : ''}${p.obs ? `<span class="nota">${esc(p.obs)}</span>` : ''}</div>
     <div class="acciones"><button type="button" class="btn-sec btn-chico" data-editar-obl="${esc(p.id)}">Editar</button><button type="button" class="btn-sec btn-chico" data-archivar-obl="${esc(p.id)}" data-archivar="${activa ? '1' : ''}">${activa ? 'Archivar' : 'Reactivar'}</button></div></div>`;
   const hoy = new Date();
   el.innerHTML = cabGastos(sub) + `
-    <section class="tarjeta" aria-labelledby="t-obl"><div class="titulo-fila"><h2 id="t-obl">Obligaciones activas ${info('Obligaciones', 'Son las reglas que crean los vencimientos: arriendo, luz, sueldos, cuotas… Cada una genera su vencimiento 3 días antes de la fecha y aparece en Vencimientos para pagarlo.\nArchivar deja de generar vencimientos nuevos; lo ya generado y pagado queda igual. Reactivar vuelve a generar desde hoy (no los meses que pasaron).\nEn Sistema Fën no se borran: se archivan.')}</h2>
+    <section class="tarjeta" aria-labelledby="t-obl"><div class="titulo-fila"><h2 id="t-obl">Obligaciones activas ${info('Obligaciones', 'Son las reglas que crean los vencimientos: arriendo, luz, sueldos, cuotas… Cada una genera su vencimiento 3 días antes de la fecha y aparece en Vencimientos para pagarlo.\nArchivar deja de generar vencimientos nuevos; lo ya generado y pagado queda igual. Reactivar vuelve a generar desde hoy (no los meses que pasaron).\nEn Sistema Fën no se borran: se archivan.')}${base ? ' ' + info('Tipos de obligación', TXT_TIPOS) : ''}</h2>
       <button type="button" class="btn" id="obl-nueva">${icono('mas', 16)} Nueva obligación</button></div>
       <div data-colapsar="12">${activas.map(p => fila(p, true)).join('') || '<div class="vacio">No hay obligaciones activas.</div>'}</div></section>
     ${archivadas.length ? `<section class="tarjeta" aria-labelledby="t-obl-arch"><div class="titulo-fila"><h2 id="t-obl-arch">Archivadas</h2><span>${archivadas.length}</span></div><div data-colapsar="3">${archivadas.map(p => fila(p, false)).join('')}</div></section>` : ''}
@@ -1673,22 +1895,29 @@ async function pintarObligaciones(el, sub, d) {
   verHist({ mes: hoy.getMonth() + 1, anio: hoy.getFullYear() });
 }
 
-function abrirObligacion(p, d) {
-  const items = d.itemsSii || d.items || [];
+function abrirObligacion(p, d, pre) {
+  const items = d.itemsSii || d.items || [], base = d.fuente === 'base';
+  // v0.49.0: "Crear obligación" desde un documento de la bandeja (tipo documento, con su N° de cliente)
+  if (pre && !p) p = null;
+  const tObl = p ? (p.tipoObligacion || '') : pre ? 'documento' : 'fijo';   // una nueva parte como monto fijo
+  const diaPre = pre && pre.fecha ? String(Number(pre.fecha.slice(8, 10))) : '';
   const it0 = p && p.item ? items.find(i => i.item === p.item) : null;
   const selArea = (c, v) => `<select class="${c}" aria-label="Área"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === v ? 'selected' : ''}>${a}</option>`).join('')}</select>`;
   const dlg = dialogo(`<form class="form-dialogo form-obl" novalidate>
     <h2>${p ? 'Editar obligación' : 'Nueva obligación'}</h2>
-    <div class="campo"><label for="ob-nombre">Nombre</label><input id="ob-nombre" type="text" maxlength="80" value="${esc(p ? p.nombre : '')}" placeholder="Ej: Arriendo sala producción"></div>
+    <div class="campo"><label for="ob-nombre">Nombre</label><input id="ob-nombre" type="text" maxlength="80" value="${esc(p ? p.nombre : pre ? pre.nombre : '')}" placeholder="Ej: Arriendo sala producción"></div>
+    ${base ? `<div class="campo"><span class="etiqueta">Tipo ${info('Tipos de obligación', TXT_TIPOS)}</span><div class="chips" role="radiogroup" aria-label="Tipo de obligación">${G3.TIPOS_OBLIGACION.map(k => `<label class="chip-radio"><input type="radio" name="ob-tobl" value="${k}" ${tObl === k ? 'checked' : ''}><span>${esc(G3.NOMBRE_TIPO[k])}</span></label>`).join('')}</div>${p && !p.tipoObligacion ? '<span class="ayuda">Sin clasificar: funciona como monto fijo hasta que elijas un tipo.</span>' : ''}</div>
+    <div class="grilla-montos" id="ob-c-doc"><div class="campo"><label for="ob-ident">N° de cliente o RUT del proveedor</label><input id="ob-ident" type="text" maxlength="40" value="${esc(p ? p.identificador || '' : pre ? pre.identificador : '')}" autocomplete="off"></div>
+      <div class="campo"><label for="ob-aviso">Recordar "Subir boleta" (días antes)</label><input id="ob-aviso" type="number" min="0" max="60" step="1" value="${esc(p && p.diasAviso !== '' && p.diasAviso != null ? p.diasAviso : G3.DIAS_AVISO)}"></div></div>` : ''}
     <div class="campo"><label for="ob-item">Ítem de gasto ${info('Ítem', 'Al pagar, el gasto se registra con este ítem (categoría, tipo y área salen del ítem). Si el ítem se reparte entre áreas, aquí defines cómo; al pagar puedes ajustar los montos del mes.\nSin ítem, la obligación solo avisa.')}</label>
       <select id="ob-item"><option value="">Sin ítem</option>${items.map(i => `<option value="${esc(i.item)}" ${p && p.item === i.item ? 'selected' : ''}>${esc(i.item)}</option>`).join('')}${p && p.item && !it0 ? `<option selected value="${esc(p.item)}">${esc(p.item)} (ya no está en la lista)</option>` : ''}</select></div>
     <div id="ob-areas"></div>
-    <div class="grilla-montos"><div class="campo"><label for="ob-frec">Frecuencia</label><select id="ob-frec">${p ? '' : '<option value="">Elige</option>'}${Object.entries(FRECUENCIAS).filter(([k]) => !p || (k === 'cuponera') === (p.frecuencia === 'cuponera')).map(([k, t]) => `<option value="${k}" ${p && p.frecuencia === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-      <div class="campo" id="ob-c-dia"><label for="ob-dia">Día del mes</label><input id="ob-dia" type="number" min="1" max="31" step="1" value="${esc(p ? p.dia : '')}"></div>
+    <div class="grilla-montos"><div class="campo"><label for="ob-frec">Frecuencia</label><select id="ob-frec">${p ? '' : '<option value="">Elige</option>'}${Object.entries(FRECUENCIAS).filter(([k]) => !p || (k === 'cuponera') === (p.frecuencia === 'cuponera')).map(([k, t]) => `<option value="${k}" ${(p && p.frecuencia === k) || (!p && pre && k === 'mensual_dia') ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div class="campo" id="ob-c-dia"><label for="ob-dia">Día del mes</label><input id="ob-dia" type="number" min="1" max="31" step="1" value="${esc(p ? p.dia : diaPre)}"></div>
       <div class="campo" id="ob-c-fecha"><label for="ob-fecha">Fecha</label><input id="ob-fecha" type="date" value="${esc(p ? p.fechaEsp : '')}"></div></div>
     <div id="ob-c-cuotas" class="campo"><span class="etiqueta">Cuotas ${info('Cuponera', 'Cada cuota crea su vencimiento de inmediato, con su fecha y monto. Una cuponera ya creada no cambia sus cuotas aquí: si una cuota no corresponde, anúlala en Vencimientos.')}</span>
       ${p ? '<p class="ayuda">Las cuotas de esta cuponera ya están creadas: para cambiar una, anúlala en Vencimientos.</p>' : `<div id="ob-cuotas"></div><button type="button" class="btn-sec btn-chico" id="ob-mas-cuota">Agregar cuota</button>`}</div>
-    <div class="grilla-montos"><div class="campo"><label for="ob-monto">Monto estimado (opcional)</label><input id="ob-monto" type="number" inputmode="numeric" min="0" step="1" value="${esc(p ? p.montoEstimado : '')}"></div>
+    <div class="grilla-montos"><div class="campo"><label for="ob-monto">Monto estimado (opcional)</label><input id="ob-monto" type="number" inputmode="numeric" min="0" step="1" value="${esc(p ? p.montoEstimado : pre && pre.monto ? pre.monto : '')}"></div>
       <div class="campo"><span class="etiqueta">Tipo de monto al pagar</span><div class="chips" role="radiogroup" aria-label="Tipo de monto">${[['', 'Sin definir'], ['bruto', 'Bruto'], ['neto', 'Neto'], ['siniva', 'Sin IVA']].map(([k, t]) => `<label class="chip-radio"><input type="radio" name="ob-tipo" value="${k}" ${(p ? p.tipoMonto || '' : '') === k ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div></div></div>
     <div class="campo"><label for="ob-obs">Observación (opcional)</label><input id="ob-obs" type="text" maxlength="300" value="${esc(p ? p.obs : '')}"></div>
     <div class="error" id="ob-error" role="alert"></div>
@@ -1706,6 +1935,8 @@ function abrirObligacion(p, d) {
         <button type="button" class="btn-sec btn-chico" id="ob-sugerir">Sugerir % según ventas</button><span class="ayuda" id="ob-sug"></span></div>`;
     } else c.innerHTML = `<p class="ayuda">${[it.categoria, it.tipo, it.subTipo].filter(Boolean).map(esc).join(' · ')} · Área ${esc(it.area)}</p>`;
   };
+  const pintarTipo = () => { if (!base) return; const tsel = q('input[name="ob-tobl"]:checked'); q('#ob-c-doc').classList.toggle('oculto', !tsel || tsel.value !== 'documento'); };
+  if (base) { dlg.querySelectorAll('input[name="ob-tobl"]').forEach(r => r.addEventListener('change', pintarTipo)); pintarTipo(); }
   const pintarFrec = () => { const f = q('#ob-frec').value; q('#ob-c-dia').classList.toggle('oculto', f !== 'mensual_dia'); q('#ob-c-fecha').classList.toggle('oculto', f !== 'variable'); q('#ob-c-cuotas').classList.toggle('oculto', f !== 'cuponera'); };
   const filaCuota = () => `<div class="fila-area"><input type="date" class="ob-cf" aria-label="Fecha de la cuota"><input type="number" class="ob-cm" min="0" step="1" placeholder="$" aria-label="Monto de la cuota"><button type="button" class="btn-icono" data-quitar-area aria-label="Quitar cuota">×</button></div>`;
   if (!p) { q('#ob-cuotas').innerHTML = filaCuota() + filaCuota(); q('#ob-mas-cuota').onclick = () => q('#ob-cuotas').insertAdjacentHTML('beforeend', filaCuota()); }
@@ -1737,15 +1968,20 @@ function abrirObligacion(p, d) {
     const datos = { id: p ? p.id : '', nombre: q('#ob-nombre').value.trim(), item: q('#ob-item').value, frecuencia: q('#ob-frec').value, dia: q('#ob-dia').value, fechaEsp: q('#ob-fecha').value,
       montoEstimado: q('#ob-monto').value, tipoMonto: (q('input[name="ob-tipo"]:checked') || {}).value || '', obs: q('#ob-obs').value.trim() };
     if (!datos.nombre || !datos.frecuencia) { err.textContent = 'Completa el nombre y la frecuencia.'; return; }
+    const tsel = base && q('input[name="ob-tobl"]:checked');
+    if (tsel) Object.assign(datos, { tipoObligacion: tsel.value, identificador: tsel.value === 'documento' ? q('#ob-ident').value.trim() : '', diasAviso: q('#ob-aviso').value });
+    if (pre && pre.pendienteId) datos.pendienteId = pre.pendienteId;
     const it = items.find(i => i.item === datos.item);
     if (it && it.area === 'SELECCIONAR') datos.multiArea = [...dlg.querySelectorAll('#ob-multi .fila-area')].map(f => ({ area: f.querySelector('.ob-area').value, monto: Number(f.querySelector('.ob-monto').value) || 0 })).filter(a => a.area && a.monto > 0);
     if (it && it.area === 'PRORRATEADO') [1, 2, 3].forEach(k => { datos['pArea' + k] = q('.ob-pa' + k).value; datos['pPct' + k] = q('.ob-pp' + k).value; });
     if (!p && datos.frecuencia === 'cuponera') datos.cuotas = [...dlg.querySelectorAll('#ob-cuotas .fila-area')].map(f => ({ fecha: f.querySelector('.ob-cf').value, monto: f.querySelector('.ob-cm').value })).filter(c => c.fecha);
     const b = q('#ob-guardar'); b.disabled = true; b.textContent = 'Guardando…';
     try {
-      await Gastos.guardarObligacion(datos, idem);
-      registrar(p ? 'Editó una obligación' : 'Creó una obligación', `${datos.nombre} · ${FRECUENCIAS[datos.frecuencia]}`);
-      dlg.close(); pintarGastos('obligaciones');
+      const r = await Gastos.guardarObligacion(datos, idem);
+      registrar(p ? 'Editó una obligación' : 'Creó una obligación', `${datos.nombre} · ${FRECUENCIAS[datos.frecuencia]}${datos.tipoObligacion ? ' · ' + G3.NOMBRE_TIPO[datos.tipoObligacion] : ''}`);
+      dlg.close();
+      if (r && r.avisoPendiente) alert('La obligación quedó creada, pero el documento sigue en la bandeja: ' + r.avisoPendiente);
+      if (pre) refrescarAgenda(); else pintarGastos('obligaciones');
     } catch (er) {
       if (er.code && er.code !== 'en_curso') idem = 'obl-' + Gastos.nuevaClave();
       err.textContent = er.message || mensajeError(er); b.disabled = false; b.textContent = 'Guardar';

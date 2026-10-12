@@ -5,14 +5,17 @@
 //  "Cambio a la base nueva" (bloqueado hasta que estén listos G2 y G3: G2_COMPLETO en config.js).
 //  Conectar la base nueva, entrar, leer la planilla (2026), copiar y control de totales.
 //  Nada cambia en el uso de Gastos: sigue con la planilla hasta el cambio.
+//  v0.48.0 (etapa G3): parte "Proveedores" (fichas con lo aprendido para sugerir al cargar del SII con la base nueva):
+//  cuántas hay, cuándo se actualizaron y el botón "Armar fichas de proveedores".
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as GB from './gastos-base.js?v=0.47.0';
-import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.47.0';
-import * as Gastos from './gastos.js?v=0.47.0';
-import * as GP from './gastos-planilla.js?v=0.47.0';
+import * as GB from './gastos-base.js?v=0.49.0';
+import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.49.0';
+import * as Gastos from './gastos.js?v=0.49.0';
+import * as GP from './gastos-planilla.js?v=0.49.0';
 
 const st = { prep: null, ctrl: null, msg: '', copiando: false, leyendo: false, controlando: false,
+  prov: { datos: null, corriendo: false, msg: '', err: '' },
   cambio: { corriendo: false, msg: '', err: '', avance: '' },
   drive: { corriendo: false, revisados: 0, total: null, cambiados: 0, fallidos: 0, siguiente: null, msg: '', err: '', listo: false } };
 const $ = id => document.getElementById(id);
@@ -64,13 +67,14 @@ export async function pintar(el, cab, H) {
         : seccionCopia(H)) : ''}
       ${ok ? pliegue('control', 'Control de totales', resCtrl, seccionControl(H)) : ''}
       ${ok ? pliegue('planilla', 'Copia a la planilla', `<span id="gb-planilla-chip">${chipPlanilla()}</span>`, seccionPlanilla(H)) : ''}
+      ${ok ? pliegue('proveedores', 'Proveedores', `<span id="gb-prov-res">${resumenProv(H)}</span>`, `<div id="gb-prov">${seccionProv(H)}</div>`) : ''}
       ${ok ? pliegue('cambio', 'Cambio a la base nueva', fuente.fuente === 'base' ? '<span class="chip c-verde">Gastos en la base nueva</span>' : '<span class="chip c-gris">Gastos en la planilla</span>', `<div id="gb-cambio">${seccionCambio(fuente, H)}</div>`) : ''}
       ${pliegue('drive', 'Archivos en Drive', st.drive.listo ? '<span class="chip c-verde">Privados</span>' : '', `<div id="gb-drive">${seccionDrive(H)}</div>`)}
     </section>`;
   conectarPliegues(el);
   const otra = () => pintar(el, cab, H);
   conectarConexion(el, cx, H, otra);
-  if (ok) { if (fuente.fuente !== 'base') conectarCopia(el, H, otra); conectarPlanilla(H); conectarCambio(fuente, H, otra); }
+  if (ok) { if (fuente.fuente !== 'base') conectarCopia(el, H, otra); conectarPlanilla(H); conectarCambio(fuente, H, otra); conectarProv(H); }
   conectarDrive(H);
 }
 
@@ -317,4 +321,52 @@ function conectarCambio(f, H, otra) {
     } catch (e) { c.err = error(e, H); }
     c.corriendo = false; otra();
   });
+}
+
+// ── v0.48.0 · Proveedores (etapa G3) ──
+// Con la base nueva, las sugerencias al cargar del SII salen de proveedores/{rut}: lo que se clasificó con cada proveedor
+// y cada producto en los últimos 2 años. Se actualiza solo al importar o vincular; "Armar fichas" las arma desde cero.
+const fsSii = () => import('./gastos-sii-fs.js?v=0.49.0');
+const TXT_PROV = 'Al cargar un archivo del SII, Sistema Fën sugiere cómo clasificar cada documento según cómo clasificaste antes a ese proveedor y a cada uno de sus productos (los últimos 2 años).\nCon la base nueva, eso queda guardado en una ficha por proveedor. Cada importación o vínculo la actualiza sola.\n"Armar fichas de proveedores" las arma desde cero con todo lo que hay en la base nueva (lo copiado de la planilla y lo hecho después). Hazlo una vez, después del cambio a la base nueva. Repetirlo no hace daño.\nNo cambia ningún gasto ni la planilla.';
+function resumenProv(H) {
+  const d = st.prov.datos;
+  if (!d) return '';
+  return d.n ? `${n(d.n)} ${d.n === 1 ? 'ficha' : 'fichas'}` : 'Sin fichas';
+}
+function seccionProv(H) {
+  const p = st.prov, d = p.datos, m = d && d.meta;
+  const cuando = m && (m.actualizado || m.armadas);
+  return `<p class="ayuda">Lo aprendido para sugerir al cargar del SII ${H.info('Proveedores', TXT_PROV)}</p>
+    ${d ? `<p class="ayuda" id="gb-prov-estado">${d.n ? `<b>${n(d.n)}</b> ${d.n === 1 ? 'proveedor' : 'proveedores'}` : 'Todavía no hay fichas de proveedores.'}${cuando ? ` · actualizado ${H.esc(fechaHora(cuando))}` : ''}${m && m.armadas ? ` · armadas el ${H.esc(fechaHora(m.armadas))}` : ''}</p>
+      ${d.lista.length ? `<div id="gb-prov-lista">${d.lista.slice(0, 8).map(x => `<div class="fila-caja fila-compacta"><div class="txt"><b>${H.esc(x.razonSocial || 'Sin nombre')}</b><span>${H.esc(x.rut)} · ${n(x.documentos)} ${x.documentos === 1 ? 'documento' : 'documentos'} · ${n(x.productos)} ${x.productos === 1 ? 'producto' : 'productos'}${x.ultima ? ' · último ' + H.esc(x.ultima.split('-').reverse().join('-')) : ''}</span></div></div>`).join('')}${d.lista.length > 8 ? `<p class="ayuda">… y ${n(d.lista.length - 8)} más</p>` : ''}</div>` : ''}`
+      : `<p class="ayuda" id="gb-prov-estado">${p.err ? '' : 'Revisando…'}</p>`}
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="gb-prov-armar" ${p.corriendo ? 'disabled' : ''}>${p.corriendo ? 'Armando…' : 'Armar fichas de proveedores'}</button></div>
+    <p class="ayuda" id="gb-prov-msg" role="status" aria-live="polite">${H.esc(p.msg)}</p>
+    ${p.err ? `<p class="error" role="alert">${H.esc(p.err)}</p>` : ''}`;
+}
+function pintarProv(H) {
+  const c = $('gb-prov'); if (!c) return;
+  c.innerHTML = seccionProv(H);
+  const r = $('gb-prov-res'); if (r) r.innerHTML = resumenProv(H);
+  const b = $('gb-prov-armar'); if (b) b.addEventListener('click', () => armarProv(H));
+}
+async function cargarProv(H) {
+  try { st.prov.datos = await (await fsSii()).resumenProveedores(); st.prov.err = ''; }
+  catch (e) { st.prov.err = error(e, H); }
+  pintarProv(H);
+}
+function conectarProv(H) { pintarProv(H); cargarProv(H); }
+async function armarProv(H) {
+  const p = st.prov;
+  if (p.corriendo) return;
+  if (!confirm('¿Armar las fichas de proveedores con todo lo que hay en la base nueva? No cambia ningún gasto ni la planilla.')) return;
+  Object.assign(p, { corriendo: true, msg: '', err: '' });
+  pintarProv(H);
+  try {
+    const r = await (await fsSii()).armarProveedores(t => { p.msg = t; const m = $('gb-prov-msg'); if (m) m.textContent = t; });
+    p.msg = `Listo: ${n(r.proveedores)} ${r.proveedores === 1 ? 'proveedor' : 'proveedores'} con datos de los últimos 2 años.`;
+    H.registrar('Armó las fichas de proveedores', `${r.proveedores} proveedores`);
+  } catch (e) { p.err = error(e, H); }
+  p.corriendo = false;
+  await cargarProv(H);
 }
