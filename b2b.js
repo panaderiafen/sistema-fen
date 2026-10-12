@@ -8,10 +8,10 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.51.0';
-import * as FB from './firebase-b2b.js?v=0.51.0';
-import * as Apps from './apps.js?v=0.51.0';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.51.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.52.0';
+import * as FB from './firebase-b2b.js?v=0.52.0';
+import * as Apps from './apps.js?v=0.52.0';
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.52.0';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -747,6 +747,30 @@ export function correspondeFacturar(facturacion, fecha, hoy = hoyTxt()) {
   const dia = diaDeFacturar(facturacion, fecha);
   return !!dia && dia <= hoy;
 }
+// v0.52.0 · Cómo factura el cliente, normalizado ("semanal", "Mensual ", vacío → diaria)
+export function modoFacturacion(facturacion) {
+  const f = String(facturacion || '').trim().toLowerCase();
+  return /^seman/.test(f) ? 'semanal' : /^mensu/.test(f) ? 'mensual' : 'diaria';
+}
+// El período al que pertenece una orden: diaria → el día; semanal → el lunes de su semana (lunes a domingo); mensual → el mes
+export function periodoFacturacion(facturacion, fecha) {
+  if (!fecha) return null;
+  const f = String(fecha).slice(0, 10), m = modoFacturacion(facturacion);
+  if (m === 'mensual') return f.slice(0, 7);
+  if (m === 'semanal') { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return hoyTxt(d); }
+  return f;
+}
+// v0.52.0 · Cuántos períodos ya tocaba facturar y siguen con órdenes sin folio (la etiqueta de cada cliente en Por facturar).
+// fechas: las fechas de sus órdenes sin folio (o las órdenes, con .fecha). Un período cuenta si ya llegó su día de facturar
+// (correspondeFacturar): diaria → días distintos; semanal → semanas distintas (lunes a domingo); mensual → meses distintos.
+export function periodosPendientes(facturacion, fechas, hoy = hoyTxt()) {
+  const m = modoFacturacion(facturacion), vistos = new Set();
+  (fechas || []).forEach(x => {
+    const f = typeof x === 'string' ? x : x && x.fecha;
+    if (f && correspondeFacturar(m, f, hoy)) vistos.add(periodoFacturacion(m, f));
+  });
+  return vistos.size;
+}
 
 // ═══════════════════════════════════════════════
 //  v0.16.0 · Agenda: cobros por la fecha acordada, días de conciliar, facturar y análisis semanal
@@ -797,7 +821,7 @@ export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
     for (let f = desde; f <= hasta; f = masDiasB(f, 1)) if (dias.includes(new Date(f + 'T12:00:00').getDay())) out.push({ auto: true, cat: 'conciliar', fecha: f, titulo: 'Conciliar la cartola', sub: 'Días de conciliar', url: '#conciliacion', hecho: f <= hoy && !!revisado && revisado >= masDiasB(f, -1) });
   }
   // Facturar: hoy, lo que ya toca; hacia adelante, según cómo factura cada cliente (diaria: lunes a sábado; semanal: sábado; mensual: último día del mes)
-  const modo = c => { const f = norm(c.facturacion); return /^seman/.test(f) ? 'semanal' : /^mensu/.test(f) ? 'mensual' : 'diaria'; };
+  const modo = c => modoFacturacion(c.facturacion);
   if (enRango(hoy)) {
     const cliDe = o => clientes.find(c => (o.clienteId && c.id === o.clienteId) || norm(c.nombre) === norm(o.cliente));
     const tocan = d.sinFolio.filter(o => { const c = cliDe(o); return correspondeFacturar(c ? c.facturacion : 'Diaria', o.fecha, hoy); });

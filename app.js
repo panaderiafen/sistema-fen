@@ -9,31 +9,31 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.51.0';
-import * as Caja from './caja.js?v=0.51.0';
-import * as Stock from './stock.js?v=0.51.0';
-import * as Ajustes from './ajustes.js?v=0.51.0';
-import * as Apps from './apps.js?v=0.51.0';
-import * as Agenda from './agenda.js?v=0.51.0';
-import * as Gastos from './gastos.js?v=0.51.0';
-import * as G3 from './gastos-g3.js?v=0.51.0';
-import * as G3D from './gastos-g3d.js?v=0.51.0';
-import { resumenAnalisis } from './gastos-g2.js?v=0.51.0';
-import * as Sii from './sii.js?v=0.51.0';
-import * as Previred from './previred.js?v=0.51.0';
-import * as B2b from './b2b.js?v=0.51.0';
-import * as Cartola from './cartola.js?v=0.51.0';
-import * as SiiFactura from './sii-factura.js?v=0.51.0';
-import * as PdfOrden from './pdf-orden.js?v=0.51.0';
-import * as Prod from './produccion.js?v=0.51.0';
-import * as VistaProd from './vista-produccion.js?v=0.51.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.51.0';
+} from './firebase.js?v=0.52.0';
+import * as Caja from './caja.js?v=0.52.0';
+import * as Stock from './stock.js?v=0.52.0';
+import * as Ajustes from './ajustes.js?v=0.52.0';
+import * as Apps from './apps.js?v=0.52.0';
+import * as Agenda from './agenda.js?v=0.52.0';
+import * as Gastos from './gastos.js?v=0.52.0';
+import * as G3 from './gastos-g3.js?v=0.52.0';
+import * as G3D from './gastos-g3d.js?v=0.52.0';
+import { resumenAnalisis } from './gastos-g2.js?v=0.52.0';
+import * as Sii from './sii.js?v=0.52.0';
+import * as Previred from './previred.js?v=0.52.0';
+import * as B2b from './b2b.js?v=0.52.0';
+import * as Cartola from './cartola.js?v=0.52.0';
+import * as SiiFactura from './sii-factura.js?v=0.52.0';
+import * as PdfOrden from './pdf-orden.js?v=0.52.0';
+import * as Prod from './produccion.js?v=0.52.0';
+import * as VistaProd from './vista-produccion.js?v=0.52.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.52.0';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.51.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.52.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.51.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.52.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -334,7 +334,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.51.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.52.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -881,9 +881,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.51.0').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.52.0').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.51.0').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.52.0').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -1909,7 +1909,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.51.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.52.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -3312,19 +3312,31 @@ function pintarB2bAdmin(el, sub) {
   const modalidad = nombre => { const cl = cliDe(nombre), f = (cl && cl.facturacion) || 'Diaria'; return `Factura ${f.toLowerCase()}${cl && cl.facturacion ? '' : ' (sin modalidad en Clientes)'}`; };
   const tocan = nombre => { const cl = cliDe(nombre); return (porCliente[nombre] || []).filter(o => B2b.correspondeFacturar((cl && cl.facturacion) || 'Diaria', o.fecha)); };
   const sel = [...b2b.sel].filter(n => sinFolio.some(o => String(o.n) === n));
+  // v0.52.0 · Una tarjeta por cómo factura el cliente; cada cliente con su etiqueta: cuántos períodos ya tocaba facturar
+  const pendCli = {};
+  Object.keys(porCliente).forEach(c => { const cl = cliDe(c); pendCli[c] = B2b.periodosPendientes((cl && cl.facturacion) || 'Diaria', porCliente[c]); });
+  const modoCli = c => { const cl = cliDe(c); return B2b.modoFacturacion((cl && cl.facturacion) || 'Diaria'); };
+  const tarjetasFact = [['diaria', 'Facturación diaria'], ['semanal', 'Facturación semanal'], ['mensual', 'Facturación mensual']]
+    .map(([m, t]) => [m, t, Object.keys(porCliente).filter(c => modoCli(c) === m).sort((a, b) => pendCli[b] - pendCli[a] || a.localeCompare(b, 'es'))])
+    .filter(x => x[2].length);
+  const etiquetaPend = c => { const n = pendCli[c]; return `<span class="chip chip-chico etq-fact ${n ? (n > 1 ? 'c-rojo' : 'c-amarillo') : 'c-verde'}" data-etq="${n}">${n ? `${n} ${n === 1 ? 'pendiente' : 'pendientes'}` : 'Al día'}</span>`; };
+  const infoEtiquetas = info('Etiquetas de Por facturar', 'Cada cliente muestra cuántos períodos ya tocaba facturar y todavía tienen órdenes sin folio:\nDiaria: se factura el mismo día. Cuenta los días distintos con órdenes sin folio (hoy incluido).\nSemanal: semana de lunes a domingo, se factura el sábado de su semana (una orden del domingo se factura ese mismo domingo). Cuenta las semanas distintas cuyo día de facturar ya llegó.\nMensual: se factura el último día del mes. Cuenta los meses distintos ya cerrados (o el de hoy si es el último día).\n"Al día": tiene órdenes sin folio, pero todavía no llega su día de facturar. "1 pendiente": un período por facturar. "2 pendientes" o más: te estás atrasando (se marca más fuerte).\nLos clientes con más pendientes van primero. La modalidad se cambia en Clientes; sin modalidad se toma como diaria.');
+  // Si nunca se abrió una de las tarjetas nuevas, parte como estaba "Por facturar" (v0.51.0)
+  const plegadaFact = k => plegadas()[k] === undefined ? plegada('fact') : plegada(k);
   b2b.sel = new Set(sel);
   el.innerHTML = cabB2b(sub) + `
     <details class="tarjeta plegable" data-plegar="plan" ${plegada('plan') ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-plan">Copia en la planilla ${info('Copia en la planilla', 'Cada orden nueva, edición, folio, pago, abono y anulación pasa sola a la planilla (Resumen Facturas, Detalle Ventas, Abonos), en general en segundos. Así Looker y Hoy siguen igual.\nSi algo queda pendiente (por ejemplo, sin internet), se reintenta solo; también puedes presionar "Pasar ahora".')}</h2>
       <span class="chip ${pendPlan ? 'c-amarillo' : 'c-verde'}">${pendPlan ? pendPlan + ' por pasar' : 'Al día'}</span></summary>
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" id="b2b-pasar">Pasar ahora</button></div>
       ${b2b.planilla ? `<p class="ayuda" role="status">${esc(b2b.planilla)}</p>` : ''}${b2b.errVivo ? `<p class="error">${esc(b2b.errVivo)}</p>` : ''}</details>
-    <details class="tarjeta plegable" data-plegar="fact" ${plegada('fact') ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-fact">Por facturar</h2><button type="button" class="lupa" data-lupa="fact" aria-label="Buscar en Por facturar" aria-expanded="${!!b2b.buscar.fact}">${icono('lupa', 16)}</button><span>${Object.keys(porCliente).length} ${Object.keys(porCliente).length === 1 ? 'cliente' : 'clientes'} · ${sinFolio.length} ${sinFolio.length === 1 ? 'orden' : 'órdenes'} · ${pesos(sinFolio.reduce((s, o) => s + o.total, 0))}</span></summary>
-      ${b2b.buscar.fact != null ? `<div class="buscar-b2b"><input type="search" data-buscar="fact" value="${esc(b2b.buscar.fact)}" placeholder="Cliente o N° de orden" aria-label="Buscar cliente o N° de orden"></div>` : ''}
-      ${Object.keys(porCliente).sort((a, b) => a.localeCompare(b, 'es')).map(c => { const mc = porCliente[c].filter(o => b2b.sel.has(String(o.n))), todas = mc.length === porCliente[c].length, fs = porCliente[c].map(o => o.fecha).filter(Boolean).sort(); return `<details class="grupo-b2b" data-grupo="${esc(c)}" data-txt="${esc((c + ' ' + porCliente[c].map(o => o.n).join(' ')).toLowerCase())}" ${b2b.gruposAbiertos.has(c) || mc.length ? 'open' : ''}><summary class="cab-cliente-b2b"><div><b>${esc(c)}</b><span>${porCliente[c].length} ${porCliente[c].length === 1 ? 'orden' : 'órdenes'} · ${pesos(porCliente[c].reduce((s, o) => s + o.total, 0))} · ${esc(modalidad(c).toLowerCase())}${fs.length ? ` · <small>${fs[0] === fs[fs.length - 1] ? esc(diaTexto(fs[0])) : `${esc(diaTexto(fs[0]))} al ${esc(diaTexto(fs[fs.length - 1]))}`}</small>` : ''}</span></div>
+    ${tarjetasFact.map(([m, titulo, nombres]) => { const k = 'fact-' + m, os1 = nombres.flatMap(c => porCliente[c]); return `<details class="tarjeta plegable" data-plegar="${k}" data-modo="${m}" ${plegadaFact(k) ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-${k}">${titulo}</h2><button type="button" class="lupa" data-lupa="${k}" aria-label="Buscar en ${titulo}" aria-expanded="${!!b2b.buscar[k]}">${icono('lupa', 16)}</button><span>${nombres.length} ${nombres.length === 1 ? 'cliente' : 'clientes'} · ${os1.length} ${os1.length === 1 ? 'orden' : 'órdenes'} · ${pesos(os1.reduce((s, o) => s + o.total, 0))}</span></summary>
+      ${b2b.buscar[k] != null ? `<div class="buscar-b2b"><input type="search" data-buscar="${k}" value="${esc(b2b.buscar[k])}" placeholder="Cliente o N° de orden" aria-label="Buscar cliente o N° de orden en ${titulo}"></div>` : ''}
+      <p class="ayuda etq-ayuda">Cada cliente dice ${m === 'diaria' ? 'cuántos días' : m === 'semanal' ? 'cuántas semanas' : 'cuántos meses'} ya tocaba facturar y siguen sin folio. ${infoEtiquetas}</p>
+      ${nombres.map(c => { const mc = porCliente[c].filter(o => b2b.sel.has(String(o.n))), todas = mc.length === porCliente[c].length, fs = porCliente[c].map(o => o.fecha).filter(Boolean).sort(); return `<details class="grupo-b2b" data-grupo="${esc(c)}" data-txt="${esc((c + ' ' + porCliente[c].map(o => o.n).join(' ')).toLowerCase())}" ${b2b.gruposAbiertos.has(c) || mc.length ? 'open' : ''}><summary class="cab-cliente-b2b"><div><b>${esc(c)} ${etiquetaPend(c)}</b><span>${porCliente[c].length} ${porCliente[c].length === 1 ? 'orden' : 'órdenes'} · ${pesos(porCliente[c].reduce((s, o) => s + o.total, 0))} · ${esc(modalidad(c).toLowerCase())}${fs.length ? ` · <small>${fs[0] === fs[fs.length - 1] ? esc(diaTexto(fs[0])) : `${esc(diaTexto(fs[0]))} al ${esc(diaTexto(fs[fs.length - 1]))}`}</small>` : ''}</span></div>
         <div class="acciones">${tocan(c).length && tocan(c).length < porCliente[c].length ? `<button type="button" class="btn-sec btn-chico" data-tocan-cli="${esc(c)}" >Marcar las que tocan (${tocan(c).length})</button>` : ''}<button type="button" class="btn-sec btn-chico" data-marcar-cli="${esc(c)}">${todas ? 'Desmarcar' : 'Marcar todas'}</button>${mc.length ? `<button type="button" class="btn-sec btn-chico" data-pdf-cli="${esc(c)}">PDF de ${mc.length}</button><button type="button" class="btn btn-chico" data-folio-cli="${esc(c)}">Asignar folio a ${mc.length} · ${pesos(mc.reduce((s, o) => s + o.total, 0))}</button>` : ''}</div></summary>
         ${mc.length ? resumenFactura(c, mc) : ''}
-        ${porCliente[c].map(o => `<details class="fila-orden-b2b"><summary class="fila-caja"><label class="check-b2b" onclick="event.stopPropagation()"><input type="checkbox" data-sel="${o.n}" ${b2b.sel.has(String(o.n)) ? 'checked' : ''} aria-label="Marcar orden ${o.n}"></label><div class="txt"><b>N° ${o.n}</b><span>${esc(diaTexto(o.fecha))} · ${pesos(o.total)}${o.planillaPendiente ? ' · por pasar a la planilla' : ''}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-o="${o.n}">Anular</button></div></summary>${lineasHtml(o)}</details>`).join('')}</details>`; }).join('') || '<div class="vacio" style="border:0">No hay órdenes sin folio.</div>'}
-      ${sinFolio.length ? `<p class="ayuda" style="margin-top:10px">Marca las órdenes que van en la misma factura: el botón "Asignar folio" aparece junto al nombre del cliente. Un folio es de un solo cliente. ${info('Marcar las que tocan', 'Marca solo las órdenes que ya corresponde facturar según cómo factura el cliente (se cambia en Clientes):\nDiaria: las de hoy y días anteriores (se factura el mismo día).\nSemanal: semana de lunes a domingo, se factura el sábado (o el domingo): el sábado, las de lunes a sábado; el domingo, también la del domingo.\nMensual: se factura el último día del mes (así el IVA le queda en ese mes): el último día, todas las del mes.\nSi el cliente no tiene modalidad, se toma como diaria. El botón aparece solo cuando hay órdenes que todavía no tocan.')}</p>` : ''}</details>
+        ${porCliente[c].map(o => `<details class="fila-orden-b2b"><summary class="fila-caja"><label class="check-b2b" onclick="event.stopPropagation()"><input type="checkbox" data-sel="${o.n}" ${b2b.sel.has(String(o.n)) ? 'checked' : ''} aria-label="Marcar orden ${o.n}"></label><div class="txt"><b>N° ${o.n}</b><span>${esc(diaTexto(o.fecha))} · ${pesos(o.total)}${o.planillaPendiente ? ' · por pasar a la planilla' : ''}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-o="${o.n}">Anular</button></div></summary>${lineasHtml(o)}</details>`).join('')}</details>`; }).join('')}
+      <p class="ayuda" style="margin-top:10px">Marca las órdenes que van en la misma factura: el botón "Asignar folio" aparece junto al nombre del cliente. Un folio es de un solo cliente. ${info('Marcar las que tocan', 'Marca solo las órdenes que ya corresponde facturar según cómo factura el cliente (se cambia en Clientes):\nDiaria: las de hoy y días anteriores (se factura el mismo día).\nSemanal: semana de lunes a domingo, se factura el sábado (o el domingo): el sábado, las de lunes a sábado; el domingo, también la del domingo.\nMensual: se factura el último día del mes (así el IVA le queda en ese mes): el último día, todas las del mes.\nSi el cliente no tiene modalidad, se toma como diaria. El botón aparece solo cuando hay órdenes que todavía no tocan.')}</p></details>`; }).join('') || `<section class="tarjeta" aria-labelledby="t-b2b-fact"><h2 id="t-b2b-fact">Por facturar</h2><div class="vacio" style="border:0">No hay órdenes sin folio.</div></section>`}
     <p class="ayuda" style="margin-top:4px">Lo facturado y sin pagar está en <a href="#b2b/cobranza">Cobranza</a>.</p>`;
   el.querySelectorAll('details[data-plegar]').forEach(dt => dt.addEventListener('toggle', () => plegar(dt.dataset.plegar, !dt.open)));
   // v0.14.5: cada cliente se pliega; los botones de su encabezado no lo abren ni cierran
@@ -3339,10 +3351,10 @@ function pintarB2bAdmin(el, sub) {
     pintarB2bAdmin(el, sub);
     const i = el.querySelector(`[data-buscar="${k}"]`); if (i) i.focus();
   }));
-  const filtrar = () => ['fact'].forEach(k => {
+  const filtrar = () => ['fact-diaria', 'fact-semanal', 'fact-mensual'].forEach(k => {
     const q = (b2b.buscar[k] || '').trim().toLowerCase(), cont = el.querySelector(`details[data-plegar="${k}"]`);
     if (!cont) return;
-    cont.querySelectorAll(k === 'fact' ? 'details[data-grupo]' : '.fila-cobro').forEach(x => { x.hidden = !!q && !x.dataset.txt.includes(q); });
+    cont.querySelectorAll('details[data-grupo]').forEach(x => { x.hidden = !!q && !x.dataset.txt.includes(q); });
   });
   el.querySelectorAll('[data-buscar]').forEach(i => i.addEventListener('input', () => { b2b.buscar[i.dataset.buscar] = i.value; filtrar(); }));
   filtrar();

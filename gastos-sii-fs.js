@@ -17,12 +17,12 @@
 //    al pagarlo (cartola o Pagar). Si no calza con un vencimiento (o hay más de una obligación con ese RUT), va a la bandeja
 //    "Documentos sin obligación". Al abrir el archivo, estado() dice a dónde va ("Va al vencimiento de Internet oct").
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.51.0';
-import * as GB from './gastos-base.js?v=0.51.0';
-import * as M from './gastos-g2.js?v=0.51.0';
-import * as S from './gastos-sii.js?v=0.51.0';
-import * as G3 from './gastos-g3.js?v=0.51.0';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.51.0';
+import * as FB from './firebase-gastos.js?v=0.52.0';
+import * as GB from './gastos-base.js?v=0.52.0';
+import * as M from './gastos-g2.js?v=0.52.0';
+import * as S from './gastos-sii.js?v=0.52.0';
+import * as G3 from './gastos-g3.js?v=0.52.0';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.52.0';
 
 const error = (msg, code, datos) => Object.assign(new Error(msg), { code, ...(datos ? { datos } : {}) });
 const s = v => String(v == null ? '' : v);

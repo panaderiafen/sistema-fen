@@ -566,6 +566,12 @@ details.grupo-b2b > summary.cab-cliente-b2b > div:first-child::before { content:
 details.grupo-b2b[open] > summary.cab-cliente-b2b > div:first-child::before { transform: rotate(90deg); }
 details.grupo-b2b:not([open]) { padding-bottom: 2px; }
 .cab-cliente-b2b small { font-size: 12px; color: var(--suave); }
+/* v0.52.0 · Por facturar: etiqueta de cada cliente (al día / n pendientes) */
+.cab-cliente-b2b b .etq-fact { display: inline-block; margin-left: 6px; vertical-align: 1px; font-size: 11px; }
+.cab-cliente-b2b .etq-fact.c-verde { color: var(--verde-t); }
+.cab-cliente-b2b .etq-fact.c-amarillo { color: var(--amarillo-t); }
+.cab-cliente-b2b .etq-fact.c-rojo { color: var(--rojo-t); font-weight: 700; }
+.etq-ayuda { margin: 4px 0 0; }
 .lupa { margin-left: 4px; margin-right: auto; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: var(--suave); cursor: pointer; opacity: .55; }
 .lupa:hover, .lupa[aria-expanded="true"] { opacity: 1; background: var(--menu); }
 .lupa:focus-visible { outline: 2px solid var(--acento); opacity: 1; }

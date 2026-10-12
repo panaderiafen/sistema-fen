@@ -1,13 +1,15 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.11.0
+//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.14.0
 //  La usa Sistema Fën (que lee las cuatro áreas; copia exacta en sistema-fen/cocina/).
 //
 //  Bodega común: un stock por materia prima.
 //  · Consumo = lo HECHO en Cocina, bajado por las recetas (y sus sub recetas) hasta las materias primas:
 //      Panadería y Pastelería: las recetas marcadas terminadas (hechos.rec_{id}), con la cantidad del día
 //        (Pastelería: dias.cantidades; Panadería: el plan de ese día).
-//      Bollería (bitácora): "Elaboré masas" = la masa base y su empaste; "Formé" = lo demás del producto
-//        (la masa y el empaste ya se contaron al elaborarlos).
+//      Bollería (bitácora): "Elaboré masas" = la masa base; "Hice empastes" = los empastes (gramos por empaste
+//        de las recetas × cantidad); "Formé" = lo demás del producto (la masa y el empaste ya se contaron).
+//        v0.14.0: los empastes se hacen la semana en que se laminan (no con la masa). Las "Elaboré" nuevas llevan
+//        conEmpaste: false; las antiguas (sin esa marca) siguen contando su empaste, como cuando se anotaron.
 //      Todas: la merma anotada de una materia prima (la de una receta ya se contó al hacerla).
 //      Cafetería (v0.8.0): lo VENDIDO en la caja de productos con receta de Cafetería (datos.ventas, lo arma
 //        Sistema Fën con los resúmenes de la caja) y los gramos de café de la bitácora de turno (calibraciones,
@@ -121,7 +123,8 @@ const recetaPorId = (ctx, id) => (ctx.recetas || []).find(r => r.id === id) || n
 const enDe = (fecha, en) => (typeof en === 'string' && en ? en : fecha + 'T12:00:00.000Z');
 // Gramos de una sub receta → cantidad en su unidad (como la tarjeta de Hoy: g × porciones / peso del lote)
 const cantDeGramos = (rs, g, aj) => { const pb = M.pesoBase(M.ingredientesAjustados(rs, (aj || {})[rs.id])); return pb > 0 ? g * M.porciones(rs) / pb : 0; };
-const empGramosPorMasa = (masaId, ctx) => {
+// Gramos de empaste que lleva 1 masa (promedio de sus productos) y la receta del empaste: { g, receta } o null
+export const empGramosPorMasa = (masaId, ctx) => {
   const ps = B.productos(ctx.recetas, ctx).filter(p => p.masa && p.masa.id === masaId && p.empasteG > 0);
   return ps.length ? { g: ps.reduce((s, p) => s + p.empasteG / p.masas, 0) / ps.length, receta: ps[0].empaste && ps[0].empaste.ingredientes && ps[0].empaste.ingredientes.length ? ps[0].empaste : null } : null;
 };
@@ -147,6 +150,11 @@ export function consumo(datos, desde = '0000-00-00', hasta = '9999-12-31') {
             agregar(area, fecha, a.en, m.nombre, bajar(m, n0(a.n), ctx, { ...op, parar: deOtra }));
             const e = a.conEmpaste === false ? null : empGramosPorMasa(m.id, ctx);
             if (e && e.receta) agregar(area, fecha, a.en, 'Empaste de ' + m.nombre, bajar(e.receta, cantDeGramos(e.receta, e.g * n0(a.n), aj), ctx, { ...op, parar: deOtra }));
+          }
+          // v0.14.0: "Hice empastes" { masa, n } → n empastes de esa masa (gramos por empaste × n, por la receta del empaste)
+          if (a.tipo === 'empaste') {
+            const m = recetaPorId(ctx, a.masa), e = n0(a.n) > 0 ? empGramosPorMasa(a.masa, ctx) : null;
+            if (e && e.receta) agregar(area, fecha, a.en, 'Empastes de ' + (m ? m.nombre : a.masa), bajar(e.receta, cantDeGramos(e.receta, e.g * n0(a.n), aj), ctx, { ...op, parar: deOtra }));
           }
           if (a.tipo === 'formo') {
             const p = recetaPorId(ctx, a.producto); if (!p || !(n0(a.n) > 0)) return;
@@ -227,20 +235,19 @@ export function proyeccion(datos, desde, dias = 7, eventos = []) {
       M.planDelDia(plan, f, ctx.recetas).forEach(({ receta, unidades }) => add(f, bajar(receta, unidades, ctx, { ajustes: aj, parar: deOtra, sinId })));
     });
   });
-  // Bollería: masas a elaborar (y su empaste) y lo que piden las metas de productos (repartido en la semana)
+  // Bollería: masas a elaborar y lo que piden las metas de productos (repartido en la semana). v0.14.0: el empaste
+  // va con los productos de la meta (se hace la semana en que se lamina), ya no con la masa
   const ctxB = ctxDe('BOL'), deOtraB = rs => rs.area && rs.area !== 'BOL';
   fechas.forEach(f => {
     const metaElab = (datos.metas || {})['BOL_' + M.sumarDias(M.lunesDe(f), 7)], idx = M.indiceDia(f);
     Object.entries((metaElab && metaElab.elaboracion) || {}).forEach(([masaId, ds]) => {
       const n = n0((ds || {})['d' + idx]), m = recetaPorId(ctxB, masaId); if (!(n > 0) || !m) return;
       add(f, bajar(m, n, ctxB, { parar: deOtraB, sinId }));
-      const e = empGramosPorMasa(m.id, ctxB);
-      if (e && e.receta) add(f, bajar(e.receta, cantDeGramos(e.receta, e.g * n), ctxB, { parar: deOtraB, sinId }));
     });
     const meta = (datos.metas || {})['BOL_' + M.lunesDe(f)];
     Object.entries((meta && meta.productos) || {}).forEach(([pid, piezas]) => {
       const p = recetaPorId(ctxB, pid); if (!p || !(n0(piezas) > 0)) return;
-      add(f, bajar(p, n0(piezas) / 7, ctxB, { parar: rs => deOtraB(rs) || B.esMasaBase(rs) || B.esEmpaste(rs), sinId }));
+      add(f, bajar(p, n0(piezas) / 7, ctxB, { parar: rs => deOtraB(rs) || B.esMasaBase(rs), sinId }));
     });
   });
   // Pastelería y Cafetería: al ritmo de los últimos 14 días (lo hecho, lo vendido y el café de la bitácora)

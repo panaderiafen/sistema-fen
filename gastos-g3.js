@@ -15,7 +15,7 @@
 //  · Leer una boleta (luz, agua): N° de cliente, total a pagar y fecha de vencimiento, con formatos chilenos.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import { dia } from './gastos-modelo.js?v=0.51.0';
+import { dia } from './gastos-modelo.js?v=0.52.0';
 
 export const TIPOS_OBLIGACION = ['fijo', 'documento', 'libre'];
 export const NOMBRE_TIPO = { fijo: 'Monto fijo', documento: 'Según documento del mes', libre: 'Libre (abonos)' };

@@ -1,9 +1,36 @@
-# Sistema Fën · v0.51.0
+# Sistema Fën · v0.52.0
 
-**App:** v0.51.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 · 12 de octubre de 2026
+**App:** v0.52.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 12 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.52.0: Por facturar en tres tarjetas y cuánto te atrasaste con cada cliente
+En **Ventas B2B → Órdenes**, lo que antes era una sola tarjeta **Por facturar** ahora son tres, en este orden: **Facturación diaria**, **Facturación semanal** y **Facturación mensual** (según la modalidad de cada cliente en Clientes; sin modalidad cuenta como diaria). Una tarjeta sin órdenes no aparece.
+
+- **Cada tarjeta funciona como la de antes:** clientes agrupados, su lupa (busca por cliente o N° de orden, solo en esa tarjeta), se pliega y recuerda si la dejaste abierta (la primera vez parte como tenías Por facturar), y en el resumen: clientes · órdenes · $. Marcar las que tocan, Marcar todas, PDF, Preparar para el SII, mensaje, WhatsApp y Asignar folio siguen igual.
+- **Etiqueta junto a cada cliente** (con su (i) en cada tarjeta): cuántos períodos ya tocaba facturar y siguen con órdenes sin folio. **Diaria:** se factura el mismo día; cuenta los días distintos (hoy incluido). **Semanal:** semana de lunes a domingo, se factura el sábado de su semana (la orden del domingo, ese mismo domingo); cuenta las semanas distintas. **Mensual:** se factura el último día del mes; cuenta los meses distintos.
+  - **Al día** (verde): tiene órdenes sin folio, pero todavía no llega su día de facturar.
+  - **1 pendiente** (amarillo) · **2 pendientes** o más (rojo, más marcado): te estás atrasando.
+- **Orden dentro de cada tarjeta:** primero los clientes con más pendientes; si empatan, por nombre.
+
+Por dentro: en `b2b.js`, nuevas `modoFacturacion` (normaliza "semanal", "Mensual ", vacío → diaria; también la usa la agenda), `periodoFacturacion` (día / lunes de su semana / mes) y `periodosPendientes(facturacion, fechas, hoy)`, que usa `correspondeFacturar` (la misma regla del 8-oct). Las tarjetas se guardan plegadas como `fact-diaria`, `fact-semanal` y `fact-mensual` (antes `fact`).
+
+Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.52.0**. No cambian reglas de Firestore ni scripts.
+
+### Instalación v0.52.0 (unos 3 minutos)
+En GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → arrastra todos los archivos del zip `sistema-fen-v0.52.0.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+
+### Lista de verificación v0.52.0
+- [ ] Abajo a la izquierda dice **v0.52.0**.
+- [ ] **Ventas B2B → Órdenes**: en vez de Por facturar ves **Facturación diaria**, **semanal** y **mensual** (solo las que tienen órdenes), cada una con clientes · órdenes · $.
+- [ ] Cada cliente tiene su etiqueta (**Al día**, **1 pendiente**, **n pendientes**) y los más atrasados van primero. Revisa uno que conozcas: un semanal con órdenes solo de esta semana dice **Al día** hasta el sábado.
+- [ ] La lupa de una tarjeta busca solo en esa tarjeta; plegar y abrir se recuerda al recargar.
+- [ ] Asigna un folio como siempre: la orden sale de la tarjeta y la etiqueta del cliente baja.
+- [ ] En el celular se ve bien (sin moverse hacia el lado).
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.51.0: no se guardó nada nuevo en la base.
 
 ## Novedades de la v0.51.0: Gastos, base nueva (etapa G3 completa): Previred con la base y el cambio habilitado
 **Hasta que presiones el botón, no cambia nada:** Gastos sigue con la planilla igual que en la v0.50.0. Lo nuevo es que el botón **Pasar Gastos a la base nueva** ya no está gris: G2 y G3 están completos. Los pasos del fin de semana están en la **Guía del cambio** (más abajo y en `guia-cambio-gastos.md`).
