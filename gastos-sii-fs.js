@@ -11,12 +11,18 @@
 //  · Cada escritura lleva marcaBase() (pasa sola a la planilla: Registro Gasto, Vencimientos, Detalle Compras,
 //    Cargas SII y Notas Documentos) y después notarEscritura() + la copia a la planilla. Nada se borra:
 //    quitar una carga la marca "quitada" (quién y cuándo) y no toca sus gastos, como el script.
+//  · v0.50.0: la factura de un proveedor cuyo RUT es el identificador de una obligación "según documento" (internet, gas,
+//    teléfono) no crea un gasto al importar: completa el vencimiento del período de esa obligación (monto = total de la
+//    factura, fecha = su vencimiento o 30 días después de emitida, documento { tipo: 'sii', rut, folio }). El gasto se crea
+//    al pagarlo (cartola o Pagar). Si no calza con un vencimiento (o hay más de una obligación con ese RUT), va a la bandeja
+//    "Documentos sin obligación". Al abrir el archivo, estado() dice a dónde va ("Va al vencimiento de Internet oct").
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.49.0';
-import * as GB from './gastos-base.js?v=0.49.0';
-import * as M from './gastos-g2.js?v=0.49.0';
-import * as S from './gastos-sii.js?v=0.49.0';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo } from './gastos-fs.js?v=0.49.0';
+import * as FB from './firebase-gastos.js?v=0.51.0';
+import * as GB from './gastos-base.js?v=0.51.0';
+import * as M from './gastos-g2.js?v=0.51.0';
+import * as S from './gastos-sii.js?v=0.51.0';
+import * as G3 from './gastos-g3.js?v=0.51.0';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.51.0';
 
 const error = (msg, code, datos) => Object.assign(new Error(msg), { code, ...(datos ? { datos } : {}) });
 const s = v => String(v == null ? '' : v);
@@ -30,9 +36,30 @@ const leer = () => Promise.all([todos('gastos'), todos('sii_docs')]);
 export async function estado(documentos) {
   const docs = S.docsValidos(documentos);
   if (!docs) throw error('El archivo no trae documentos válidos', 'datos');
-  const [gastos, siiDocs] = await leer();
-  return S.estado(docs, gastos, siiDocs);
+  const [gastos, siiDocs, ps, vencs] = await Promise.all([todos('gastos'), todos('sii_docs'), todos('obligaciones'), todos('vencimientos')]);
+  const r = S.estado(docs, gastos, siiDocs);
+  // v0.50.0 · A qué vencimiento va cada factura de un RUT que identifica a una obligación "según documento"
+  const ya = new Set(r.importados || []), aVenc = {};
+  docs.forEach(d => {
+    if (ya.has(d.clave) || d.tipo === '61') return;
+    const x = destinoFactura(ps, vencs, d.rut, G3.fechaFacturaSii('', d.fecha));
+    if (x) aVenc[d.clave] = x;
+  });
+  return { ...r, aVencimiento: aVenc };
 }
+// Obligaciones "según documento" activas con ese RUT como identificador
+const obligacionesRut = (ps, rut) => G3.obligacionesDe(ps, rut).filter(x => G3.tipoDe(x.d) === 'documento');
+// { obligacionId, nombre, vencimientoId, texto } o { bandeja: true, texto } o null (no es de una obligación)
+function destinoFactura(ps, vencs, rut, fecha) {
+  const l = obligacionesRut(ps, rut);
+  if (!l.length) return null;
+  if (l.length > 1) return { bandeja: true, texto: `Va a "Documentos sin obligación": ${l.length} obligaciones tienen ese RUT` };
+  const o = l[0], pid = s(o.d.id) || o.id, v = G3.elegirVencimiento(vencs, pid, fecha);
+  const f = v ? (s(v.d.fechaVencimiento).slice(0, 10)) : fecha;
+  return { obligacionId: pid, nombre: s(o.d.nombre), vencimientoId: v ? v.id : '', texto: `Va al vencimiento de ${s(o.d.nombre)} ${mesCorto(f)}`.trim() };
+}
+const MESES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const mesCorto = f => (/^\d{4}-\d{2}/.test(s(f)) ? MESES_C[Number(s(f).slice(5, 7)) - 1] : '');
 
 // ── Historial de cargas ──
 export async function cargas() {
@@ -93,6 +120,67 @@ export async function detalle(rut, folio, tipo) {
 // marca: fija por envío (gastos.js): un reintento usa los mismos ids y no repite lo que ya quedó.
 const LOTE = 400;
 export async function importar(facturas, omitirRepetidas, marca) {
+  // v0.50.0: las que van al vencimiento de su obligación, aparte (no crean gastos al importar)
+  const aVenc = (Array.isArray(facturas) ? facturas : []).filter(f => f && f.aVencimiento), resto = (Array.isArray(facturas) ? facturas : []).filter(f => !(f && f.aVencimiento));
+  if (!aVenc.length) return importarGastos(resto, omitirRepetidas, marca);
+  const r = resto.length ? await importarGastos(resto, omitirRepetidas, marca) : { ok: true, filas: 0, vencimientos: 0, detalle: 0, facturas: 0 };
+  const v = await importarAVencimientos(aVenc, marca);
+  return { ...r, facturas: (r.facturas || 0) + v.facturas, detalle: (r.detalle || 0) + v.detalle, aVencimientos: v.aVencimientos, aBandeja: v.aBandeja, destinos: v.destinos };
+}
+// Cada factura: completa el vencimiento de su obligación (o va a la bandeja) y queda como importada en sii_docs (con sus productos).
+// Repetir no duplica: si el vencimiento ya tiene esa factura, o la bandeja ya la tiene, solo se anota en sii_docs.
+async function importarAVencimientos(lista, marca) {
+  const out = { facturas: 0, detalle: 0, aVencimientos: 0, aBandeja: 0, destinos: [] };
+  const d = await dbBase(), hora = M.ahoraChile().hora, clave = marca.t + marca.r, por = correo();
+  for (let k = 0; k < lista.length; k++) {
+    const f0 = lista[k], rut = s(f0.rut).trim(), folio = s(f0.folio).trim(), total = Math.round(Number(f0.total));
+    if (!S.rutOk(rut) || !S.folioOk(folio) || !(total > 0)) throw error(`${s(f0.razonSocial)} F.${folio}: documento no válido`, 'datos');
+    const f = { rut, folio, razonSocial: S.sfTexto(f0.razonSocial, 200), tipoDoc: s(f0.tipoDoc) || '33', fechaDocto: s(f0.fechaDocto), total, neto: Number(f0.neto) || 0, iva: Number(f0.iva) || 0, esHarina: false, lineas: [], detalle: Array.isArray(f0.detalle) ? f0.detalle : [] };
+    const fISO = M.esIso(f.fechaDocto) ? f.fechaDocto : S.esIso(dmaIso(f.fechaDocto)) ? dmaIso(f.fechaDocto) : '';
+    const fv = G3.fechaFacturaSii(s(f0.fechaVencimiento), fISO), claveDoc = S.claveDocumento(rut, folio, ''), docId = S.idDoc(rut, folio, false);
+    const plan = S.planFactura(f, k, lista.length, marca, hora);
+    const [ps, vencs, pend, snD] = await Promise.all([todos('obligaciones'), todos('vencimientos'), todos('documentos_pendientes'), FB.getDoc(FB.doc(d, 'sii_docs', docId))]);
+    const prev = snD.exists() ? snD.data() : null;
+    if (prev && prev.importado && prev.importado.clave === claveDoc && !prev.quitadoEnPlanilla) { out.facturas++; continue; }   // ya quedó
+    const doc = { tipo: 'sii', rut, folio, numero: folio, razonSocial: f.razonSocial, monto: total, fechaVencimiento: fv, cliente: rut, siiDocId: docId };
+    let destino = null;
+    const ya = vencs.find(x => x.d.documento && x.d.documento.tipo === 'sii' && S.rutProv(x.d.documento.rut) === S.rutProv(rut) && s(x.d.documento.folio) === folio);
+    const enBandeja = pend.find(x => s(x.d.clave) === claveDoc && x.d.estado === 'pendiente');
+    if (ya) destino = { vencimientoId: ya.id, obligacion: s(ya.d.nombre) };
+    else if (enBandeja) destino = { pendienteId: enBandeja.id };
+    else {
+      const l = obligacionesRut(ps, rut);
+      let motivo = l.length > 1 ? `Hay ${l.length} obligaciones con ese RUT` : 'Ninguna obligación tiene ese RUT';
+      if (l.length === 1) { try { const r = await completarCon(l[0], doc, ''); destino = { vencimientoId: r.vencimientoId, obligacion: r.obligacion }; } catch (e) { motivo = e.message || String(e); } }
+      if (!destino) {
+        const idP = 'dp-' + marca.t + '-' + marca.r + '-' + k, refP = FB.doc(d, 'documentos_pendientes', idP);
+        await FB.runTransaction(d, async tx => {
+          if ((await tx.get(refP)).exists()) return;
+          tx.set(refP, nuevo({ id: idP, tipo: 'sii', estado: 'pendiente', motivo, cliente: rut, rut, folio, numero: folio, razonSocial: f.razonSocial, empresa: f.razonSocial, monto: total, fechaVencimiento: fv,
+            archivo: { url: '', nombre: '' }, clave: claveDoc }, 'sii'));
+        });
+        await despues(1);
+        destino = { pendienteId: idP, motivo };
+      }
+    }
+    // El documento queda como importado (con sus productos en Detalle Compras): no se vuelve a ofrecer
+    const refD = FB.doc(d, 'sii_docs', docId);
+    await FB.runTransaction(d, async tx => {
+      const sn = await tx.get(refD), a = sn.exists() ? sn.data() : null;
+      const docN = S.docSiiImportado(a, plan, { marca: clave, en: M.ahoraChile().texto, por });
+      docN.importado = { ...docN.importado, ...(destino.vencimientoId ? { aVencimiento: destino.vencimientoId } : { pendienteId: destino.pendienteId }), fechaVencimiento: fv };
+      const campos = Object.fromEntries(Object.entries(docN).filter(([kk]) => !['origen', 'creado', 'version', 'historial', 'planillaPendiente', 'hechoEnBase', 'editado'].includes(kk)));
+      if (a) tx.update(refD, cambioLigero(a, 'importó (al vencimiento de su obligación)', campos, { productos: plan.detalle.length })); else tx.set(refD, nuevo(campos, 'sii'));
+    });
+    await despues(1);
+    out.facturas++; out.detalle += plan.detalle.length;
+    if (destino.vencimientoId) out.aVencimientos++; else out.aBandeja++;
+    out.destinos.push({ rut, folio, razonSocial: f.razonSocial, ...destino });
+  }
+  return out;
+}
+const dmaIso = t => { const m = /^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/.exec(s(t)); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : ''; };
+async function importarGastos(facturas, omitirRepetidas, marca) {
   const cat = await catalogo();
   const l = S.limpiarFacturas(facturas, cat.lista.filter(i => !i.archivado));
   if (l.error) throw error(l.error, 'datos');

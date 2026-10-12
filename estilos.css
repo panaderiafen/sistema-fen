@@ -709,3 +709,23 @@ a.ag-item { text-decoration: none; }
 .botones-venc .btn-info { margin-right: 8px; }
 .acciones-bandeja { justify-content: flex-start; }
 .fila-caja .txt > .chip-chico { align-self: flex-start; width: auto; }
+
+/* v0.50.0 · Cartola con la base nueva: confirmar varios de una vez, dudas y la factura del SII que va a un vencimiento */
+.cc-sel { flex: 0 0 auto; display: flex; align-items: center; padding: 4px; margin: -4px 0; cursor: pointer; }
+.cc-sel input { width: 20px; height: 20px; accent-color: var(--azul-t); }
+.cc-lote { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 14px; margin: 0 0 12px; border-radius: 12px; background: var(--azul); color: var(--azul-t); }
+.cc-lote .ayuda { color: var(--azul-t); margin: 0; }
+.cc-lote #cc-lote-avance:empty { display: none; }
+.prop-duda { color: var(--amarillo-t); }
+.sii-a-venc { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: var(--azul); color: var(--azul-t); font-size: 13px; overflow-wrap: anywhere; }
+
+/* v0.51.0 · Clasificar obligaciones (base nueva), Previred que va a un vencimiento y lo que queda después del cambio */
+.fila-clasif { align-items: flex-start; }
+.fila-clasif .check-b2b { margin-top: 2px; }
+.clasif-campos { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.clasif-campos select, .clasif-campos input[type="text"] { min-height: 40px; max-width: 100%; }
+.clasif-ident { display: flex; flex-wrap: wrap; gap: 6px; }
+.prev-a-venc { border-left: 4px solid var(--acento); padding: 8px 12px; margin: 10px 0; background: var(--acento-suave); border-radius: 8px; }
+.lista-despues { margin: 8px 0 8px 18px; padding: 0; }
+.lista-despues li { margin: 6px 0; }
+.siniva-tabla td, .siniva-tabla th { white-space: nowrap; }

@@ -1,9 +1,104 @@
-# Sistema Fën · v0.49.0
+# Sistema Fën · v0.51.0
 
-**App:** v0.49.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.15.0 · 12 de octubre de 2026
+**App:** v0.51.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 · 12 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.51.0: Gastos, base nueva (etapa G3 completa): Previred con la base y el cambio habilitado
+**Hasta que presiones el botón, no cambia nada:** Gastos sigue con la planilla igual que en la v0.50.0. Lo nuevo es que el botón **Pasar Gastos a la base nueva** ya no está gris: G2 y G3 están completos. Los pasos del fin de semana están en la **Guía del cambio** (más abajo y en `guia-cambio-gastos.md`).
+
+- **Previred con la base nueva.** Se sube igual (Gastos → Previred): se lee el PDF en el equipo, se recuerdan el área y el ítem de cada trabajador y el mismo mes no se carga dos veces. El PDF va a Drive (**Fën · Gastos / Previred / año**, privado) y el detalle a la base (pasa solo a la hoja **Cotizaciones**). **La regla acordada:** si existe la obligación **Cotizaciones** (según documento, con identificador **Previred**), el certificado dice **"Va al vencimiento de Cotizaciones … (fecha)"** (con su (i)) y al guardar **completa ese vencimiento** (monto = total del certificado; el PDF queda como su documento). **Los gastos por trabajador se crean al pagarlo** (con la cartola, que lo propone por el monto exacto, o con Pagar): uno por trabajador, sin IVA, con su área e ítem. Si no existe esa obligación o su vencimiento, funciona como hoy (los gastos al guardar) y una nota sugiere crear la obligación.
+- **"Es Previred"** (Obligaciones → Editar, tipo según documento, con su (i)): marca la obligación de las cotizaciones.
+- **Clasificar obligaciones** (Gastos → Obligaciones → **Revisar y clasificar**, y desde Base nueva): cada obligación activa con su ítem, su monto, sus últimos pagos y una **propuesta** de tipo: **monto fijo** si los últimos 3 pagos fueron iguales; **según documento** si es luz, agua, gas, internet o teléfono, o si el SII tiene facturas de un proveedor con ese nombre; **libre** si es un sueldo o los montos cambian mucho. Y de **identificador**: el número del nombre ("LUZ AINAVILLO 2020220 / 1945063" → 2020220; con varios eliges tú), el RUT del proveedor del SII o Previred. Nada se guarda solo: **Guardar** en cada una o marca varias y **Aplicar propuestas** (sus vencimientos abiertos toman el tipo nuevo, como en Editar).
+- **Arreglo "sin IVA"** (opcional, una vez, en Base nueva después del cambio): los gastos de 2026 nacidos de pagar una obligación **Sin IVA** que la app antigua guardó como bruto (neto = monto / 1,19) quedan con neto = monto final. Primero muestra la lista y la diferencia total; solo se aplica si confirmas. Cada gasto guarda "ajuste siniva" en su historial y pasa a la planilla.
+- **El cambio**: además de la copia final y el control de totales, al terminar muestra **lo que queda justo después** (clasificar, identificadores, arreglo sin IVA, fichas de proveedores, dejar privados los archivos, revisar la planilla y Looker). **Volver a la planilla** sigue igual: solo si todavía no se hizo nada en la base nueva.
+- **Copia a la planilla** (script v2.17.0): **Cotizaciones** y **Cotizaciones Trabajadores** con su "ID base" (lo copiado en G1 se reconoce por su Clave / RUT; nunca se borran filas). Con la base nueva, el script rechaza `cot_registrar` (la app antigua y versiones anteriores no escriben Previred en la planilla).
+
+Por dentro: reglas nuevas en `gastos-g3d.js` (Previred: estado, registro, lista y a qué vencimiento va; `lineasDelPago`, que usan Pagar y la cartola; propuestas para clasificar; vista previa del arreglo sin IVA). `gastos-g3d-fs.js` hace cot_estado, cot_registrar y cot_lista en `cotizaciones` (id `c-<huella de la Clave>`, como la copia G1) y `cotiz_trabajadores`, clasificar y el arreglo. El vencimiento completado guarda `documento { tipo: 'previred', url, previred: { periodo, fecha, trabajadores } }`. Gastos de Previred al subir (sin obligación): `gq-…`; al pagar: `gp-…` con `previred { periodo, rut }`. `config.js`: **`CAMBIO_HABILITADO: true`** (antes `G2_COMPLETO`). Con la planilla, Previred llama al script como siempre.
+
+Archivos: **nuevos** `gastos-g3d.js`, `gastos-g3d-fs.js` y `vista-gastos-clasificar.js`. Cambian `previred.js`, `gastos.js`, `gastos-fs.js`, `gastos-g3.js`, `gastos-cartola-fs.js`, `gastos-base.js`, `vista-gastos-base.js`, `app.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.51.0**.
+
+### Instalación v0.51.0 (unos 8 minutos)
+**A. Script de Gastos v2.17.0** → ver el README de `gastos-script-v2.17.0.zip` (zip completo: reemplaza todos los `.gs`; nueva versión de la implementación). El ping debe decir **2.17.0**.
+
+**B. Sistema Fën v0.51.0** → en GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → arrastra todos los archivos del zip (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R). Abajo a la izquierda debe decir **v0.51.0**.
+
+Las reglas de fen-gastos no cambian (v0.1.0: la cuenta en `admins` lee y escribe todo, también `cotizaciones` y `cotiz_trabajadores`). No hay que crear índices.
+
+**C. El cambio** → cuando quieras, un fin de semana: sigue la Guía del cambio (abajo).
+
+### Lista de verificación v0.51.0 (antes del cambio)
+- [ ] Abajo a la izquierda dice **v0.51.0**; el ping del script de Gastos dice **2.17.0**.
+- [ ] **Gastos → Base nueva → Cambio a la base nueva**: el botón **Pasar Gastos a la base nueva** está activo (no lo presiones hasta el fin de semana).
+- [ ] **Previred**: sube un certificado de prueba ya cargado: dice "Este mes ya estaba cargado completo", igual que antes (con la planilla).
+- [ ] Todo lo demás de Gastos y Conciliación funciona igual que en la v0.50.0.
+
+### Si algo sale mal
+- **"Falta actualizarlo a v2.17.0"**: solo puede aparecer con Gastos en la base nueva (al guardar el PDF de Previred o en la Copia a la planilla); paso A.
+- Para volver atrás antes del cambio: sube los archivos de la v0.50.0 y, si quieres, el script v2.16.0. Antes del cambio esta versión no escribe nada nuevo en fen-gastos.
+
+## Guía del cambio: Gastos a la base nueva (fin de semana)
+
+Para Sistema Fën **v0.51.0** y el script de Gastos **v2.17.0**. Tiempo: unos 45 minutos. Hazlo cuando nadie esté registrando gastos (ni en la app antigua ni en Sistema Fën).
+
+### Antes de empezar
+1. Ten a mano: el zip **gastos-script-v2.17.0.zip**, el zip **sistema-fen-v0.51.0.zip** y tu contraseña de Sistema Fën.
+2. Si te quedan cargos de la cartola o un SII a medio importar en la app antigua, termínalos antes (o déjalos para después del cambio: la cartola y el SII se vuelven a subir sin duplicar).
+
+### El cambio
+1. **Instala el script de Gastos v2.17.0.** En el Apps Script de Gastos, reemplaza **todos** los archivos `.gs` con los del zip (Code, Seguridad, SistemaFen, Calendario, Cartola y BaseNueva). Guarda → Implementar → Administrar implementaciones → lápiz → **Nueva versión** → Implementar. Revisa: `URL/exec?action=ping` responde **2.17.0**.
+2. **Instala Sistema Fën v0.51.0.** GitHub, repo **sistema-fen** → Add file → Upload files → arrastra todo el zip (con la carpeta `cocina/`) → Commit. Espera 1 o 2 minutos y recarga con Ctrl+Shift+R. Abajo a la izquierda debe decir **v0.51.0**.
+3. **Gastos → Base nueva → Cambio a la base nueva → Pasar Gastos a la base nueva.** Confirma. Cierra la planilla para escribir, hace la copia final y el control de totales. Espera el mensaje **"Listo: Gastos trabaja con la base nueva. Todo cuadra."**
+4. **Revisa que todo cuadre.** En **Control de totales** tiene que decir **Todo cuadra** (también mes por mes). Si dice "no cuadra", no se cambió nada: Gastos sigue con la planilla (ver "Si algo falla").
+5. **Clasifica las obligaciones.** En "Lo que queda justo después del cambio" → **Clasificar obligaciones** (o Gastos → Obligaciones → Revisar y clasificar). Revisa la propuesta de cada una (monto fijo, según documento o libre), cambia lo que no calce y presiona **Aplicar propuestas** (o **Guardar** en cada una).
+6. **Completa los identificadores.** En la misma pantalla: el N° de cliente de cada luz y agua (si el nombre trae dos números, elige el de la boleta), el RUT del proveedor de internet, gas o teléfono, y **Previred** en Cotizaciones (en Editar: marca "Es Previred").
+7. **Arreglo "sin IVA" (opcional).** En "Lo que queda…" → **Revisar el arreglo "sin IVA"**. Mira la lista y la diferencia total; si está bien, **Aplicar el arreglo**. El monto final no cambia: solo el neto de los pagos de obligaciones sin IVA que la app antigua guardó como bruto.
+8. **Arma las fichas de proveedores** (parte **Proveedores** → Armar fichas de proveedores). Una vez.
+9. **Deja privados los archivos** (parte **Archivos en Drive** → Dejar privados los archivos ya subidos), si no lo hiciste antes. Espera **Listo**.
+
+### Revisar la planilla y Looker
+1. **Copia a la planilla** dice **Planilla al día**.
+2. Registra un gasto de prueba en Sistema Fën: a los pocos segundos aparece arriba en **Registro Gasto**, con la columna **ID base** al final. Anúlalo: pasa a **Gastos anulados**.
+3. Abre Looker Studio y actualiza los datos: el mes en curso muestra lo mismo que **Gastos → Análisis**.
+4. La app antigua de Gastos ya no registra: dice **"Gastos ya se registra en la base nueva (Sistema Fën)"**. Puede seguir leyendo.
+
+### Si algo falla
+- **"No cuadra" o un error durante el cambio**: no se cambió nada y el script vuelve a aceptar escrituras de la planilla. Lee la planilla de nuevo (Copia desde la planilla) y vuelve a presionar **Pasar Gastos a la base nueva**. Si sigue sin cuadrar, anota las diferencias y avísame.
+- **"Falta actualizarlo a v2.17.0"**: el paso 1 no quedó (revisa la nueva versión de la implementación).
+- **Volver atrás**: **Volver a la planilla** (en Cambio a la base nueva) funciona **solo si todavía no se hizo nada en la base nueva** (ni un gasto, ni un pago, ni una clasificación; abrir Vencimientos u Hoy ya crea los vencimientos del mes). Si ya se hizo algo, dice por qué no se puede: Gastos sigue en la base nueva y lo vemos juntos.
+- **Para dejar el botón gris otra vez** (sin volver atrás lo ya hecho): sube la v0.50.0 o pon `CAMBIO_HABILITADO: false` en `config.js`.
+- **El script**: Implementar → Administrar implementaciones → lápiz → versión anterior (v2.16.0). Con Gastos en la planilla, Sistema Fën v0.51.0 funciona igual con la v2.16.0 (solo la copia a la planilla y el PDF de Previred con la base nueva piden la v2.17.0).
+
+## Novedades de la v0.50.0: Gastos, base nueva (etapa G3, tercera parte): la cartola con la forma de trabajar acordada
+**Para el día a día no cambia nada:** Gastos sigue con la planilla y la Conciliación (Abonos de B2B y Cargos de Gastos) funciona igual que en la v0.49.0. El botón **Pasar Gastos a la base nueva** sigue gris: de G3 falta Previred. Lo nuevo, para cuando se haga el cambio:
+
+- **La cartola con la base nueva.** Se sube igual, por Conciliación (una sola subida: los abonos van a B2B como siempre y los cargos a la base nueva). Subir la misma cartola dos veces no repite nada. El archivo original sigue yendo a Drive (**Fën · Gastos / Cartolas / año**, privado) y no se guarda dos veces. Deshacer, lo aprendido y quitar lo aprendido funcionan igual que hoy. **La cartola nunca crea obligaciones**: paga vencimientos, agrega abonos y lo demás queda como gasto (como hoy).
+- **Propuestas según el tipo de la obligación**: **monto fijo**: un cargo del monto exacto del vencimiento (±$0), desde 15 días antes hasta 10 días después de su fecha, se propone seguro ("monto fijo exacto"). **Según documento**: por el monto de su boleta o factura, cuando ya llegó; dos luces con la misma descripción en el banco (Luz Barros y Luz Ainavillo) se distinguen por ese monto. Si los montos chocan o falta el documento, no hay propuesta: dice cuáles son las opciones y eliges tú. **Libre (sueldos líquidos)**: el cargo se agrega como **abono** (botón **Abono (sueldo)** en el cargo); lo aprendido lo sugiere la próxima vez, pero nunca marcado ni cerrado solo (se cierra en Vencimientos). Una obligación **sin clasificar** con el monto exacto se propone, pero sin marcar.
+- **Confirmar varios de una vez** (con su (i)): cada cargo con propuesta tiene una casilla; los seguros vienen marcados. **Confirmar seleccionados (N)** muestra el total y de qué tipo son, pide confirmación y muestra el avance ("Confirmando 2 de 5…"). Cada uno va por su lado: si uno falla, los demás siguen y al final dice cuáles no se pudieron. Confirmar dos veces el mismo cargo no lo paga dos veces.
+- **Facturas del SII de internet, gas o teléfono**: si el RUT del proveedor es el N° de cliente / RUT de una obligación **según documento**, al cargar del SII esa factura dice **"Va al vencimiento de Internet … oct"** (con su (i)) y no pide ítem. Al importar no crea un gasto: completa el vencimiento de ese período (monto = total de la factura; fecha = su vencimiento, o 30 días después de emitida). El gasto se crea al pagarlo (cartola o Pagar), con el ítem y las áreas de la obligación y el RUT y folio de la factura (cuenta para el IVA). Si hay más de una obligación con ese RUT o no calza con un vencimiento, va a **Documentos sin obligación** (ahí: asignar, crear obligación o descartar).
+- **Copia a la planilla** (script v2.16.0): los cargos, las cartolas y lo aprendido pasan a **Cartola Cargos**, **Cartolas** y **Cartola Reglas** (con su "ID base"; lo copiado en G1 se reconoce y no se duplica; nunca se borran filas: una regla quitada queda con Veces 0 y la columna **Quitada**). Los gastos y vencimientos pagados con la cartola llevan la columna **Cartola** como hoy. Con la base nueva, el script rechaza escribir la cartola en la planilla.
+
+Por dentro: reglas nuevas en `gastos-cartola.js` (propuestas, carga, aprender/desaprender, traza "Cartola N°…[cc…]", igual que Cartola.gs); `gastos-cartola-fs.js` hace cc_lista, cc_cargar, cc_resolver, cc_deshacer y cc_quitar_regla en las colecciones `cartolas`, `cartola_cargos` y `cartola_reglas` (forma de la copia G1). Resolver un cargo es **una transacción** (cargo, vencimientos, gastos y lo aprendido): no queda nada "a medias". Ids fijos por cargo (`gp-<cargo>-r<n>v<k>-01`, gasto nuevo `gc-…`): un reintento no duplica y, después de deshacer, la siguiente vez usa otros. Cada gasto y vencimiento tocado guarda `cartola` (la traza) y `cartolaCargo` (el id del cargo). El abono usa `agregarAbono(vencId, { monto, fecha, origen: 'cartola', cargoId })`. Las facturas que van a un vencimiento quedan en `sii_docs` con `importado.aVencimiento` (o `pendienteId`). El historial de cambios de un cargo va en `registro` (la columna Historial sigue siendo el texto de Deshacer). Con la planilla, `cartola.js` y el SII hacen exactamente lo de la v0.49.0.
+
+Archivos: **nuevos** `gastos-cartola.js` y `gastos-cartola-fs.js`. Cambian `cartola.js`, `gastos.js`, `gastos-fs.js`, `gastos-g3.js`, `gastos-sii.js`, `gastos-sii-fs.js`, `gastos-base.js`, `sii.js`, `app.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.50.0**.
+
+### Instalación v0.50.0 (unos 8 minutos)
+**A. Script de Gastos v2.16.0** → ver el README de `gastos-script-v2.16.0.zip` (reemplaza `BaseNueva.gs`, `SistemaFen.gs` y `Seguridad.gs`; nueva versión de la implementación). El ping debe decir **2.16.0**.
+
+**B. Sistema Fën v0.50.0** → en GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → arrastra todos los archivos del zip (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R). Abajo a la izquierda debe decir **v0.50.0**.
+
+Las reglas de fen-gastos no cambian (v0.1.0: la cuenta en `admins` lee y escribe todo, también `cartolas`, `cartola_cargos` y `cartola_reglas`). No hay que crear índices (las consultas usan un solo campo).
+
+### Lista de verificación v0.50.0
+- [ ] Abajo a la izquierda dice **v0.50.0**; el ping del script de Gastos dice **2.16.0**.
+- [ ] **Gastos → Base nueva**: el botón del cambio sigue gris con **El cambio se habilita cuando estén listos G2 y G3**.
+- [ ] **Conciliación**: sube una cartola: abonos a B2B y cargos a Gastos igual que antes (con la planilla no aparecen casillas ni "Abono (sueldo)").
+- [ ] Confirma y deshaz un cargo de prueba: igual que antes, en la planilla.
+
+### Si algo sale mal
+- **"Falta actualizarlo a v2.16.0"**: solo puede aparecer con Gastos en la base nueva (al guardar el archivo de la cartola o en la Copia a la planilla); paso A.
+- Para volver atrás: sube los archivos de la v0.49.0 y, si quieres, el script v2.15.0. Antes del cambio esta versión no escribe nada nuevo en fen-gastos.
 
 ## Novedades de la v0.49.0: Gastos, base nueva (etapa G3, segunda parte): la forma de trabajar acordada (tipos de obligación, boletas, abonos)
 **Para el día a día no cambia nada:** Gastos sigue con la planilla y todo funciona igual que en la v0.48.0 (Vencimientos, Obligaciones y Agenda se ven igual). El botón **Pasar Gastos a la base nueva** sigue gris: de G3 faltan la cartola y Previred. Lo nuevo, para cuando se haga el cambio:

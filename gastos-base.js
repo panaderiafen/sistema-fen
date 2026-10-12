@@ -9,11 +9,11 @@
 //    copia (migracion/{coleccion} guarda una huella por documento, como en B2B).
 //  · En G1 nada cambia en el uso: Gastos sigue leyendo y escribiendo la planilla con el script.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.49.0';
-import * as FB from './firebase-gastos.js?v=0.49.0';
-import * as Gastos from './gastos.js?v=0.49.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.49.0';
-import { armar, cambios, comparar, totalesGastos, COLECCIONES, ANIO } from './gastos-modelo.js?v=0.49.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.51.0';
+import * as FB from './firebase-gastos.js?v=0.51.0';
+import * as Gastos from './gastos.js?v=0.51.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.51.0';
+import { armar, cambios, comparar, totalesGastos, COLECCIONES, ANIO } from './gastos-modelo.js?v=0.51.0';
 
 export { ANIO };
 export const VERSION_EXPORTAR = '2.9.0';   // script de Gastos con la op "exportar" (SistemaFen.gs v1.8.0)
@@ -235,15 +235,18 @@ export async function ultimaCopia() {
 // ═══════════════════════════════════════════════
 //  v0.45.0 · Etapa G2: con cuál trabaja Gastos (fen-gastos: config/gastos) y el cambio a la base nueva
 //  config/gastos = { fuente: 'planilla' | 'base', desde, por, g2Completo, escritos, historial }
-//  · Mientras G2 no esté completo (G2_COMPLETO en config.js), el cambio queda bloqueado y todo sigue
+//  · Mientras el cambio no esté habilitado (CAMBIO_HABILITADO en config.js; antes G2_COMPLETO), queda bloqueado y todo sigue
 //    exactamente como en la v0.44.0 (fuente "planilla").
 //  · Para los pasos 3 y 4 de G2: cada documento hecho o cambiado en la base lleva marcaBase(...) y,
 //    después de escribir, se llama notarEscritura() y GastosPlanilla.programar(): así pasa a la planilla
 //    y "Volver a la planilla" sabe que ya no se puede.
 // ═══════════════════════════════════════════════
-export const G2_COMPLETO = () => window.FEN_SIS.G2_COMPLETO === true;
+// v0.51.0: G2 y G3 completos: CAMBIO_HABILITADO = true en config.js (antes G2_COMPLETO)
+export const CAMBIO_HABILITADO = () => window.FEN_SIS.CAMBIO_HABILITADO === true;
 // v0.48.0 (G3): también las cargas y documentos del SII (Cargas SII, Detalle Compras y Notas Documentos)
-export const COLECCIONES_PLANILLA = ['gastos', 'vencimientos', 'obligaciones', 'items', 'sii_cargas', 'sii_docs'];
+// v0.50.0: también la cartola (cartolas, cartola_cargos y cartola_reglas: script v2.16.0)
+// v0.51.0: también Previred (cotizaciones y cotiz_trabajadores: hojas Cotizaciones y Cotizaciones Trabajadores, script v2.17.0)
+export const COLECCIONES_PLANILLA = ['gastos', 'vencimientos', 'obligaciones', 'items', 'sii_cargas', 'sii_docs', 'cartolas', 'cartola_cargos', 'cartola_reglas', 'cotizaciones', 'cotiz_trabajadores'];
 let fuenteCache = null;
 export async function dbBase() { return dbOk(); }
 export async function tokenBase() { await dbOk(); return FB.idToken(); }
@@ -285,7 +288,7 @@ async function guardarFuente(db, fuente, extra) {
 //  2. se lee la planilla, se copia lo que falte y se hace el control de totales;
 //  3. solo con "Todo cuadra" queda config/gastos en "base". Si algo falla, el script vuelve a la planilla.
 export async function cambiarABase(avance = () => {}) {
-  if (!G2_COMPLETO()) throw new Error('El cambio se habilita cuando estén listos G2 y G3.');
+  if (!CAMBIO_HABILITADO()) throw new Error('El cambio se habilita cuando estén listos G2 y G3.');
   const db = await dbOk();
   const f = await cargarFuente(true);
   if (f.fuente === 'base') return { ya: true, fuente: f };

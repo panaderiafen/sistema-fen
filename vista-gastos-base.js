@@ -2,21 +2,25 @@
 //  Sistema Fën — Gastos → Base nueva (fen-gastos)  v0.43.0 (etapa G1)
 //  v0.44.0: parte "Archivos en Drive" (dejar privados los archivos ya subidos; script de Gastos v2.10.0)
 //  v0.45.0 (etapa G2): partes "Copia a la planilla" (estado de lo que pasa de la base a la planilla) y
-//  "Cambio a la base nueva" (bloqueado hasta que estén listos G2 y G3: G2_COMPLETO en config.js).
+//  "Cambio a la base nueva" (bloqueado hasta que estén listos G2 y G3: CAMBIO_HABILITADO en config.js).
 //  Conectar la base nueva, entrar, leer la planilla (2026), copiar y control de totales.
 //  Nada cambia en el uso de Gastos: sigue con la planilla hasta el cambio.
 //  v0.48.0 (etapa G3): parte "Proveedores" (fichas con lo aprendido para sugerir al cargar del SII con la base nueva):
 //  cuántas hay, cuándo se actualizaron y el botón "Armar fichas de proveedores".
+//  v0.51.0 (G3 completo): el cambio queda habilitado (CAMBIO_HABILITADO en config.js). Con Gastos en la base nueva, la parte
+//  "Cambio a la base nueva" muestra lo que queda por hacer justo después (clasificar obligaciones, identificadores, el
+//  arreglo "sin IVA" opcional con su vista previa, fichas de proveedores, dejar privados los archivos y revisar la planilla).
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as GB from './gastos-base.js?v=0.49.0';
-import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.49.0';
-import * as Gastos from './gastos.js?v=0.49.0';
-import * as GP from './gastos-planilla.js?v=0.49.0';
+import * as GB from './gastos-base.js?v=0.51.0';
+import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.51.0';
+import * as Gastos from './gastos.js?v=0.51.0';
+import * as GP from './gastos-planilla.js?v=0.51.0';
 
 const st = { prep: null, ctrl: null, msg: '', copiando: false, leyendo: false, controlando: false,
   prov: { datos: null, corriendo: false, msg: '', err: '' },
   cambio: { corriendo: false, msg: '', err: '', avance: '' },
+  siniva: { previa: null, corriendo: false, msg: '', err: '' },
   drive: { corriendo: false, revisados: 0, total: null, cambiados: 0, fallidos: 0, siguiente: null, msg: '', err: '', listo: false } };
 const $ = id => document.getElementById(id);
 const n = v => Math.round(Number(v || 0)).toLocaleString('es-CL');
@@ -269,15 +273,15 @@ function conectarPlanilla(H) {
 }
 
 // ── v0.45.0 · Cambio a la base nueva (G2) ──
-const TXT_CAMBIO = 'El cambio se hace todo de una vez, un fin de semana, cuando todo Gastos ya funcione con la base nueva: G2 (registrar, pagar, obligaciones, ítems, análisis y agenda, ya listo) y G3 (SII, cartola y Previred). Por eso el botón sigue gris: el cambio se habilita cuando estén listos G2 y G3. No hay prueba antes con datos reales.\nAl presionar "Pasar Gastos a la base nueva":\n1. La app antigua de Gastos y lo que escribía en la planilla dejan de registrar (dicen "Gastos ya se registra en la base nueva"). Las lecturas siguen.\n2. Se lee la planilla, se copia a la base nueva lo que falte y se hace el control de totales.\n3. Solo si dice "Todo cuadra", Gastos queda en la base nueva. Si no cuadra o algo falla, todo vuelve a como estaba.\nDesde ahí, cada cambio pasa a la planilla unos segundos después. Nada con historia se borra: se anula.';
+const TXT_CAMBIO = 'El cambio se hace todo de una vez, un fin de semana. Ya está todo Gastos listo para la base nueva: G2 (registrar, pagar, obligaciones, ítems, análisis y agenda) y G3 (SII, cartola y Previred). La guía del cambio (README) tiene los pasos.\nAl presionar "Pasar Gastos a la base nueva":\n1. La app antigua de Gastos y lo que escribía en la planilla dejan de registrar (dicen "Gastos ya se registra en la base nueva"). Las lecturas siguen.\n2. Se lee la planilla, se copia a la base nueva lo que falte y se hace el control de totales.\n3. Solo si dice "Todo cuadra", Gastos queda en la base nueva. Si no cuadra o algo falla, todo vuelve a como estaba.\nDesde ahí, cada cambio pasa a la planilla unos segundos después. Nada con historia se borra: se anula.';
 const fechaHora = v => { const d = v && (typeof v.toDate === 'function' ? v.toDate() : new Date(v)); return d && !isNaN(d) ? d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; };
 function seccionCambio(f, H) {
-  const c = st.cambio, enBase = f.fuente === 'base', listo = GB.G2_COMPLETO();
+  const c = st.cambio, enBase = f.fuente === 'base', listo = GB.CAMBIO_HABILITADO();
   const estado = enBase
     ? `<div class="fila-caja fila-compacta"><div class="txt"><b>Gastos trabaja con la base nueva</b><span>Desde ${H.esc(fechaHora(f.desde) || '—')}${f.por ? ' · ' + H.esc(f.por) : ''}</span></div><span class="chip c-verde">Base nueva</span></div>`
     : `<div class="fila-caja fila-compacta"><div class="txt"><b>Gastos trabaja con la planilla</b><span>Como siempre: la app de Gastos y Sistema Fën escriben en la planilla</span></div><span class="chip c-gris">Planilla</span></div>`;
   const pasos = `<ol class="ayuda" style="margin:8px 0 8px 18px;padding:0">
-      <li>Primero tienen que estar listas las etapas G2 (registrar, pagar, obligaciones, ítems, análisis y agenda con la base nueva) y G3 (SII, cartola y Previred con la base nueva).</li>
+      <li>Instala antes el script de Gastos v2.17.0 (todos los archivos .gs) y esta versión de Sistema Fën.</li>
       <li>Un fin de semana, sin registrar nada en la app antigua mientras se hace (unos minutos).</li>
       <li>Presiona <b>Pasar Gastos a la base nueva</b>: se cierra la planilla para escribir, se copia lo que falte y se revisa el control de totales. Solo sigue si dice <b>Todo cuadra</b>.</li>
       <li>Desde ahí, cada cambio pasa solo a la planilla unos segundos después (Looker y Producción la siguen leyendo).</li>
@@ -285,23 +289,65 @@ function seccionCambio(f, H) {
   const boton = enBase
     ? `<div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="gb-volver" ${c.corriendo ? 'disabled' : ''}>Volver a la planilla</button></div>`
     : `<div class="botones" style="justify-content:flex-start;align-items:center"><button type="button" class="btn" id="gb-cambiar" ${listo && !c.corriendo ? '' : 'disabled'} ${listo ? '' : 'aria-describedby="gb-cambio-bloqueado"'}>Pasar Gastos a la base nueva</button>${listo ? '' : '<span class="ayuda" id="gb-cambio-bloqueado">El cambio se habilita cuando estén listos G2 y G3</span>'}</div>`;
-  return `<p class="ayuda">Todo de una vez, cuando estén listos G2 y G3 ${H.info('Cambio a la base nueva', TXT_CAMBIO)}</p>
-    ${estado}${enBase ? '' : pasos}${boton}
+  return `<p class="ayuda">Todo de una vez, un fin de semana ${H.info('Cambio a la base nueva', TXT_CAMBIO)}</p>
+    ${estado}${enBase ? '' : pasos}${boton}${enBase ? despues(H) : ''}
     <p id="gb-cambio-avance" class="ayuda" role="status" aria-live="polite">${H.esc(c.corriendo ? c.avance : c.msg)}</p>
     ${c.err ? `<p class="error" role="alert" id="gb-cambio-err">${H.esc(c.err)}</p>` : ''}`;
+}
+// ── v0.51.0 · Lo que queda justo después del cambio ──
+const TXT_DESPUES = 'Gastos ya trabaja con la base nueva. Para que las propuestas de la cartola, las boletas y Previred funcionen solas, cada obligación necesita su tipo y, las de tipo según documento, su identificador.\nNada de esto es urgente para el día a día: lo que no esté clasificado funciona como monto fijo, igual que antes.';
+const TXT_SINIVA = 'La app antigua registraba como "bruto" algunos pagos de obligaciones marcadas "Sin IVA" (cotizaciones, sueldos, arriendos sin IVA): el neto quedaba como el monto dividido por 1,19 y el IVA del análisis salía inflado.\nEste arreglo busca esos gastos de 2026 (nacidos de pagar una obligación sin IVA, con neto = monto / 1,19) y deja el neto igual al monto final (tipo de monto: sin IVA). El monto final no cambia.\nPrimero muestra la lista y la diferencia total; solo se aplica si confirmas. Cada gasto guarda en su historial el "ajuste siniva" y pasa a la planilla. Es opcional y se hace una vez (repetirlo no encuentra nada).';
+function despues(H) {
+  const x = st.siniva, p = x.previa;
+  const tabla = p && p.lista.length ? `<div class="tabla-b2b"><table class="tabla-tiempos siniva-tabla" id="gb-siniva-tabla"><thead><tr><th scope="col">Fecha</th><th scope="col">Obligación</th><th scope="col">Ítem · área</th><th scope="col">Monto final</th><th scope="col">Neto antes</th><th scope="col">Neto nuevo</th></tr></thead><tbody>
+    ${p.lista.slice(0, 200).map(g => `<tr><td>${H.esc(g.fecha.split('-').reverse().join('-'))}</td><td>${H.esc(g.obligacion)}</td><td>${H.esc(g.item)} · ${H.esc(g.area)}</td><td>${pesos(g.montoFinal)}</td><td>${pesos(g.netoAntes)}</td><td>${pesos(g.netoNuevo)}</td></tr>`).join('')}</tbody></table></div>${p.lista.length > 200 ? `<p class="ayuda">… y ${n(p.lista.length - 200)} más</p>` : ''}` : '';
+  return `<h3 style="margin:16px 0 4px;font-size:16px" id="gb-despues-t">Lo que queda justo después del cambio ${H.info('Después del cambio', TXT_DESPUES)}</h3>
+    <ol class="lista-despues" id="gb-despues">
+      <li><b>Clasificar obligaciones</b>: revisa la propuesta de tipo de cada una y guárdalas. <a href="#gastos/clasificar" id="gb-ir-clasificar">Clasificar obligaciones</a></li>
+      <li><b>Completar identificadores</b>: el N° de cliente de luz y agua, el RUT del proveedor de internet, gas o teléfono, y "Es Previred" en Cotizaciones (en la misma pantalla o en <a href="#gastos/obligaciones">Obligaciones</a> → Editar).</li>
+      <li><b>Arreglo "sin IVA"</b> (opcional) ${H.info('Arreglo sin IVA', TXT_SINIVA)}
+        <div class="botones" style="justify-content:flex-start;margin-top:6px"><button type="button" class="btn-sec btn-chico" id="gb-siniva-ver" ${x.corriendo ? 'disabled' : ''}>Revisar el arreglo "sin IVA"</button>
+        ${p && p.lista.length ? `<button type="button" class="btn btn-chico" id="gb-siniva-aplicar" ${x.corriendo ? 'disabled' : ''}>Aplicar el arreglo (${n(p.n)})</button>` : ''}</div>
+        ${p ? `<p class="ayuda" id="gb-siniva-res">${p.lista.length ? `${n(p.n)} ${p.n === 1 ? 'gasto' : 'gastos'} de 2026 · el neto sube en total ${pesos(p.total)} (el monto final no cambia)` : 'No hay gastos por arreglar.'}</p>${tabla}` : ''}
+        <p class="ayuda" id="gb-siniva-msg" role="status" aria-live="polite">${H.esc(x.msg)}</p>${x.err ? `<p class="error" role="alert">${H.esc(x.err)}</p>` : ''}</li>
+      <li><b>Armar fichas de proveedores</b> (parte "Proveedores", arriba): una vez, para las sugerencias del SII.</li>
+      <li><b>Dejar privados los archivos</b> (parte "Archivos en Drive", abajo), si no lo hiciste antes.</li>
+      <li><b>Revisar la planilla y Looker Studio</b>: "Copia a la planilla" debe decir Planilla al día; registra y anula un gasto de prueba y míralo en Registro Gasto (columna "ID base") y en Looker.</li>
+    </ol>`;
+}
+function conectarDespues(f, H, otra) {
+  const x = st.siniva, ver = $('gb-siniva-ver'), ap = $('gb-siniva-aplicar');
+  if (ver) ver.addEventListener('click', async () => {
+    Object.assign(x, { corriendo: true, err: '', msg: 'Buscando gastos…' }); pintarCambio(f, H, otra);
+    try { x.previa = await Gastos.previaSiniva(); x.msg = ''; } catch (e) { x.err = error(e, H); x.msg = ''; }
+    x.corriendo = false; pintarCambio(f, H, otra);
+  });
+  if (ap) ap.addEventListener('click', async () => {
+    const p = x.previa; if (!p || !p.lista.length) return;
+    if (!confirm(`¿Aplicar el arreglo "sin IVA" a ${p.n} ${p.n === 1 ? 'gasto' : 'gastos'} de 2026?\n\nEl neto queda igual al monto final (sube en total ${pesos(p.total)}). El monto final no cambia. Cada gasto guarda el cambio en su historial y pasa a la planilla.`)) return;
+    Object.assign(x, { corriendo: true, err: '', msg: 'Aplicando…' }); pintarCambio(f, H, otra);
+    try {
+      const r = await Gastos.aplicarSiniva(p.lista.map(g => g.id), (h, t) => { const m = $('gb-siniva-msg'); if (m) m.textContent = `Aplicando… ${n(h)} de ${n(t)}`; });
+      x.msg = `Listo: ${n(r.ajustados)} ${r.ajustados === 1 ? 'gasto ajustado' : 'gastos ajustados'} (el neto subió ${pesos(r.diferencia)}).`;
+      H.registrar('Aplicó el arreglo sin IVA', `${r.ajustados} gastos · ${pesos(r.diferencia)}`);
+      x.previa = null;
+    } catch (e) { x.err = error(e, H); x.msg = ''; }
+    x.corriendo = false; pintarCambio(f, H, otra);
+  });
 }
 function pintarCambio(f, H, otra) { const el = $('gb-cambio'); if (el) { el.innerHTML = seccionCambio(f, H); conectarCambio(f, H, otra); } }
 function conectarCambio(f, H, otra) {
   const c = st.cambio;
+  if (f.fuente === 'base') conectarDespues(f, H, otra);
   const b = $('gb-cambiar');
   if (b) b.addEventListener('click', async () => {
-    if (!GB.G2_COMPLETO()) return;
+    if (!GB.CAMBIO_HABILITADO()) return;
     if (!confirm('¿Pasar Gastos a la base nueva ahora? La app antigua deja de registrar gastos en la planilla, se copia lo que falte y se revisa que todo cuadre. Hazlo cuando nadie esté registrando gastos.')) return;
     Object.assign(c, { corriendo: true, err: '', msg: '', avance: 'Empezando…' });
     pintarCambio(f, H, otra);
     try {
       const r = await GB.cambiarABase(t => { c.avance = t; const a = $('gb-cambio-avance'); if (a) a.textContent = t; });
-      c.msg = r.ya ? 'Gastos ya estaba en la base nueva.' : `Listo: Gastos trabaja con la base nueva. Todo cuadra${r.escritos ? ` (se copiaron ${r.escritos.toLocaleString('es-CL')} cambios de último momento)` : ''}.`;
+      c.msg = r.ya ? 'Gastos ya estaba en la base nueva.' : `Listo: Gastos trabaja con la base nueva. Todo cuadra${r.escritos ? ` (se copiaron ${r.escritos.toLocaleString('es-CL')} cambios de último momento)` : ''}. Abajo está lo que queda por hacer.`;
       H.registrar('Pasó Gastos a la base nueva', r.escritos ? `${r.escritos} documentos copiados al final` : 'Todo cuadra');
       if (r.prep) { st.prep = r.prep; st.prep.porEscribir = 0; st.ctrl = r.control; }
     } catch (e) { c.err = error(e, H); }
@@ -326,7 +372,7 @@ function conectarCambio(f, H, otra) {
 // ── v0.48.0 · Proveedores (etapa G3) ──
 // Con la base nueva, las sugerencias al cargar del SII salen de proveedores/{rut}: lo que se clasificó con cada proveedor
 // y cada producto en los últimos 2 años. Se actualiza solo al importar o vincular; "Armar fichas" las arma desde cero.
-const fsSii = () => import('./gastos-sii-fs.js?v=0.49.0');
+const fsSii = () => import('./gastos-sii-fs.js?v=0.51.0');
 const TXT_PROV = 'Al cargar un archivo del SII, Sistema Fën sugiere cómo clasificar cada documento según cómo clasificaste antes a ese proveedor y a cada uno de sus productos (los últimos 2 años).\nCon la base nueva, eso queda guardado en una ficha por proveedor. Cada importación o vínculo la actualiza sola.\n"Armar fichas de proveedores" las arma desde cero con todo lo que hay en la base nueva (lo copiado de la planilla y lo hecho después). Hazlo una vez, después del cambio a la base nueva. Repetirlo no hace daño.\nNo cambia ningún gasto ni la planilla.';
 function resumenProv(H) {
   const d = st.prov.datos;

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Gastos en la base nueva (etapa G3, segunda parte): reglas puras  v0.49.0
+//  Sistema Fën — Gastos en la base nueva (etapa G3, segunda parte): reglas puras  v0.49.0 · v0.51.0 (identificador "previred")
 //  La forma de trabajar acordada con Emmanuel (solo con la base nueva; con la planilla nada cambia):
 //  · Obligación (la regla) con TIPO: "fijo" (monto fijo: arriendo, cuotas), "documento" (el monto y la fecha real
 //    vienen de la boleta del mes o de la factura del SII: luz, agua, internet, gas) o "libre" (sin monto de antes;
@@ -15,7 +15,7 @@
 //  · Leer una boleta (luz, agua): N° de cliente, total a pagar y fecha de vencimiento, con formatos chilenos.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import { dia } from './gastos-modelo.js?v=0.49.0';
+import { dia } from './gastos-modelo.js?v=0.51.0';
 
 export const TIPOS_OBLIGACION = ['fijo', 'documento', 'libre'];
 export const NOMBRE_TIPO = { fijo: 'Monto fijo', documento: 'Según documento del mes', libre: 'Libre (abonos)' };
@@ -43,8 +43,10 @@ export const diasAvisoDe = p => { const x = parseInt(p && p.diasAviso, 10); retu
 export function clasificacionDesdeForm(p) {
   const tipo = s(p.tipoObligacion);
   if (!TIPOS_OBLIGACION.includes(tipo)) return { error: 'Elige el tipo de la obligación' };
-  const ident = s(p.identificador).replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40).replace(/^[=+\-@\s]+/, '');
-  if (ident && !normIdent(ident)) return { error: 'El N° de cliente o RUT debe tener números' };
+  let ident = s(p.identificador).replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40).replace(/^[=+\-@\s]+/, '');
+  // v0.51.0: "previred" marca la obligación de Cotizaciones (la completa el certificado de Previred)
+  if (/^previred$/i.test(ident)) ident = 'previred';
+  else if (ident && !normIdent(ident)) return { error: 'El N° de cliente o RUT debe tener números' };
   const dias = p.diasAviso === '' || p.diasAviso == null ? DIAS_AVISO : parseInt(p.diasAviso, 10);
   if (!(dias >= 0 && dias <= 60)) return { error: 'El aviso va de 0 a 60 días antes' };
   return { campos: { tipoObligacion: tipo, identificador: tipo === 'documento' ? ident : '', diasAviso: tipo === 'documento' ? dias : '' } };
@@ -119,9 +121,21 @@ export function completarDocumento(d, doc, quien, en) {
   return { campos: {
     estado: 'por_pagar', montoDocumento: monto, fechaDocumento: doc.fechaVencimiento, fechaEstimada: s(d.fechaEstimada) || s(d.fechaVencimiento),
     documento: { tipo, url: s(doc.url), nombreArchivo: s(doc.nombreArchivo).slice(0, 120), numero: s(doc.numero).slice(0, 40), rut: s(doc.rut).slice(0, 20), cliente: s(doc.cliente).slice(0, 40),
-      pendienteId: s(doc.pendienteId), por: s(quien), en: s(en) }
+      pendienteId: s(doc.pendienteId), por: s(quien), en: s(en), ...(tipo === 'sii' ? { folio: s(doc.folio || doc.numero).slice(0, 20), razonSocial: s(doc.razonSocial).slice(0, 120), siiDocId: s(doc.siiDocId).slice(0, 80) } : {}) }
   } };
 }
+// v0.50.0 · Al pagar un vencimiento cuyo documento es una factura del SII (internet, gas, teléfono), sus gastos quedan
+// con el RUT, la razón social y "F.<folio>" en la observación (como un gasto importado del SII: así cuenta para el IVA y
+// el documento queda como ya importado). lineas: documentos de gasto (docGasto); d: el vencimiento.
+export function conDocumentoSii(lineas, d) {
+  const x = d && d.documento;
+  if (!x || x.tipo !== 'sii' || !s(x.rut) || !s(x.folio)) return lineas;
+  return lineas.map(l => { const obs = s(l.observacion).indexOf('F.' + x.folio) === -1 ? ('F.' + x.folio + ' ' + s(l.observacion)).trim() : s(l.observacion);
+    return { ...l, rutProveedor: s(x.rut), razonSocial: s(x.razonSocial), observacion: obs, folio: s(x.folio), esNC: false, siiDoc: { id: s(x.siiDocId), rut: s(x.rut), folio: s(x.folio), tipo: '33' } }; });
+}
+// Fecha de pago de una factura del SII que va a un vencimiento: la de vencimiento del documento o, si no trae, 30 días después
+export const fechaFacturaSii = (fechaVenc, fechaDocto) => (esIso(fechaVenc) ? fechaVenc : esIso(fechaDocto) ? sumarDias(fechaDocto, 30) : '');
+
 // Vencimiento de la obligación que completa un documento: el abierto, sin documento ni abonos, más cercano a la fecha del
 // documento (primero los que esperan documento). vistas: vencimientos { id, d }. null = hay que crear el del período.
 export function elegirVencimiento(vencs, oblId, fechaDoc) {

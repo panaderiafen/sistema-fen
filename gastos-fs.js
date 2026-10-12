@@ -18,14 +18,16 @@
 //    por_pagar, con_abonos, pagado, anulado; lo copiado de la planilla se lee igual), tipo e identificador de la obligación,
 //    subir la boleta del mes (completa su vencimiento o va a la bandeja "documentos_pendientes"), abonos y cerrar
 //    (tipo libre), vencimiento suelto. Los de tipo documento se crean 20 días antes (para esperar la boleta).
+//  · v0.51.0: pagar un vencimiento con el certificado de Previred crea un gasto por trabajador (gastos-g3d.js: lineasDelPago).
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.49.0';
-import * as FB from './firebase-gastos.js?v=0.49.0';
-import * as GB from './gastos-base.js?v=0.49.0';
-import * as GP from './gastos-planilla.js?v=0.49.0';
-import * as M from './gastos-g2.js?v=0.49.0';
-import * as G3 from './gastos-g3.js?v=0.49.0';
-import { dia } from './gastos-modelo.js?v=0.49.0';
+import { auth as authSF } from './firebase.js?v=0.51.0';
+import * as FB from './firebase-gastos.js?v=0.51.0';
+import * as GB from './gastos-base.js?v=0.51.0';
+import * as GP from './gastos-planilla.js?v=0.51.0';
+import * as M from './gastos-g2.js?v=0.51.0';
+import * as G3 from './gastos-g3.js?v=0.51.0';
+import * as G3D from './gastos-g3d.js?v=0.51.0';
+import { dia } from './gastos-modelo.js?v=0.51.0';
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';
@@ -94,7 +96,7 @@ async function alDia(plantillas, vencs) {
   await despues(escritos);
   return true;   // había algo por hacer (aunque lo haya hecho otra pestaña): se vuelve a leer
 }
-async function vencimientosAlDia() {
+export async function vencimientosAlDia() {
   let [vencs, cat] = await Promise.all([todos('vencimientos'), catalogo()]);
   if (await alDia(cat.plantillas, vencs)) { [vencs, cat] = await Promise.all([todos('vencimientos'), catalogo()]); }
   return { vencs, cat };
@@ -242,7 +244,10 @@ export async function pagar(p, marca, subir) {
     if (areas.length) { extra.multiArea = JSON.stringify(areas); v.multiArea = areas; }
     let lineas = [], tocados = 0;
     if (conLineas) {
-      lineas = M.lineasPago(v, monto, p.fechaPago, obsPago, url, tipoMonto, hora);
+      // v0.50.0: factura del SII → con su RUT y folio. v0.51.0: certificado de Previred → un gasto por trabajador
+      const lp = G3D.lineasDelPago(v, a, monto, p.fechaPago, obsPago, url, tipoMonto, hora);
+      if (lp.error) throw error(lp.error, 'datos');
+      lineas = lp.lineas;
       const ids = M.idsLineas('gp', marca, lineas.length);
       lineas.forEach((l, k) => tx.set(FB.doc(d, 'gastos', ids[k]), nuevo(l, 'obligacion')));
     } else snC.forEach((s2, i) => {
@@ -516,8 +521,8 @@ export async function subirBoleta(p, marca, subir) {
   const r = await completarCon(obl, doc, vencId);
   return { ok: true, destino: 'vencimiento', ...r };
 }
-// Completa el vencimiento (transacción) y devuelve { vencimientoId, obligacion }
-async function completarCon(obl, doc, vencId, extra) {
+// Completa el vencimiento (transacción) y devuelve { vencimientoId, obligacion }. v0.50.0: también para la factura del SII
+export async function completarCon(obl, doc, vencId, extra) {
   const d = await db(), hoy = M.ahoraChile().dia, vencs = await todos('vencimientos');
   const plan = obl ? await planCompletar(obl, doc, vencs, hoy, vencId) : { id: vencId, crear: null };
   const refV = FB.doc(d, 'vencimientos', plan.id), refO = obl ? FB.doc(d, 'obligaciones', obl.id) : null;
@@ -555,7 +560,8 @@ export async function resolverPendiente(id, accion, datos = {}) {
   if (accion !== 'asignar') throw error('Acción no válida', 'datos');
   const ps = await todos('obligaciones'), obl = ps.find(o => (s(o.d.id) || o.id) === String(datos.obligacionId || '') && !o.d.quitadoEnPlanilla);
   if (!obl) throw error('Elige la obligación', 'datos');
-  const doc = { tipo: x.tipo || 'boleta', cliente: s(x.cliente), monto: x.monto, fechaVencimiento: s(x.fechaVencimiento), url: (x.archivo || {}).url || '', nombreArchivo: (x.archivo || {}).nombre || '', numero: s(x.numero), clave: s(x.clave), pendienteId: String(id) };
+  const doc = { tipo: x.tipo || 'boleta', cliente: s(x.cliente), monto: x.monto, fechaVencimiento: s(x.fechaVencimiento), url: (x.archivo || {}).url || '', nombreArchivo: (x.archivo || {}).nombre || '', numero: s(x.numero), clave: s(x.clave), pendienteId: String(id),
+    rut: s(x.rut), razonSocial: s(x.razonSocial) };   // v0.50.0: una factura del SII trae su RUT y razón social
   const r = await completarCon(obl, doc, '', { ref, que: 'asignó a una obligación', campos: vid => ({ estado: 'asignado', resultado: { obligacionId: s(obl.d.id) || obl.id, vencimientoId: vid, por: quien, en } }) });
   return { ok: true, ...r };
 }
@@ -583,7 +589,8 @@ export async function agregarAbono(vencId, a, marca, subir) {
     const x = G3.agregarAbono(v, { ...a, clave, url, gastoIds: ids, por: quien, en: M.ahoraChile().texto });
     if (x.repetido) return { repetido: true };
     if (x.error) throw error(x.error, 'datos');
-    lineas.forEach((l, k) => tx.set(FB.doc(d, 'gastos', ids[k]), nuevo({ ...l, abono: n0 }, 'obligacion')));
+    // v0.50.0: un abono desde la cartola queda con su traza (columna Cartola) y el id del cargo
+    lineas.forEach((l, k) => tx.set(FB.doc(d, 'gastos', ids[k]), nuevo({ ...l, abono: n0, ...(a.cartola ? { cartola: s(a.cartola), cartolaCargo: s(a.cargoId) } : {}) }, 'obligacion')));
     tx.update(ref, cambio(v, 'abono', x.campos, { monto: x.abono.monto }));
     return { lineas: lineas.length, n: n0, total: G3.totalAbonos({ abonos: x.campos.abonos }) };
   });

@@ -12,8 +12,8 @@
 //    forman (últimos 2 años) y su posición en la planilla, para dar exactamente lo mismo que el script.
 //  Sin red: se prueba sola. Los documentos usan los mismos nombres que la copia G1 (gastos-modelo.armar).
 // ═══════════════════════════════════════════════
-import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.49.0';
-import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.49.0';
+import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.51.0';
+import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.51.0';
 
 export const RE_FOLIO_OBS = /(?:^|[^A-Za-z])(NC|F)\.(\d+)/;
 const s = v => String(v == null ? '' : v);
@@ -63,6 +63,8 @@ export function clavesImportadas(gastos, docs) {
     sinTipo[k2] = (sinTipo[k2] || 0) + pf(l.montoNeto);
   });
   Object.keys(sinTipo).forEach(k => { claves[sinTipo[k] < 0 ? k + '|61' : k] = true; });
+  // v0.50.0 · factura de un proveedor que es el RUT de una obligación "según documento": quedó en su vencimiento (o en la bandeja), sin gasto todavía
+  (docs || []).forEach(x => { const im = x && x.d && x.d.importado; if (im && (im.aVencimiento || im.pendienteId) && im.clave) claves[im.clave] = true; });
   return claves;
 }
 export const claveImportada = (claves, k) => !!(claves[k] || (s(k).split('|').length === 2 && claves[k + '|61']));

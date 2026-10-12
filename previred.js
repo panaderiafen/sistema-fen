@@ -5,11 +5,15 @@
 //  guarda: entonces va al Apps Script de Gastos (SistemaFen.gs v1.4.0), que lo revisa
 //  y lo deja en Drive como comprobante.
 //  Lectura del PDF: pdf.js 3.11.174 (cdnjs), solo texto (isEvalSupported: false).
+//  v0.51.0: con Gastos en la base nueva, estado, registrar y lista van a fen-gastos (gastos-g3d-fs.js), con las mismas
+//  respuestas. El estado dice además a dónde va el certificado (destino): al vencimiento de la obligación "Cotizaciones"
+//  (los gastos por trabajador se crean al pagarlo) o, si no hay, como siempre (los gastos al guardar) con una nota.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.49.0';
+import * as Gastos from './gastos.js?v=0.51.0';
 
 export const VERSION_MINIMA = '2.5.0';
-const llamar = (op, datos, idem) => Gastos.llamar(op, datos, idem, VERSION_MINIMA);
+// v0.51.0: con la base nueva, a fen-gastos (las escrituras antiguas de Previred en la planilla las rechaza el script v2.17.0)
+const llamar = async (op, datos, idem) => ((await Gastos.enBase()) ? Gastos.cotBase(op, datos, idem) : Gastos.llamar(op, datos, idem, VERSION_MINIMA));
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -103,7 +107,8 @@ export const resumen = t => {
 export const clave = (periodo, t, l) => [periodo, t.rut.toUpperCase(), l.institucion.toUpperCase(), l.tipoPago, l.folio].join('|');
 
 const base64 = file => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = no; r.readAsDataURL(file); });
-export const estado = (periodo, trabajadores) => llamar('cot_estado', { claves: trabajadores.flatMap(t => t.lineas.map(l => clave(periodo, t, l))) });
+// v0.51.0: también el período y la fecha de pago (con la base nueva, para saber a qué vencimiento va; el script los ignora)
+export const estado = (periodo, trabajadores, fechaPago) => llamar('cot_estado', { claves: trabajadores.flatMap(t => t.lineas.map(l => clave(periodo, t, l))), periodo, fechaPago: fechaPago || '' });
 // Clave del envío según el contenido: el mismo lote siempre lleva la misma (reabrirlo no la cambia)
 export async function claveDeEnvio(periodo, trabajadores) {
   const txt = periodo + '#' + trabajadores.flatMap(t => t.lineas.map(l => clave(periodo, t, l))).sort().join(';');

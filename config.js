@@ -5,7 +5,7 @@
 //  reglas de Firestore y la cuenta de administración.
 // ═══════════════════════════════════════════════
 window.FEN_SIS = {
-  VERSION: '0.49.0',
+  VERSION: '0.51.0',
   firebase: {
     apiKey: 'AIzaSyDrG2mij1h5wZ2lIyAYMTfgG9avaVnjcaU',
     authDomain: 'fen-ventas.firebaseapp.com',
@@ -65,7 +65,10 @@ window.FEN_SIS = {
   // sigue en false ("El cambio se habilita cuando estén listos G2 y G3").
   // v0.48.0: de G3 ya están las Cargas del SII; faltan la cartola y Previred: sigue en false.
   // v0.49.0: G3 suma tipos de obligación, boletas del mes, bandeja y abonos; faltan la cartola y Previred: sigue en false.
-  G2_COMPLETO: false,
+  // v0.50.0: G3 suma la cartola con la base nueva; falta Previred: sigue en false.
+  // v0.51.0: G3 completo (Previred con la base nueva): el cambio queda habilitado. La constante se llama ahora
+  // CAMBIO_HABILITADO (antes G2_COMPLETO). En false, el botón vuelve a quedar gris.
+  CAMBIO_HABILITADO: true,
   // Datos que salen en el PDF de la orden de venta B2B
   DATOS_EMPRESA: { direccion: 'Ainavillo 764, Concepción', telefono: '+56 9 4147 3683', correo: 'panaderiafen@gmail.com', web: 'WWW.PANADERIAFEN.CL · @PANADERIAFEN' }
 };

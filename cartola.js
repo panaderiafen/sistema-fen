@@ -5,16 +5,22 @@
 //  Gastos, gasto nuevo o no es gasto). Lo guarda el script de Gastos v2.8.0
 //  (hojas "Cartola Cargos", "Cartolas" y "Cartola Reglas").
 //  Las propuestas se calculan aquí, cada vez, con lo que está por pagar en ese momento.
+//  v0.50.0: con Gastos en la base nueva, todo va a gastos-cartola-fs.js (fen-gastos) y las propuestas siguen la forma de
+//  trabajar acordada (gastos-cartola.js: monto fijo, documento, abonos). Con la planilla, igual que en la v0.49.0.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.49.0';
+import * as Gastos from './gastos.js?v=0.51.0';
+import * as CB from './gastos-cartola.js?v=0.51.0';
+export { resumenLote } from './gastos-cartola.js?v=0.51.0';
 
 export const VERSION_CARTOLA = '2.8.0';
 const op = (o, d, idem) => Gastos.llamar(o, d, idem, VERSION_CARTOLA);
+const fsC = () => import('./gastos-cartola-fs.js?v=0.51.0');
+const enBase = () => Gastos.enBase();
 
 let cache = null;
 export async function lista(forzar, dias = 60) {
   if (!forzar && cache && cache.dias === dias && Date.now() - cache.t < 60000) return cache.d;
-  const d = await op('cc_lista', { dias });
+  const d = (await enBase()) ? await (await fsC()).lista(dias) : await op('cc_lista', { dias });
   cache = { t: Date.now(), d, dias };
   return d;
 }
@@ -26,8 +32,9 @@ export async function cargar(cartola, idemBase) {
   const cargos = cartola.filas.filter(f => f.cargos > 0).map(f => ({ fecha: f.fecha, descripcion: f.descripcion, monto: f.cargos, saldo: f.saldo, operacion: f.operacion || '' }));
   const meta = metaDe(cartola);
   const r = { cargos: 0, nuevos: 0, yaVistos: 0, ignorados: 0 };
+  const base = await enBase(), F = base ? await fsC() : null;
   for (let i = 0; i < Math.max(1, cargos.length); i += 1500) {
-    const x = await op('cc_cargar', { cartola: meta, cargos: cargos.slice(i, i + 1500), parte: i / 1500 }, `${idemBase}-${i}`);
+    const x = base ? await F.cargar(meta, cargos.slice(i, i + 1500), i / 1500) : await op('cc_cargar', { cartola: meta, cargos: cargos.slice(i, i + 1500), parte: i / 1500 }, `${idemBase}-${i}`);
     ['cargos', 'nuevos', 'yaVistos', 'ignorados'].forEach(k => { r[k] += x[k] || 0; });
   }
   olvidar(); Gastos.olvidar();
@@ -41,13 +48,27 @@ export async function guardarArchivo(file, cartola, idem) {
   if (!file) throw new Error('Falta el archivo');
   if (file.size > ARCHIVO_MAX) throw Object.assign(new Error('el archivo pesa más de 10 MB'), { code: 'grande' });
   const archivoBase64 = await Gastos.aBase64(file);
+  if (await enBase()) { const r = await (await fsC()).guardarArchivo(metaDe(cartola), { archivoBase64, mimeType: file.type || 'application/octet-stream', nombreArchivo: file.name || 'cartola.xlsx' }, Gastos.subidor(idem)); olvidar(); return r; }
   const r = await Gastos.llamar('cc_archivo', { cartola: metaDe(cartola), archivoBase64, mimeType: file.type || 'application/octet-stream', nombreArchivo: file.name || 'cartola.xlsx' }, idem, VERSION_ARCHIVO);
   olvidar();
   return r;
 }
-export async function resolver(d, idem) { const r = await op('cc_resolver', d, idem); olvidar(); Gastos.olvidarTodo(); return r; }
-export async function deshacer(id, motivo, idem) { const r = await op('cc_deshacer', { id, motivo }, idem); olvidar(); Gastos.olvidarTodo(); return r; }
-export async function quitarRegla(clave) { const r = await op('cc_quitar_regla', { clave }); olvidar(); return r; }
+export async function resolver(d, idem) { const r = (await enBase()) ? await (await fsC()).resolver(d) : await op('cc_resolver', d, idem); olvidar(); Gastos.olvidarTodo(); return r; }
+export async function deshacer(id, motivo, idem) { const r = (await enBase()) ? await (await fsC()).deshacer(id, motivo) : await op('cc_deshacer', { id, motivo }, idem); olvidar(); Gastos.olvidarTodo(); return r; }
+export async function quitarRegla(clave) { const r = (await enBase()) ? await (await fsC()).quitarRegla(clave) : await op('cc_quitar_regla', { clave }); olvidar(); return r; }
+// v0.50.0 · Confirmar varios de una vez: cada uno por su lado (si uno falla, los demás siguen) e idempotente por el cargo.
+// lista: [{ c, pedido }]; avance(hechos, total, c). Devuelve { ok: [ids], errores: [{ c, error }] }
+export async function confirmarVarios(lista, avance = () => {}) {
+  const out = { ok: [], errores: [] };
+  for (let i = 0; i < lista.length; i++) {
+    const { c, pedido } = lista[i];
+    avance(i, lista.length, c);
+    try { await resolver({ id: c.id, huella: c.huella, ...pedido }, 'cc-' + c.id + '-' + Gastos.nuevaClave()); out.ok.push(c.id); }
+    catch (e) { out.errores.push({ c, error: e.message || String(e) }); }
+  }
+  avance(lista.length, lista.length, null);
+  return out;
+}
 
 // ── Propuestas ──
 const norm = s => String(s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -91,6 +112,7 @@ export function clasificacionGasto(g) {
   return Object.entries(porItem).map(([item, areas]) => { const l = Object.entries(areas); return l.length === 1 ? `${item} · ${l[0][0]}` : `${item}: ${l.map(([a, m]) => `${a} ${pesosC(m)}`).join(' · ')}`; }).join(' | ');
 }
 export function proponer(c, d) {
+  if (d && d.fuente === 'base') return CB.proponer(c, d);   // v0.50.0: la forma de trabajar acordada
   const reglas = {}; (d.reglas || []).forEach(r => { reglas[r.clave] = r; });
   const regla = reglas[c.clave];
   const vencs = (d.vencimientos || []);
