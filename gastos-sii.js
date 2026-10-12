@@ -12,8 +12,8 @@
 //    forman (últimos 2 años) y su posición en la planilla, para dar exactamente lo mismo que el script.
 //  Sin red: se prueba sola. Los documentos usan los mismos nombres que la copia G1 (gastos-modelo.armar).
 // ═══════════════════════════════════════════════
-import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.52.0';
-import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.52.0';
+import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.54.0';
+import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.54.0';
 
 export const RE_FOLIO_OBS = /(?:^|[^A-Za-z])(NC|F)\.(\d+)/;
 const s = v => String(v == null ? '' : v);
@@ -424,4 +424,31 @@ export function clasifDesdeFichas(fichas, hoy) {
     prod[cl] = [mejor[0], mejor[1], x.op[mejor.join('|')], x.n]; n++;
   });
   return { ok: true, porRut, productos: prod };
+}
+
+// ── v0.53.0 · Aviso "SII sin cargar" (con la base nueva: Hoy y Gastos → Cargas del SII) ──
+// cargas: [{ fechaCarga, desde, hasta, quitada }] (vistaCargas o sii_cargas; las quitadas no cuentan). hoy: aaaa-mm-dd.
+// · La última carga (por fecha de carga) tiene más de 7 días → "Cargas del SII: la última fue hace N días (dd-mm)…".
+// · Desde el día 5 del mes, si ninguna carga tiene documentos del mes anterior (su período desde–hasta toca ese mes)
+//   → "Falta cargar el SII de <mes>". Sin cargas, solo puede salir el segundo. [] = sin aviso.
+export const DIAS_AVISO_SII = 7, DIA_AVISO_MES_SII = 5;
+const MESES_L = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const diasEntreIso = (a, b) => Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5);
+export function avisosSii(cargas, hoy) {
+  const h = dia(hoy);
+  if (!h) return [];
+  const vivas = (cargas || []).filter(c => c && !t(c.quitada) && !c.quitadoEnPlanilla);
+  const out = [];
+  const ultima = vivas.map(c => dia(c.fechaCarga)).filter(Boolean).sort().pop() || '';
+  if (ultima) {
+    const n = diasEntreIso(ultima, h);
+    if (n > DIAS_AVISO_SII) out.push({ clave: 'antigua', dias: n, fecha: ultima, texto: `Cargas del SII: la última fue hace ${n} días (${ultima.slice(8, 10)}-${ultima.slice(5, 7)}). Sube las compras del SII.` });
+  }
+  if (Number(h.slice(8, 10)) >= DIA_AVISO_MES_SII) {
+    const y = +h.slice(0, 4), m = +h.slice(5, 7), py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1;
+    const mes = `${py}-${String(pm).padStart(2, '0')}`, ini = mes + '-01', fin = mes + '-' + String(new Date(Date.UTC(py, pm, 0)).getUTCDate()).padStart(2, '0');
+    const cubre = vivas.some(c => { const a = dia(c.desde) || dia(c.hasta), b = dia(c.hasta) || a; return a && a <= fin && b >= ini; });
+    if (!cubre) out.push({ clave: 'mes', mes, texto: `Falta cargar el SII de ${MESES_L[pm - 1]}${py !== y ? ' ' + py : ''}` });
+  }
+  return out;
 }

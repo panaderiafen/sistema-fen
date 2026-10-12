@@ -9,31 +9,33 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.52.0';
-import * as Caja from './caja.js?v=0.52.0';
-import * as Stock from './stock.js?v=0.52.0';
-import * as Ajustes from './ajustes.js?v=0.52.0';
-import * as Apps from './apps.js?v=0.52.0';
-import * as Agenda from './agenda.js?v=0.52.0';
-import * as Gastos from './gastos.js?v=0.52.0';
-import * as G3 from './gastos-g3.js?v=0.52.0';
-import * as G3D from './gastos-g3d.js?v=0.52.0';
-import { resumenAnalisis } from './gastos-g2.js?v=0.52.0';
-import * as Sii from './sii.js?v=0.52.0';
-import * as Previred from './previred.js?v=0.52.0';
-import * as B2b from './b2b.js?v=0.52.0';
-import * as Cartola from './cartola.js?v=0.52.0';
-import * as SiiFactura from './sii-factura.js?v=0.52.0';
-import * as PdfOrden from './pdf-orden.js?v=0.52.0';
-import * as Prod from './produccion.js?v=0.52.0';
-import * as VistaProd from './vista-produccion.js?v=0.52.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.52.0';
+} from './firebase.js?v=0.54.0';
+import * as Caja from './caja.js?v=0.54.0';
+import * as Stock from './stock.js?v=0.54.0';
+import * as Ajustes from './ajustes.js?v=0.54.0';
+import * as Apps from './apps.js?v=0.54.0';
+import * as Agenda from './agenda.js?v=0.54.0';
+import * as Gastos from './gastos.js?v=0.54.0';
+import * as G3 from './gastos-g3.js?v=0.54.0';
+import * as G3D from './gastos-g3d.js?v=0.54.0';
+import { resumenAnalisis } from './gastos-g2.js?v=0.54.0';
+import * as Sii from './sii.js?v=0.54.0';
+import * as GSii from './gastos-sii.js?v=0.54.0';
+import * as Previred from './previred.js?v=0.54.0';
+import * as B2b from './b2b.js?v=0.54.0';
+import * as Cartola from './cartola.js?v=0.54.0';
+import * as SiiFactura from './sii-factura.js?v=0.54.0';
+import * as PdfOrden from './pdf-orden.js?v=0.54.0';
+import * as Prod from './produccion.js?v=0.54.0';
+import * as ProdK from './cocina/consumo.js?v=0.16.0';
+import * as VistaProd from './vista-produccion.js?v=0.54.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.54.0';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.52.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.54.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.52.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.54.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -334,7 +336,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.52.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.54.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -414,7 +416,7 @@ async function pintarHoy() {
           <div class="titulo-fila"><h2 id="t-fuentes">De dónde lee Hoy</h2><span id="hoy-hora"></span></div>
           <div id="fuentes"></div>
           <p class="nota-i">(i) Hoy solo lee: no cambia nada en las apps. Si una no responde, sus pendientes no aparecen hasta que vuelva.</p>
-          <p class="ayuda" style="margin-top:6px">Cómo se calcula cada pendiente ${info('Pendientes de las otras apps', 'Gastos: pagos atrasados (vencimientos pendientes con fecha pasada), pagos de los próximos 7 días (incluye hoy) y documentos del SII cargados que aún no tienen gasto.\nVentas B2B: cobros atrasados según la frecuencia de pago de cada cliente (descuenta abonos), y órdenes sin folio; "atrasadas" según si el cliente factura diario, semanal o mensual. Es la misma cuenta que hace la app B2B.\nProducción: materias primas o insumos nuevos que pidieron las jefas y solicitudes de habilitar una materia prima en otra área.\nCada app guarda el resumen 2 minutos: un cambio recién hecho puede tardar eso en verse aquí. Tocar un pendiente abre la app.')}</p>
+          <p class="ayuda" style="margin-top:6px">Cómo se calcula cada pendiente ${info('Pendientes de las otras apps', 'Gastos: pagos atrasados (vencimientos pendientes con fecha pasada), pagos de los próximos 7 días (incluye hoy) y documentos del SII cargados que aún no tienen gasto. Con la base nueva, además: cargas del SII atrasadas (la última hace más de 7 días, o desde el día 5 sin la del mes pasado).\nVentas B2B: cobros atrasados según la frecuencia de pago de cada cliente (descuenta abonos), y órdenes sin folio; "atrasadas" según si el cliente factura diario, semanal o mensual. Es la misma cuenta que hace la app B2B.\nProducción: materias primas o insumos nuevos que pidieron las jefas y solicitudes de habilitar una materia prima en otra área.\nCada app guarda el resumen 2 minutos: un cambio recién hecho puede tardar eso en verse aquí. Tocar un pendiente abre la app.')}</p>
         </section>
       </div>
     </div>`;
@@ -508,10 +510,16 @@ async function pintarHoy() {
     if (r.recetas.length || r.mps.length) pintarLista();
   }).catch(() => {});
   // v0.37.0: bodega — materias primas críticas bajo el mínimo (o que quedarán bajo el mínimo en la semana)
+  // v0.54.0: por bodega. Lo que YA está bajo el mínimo, una línea por materia prima ("hay X, mínimo Y"); lo que va a
+  // quedar bajo el mínimo en la semana (proyección), una línea junta. El correo lo pide produccion.js (uno por día).
   Prod.alertasBodega().then(r => {
     if (!r || !r.bajos.length) return;
-    const t = x => x.bajoAhora ? `${x.nombre} (ya)` : `${x.nombre} (${['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][new Date(x.bajoDesde + 'T12:00:00').getDay()]} ${Number(x.bajoDesde.slice(8, 10))})`;
-    pend.push({ orden: 2.9, color: 'amarillo', icono: 'alerta', chip: 'Ver', url: '#produccion', origen: 'Bodega', titulo: `${r.bajos.length} ${r.bajos.length === 1 ? 'materia prima queda' : 'materias primas quedan'} bajo el mínimo`, detalle: r.bajos.slice(0, 4).map(t).join(', ') + (r.bajos.length > 4 ? '…' : '') });
+    const cant = (n, u) => ProdK.texto(n, u);
+    r.bajos.filter(x => x.bajoAhora).forEach(x => pend.push({ orden: 2.88, color: 'rojo', icono: 'alerta', chip: 'Ver', url: '#produccion', origen: 'Bodega',
+      titulo: `Bajo el mínimo: ${x.nombre} (${x.nombreBodega})`, detalle: `hay ${typeof x.hay === 'number' ? cant(x.hay, x.unidad) : '—'}, mínimo ${cant(x.minimo, x.unidad)}` }));
+    const pronto = r.bajos.filter(x => !x.bajoAhora && x.bajoDesde);
+    const t = x => `${x.nombre} · ${x.nombreBodega} (${['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][new Date(x.bajoDesde + 'T12:00:00').getDay()]} ${Number(x.bajoDesde.slice(8, 10))})`;
+    if (pronto.length) pend.push({ orden: 2.9, color: 'amarillo', icono: 'alerta', chip: 'Ver', url: '#produccion', origen: 'Bodega', titulo: `${pronto.length} ${pronto.length === 1 ? 'materia prima queda' : 'materias primas quedan'} bajo el mínimo esta semana`, detalle: pronto.slice(0, 4).map(t).join(', ') + (pronto.length > 4 ? '…' : '') });
     pintarLista();
   }).catch(() => {});
   // v0.14: abonos de la cartola por revisar
@@ -881,9 +889,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.52.0').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.54.0').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.52.0').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.54.0').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -978,13 +986,16 @@ function abrirPago(v) {
   // v0.51.0: con el certificado de Previred se paga el total del certificado y se crea un gasto por trabajador (sin reparto aquí)
   const prevPlan = v.documento && v.documento.tipo === 'previred' && v.documento.previred ? v.documento.previred : null;
   const usaAreas = !prevPlan && ((v.multiArea && v.multiArea.length) || v.area === 'MULTI');
+  // v0.53.0: con la factura del SII y sus montos, el neto y el IVA salen de la factura (sin chips de tipo de monto)
+  const docF = !prevPlan && G3.conNetoFactura(v.documento) ? v.documento : null;
   const hoy = Caja.diaLocal();
   const partes = v.area === 'PRORRATEADO' ? [[v.pArea1, v.pPct1], [v.pArea2, v.pPct2], [v.pArea3, v.pPct3]].filter(([a, p]) => a && p) : [];
   const d = dialogo(`<form class="form-dialogo" novalidate>
     <h2>Registrar pago</h2>
     <p class="ayuda"><b>${esc(v.nombre)}</b>${v.item ? ' · ' + esc(v.item) : ''} · vence ${esc(fechaCaja(v.fecha))}${v.fecha < hoy ? ' <span class="chip c-rojo chip-chico">Atrasado</span>' : ''}</p>
     ${prevPlan ? `<p class="ayuda" id="pg-previred">Certificado de Previred ${esc(G3D.nombreMes(prevPlan.periodo))}: se registra un gasto por trabajador (${(prevPlan.trabajadores || []).length}), sin IVA, con su área e ítem. El monto es el total del certificado.</p>` : partes.length ? `<p class="ayuda">Se reparte: ${partes.map(([a, p]) => `${esc(a)} ${esc(p)}%`).join(' · ')}</p>` : v.area && v.area !== 'MULTI' ? `<p class="ayuda">Área: ${esc(v.area)}</p>` : ''}
-    <div class="campo ${prevPlan ? 'oculto' : ''}"><span class="etiqueta">Tipo de monto</span>${chipsTipoMonto('pg-tipo', prevPlan ? 'siniva' : v.tipoMonto || 'bruto')}</div>
+    ${docF ? `<p class="ayuda pg-factura" id="pg-factura">Neto ${pesos(docF.neto)} · IVA ${pesos(docF.iva)}${docF.exento ? ' · Exento ' + pesos(docF.exento) : ''}${docF.otroImpuesto ? ' · Otros impuestos ' + pesos(docF.otroImpuesto) : ''} · Total ${pesos(docF.total)} — de la factura N° ${esc(docF.folio)} ${info('Montos de la factura', 'Este vencimiento tiene su factura del SII: el gasto toma el neto y el IVA exactos de la factura (no se calculan con el 19%), por eso no hay que elegir el tipo de monto.\nSi pagas el total, el neto es el de la factura. Si pagas otro monto (parcial o distinto), el neto se calcula en la misma proporción y queda anotado en la observación del gasto.')}</p>` : ''}
+    <div class="campo ${prevPlan || docF ? 'oculto' : ''}"><span class="etiqueta">Tipo de monto</span>${chipsTipoMonto('pg-tipo', prevPlan ? 'siniva' : docF ? 'bruto' : v.tipoMonto || 'bruto')}</div>
     ${usaAreas ? `<div class="campo"><span class="etiqueta">Monto por área ${info('Monto por área', 'Este pago se reparte entre varias áreas. Escribe lo real de este mes en cada una: el total del pago es la suma.')}</span><div id="pg-areas">${(v.multiArea && v.multiArea.length ? v.multiArea : [{}]).map(a => filaArea('pg', a.area || '', a.monto || '')).join('')}</div>
       <button type="button" class="btn-sec btn-chico" id="pg-mas-area">Agregar área</button></div>` : ''}
     <div class="grilla-montos"><div class="campo"><label for="pg-monto">Monto pagado</label><input id="pg-monto" type="number" inputmode="numeric" min="0" step="1" value="${montoV(v) || ''}" ${usaAreas || prevPlan ? 'readonly' : ''}></div>
@@ -999,6 +1010,11 @@ function abrirPago(v) {
   const areas = () => [...d.querySelectorAll('#pg-areas .fila-area')].map(f => ({ area: f.querySelector('.pg-area').value, monto: Number(f.querySelector('.pg-monto').value) || 0 })).filter(a => a.area && a.monto > 0);
   const recalcular = () => {
     if (usaAreas) d.querySelector('#pg-monto').value = areas().reduce((s, a) => s + a.monto, 0) || '';
+    if (docF) {
+      const m = Math.round(Number(d.querySelector('#pg-monto').value) || 0), r = m ? G3.netoFactura(docF, m) : null, otros = docF.exento || docF.otroImpuesto;
+      d.querySelector('#pg-desglose').innerHTML = r ? `<span>Neto ${pesos(r.neto)}</span><span>IVA${otros ? ' y otros' : ''} ${pesos(m - r.neto)}</span><b>Total ${pesos(m)}</b>${r.exacto ? '' : `<small class="pg-proporcional">Pagas otro monto que la factura: neto en la misma proporción (queda en la observación)</small>`}` : '';
+      return;
+    }
     const x = Gastos.desglose(d.querySelector('#pg-monto').value, tipo());
     d.querySelector('#pg-desglose').innerHTML = x.total ? `<span>Neto ${pesos(x.neto)}</span>${tipo() !== 'siniva' ? `<span>IVA ${pesos(x.total - x.neto)}</span>` : ''}<b>Total ${pesos(x.total)}</b>` : '';
   };
@@ -1149,6 +1165,7 @@ async function pintarSII(el, sub, d) {
   // v0.29.0: si la carga del SII estaba abierta en Conciliación, se cierra allá (una sola copia en la página)
   cart.siiAbierto = false; const cs = document.getElementById('conc-sii'); if (cs) cs.remove();
   el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Todo lo de la app de Gastos, aquí</p></div>${pestanasGastos(sub)}</div>
+    <div id="sii-aviso-carga"></div>
     <section class="tarjeta" aria-labelledby="t-sii-subir">
       <div class="titulo-fila"><h2 id="t-sii-subir">Subir un archivo del SII ${info('Archivos del SII', 'Sirven tres archivos del SII (sección compras):\n• XML (Documentos recibidos → Descargar XML): el más completo, con detalle de productos, fecha de vencimiento y forma de pago.\n• XLS (Documentos recibidos): con detalle de productos, sin vencimiento.\n• CSV (Registro de Compras y Ventas): el mes completo, solo totales.\nAl subirlo se marca lo que ya está en Gastos, y una copia del archivo queda en Drive (carpeta "Cargas SII", privada) para volver a abrirlo desde el historial.')}</h2></div>
       <div class="campo"><label for="sii-archivo">Archivo (XML, XLS o CSV)</label><input id="sii-archivo" type="file" accept=".xml,.xls,.xlsx,.csv,.txt,.html,text/xml,application/xml,text/csv"></div>
@@ -1172,7 +1189,15 @@ async function pintarSII(el, sub, d) {
 async function cargarHistorialSii() {
   try { sii.cargas = (await Sii.cargas()).cargas || []; sii.errorCargas = ''; }
   catch (e) { sii.errorCargas = e.message || mensajeError(e); sii.errorCode = e.code; }
-  pintarHistorialSii(); repintarCobDos();
+  pintarHistorialSii(); repintarCobDos(); pintarAvisoSii();
+}
+// v0.53.0 · Aviso "SII sin cargar" arriba de Cargas del SII (solo con la base nueva; con la planilla no aparece)
+async function pintarAvisoSii() {
+  const el = $('sii-aviso-carga'); if (!el) return;
+  let av = null;
+  try { av = sii.cargas && (await Gastos.enBase()) ? GSii.avisosSii(sii.cargas, Caja.diaLocal()) : null; } catch (e) { av = null; }
+  el.innerHTML = av && av.length ? `<div class="aviso-sii-carga" role="status">${av.map(a => `<p><b>${esc(a.texto)}</b></p>`).join('')}
+    <p class="ayuda">Sube el archivo aquí abajo (Subir un archivo del SII). ${info('Aviso de cargas del SII', 'Aparece si la última carga del SII (por fecha de carga, sin contar las quitadas) es de hace más de 7 días, o si desde el día 5 del mes ninguna carga tiene documentos del mes anterior.\nSe va solo al subir el archivo que falta.')}</p></div>` : '';
 }
 
 // ── Abrir un archivo ──
@@ -1909,7 +1934,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.52.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.54.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -2752,6 +2777,10 @@ function pendientesApps(estados) {
     detalle: 'Los pagos sí se leyeron. Abre Gastos → Cargas del SII para verlos.' });
   if (sii && sii.cantidad > 0) L.push({ orden: 2.5, color: 'azul', icono: 'boleta', chip: 'Revisar', url: '#gastos/sii', origen: 'Gastos', titulo: 'Documentos del SII sin gasto',
     detalle: `${veces(sii.cantidad, 'documento', 'documentos')} por registrar${sii.enDuda ? ` · ${sii.enDuda} con duda anotada` : ''}` });
+  // v0.53.0 · con la base nueva: la última carga del SII es de hace más de 7 días, o falta la del mes pasado (desde el día 5)
+  const ssc = de('gastos', 'sii_sin_cargar');
+  (ssc && ssc.avisos || []).forEach((a, i) => L.push({ orden: 2.4 + i / 100, color: 'amarillo', icono: 'boleta', chip: 'Subir', url: '#gastos/sii', origen: 'Gastos', titulo: a.texto,
+    detalle: a.clave === 'mes' ? 'Ninguna carga del SII tiene documentos de ese mes · Gastos → Cargas del SII' : 'Gastos → Cargas del SII' }));
   // v0.18.0 · cargos de la cartola por revisar (script de Gastos v2.8.0)
   const cc = de('gastos', 'cartola_cargos');
   if (cc && cc.cantidad > 0) L.push({ orden: 2.6, color: 'azul', icono: 'boleta', chip: 'Revisar', url: '#conciliacion/cargos', origen: 'Gastos', titulo: `${veces(cc.cantidad, 'cargo', 'cargos')} de la cartola por revisar`,

@@ -16,13 +16,15 @@
 //    factura, fecha = su vencimiento o 30 días después de emitida, documento { tipo: 'sii', rut, folio }). El gasto se crea
 //    al pagarlo (cartola o Pagar). Si no calza con un vencimiento (o hay más de una obligación con ese RUT), va a la bandeja
 //    "Documentos sin obligación". Al abrir el archivo, estado() dice a dónde va ("Va al vencimiento de Internet oct").
+//  · v0.53.0: el documento del vencimiento guarda también neto, iva, exento, otroImpuesto, total, tipoDoc y esHarina de la
+//    factura (también al asignarla desde la bandeja): al pagarlo, el gasto toma el neto exacto. avisoCargas(): "SII sin cargar".
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.52.0';
-import * as GB from './gastos-base.js?v=0.52.0';
-import * as M from './gastos-g2.js?v=0.52.0';
-import * as S from './gastos-sii.js?v=0.52.0';
-import * as G3 from './gastos-g3.js?v=0.52.0';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.52.0';
+import * as FB from './firebase-gastos.js?v=0.54.0';
+import * as GB from './gastos-base.js?v=0.54.0';
+import * as M from './gastos-g2.js?v=0.54.0';
+import * as S from './gastos-sii.js?v=0.54.0';
+import * as G3 from './gastos-g3.js?v=0.54.0';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.54.0';
 
 const error = (msg, code, datos) => Object.assign(new Error(msg), { code, ...(datos ? { datos } : {}) });
 const s = v => String(v == null ? '' : v);
@@ -142,7 +144,9 @@ async function importarAVencimientos(lista, marca) {
     const [ps, vencs, pend, snD] = await Promise.all([todos('obligaciones'), todos('vencimientos'), todos('documentos_pendientes'), FB.getDoc(FB.doc(d, 'sii_docs', docId))]);
     const prev = snD.exists() ? snD.data() : null;
     if (prev && prev.importado && prev.importado.clave === claveDoc && !prev.quitadoEnPlanilla) { out.facturas++; continue; }   // ya quedó
-    const doc = { tipo: 'sii', rut, folio, numero: folio, razonSocial: f.razonSocial, monto: total, fechaVencimiento: fv, cliente: rut, siiDocId: docId };
+    // v0.53.0: con los montos exactos de la factura (neto, IVA, exento, otros impuestos, total): el gasto toma ese neto al pagar
+    const montos = G3.montosSii({ neto: f0.neto, iva: f0.iva, exento: f0.exento, otroImpuesto: f0.otroImpuesto, total, tipoDoc: f.tipoDoc, esHarina: f0.esHarina });
+    const doc = { tipo: 'sii', rut, folio, numero: folio, razonSocial: f.razonSocial, monto: total, fechaVencimiento: fv, cliente: rut, siiDocId: docId, ...montos };
     let destino = null;
     const ya = vencs.find(x => x.d.documento && x.d.documento.tipo === 'sii' && S.rutProv(x.d.documento.rut) === S.rutProv(rut) && s(x.d.documento.folio) === folio);
     const enBandeja = pend.find(x => s(x.d.clave) === claveDoc && x.d.estado === 'pendiente');
@@ -157,7 +161,7 @@ async function importarAVencimientos(lista, marca) {
         await FB.runTransaction(d, async tx => {
           if ((await tx.get(refP)).exists()) return;
           tx.set(refP, nuevo({ id: idP, tipo: 'sii', estado: 'pendiente', motivo, cliente: rut, rut, folio, numero: folio, razonSocial: f.razonSocial, empresa: f.razonSocial, monto: total, fechaVencimiento: fv,
-            archivo: { url: '', nombre: '' }, clave: claveDoc }, 'sii'));
+            archivo: { url: '', nombre: '' }, clave: claveDoc, siiDocId: docId, montosSii: montos }, 'sii'));
         });
         await despues(1);
         destino = { pendienteId: idP, motivo };
@@ -388,4 +392,10 @@ export async function resumenProveedores() {
   const lista = l.map(x => ({ rut: x.d.rutTexto || x.id, razonSocial: x.d.razonSocial || '', documentos: Number(x.d.documentos) || 0, productos: Number(x.d.productos) || 0, ultima: x.d.ultima || '' }))
     .sort((a, b) => b.documentos - a.documentos || a.razonSocial.localeCompare(b.razonSocial));
   return { n: Number(n.data().n) || 0, meta: c.exists() ? c.data() : null, lista };
+}
+
+// ── v0.53.0 · Aviso "SII sin cargar" (Hoy y Cargas del SII): solo lee sii_cargas ──
+export async function avisoCargas() {
+  const l = await todos('sii_cargas');
+  return S.avisosSii(l.map(x => ({ fechaCarga: x.d.fechaCarga, desde: x.d.periodoDesde, hasta: x.d.periodoHasta, quitada: x.d.quitada, quitadoEnPlanilla: x.d.quitadoEnPlanilla })), hoy());
 }

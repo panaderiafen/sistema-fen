@@ -1,8 +1,23 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — consumo de materias primas, stock de la bodega y proyección (sin pantalla)  v0.14.0
+//  fën · Cocina — consumo de materias primas, stock de las bodegas y proyección (sin pantalla)  v0.16.0
 //  La usa Sistema Fën (que lee las cuatro áreas; copia exacta en sistema-fen/cocina/).
 //
-//  Bodega común: un stock por materia prima.
+//  v0.16.0 · BODEGAS SEPARADAS (decisión de Emmanuel, 12-oct): el stock es por BODEGA (lugar físico), no por área.
+//    · Hoy: "PROD" (Producción: Panadería, Bollería y Pastelería, como siempre) y "CAF" (Cafetería).
+//    · Qué área usa qué bodega: config/bodegas = { areas: { PAN: 'PROD', … }, nombres: { PROD: 'Producción', … } }
+//      (opcional; vacío = PAN/BOL/PAS → PROD, CAF → CAF). Una bodega nueva (por ejemplo una por área con las harinas
+//      compartidas) es solo cambiar ese mapa: los datos ya van por bodega.
+//    · stockmp: la bodega PROD sigue en stockmp/{mpId} (lo de antes no se migra: todo lo existente es PROD);
+//      las demás en stockmp/{BODEGA}__{mpId} (ej. stockmp/CAF__MP090), con { bodega, mp, critica, seguridad, envase, estado }.
+//      Lo mismo conteosmp: conteosmp/{mpId} (PROD) y conteosmp/{BODEGA}__{mpId}. idStock() / deIdStock().
+//    · La planilla (es_critica, stock_seguridad) solo vale para PROD: en otra bodega se marca en Sistema Fën.
+//    · Cada evento de consumo lleva su bodega (la del área que consume): lo de Cafetería (caja, calibración diaria y
+//      extra, derramado, merma) va a CAF; lo de Panadería, Bollería y Pastelería a PROD. Si una materia prima no es
+//      crítica en esa bodega, simplemente no se sigue ahí.
+//    · Cada llegada o conteo lleva su bodega (bodega: 'CAF'); sin el campo (todo lo anterior a v0.16.0) es PROD. Un
+//      área solo mueve su bodega: lo anotado por un área con la bodega de otra no se cuenta (Administración, todas).
+//
+//  Antes (hasta v0.15.0) era una bodega común: un stock por materia prima.
 //  · Consumo = lo HECHO en Cocina, bajado por las recetas (y sus sub recetas) hasta las materias primas:
 //      Panadería y Pastelería: las recetas marcadas terminadas (hechos.rec_{id}), con la cantidad del día
 //        (Pastelería: dias.cantidades; Panadería: el plan de ese día).
@@ -14,6 +29,20 @@
 //      Cafetería (v0.8.0): lo VENDIDO en la caja de productos con receta de Cafetería (datos.ventas, lo arma
 //        Sistema Fën con los resúmenes de la caja) y los gramos de café de la bitácora de turno (calibraciones,
 //        café botado y pruebas) descontados de la materia prima config/CAF.mp_cafe.
+//      Cafetería (v0.15.0):
+//        · CALIBRACIÓN DIARIA automática: cada día que Cafetería vende en la caja se cuentan N shots
+//          (config/CAF.shots_calibracion_diarios; vacío = 6) × gramos por shot (config/CAF.gramos_por_shot; vacío = 14).
+//          Si ese día la editaron (dias/CAF_{fecha}.calibracionDiaria = { shots, gPorShot, por, en, historial }),
+//          vale lo editado (0 = no se calibró). Los días automáticos (sin edición) cuentan solo DESDE que se instaló
+//          la v0.15.0: config/CAF.calibracion_desde si Administración lo puso; si no, la fecha que Cocina deja en
+//          cada día de Cafetería (dias/CAF_{fecha}.calibracionDesde, la primera vez que la abre; se arrastra a los
+//          días siguientes para que no se pierda aunque Sistema Fën lea solo los últimos 120 días). Nunca hacia atrás.
+//          Días con venta: datos.diasVentaCaf (fechas) o, si no viene, las fechas de datos.ventas. Sin ningún dato
+//          de ventas (Cocina, o la caja no se pudo leer): todos los días menos el domingo.
+//          Las calibraciones anotadas a mano en la bitácora ("Calibración extra") se suman aparte, como siempre.
+//        · DERRAMADO (merma con derramado: true, desde la bitácora de turno): la preparación se hizo y no se vendió,
+//          así que se baja entera por su receta (café, leche, vaso…). La demás merma de recetas no se baja (ya se
+//          contó al hacerla).
 //    Una sub receta que es de OTRA área no se baja: la cuenta el área que la hace (la crema pastelera la
 //    cuenta Pastelería cuando la termina, no Bollería al rellenar). En Pastelería tampoco se bajan sus propias
 //    sub recetas: las marca terminadas aparte (la crema no se cuenta otra vez dentro de la torta).
@@ -35,6 +64,105 @@ import * as B from './bolleria.js?v=0.11.0';
 import * as R from './registros.js?v=0.11.0';
 
 const n0 = v => M.num(v);
+
+// ── Bodegas (v0.16.0) ──
+export const BODEGA_PRINCIPAL = 'PROD';
+export const BODEGAS_DEF = { PROD: 'Producción', CAF: 'Cafetería' };
+export const AREA_BODEGA_DEF = { PAN: 'PROD', BOL: 'PROD', PAS: 'PROD', CAF: 'CAF' };
+const esCodigo = v => typeof v === 'string' && /^[A-Z]{2,8}$/.test(v);
+// El mapa vigente (config/bodegas, si existe, sobre lo de siempre): { areas: { AREA: BODEGA }, nombres: { BODEGA: nombre } }
+export function mapaBodegas(cfg) {
+  const c = cfg && typeof cfg === 'object' ? cfg : {}, areas = { ...AREA_BODEGA_DEF }, nombres = { ...BODEGAS_DEF };
+  Object.entries(c.nombres || {}).forEach(([b, n]) => { if (esCodigo(b) && typeof n === 'string' && n.trim()) nombres[b] = n.trim().slice(0, 40); });
+  Object.entries(c.areas || {}).forEach(([a, b]) => { if (esCodigo(a) && esCodigo(b)) { areas[a] = b; if (!nombres[b]) nombres[b] = b; } });
+  return { areas, nombres };
+}
+export const bodegaDe = (area, mapa) => ((mapa || mapaBodegas()).areas[area]) || BODEGA_PRINCIPAL;
+export const nombreBodega = (b, mapa) => ((mapa || mapaBodegas()).nombres[b]) || b;
+// Las bodegas en uso (las que tienen al menos un área), Producción primero
+export const listaBodegas = mapa => { const m = mapa || mapaBodegas(); return [...new Set([BODEGA_PRINCIPAL, ...Object.values(m.areas)])]; };
+export const areasDeBodega = (b, mapa) => Object.entries((mapa || mapaBodegas()).areas).filter(([, x]) => x === b).map(([a]) => a);
+// Id del documento en stockmp y conteosmp: PROD = el id de la materia prima (como siempre); otra = "CAF__MP090"
+export const idStock = (bodega, mpId) => !bodega || bodega === BODEGA_PRINCIPAL ? String(mpId) : bodega + '__' + mpId;
+export function deIdStock(id) { const m = /^([A-Z]{2,8})__(.+)$/.exec(String(id || '')); return m ? { bodega: m[1], mp: m[2] } : { bodega: BODEGA_PRINCIPAL, mp: String(id || '') }; }
+// stockmp de una bodega: { mpId: doc }
+export function stockDe(stockmp, bodega) {
+  const r = {}; Object.entries(stockmp || {}).forEach(([id, d]) => { const x = deIdStock(id); if (x.bodega === (bodega || BODEGA_PRINCIPAL)) r[x.mp] = d; });
+  return r;
+}
+// Crítica y mínimo en una bodega: en PROD, si Sistema Fën no la configuró, vale la planilla; en las demás, solo Sistema Fën
+export function controlEn(bodega, mp, sm) {
+  if (!bodega || bodega === BODEGA_PRINCIPAL) return control(mp, sm);
+  return control({ ...(mp || {}), critica: false, stockSeguridad: 0 }, sm);
+}
+// La bodega de una llegada o conteo: la anotada (sin el campo = PROD, lo anterior a v0.16.0). Un área solo mueve la suya:
+// si anotó otra, no vale (null). Administración (ADM) puede cualquiera.
+export function bodegaMov(area, a, mapa) {
+  const b = esCodigo(a && a.bodega) ? a.bodega : BODEGA_PRINCIPAL;
+  if (area === 'ADM') return b;
+  return b === bodegaDe(area, mapa) || (!(a && a.bodega) && b === BODEGA_PRINCIPAL) ? b : null;
+}
+// Lo que hay "ahora" para la tablet: el último cálculo de Sistema Fën (stockmp.estado) o, si después se contó, ese conteo;
+// más las llegadas posteriores que ve la tablet. → { hay, desde: 'calculo'|'conteo', en } o null (sin datos)
+export function stockAhora(estado, conteo, llegadas) {
+  const e = estado && estado.contado && typeof estado.stock === 'number' ? estado : null;
+  const c = conteo && !conteo.anulado && typeof conteo.cantidad === 'number' && conteo.en ? conteo : null;
+  let base = null;
+  if (c && (!e || !e.en || String(c.en) > String(e.en))) base = { hay: c.cantidad, desde: 'conteo', en: String(c.en) };
+  else if (e) base = { hay: e.stock, desde: 'calculo', en: String(e.en || '') };
+  if (!base) return null;
+  (llegadas || []).forEach(l => { if (l && !l.anulado && String(l.en || '') > base.en) base.hay += n0(l.cantidad); });
+  return base;
+}
+// Alerta de stock bajo el mínimo (por bodega y materia prima): hay < mínimo (con mínimo > 0)
+export const bajoMinimo = (hay, minimo) => typeof hay === 'number' && isFinite(hay) && n0(minimo) > 0 && hay < n0(minimo);
+// Clave para no repetir el aviso por correo: uno por día, bodega y materia prima
+export const claveAlerta = (fecha, bodega, mpId) => `${fecha}|${bodega || BODEGA_PRINCIPAL}|${mpId}`;
+
+// ── Cafetería: calibración diaria (v0.15.0) ──
+export const SHOTS_CALIBRACION = 6;   // si config/CAF.shots_calibracion_diarios está vacío
+const esFecha = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+// Shots por defecto (0 vale: "no calibramos")
+export function shotsCalibracionDef(cfg) {
+  const v = (cfg || {}).shots_calibracion_diarios;
+  if (typeof v === 'number' && isFinite(v) && v >= 0) return Math.round(v);
+  if (typeof v === 'string' && /^\s*\d+\s*$/.test(v)) return Number(v);
+  return SHOTS_CALIBRACION;
+}
+export const gPorShotCaf = cfg => n0((cfg || {}).gramos_por_shot) || R.GRAMOS_SHOT;
+// Desde qué día se cuentan los días automáticos: la configuración o la primera marca que dejó Cocina (null: todavía no)
+export function inicioCalibracion(cfg, diasCaf) {
+  if (esFecha((cfg || {}).calibracion_desde)) return cfg.calibracion_desde;
+  return Object.values(diasCaf || {}).map(d => d && d.calibracionDesde).filter(esFecha).sort()[0] || null;
+}
+// Lo editado de un día ({ shots, gPorShot, por, en, historial }) o null
+export function calibracionEditada(dia) {
+  const c = dia && dia.calibracionDiaria;
+  return c && typeof c.shots === 'number' && isFinite(c.shots) && c.shots >= 0 ? c : null;
+}
+// La calibración de un día: { fecha, shots, gPorShot, gramos, auto, editada }
+export function calibracionDelDia(fecha, dia, cfg) {
+  const e = calibracionEditada(dia), gps = e && n0(e.gPorShot) > 0 ? n0(e.gPorShot) : gPorShotCaf(cfg);
+  const shots = e ? Math.round(e.shots) : shotsCalibracionDef(cfg);
+  return { fecha, shots, gPorShot: gps, gramos: Math.round(shots * gps * 10) / 10, auto: !e, editada: e, en: e && typeof e.en === 'string' ? e.en : null };
+}
+// Días de Cafetería con calibración en [desde, hasta] (nunca después de hoy): los editados siempre; los automáticos
+// desde el inicio y solo los días con venta (o, sin datos de ventas, de lunes a sábado)
+export function calibracionesDiarias(datos, desde = '0000-00-00', hasta = '9999-12-31') {
+  const cfg = (datos.config || {}).CAF || {}, dias = (datos.dias || {}).CAF || {};
+  const hoy = esFecha(datos.hoy) ? datos.hoy : M.hoyTxt(), fin = hasta < hoy ? hasta : hoy;
+  const out = [];
+  Object.entries(dias).forEach(([f, d]) => { if (f >= desde && f <= fin && calibracionEditada(d)) out.push(calibracionDelDia(f, d, cfg)); });
+  const ini = inicioCalibracion(cfg, dias);
+  if (ini) {
+    const conVenta = new Set([...(datos.diasVentaCaf || []), ...(datos.ventas || []).filter(v => v && n0(v.cantidad) > 0).map(v => v.fecha)].filter(esFecha));
+    const abierto = f => conVenta.size ? conVenta.has(f) : M.indiceDia(f) !== 6;
+    let f = [ini, desde, esFecha(datos.desde) ? datos.desde : ''].sort().pop();
+    for (let i = 0; f <= fin && i < 800; i++, f = M.sumarDias(f, 1))
+      if (!calibracionEditada(dias[f]) && abierto(f)) out.push(calibracionDelDia(f, dias[f], cfg));
+  }
+  return out.sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
 const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
 // ── Materias primas: unidad base y control ──
@@ -131,7 +259,7 @@ export const empGramosPorMasa = (masaId, ctx) => {
 
 // ── Lo consumido (hecho) ──
 // datos: { recetas, mps, config: { AREA: cfg }, ajustes: { AREA: { id: ajuste } }, dias: { AREA: { fecha: doc } }, planes: { 'AREA_lunes': plan } }
-// → [{ area, fecha, en, mp, cantidad, origen }] (sin anuladas)
+// → [{ area, bodega, fecha, en, mp, cantidad, origen }] (sin anuladas). v0.16.0: bodega = la del área (config/bodegas)
 export function consumo(datos, desde = '0000-00-00', hasta = '9999-12-31') {
   const ev = [], sinId = {};
   const ctxDe = area => ({ recetas: datos.recetas || [], mps: datos.mps || [], config: (datos.config || {})[area] || {} });
@@ -175,8 +303,16 @@ export function consumo(datos, desde = '0000-00-00', hasta = '9999-12-31') {
       const mpCafe = area === 'CAF' && ((datos.config || {}).CAF || {}).mp_cafe;
       if (mpCafe) Object.values(d.turno || {}).forEach(a => { if (a && !a.anulado && n0(a.gramos) > 0) ev.push({ area, fecha, en: enDe(fecha, a.en), mp: mpCafe, cantidad: n0(a.gramos), origen: 'Bitácora de turno' }); });
       Object.values(d.merma || {}).forEach(a => { if (a && !a.anulado && a.tipo === 'mp' && n0(a.cantidad) > 0) ev.push({ area, fecha, en: enDe(fecha, a.en), mp: a.item, cantidad: n0(a.cantidad), origen: 'Merma' }); });
+      // v0.15.0: Cafetería, lo derramado (se hizo y no se vendió): la preparación entera, por su receta
+      if (area === 'CAF') Object.values(d.merma || {}).forEach(a => {
+        if (!a || a.anulado || !a.derramado || a.tipo !== 'receta' || !(n0(a.cantidad) > 0)) return;
+        const r = recetaPorId(ctx, a.item); if (r) agregar(area, fecha, a.en, r.nombre + ' (derramado)', bajar(r, n0(a.cantidad), ctx, { ...op, parar: deOtra }));
+      });
     });
   });
+  // v0.15.0: Cafetería, la calibración diaria (automática o editada), descontada del café de la bodega
+  const mpCafeC = ((datos.config || {}).CAF || {}).mp_cafe;
+  if (mpCafeC) calibracionesDiarias(datos, desde, hasta).forEach(c => { if (c.gramos > 0) ev.push({ area: 'CAF', fecha: c.fecha, en: enDe(c.fecha, c.en), mp: mpCafeC, cantidad: c.gramos, origen: 'Calibración diaria' }); });
   // Cafetería: lo vendido (ventas: [{ fecha, en, receta, cantidad }]); solo recetas de Cafetería (lo demás lo cuenta su área)
   const ctxC = ctxDe('CAF');
   (datos.ventas || []).forEach(v => {
@@ -185,6 +321,8 @@ export function consumo(datos, desde = '0000-00-00', hasta = '9999-12-31') {
     const aj = ajustesDe(((datos.ajustes || {}).CAF) || {}, v.fecha);
     agregar('CAF', v.fecha, v.en, r.nombre + ' (venta)', bajar(r, n0(v.cantidad), ctxC, { ajustes: aj, parar: rs => rs.area && rs.area !== 'CAF', sinId }));
   });
+  const mapa = mapaBodegas((datos.config || {}).bodegas);
+  ev.forEach(e => { e.bodega = bodegaDe(e.area, mapa); });
   return { eventos: ev.sort((a, b) => a.en.localeCompare(b.en)), sinId };
 }
 
@@ -196,14 +334,21 @@ export function porMp(eventos) {
 }
 
 // ── Bodega: llegadas y conteos (de todas las áreas y de Administración) ──
-export function movimientos(dias) {
-  const out = [];
+// v0.16.0: cada uno con su bodega (bodegaMov); los de un área con la bodega de otra no se cuentan
+export function movimientos(dias, mapa) {
+  const out = [], m = mapa || mapaBodegas();
   Object.entries(dias || {}).forEach(([area, ds]) => Object.entries(ds || {}).forEach(([fecha, d]) =>
-    Object.entries((d && d.bodega) || {}).forEach(([id, a]) => { if (a && !a.anulado && a.mp) out.push({ ...a, id, area, fecha, en: enDe(fecha, a.en), cantidad: n0(a.cantidad) }); })));
+    Object.entries((d && d.bodega) || {}).forEach(([id, a]) => {
+      if (!a || a.anulado || !a.mp) return;
+      const bodega = bodegaMov(area, a, m); if (!bodega) return;
+      out.push({ ...a, id, area, bodega, fecha, en: enDe(fecha, a.en), cantidad: n0(a.cantidad) });
+    })));
   return out.sort((a, b) => a.en.localeCompare(b.en));
 }
 // Stock de una materia prima: el último conteo + llegadas − consumo posteriores (null si nunca se contó)
-export function stock(mpId, movs, eventos) {
+// v0.16.0: bodega (opcional) = solo los movimientos y el consumo de esa bodega
+export function stock(mpId, movs, eventos, bodega) {
+  if (bodega) { movs = (movs || []).filter(m => (m.bodega || BODEGA_PRINCIPAL) === bodega); eventos = (eventos || []).filter(e => (e.bodega || BODEGA_PRINCIPAL) === bodega); }
   const ms = (movs || []).filter(m => m.mp === mpId);
   let ini = -1; ms.forEach((m, i) => { if (m.tipo === 'conteo') ini = i; });
   if (ini < 0) return { contado: false, stock: null, conteo: null, llegadas: 0, consumo: 0 };
@@ -221,14 +366,15 @@ export function stock(mpId, movs, eventos) {
 // ── Proyección: lo que se espera consumir cada día desde "desde" (incluido), por materia prima ──
 // Se llama desde MAÑANA: lo de hoy se descuenta del stock cuando lo marcan hecho (si no, se restaría dos veces).
 // datos además: metas: { 'BOL_lunes': meta }, hoy (para el ritmo de Pastelería)
-export function proyeccion(datos, desde, dias = 7, eventos = []) {
-  const r = {}, sinId = {};
+// v0.16.0: bodega (opcional) = solo las áreas de esa bodega
+export function proyeccion(datos, desde, dias = 7, eventos = [], bodega = null) {
+  const r = {}, sinId = {}, mapa = mapaBodegas((datos.config || {}).bodegas), va = area => !bodega || bodegaDe(area, mapa) === bodega;
   const add = (f, res) => Object.entries(res.out).forEach(([mp, q]) => { const x = r[f] || (r[f] = {}); x[mp] = (x[mp] || 0) + q; });
   const fechas = []; for (let i = 0; i < dias; i++) fechas.push(M.sumarDias(desde, i));
   const ctxDe = area => ({ recetas: datos.recetas || [], mps: datos.mps || [], config: (datos.config || {})[area] || {} });
   // Panadería (y cualquier área con plan semanal): lo planificado de cada día
   Object.entries(datos.planes || {}).forEach(([id, plan]) => {
-    const area = id.split('_')[0]; if (area === 'BOL' || !plan) return;
+    const area = id.split('_')[0]; if (area === 'BOL' || !plan || !va(area)) return;
     const ctx = ctxDe(area), deOtra = rs => rs.area && rs.area !== area;
     fechas.filter(f => M.lunesDe(f) === plan.lunes).forEach(f => {
       const aj = ajustesDe(((datos.ajustes || {})[area]) || {}, f);
@@ -238,7 +384,7 @@ export function proyeccion(datos, desde, dias = 7, eventos = []) {
   // Bollería: masas a elaborar y lo que piden las metas de productos (repartido en la semana). v0.14.0: el empaste
   // va con los productos de la meta (se hace la semana en que se lamina), ya no con la masa
   const ctxB = ctxDe('BOL'), deOtraB = rs => rs.area && rs.area !== 'BOL';
-  fechas.forEach(f => {
+  if (va('BOL')) fechas.forEach(f => {
     const metaElab = (datos.metas || {})['BOL_' + M.sumarDias(M.lunesDe(f), 7)], idx = M.indiceDia(f);
     Object.entries((metaElab && metaElab.elaboracion) || {}).forEach(([masaId, ds]) => {
       const n = n0((ds || {})['d' + idx]), m = recetaPorId(ctxB, masaId); if (!(n > 0) || !m) return;
@@ -252,7 +398,7 @@ export function proyeccion(datos, desde, dias = 7, eventos = []) {
   });
   // Pastelería y Cafetería: al ritmo de los últimos 14 días (lo hecho, lo vendido y el café de la bitácora)
   const hoy = datos.hoy || desde, d14 = M.sumarDias(hoy, -14);
-  const ritmo = {}; (eventos || []).filter(e => (e.area === 'PAS' || e.area === 'CAF') && e.origen !== 'Merma' && e.fecha >= d14 && e.fecha < hoy).forEach(e => { ritmo[e.mp] = (ritmo[e.mp] || 0) + e.cantidad / 14; });
+  const ritmo = {}; (eventos || []).filter(e => (e.area === 'PAS' || e.area === 'CAF') && va(e.area) && e.origen !== 'Merma' && e.fecha >= d14 && e.fecha < hoy).forEach(e => { ritmo[e.mp] = (ritmo[e.mp] || 0) + e.cantidad / 14; });
   fechas.forEach(f => Object.entries(ritmo).forEach(([mp, q]) => { const x = r[f] || (r[f] = {}); x[mp] = (x[mp] || 0) + q; }));
   return { porDia: r, fechas, sinId };
 }

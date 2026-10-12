@@ -735,3 +735,16 @@ a.ag-item { text-decoration: none; }
 .lista-despues { margin: 8px 0 8px 18px; padding: 0; }
 .lista-despues li { margin: 6px 0; }
 .siniva-tabla td, .siniva-tabla th { white-space: nowrap; }
+
+/* v0.53.0 · Aviso "SII sin cargar" (Cargas del SII) y montos de la factura al pagar */
+.aviso-sii-carga { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; background: var(--amarillo); color: var(--amarillo-t); }
+.aviso-sii-carga p { margin: 2px 0; }
+.aviso-sii-carga .ayuda { color: inherit; opacity: .9; }
+.pg-factura { padding: 8px 10px; border-radius: 8px; background: var(--fondo); }
+.desglose .pg-proporcional { flex-basis: 100%; font-size: 12px; opacity: .8; }
+
+/* v0.54.0 · Producción → Bodega: pestañas por bodega (botones con el mismo aspecto que las pestañas de enlaces) */
+.pestanas button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 10px; display: flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 600; color: var(--suave); background: transparent; cursor: pointer; white-space: nowrap; }
+.pestanas button[aria-selected="true"] { background: var(--tarjeta); color: var(--texto); font-weight: 700; }
+.pestanas button:focus-visible { outline: 2px solid var(--texto); outline-offset: 2px; }
+.pest-bodega { margin: 10px 0 4px; width: fit-content; max-width: 100%; }

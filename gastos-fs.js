@@ -20,14 +20,14 @@
 //    (tipo libre), vencimiento suelto. Los de tipo documento se crean 20 días antes (para esperar la boleta).
 //  · v0.51.0: pagar un vencimiento con el certificado de Previred crea un gasto por trabajador (gastos-g3d.js: lineasDelPago).
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.52.0';
-import * as FB from './firebase-gastos.js?v=0.52.0';
-import * as GB from './gastos-base.js?v=0.52.0';
-import * as GP from './gastos-planilla.js?v=0.52.0';
-import * as M from './gastos-g2.js?v=0.52.0';
-import * as G3 from './gastos-g3.js?v=0.52.0';
-import * as G3D from './gastos-g3d.js?v=0.52.0';
-import { dia } from './gastos-modelo.js?v=0.52.0';
+import { auth as authSF } from './firebase.js?v=0.54.0';
+import * as FB from './firebase-gastos.js?v=0.54.0';
+import * as GB from './gastos-base.js?v=0.54.0';
+import * as GP from './gastos-planilla.js?v=0.54.0';
+import * as M from './gastos-g2.js?v=0.54.0';
+import * as G3 from './gastos-g3.js?v=0.54.0';
+import * as G3D from './gastos-g3d.js?v=0.54.0';
+import { dia } from './gastos-modelo.js?v=0.54.0';
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';
@@ -561,7 +561,7 @@ export async function resolverPendiente(id, accion, datos = {}) {
   const ps = await todos('obligaciones'), obl = ps.find(o => (s(o.d.id) || o.id) === String(datos.obligacionId || '') && !o.d.quitadoEnPlanilla);
   if (!obl) throw error('Elige la obligación', 'datos');
   const doc = { tipo: x.tipo || 'boleta', cliente: s(x.cliente), monto: x.monto, fechaVencimiento: s(x.fechaVencimiento), url: (x.archivo || {}).url || '', nombreArchivo: (x.archivo || {}).nombre || '', numero: s(x.numero), clave: s(x.clave), pendienteId: String(id),
-    rut: s(x.rut), razonSocial: s(x.razonSocial) };   // v0.50.0: una factura del SII trae su RUT y razón social
+    rut: s(x.rut), razonSocial: s(x.razonSocial), siiDocId: s(x.siiDocId), ...(x.montosSii && typeof x.montosSii === 'object' ? x.montosSii : {}) };   // v0.50.0: una factura del SII trae su RUT y razón social (v0.53.0: y sus montos)
   const r = await completarCon(obl, doc, '', { ref, que: 'asignó a una obligación', campos: vid => ({ estado: 'asignado', resultado: { obligacionId: s(obl.d.id) || obl.id, vencimientoId: vid, por: quien, en } }) });
   return { ok: true, ...r };
 }

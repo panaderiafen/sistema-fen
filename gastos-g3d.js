@@ -10,9 +10,9 @@
 //    bruto (neto = final / 1,19) → neto = final.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.52.0';
-import * as M from './gastos-g2.js?v=0.52.0';
-import * as G3 from './gastos-g3.js?v=0.52.0';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.54.0';
+import * as M from './gastos-g2.js?v=0.54.0';
+import * as G3 from './gastos-g3.js?v=0.54.0';
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -140,6 +140,8 @@ export function lineasDelPago(v, a, monto, fechaPago, obs, url, tipoMonto, hora)
     if (Math.round(n(monto)) !== total) return { error: `El pago de Previred debe ser el total del certificado ($${total.toLocaleString('es-CL')}).` };
     return { lineas: lineasPrevired(doc.previred, fechaPago, url, hora, { vencimientoId: v.id }) };
   }
+  // v0.53.0: con la factura del SII y sus montos, el pago va como bruto y el neto sale de la factura
+  if (G3.conNetoFactura(doc)) return { lineas: G3.conNetoSii(G3.conDocumentoSii(M.lineasPago(v, monto, fechaPago, obs, url, 'bruto', hora), a), doc, monto) };
   return { lineas: G3.conDocumentoSii(M.lineasPago(v, monto, fechaPago, obs, url, tipoMonto, hora), a) };
 }
 

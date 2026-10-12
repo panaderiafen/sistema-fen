@@ -1,9 +1,93 @@
-# Sistema Fën · v0.52.0
+# Sistema Fën · v0.54.0
 
-**App:** v0.52.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 12 de octubre de 2026
+**App:** v0.54.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** **v1.7.0** (nuevas, van en el zip de Cocina v0.16.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** **v2.9.0** · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 12 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.54.0: bodegas separadas (Producción y Cafetería) y avisos de bajo el mínimo
+Va con **Cocina v0.16.0** (que incluye la v0.15.0), el **script de Producción v2.9.0** y las **reglas v1.7.0** de fen-produccion.
+
+**La decisión:** el stock va por **bodega** (lugar físico), no por área. Hoy son dos:
+- **Producción**: Panadería, Bollería y Pastelería (como hasta ahora: lo que cuenta un área vale para las tres).
+- **Cafetería**: solo Cafetería.
+- Más adelante se pueden sumar (por ejemplo, una por área con las harinas compartidas) cambiando solo el mapa área → bodega (`config/bodegas`), sin rehacer nada.
+
+**Producción → Bodega:**
+- Dos **pestañas**: **Producción** y **Cafetería** (con un número rojo si hay algo bajo el mínimo). Cada una con sus críticas, mínimo, envase, stock, "alcanza", último conteo, **Agregar crítica** y **Llegó mercadería**.
+- Una materia prima puede ser crítica en **una o en las dos**, con su propio mínimo, llegadas, conteos y stock (la leche puede tener mínimo 10 l en Producción y 5 l en Cafetería).
+- **El consumo va a la bodega de quien consume:** lo de Cafetería (ventas de la caja, calibración diaria y extra, café botado, pruebas, derramado, merma) baja **Cafetería**; lo de Panadería, Bollería y Pastelería baja **Producción**. Si una materia prima no es crítica en esa bodega, no se sigue ahí.
+- **"Pasar a Cafetería"** (en la pestaña Producción, una vez): todo lo que existía quedó en Producción. Si algo era crítico solo por Cafetería (leche, café, vasos), márcalo y pásalo: se copia la crítica, el mínimo y el envase a Cafetería. Opcional: "Dejar de seguirlas en Producción". **Nada se borra**: los conteos y llegadas de antes quedan en Producción; en Cafetería parte con su primer conteo.
+- Las llegadas que anotas aquí van a la bodega de la pestaña.
+
+**Bajo el mínimo (cuando lo que hay es menor que el mínimo):**
+- **Hoy:** un pendiente por materia prima: "**Bajo el mínimo: Leche (Cafetería)** — hay 3 l, mínimo 5 l". Lo que va a quedar bajo el mínimo en la semana (proyección) sigue en una línea aparte.
+- **Cocina:** aviso arriba de la Bodega del área (solo su bodega) y una línea en Hoy / Bitácora de turno. Sin precios.
+- **Correo** a ti y a las jefas de esa bodega, **uno por día por materia prima** (lo manda el script v2.9.0; si Cocina y Sistema Fën lo detectan los dos, llega uno).
+- **Límite:** se revisa cuando se abre Sistema Fën (Hoy o Bodega) o Cocina, o se hace un conteo. No hay revisión automática de noche.
+
+**Cafetería (lo que quedó pendiente de Cocina v0.15.0):**
+- **Configuración → Cafetería:** "**Shots de la calibración diaria**" (vacío = 6) y "**Calibración automática desde**" (opcional), con su (i).
+- La calibración diaria automática usa los **días con venta de Cafetería** en la caja (también de productos sin receta vinculada).
+- **Merma:** lo derramado se ve con la etiqueta **Derramado**. El **Café de Cafetería** muestra la **calibración diaria** (shots y gramos, cuántos días editados, y por día: automática o editada) valorizada como **gasto de calibración** con el costo neto del café. El total de café la incluye.
+
+**Por dentro (para el que venga):** `cocina/consumo.js` v0.16.0 (copia exacta de Cocina): `mapaBodegas`, `bodegaDe`, `idStock` / `deIdStock`, `controlEn` (la planilla solo vale para Producción), `movimientos(dias, mapa)` y `stock(mp, movs, eventos, bodega)` por bodega, `proyeccion(…, bodega)`, `stockAhora`, `bajoMinimo`, `claveAlerta`. Firestore: `stockmp/{mpId}` = Producción (sin migrar), `stockmp/CAF__{mpId}` = Cafetería (`{ bodega, mp, critica, seguridad, envase, estado }`); igual `conteosmp`. `produccion.js`: `calcularBodega` → `porBodega`, `pasarABodega`, `guardarControl(mp, x, bodega)`, `registrarLlegada(…, bodega)`, `alertasBodega` (con bodega, hay y mínimo) y `avisarBajos` (script `stock_alerta`, recuerda en el equipo lo pedido hoy).
+
+Pruebas: unitarias nuevas `pruebas/cocina/bodegas.test.mjs` (8: ruta del consumo por bodega, stock por bodega, alerta, clave del correo, lo existente = Producción, ids); script `pruebas/produccion290` (36, 4 nuevas: permisos de la tablet por bodega, uno por día, destinatarios, calibración a CAF_registros); punta a punta en `cocina-p1` (4 nuevas: dos pestañas, Cafetería solo ve y cuenta Cafetería, Panadería solo Producción, venta en la caja → aviso en Cocina + Hoy + un correo; Merma y configuración). Capturas en `pruebas/capturas/bodegas-v016/` (PC y celular).
+
+Archivos: cambian `produccion.js`, `vista-produccion.js`, `app.js`, `cocina/consumo.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). Abajo a la izquierda: **v0.54.0**.
+
+### Instalación v0.54.0 (orden: reglas → script → Sistema Fën → Cocina)
+1. **Reglas de fen-produccion v1.7.0** (archivo `firestore-produccion.rules` del zip de Cocina v0.16.0): consola de Firebase → **fen-produccion** → Firestore Database → **Reglas** → pegar → **Publicar**.
+2. **Script de Producción v2.9.0** (`produccion-script-v2.9.0.zip`): Seguridad y SistemaFen → **Nueva versión** de la implementación (la dirección no cambia). Ejecuta `probarSistemaFenProduccion` una vez y acepta el permiso de correo. Opcional: propiedad **`ALERTAS_ADMIN`** con tu correo.
+3. **Sistema Fën v0.54.0**: GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.54.0.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+4. **Cocina v0.16.0** (`fen-cocina-v0.16.0.zip`, repo `fen-cocina`). Recarga las tablets.
+5. En Sistema Fën → Producción → Bodega → pestaña **Cafetería**: marca sus críticas con su mínimo (o "Pasar a Cafetería" desde la pestaña Producción). Después, el primer **conteo** en la tablet de Cafetería.
+
+### Lista de verificación v0.54.0
+- [ ] Abajo a la izquierda dice **v0.54.0**. Configuración → Conexiones → Producción → "Probar": v2.9.0.
+- [ ] Producción → Bodega → Calcular: pestañas **Producción** y **Cafetería**. En Producción están las críticas de siempre.
+- [ ] Pestaña Cafetería: agrega la leche con su mínimo. Aparece "Falta conteo".
+- [ ] Tablet de Cafetería → Bodega: solo aparece lo de Cafetería; cuenta la leche.
+- [ ] Con algo bajo el mínimo: aparece en **Hoy** ("Bajo el mínimo: … (Cafetería) — hay …, mínimo …"), en Cocina arriba de la Bodega, y llega **un** correo.
+- [ ] Configuración → Cafetería: "Shots de la calibración diaria" con su (i).
+- [ ] Merma → Ver: lo derramado dice **Derramado**; el Café de Cafetería muestra la calibración diaria con su costo.
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.53.0: lo nuevo (`stockmp/CAF__…`, `config/bodegas`) se ignora y todo vuelve a contar como una bodega común.
+
+## Novedades de la v0.53.0: Gastos, el neto exacto de la factura del SII y el aviso "SII sin cargar"
+Solo con Gastos en la base nueva (con la planilla nada cambia).
+
+- **El neto de la factura, exacto.** Cuando una factura del SII completa el vencimiento de una obligación **según documento** (internet, gas, teléfono), el vencimiento guarda además sus montos: **neto, IVA, exento, otros impuestos** (impuesto adicional, harina), **total** y tipo de documento. Al pagarlo (con **Pagar** o confirmando el cargo en la **cartola**), el gasto queda con el **neto de la factura** (no el total / 1,19) y monto final = lo pagado. Igual que al importar una factura normal del SII: el neto es el "Monto neto" de la factura (el exento no se suma al neto).
+  - **Si pagas otro monto** (parcial o distinto del total): el neto se calcula en la misma proporción (redondeado) y la observación del gasto dice "Neto proporcional a la F.… (pagado $… de $…)".
+  - **En Pagar**: arriba dice "Neto $… · IVA $… · Exento $… · Total $… — de la factura N° …" (con su (i)) y **no aparecen los chips de Tipo de monto** (no hace falta elegir). El desglose de abajo sigue al monto que escribas.
+  - Una factura que va a **Documentos sin obligación** guarda sus montos y los lleva al vencimiento al asignarla.
+  - **Vencimientos antiguos** (completados antes de esta versión, sin esos montos), boletas y Previred: igual que antes. Las **notas de crédito** no completan vencimientos (siguen como gasto negativo al importar): no cambian.
+- **Aviso "SII sin cargar"**, en **Hoy** (Pendientes de Gastos) y arriba de **Gastos → Cargas del SII** (con su (i)); los dos llevan a Cargas del SII:
+  - si la última carga del SII (por fecha de carga, sin contar las quitadas) es de hace **más de 7 días**: "Cargas del SII: la última fue hace N días (dd-mm). Sube las compras del SII.";
+  - desde el **día 5** del mes, si ninguna carga tiene documentos del **mes anterior** (su período de documentos toca ese mes): "Falta cargar el SII de <mes>" (en enero, "diciembre <año>").
+  - Si no pasa ninguna de las dos, no hay aviso. Se va solo al subir el archivo que falta.
+
+Por dentro: `gastos-g3.js`: `montosSii` (lo que `completarDocumento` guarda en `documento` de tipo sii: `neto`, `iva`, `exento`, `otroImpuesto`, `total`, `tipoDoc`, `esHarina`), `netoFactura(doc, montoPagado)` y `conNetoSii(lineas, doc, monto)` (reparte el neto entre las líneas por área según su monto; la suma es exacta). `gastos-g3d.js → lineasDelPago` (que usan Pagar y la cartola) los aplica cuando el documento trae esos montos, siempre como bruto. `sii.js` envía exento, otros impuestos y harina de las facturas que van a un vencimiento; `gastos-sii-fs.js` los guarda (también en la bandeja: `montosSii`). Regla del aviso: `avisosSii(cargas, hoy)` en `gastos-sii.js` (pura, con pruebas); `gastos-sii-fs.js → avisoCargas()` lee solo `sii_cargas`; `gastos.js → pendientesBase()` agrega `{ clave: 'sii_sin_cargar', avisos }`.
+
+Pruebas: nueva `gastos-g3e` (11: 4 unitarias —neto igual al total, distinto, sin documento, reparto por área; aviso con bordes de mes, febrero y año nuevo— y 7 de punta a punta: factura con exento → vencimiento, pago con la cartola y con Pagar, aviso en Hoy y en Cargas del SII que se va al subir). Vuelven a pasar gastos g1, g2, g2b, g2c, g3a, g3b, g3c, g3d, e2e (54) y b2b-v052. Capturas en `pruebas/capturas/gastos-v053/`.
+
+Archivos: cambian `app.js`, `gastos.js`, `gastos-fs.js`, `gastos-g3.js`, `gastos-g3d.js`, `gastos-sii.js`, `gastos-sii-fs.js`, `sii.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.53.0**. **No cambian** reglas de Firestore ni scripts (el de Gastos sigue en v2.17.0).
+
+### Instalación v0.53.0 (unos 3 minutos)
+En GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → arrastra todos los archivos del zip `sistema-fen-v0.53.0.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+
+### Lista de verificación v0.53.0
+- [ ] Abajo a la izquierda dice **v0.53.0**.
+- [ ] **Hoy**: si tu última carga del SII es de hace más de 7 días, aparece "Cargas del SII: la última fue hace N días…"; desde el día 5, si falta el mes pasado, "Falta cargar el SII de <mes>". Tocarlo abre Cargas del SII, con el mismo aviso arriba.
+- [ ] Sube las compras del SII: el aviso se va (recarga Hoy).
+- [ ] Una factura de internet/gas/teléfono que **va al vencimiento**: en **Pagar** ves "Neto · IVA · Total — de la factura N° …" y no ves los chips de Tipo de monto.
+- [ ] Págala (con Pagar o con la cartola) y revisa en **Registrados** que el gasto tenga el neto de la factura.
+- [ ] Un vencimiento que ya tenía su factura antes de esta versión se paga igual que antes (con los chips).
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.52.0: no hay datos nuevos que estorben (los montos extra del documento se ignoran).
 
 ## Novedades de la v0.52.0: Por facturar en tres tarjetas y cuánto te atrasaste con cada cliente
 En **Ventas B2B → Órdenes**, lo que antes era una sola tarjeta **Por facturar** ahora son tres, en este orden: **Facturación diaria**, **Facturación semanal** y **Facturación mensual** (según la modalidad de cada cliente en Clientes; sin modalidad cuenta como diaria). Una tarjeta sin órdenes no aparece.

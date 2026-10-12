@@ -13,9 +13,11 @@
 //  · Vencimiento suelto: un pago de una vez sin obligación (patente). Recordatorio "Subir boleta de …": se calcula
 //    (no se guarda) mientras un vencimiento de tipo documento espera su boleta.
 //  · Leer una boleta (luz, agua): N° de cliente, total a pagar y fecha de vencimiento, con formatos chilenos.
+//  · v0.53.0: la factura del SII deja en el vencimiento su neto, IVA, exento y total (montosSii); al pagarlo, el gasto
+//    toma el neto de la factura (netoFactura / conNetoSii).
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import { dia } from './gastos-modelo.js?v=0.52.0';
+import { dia } from './gastos-modelo.js?v=0.54.0';
 
 export const TIPOS_OBLIGACION = ['fijo', 'documento', 'libre'];
 export const NOMBRE_TIPO = { fijo: 'Monto fijo', documento: 'Según documento del mes', libre: 'Libre (abonos)' };
@@ -121,8 +123,44 @@ export function completarDocumento(d, doc, quien, en) {
   return { campos: {
     estado: 'por_pagar', montoDocumento: monto, fechaDocumento: doc.fechaVencimiento, fechaEstimada: s(d.fechaEstimada) || s(d.fechaVencimiento),
     documento: { tipo, url: s(doc.url), nombreArchivo: s(doc.nombreArchivo).slice(0, 120), numero: s(doc.numero).slice(0, 40), rut: s(doc.rut).slice(0, 20), cliente: s(doc.cliente).slice(0, 40),
-      pendienteId: s(doc.pendienteId), por: s(quien), en: s(en), ...(tipo === 'sii' ? { folio: s(doc.folio || doc.numero).slice(0, 20), razonSocial: s(doc.razonSocial).slice(0, 120), siiDocId: s(doc.siiDocId).slice(0, 80) } : {}) }
+      pendienteId: s(doc.pendienteId), por: s(quien), en: s(en), ...(tipo === 'sii' ? { folio: s(doc.folio || doc.numero).slice(0, 20), razonSocial: s(doc.razonSocial).slice(0, 120), siiDocId: s(doc.siiDocId).slice(0, 80), ...montosSii(doc) } : {}) }
   } };
+}
+// v0.53.0 · Los montos exactos de la factura del SII que completa un vencimiento: neto, IVA, exento, otros impuestos
+// (impuesto adicional, harina), total y tipo de documento. {} si no los trae (los vencimientos antiguos siguen igual).
+const esNumero = v => v !== '' && v != null && isFinite(Number(v));
+export function montosSii(doc) {
+  const x = doc || {};
+  if (!esNumero(x.neto) || !esNumero(x.total) || !(Number(x.total) > 0)) return {};
+  const r = v => (esNumero(v) ? Math.round(Number(v)) : 0);
+  return { neto: r(x.neto), iva: r(x.iva), exento: r(x.exento), otroImpuesto: r(x.otroImpuesto), total: r(x.total), tipoDoc: /^\d{2,3}$/.test(s(x.tipoDoc)) ? s(x.tipoDoc) : '33', esHarina: !!x.esHarina };
+}
+// ¿El documento del vencimiento trae el neto exacto de la factura?
+export const conNetoFactura = doc => !!(doc && doc.tipo === 'sii' && esNumero(doc.neto) && esNumero(doc.total) && Number(doc.total) > 0);
+// Neto del pago según la factura: si se paga el total, el neto de la factura; si se paga otro monto, el neto en la misma
+// proporción (redondeado) y una nota para la observación. null = sin factura con montos (se calcula como siempre).
+// El neto es el "Monto neto" de la factura (sin el exento ni otros impuestos), igual que al importar una factura del SII.
+export function netoFactura(doc, montoPagado) {
+  if (!conNetoFactura(doc)) return null;
+  const total = Math.round(Number(doc.total)), neto = Math.round(Number(doc.neto)), pagado = Math.round(Number(montoPagado) || 0);
+  if (pagado === total) return { neto, exacto: true, nota: '' };
+  const fmt = v => '$' + Math.round(v).toLocaleString('es-CL');
+  return { neto: Math.round(neto * pagado / total), exacto: false, nota: `Neto proporcional a la F.${s(doc.folio)} (pagado ${fmt(pagado)} de ${fmt(total)})` };
+}
+// Aplica el neto de la factura a las líneas de un pago (calculadas como bruto): el neto se reparte según el monto de cada
+// línea y la última se lleva el resto (la suma es exacta). Sin factura con montos, las líneas quedan igual.
+export function conNetoSii(lineas, doc, montoPagado) {
+  const r = netoFactura(doc, montoPagado);
+  if (!r || !Array.isArray(lineas) || !lineas.length) return lineas;
+  const totalF = lineas.reduce((x, l) => x + (Number(l.montoFinal) || 0), 0);
+  if (!totalF) return lineas;
+  let resto = r.neto;
+  return lineas.map((l, i) => {
+    const neto = i === lineas.length - 1 ? resto : Math.round(r.neto * (Number(l.montoFinal) || 0) / totalF);
+    resto -= neto;
+    const obs = r.exacto || s(l.observacion).indexOf(r.nota) !== -1 ? s(l.observacion) : (s(l.observacion) + ' · ' + r.nota).replace(/^ · /, '').slice(0, 300);
+    return { ...l, tipoMonto: 'bruto', montoNeto: neto, esHarina: doc.esHarina ? 'Sí' : 'No', observacion: obs };
+  });
 }
 // v0.50.0 · Al pagar un vencimiento cuyo documento es una factura del SII (internet, gas, teléfono), sus gastos quedan
 // con el RUT, la razón social y "F.<folio>" en la observación (como un gasto importado del SII: así cuenta para el IVA y
@@ -131,7 +169,7 @@ export function conDocumentoSii(lineas, d) {
   const x = d && d.documento;
   if (!x || x.tipo !== 'sii' || !s(x.rut) || !s(x.folio)) return lineas;
   return lineas.map(l => { const obs = s(l.observacion).indexOf('F.' + x.folio) === -1 ? ('F.' + x.folio + ' ' + s(l.observacion)).trim() : s(l.observacion);
-    return { ...l, rutProveedor: s(x.rut), razonSocial: s(x.razonSocial), observacion: obs, folio: s(x.folio), esNC: false, siiDoc: { id: s(x.siiDocId), rut: s(x.rut), folio: s(x.folio), tipo: '33' } }; });
+    return { ...l, rutProveedor: s(x.rut), razonSocial: s(x.razonSocial), observacion: obs, folio: s(x.folio), esNC: false, siiDoc: { id: s(x.siiDocId), rut: s(x.rut), folio: s(x.folio), tipo: s(x.tipoDoc) || '33' } }; });
 }
 // Fecha de pago de una factura del SII que va a un vencimiento: la de vencimiento del documento o, si no trae, 30 días después
 export const fechaFacturaSii = (fechaVenc, fechaDocto) => (esIso(fechaVenc) ? fechaVenc : esIso(fechaDocto) ? sumarDias(fechaDocto, 30) : '');

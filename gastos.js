@@ -21,8 +21,8 @@
 //  v0.51.0 (etapa G3, cuarta parte): con la base nueva también Previred (previred.js → gastos-g3d-fs.js; el PDF va a Drive con
 //  archivo_subir tipo "previred", script v2.17.0), clasificar obligaciones y el arreglo "siniva" (solo base).
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.52.0';
-import * as Apps from './apps.js?v=0.52.0';
+import { auth } from './firebase.js?v=0.54.0';
+import * as Apps from './apps.js?v=0.54.0';
 
 export const VERSION_MINIMA = '2.2.0';
 let urlOk = null, versionOk = '', cacheDatos = null;
@@ -68,17 +68,17 @@ export function usarFuente(f) {
 }
 export async function enBase() {
   if (fuenteActual === null) {
-    leyendoFuente = leyendoFuente || import('./gastos-base.js?v=0.52.0').then(GB => GB.cargarFuente()).then(f => { if (fuenteActual === null) usarFuente(f && !f.sinConexion ? f.fuente : 'planilla'); })
+    leyendoFuente = leyendoFuente || import('./gastos-base.js?v=0.54.0').then(GB => GB.cargarFuente()).then(f => { if (fuenteActual === null) usarFuente(f && !f.sinConexion ? f.fuente : 'planilla'); })
       .catch(() => { if (fuenteActual === null) fuenteActual = 'planilla'; }).finally(() => { leyendoFuente = null; });
     await leyendoFuente;
   }
   return fuenteActual === 'base';
 }
-const fs = () => import('./gastos-fs.js?v=0.52.0');
+const fs = () => import('./gastos-fs.js?v=0.54.0');
 // Marca de ids por envío (un reintento con la misma clave usa los mismos ids: no duplica) y archivo ya subido por envío
 const marcas = new Map(), subidos = new Map();
 export async function marcaDe(idem) {
-  const M = await import('./gastos-g2.js?v=0.52.0');
+  const M = await import('./gastos-g2.js?v=0.54.0');
   const k = idem || nuevaClave();
   if (!marcas.has(k)) marcas.set(k, M.marcaNueva());
   return marcas.get(k);
@@ -102,7 +102,16 @@ export async function datos(forzar) {
 }
 export const olvidar = () => { cacheDatos = null; };
 // Hoy con la base nueva: atrasados y próximos 7 días leídos de la base (null si Gastos trabaja con la planilla)
-export async function pendientesBase() { return (await enBase()) ? (await fs()).pendientesHoy() : null; }
+export async function pendientesBase() {
+  if (!(await enBase())) return null;
+  const [l, av] = await Promise.all([(await fs()).pendientesHoy(), avisoSii()]);
+  return av && av.length ? l.concat([{ clave: 'sii_sin_cargar', avisos: av }]) : l;
+}
+// v0.53.0 · Aviso "SII sin cargar" (solo con la base nueva; con la planilla null). Si no se puede leer, sin aviso.
+export async function avisoSii() {
+  if (!(await enBase())) return null;
+  try { return await (await import('./gastos-sii-fs.js?v=0.54.0')).avisoCargas(); } catch (e) { return []; }
+}
 
 export async function pagar(pago, idem) {
   if (!(await enBase())) { const r = await llamar('pagar', pago, idem); olvidar(); return r; }
@@ -236,7 +245,7 @@ export async function cerrarVencimiento(id) { const r = await (await soloBase())
 export async function crearSuelto(p, idem) { const F = await soloBase(); const r = await F.crearSuelto(p, await marcaDe(idem)); olvidarTodo(); return r; }
 
 // v0.51.0 · Etapa G3 (cuarta parte), solo con la base nueva: clasificar obligaciones y el arreglo "siniva"
-const g3d = () => import('./gastos-g3d-fs.js?v=0.52.0');
+const g3d = () => import('./gastos-g3d-fs.js?v=0.54.0');
 export async function datosClasificar() { await soloBase(); return (await g3d()).datosClasificar(); }
 export async function clasificarObligaciones(lista, avance) { await soloBase(); const r = await (await g3d()).clasificar(lista, avance); olvidarTodo(); return r; }
 export async function previaSiniva() { await soloBase(); return (await g3d()).previaSiniva(); }
