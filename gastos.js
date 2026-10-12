@@ -1,13 +1,20 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Gastos  v0.10.0
+//  Sistema Fën — Gastos  v0.10.0 · v0.47.0
 //  Habla con el Apps Script de Gastos (v2.2.0+, archivo SistemaFen.gs; registrados, obligaciones, ítems y SII piden v2.4.0)
 //  con la sesión de administración de Sistema Fën. El script usa las mismas
 //  funciones de la app de Gastos: un pago o un gasto queda igual que si se
 //  hubiera hecho allá (mismas hojas, misma carpeta de Drive).
 //  Cada envío lleva una clave única (idem): si se repite, no se guarda dos veces.
+//  v0.46.0 (etapa G2): con Gastos en la base nueva (config/gastos: fuente "base"), datos, pagar, registrar,
+//  registrados (lista, corregir, anular) y anular/reabrir un vencimiento van a fen-gastos (gastos-fs.js) con las
+//  mismas respuestas; las fotos y comprobantes siguen yendo a Drive con el script (op archivo_subir, v2.12.0).
+//  Con la planilla, todo igual que en la v0.45.0.
+//  v0.47.0 (etapa G2): con la base nueva también obligaciones (lista, historial, crear/editar, archivar, reactivar)
+//  e ítems (lista, crear/editar, subir/bajar, archivar). La Agenda lee los vencimientos y obligaciones de la base;
+//  la copia a Google Calendar y "Sugerir % según ventas" siguen con el script. Con la planilla, igual que en la v0.46.0.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.44.0';
-import * as Apps from './apps.js?v=0.44.0';
+import { auth } from './firebase.js?v=0.47.0';
+import * as Apps from './apps.js?v=0.47.0';
 
 export const VERSION_MINIMA = '2.2.0';
 let urlOk = null, versionOk = '', cacheDatos = null;
@@ -42,17 +49,63 @@ export async function llamar(op, datos = {}, idem, minima) {
   return r;
 }
 
+// ── v0.46.0 · Con cuál trabaja Gastos: la planilla (script) o la base nueva (fen-gastos) ──
+// gastos-base.js avisa con usarFuente() cada vez que lee config/gastos. Si nadie lo leyó todavía, se lee aquí
+// (una vez). Sin conexión a la base nueva en este equipo: la planilla, como siempre.
+let fuenteActual = null, leyendoFuente = null;
+export function usarFuente(f) {
+  const nueva = f === 'base' ? 'base' : 'planilla';
+  if (fuenteActual !== null && fuenteActual !== nueva) olvidarTodo();
+  fuenteActual = nueva;
+}
+export async function enBase() {
+  if (fuenteActual === null) {
+    leyendoFuente = leyendoFuente || import('./gastos-base.js?v=0.47.0').then(GB => GB.cargarFuente()).then(f => { if (fuenteActual === null) usarFuente(f && !f.sinConexion ? f.fuente : 'planilla'); })
+      .catch(() => { if (fuenteActual === null) fuenteActual = 'planilla'; }).finally(() => { leyendoFuente = null; });
+    await leyendoFuente;
+  }
+  return fuenteActual === 'base';
+}
+const fs = () => import('./gastos-fs.js?v=0.47.0');
+// Marca de ids por envío (un reintento con la misma clave usa los mismos ids: no duplica) y archivo ya subido por envío
+const marcas = new Map(), subidos = new Map();
+async function marcaDe(idem) {
+  const M = await import('./gastos-g2.js?v=0.47.0');
+  const k = idem || nuevaClave();
+  if (!marcas.has(k)) marcas.set(k, M.marcaNueva());
+  return marcas.get(k);
+}
+// v0.46.0 · Archivo a Drive (privado, "Fën · Gastos / <tipo> / <año>") con el script v2.12.0; una vez por envío
+export const VERSION_ARCHIVO = '2.12.0';
+const subidor = idem => async a => {
+  const k = (idem || '') + '|' + a.tipo;
+  if (idem && subidos.has(k)) return subidos.get(k);
+  const r = await llamar('archivo_subir', a, null, VERSION_ARCHIVO);
+  if (idem) subidos.set(k, r);
+  return r;
+};
+
 // Vencimientos e ítems. Se guardan 60 segundos en memoria (Hoy, Agenda y Gastos los comparten).
 export async function datos(forzar) {
   if (!forzar && cacheDatos && Date.now() - cacheDatos.t < 60000) return cacheDatos.d;
-  const d = await llamar('datos');
+  const d = (await enBase()) ? await (await fs()).datos() : await llamar('datos');
   cacheDatos = { t: Date.now(), d };
   return d;
 }
 export const olvidar = () => { cacheDatos = null; };
+// Hoy con la base nueva: atrasados y próximos 7 días leídos de la base (null si Gastos trabaja con la planilla)
+export async function pendientesBase() { return (await enBase()) ? (await fs()).pendientesHoy() : null; }
 
-export async function pagar(pago, idem) { const r = await llamar('pagar', pago, idem); olvidar(); return r; }
-export async function registrar(gasto, idem) { const r = await llamar('registrar', gasto, idem); olvidar(); return r; }
+export async function pagar(pago, idem) {
+  if (!(await enBase())) { const r = await llamar('pagar', pago, idem); olvidar(); return r; }
+  const r = await (await fs()).pagar(pago, await marcaDe(idem), subidor(idem));
+  olvidarTodo(); return r;
+}
+export async function registrar(gasto, idem) {
+  if (!(await enBase())) { const r = await llamar('registrar', gasto, idem); olvidar(); return r; }
+  const r = await (await fs()).registrar(gasto, await marcaDe(idem), subidor(idem));
+  olvidarTodo(); return r;
+}
 export { nuevaClave };
 
 // Archivo para Drive: una foto se achica (lado mayor 1600 px, JPEG) para que suba rápido;
@@ -100,21 +153,33 @@ let cacheLista = null;
 // Gastos desde el 1 de enero del año pasado (alcanza para el análisis). 60 s en memoria.
 export async function lista(forzar) {
   if (!forzar && cacheLista && Date.now() - cacheLista.t < 60000) return cacheLista.d;
-  const d = await op('g_lista');
+  const d = (await enBase()) ? await (await fs()).lista() : await op('g_lista');
   cacheLista = { t: Date.now(), d };
   return d;
 }
 const olvidarTodo = () => { cacheLista = null; cachePlantillas = null; olvidar(); };
 export { olvidarTodo };
-export async function editar(g, cambios, idem) { const r = await op('g_editar', { fila: g.fila, huella: g.huella, ...cambios }, idem); olvidarTodo(); return r; }
-export async function anular(filas, motivo, idem) { const r = await op('g_anular', { filas: filas.map(g => ({ fila: g.fila, huella: g.huella })), motivo }, idem); olvidarTodo(); return r; }
-export const plantillas = () => op('obl_plantillas');
-export const historialPagos = filtro => op('obl_historial', filtro || {});
-export async function anularVencimiento(id, motivo) { const r = await op('obl_anular_venc', { id, motivo }); olvidarTodo(); return r; }
-export async function reabrirVencimiento(id, motivo) { const r = await op('obl_reabrir_venc', { id, motivo }); olvidarTodo(); return r; }
-export async function guardarObligacion(d, idem) { const r = await op('obl_guardar', d, idem); olvidarTodo(); return r; }
-export async function archivarObligacion(id, archivar) { const r = await op(archivar ? 'obl_archivar' : 'obl_activar', { id }); olvidarTodo(); return r; }
-export const itemsTodos = () => op('items_todos');
+export async function editar(g, cambios, idem) {
+  const r = (await enBase()) ? await (await fs()).editar(g, cambios) : await op('g_editar', { fila: g.fila, huella: g.huella, ...cambios }, idem);
+  olvidarTodo(); return r;
+}
+export async function anular(filas, motivo, idem) {
+  const r = (await enBase()) ? await (await fs()).anular(filas, motivo) : await op('g_anular', { filas: filas.map(g => ({ fila: g.fila, huella: g.huella })), motivo }, idem);
+  olvidarTodo(); return r;
+}
+export const plantillas = async () => ((await enBase()) ? (await fs()).plantillas() : op('obl_plantillas'));
+export const historialPagos = async filtro => ((await enBase()) ? (await fs()).historialPagos(filtro || {}) : op('obl_historial', filtro || {}));
+export async function anularVencimiento(id, motivo) { const r = (await enBase()) ? await (await fs()).anularVencimiento(id, motivo) : await op('obl_anular_venc', { id, motivo }); olvidarTodo(); return r; }
+export async function reabrirVencimiento(id, motivo) { const r = (await enBase()) ? await (await fs()).reabrirVencimiento(id, motivo) : await op('obl_reabrir_venc', { id, motivo }); olvidarTodo(); return r; }
+export async function guardarObligacion(d, idem) {
+  const r = (await enBase()) ? await (await fs()).guardarObligacion(d, await marcaDe(idem)) : await op('obl_guardar', d, idem);
+  olvidarTodo(); return r;
+}
+export async function archivarObligacion(id, archivar) {
+  const r = (await enBase()) ? await (await fs()).archivarObligacion(id, archivar) : await op(archivar ? 'obl_archivar' : 'obl_activar', { id });
+  olvidarTodo(); return r;
+}
+export const itemsTodos = async () => ((await enBase()) ? (await fs()).itemsTodos() : op('items_todos'));
 // v0.16.0 · Agenda: próximos pagos de las obligaciones (60 s en memoria) y copia a Google Calendar (script v2.6.0)
 let cachePlantillas = null;
 export async function plantillasAgenda() {
@@ -123,11 +188,19 @@ export async function plantillasAgenda() {
 }
 export const VERSION_CALENDARIO = '2.6.0';
 export const calendario = eventos => llamar('calendario', { eventos }, null, VERSION_CALENDARIO);
-export async function guardarItem(d) { const r = await op('item_guardar', d); olvidarTodo(); return r; }
-export async function moverItem(item, direccion) { const r = await op('item_mover', { item, direccion }); olvidarTodo(); return r; }
-export async function archivarItem(nombre, archivar) { const r = await op('item_archivar', { nombre, archivar }); olvidarTodo(); return r; }
+export async function guardarItem(d) { const r = (await enBase()) ? await (await fs()).guardarItem(d) : await op('item_guardar', d); olvidarTodo(); return r; }
+export async function moverItem(item, direccion) { const r = (await enBase()) ? await (await fs()).moverItem(item, direccion) : await op('item_mover', { item, direccion }); olvidarTodo(); return r; }
+export async function archivarItem(nombre, archivar) { const r = (await enBase()) ? await (await fs()).archivarItem(nombre, archivar) : await op('item_archivar', { nombre, archivar }); olvidarTodo(); return r; }
 
 // v0.44.0 · Archivos en Drive (script de Gastos v2.10.0): deja privados los archivos ya subidos.
 // Una parte por llamada (menos de ~4 minutos en el script); "siguiente" es la marca para seguir.
 export const VERSION_DRIVE = '2.10.0';
 export const dejarPrivados = siguiente => llamar('drive_privados', siguiente ? { siguiente } : {}, null, VERSION_DRIVE);
+
+// v0.45.0 · Base nueva, etapa G2 (script de Gastos v2.11.0, BaseNueva.gs):
+// planilla_sync copia a la planilla lo que cambió en la base nueva (con la sesión de fen-gastos: tokenBase);
+// cambio deja la planilla cerrada para escribir (fuente "base") o la vuelve a abrir ("planilla").
+export const VERSION_G2 = '2.11.0';
+export const planillaSync = tokenBase => llamar('planilla_sync', { tokenBase }, null, VERSION_G2);
+export const cambioFuente = fuente => llamar('cambio', { fuente }, null, VERSION_G2);
+export const fuenteScript = () => llamar('fuente', {}, null, VERSION_G2);

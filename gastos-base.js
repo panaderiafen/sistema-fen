@@ -9,11 +9,11 @@
 //    copia (migracion/{coleccion} guarda una huella por documento, como en B2B).
 //  · En G1 nada cambia en el uso: Gastos sigue leyendo y escribiendo la planilla con el script.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.44.0';
-import * as FB from './firebase-gastos.js?v=0.44.0';
-import * as Gastos from './gastos.js?v=0.44.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.44.0';
-import { armar, cambios, comparar, totalesGastos, COLECCIONES, ANIO } from './gastos-modelo.js?v=0.44.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.47.0';
+import * as FB from './firebase-gastos.js?v=0.47.0';
+import * as Gastos from './gastos.js?v=0.47.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.47.0';
+import { armar, cambios, comparar, totalesGastos, COLECCIONES, ANIO } from './gastos-modelo.js?v=0.47.0';
 
 export { ANIO };
 export const VERSION_EXPORTAR = '2.9.0';   // script de Gastos con la op "exportar" (SistemaFen.gs v1.8.0)
@@ -230,4 +230,101 @@ export async function ultimaCopia() {
   const db = await dbOk();
   const sn = await FB.getDoc(FB.doc(db, 'config', 'migracion'));
   return sn.exists() ? sn.data() : null;
+}
+
+// ═══════════════════════════════════════════════
+//  v0.45.0 · Etapa G2: con cuál trabaja Gastos (fen-gastos: config/gastos) y el cambio a la base nueva
+//  config/gastos = { fuente: 'planilla' | 'base', desde, por, g2Completo, escritos, historial }
+//  · Mientras G2 no esté completo (G2_COMPLETO en config.js), el cambio queda bloqueado y todo sigue
+//    exactamente como en la v0.44.0 (fuente "planilla").
+//  · Para los pasos 3 y 4 de G2: cada documento hecho o cambiado en la base lleva marcaBase(...) y,
+//    después de escribir, se llama notarEscritura() y GastosPlanilla.programar(): así pasa a la planilla
+//    y "Volver a la planilla" sabe que ya no se puede.
+// ═══════════════════════════════════════════════
+export const G2_COMPLETO = () => window.FEN_SIS.G2_COMPLETO === true;
+export const COLECCIONES_PLANILLA = ['gastos', 'vencimientos', 'obligaciones', 'items'];
+let fuenteCache = null;
+export async function dbBase() { return dbOk(); }
+export async function tokenBase() { await dbOk(); return FB.idToken(); }
+// Se lee una vez al abrir Gastos (queda en memoria). Sin conexión a la base nueva: "planilla" (como siempre).
+export async function cargarFuente(forzar) {
+  if (fuenteCache && !forzar) return fuenteCache;
+  let cx;
+  try { cx = await conexion(); } catch (e) { return { fuente: 'planilla', sinConexion: true }; }
+  if (cx.estado !== 'ok') return { fuente: 'planilla', sinConexion: true };
+  const ref = FB.doc(cx.db, 'config', 'gastos'), sn = await FB.getDoc(ref);
+  let d = sn.exists() ? sn.data() : null;
+  if (!d) {   // la primera vez queda escrito cómo está hoy
+    d = { fuente: 'planilla', desde: null, por: '', g2Completo: false, escritos: 0, historial: [] };
+    try { await FB.setDoc(ref, d); } catch (e) {}
+  }
+  fuenteCache = { fuente: d.fuente === 'base' ? 'base' : 'planilla', desde: d.desde || null, por: d.por || '', g2Completo: !!d.g2Completo, escritos: Number(d.escritos) || 0, historial: d.historial || [] };
+  Gastos.usarFuente(fuenteCache.fuente);   // v0.46.0: Registrar, pagar, registrados y vencimientos van a donde corresponde
+  return fuenteCache;
+}
+export const fuenteGastos = () => (fuenteCache && fuenteCache.fuente) || 'planilla';
+export const olvidarFuente = () => { fuenteCache = null; };
+// Campos que lleva cada documento hecho o cambiado en la base (pasos 3 y 4)
+export const marcaBase = por => ({ planillaPendiente: true, hechoEnBase: true, editado: { en: FB.serverTimestamp(), por: por || (authSF.currentUser && authSF.currentUser.email) || '' } });
+export async function notarEscritura(n = 1) {
+  const db = await dbOk(), ref = FB.doc(db, 'config', 'gastos');
+  await FB.runTransaction(db, async tx => { const sn = await tx.get(ref); const d = sn.exists() ? sn.data() : {}; tx.set(ref, { ...d, escritos: (Number(d.escritos) || 0) + n, ultimaEscritura: FB.serverTimestamp() }); });
+  if (fuenteCache) fuenteCache.escritos += n;
+}
+const quien = () => (authSF.currentUser && authSF.currentUser.email) || '';
+async function guardarFuente(db, fuente, extra) {
+  const ref = FB.doc(db, 'config', 'gastos'), sn = await FB.getDoc(ref), d = sn.exists() ? sn.data() : {};
+  const historial = (Array.isArray(d.historial) ? d.historial : []).slice(-20).concat([{ fuente, en: new Date().toISOString(), por: quien() }]);
+  await FB.setDoc(ref, { ...d, ...extra, fuente, por: quien(), historial });
+  fuenteCache = null;
+  return cargarFuente(true);
+}
+// Pasar Gastos a la base nueva. avance(texto). Orden:
+//  1. el script deja de aceptar escrituras en la planilla (nada nuevo entra mientras se copia);
+//  2. se lee la planilla, se copia lo que falte y se hace el control de totales;
+//  3. solo con "Todo cuadra" queda config/gastos en "base". Si algo falla, el script vuelve a la planilla.
+export async function cambiarABase(avance = () => {}) {
+  if (!G2_COMPLETO()) throw new Error('El cambio se habilita cuando estén listos G2 y G3.');
+  const db = await dbOk();
+  const f = await cargarFuente(true);
+  if (f.fuente === 'base') return { ya: true, fuente: f };
+  avance('Cerrando la planilla: desde ahora la app antigua ya no registra gastos…');
+  await Gastos.cambioFuente('base');
+  try {
+    const prep = await preparar(avance);
+    let escritos = 0;
+    if (prep.porEscribir) escritos = (await copiar(prep, (h, t) => avance(`Copiando a la base nueva… ${h.toLocaleString('es-CL')} de ${t.toLocaleString('es-CL')}`))).escritos;
+    avance('Control de totales…');
+    const c = await control(prep);
+    if (!c.resultado || !c.resultado.ok) {
+      const d = (c.resultado && c.resultado.diferencias) || [];
+      throw Object.assign(new Error(`El control de totales no cuadra (${d.length} ${d.length === 1 ? 'diferencia' : 'diferencias'}: ${d.slice(0, 4).map(x => x.que).join(' · ')}). No se cambió nada: Gastos sigue con la planilla.`), { code: 'no_cuadra', control: c });
+    }
+    const fuente = await guardarFuente(db, 'base', { desde: FB.serverTimestamp(), g2Completo: true, escritos: 0 });
+    return { ok: true, escritos, control: c, fuente, prep };
+  } catch (e) {
+    try { await Gastos.cambioFuente('planilla'); }
+    catch (e2) { e.message += ` Ojo: el script de Gastos quedó cerrado para escribir (${e2.message}). Presiona "Pasar Gastos a la base nueva" de nuevo o vuelve a la planilla.`; }
+    throw e;
+  }
+}
+// ¿Se puede volver a la planilla? Solo si desde el cambio no se hizo nada en la base nueva.
+export async function puedeVolver() {
+  const db = await dbOk(), f = await cargarFuente(true);
+  if (f.fuente !== 'base') return { puede: false, motivo: 'Gastos ya trabaja con la planilla.' };
+  let hechos = f.escritos;
+  if (!hechos) {
+    for (const col of COLECCIONES_PLANILLA) {
+      const q = await FB.getDocs(FB.query(FB.collection(db, col), FB.where('hechoEnBase', '==', true), FB.limit(1)));
+      if (q.size) { hechos = 1; break; }
+    }
+  }
+  if (hechos) return { puede: false, motivo: 'Desde el cambio ya se registraron o cambiaron cosas en la base nueva. Volver a la planilla las dejaría fuera (la app antigua no las ve), así que Gastos sigue en la base nueva. Si algo anda mal, avísame y lo vemos.' };
+  return { puede: true };
+}
+export async function volverAPlanilla() {
+  const v = await puedeVolver();
+  if (!v.puede) throw Object.assign(new Error(v.motivo), { code: 'no_vuelve' });
+  await Gastos.cambioFuente('planilla');
+  return guardarFuente(await dbOk(), 'planilla', { desde: FB.serverTimestamp() });
 }

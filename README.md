@@ -1,9 +1,103 @@
-# Sistema Fën · v0.44.0
+# Sistema Fën · v0.47.0
 
-**App:** v0.44.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.10.0 · 12 de octubre de 2026
+**App:** v0.47.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.13.0 · 12 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.47.0: Gastos, base nueva (etapa G2 completa): obligaciones, ítems, análisis y agenda con la base
+**Para el día a día no cambia nada:** Gastos sigue con la planilla y todo funciona igual que en la v0.46.0. Con esta versión la etapa G2 queda completa, pero el botón **Pasar Gastos a la base nueva** sigue gris: el cambio también necesita la etapa G3 (SII, cartola y Previred con la base nueva), así que ahora dice **"El cambio se habilita cuando estén listos G2 y G3"** (`G2_COMPLETO: false` en `config.js`). Lo nuevo, para cuando se haga el cambio:
+
+- **Obligaciones** con la base nueva: la lista (con la **próxima fecha**), el **historial de pagos**, **crear y editar** (ítem, reparto por % o monto por área, frecuencia, día, monto estimado, tipo de monto y cuotas), **archivar** y **reactivar**. Igual que hoy: al crear una se crea de inmediato su primer vencimiento (una cuponera, todas sus cuotas); **editar no cambia los vencimientos ya creados** (pagados o por pagar siguen con sus datos; los siguientes salen con los datos nuevos); reactivar vuelve a generar. Cada cambio queda en el historial de la obligación (quién, cuándo, antes y después). Nada se borra.
+- **Ítems** con la base nueva: crear (queda al final), editar, **subir y bajar**, **archivar** y reactivar (nunca se borran). Un ítem archivado no aparece para registrar. Igual que hoy: **cambiar el nombre no cambia los gastos ya registrados ni las obligaciones que lo usan**.
+- **Análisis** con la base nueva: los mismos números, por mes, por fecha de compra o de pago, con los gastos vigentes (los anulados no suman). "Sugerir % según ventas" sigue preguntando las ventas al script.
+- **Agenda** con la base nueva: los pagos de Gastos (vencimientos y lo que viene de las obligaciones) salen de la base. La copia a Google Calendar sigue igual (con el script).
+- **Copia a la planilla** (script de Gastos v2.13.0): los gastos de un **pago** quedan **al final** de Registro Gasto, como hoy; lo registrado a mano sigue entrando arriba.
+
+Por dentro: `gastos.js` manda a `gastos-fs.js` también obligaciones e ítems cuando `config/gastos` dice **base**; las reglas están en `gastos-g2.js` (probadas contra el script real con las mismas entradas). Las cuentas del Análisis pasaron de `app.js` a `gastos-g2.js` (`resumenAnalisis`), las mismas con la lista del script o la de la base. Obligación nueva: id `P<milisegundos>` (como el script); sus vencimientos `<obligación>_<fecha>`; ítem nuevo: su nombre en minúsculas, como en la copia G1.
+
+**Ojo, algo del script de hoy que conviene saber** (no cambia en esta versión): al generar un vencimiento, el script copia el área y el % del **primer** área del reparto también en la segunda y la tercera (busca las columnas sin mirar el número: PArea1, PArea2 y PArea3 le parecen la misma). Con la base nueva, los vencimientos nuevos guardan el reparto completo; los que ya vienen de la planilla traen lo que escribió el script.
+
+Archivos: cambian `gastos.js`, `gastos-fs.js`, `gastos-g2.js`, `app.js`, `vista-gastos-base.js`, `gastos-base.js`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.47.0**.
+
+### Instalación v0.47.0 (unos 8 minutos)
+**A. Script de Gastos v2.13.0** → ver el README de `gastos-script-v2.13.0.zip` (reemplaza `BaseNueva.gs` y `Seguridad.gs`; nueva versión de la implementación). El ping debe decir **2.13.0**.
+
+**B. Sistema Fën v0.47.0** → en GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → arrastra todos los archivos del zip (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R). Abajo a la izquierda debe decir **v0.47.0**.
+
+Las reglas de fen-gastos no cambian (v0.1.0). No hay que crear índices en la consola de Firebase.
+
+### Lista de verificación v0.47.0
+- [ ] Abajo a la izquierda dice **v0.47.0**; el ping del script de Gastos dice **2.13.0**.
+- [ ] **Gastos → Base nueva → Cambio a la base nueva** sigue diciendo **Gastos trabaja con la planilla** y el botón está gris con **El cambio se habilita cuando estén listos G2 y G3**.
+- [ ] Obligaciones: crea una de prueba, edítala, archívala y reactívala: igual que antes (en la planilla).
+- [ ] Ítems: crea uno de prueba, súbelo y archívalo: igual que antes; no aparece en Registrar.
+- [ ] Análisis y Agenda muestran lo mismo que antes.
+
+### Si algo sale mal
+- Para volver atrás: sube los archivos de la v0.46.0 y, si quieres, el script v2.12.0. Antes del cambio esta versión no escribe nada nuevo en fen-gastos.
+
+## Novedades de la v0.46.0: Gastos, base nueva (etapa G2, segunda parte): registrar, registrados y vencimientos con la base
+**Para el día a día no cambia nada:** Gastos sigue con la planilla y todo funciona igual que en la v0.45.0 (mismas llamadas al script). El botón **Pasar Gastos a la base nueva** sigue gris (**"Disponible cuando G2 esté completo"**, `G2_COMPLETO: false` en `config.js`): faltan obligaciones, ítems, análisis y agenda con la base. Esta versión deja listo, para cuando se haga el cambio:
+
+- **Registrar** con la base nueva: varias áreas, reparto por % (prorrateado), harina (19% + 12%), bruto / neto / sin IVA y contado o crédito, con los mismos montos que hoy (una línea por ítem y área; a crédito, **un** vencimiento por compra). La foto o PDF de la boleta va igual a Drive (**Fën · Gastos / Boletas y facturas / año**, privado) con el script de Gastos v2.12.0.
+- **Registrados** desde la base: misma lista y mismos filtros (desde el 1 de enero del año pasado). **Corregir** revisa que nadie lo haya cambiado mientras lo tenías abierto (otra pestaña u otro equipo): si cambió, dice **"Este gasto cambió en otro lado, vuelve a abrirlo"** y no pisa nada. Cada corrección queda en el **historial** del gasto: quién, cuándo y qué campo cambió (antes → después). **Anular** no borra: queda anulado con quién, cuándo y por qué, y en la planilla pasa a "Gastos anulados" como hoy.
+- **Vencimientos** desde la base: **Pagar** (con comprobante a **Comprobantes de pago / año**, privado) marca el vencimiento PAGADO y crea el gasto con el reparto de la obligación, todo junto (si algo falla, no queda nada a medias). **Anular** y **dejar por pagar de nuevo** igual que hoy.
+- **Vencimientos de las obligaciones**: con la base nueva el script ya no los crea; los crea Sistema Fën al abrir Gastos u Hoy, 3 días antes, igual que hoy (también "Día 29, 30 o 31" en meses cortos). Cada uno tiene un id fijo (**obligación_fecha**): aunque Gastos esté abierto en dos pestañas o dos equipos, se crea **una sola vez**.
+- **Hoy**: con la base nueva, los pagos atrasados y de los próximos 7 días salen de la base; los documentos del SII y los cargos de la cartola siguen saliendo del script (etapa G3).
+- Todo lo hecho en la base pasa solo a la planilla unos segundos después (la **Copia a la planilla** de la v0.45.0).
+
+Por dentro: `gastos.js` decide según `config/gastos` (fen-gastos): con **planilla**, el script como siempre; con **base**, `gastos-fs.js`. Las cuentas son las del script, en `gastos-g2.js` (probadas contra el script real con las mismas entradas). Ids nuevos: gastos `g-<marca>-<azar>-01…`, gastos de un pago `gp-…`, vencimiento de compra a crédito `vc-…`. Firestore no necesita índices compuestos (la lista usa una sola condición: fecha desde).
+
+Archivos: **nuevos** `gastos-fs.js` y `gastos-g2.js`. Cambian `gastos.js`, `gastos-base.js`, `app.js`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.46.0**.
+
+### Instalación v0.46.0 (unos 8 minutos)
+**A. Script de Gastos v2.12.0** → ver el README de `gastos-script-v2.12.0.zip` (reemplaza `SistemaFen.gs` y `Seguridad.gs`; nueva versión de la implementación). El ping debe decir **2.12.0**.
+
+**B. Sistema Fën v0.46.0** → en GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → arrastra todos los archivos del zip (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R). Abajo a la izquierda debe decir **v0.46.0**.
+
+Las reglas de fen-gastos no cambian (v0.1.0). No hay que crear índices en la consola de Firebase.
+
+### Lista de verificación v0.46.0
+- [ ] Abajo a la izquierda dice **v0.46.0**; el ping del script de Gastos dice **2.12.0**.
+- [ ] **Gastos → Base nueva → Cambio a la base nueva** sigue diciendo **Gastos trabaja con la planilla** y el botón está gris con **Disponible cuando G2 esté completo**.
+- [ ] Registra un gasto de prueba (con foto, a crédito): queda en la planilla con su vencimiento, igual que antes.
+- [ ] Corrígelo y anúlalo en Registrados; paga y anula un vencimiento: igual que antes.
+- [ ] Hoy muestra los mismos pagos atrasados y de la semana que antes.
+
+### Si algo sale mal
+- **"Falta actualizarlo a v2.12.0"**: solo puede aparecer con Gastos en la base nueva (al subir una foto); paso A.
+- Para volver atrás: sube los archivos de la v0.45.0. Antes del cambio esta versión no escribe nada nuevo en fen-gastos.
+
+## Novedades de la v0.45.0: Gastos, base nueva (etapa G2, primera parte): copia a la planilla y el cambio
+**Para el día a día no cambia nada:** Gastos sigue con la planilla, igual que en la v0.44.0. Esta versión deja listas dos piezas que se usarán cuando toda la etapa G2 esté construida (registrar, pagar, obligaciones, ítems, análisis y agenda con la base nueva). El cambio se hará todo de una vez, un fin de semana.
+
+En **Gastos → Base nueva** hay dos partes nuevas:
+- **Copia a la planilla** (i): después del cambio, cada cosa hecha o cambiada en la base nueva pasa sola a la planilla unos segundos después (Looker Studio y el reparto de costos de Producción la siguen leyendo). Dice **Planilla al día**, **Hay N cambios por pasar** o **Planilla pendiente: <motivo>, se reintenta sola** (al minuto y después cada 2 minutos), con el botón **Pasar ahora**. Cada fila queda con una columna nueva al final, **"ID base"**; un gasto anulado pasa a "Gastos anulados" con quién, cuándo y por qué, como hoy. Antes del cambio no hay nada que pasar.
+- **Cambio a la base nueva** (i): explica los pasos y tiene el botón **Pasar Gastos a la base nueva**, **desactivado** con el texto **"Disponible cuando G2 esté completo"** (se activa con `G2_COMPLETO: true` en `config.js`, en una versión futura). Cuando se active, hará: (1) cerrar la planilla para escribir (la app antigua y lo que escribía en la planilla responden "Gastos ya se registra en la base nueva (Sistema Fën)"; las lecturas siguen), (2) leer y copiar la planilla y el **Control de totales**, (3) solo con **Todo cuadra**, dejar Gastos en la base nueva (fen-gastos: `config/gastos`). Si no cuadra o algo falla, todo vuelve a como estaba. Después ofrece **Volver a la planilla**, solo si todavía no se hizo nada en la base nueva (si ya se hizo, explica por qué no).
+- Con Gastos en la base nueva, "Copia desde la planilla" ya no se ofrece (copiaría de vuelta lo que la base pasó a la planilla).
+
+Por dentro: Sistema Fën lee `config/gastos` una vez al abrir Gastos (la primera vez lo crea con `fuente: planilla`). La copia G1 ignora la columna "ID base". SII, cartola y Previred siguen con la planilla hasta la etapa G3.
+
+Archivos: **nuevo** `gastos-planilla.js`. Cambian `gastos-base.js`, `vista-gastos-base.js`, `gastos.js`, `gastos-modelo.js`, `firebase-gastos.js`, `app.js`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.45.0**.
+
+### Instalación v0.45.0 (unos 8 minutos)
+**A. Script de Gastos v2.11.0** → ver el README de `gastos-script-v2.11.0.zip` (archivo nuevo `BaseNueva.gs`; reemplaza `Code.gs`, `SistemaFen.gs` y `Seguridad.gs`; nueva versión de la implementación). El ping debe decir **2.11.0**.
+
+**B. Sistema Fën v0.45.0** → en GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → arrastra todos los archivos del zip (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R). Abajo a la izquierda debe decir **v0.45.0**.
+
+Las reglas de fen-gastos no cambian (v0.1.0: la cuenta en `admins` lee y escribe todo, también `config/gastos`).
+
+### Lista de verificación v0.45.0
+- [ ] Abajo a la izquierda dice **v0.45.0**; el ping del script de Gastos dice **2.11.0**.
+- [ ] **Gastos → Base nueva**, conectada: **Copia a la planilla** dice **Planilla al día**; **Cambio a la base nueva** dice **Gastos trabaja con la planilla** y el botón está gris con **Disponible cuando G2 esté completo**.
+- [ ] En la consola de fen-gastos → Firestore aparece `config/gastos` con `fuente: "planilla"` y `g2Completo: false`.
+- [ ] Registrar, pagar, anular, obligaciones, ítems, SII, Previred y Conciliación funcionan igual que antes; la app antigua de Gastos también.
+- [ ] La planilla no cambió (sin columna "ID base").
+
+### Si algo sale mal
+- **"Falta actualizarlo a v2.11.0"** en Copia a la planilla: paso A (antes del cambio no hay nada que pasar, así que no afecta el uso).
+- Para volver atrás: sube los archivos de la v0.44.0 y, si quieres, el script v2.10.0. No hay datos que deshacer: en esta versión no se escribe nada en la planilla y en fen-gastos solo se crea `config/gastos`.
 
 ## Novedades de la v0.44.0: archivos de Gastos en Drive, ordenados y privados
 Gastos sigue trabajando con la planilla. Cambia solo cómo quedan los archivos en Drive (lo hace el script de Gastos v2.10.0):

@@ -9,28 +9,29 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.44.0';
-import * as Caja from './caja.js?v=0.44.0';
-import * as Stock from './stock.js?v=0.44.0';
-import * as Ajustes from './ajustes.js?v=0.44.0';
-import * as Apps from './apps.js?v=0.44.0';
-import * as Agenda from './agenda.js?v=0.44.0';
-import * as Gastos from './gastos.js?v=0.44.0';
-import * as Sii from './sii.js?v=0.44.0';
-import * as Previred from './previred.js?v=0.44.0';
-import * as B2b from './b2b.js?v=0.44.0';
-import * as Cartola from './cartola.js?v=0.44.0';
-import * as SiiFactura from './sii-factura.js?v=0.44.0';
-import * as PdfOrden from './pdf-orden.js?v=0.44.0';
-import * as Prod from './produccion.js?v=0.44.0';
-import * as VistaProd from './vista-produccion.js?v=0.44.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.44.0';
+} from './firebase.js?v=0.47.0';
+import * as Caja from './caja.js?v=0.47.0';
+import * as Stock from './stock.js?v=0.47.0';
+import * as Ajustes from './ajustes.js?v=0.47.0';
+import * as Apps from './apps.js?v=0.47.0';
+import * as Agenda from './agenda.js?v=0.47.0';
+import * as Gastos from './gastos.js?v=0.47.0';
+import { resumenAnalisis } from './gastos-g2.js?v=0.47.0';
+import * as Sii from './sii.js?v=0.47.0';
+import * as Previred from './previred.js?v=0.47.0';
+import * as B2b from './b2b.js?v=0.47.0';
+import * as Cartola from './cartola.js?v=0.47.0';
+import * as SiiFactura from './sii-factura.js?v=0.47.0';
+import * as PdfOrden from './pdf-orden.js?v=0.47.0';
+import * as Prod from './produccion.js?v=0.47.0';
+import * as VistaProd from './vista-produccion.js?v=0.47.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.47.0';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.44.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.47.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.44.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.47.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -331,7 +332,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.44.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.47.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -540,7 +541,20 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   const urls = await Apps.leerConexiones();
-  await Promise.all(Apps.APPS.map(async a => { estados[a.id] = await Apps.leerPendientes(a.id, urls[a.id]); pintarLista(); if (a.id === 'gastos') pintarSemana(); }));
+  await Promise.all(Apps.APPS.map(async a => { estados[a.id] = a.id === 'gastos' ? await pendientesGastosHoy(urls.gastos) : await Apps.leerPendientes(a.id, urls[a.id]); pintarLista(); if (a.id === 'gastos') pintarSemana(); }));
+}
+// v0.46.0 (G2): con Gastos en la base nueva, los pagos atrasados y de los próximos 7 días salen de la base
+// (con los vencimientos de las obligaciones ya generados); los documentos del SII y la cartola siguen del script (G3).
+// Con la planilla, exactamente como antes.
+async function pendientesGastosHoy(url) {
+  let base = null, r;
+  const script = Apps.leerPendientes('gastos', url);
+  try { base = await Gastos.pendientesBase(); } catch (e) { base = { error: e.message || String(e) }; }
+  r = await script;
+  if (!base) return r;
+  if (base.error) return r && r.estado === 'ok' ? { ...r, pendientes: r.pendientes.filter(x => x.clave !== 'atrasados' && x.clave !== 'semana') } : { estado: 'error', error: base.error };
+  const otros = r && r.estado === 'ok' ? r.pendientes.filter(x => x.clave !== 'atrasados' && x.clave !== 'semana') : [];
+  return { estado: 'ok', pendientes: base.concat(otros), leido: new Date().toISOString(), base: true };
 }
 
 // ── Agenda ─────────────────────────────────────────
@@ -855,8 +869,20 @@ function pestanasGastos(sub) {
   const actual = SUBS_GASTOS.some(([k]) => k && k === sub) ? sub : '';
   return `<div class="pestanas" role="tablist" aria-label="Secciones de Gastos">${SUBS_GASTOS.map(([k, t]) => `<a role="tab" href="#gastos${k ? '/' + k : ''}" aria-selected="${k === actual}">${t}</a>`).join('')}</div>`;
 }
+// v0.45.0 (G2): con cuál trabaja Gastos (fen-gastos: config/gastos), una vez al abrir Gastos; no frena nada.
+// Con la base nueva, revisa si quedó algo por pasar a la planilla. Hasta el cambio, todo sigue como en la v0.44.0.
+let fuenteGastosLeida = false;
+function cargarFuenteGastos() {
+  if (fuenteGastosLeida) return;
+  fuenteGastosLeida = true;
+  import('./gastos-base.js?v=0.47.0').then(GB => GB.cargarFuente()).then(f => {
+    if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.47.0').then(GP => GP.revisar());
+  }).catch(() => { fuenteGastosLeida = false; });
+}
 async function pintarGastos(sub) {
   const el = $('v-gastos');
+  cargarFuenteGastos();
   // La base nueva no necesita los vencimientos: se abre sin esperar al script
   if (sub === 'base') {
     el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><div class="vacio" style="border:0">Abriendo la base nueva…</div></section>';
@@ -2191,7 +2217,7 @@ async function anularGastoUI(g, L) {
 }
 
 // ── Análisis ──
-const SUBTIPOS_COSTO = ['OPERATIVO', 'COMERCIAL', 'SIN CLASIFICAR'];
+// v0.47.0: las cuentas están en gastos-g2.js (resumenAnalisis), las mismas con la lista del script o la de la base nueva
 const NOTA_SUBTIPO = { 'INVERSIÓN': 'compra de activos, no es costo del mes', 'FINANCIERO': 'deuda: solo los intereses son costo', 'PASIVO': 'pago de algo que ya debías' };
 const ana = { mes: '', modo: 'devengado' };
 async function pintarAnalisis(el, sub) {
@@ -2201,33 +2227,26 @@ async function pintarAnalisis(el, sub) {
   if (vistaDesdeHash() !== 'gastos' || subVista() !== 'analisis') return;
   const hoy = Caja.diaLocal().slice(0, 7);
   if (!ana.mes) ana.mes = hoy;
-  const fechaDe = g => (ana.modo === 'caja' && g.fechaPago ? g.fechaPago : g.fecha);
-  const meses = [...new Set(L.map(g => fechaDe(g).slice(0, 7)).concat([hoy]))].filter(Boolean).sort().reverse();
-  const sub_ = g => String(g.subTipo || '').toUpperCase().trim() || 'SIN CLASIFICAR';
-  const esCosto = g => SUBTIPOS_COSTO.includes(sub_(g));
-  const delMes = L.filter(g => fechaDe(g).slice(0, 7) === ana.mes);
-  const costo = delMes.filter(esCosto), fuera = delMes.filter(g => !esCosto(g));
-  const suma = l => l.reduce((s, g) => s + g.monto, 0);
-  const agrupar = (l, f) => { const m = {}; l.forEach(g => { const k = f(g) || 'Sin dato'; m[k] = (m[k] || 0) + g.monto; }); return Object.entries(m).map(([nombre, valor]) => ({ nombre, valor })).sort((a, b) => b.valor - a.valor); };
-  const total = suma(costo);
+  const R = resumenAnalisis(L, ana.mes, ana.modo, hoy), meses = R.meses, total = R.total;
   const [y, m] = ana.mes.split('-').map(Number);
-  const evol = [5, 4, 3, 2, 1, 0].map(k => { const dt = new Date(y, m - 1 - k, 1); const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`; return { nombre: `${MESES_LARGOS[dt.getMonth()].replace(/^./, c => c.toUpperCase())} ${dt.getFullYear()}`, valor: suma(L.filter(g => esCosto(g) && fechaDe(g).slice(0, 7) === key)) }; });
+  const nombreDe = k => `${MESES_LARGOS[+k.slice(5) - 1].replace(/^./, c => c.toUpperCase())} ${k.slice(0, 4)}`;
+  const evol = R.evol.map(x => ({ nombre: nombreDe(x.mes), valor: x.valor }));
   const nombreMes = `${MESES_LARGOS[m - 1]} ${y}`;
   el.innerHTML = cabGastos(sub) + `
     <div class="filtros"><select id="an-mes" aria-label="Mes">${meses.map(k => `<option value="${k}" ${k === ana.mes ? 'selected' : ''}>${MESES_LARGOS[+k.slice(5) - 1].replace(/^./, c => c.toUpperCase())} ${k.slice(0, 4)}</option>`).join('')}</select>
       <div class="chips chips-chicos" role="group" aria-label="Fecha que se usa">${[['devengado', 'Por fecha de compra'], ['caja', 'Por fecha de pago']].map(([k, t]) => `<button type="button" class="chip-filtro" data-modo-an="${k}" aria-pressed="${ana.modo === k}">${t}</button>`).join('')}</div>
       ${info('Cómo se calcula', 'Costo operacional: los gastos con subtipo OPERATIVO o COMERCIAL (o sin subtipo). Inversiones, deudas (FINANCIERO) e impuestos por pagar (PASIVO) son salidas de plata pero no costo del mes: se muestran aparte para que los meses se puedan comparar.\nPor fecha de compra: el mes en que se compró (devengado). Por fecha de pago: el mes en que salió la plata (flujo de caja); las compras a crédito cuentan cuando se pagan.\nLos gastos anulados no suman. Montos con IVA (monto final).')}</div>
     <div class="cifras cifras-4">
-      <div class="tarjeta cifra"><span class="rotulo">Costo operacional</span><span class="valor">${pesos(total)}</span><span class="nota">${costo.length} ${costo.length === 1 ? 'línea' : 'líneas'} · ${esc(nombreMes)}</span></div>
-      <div class="tarjeta cifra"><span class="rotulo">Fijos</span><span class="valor">${pesos(suma(costo.filter(g => g.categoria.toUpperCase() === 'FIJO')))}</span></div>
-      <div class="tarjeta cifra"><span class="rotulo">Variables</span><span class="valor">${pesos(suma(costo.filter(g => g.categoria.toUpperCase() === 'VARIABLE')))}</span></div>
-      <div class="tarjeta cifra"><span class="rotulo">Fuera del costo</span><span class="valor">${pesos(suma(fuera))}</span><span class="nota">inversión, deuda, impuestos</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Costo operacional</span><span class="valor">${pesos(total)}</span><span class="nota">${R.lineas} ${R.lineas === 1 ? 'línea' : 'líneas'} · ${esc(nombreMes)}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Fijos</span><span class="valor">${pesos(R.fijos)}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Variables</span><span class="valor">${pesos(R.variables)}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Fuera del costo</span><span class="valor">${pesos(R.fuera)}</span><span class="nota">inversión, deuda, impuestos</span></div>
     </div>
-    ${costo.length ? `<div class="grilla-an">
-      <section class="tarjeta" aria-labelledby="t-an-area"><div class="titulo-fila"><h2 id="t-an-area">Por área</h2></div>${barras(agrupar(costo, g => g.area), total)}</section>
-      <section class="tarjeta" aria-labelledby="t-an-item"><div class="titulo-fila"><h2 id="t-an-item">Ítems que más pesan</h2></div>${barras(agrupar(costo, g => g.item).slice(0, 8), total)}</section>
-      <section class="tarjeta" aria-labelledby="t-an-tipo"><div class="titulo-fila"><h2 id="t-an-tipo">Directo e indirecto</h2></div>${barras(agrupar(costo, g => g.tipo.toUpperCase()), total)}</section>
-      <section class="tarjeta" aria-labelledby="t-an-sub"><div class="titulo-fila"><h2 id="t-an-sub">Por subtipo (todo el mes)</h2></div>${barras(agrupar(delMes, sub_).map(x => ({ ...x, extra: NOTA_SUBTIPO[x.nombre] || '' })), suma(delMes))}</section>
+    ${R.lineas ? `<div class="grilla-an">
+      <section class="tarjeta" aria-labelledby="t-an-area"><div class="titulo-fila"><h2 id="t-an-area">Por área</h2></div>${barras(R.porArea, total)}</section>
+      <section class="tarjeta" aria-labelledby="t-an-item"><div class="titulo-fila"><h2 id="t-an-item">Ítems que más pesan</h2></div>${barras(R.porItem, total)}</section>
+      <section class="tarjeta" aria-labelledby="t-an-tipo"><div class="titulo-fila"><h2 id="t-an-tipo">Directo e indirecto</h2></div>${barras(R.porTipo, total)}</section>
+      <section class="tarjeta" aria-labelledby="t-an-sub"><div class="titulo-fila"><h2 id="t-an-sub">Por subtipo (todo el mes)</h2></div>${barras(R.porSubtipo.map(x => ({ ...x, extra: NOTA_SUBTIPO[x.nombre] || '' })), R.totalMes)}</section>
     </div>` : `<section class="tarjeta"><div class="vacio">No hay gastos en ${esc(nombreMes)}.</div></section>`}
     <section class="tarjeta" aria-labelledby="t-an-evol"><div class="titulo-fila"><h2 id="t-an-evol">Costo operacional, últimos 6 meses</h2></div>${barras(evol, 0)}</section>`;
   colapsar(el);

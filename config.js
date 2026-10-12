@@ -5,7 +5,7 @@
 //  reglas de Firestore y la cuenta de administración.
 // ═══════════════════════════════════════════════
 window.FEN_SIS = {
-  VERSION: '0.44.0',
+  VERSION: '0.47.0',
   firebase: {
     apiKey: 'AIzaSyDrG2mij1h5wZ2lIyAYMTfgG9avaVnjcaU',
     authDomain: 'fen-ventas.firebaseapp.com',
@@ -59,6 +59,11 @@ window.FEN_SIS = {
     messagingSenderId: '649845839125',
     appId: '1:649845839125:web:28b66f7f0cf364c95bc51c'
   },
+  // v0.45.0 · Gastos, etapa G2: el botón "Pasar Gastos a la base nueva" (Gastos → Base nueva) queda bloqueado
+  // hasta que toda la etapa G2 esté lista (registrar, pagar, obligaciones, ítems, análisis y agenda con la base nueva).
+  // v0.47.0: G2 ya está completo, pero el cambio también necesita G3 (SII, cartola y Previred con la base nueva):
+  // sigue en false ("El cambio se habilita cuando estén listos G2 y G3").
+  G2_COMPLETO: false,
   // Datos que salen en el PDF de la orden de venta B2B
   DATOS_EMPRESA: { direccion: 'Ainavillo 764, Concepción', telefono: '+56 9 4147 3683', correo: 'panaderiafen@gmail.com', web: 'WWW.PANADERIAFEN.CL · @PANADERIAFEN' }
 };

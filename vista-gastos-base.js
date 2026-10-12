@@ -1,15 +1,19 @@
 // ═══════════════════════════════════════════════
 //  Sistema Fën — Gastos → Base nueva (fen-gastos)  v0.43.0 (etapa G1)
 //  v0.44.0: parte "Archivos en Drive" (dejar privados los archivos ya subidos; script de Gastos v2.10.0)
+//  v0.45.0 (etapa G2): partes "Copia a la planilla" (estado de lo que pasa de la base a la planilla) y
+//  "Cambio a la base nueva" (bloqueado hasta que estén listos G2 y G3: G2_COMPLETO en config.js).
 //  Conectar la base nueva, entrar, leer la planilla (2026), copiar y control de totales.
 //  Nada cambia en el uso de Gastos: sigue con la planilla hasta el cambio.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as GB from './gastos-base.js?v=0.44.0';
-import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.44.0';
-import * as Gastos from './gastos.js?v=0.44.0';
+import * as GB from './gastos-base.js?v=0.47.0';
+import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.47.0';
+import * as Gastos from './gastos.js?v=0.47.0';
+import * as GP from './gastos-planilla.js?v=0.47.0';
 
 const st = { prep: null, ctrl: null, msg: '', copiando: false, leyendo: false, controlando: false,
+  cambio: { corriendo: false, msg: '', err: '', avance: '' },
   drive: { corriendo: false, revisados: 0, total: null, cambiados: 0, fallidos: 0, siguiente: null, msg: '', err: '', listo: false } };
 const $ = id => document.getElementById(id);
 const n = v => Math.round(Number(v || 0)).toLocaleString('es-CL');
@@ -44,22 +48,29 @@ export async function pintar(el, cab, H) {
   catch (e) { errorCx = error(e, H); cx = { estado: 'error' }; }
   if (!el.isConnected || !/^#gastos\/base/.test(location.hash)) return;
   const ok = cx.estado === 'ok';
+  let fuente = { fuente: 'planilla' };
+  if (ok) { try { fuente = await GB.cargarFuente(true); } catch (e) {} }
+  if (!el.isConnected || !/^#gastos\/base/.test(location.hash)) return;
   const resCx = ok ? `<span class="chip c-verde">Conectada</span> ${H.esc(cx.cfg.projectId)}` : cx.estado === 'error' ? '<span class="chip c-rojo">Error</span>' : '<span class="chip c-gris">Sin conectar</span>';
   const resCopia = !ok ? '' : st.prep ? (st.prep.porEscribir ? `${n(st.prep.porEscribir)} por copiar` : 'Todo al día') : ult && ult.ultima ? 'Última: ' + H.esc(H.hace(ult.ultima)) : 'Nunca copiada';
   const resCtrl = !ok ? '' : st.ctrl && st.ctrl.resultado ? (st.ctrl.resultado.ok ? '<span class="chip c-verde">Todo cuadra</span>' : '<span class="chip c-rojo">Hay diferencias</span>') : 'Lee la planilla para comparar';
   el.innerHTML = cab + `
     <section class="tarjeta grupo-pliegues" aria-labelledby="t-gb">
       <h2 id="t-gb">Base nueva (fen-gastos) ${H.info('Base nueva de Gastos', 'Es un proyecto de Firebase aparte (fen-gastos), en tu misma cuenta de Google, con su propia cuota gratis.\nEn esta etapa solo se copia la planilla de 2026 a la base nueva y se revisa que cuadre.\nGastos sigue funcionando igual, con la planilla: Registrar, pagar, el SII, la cartola y Previred no cambian. El cambio a la base nueva se hace después, todo de una vez.\nLas fotos y PDF de las boletas siguen en Drive.')}</h2>
-      <p class="ayuda">Gastos sigue trabajando con la planilla hasta el cambio. Aquí solo se copia y se compara.</p>
+      <p class="ayuda">${fuente.fuente === 'base' ? 'Gastos trabaja con la base nueva. La planilla queda como copia: cada cambio pasa solo, unos segundos después.' : 'Gastos sigue trabajando con la planilla hasta el cambio. Aquí solo se copia y se compara.'}</p>
       ${pliegue('conexion', 'Conexión', resCx, `<div id="gb-conexion">${errorCx ? `<p class="error" role="alert">${H.esc(errorCx)}</p>` : seccionConexion(cx, H)}</div>`)}
-      ${ok ? pliegue('copia', `Copia desde la planilla (${GB.ANIO})`, resCopia, seccionCopia(H)) : ''}
+      ${ok ? pliegue('copia', `Copia desde la planilla (${GB.ANIO})`, fuente.fuente === 'base' ? 'Ya no se usa' : resCopia, fuente.fuente === 'base'
+        ? '<p class="ayuda" id="gb-copia-cerrada">Gastos ya trabaja con la base nueva: la copia desde la planilla ya no se usa (copiaría de vuelta lo que la base pasó a la planilla). Ahora es al revés: mira "Copia a la planilla".</p>'
+        : seccionCopia(H)) : ''}
       ${ok ? pliegue('control', 'Control de totales', resCtrl, seccionControl(H)) : ''}
+      ${ok ? pliegue('planilla', 'Copia a la planilla', `<span id="gb-planilla-chip">${chipPlanilla()}</span>`, seccionPlanilla(H)) : ''}
+      ${ok ? pliegue('cambio', 'Cambio a la base nueva', fuente.fuente === 'base' ? '<span class="chip c-verde">Gastos en la base nueva</span>' : '<span class="chip c-gris">Gastos en la planilla</span>', `<div id="gb-cambio">${seccionCambio(fuente, H)}</div>`) : ''}
       ${pliegue('drive', 'Archivos en Drive', st.drive.listo ? '<span class="chip c-verde">Privados</span>' : '', `<div id="gb-drive">${seccionDrive(H)}</div>`)}
     </section>`;
   conectarPliegues(el);
   const otra = () => pintar(el, cab, H);
   conectarConexion(el, cx, H, otra);
-  if (ok) conectarCopia(el, H, otra);
+  if (ok) { if (fuente.fuente !== 'base') conectarCopia(el, H, otra); conectarPlanilla(H); conectarCambio(fuente, H, otra); }
   conectarDrive(H);
 }
 
@@ -218,4 +229,92 @@ async function dejarPrivados(H) {
   }
   d.corriendo = false;
   pintarDrive(H);
+}
+
+// ── v0.45.0 · Copia a la planilla (G2) ──
+// Después del cambio, lo hecho en la base pasa solo a la planilla (script de Gastos v2.11.0). Aquí se ve si está al día.
+const TXT_PLANILLA = 'Después del cambio, Gastos se registra en la base nueva y la planilla queda como copia: Looker Studio y el reparto de costos de Producción (que lee "Registro Gasto") la siguen usando.\nCada gasto, pago, obligación o ítem hecho o cambiado en la base pasa a la planilla unos segundos después. Si no se puede (sin internet, el script ocupado), queda anotado y se reintenta solo: al minuto y después cada 2 minutos. No se pierde nada.\nCada fila lleva al final la columna "ID base", con la que se reconoce. Un gasto anulado pasa a "Gastos anulados" con quién, cuándo y por qué, como hoy.\nAntes del cambio no hay nada que pasar: la planilla se usa como siempre.';
+function chipPlanilla() {
+  const e = GP.estado();
+  if (e.error) return '<span class="chip c-rojo">Pendiente</span>';
+  if (e.pendientes === null || e.corriendo) return '<span class="chip c-gris">Revisando</span>';
+  return e.pendientes ? '<span class="chip c-amarillo">Por pasar</span>' : '<span class="chip c-verde">Al día</span>';
+}
+function seccionPlanilla(H) {
+  const e = GP.estado();
+  const u = e.ultima;
+  return `<p class="ayuda">De la base nueva a la planilla ${H.info('Copia a la planilla', TXT_PLANILLA)}</p>
+    <p id="gb-planilla-estado" class="${e.error ? 'error' : 'ayuda'}" role="status" aria-live="polite">${H.esc(GP.texto())}</p>
+    ${u ? `<p class="ayuda" id="gb-planilla-ultima">Última vez: ${H.esc(H.hace(u.en))} · ${H.esc(String(u.pasados))} ${u.pasados === 1 ? 'cambio pasado' : 'cambios pasados'}${u.avisos.length ? ` · ${H.esc(String(u.avisos.length))} ${u.avisos.length === 1 ? 'aviso' : 'avisos'}` : ''}</p>
+      ${u.avisos.length ? `<ul class="ayuda">${u.avisos.slice(0, 20).map(a => `<li>${H.esc(a.texto)}</li>`).join('')}</ul>` : ''}` : ''}
+    ${e.pendientes || e.error ? `<div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="gb-planilla-pasar" ${e.corriendo ? 'disabled' : ''}>Pasar ahora</button></div>` : ''}`;
+}
+let soltarPlanilla = null;
+function conectarPlanilla(H) {
+  if (soltarPlanilla) soltarPlanilla();
+  const repintar = () => {
+    const c = document.querySelector('details[data-pliegue="planilla"] .pliegue-cuerpo');
+    if (!c || !c.isConnected) { if (soltarPlanilla) { soltarPlanilla(); soltarPlanilla = null; } return; }
+    c.innerHTML = seccionPlanilla(H);
+    const chip = $('gb-planilla-chip'); if (chip) chip.innerHTML = chipPlanilla();
+    const b = $('gb-planilla-pasar'); if (b) b.addEventListener('click', () => GP.pasar());
+  };
+  soltarPlanilla = GP.alCambiar(repintar);
+  repintar();
+  GP.revisar().catch(() => {});
+}
+
+// ── v0.45.0 · Cambio a la base nueva (G2) ──
+const TXT_CAMBIO = 'El cambio se hace todo de una vez, un fin de semana, cuando todo Gastos ya funcione con la base nueva: G2 (registrar, pagar, obligaciones, ítems, análisis y agenda, ya listo) y G3 (SII, cartola y Previred). Por eso el botón sigue gris: el cambio se habilita cuando estén listos G2 y G3. No hay prueba antes con datos reales.\nAl presionar "Pasar Gastos a la base nueva":\n1. La app antigua de Gastos y lo que escribía en la planilla dejan de registrar (dicen "Gastos ya se registra en la base nueva"). Las lecturas siguen.\n2. Se lee la planilla, se copia a la base nueva lo que falte y se hace el control de totales.\n3. Solo si dice "Todo cuadra", Gastos queda en la base nueva. Si no cuadra o algo falla, todo vuelve a como estaba.\nDesde ahí, cada cambio pasa a la planilla unos segundos después. Nada con historia se borra: se anula.';
+const fechaHora = v => { const d = v && (typeof v.toDate === 'function' ? v.toDate() : new Date(v)); return d && !isNaN(d) ? d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; };
+function seccionCambio(f, H) {
+  const c = st.cambio, enBase = f.fuente === 'base', listo = GB.G2_COMPLETO();
+  const estado = enBase
+    ? `<div class="fila-caja fila-compacta"><div class="txt"><b>Gastos trabaja con la base nueva</b><span>Desde ${H.esc(fechaHora(f.desde) || '—')}${f.por ? ' · ' + H.esc(f.por) : ''}</span></div><span class="chip c-verde">Base nueva</span></div>`
+    : `<div class="fila-caja fila-compacta"><div class="txt"><b>Gastos trabaja con la planilla</b><span>Como siempre: la app de Gastos y Sistema Fën escriben en la planilla</span></div><span class="chip c-gris">Planilla</span></div>`;
+  const pasos = `<ol class="ayuda" style="margin:8px 0 8px 18px;padding:0">
+      <li>Primero tienen que estar listas las etapas G2 (registrar, pagar, obligaciones, ítems, análisis y agenda con la base nueva) y G3 (SII, cartola y Previred con la base nueva).</li>
+      <li>Un fin de semana, sin registrar nada en la app antigua mientras se hace (unos minutos).</li>
+      <li>Presiona <b>Pasar Gastos a la base nueva</b>: se cierra la planilla para escribir, se copia lo que falte y se revisa el control de totales. Solo sigue si dice <b>Todo cuadra</b>.</li>
+      <li>Desde ahí, cada cambio pasa solo a la planilla unos segundos después (Looker y Producción la siguen leyendo).</li>
+    </ol>`;
+  const boton = enBase
+    ? `<div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="gb-volver" ${c.corriendo ? 'disabled' : ''}>Volver a la planilla</button></div>`
+    : `<div class="botones" style="justify-content:flex-start;align-items:center"><button type="button" class="btn" id="gb-cambiar" ${listo && !c.corriendo ? '' : 'disabled'} ${listo ? '' : 'aria-describedby="gb-cambio-bloqueado"'}>Pasar Gastos a la base nueva</button>${listo ? '' : '<span class="ayuda" id="gb-cambio-bloqueado">El cambio se habilita cuando estén listos G2 y G3</span>'}</div>`;
+  return `<p class="ayuda">Todo de una vez, cuando estén listos G2 y G3 ${H.info('Cambio a la base nueva', TXT_CAMBIO)}</p>
+    ${estado}${enBase ? '' : pasos}${boton}
+    <p id="gb-cambio-avance" class="ayuda" role="status" aria-live="polite">${H.esc(c.corriendo ? c.avance : c.msg)}</p>
+    ${c.err ? `<p class="error" role="alert" id="gb-cambio-err">${H.esc(c.err)}</p>` : ''}`;
+}
+function pintarCambio(f, H, otra) { const el = $('gb-cambio'); if (el) { el.innerHTML = seccionCambio(f, H); conectarCambio(f, H, otra); } }
+function conectarCambio(f, H, otra) {
+  const c = st.cambio;
+  const b = $('gb-cambiar');
+  if (b) b.addEventListener('click', async () => {
+    if (!GB.G2_COMPLETO()) return;
+    if (!confirm('¿Pasar Gastos a la base nueva ahora? La app antigua deja de registrar gastos en la planilla, se copia lo que falte y se revisa que todo cuadre. Hazlo cuando nadie esté registrando gastos.')) return;
+    Object.assign(c, { corriendo: true, err: '', msg: '', avance: 'Empezando…' });
+    pintarCambio(f, H, otra);
+    try {
+      const r = await GB.cambiarABase(t => { c.avance = t; const a = $('gb-cambio-avance'); if (a) a.textContent = t; });
+      c.msg = r.ya ? 'Gastos ya estaba en la base nueva.' : `Listo: Gastos trabaja con la base nueva. Todo cuadra${r.escritos ? ` (se copiaron ${r.escritos.toLocaleString('es-CL')} cambios de último momento)` : ''}.`;
+      H.registrar('Pasó Gastos a la base nueva', r.escritos ? `${r.escritos} documentos copiados al final` : 'Todo cuadra');
+      if (r.prep) { st.prep = r.prep; st.prep.porEscribir = 0; st.ctrl = r.control; }
+    } catch (e) { c.err = error(e, H); }
+    c.corriendo = false; otra();
+  });
+  const v = $('gb-volver');
+  if (v) v.addEventListener('click', async () => {
+    Object.assign(c, { corriendo: true, err: '', msg: '', avance: 'Revisando si se puede volver…' });
+    pintarCambio(f, H, otra);
+    try {
+      const p = await GB.puedeVolver();
+      if (!p.puede) { c.err = p.motivo; c.corriendo = false; pintarCambio(f, H, otra); return; }
+      if (!confirm('¿Volver a trabajar con la planilla? La app antigua de Gastos vuelve a registrar y la base nueva queda como está.')) { c.corriendo = false; pintarCambio(f, H, otra); return; }
+      await GB.volverAPlanilla();
+      c.msg = 'Listo: Gastos volvió a trabajar con la planilla.';
+      H.registrar('Volvió Gastos a la planilla', '');
+    } catch (e) { c.err = error(e, H); }
+    c.corriendo = false; otra();
+  });
 }

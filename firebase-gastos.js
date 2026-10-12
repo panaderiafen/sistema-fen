@@ -1,4 +1,4 @@
-// Sistema Fën — conexión con la base nueva de Gastos (proyecto Firebase fen-gastos)  v0.43.0
+// Sistema Fën — conexión con la base nueva de Gastos (proyecto Firebase fen-gastos)  v0.43.0 · v0.45.0: idToken()
 // Proyecto aparte (como fen-b2b y fen-produccion): cuota propia; solo entra la cuenta de administración.
 // Todo lo de fen-gastos entra por este archivo. Se conecta recién cuando hay configuración guardada.
 import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -31,6 +31,8 @@ export async function entrar(correo, clave, soloSesion) {
   return (await signInWithEmailAndPassword(actual.auth, correo, clave)).user;
 }
 export async function salir() { if (actual) await signOut(actual.auth); }
+// v0.45.0: token de la sesión de fen-gastos, para que el script de Gastos lea y desmarque lo que pasa a la planilla
+export async function idToken() { if (!actual || !actual.auth.currentUser) throw new Error('Sin sesión en la base nueva de Gastos.'); return actual.auth.currentUser.getIdToken(); }
 
 export {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, writeBatch,

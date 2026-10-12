@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════
 //  Sistema Fën — Gastos: de la planilla a la base nueva (fen-gastos)  v0.43.0 (etapa G1)
+//  v0.45.0: la columna "ID base" (copia de la base a la planilla, G2) no se copia: no cambia ningún documento.
 //  Arma los documentos desde las hojas que entrega el script de Gastos (v2.9.0, op "exportar").
 //  · Ninguna columna se pierde: cada una queda con un nombre limpio ("Monto Neto" → montoNeto).
 //    Si un valor se normaliza (fecha en texto, monto con "$"), lo escrito en la planilla queda en "original".
@@ -15,6 +16,7 @@ export const NOMBRES = {
   cotiz_trabajadores: 'Trabajadores de Previred', cartolas: 'Cartolas', cartola_cargos: 'Cargos de la cartola', cartola_reglas: 'Reglas de la cartola'
 };
 export const ANIO = 2026;
+export const COL_ID_BASE = 'ID base';   // última columna de cada hoja después del cambio (la escribe el script v2.11.0)
 
 // ── Utilidades ─────────────────────────────────────
 const texto = v => (v === null || v === undefined) ? '' : String(v).trim();
@@ -74,6 +76,8 @@ const RE_FOLIO_OBS = /(?:^|[^A-Za-z])(NC|F)\.(\d+)/;   // igual que el script: "
 function filasDe(hoja, nombreHoja, aviso, reservados = ['hoja', 'fila']) {
   if (!hoja || !Array.isArray(hoja.c)) return [];
   const usados = new Set(reservados), nombres = hoja.c.map((h, j) => {
+    // v0.45.0: "ID base" la escribe la copia de la base a la planilla (G2): no es un dato del gasto
+    if (texto(h) === COL_ID_BASE) return null;
     let n = campo(h); const vacio = !n;
     if (vacio) n = 'col' + (j + 1);
     if (usados.has(n)) { let k = 2; while (usados.has(n + '_' + k)) k++; if (!vacio) aviso(nombreHoja, null, `La columna "${h}" se repite o choca con otra: queda como ${n}_${k}.`); n = n + '_' + k; }
@@ -82,7 +86,9 @@ function filasDe(hoja, nombreHoja, aviso, reservados = ['hoja', 'fila']) {
   });
   return (hoja.f || []).map(r => {
     const datos = {};
-    nombres.forEach(({ n, vacio }, j) => {
+    nombres.forEach((x, j) => {
+      if (!x) return;
+      const { n, vacio } = x;
       let v = r[j + 1];
       if (v === undefined || v === null) v = '';
       if (vacio && v === '') return;
