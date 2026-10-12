@@ -1,0 +1,34 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════
+//  Fën · Gastos (proyecto Firebase fen-gastos) — Reglas de Firestore v0.1.0 (2026-10-11)
+//
+//  Etapa G1: la base nueva solo recibe la copia de la planilla desde Sistema Fën.
+//  Gastos se sigue usando con la planilla hasta el cambio.
+//
+//  Roles (se administran SOLO desde la consola de Firebase):
+//    admins/{uid}  → administración (Sistema Fën): lee y escribe todo lo demás.
+//                    Cada cuenta puede leer su propio documento en admins; nadie lo escribe desde la app.
+//    cualquier otra cuenta → nada
+//
+//  Nada se borra desde la app: lo que sale de la planilla queda marcado (quitadoEnPlanilla).
+//  Esta copia es de respaldo: las reglas que mandan son las publicadas en la consola.
+// ═══════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function esAdmin() {
+      return request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /{coleccion}/{id} {
+      allow read, write: if coleccion != 'admins' && esAdmin();
+    }
+  }
+}

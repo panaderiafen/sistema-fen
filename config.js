@@ -5,7 +5,7 @@
 //  reglas de Firestore y la cuenta de administración.
 // ═══════════════════════════════════════════════
 window.FEN_SIS = {
-  VERSION: '0.42.0',
+  VERSION: '0.43.0',
   firebase: {
     apiKey: 'AIzaSyDrG2mij1h5wZ2lIyAYMTfgG9avaVnjcaU',
     authDomain: 'fen-ventas.firebaseapp.com',
@@ -49,6 +49,16 @@ window.FEN_SIS = {
   // Base nueva de Ventas B2B (proyecto Firebase fen-b2b). Se pega en Sistema Fën → Ventas B2B y queda
   // guardada en Firestore (config/sistemaFen). Si se pone aquí, se usa cuando no hay una guardada.
   firebaseB2B: null,
+  // Base nueva de Gastos (proyecto Firebase fen-gastos, etapa G1). Viene escrita en "Conectar" (Gastos → Base nueva):
+  // al conectar se guarda en Firestore (config/sistemaFen → gastosFirebase). No es secreta: solo identifica el proyecto.
+  firebaseGastos: {
+    apiKey: 'AIzaSyDTun4x6bzoW71QQZ6vVnrjulbMIAQKVCU',
+    authDomain: 'fen-gastos.firebaseapp.com',
+    projectId: 'fen-gastos',
+    storageBucket: 'fen-gastos.firebasestorage.app',
+    messagingSenderId: '649845839125',
+    appId: '1:649845839125:web:28b66f7f0cf364c95bc51c'
+  },
   // Datos que salen en el PDF de la orden de venta B2B
   DATOS_EMPRESA: { direccion: 'Ainavillo 764, Concepción', telefono: '+56 9 4147 3683', correo: 'panaderiafen@gmail.com', web: 'WWW.PANADERIAFEN.CL · @PANADERIAFEN' }
 };

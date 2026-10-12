@@ -9,24 +9,29 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.42.0';
-import * as Caja from './caja.js?v=0.42.0';
-import * as Stock from './stock.js?v=0.42.0';
-import * as Ajustes from './ajustes.js?v=0.42.0';
-import * as Apps from './apps.js?v=0.42.0';
-import * as Agenda from './agenda.js?v=0.42.0';
-import * as Gastos from './gastos.js?v=0.42.0';
-import * as Sii from './sii.js?v=0.42.0';
-import * as Previred from './previred.js?v=0.42.0';
-import * as B2b from './b2b.js?v=0.42.0';
-import * as Cartola from './cartola.js?v=0.42.0';
-import * as SiiFactura from './sii-factura.js?v=0.42.0';
-import * as PdfOrden from './pdf-orden.js?v=0.42.0';
-import * as Prod from './produccion.js?v=0.42.0';
-import * as VistaProd from './vista-produccion.js?v=0.42.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.42.0';
+} from './firebase.js?v=0.43.0';
+import * as Caja from './caja.js?v=0.43.0';
+import * as Stock from './stock.js?v=0.43.0';
+import * as Ajustes from './ajustes.js?v=0.43.0';
+import * as Apps from './apps.js?v=0.43.0';
+import * as Agenda from './agenda.js?v=0.43.0';
+import * as Gastos from './gastos.js?v=0.43.0';
+import * as Sii from './sii.js?v=0.43.0';
+import * as Previred from './previred.js?v=0.43.0';
+import * as B2b from './b2b.js?v=0.43.0';
+import * as Cartola from './cartola.js?v=0.43.0';
+import * as SiiFactura from './sii-factura.js?v=0.43.0';
+import * as PdfOrden from './pdf-orden.js?v=0.43.0';
+import * as Prod from './produccion.js?v=0.43.0';
+import * as VistaProd from './vista-produccion.js?v=0.43.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.43.0';
 
 const F = window.FEN_SIS;
+// v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.43.0');
+async function salirGastosBase() {
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.43.0')).salir(); } catch (e) {}
+}
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
 const K_EQUIPO = 'fen_sistema_equipo';
@@ -248,7 +253,7 @@ $('form-entrar').addEventListener('submit', async ev => {
   }
 });
 
-$('btn-otra-cuenta').addEventListener('click', async () => { olvidarEquipo(); await B2b.salir(); await Prod.salir(); await signOut(auth); });
+$('btn-otra-cuenta').addEventListener('click', async () => { olvidarEquipo(); await B2b.salir(); await Prod.salir(); await salirGastosBase(); await signOut(auth); });
 
 // ── Abrir: revisa que este equipo siga autorizado ───
 function revisarEquipo(snap, user) {
@@ -277,7 +282,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 async function bloquear(motivo) {
   cerrarEscucha(); olvidarEquipo(); ponerMotivo(motivo);
   estado.user = null; estado.equipo = null; estado.equipoId = null;
-  await B2b.salir(); await Prod.salir();
+  await B2b.salir(); await Prod.salir(); await salirGastosBase();
   try { await signOut(auth); } catch (e) { mostrarEntrada(motivo); }
 }
 
@@ -323,7 +328,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.42.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.43.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -841,13 +846,21 @@ function refrescarAgenda() { Object.keys(agAuto).forEach(k => delete agAuto[k]);
 const AREAS_GASTO = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS'];
 const montoV = v => (v.multiArea && v.multiArea.length ? v.multiArea.reduce((s, a) => s + (Number(a.monto) || 0), 0) : Number(String(v.montoEstimado || '').replace(/[^0-9]/g, '')) || 0);
 // v0.23.0: en el orden del trabajo (lo diario primero, la configuración al final); la cartola pasó a Conciliación
-const SUBS_GASTOS = [['', 'Vencimientos'], ['sii', 'Cargas del SII'], ['previred', 'Previred'], ['registrar', 'Registrar'], ['registrados', 'Registrados'], ['analisis', 'Análisis'], ['obligaciones', 'Obligaciones'], ['items', 'Ítems']];
+// v0.43.0: "Base nueva" (fen-gastos, etapa G1): copia y control; Gastos sigue con la planilla
+const SUBS_GASTOS = [['', 'Vencimientos'], ['sii', 'Cargas del SII'], ['previred', 'Previred'], ['registrar', 'Registrar'], ['registrados', 'Registrados'], ['analisis', 'Análisis'], ['obligaciones', 'Obligaciones'], ['items', 'Ítems'], ['base', 'Base nueva']];
 function pestanasGastos(sub) {
   const actual = SUBS_GASTOS.some(([k]) => k && k === sub) ? sub : '';
   return `<div class="pestanas" role="tablist" aria-label="Secciones de Gastos">${SUBS_GASTOS.map(([k, t]) => `<a role="tab" href="#gastos${k ? '/' + k : ''}" aria-selected="${k === actual}">${t}</a>`).join('')}</div>`;
 }
 async function pintarGastos(sub) {
   const el = $('v-gastos');
+  // La base nueva no necesita los vencimientos: se abre sin esperar al script
+  if (sub === 'base') {
+    el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><div class="vacio" style="border:0">Abriendo la base nueva…</div></section>';
+    try { (await vistaGastosBase()).pintar(el, cabGastos(sub), { esc, info, registrar, mensajeError, hace }); }
+    catch (e) { el.innerHTML = cabGastos(sub) + `<section class="tarjeta"><p class="error">No se pudo abrir la base nueva (${esc(e.message || e)}). Revisa la conexión y recarga.</p></section>`; }
+    return;
+  }
   el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Todo lo de la app de Gastos, aquí</p></div>${pestanasGastos(sub)}</div>
     <div class="tarjeta"><div class="vacio" style="border:0">Cargando Gastos…</div></div>`;
   let d;

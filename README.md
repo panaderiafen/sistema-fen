@@ -1,9 +1,55 @@
-# Sistema Fën · v0.42.0
+# Sistema Fën · v0.43.0
 
-**App:** v0.42.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.8.2 · 11 de octubre de 2026
+**App:** v0.43.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (nuevas) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.9.0 · 11 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.43.0: Gastos, base nueva (etapa G1)
+Nueva pestaña **Gastos → Base nueva**. Copia lo de **2026** de la planilla de Gastos al proyecto Firebase nuevo **fen-gastos** y revisa que cuadre.
+
+**Para el día a día no cambia nada.** Gastos sigue trabajando con la planilla (Registrar, pagar, SII, cartola, Previred, Agenda). El cambio a la base nueva se hace después, todo de una vez.
+
+En **Base nueva (fen-gastos)** hay tres partes que se abren y cierran (se recuerda en este equipo):
+- **Conexión:** la configuración de fen-gastos ya viene escrita: presionas **Conectar** y entras con **tu misma contraseña** de Sistema Fën.
+- **Copia desde la planilla (2026):** **Leer la planilla (2026)** muestra, por cada parte, cuántos hay en la planilla y cuántos son nuevos, cambiados, quitados o iguales, más los avisos. **Copiar a la base nueva** escribe solo lo que cambió, en lotes de hasta 400.
+- **Control de totales:** compara planilla y base nueva: cuántos documentos hay en cada parte y, en los gastos vigentes, cuántos, el monto neto y el monto final de cada mes. Debe decir **Todo cuadra**.
+
+(i) **Qué se copia:** gastos de 2026 (también los anulados, con quién, cuándo y por qué), ítems, obligaciones, vencimientos (2026, los que siguen por pagar y los que vienen), cargas y documentos del SII con su detalle y notas, cotizaciones y trabajadores de Previred, y la cartola (cargos, cartolas y reglas). Ninguna columna se pierde. Las fotos y PDF de las boletas siguen en Drive.
+
+(i) **Copiar dos veces no duplica.** Cada documento tiene un id fijo. Si un gasto se corrige en la planilla después de copiarlo, en la base nueva entra la versión nueva y la anterior queda marcada "quitada de la planilla" (no se borra y no suma).
+
+Archivos: **nuevos** `gastos-base.js`, `gastos-modelo.js`, `vista-gastos-base.js`, `firebase-gastos.js` y `firestore-gastos.rules` (respaldo de las reglas de fen-gastos: van en la consola). Cambian `app.js`, `gastos.js`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). Abajo a la izquierda: **v0.43.0**.
+
+### Instalación v0.43.0 (unos 10 minutos)
+El proyecto **fen-gastos** ya está creado y sus reglas publicadas (solo las cuentas en `admins` leen y escriben). Si falta algo, revisa abajo "Si algo sale mal".
+
+**A. Script de Gastos v2.9.0** → ver el README de `gastos-script-v2.9.0.zip`. El ping debe decir **2.9.0**.
+
+**B. Sistema Fën v0.43.0** → en GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → arrastra todos los archivos del zip (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R). Abajo a la izquierda debe decir **v0.43.0**.
+
+**C. Copiar** (en Sistema Fën → **Gastos → Base nueva**)
+1. **Conexión → Conectar** (la configuración de fen-gastos ya viene escrita).
+2. Escribe tu contraseña de Sistema Fën → **Entrar**. Si dice que falta marcar tu cuenta como administración: consola de fen-gastos → Firestore → colección `admins` → documento con el UID que muestra la pantalla, campo `ok` = true.
+3. **Leer la planilla (2026)** (puede tardar un minuto). Revisa la tabla y los avisos.
+4. **Copiar a la base nueva** → al terminar, **Control de totales** debe decir **Todo cuadra**.
+
+### Lista de verificación v0.43.0
+- [ ] Abajo a la izquierda dice **v0.43.0**; Gastos tiene la pestaña **Base nueva**.
+- [ ] Conexión dice **Conectada · fen-gastos** con tu correo.
+- [ ] "Leer la planilla (2026)" muestra los gastos vigentes y anulados de 2026 que esperas.
+- [ ] Después de copiar: **Todo cuadra**, también mes por mes (compara un mes con el Análisis de Gastos).
+- [ ] Lee la planilla de nuevo: **Todo al día: no hay nada que copiar**.
+- [ ] Registra un gasto de prueba en Gastos → Registrar, lee y copia: aparece **1 nuevo**; anúlalo, lee y copia: queda anulado (el mismo documento, con el motivo).
+- [ ] En la consola de fen-gastos → Firestore → Datos: están `gastos`, `vencimientos`, `items`, etc. En **Uso**, las escrituras del día son las de la copia.
+- [ ] Gastos sigue igual: Vencimientos, Registrar, Cargas del SII, Previred, Conciliación y Agenda.
+
+### Si algo sale mal
+- **"Falta actualizarlo a v2.9.0"**: paso A.
+- **"No dejó leer o guardar"**: revisa que las reglas de fen-gastos estén publicadas (`firestore-gastos.rules`) y tu documento en `admins`.
+- **"No hay una cuenta con tu correo y esa contraseña"**: consola de fen-gastos → Authentication → Usuarios: tu mismo correo y la misma contraseña de Sistema Fën.
+- **"Firestore todavía no está creado"**: consola de fen-gastos → Firestore Database → Crear base de datos (southamerica-west1).
+- Para volver atrás: sube los archivos de la v0.42.0. La base nueva queda como está y la planilla no se tocó.
 
 ## Novedades de la v0.42.0
 - **Bodega:** el conteo vale como cierre de su día, porque se cuenta después de la producción. Lo hecho ese día ya está en el conteo y se descuenta desde el día siguiente. Las llegadas van por hora.
