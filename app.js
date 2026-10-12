@@ -9,28 +9,28 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.43.0';
-import * as Caja from './caja.js?v=0.43.0';
-import * as Stock from './stock.js?v=0.43.0';
-import * as Ajustes from './ajustes.js?v=0.43.0';
-import * as Apps from './apps.js?v=0.43.0';
-import * as Agenda from './agenda.js?v=0.43.0';
-import * as Gastos from './gastos.js?v=0.43.0';
-import * as Sii from './sii.js?v=0.43.0';
-import * as Previred from './previred.js?v=0.43.0';
-import * as B2b from './b2b.js?v=0.43.0';
-import * as Cartola from './cartola.js?v=0.43.0';
-import * as SiiFactura from './sii-factura.js?v=0.43.0';
-import * as PdfOrden from './pdf-orden.js?v=0.43.0';
-import * as Prod from './produccion.js?v=0.43.0';
-import * as VistaProd from './vista-produccion.js?v=0.43.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.43.0';
+} from './firebase.js?v=0.44.0';
+import * as Caja from './caja.js?v=0.44.0';
+import * as Stock from './stock.js?v=0.44.0';
+import * as Ajustes from './ajustes.js?v=0.44.0';
+import * as Apps from './apps.js?v=0.44.0';
+import * as Agenda from './agenda.js?v=0.44.0';
+import * as Gastos from './gastos.js?v=0.44.0';
+import * as Sii from './sii.js?v=0.44.0';
+import * as Previred from './previred.js?v=0.44.0';
+import * as B2b from './b2b.js?v=0.44.0';
+import * as Cartola from './cartola.js?v=0.44.0';
+import * as SiiFactura from './sii-factura.js?v=0.44.0';
+import * as PdfOrden from './pdf-orden.js?v=0.44.0';
+import * as Prod from './produccion.js?v=0.44.0';
+import * as VistaProd from './vista-produccion.js?v=0.44.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.44.0';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.43.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.44.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.43.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.44.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -143,6 +143,9 @@ function info(titulo, texto) {
   if (i < 0) { INFOS.push({ titulo, texto }); i = INFOS.length - 1; }
   return `<button type="button" class="btn-info" data-info="${i}" aria-label="Qué es: ${esc(titulo)}" aria-expanded="false"></button>`;
 }
+// v0.44.0: los enlaces a Drive (boletas, comprobantes, SII, Previred, cartolas) son privados
+const TXT_DRIVE = 'Las fotos, PDF y archivos (boletas, comprobantes de pago, cargas del SII, Previred y cartolas) están en Drive, en la carpeta "Fën · Gastos". Se abren en otra pestaña y son privados: solo se ven con la cuenta de Google de Emmanuel. Con otra cuenta, Drive pide permiso.';
+const infoDrive = () => info('Archivos en Drive', TXT_DRIVE);
 let globoAbierto = null;
 function cerrarGlobo() {
   if (!globoAbierto) return;
@@ -328,7 +331,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.43.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.44.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -902,7 +905,7 @@ function pintarVencimientos(el, sub, d) {
     </div>
     ${grupos.filter(g => g.l.length).map((g, i) => `<section class="tarjeta" aria-labelledby="t-venc-${i}"><div class="titulo-fila"><h2 id="t-venc-${i}">${g.t}</h2><span>${g.l.length}</span></div>
       <div data-colapsar="6">${g.l.map(v => fila(v, g.rojo)).join('')}</div></section>`).join('') || '<section class="tarjeta"><div class="vacio">No hay vencimientos por pagar.</div></section>'}
-    ${pagados.length ? `<section class="tarjeta" aria-labelledby="t-venc-pag"><div class="titulo-fila"><h2 id="t-venc-pag">Pagados</h2><span>Últimos 7 días</span></div>
+    ${pagados.length ? `<section class="tarjeta" aria-labelledby="t-venc-pag"><div class="titulo-fila"><h2 id="t-venc-pag">Pagados ${infoDrive()}</h2><span>Últimos 7 días</span></div>
       <div data-colapsar="3">${pagados.map(v => `<div class="fila-caja"><div class="txt"><b>${esc(v.nombre)}</b><span>Pagado el ${esc(fechaCaja(v.fechaPago))}${v.urlComprobante ? ' · <a href="' + esc(v.urlComprobante) + '" target="_blank" rel="noopener">comprobante</a>' : ''}</span></div>
         <div class="acciones"><span class="chip c-verde">${esc(pesos(Number(v.montoPago) || 0))}</span></div></div>`).join('')}</div></section>` : ''}
     <p class="nota-i">(i) Pagar aquí hace lo mismo que en la app de Gastos: marca el vencimiento pagado, crea el gasto (o completa el de la compra a crédito) y genera el siguiente si es recurrente. El historial de pagos y las reglas están en Obligaciones. Anular un vencimiento no lo borra: queda ANULADO con su motivo.</p>`;
@@ -1104,7 +1107,7 @@ async function pintarSII(el, sub, d) {
     </section>
     <div id="sii-trabajo"></div>
     <section class="tarjeta" aria-labelledby="t-sii-hist">
-      <div class="titulo-fila"><h2 id="t-sii-hist">Cargas anteriores ${info('Cargas anteriores', 'Cada archivo subido queda aquí, agrupado por el mes de sus documentos, con cuántos ya están en Gastos.\n"Reabrir" vuelve a abrir el archivo desde Drive para seguir clasificando donde quedaste.\nLa búsqueda revisa todos los documentos de todas las cargas (folio, RUT o proveedor).\n"Quitar del historial" no borra nada: los gastos quedan igual y el archivo sigue en Drive.')}</h2><span id="sii-hist-resumen"></span></div>
+      <div class="titulo-fila"><h2 id="t-sii-hist">Cargas anteriores ${info('Cargas anteriores', 'Cada archivo subido queda aquí, agrupado por el mes de sus documentos, con cuántos ya están en Gastos.\n"Reabrir" vuelve a abrir el archivo desde Drive para seguir clasificando donde quedaste.\nLa búsqueda revisa todos los documentos de todas las cargas (folio, RUT o proveedor).\n"Quitar del historial" no borra nada: los gastos quedan igual y el archivo sigue en Drive.')} ${infoDrive()}</h2><span id="sii-hist-resumen"></span></div>
       <div class="campo"><label class="sr" for="sii-hist-buscar">Buscar en las cargas</label><input id="sii-hist-buscar" type="search" placeholder="Buscar folio, RUT o proveedor en todas las cargas" value="${esc(sii.histBusqueda)}"></div>
       <div id="sii-hist"><div class="vacio" style="border:0">Cargando el historial…</div></div>
     </section>`;
@@ -1614,7 +1617,7 @@ async function pintarObligaciones(el, sub, d) {
       <button type="button" class="btn" id="obl-nueva">${icono('mas', 16)} Nueva obligación</button></div>
       <div data-colapsar="12">${activas.map(p => fila(p, true)).join('') || '<div class="vacio">No hay obligaciones activas.</div>'}</div></section>
     ${archivadas.length ? `<section class="tarjeta" aria-labelledby="t-obl-arch"><div class="titulo-fila"><h2 id="t-obl-arch">Archivadas</h2><span>${archivadas.length}</span></div><div data-colapsar="3">${archivadas.map(p => fila(p, false)).join('')}</div></section>` : ''}
-    <section class="tarjeta" aria-labelledby="t-hist-pagos"><div class="titulo-fila"><h2 id="t-hist-pagos">Historial de pagos ${info('Historial de pagos', 'Los vencimientos pagados, con su fecha de pago y monto real. Vencimientos muestra solo los pagados de los últimos 7 días; aquí están todos.')}</h2></div>
+    <section class="tarjeta" aria-labelledby="t-hist-pagos"><div class="titulo-fila"><h2 id="t-hist-pagos">Historial de pagos ${info('Historial de pagos', 'Los vencimientos pagados, con su fecha de pago y monto real. Vencimientos muestra solo los pagados de los últimos 7 días; aquí están todos.')} ${infoDrive()}</h2></div>
       <div class="filtros"><select id="hp-mes" aria-label="Mes">${MESES_LARGOS.map((m, i) => `<option value="${i + 1}" ${i === hoy.getMonth() ? 'selected' : ''}>${m.replace(/^./, c => c.toUpperCase())}</option>`).join('')}</select>
         <select id="hp-anio" aria-label="Año">${[0, 1, 2].map(k => `<option>${hoy.getFullYear() - k}</option>`).join('')}</select>
         <button type="button" class="btn-sec" id="hp-ver">Ver</button><button type="button" class="btn-sec" id="hp-todo">Ver todo</button></div>
@@ -1901,7 +1904,7 @@ function coberturaCcHtml(D) {
   const fd = f => (f ? diaTexto(f) + ' ' + f.slice(0, 4) : '?');
   return ks.map(k => { const c = cob[k]; return `<div class="cobertura-conc"><div class="cuenta-conc"><b>${esc(B2b.NOMBRE_CUENTA[k] || k)}${c.cuentaN ? ' ···' + esc(c.cuentaN) : ''}</b></div><div><span>Cargos revisados</span><b>${c.desde ? `del ${esc(fd(c.desde))} al ${esc(fd(c.hasta))}` : '—'}</b></div>
     ${c.huecos.length ? `<div class="hueco"><span>Falta subir</span><b>${c.huecos.map(h => h[0] === h[1] ? esc(fd(h[0])) : `del ${esc(fd(h[0]))} al ${esc(fd(h[1]))}`).join(' · ')}</b></div>` : ''}</div>`; }).join('')
-    + `<details class="detalle-an"><summary>Cartolas subidas (${D.cartolas.length})</summary>${D.cartolas.slice().sort((a, b) => String(b.hasta).localeCompare(String(a.hasta))).map(c => `<div><span><b>${c.nCartola ? 'Histórica N° ' + esc(c.nCartola) : 'En línea'}</b> · ${esc(cuentaCc(c))} · ${c.desde ? `${esc(fd(c.desde))} al ${esc(fd(c.hasta))}` : 'sin fechas'} · subida ${esc(c.subidaEl)}</span><b>${c.nuevos} ${c.nuevos === 1 ? 'nuevo' : 'nuevos'} de ${c.cargos}</b></div>`).join('')}</details>`;
+    + `<details class="detalle-an"><summary>Cartolas subidas (${D.cartolas.length}) ${infoDrive()}</summary>${D.cartolas.slice().sort((a, b) => String(b.hasta).localeCompare(String(a.hasta))).map(c => `<div><span><b>${c.nCartola ? 'Histórica N° ' + esc(c.nCartola) : 'En línea'}</b> · ${esc(cuentaCc(c))} · ${c.desde ? `${esc(fd(c.desde))} al ${esc(fd(c.hasta))}` : 'sin fechas'} · subida ${esc(c.subidaEl)}${c.archivo ? ` · <a href="${esc(c.archivo)}" target="_blank" rel="noopener">Ver archivo</a>` : ''}</span><b>${c.nuevos} ${c.nuevos === 1 ? 'nuevo' : 'nuevos'} de ${c.cargos}</b></div>`).join('')}</details>`;
 }
 function avisosCcHtml(D, props) {
   const cob = Cartola.coberturaPorCuenta(D.cartolas, B2b.coberturaCartolas), hs = Object.values(cob).map(c => c.hasta).filter(Boolean).sort();
@@ -2058,7 +2061,7 @@ async function pintarRegistrados(el, sub, d) {
   L = L.slice().sort((a, b) => b.fecha.localeCompare(a.fecha) || (b.hora || '').localeCompare(a.hora || '') || a.fila - b.fila);
   const meses = [...new Set(L.map(mesDe))].sort().reverse();
   el.innerHTML = cabGastos(sub) + `
-    <section class="tarjeta" aria-labelledby="t-reg"><div class="titulo-fila"><h2 id="t-reg">Gastos registrados ${info('Gastos registrados', 'Cada fila de la planilla Registro Gasto: una por ítem y área. Corregir cambia fecha, ítem, área, monto u observación (el neto se recalcula).\nAnular no borra: la fila pasa a la pestaña "Gastos anulados" de la planilla, con fecha, quién y motivo, y deja de sumar en todos lados (análisis, Looker, prorrateo).\nSi la compra tiene varias líneas (áreas o ítems), puedes anular toda la compra de una vez.\nSe muestran desde el 1 de enero del año pasado.')}</h2><span id="reg-cuenta"></span></div>
+    <section class="tarjeta" aria-labelledby="t-reg"><div class="titulo-fila"><h2 id="t-reg">Gastos registrados ${info('Gastos registrados', 'Cada fila de la planilla Registro Gasto: una por ítem y área. Corregir cambia fecha, ítem, área, monto u observación (el neto se recalcula).\nAnular no borra: la fila pasa a la pestaña "Gastos anulados" de la planilla, con fecha, quién y motivo, y deja de sumar en todos lados (análisis, Looker, prorrateo).\nSi la compra tiene varias líneas (áreas o ítems), puedes anular toda la compra de una vez.\nSe muestran desde el 1 de enero del año pasado.')} ${infoDrive()}</h2><span id="reg-cuenta"></span></div>
       <div class="filtros"><input id="reg-buscar" type="search" placeholder="Buscar ítem, área, monto, proveedor, folio u observación" value="${esc(reg.busqueda)}" aria-label="Buscar">
         <select id="reg-mes" aria-label="Mes"><option value="">Todos los meses</option>${meses.map(m => `<option value="${m}" ${reg.mes === m ? 'selected' : ''}>${MESES_LARGOS[+m.slice(5) - 1].replace(/^./, c => c.toUpperCase())} ${m.slice(0, 4)}</option>`).join('')}</select>
         <div class="chips chips-chicos" role="group" aria-label="Forma de pago">${[['todos', 'Todos'], ['credito', 'A crédito'], ['por_pagar', 'Por pagar']].map(([k, t]) => `<button type="button" class="chip-filtro" data-forma="${k}" aria-pressed="${reg.forma === k}">${t}</button>`).join('')}</div></div>
@@ -2301,7 +2304,7 @@ async function pintarPrevired(el, sub, d) {
       <div class="campo"><label for="prev-archivo">PDF de Previred</label><input id="prev-archivo" type="file" accept="application/pdf,.pdf"></div>
       <div id="prev-msg" class="ayuda" role="status">${esc(prev.mensaje || '')}</div></section>
     <div id="prev-trabajo"></div>
-    <section class="tarjeta" aria-labelledby="t-prev-hist"><div class="titulo-fila"><h2 id="t-prev-hist">Meses cargados ${info('Costo de cada sueldo', 'AFP y salud se descuentan del sueldo del trabajador. SIS, seguros sociales y accidentes (ISL o mutual) los paga la empresa. La AFC mezcla las dos partes.\nEl costo real de un sueldo es el líquido que le transfieres más el total de su fila aquí.')}</h2></div>
+    <section class="tarjeta" aria-labelledby="t-prev-hist"><div class="titulo-fila"><h2 id="t-prev-hist">Meses cargados ${info('Costo de cada sueldo', 'AFP y salud se descuentan del sueldo del trabajador. SIS, seguros sociales y accidentes (ISL o mutual) los paga la empresa. La AFC mezcla las dos partes.\nEl costo real de un sueldo es el líquido que le transfieres más el total de su fila aquí.')} ${infoDrive()}</h2></div>
       <div id="prev-hist"><div class="vacio" style="border:0">Cargando…</div></div></section>`;
   $('prev-archivo').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) leerPrevired(f, items, d); });
   if (prev.datos) pintarPrevTrabajo(items, d);
@@ -3996,6 +3999,11 @@ async function subirCartola(file, conf) {
   if (c.filas.some(f => f.cargos > 0)) {
     try { out.cargos = await Cartola.cargar(c, 'cartola-' + Gastos.nuevaClave()); } catch (e) { out.errCargos = e.code === 'sin_url' ? 'falta conectar Gastos (Configuración → Conexiones)' : (e.message || mensajeError(e)); }
   } else out.cargos = { cargos: 0, nuevos: 0, yaVistos: 0, ignorados: 0 };
+  // v0.44.0: el archivo original va a Drive ("Fën · Gastos / Cartolas / año", privado). Si falla, lo cargado queda igual.
+  if (!out.errCargos) {
+    try { out.archivo = await Cartola.guardarArchivo(file, c, 'cartola-archivo-' + Gastos.nuevaClave()); }
+    catch (e) { out.errArchivo = e.code === 'sin_url' ? 'falta conectar Gastos (Configuración → Conexiones)' : (e.message || mensajeError(e)); }
+  }
   registrar('Cargó cartola', `${c.identificador} · ${out.abonos ? out.abonos.nuevos + ' abonos nuevos' : 'abonos sin pasar'} · ${out.cargos ? out.cargos.nuevos + ' cargos nuevos' : 'cargos sin pasar'}`);
   return out;
 }
@@ -4005,7 +4013,8 @@ function msgCartola(x, aqui) {
   const ab = a ? `${n(a.abonos, 'abono', 'abonos')} en la cartola · <b>${n(a.nuevos, 'nuevo', 'nuevos')}</b> · ${a.yaVistos} ya ${a.yaVistos === 1 ? 'visto' : 'vistos'} antes · ${n(a.ignorados, 'ignorado', 'ignorados')} (Transbank y otros)` : `los abonos no se pasaron a B2B: ${esc(x.errAbonos)}`;
   const cg = g ? `${n(g.cargos, 'cargo', 'cargos')} · <b>${n(g.nuevos, 'nuevo', 'nuevos')}</b> · ${g.yaVistos} ya ${g.yaVistos === 1 ? 'visto' : 'vistos'} antes${g.ignorados ? ` · ${n(g.ignorados, 'ignorado', 'ignorados')} (lo que marcaste "siempre")` : ''}` : `los cargos no se pasaron a Gastos: ${esc(x.errCargos)}`;
   const cuenta = x.c.cuenta && x.c.cuenta.tipo === 'cc' ? ` (${B2b.NOMBRE_CUENTA.cc}${x.c.cuenta.numero ? ' ' + B2b.ultimos4(x.c.cuenta.numero) : ''})` : '';
-  return `<b>${esc(x.c.identificador)}</b>${cuenta}:<br>Abonos (<a href="#conciliacion">pagos de clientes</a>): ${ab}.<br>Cargos (<a href="#conciliacion/cargos">gastos</a>): ${cg}.`;
+  const ar = x.archivo ? `<br>Archivo: ${x.archivo.ya ? 'ya estaba guardado' : 'guardado'} en Drive (privado).` : x.errArchivo ? `<br>Archivo: <b>no se pudo guardar en Drive</b> (${esc(String(x.errArchivo).replace(/\.$/, ''))}). Lo leído de la cartola sí quedó.` : '';
+  return `<b>${esc(x.c.identificador)}</b>${cuenta}:<br>Abonos (<a href="#conciliacion">pagos de clientes</a>): ${ab}.<br>Cargos (<a href="#conciliacion/cargos">gastos</a>): ${cg}.${ar}`;
 }
 // Carga una librería de cdnjs una sola vez
 const scriptsCargados = {};

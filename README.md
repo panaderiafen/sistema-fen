@@ -1,9 +1,38 @@
-# Sistema Fën · v0.43.0
+# Sistema Fën · v0.44.0
 
-**App:** v0.43.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (nuevas) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 · **Script de Gastos:** v2.9.0 · 11 de octubre de 2026
+**App:** v0.44.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.6.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.8.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.10.0 · 12 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.44.0: archivos de Gastos en Drive, ordenados y privados
+Gastos sigue trabajando con la planilla. Cambia solo cómo quedan los archivos en Drive (lo hace el script de Gastos v2.10.0):
+- Todo lo que se sube (foto o PDF de la boleta al registrar, comprobante al pagar, archivo del SII, PDF de Previred y cartola) va a la carpeta **"Fën · Gastos"**, con una carpeta por tipo (**Boletas y facturas**, **Comprobantes de pago**, **Cartolas**, **Cargas SII**, **Previred**) y dentro una por **año**. Queda **privado**: antes quedaba abierto a cualquiera con el enlace.
+- **La cartola guarda su archivo original.** Al subirla (Conciliación, en Abonos o en Cargos: es la misma subida) primero se cargan los movimientos como siempre y después el archivo va a **Fën · Gastos / Cartolas / año**. El mensaje dice **Archivo: guardado en Drive (privado)**. Si el archivo no se pudo guardar (o pesa más de 10 MB), lo dice, y lo leído de la cartola igual queda. En "Cartolas subidas" aparece **Ver archivo**.
+- **Gastos → Base nueva → Archivos en Drive** (i): botón **Dejar privados los archivos ya subidos**. Revisa las carpetas antiguas (Boletas Gastos, Comprobantes Pagos, Cargas SII, Cotizaciones Previred) y la nueva, por partes, y muestra el avance (**"N de M archivos"**) hasta **Listo**. Si se corta, el botón dice **Seguir donde quedó**. Se puede repetir: lo ya privado queda igual. No mueve ni borra nada. Esta parte no necesita la base nueva conectada.
+- Los enlaces **Boleta**, **comprobante**, **Archivo en Drive**, **PDF en Drive** y **Ver archivo** se siguen abriendo en otra pestaña; un (i) junto a cada lista explica que se abren solo con la cuenta de Google de Emmanuel.
+
+Archivos: cambian `app.js`, `cartola.js`, `gastos.js`, `vista-gastos-base.js`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.44.0**.
+
+### Instalación v0.44.0 (unos 8 minutos)
+**A. Script de Gastos v2.10.0** → ver el README de `gastos-script-v2.10.0.zip` (reemplaza `Code.gs`, `SistemaFen.gs`, `Cartola.gs` y `Seguridad.gs`; nueva versión de la implementación). El ping debe decir **2.10.0**.
+
+**B. Sistema Fën v0.44.0** → en GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → arrastra todos los archivos del zip (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R). Abajo a la izquierda debe decir **v0.44.0**.
+
+**C. Dejar privado lo antiguo** → antes, piensa si alguien más abre esos enlaces (el contador, imágenes de boletas en Looker Studio): después ya no podrá sin que lo compartas a mano. Luego **Gastos → Base nueva → Archivos en Drive → Dejar privados los archivos ya subidos** y espera **Listo**.
+
+### Lista de verificación v0.44.0
+- [ ] Abajo a la izquierda dice **v0.44.0**.
+- [ ] Registra un gasto de prueba con foto: en Drive queda en **Fën · Gastos / Boletas y facturas / 2026**, con acceso **Restringido**; "Boleta" en Registrados la abre.
+- [ ] Sube una cartola: dice **Archivo: guardado en Drive (privado)** y en "Cartolas subidas" está **Ver archivo**. En la planilla, hoja Cartolas, la última columna es **Archivo**.
+- [ ] **Dejar privados** muestra "N de M archivos" y termina en **Listo**. Presionarlo de nuevo dice **Ya estaban todos privados**.
+- [ ] Un enlace antiguo abierto en una ventana de incógnito pide permiso.
+- [ ] Todo lo demás de Gastos, Conciliación y B2B sigue igual.
+
+### Si algo sale mal
+- **"Falta actualizarlo a v2.10.0"** (al guardar el archivo de la cartola o en Dejar privados): paso A. Los cargos de la cartola se cargan igual.
+- **"Ya se están revisando los archivos"**: hay otra revisión en curso (otra pestaña); espera unos minutos y vuelve a presionar.
+- Para volver atrás: sube los archivos de la v0.43.0 y vuelve el script a la v2.9.0. Los archivos ya guardados quedan donde están y sus enlaces siguen sirviendo.
 
 ## Novedades de la v0.43.0: Gastos, base nueva (etapa G1)
 Nueva pestaña **Gastos → Base nueva**. Copia lo de **2026** de la planilla de Gastos al proyecto Firebase nuevo **fen-gastos** y revisa que cuadre.

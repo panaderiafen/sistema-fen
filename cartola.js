@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Cartola: los cargos del banco contra Gastos  v0.18.0
+//  Sistema Fën — Cartola: los cargos del banco contra Gastos  v0.18.0 (v0.44.0: el archivo original va a Drive)
 //  La misma cartola que se sube en B2B → Conciliación (los abonos) trae los
 //  cargos: aquí se dice qué es cada uno (paga vencimientos, ya estaba en
 //  Gastos, gasto nuevo o no es gasto). Lo guarda el script de Gastos v2.8.0
 //  (hojas "Cartola Cargos", "Cartolas" y "Cartola Reglas").
 //  Las propuestas se calculan aquí, cada vez, con lo que está por pagar en ese momento.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.43.0';
+import * as Gastos from './gastos.js?v=0.44.0';
 
 export const VERSION_CARTOLA = '2.8.0';
 const op = (o, d, idem) => Gastos.llamar(o, d, idem, VERSION_CARTOLA);
@@ -20,16 +20,29 @@ export async function lista(forzar, dias = 60) {
 }
 export const olvidar = () => { cache = null; };
 
+const metaDe = cartola => ({ id: cartola.identificador, tipo: cartola.tipo, cuenta: (cartola.cuenta && cartola.cuenta.tipo) || 'chequera', numero: (cartola.cuenta && cartola.cuenta.numero) || '', nCartola: cartola.nCartola || '', desde: cartola.desde || '', hasta: cartola.hasta || '' });
 // Los cargos de la cartola leída (b2b.leerCartola) se suben de a 1500
 export async function cargar(cartola, idemBase) {
   const cargos = cartola.filas.filter(f => f.cargos > 0).map(f => ({ fecha: f.fecha, descripcion: f.descripcion, monto: f.cargos, saldo: f.saldo, operacion: f.operacion || '' }));
-  const meta = { id: cartola.identificador, tipo: cartola.tipo, cuenta: (cartola.cuenta && cartola.cuenta.tipo) || 'chequera', numero: (cartola.cuenta && cartola.cuenta.numero) || '', nCartola: cartola.nCartola || '', desde: cartola.desde || '', hasta: cartola.hasta || '' };
+  const meta = metaDe(cartola);
   const r = { cargos: 0, nuevos: 0, yaVistos: 0, ignorados: 0 };
   for (let i = 0; i < Math.max(1, cargos.length); i += 1500) {
     const x = await op('cc_cargar', { cartola: meta, cargos: cargos.slice(i, i + 1500), parte: i / 1500 }, `${idemBase}-${i}`);
     ['cargos', 'nuevos', 'yaVistos', 'ignorados'].forEach(k => { r[k] += x[k] || 0; });
   }
   olvidar(); Gastos.olvidar();
+  return r;
+}
+// v0.44.0 · El archivo original, tal como se subió, a Drive ("Fën · Gastos / Cartolas / año", privado).
+// Script de Gastos v2.10.0 (op cc_archivo). Hasta 10 MB.
+export const VERSION_ARCHIVO = '2.10.0';
+export const ARCHIVO_MAX = 10 * 1024 * 1024;
+export async function guardarArchivo(file, cartola, idem) {
+  if (!file) throw new Error('Falta el archivo');
+  if (file.size > ARCHIVO_MAX) throw Object.assign(new Error('el archivo pesa más de 10 MB'), { code: 'grande' });
+  const archivoBase64 = await Gastos.aBase64(file);
+  const r = await Gastos.llamar('cc_archivo', { cartola: metaDe(cartola), archivoBase64, mimeType: file.type || 'application/octet-stream', nombreArchivo: file.name || 'cartola.xlsx' }, idem, VERSION_ARCHIVO);
+  olvidar();
   return r;
 }
 export async function resolver(d, idem) { const r = await op('cc_resolver', d, idem); olvidar(); Gastos.olvidarTodo(); return r; }

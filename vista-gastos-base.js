@@ -1,13 +1,16 @@
 // ═══════════════════════════════════════════════
 //  Sistema Fën — Gastos → Base nueva (fen-gastos)  v0.43.0 (etapa G1)
+//  v0.44.0: parte "Archivos en Drive" (dejar privados los archivos ya subidos; script de Gastos v2.10.0)
 //  Conectar la base nueva, entrar, leer la planilla (2026), copiar y control de totales.
 //  Nada cambia en el uso de Gastos: sigue con la planilla hasta el cambio.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as GB from './gastos-base.js?v=0.43.0';
-import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.43.0';
+import * as GB from './gastos-base.js?v=0.44.0';
+import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.44.0';
+import * as Gastos from './gastos.js?v=0.44.0';
 
-const st = { prep: null, ctrl: null, msg: '', copiando: false, leyendo: false, controlando: false };
+const st = { prep: null, ctrl: null, msg: '', copiando: false, leyendo: false, controlando: false,
+  drive: { corriendo: false, revisados: 0, total: null, cambiados: 0, fallidos: 0, siguiente: null, msg: '', err: '', listo: false } };
 const $ = id => document.getElementById(id);
 const n = v => Math.round(Number(v || 0)).toLocaleString('es-CL');
 const pesos = v => { const x = Math.round(Number(v) || 0); return (x < 0 ? '-$' : '$') + Math.abs(x).toLocaleString('es-CL'); };
@@ -51,11 +54,13 @@ export async function pintar(el, cab, H) {
       ${pliegue('conexion', 'Conexión', resCx, `<div id="gb-conexion">${errorCx ? `<p class="error" role="alert">${H.esc(errorCx)}</p>` : seccionConexion(cx, H)}</div>`)}
       ${ok ? pliegue('copia', `Copia desde la planilla (${GB.ANIO})`, resCopia, seccionCopia(H)) : ''}
       ${ok ? pliegue('control', 'Control de totales', resCtrl, seccionControl(H)) : ''}
+      ${pliegue('drive', 'Archivos en Drive', st.drive.listo ? '<span class="chip c-verde">Privados</span>' : '', `<div id="gb-drive">${seccionDrive(H)}</div>`)}
     </section>`;
   conectarPliegues(el);
   const otra = () => pintar(el, cab, H);
   conectarConexion(el, cx, H, otra);
   if (ok) conectarCopia(el, H, otra);
+  conectarDrive(H);
 }
 
 // ── Conexión ──
@@ -167,4 +172,50 @@ function seccionControl(H) {
     <h3 style="margin:12px 0 4px;font-size:15px">Por colección</h3>${tabla(r.filas.filter(f => f.grupo !== 'mes'))}
     <h3 style="margin:12px 0 4px;font-size:15px">Gastos vigentes por mes</h3>${tabla(r.filas.filter(f => f.grupo === 'mes'))}
     ${boton}`;
+}
+
+// ── v0.44.0 · Archivos en Drive ──
+// No necesita la base nueva: habla con el script de Gastos (v2.10.0), que deja privados los
+// archivos de las carpetas antiguas y de "Fën · Gastos", de a partes. Se puede repetir.
+const TXT_DRIVE = 'Lo que se sube desde Sistema Fën (fotos y PDF de boletas, comprobantes de pago, archivos del SII, PDF de Previred y cartolas) queda en Drive, en la carpeta "Fën · Gastos", con una carpeta por tipo y otra por año. Es privado: los enlaces "Boleta", "comprobante", "Archivo en Drive", "PDF en Drive" y "Ver archivo" se abren solo con la cuenta de Google de Emmanuel.\nLo subido antes (carpetas "Boletas Gastos", "Comprobantes Pagos", "Cargas SII" y "Cotizaciones Previred") quedaba abierto a cualquiera con el enlace. Este botón lo deja privado, de a partes. Si se corta, vuelve a presionarlo y sigue donde quedó. Repetirlo no hace daño: no mueve ni borra nada.\nNecesita el script de Gastos v' + Gastos.VERSION_DRIVE + '.';
+function avanceDrive(d) {
+  return d.total != null ? `${n(d.revisados)} de ${n(d.total)} archivos` : `${n(d.revisados)} ${d.revisados === 1 ? 'archivo' : 'archivos'}`;
+}
+function seccionDrive(H) {
+  const d = st.drive;
+  const texto = d.corriendo ? 'Revisando… ' + avanceDrive(d) : d.msg;
+  return `<p class="ayuda">Boletas, comprobantes, SII, Previred y cartolas ${H.info('Archivos en Drive', TXT_DRIVE)}</p>
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="gb-privados" ${d.corriendo ? 'disabled' : ''}>${d.corriendo ? 'Revisando…' : d.siguiente ? 'Seguir donde quedó' : 'Dejar privados los archivos ya subidos'}</button></div>
+    ${d.total ? `<progress id="gb-priv-barra" max="${d.total}" value="${Math.min(d.revisados, d.total)}" style="width:100%;margin-top:8px" aria-label="Avance"></progress>` : ''}
+    <p id="gb-priv-avance" class="ayuda" role="status" aria-live="polite">${H.esc(texto)}</p>
+    ${d.err ? `<p class="error" role="alert">${H.esc(d.err)}</p>` : ''}`;
+}
+function pintarDrive(H) { const c = $('gb-drive'); if (c) { c.innerHTML = seccionDrive(H); conectarDrive(H); } }
+function conectarDrive(H) {
+  const b = $('gb-privados');
+  if (b) b.addEventListener('click', () => dejarPrivados(H));
+}
+async function dejarPrivados(H) {
+  const d = st.drive;
+  if (d.corriendo) return;
+  const seguir = !!d.siguiente;
+  if (!seguir) Object.assign(d, { revisados: 0, total: null, cambiados: 0, fallidos: 0 });
+  Object.assign(d, { corriendo: true, msg: '', err: '', listo: false });
+  pintarDrive(H);
+  try {
+    do {
+      const r = await Gastos.dejarPrivados(d.siguiente);
+      Object.assign(d, { revisados: r.revisados || 0, total: r.total == null ? null : r.total, cambiados: r.cambiados || 0, fallidos: r.fallidos || 0, siguiente: r.siguiente || null });
+      pintarDrive(H);
+    } while (d.siguiente);
+    d.listo = true;
+    d.msg = `Listo: ${avanceDrive(d)} revisados. ` + (d.cambiados ? `${n(d.cambiados)} ${d.cambiados === 1 ? 'quedó privado' : 'quedaron privados'}` : 'Ya estaban todos privados')
+      + (d.fallidos ? `; ${n(d.fallidos)} no se pudieron cambiar (son de otra cuenta)` : '') + '.';
+    H.registrar('Dejó privados los archivos de Drive', `${n(d.revisados)} revisados · ${n(d.cambiados)} cambiados`);
+    const res = document.querySelector('#gb-res-drive'); if (res) res.innerHTML = '<span class="chip c-verde">Privados</span>';
+  } catch (e) {
+    d.err = ((e && e.message) || H.mensajeError(e)) + (d.siguiente ? ' Lo revisado hasta aquí ya quedó: presiona "Seguir donde quedó".' : '');
+  }
+  d.corriendo = false;
+  pintarDrive(H);
 }

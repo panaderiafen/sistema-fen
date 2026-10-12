@@ -6,8 +6,8 @@
 //  hubiera hecho allá (mismas hojas, misma carpeta de Drive).
 //  Cada envío lleva una clave única (idem): si se repite, no se guarda dos veces.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.43.0';
-import * as Apps from './apps.js?v=0.43.0';
+import { auth } from './firebase.js?v=0.44.0';
+import * as Apps from './apps.js?v=0.44.0';
 
 export const VERSION_MINIMA = '2.2.0';
 let urlOk = null, versionOk = '', cacheDatos = null;
@@ -82,6 +82,7 @@ export async function prepararArchivo(file) {
   } catch (e) { return original(); }
   finally { URL.revokeObjectURL(src); }
 }
+export const aBase64 = file => base64(file);
 function base64(file) { return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = no; r.readAsDataURL(file); }); }
 
 // Neto / IVA / total como la app de Gastos (harina: 19% + 12% adicional)
@@ -125,3 +126,8 @@ export const calendario = eventos => llamar('calendario', { eventos }, null, VER
 export async function guardarItem(d) { const r = await op('item_guardar', d); olvidarTodo(); return r; }
 export async function moverItem(item, direccion) { const r = await op('item_mover', { item, direccion }); olvidarTodo(); return r; }
 export async function archivarItem(nombre, archivar) { const r = await op('item_archivar', { nombre, archivar }); olvidarTodo(); return r; }
+
+// v0.44.0 · Archivos en Drive (script de Gastos v2.10.0): deja privados los archivos ya subidos.
+// Una parte por llamada (menos de ~4 minutos en el script); "siguiente" es la marca para seguir.
+export const VERSION_DRIVE = '2.10.0';
+export const dejarPrivados = siguiente => llamar('drive_privados', siguiente ? { siguiente } : {}, null, VERSION_DRIVE);
