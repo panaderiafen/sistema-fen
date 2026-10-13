@@ -1,9 +1,40 @@
-# Sistema Fën · v0.54.0
+# Sistema Fën · v0.54.1
 
-**App:** v0.54.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** **v1.7.0** (nuevas, van en el zip de Cocina v0.16.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** **v2.9.0** · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 12 de octubre de 2026
+**App:** v0.54.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** **v1.7.0** (nuevas, van en el zip de Cocina v0.16.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** **v2.9.0** · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 12 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.54.1: escribir para buscar en las listas de materias primas
+Pedido de Emmanuel: donde eliges una materia prima o insumo de una lista, ahora también puedes **escribir el nombre**.
+
+- Arriba de la lista hay un campo **"Escribe para buscar…"** (con una lupa). Al escribir, la lista queda solo con lo que coincide y se elige la primera.
+- No importan las **tildes** ni las **mayúsculas** ("cafe" encuentra "Café en grano"), busca en **cualquier parte** del nombre y con **varias palabras en cualquier orden** ("t80 harina").
+- Si no hay nada: dice **"Sin resultados"**, la lista queda completa y vuelve a lo que estaba elegido antes de escribir.
+- **Escape** o borrar lo escrito: vuelve la lista completa (lo elegido se queda).
+- Las opciones como "Elige una materia prima…" o "(no descuenta)" se quedan siempre.
+
+**Dónde está (Producción → Bodega):** "El café de la bitácora de turno sale de", **Agregar crítica** (en las dos pestañas) y **Llegó mercadería** (en las dos pestañas). "Pasar a Cafetería" son casillas, no lista: no cambia. En Sistema Fën no hay otras listas de materias primas (las solicitudes de Cocina se aprueban con botones).
+
+Por dentro: `buscador.js` nuevo (`conBuscador(select)`, `normalizar`, `coincide`, `filtrar`; copia exacta en Cocina v0.16.1). La lista (`<select>`) sigue mandando: lo que lee `select.value` no cambia. Se engancha cada vez que se pinta la Bodega (`conectarBodega`); no se duplica (`data-buscador`).
+
+Pruebas: unitaria `pruebas/cocina/buscador.test.mjs` (4); punta a punta en `cocina-p1` (2 nuevas: Bodega de Sistema Fën y "Falta una materia prima" de Cocina, con y sin tildes, sin resultados, Escape, celular). Capturas en `pruebas/capturas/buscador-v054/`.
+
+Archivos: nuevo `buscador.js`; cambian `vista-produccion.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.54.1**. No cambian reglas ni scripts.
+
+### Instalación v0.54.1 (unos 3 minutos)
+En GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.54.1.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R). Si no instalaste la v0.54.0, haz antes sus pasos (abajo).
+
+### Lista de verificación v0.54.1
+- [ ] Abajo a la izquierda dice **v0.54.1**.
+- [ ] Producción → Bodega → Calcular: arriba de "El café de la bitácora de turno sale de" está "Escribe para buscar…".
+- [ ] Escribe "cafe" (sin tilde): queda elegido el café.
+- [ ] Escribe algo que no existe: dice "Sin resultados". Escape: vuelve la lista completa.
+- [ ] En **Agregar crítica** y **Llegó mercadería** (pestañas Producción y Cafetería) también se puede escribir.
+- [ ] En el celular se ve bien (sin moverse de lado).
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.54.0 (el `buscador.js` que queda no se usa).
 
 ## Novedades de la v0.54.0: bodegas separadas (Producción y Cafetería) y avisos de bajo el mínimo
 Va con **Cocina v0.16.0** (que incluye la v0.15.0), el **script de Producción v2.9.0** y las **reglas v1.7.0** de fen-produccion.

@@ -748,3 +748,13 @@ a.ag-item { text-decoration: none; }
 .pestanas button[aria-selected="true"] { background: var(--tarjeta); color: var(--texto); font-weight: 700; }
 .pestanas button:focus-visible { outline: 2px solid var(--texto); outline-offset: 2px; }
 .pest-bodega { margin: 10px 0 4px; width: fit-content; max-width: 100%; }
+
+/* Buscador sobre las listas de materias primas e insumos (Cocina v0.16.1 · Sistema Fën v0.54.1) */
+.buscador { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.buscador .buscador-ic { position: absolute; left: 12px; top: 15px; color: var(--suave); pointer-events: none; display: flex; }
+.buscador input[type=search] { min-height: 44px; width: 100%; box-sizing: border-box; padding: 0 12px 0 38px; border-radius: 10px; border: 1px dashed var(--borde); background: #fff; font-size: 16px; -webkit-appearance: none; appearance: none; }
+.buscador input[type=search]::placeholder { color: var(--suave); }
+.buscador input[aria-invalid=true] { border-color: #B3261E; }
+.buscador-msg { font-size: 13px; color: var(--suave); min-height: 0; }
+.buscador-msg:empty { display: none; }
+.buscador input[aria-invalid=true] ~ .buscador-msg { color: #B3261E; font-weight: 600; }

@@ -5,8 +5,9 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.54.0';
+import * as P from './produccion.js?v=0.54.1';
 import * as K from './cocina/consumo.js?v=0.16.0';
+import { conBuscador } from './buscador.js?v=0.54.1';
 
 const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -349,6 +350,8 @@ function conectarBodega(H) {
   const repintarB = () => { $b('prod-bodega').innerHTML = seccionBodega(H); const r = $b('pl-res-bodega'); if (r) r.innerHTML = resumenBodega(); conectarBodega(H); };
   const calcular = async () => { b.cargando = true; b.msg = ''; repintarB(); try { b.calc = await P.calcularBodega(); } catch (e) { b.msg = error(e, H); } b.cargando = false; repintarB(); };
   const boton = $b('prod-bod-calc'); if (!boton) return;
+  // v0.54.1: buscador sobre las listas de materias primas (café de Cafetería, agregar crítica, llegó mercadería)
+  document.querySelectorAll('#prod-bod-cafe, select[id^="prod-bod-nueva"], select[id^="prod-bod-ll-mp"]').forEach(conBuscador);
   boton.addEventListener('click', calcular);
   document.querySelectorAll('[data-bod-tab]').forEach(t => t.addEventListener('click', () => { b.ver = t.dataset.bodTab; repintarB(); }));
   const per = $b('prod-bod-per'); if (per) per.addEventListener('change', () => { b.periodo = per.value; repintarB(); });

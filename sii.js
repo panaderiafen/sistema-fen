@@ -8,7 +8,7 @@
 //  v0.48.0 (etapa G3): con Gastos en la base nueva (config/gastos: fuente "base"), las llamadas van a fen-gastos
 //  (gastos-sii-fs.js) con las mismas respuestas; "Sugerir % según ventas" sigue con el script. Con la planilla, igual que antes.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.54.0';
+import * as Gastos from './gastos.js?v=0.54.1';
 
 export const VERSION_MINIMA = '2.4.0';
 // v0.10.0: un documento se reconoce por RUT, folio y si es nota de crédito (tipo 61):
@@ -420,7 +420,7 @@ const base64Utf8 = texto => { const b = new TextEncoder().encode(texto); let s =
 const docsDe = facturas => facturas.map(f => ({ rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', total: f.total, fecha: fechaDDMMYYYYaISO(f.fecha), razonSocial: f.razonSocial }));
 
 // v0.48.0 · Con la base nueva, lo mismo en fen-gastos (gastos-sii-fs.js)
-const fsSii = () => import('./gastos-sii-fs.js?v=0.54.0');
+const fsSii = () => import('./gastos-sii-fs.js?v=0.54.1');
 const enBase = () => Gastos.enBase();
 export async function estado(facturas) { return (await enBase()) ? (await fsSii()).estado(docsDe(facturas)) : llamar('sii_estado', { documentos: docsDe(facturas) }); }
 export async function registrarCarga(facturas, nombre, tipo, contenido, idem) {

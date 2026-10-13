@@ -16,8 +16,8 @@
 //  generarVencimientos acepta la antelación por obligación (tipo documento: antes, para esperar la boleta).
 //  Sin red: se prueba sola. Fechas y horas en hora de Chile (America/Santiago).
 // ═══════════════════════════════════════════════
-import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.54.0';
-import * as G3 from './gastos-g3.js?v=0.54.0';
+import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.54.1';
+import * as G3 from './gastos-g3.js?v=0.54.1';
 
 export const AREAS = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS'];
 export const ANTELACION_DIAS = 3;          // un vencimiento se crea 3 días antes (como el script)
