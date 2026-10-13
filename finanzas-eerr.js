@@ -21,7 +21,7 @@
 //  no se toca: lo que cambie después aparece como "Ajustes de meses cerrados" en el primer mes abierto siguiente
 //  (= cálculo de hoy del mes cerrado − su snapshot − lo ya informado como ajuste en otros meses cerrados).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.62.0';
+import * as FR from './finanzas-resultados.js?v=0.63.0';
 
 export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
 export const COLS = ['PAN', 'BOL', 'PAS', 'CAF', 'comun'];

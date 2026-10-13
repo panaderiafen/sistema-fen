@@ -12,14 +12,14 @@
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.62.0';
-import * as FC from './finanzas-costos.js?v=0.62.0';
-import * as FS from './finanzas-sii.js?v=0.62.0';
-import * as FM from './finanzas-motor.js?v=0.62.0';
-import * as FV from './finanzas-ventas.js?v=0.62.0';
-import * as FMG from './finanzas-margenes.js?v=0.62.0';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.62.0';
-import * as VR from './vista-finanzas-resultados.js?v=0.62.0';
+import * as F from './finanzas.js?v=0.63.0';
+import * as FC from './finanzas-costos.js?v=0.63.0';
+import * as FS from './finanzas-sii.js?v=0.63.0';
+import * as FM from './finanzas-motor.js?v=0.63.0';
+import * as FV from './finanzas-ventas.js?v=0.63.0';
+import * as FMG from './finanzas-margenes.js?v=0.63.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.63.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.63.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -39,6 +39,9 @@ const PI = {
   informe: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>',
   decision: '<path d="M12 3v18M5 7h14M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"/>',
   meta: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 12h.01"/>',
+  banco: '<path d="M3 10 12 4l9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8"/><path d="M3 20h18"/>',
+  efectivo: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/>',
+  campana: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7"/>', sube: '<path d="M12 19V5M6 11l6-6 6 6"/>', baja: '<path d="M12 5v14M6 13l6 6 6-6"/>',
   lupa: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', bajar: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
   neto: '<path d="M4 12h16M12 4v16"/><circle cx="12" cy="12" r="9"/>', fuente: '<circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6"/>', candado: '<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
@@ -130,6 +133,15 @@ function comoTrabajamos(H) {
       <div class="fin-regla">${ic('neto', 22)}<div><b>Todo en neto</b><span>Ventas y costos sin IVA. El IVA va al flujo de caja.</span></div></div>
       <div class="fin-regla">${ic('fuente', 22)}<div><b>Una sola fuente por dato</b><span>Cada número se anota en un solo lugar y de ahí lo leen todos.</span></div></div>
       <div class="fin-regla">${ic('candado', 22)}<div><b>Un mes cerrado no se toca</b><span>Las correcciones entran como ajuste del mes siguiente.</span></div></div>
+    </div>
+  </section>
+  <section class="tarjeta" aria-labelledby="t-fin-pagos" id="fin-pagos">
+    <h2 id="t-fin-pagos">Cómo se registran los pagos ${H.info('Cómo se registran los pagos', 'Acordado el 13 de octubre de 2026: cada peso que sale por el banco se registra una sola vez y desde la cartola, con la fecha del banco. Así Gastos y la cartola siempre cuadran y nada queda duplicado.\nLas obligaciones dicen cómo se pagan (Obligaciones → Editar → "Se paga por"): banco, efectivo o tarjeta de crédito.')}</h2>
+    <div class="fin-reglas">
+      <div class="fin-regla">${ic('banco', 22)}<div><b>Lo que pagas por banco lo registra la cartola</b><span>Transferencias, cargos automáticos y pagos desde la cuenta: al subir la cartola, en Conciliación → Cargos dices qué es cada cargo y ahí queda el gasto.</span></div></div>
+      <div class="fin-regla">${ic('efectivo', 22)}<div><b>Solo el efectivo se registra a mano</b><span>En Gastos → Registrar (forma de pago Efectivo) o con "Pagar" en un vencimiento que se paga en efectivo.</span></div></div>
+      <div class="fin-regla">${ic('campana', 22)}<div><b>Los vencimientos te dicen qué pagar; la cartola lo registra</b><span>Un vencimiento de banco dice "Se paga desde la cartola": te recuerda pagarlo, no se paga ahí.</span></div></div>
+      <div class="fin-regla">${ic('check', 22)}<div><b>Si registras a mano un pago de banco, la cartola solo lo confirma</b><span>Queda esperando su cargo (Hoy: "Esperan cartola"). Cuando llega, elige "Ya está en Gastos" para no duplicarlo.</span></div></div>
     </div>
   </section>
   <section class="tarjeta" aria-labelledby="t-fin-calc">

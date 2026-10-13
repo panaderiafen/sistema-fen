@@ -1269,3 +1269,42 @@ a.btn-sec { display: inline-flex; align-items: center; justify-content: center; 
 .fin-eerr .fin-enum > span, .fin-eerr .fin-ecel { display: inline-block; min-height: 24px; line-height: 24px; }
 .fin-eerr th[scope=row] { line-height: 24px; }
 .fin-ctit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+/* ═══ v0.63.0 · Lo que se paga por banco llega con la cartola ═══ */
+.chip-banco { display: inline-flex; align-items: center; gap: 6px; }
+.chip-banco svg { flex: none; }
+.menu-venc { position: relative; }
+.menu-venc > summary { list-style: none; display: inline-flex; align-items: center; justify-content: center; min-width: 40px; }
+.menu-venc > summary::-webkit-details-marker { display: none; }
+.menu-venc[open] > summary { border-color: var(--acento); }
+.menu-venc-lista { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 220px; max-width: min(300px, calc(100vw - 32px)); display: flex; flex-direction: column; padding: 6px; border-radius: 12px; border: 1px solid var(--borde); background: var(--tarjeta); box-shadow: 0 8px 24px rgba(40, 36, 28, .12); }
+.menu-item { text-align: left; min-height: 40px; padding: 0 12px; border: 0; border-radius: 8px; background: none; font-size: 14px; font-weight: 600; color: var(--texto); cursor: pointer; }
+.menu-item:hover, .menu-item:focus-visible { background: var(--fondo); }
+.menu-item.btn-peligro { color: var(--rojo-t, #9b3b2f); }
+.aviso-cc svg { vertical-align: -3px; margin-right: 2px; }
+.pendiente-multi .txt span { overflow-wrap: anywhere; }
+.pendiente-multi .pend-pregunta { color: var(--texto); font-weight: 600; margin-top: 2px; }
+.pend-enlaces { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 4px; }
+.pend-enlaces a { color: var(--acento); font-weight: 600; font-size: 13px; text-underline-offset: 3px; }
+.opcion-cc-fila { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 8px; }
+.opcion-cc-fila > .opcion-cc { flex: 1 1 260px; min-width: 0; }
+.opcion-cc-fila > .opcion-cc > span { min-width: 0; overflow-wrap: anywhere; }
+.opcion-cc-fila > .btn-link { align-self: center; }
+.chip-origen { display: inline-block; margin: 2px 0 0 2px; white-space: normal; }
+.prop-cc .chip-origen { vertical-align: 1px; }
+.det-gasto-dlg { max-width: 560px; }
+.dg-lista { display: grid; grid-template-columns: minmax(110px, auto) 1fr; gap: 6px 14px; margin: 8px 0 4px; font-size: 14px; }
+.dg-fila { display: contents; }
+.dg-lista dt { color: var(--suave); font-size: 13px; }
+.dg-lista dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.dg-areas { display: flex; flex-direction: column; gap: 2px; }
+.dg-areas small { color: var(--suave); }
+.dg-tit { display: flex; align-items: center; gap: 6px; font-size: 15px; margin: 14px 0 2px; padding-top: 12px; border-top: 1px solid var(--linea); }
+.dg-origen { margin: 2px 0; }
+.dg-cargo { margin-bottom: 4px; }
+@media (max-width: 480px) { .dg-lista { grid-template-columns: 1fr; gap: 2px; } .dg-lista dd { margin-bottom: 6px; } }
+@media (max-width: 560px) {
+  .menu-venc[open] { flex-basis: 100%; display: flex; flex-direction: column; align-items: flex-end; }
+  .menu-venc-lista { position: static; margin-top: 6px; width: 100%; max-width: none; min-width: 0; box-shadow: none; }
+}
+.grupo-banco { display: inline-flex; align-items: center; gap: 4px; flex-wrap: nowrap; }

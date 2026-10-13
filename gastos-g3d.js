@@ -10,9 +10,10 @@
 //    bruto (neto = final / 1,19) → neto = final.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.62.0';
-import * as M from './gastos-g2.js?v=0.62.0';
-import * as G3 from './gastos-g3.js?v=0.62.0';
+import * as B from './gastos-banco.js?v=0.63.0';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.63.0';
+import * as M from './gastos-g2.js?v=0.63.0';
+import * as G3 from './gastos-g3.js?v=0.63.0';
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -222,12 +223,14 @@ export function proveedoresSii(siiDocs, fichas) {
   return [...m.values()];
 }
 // Lista para la pantalla: obligaciones activas con sus pagos y la propuesta
-export function listaClasificar(plantillas, vencs, proveedores, hoy) {
+// v0.63.0: también "Se paga por" (lo guardado; sin el campo = banco) y su propuesta desde el historial (gastos: [{ id, d }], opcional)
+export function listaClasificar(plantillas, vencs, proveedores, hoy, gastos) {
   const pagos = pagosPorObligacion(vencs);
   return (plantillas || []).filter(x => x.d && !x.d.quitadoEnPlanilla && s(x.d.estado || 'ACTIVA') === 'ACTIVA').map(x => {
     const v = M.vistaPlantilla(x.id, x.d, vencs, hoy), pg = pagos[v.id] || [];
     return { id: v.id, nombre: v.nombre, item: v.item, montoEstimado: n(v.montoEstimado), tipoMonto: v.tipoMonto, tipoObligacion: s(x.d.tipoObligacion), identificador: s(x.d.identificador), diasAviso: x.d.diasAviso === undefined ? '' : x.d.diasAviso,
-      sinClasificar: G3.sinClasificar(x.d), pagos: pg.slice(0, 6), propuesta: proponer(v, pg, proveedores) };
+      sinClasificar: G3.sinClasificar(x.d), pagos: pg.slice(0, 6), propuesta: proponer(v, pg, proveedores),
+      sePagaPor: B.sePagaPorOk(x.d.sePagaPor), propuestaSePaga: B.propuestaSePagaPor(v.id, vencs, gastos || []) };
   }).sort((a, b) => (a.sinClasificar === b.sinClasificar ? 0 : a.sinClasificar ? -1 : 1) || a.nombre.localeCompare(b.nombre));
 }
 

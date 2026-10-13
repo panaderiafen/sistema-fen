@@ -13,11 +13,11 @@
 //    lado, con las reglas de la v0.49.0 para sus vencimientos abiertos).
 //  · Arreglo "siniva": vista previa y aplicar (cada gasto con su historial "ajuste siniva" y la marca para la planilla).
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.62.0';
-import * as M from './gastos-g2.js?v=0.62.0';
-import * as G3 from './gastos-g3.js?v=0.62.0';
-import * as D from './gastos-g3d.js?v=0.62.0';
-import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.62.0';
+import * as FB from './firebase-gastos.js?v=0.63.0';
+import * as M from './gastos-g2.js?v=0.63.0';
+import * as G3 from './gastos-g3.js?v=0.63.0';
+import * as D from './gastos-g3d.js?v=0.63.0';
+import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.63.0';
 
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const s = v => String(v == null ? '' : v);
@@ -108,8 +108,10 @@ export async function cotRegistrar(p, marca, subir) {
 
 // ── Clasificar obligaciones ──
 export async function datosClasificar() {
-  const [ps, vencs, siiDocs, fichas] = await Promise.all([todos('obligaciones'), todos('vencimientos'), todos('sii_docs'), todos('proveedores')]);
-  return { ok: true, obligaciones: D.listaClasificar(ps, vencs, D.proveedoresSii(siiDocs, fichas), M.ahoraChile().dia) };
+  // v0.63.0: los gastos del último año pagados desde un vencimiento, para proponer "Se paga por"
+  const [ps, vencs, siiDocs, fichas, gastos] = await Promise.all([todos('obligaciones'), todos('vencimientos'), todos('sii_docs'), todos('proveedores'),
+    todos('gastos', FB.where('fecha', '>=', G3.sumarDias(M.ahoraChile().dia, -365))).then(l => l.filter(x => x.d && x.d.vencimientoId)).catch(() => [])]);
+  return { ok: true, obligaciones: D.listaClasificar(ps, vencs, D.proveedoresSii(siiDocs, fichas), M.ahoraChile().dia, gastos) };
 }
 // lista = [{ id, tipoObligacion, identificador, diasAviso }]. Cada una por su lado: { ok: [ids], errores: [{ id, error }] }
 export async function clasificar(lista, avance = () => {}) {
@@ -121,7 +123,7 @@ export async function clasificar(lista, avance = () => {}) {
     try {
       const o = ps.find(y => (s(y.d.id) || y.id) === s(x.id) && !y.d.quitadoEnPlanilla);
       if (!o) throw error('Esa obligación ya no existe', 'datos');
-      const c = G3.clasificacionDesdeForm({ tipoObligacion: x.tipoObligacion, identificador: x.identificador, diasAviso: x.diasAviso });
+      const c = G3.clasificacionDesdeForm({ tipoObligacion: x.tipoObligacion, identificador: x.identificador, diasAviso: x.diasAviso, sePagaPor: x.sePagaPor });
       if (c.error) throw error(c.error, 'datos');
       const pid = s(o.d.id) || o.id, ref = FB.doc(d, 'obligaciones', o.id);
       const recl = c.campos.tipoObligacion !== s(o.d.tipoObligacion) || (c.campos.tipoObligacion === 'documento' && String(c.campos.diasAviso) !== String(o.d.diasAviso)) ? G3.reclasificar(vencs, pid, c.campos) : [];

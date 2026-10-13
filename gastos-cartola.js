@@ -16,12 +16,16 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.62.0';
+import * as G3 from './gastos-g3.js?v=0.63.0';
+import * as B from './gastos-banco.js?v=0.63.0';
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
 // tipo: 'pago_tarjeta', tarjeta }) para el flujo de caja (F4). Se aprende como lo demás (regla accion 'pago_tarjeta').
 export const PAGO_TARJETA = 'pago_tarjeta';
+// v0.63.0 · "Traspaso entre cuentas propias" (chequera ↔ cuenta corriente): tampoco crea gasto; queda en el cargo como
+// movimiento de flujo (estado CONCILIADO, accion 'traspaso', detalle { movimiento: 'flujo', tipo: 'traspaso', nota }) y se aprende.
+export const TRASPASO = 'traspaso';
 export const ESTADOS = { revisar: 'POR_REVISAR', conciliado: 'CONCILIADO', ignorado: 'IGNORADO', aMedias: 'A_MEDIAS' };
 export const CUENTAS = { cc: 'Cta. Cte.', chequera: 'Chequera' };
 // Ventana de fechas para el monto fijo y el documento: el cargo puede llegar hasta 15 días antes del vencimiento y hasta 10 después
@@ -134,7 +138,7 @@ export function desaprender(act, accion, ahora, quien) {
 export function aDesaprender(c) {
   if (c.estado === ESTADOS.aMedias) return null;
   if (c.accion === 'ignorar') return c.detalle && c.detalle.siempre ? 'ignorar' : null;
-  return { vencimientos: 'vencimiento', nuevo: 'gasto', abono: 'abono', [PAGO_TARJETA]: PAGO_TARJETA }[c.accion] || null;
+  return { vencimientos: 'vencimiento', nuevo: 'gasto', abono: 'abono', [PAGO_TARJETA]: PAGO_TARJETA, [TRASPASO]: TRASPASO }[c.accion] || null;
 }
 // "Deshecho … por …: motivo (antes: …)", al final del historial (texto, como la columna Historial)
 export function conDeshecho(c, motivo, ahora, quien) {
@@ -200,6 +204,8 @@ export function proponer(c, D) {
   if (regla && regla.accion === 'ignorar') return { tipo: 'ignorar', seguro: true, motivo: regla.ejemplo || 'No es gasto', por: 'aprendido' };
   // v0.62.0 · Pago de la tarjeta de crédito aprendido (no es gasto: movimiento de flujo)
   if (regla && regla.accion === PAGO_TARJETA) return { tipo: PAGO_TARJETA, seguro: true, texto: regla.ejemplo || 'Pago de tarjeta de crédito', tarjeta: regla.ejemplo || '', por: 'aprendido' };
+  // v0.63.0 · Traspaso entre cuentas propias aprendido
+  if (regla && regla.accion === TRASPASO) return { tipo: TRASPASO, seguro: true, texto: regla.ejemplo || 'Traspaso entre cuentas propias', nota: regla.ejemplo || '', por: 'aprendido' };
   const aprendidoP = regla && (regla.accion === 'vencimiento' || regla.accion === 'abono') && s(regla.vencimiento).startsWith('p:') ? s(regla.vencimiento).slice(2) : '';
   // 1) Monto fijo: el monto exacto del vencimiento, dentro de la ventana
   const fijos = vencs.filter(v => v.plantillaId && v.tipoObligacion === 'fijo' && v.estadoBase !== 'con_abonos' && v.monto === c.monto && enVentana(c, v));
@@ -250,12 +256,12 @@ export function proponer(c, D) {
     const comb = combinacion(vencs.filter(v => !v.plantillaId && v.rut === c.rut), c.monto);
     if (comb) return { tipo: 'vencimientos', seguro: true, pagos: comb.map(v => ({ id: v.id, monto: v.monto })), texto: comb.map(v => v.nombre).join(' + '), por: 'rut' };
   }
-  // 6) Un gasto al contado ya registrado, del mismo monto, de −3 a +10 días (el más cercano)
-  const gs = (D.gastos || []).filter(g => Math.abs(g.monto - c.monto) <= g.filas.length && dias(c.fecha, g.fecha) >= -3 && dias(c.fecha, g.fecha) <= 10 && (!c.rut || !g.rut || g.rut === c.rut))
-    .map(g => ({ g, dist: Math.abs(dias(c.fecha, g.fecha)), rut: !!(c.rut && g.rut === c.rut) })).sort((a, b) => (b.rut - a.rut) || a.dist - b.dist);
-  if (gs.length) {
-    const [a, b] = gs, empate = b && b.rut === a.rut && b.dist === a.dist;
-    return { tipo: 'gasto', seguro: !empate && (a.rut || (gs.length === 1 && a.dist <= 3)), gasto: a.g, texto: `${a.g.razon ? a.g.razon + ' · ' : ''}del ${dma(a.g.fecha)}` + (gs.length > 1 ? ` (hay ${gs.length - 1} más del mismo monto)` : ''), por: a.rut ? 'rut' : 'monto', otros: gs.slice(1, 4).map(x => x.g) };
+  // 6) Un gasto ya registrado sin cargo, del mismo monto (v0.63.0: también lo pagado por banco a mano, que espera su cargo, y las
+  //    facturas del SII ya cargadas que se pagan después; cada uno con su ventana de días): el exacto más cercano
+  const pg = B.propuestaGasto(c, D.gastos || []);
+  if (pg) {
+    const g = pg.a.g;
+    return { tipo: 'gasto', seguro: pg.seguro, gasto: g, chip: g.chip, texto: `${g.razon ? g.razon + ' · ' : ''}del ${dma(g.fecha)}` + (pg.otros.length ? ` (hay ${pg.otros.length} más del mismo monto)` : ''), por: pg.por, otros: pg.otros.map(x => x.g) };
   }
   // 7) Gasto nuevo aprendido (seguro con 2 o más veces y el monto parecido al último, ±50%)
   if (regla && regla.accion === 'gasto') return { tipo: 'nuevo', seguro: regla.veces >= 2 && (!regla.monto || Math.abs(c.monto - regla.monto) <= regla.monto * 0.5), item: regla.item, area: regla.area, sinFactura: !!regla.sinFactura, texto: regla.item, por: 'aprendido' };
@@ -273,6 +279,7 @@ export function reglaDe(accion, c, x) {
   if (accion === 'nuevo') return { accion: 'gasto', item: x.it0.item, area: x.it0.prorrateo ? JSON.stringify(x.it0.prorrateo) : (x.it0.areas.length === 1 ? x.it0.areas[0].area : ''), sinFactura: !!x.sinFactura, ejemplo: c.descripcion, monto: c.monto };
   if (accion === 'ignorar' && x.siempre) return { accion: 'ignorar', ejemplo: x.motivo };
   if (accion === PAGO_TARJETA) return { accion: PAGO_TARJETA, ejemplo: texto(x && x.tarjeta, 80) || 'Pago de tarjeta de crédito', monto: c.monto };
+  if (accion === TRASPASO) return { accion: TRASPASO, ejemplo: texto(x && x.nota, 80) || 'Traspaso entre cuentas propias', monto: c.monto };
   return null;
 }
 // Pagos de varios vencimientos: revisa como ccPagarVencimientos. vs: { id → vencimiento abierto (vencimientosAbiertos) }

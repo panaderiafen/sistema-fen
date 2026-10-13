@@ -19,15 +19,21 @@
 //    subir la boleta del mes (completa su vencimiento o va a la bandeja "documentos_pendientes"), abonos y cerrar
 //    (tipo libre), vencimiento suelto. Los de tipo documento se crean 20 días antes (para esperar la boleta).
 //  · v0.51.0: pagar un vencimiento con el certificado de Previred crea un gasto por trabajador (gastos-g3d.js: lineasDelPago).
+//  · v0.63.0 (gastos-banco.js): lo que se paga por banco llega con la cartola. Cada vencimiento lleva "sePagaPor" (el de su
+//    obligación; sin el campo = banco). Un gasto registrado a mano por transferencia o banco, o el pago a mano de un vencimiento
+//    de banco, queda con esperaCargo = true (se apaga al vincularlo con su cargo). Lo nuevo guarda "origenDetalle" (de dónde
+//    salió: tipo, quién, cuándo y lo propio de cada origen); "origen" sigue siendo el texto de siempre (el script lo usa).
+//    Hoy: "Esperan cartola". detalleGasto(ids): las líneas y su origen, para el detalle del gasto.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.62.0';
-import * as FB from './firebase-gastos.js?v=0.62.0';
-import * as GB from './gastos-base.js?v=0.62.0';
-import * as GP from './gastos-planilla.js?v=0.62.0';
-import * as M from './gastos-g2.js?v=0.62.0';
-import * as G3 from './gastos-g3.js?v=0.62.0';
-import * as G3D from './gastos-g3d.js?v=0.62.0';
-import { dia } from './gastos-modelo.js?v=0.62.0';
+import { auth as authSF } from './firebase.js?v=0.63.0';
+import * as FB from './firebase-gastos.js?v=0.63.0';
+import * as GB from './gastos-base.js?v=0.63.0';
+import * as GP from './gastos-planilla.js?v=0.63.0';
+import * as M from './gastos-g2.js?v=0.63.0';
+import * as G3 from './gastos-g3.js?v=0.63.0';
+import * as G3D from './gastos-g3d.js?v=0.63.0';
+import * as B from './gastos-banco.js?v=0.63.0';
+import { dia } from './gastos-modelo.js?v=0.63.0';
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';
@@ -106,12 +112,21 @@ export async function vencimientosAlDia() {
 export async function datos() {
   const { vencs, cat } = await vencimientosAlDia();
   const activos = cat.lista.filter(i => !i.archivado);
-  return { ok: true, vencimientos: M.vencimientosVisibles(vencs, M.ahoraChile().dia), items: activos.filter(i => !i.esObligacionRecurrente), itemsSii: activos, areas: M.AREAS.slice(), fuente: 'base' };
+  const sp = B.mapaSePaga(cat.plantillas);   // v0.63.0: cómo se paga cada vencimiento (el de su obligación)
+  const vencimientos = M.vencimientosVisibles(vencs, M.ahoraChile().dia).map(v => ({ ...v, sePagaPor: B.sePagaVenc(v, sp) }));
+  return { ok: true, vencimientos, items: activos.filter(i => !i.esObligacionRecurrente), itemsSii: activos, areas: M.AREAS.slice(), fuente: 'base' };
 }
 // Para Hoy: atrasados y próximos 7 días (como sfPendientes del script), con los vencimientos al día
+// v0.63.0: más "Esperan cartola" (vencimientos de banco atrasados sin cargo y gastos que esperan su cargo). Los de banco que ya
+// esperan la cartola no se repiten en "Pagos atrasados".
 export async function pendientesHoy() {
-  const { vencs } = await vencimientosAlDia();
-  return M.pendientesHoy(vencs, M.ahoraChile().dia);
+  const { vencs, cat } = await vencimientosAlDia(), hoy = M.ahoraChile().dia;
+  let espera = [];
+  try { espera = await todos('gastos', FB.where('esperaCargo', '==', true)); } catch (e) { espera = []; }
+  const ec = B.esperanCartola({ vencs, plantillas: cat.plantillas, gastos: espera, hoy });
+  const ya = new Set(ec.vencimientos.map(v => v.id));
+  const l = M.pendientesHoy(vencs.filter(x => !ya.has(x.id)), hoy);
+  return ec.total ? l.concat([{ clave: 'esperan_cartola', cantidad: ec.total, vencimientos: ec.vencimientos, gastos: ec.gastos, lineas: B.lineasEsperan(ec) }]) : l;
 }
 
 // ── Gastos registrados (g_lista): desde el 1 de enero del año pasado ──
@@ -137,6 +152,8 @@ export async function registrar(p, marca, subir) {
   const fecha = dia(p.fecha);
   const forma = ['contado', 'tarjeta', 'proveedor'].includes(p.formaPago) ? p.formaPago : 'contado';
   if (forma !== 'contado' && !M.esIso(p.fechaPago)) throw error('Falta la fecha de pago del crédito', 'datos');
+  // v0.63.0: al contado, en efectivo o por banco (transferencia): lo de banco espera su cargo en la cartola
+  const medio = forma === 'contado' ? (p.medioPago === 'banco' ? 'banco' : 'efectivo') : '';
   const cat = await catalogo(), li = M.limpiarItems(items, cat.lista.filter(i => !i.archivado));
   if (li.error) throw error(li.error, 'datos');
   const d = await db(), hoy = M.ahoraChile().dia;
@@ -154,13 +171,14 @@ export async function registrar(p, marca, subir) {
   const r = await FB.runTransaction(d, async tx => {
     if ((await tx.get(refs[0])).exists()) return { repetido: true };
     const snP = refP ? await tx.get(refP) : null, pend = snP && snP.exists() && snP.data().estado === 'pendiente' ? snP.data() : null;
-    lineas.forEach((l, k) => tx.set(refs[k], nuevo({ ...l, ...(venc ? { vencimientoId: idV } : {}) }, 'mano')));
+    const od = { tipo: 'mano', medio: medio || forma, por: correo(), en: M.ahoraChile().texto, ...(pend ? { pendienteId: refP.id } : {}) };
+    lineas.forEach((l, k) => tx.set(refs[k], nuevo({ ...l, ...(venc ? { vencimientoId: idV } : {}), ...(medio ? { medioPago: medio } : {}), ...(medio === 'banco' ? { esperaCargo: true } : {}), origenDetalle: od }, 'mano')));
     if (venc) tx.set(refV, nuevoVenc({ ...venc, id: idV }, 'credito'));
     if (pend) tx.update(refP, cambio(pend, 'registró como gasto', { estado: 'gasto', resultado: { gastoIds: ids, por: correo(), en: M.ahoraChile().texto } }));
     return { repetido: false };
   });
   if (!r.repetido) await despues(lineas.length + (venc ? 1 : 0) + (refP ? 1 : 0));
-  return { ok: true, items: li.limpios.length, lineas: lineas.length, ids, vencimiento: venc ? idV : '', repetido: r.repetido };
+  return { ok: true, items: li.limpios.length, lineas: lineas.length, ids, vencimiento: venc ? idV : '', repetido: r.repetido, esperaCargo: medio === 'banco' };
 }
 
 // ── Corregir (sfGEditar), revisando que nadie lo cambió desde que se abrió ──
@@ -211,6 +229,8 @@ export async function pagar(p, marca, subir) {
   const areas = Array.isArray(p.multiArea) ? p.multiArea.filter(a => a && a.area && M.n(a.monto) > 0).map(a => ({ area: String(a.area), monto: M.n(a.monto) })) : [];
   if (areas.some(a => !M.AREAS.includes(a.area))) throw error('Área no válida', 'datos');
   const tipoMonto = M.tipoMontoOk(p.tipoMonto), obsPago = M.obsLibre(p.obsPago);
+  // v0.63.0: pagar a mano un vencimiento que se paga por banco: sus gastos esperan el cargo de la cartola (y lo dicen)
+  const esperaCargo = p.esperaCargo === true;
   if (v0.estado === 'PAGADO') {
     // Un reintento del mismo envío (ya quedó): responde como si recién se hubiera hecho
     if (conLineas0(v0) && (await FB.getDoc(FB.doc(d, 'gastos', M.idsLineas('gp', marca, 1)[0]))).exists()) return { ok: true, repetido: true };
@@ -249,12 +269,13 @@ export async function pagar(p, marca, subir) {
       if (lp.error) throw error(lp.error, 'datos');
       lineas = lp.lineas;
       const ids = M.idsLineas('gp', marca, lineas.length);
-      lineas.forEach((l, k) => tx.set(FB.doc(d, 'gastos', ids[k]), nuevo(l, 'obligacion')));
+      const od = { tipo: 'vencimiento', vencimientoId: id, obligacion: s(a.nombre), periodo: dia(a.fechaVencimiento) || '', aMano: true, por: correo(), en: M.ahoraChile().texto };
+      lineas.forEach((l, k) => tx.set(FB.doc(d, 'gastos', ids[k]), nuevo({ ...l, ...(esperaCargo ? { esperaCargo: true, medioPago: 'banco' } : {}), origenDetalle: od }, 'obligacion')));
     } else snC.forEach((s2, i) => {
       if (!s2.exists()) return; const g = s2.data(); if (g.fechaPago || g.estado !== 'vigente') return;
       tx.update(refsC[i], cambio(g, 'pagó', { fechaPago: p.fechaPago, ...(url ? { urlFoto: url } : {}) }, { vencimiento: id })); tocados++;
     });
-    tx.update(refV, cambio(a, 'pagó', { ...extra, estado: 'pagado', fechaPago: p.fechaPago, montoPago: String(monto), obsPago, ...(url ? { urlComprobante: url } : {}), pago: { clave: marca.t + marca.r } }));
+    tx.update(refV, cambio(a, 'pagó', { ...extra, estado: 'pagado', fechaPago: p.fechaPago, montoPago: String(monto), obsPago, ...(url ? { urlComprobante: url } : {}), pago: { clave: marca.t + marca.r, ...(esperaCargo ? { aMano: true, esperaCargo: true } : {}) } }));
     return { lineas: lineas.length, completados: tocados };
   });
   await despues(1 + r.lineas + r.completados);
@@ -317,6 +338,8 @@ export async function guardarObligacion(p, marca) {
   // v0.49.0: tipo (fijo, documento, libre), identificador y aviso, si el formulario los trae
   const clasif = p && p.tipoObligacion !== undefined ? G3.clasificacionDesdeForm(p) : null;
   if (clasif && clasif.error) throw error(clasif.error, 'datos');
+  // v0.63.0: "Se paga por" también sin tipo (una obligación sin clasificar)
+  const sp = B.sePagaPorOk(p && p.sePagaPor), extraSp = sp && !(clasif && clasif.campos.sePagaPor) ? { sePagaPor: sp } : {};
   if (ex) {
     const ref = FB.doc(d, 'obligaciones', ex.id), pid = s(ex.d.id) || ex.id;
     // Al cambiar el tipo, sus vencimientos abiertos sin documento ni abonos toman el tipo nuevo (los demás no se tocan)
@@ -326,7 +349,7 @@ export async function guardarObligacion(p, marca) {
       const sn = await tx.get(ref); if (!sn.exists()) throw error('Esa obligación ya no existe', 'datos');
       const refsV = recl.map(x => FB.doc(d, 'vencimientos', x.id)), snV = [];
       for (const rv of refsV) snV.push(await tx.get(rv));
-      const a = sn.data(), campos = { ...M.camposPlantilla(r.d), ...(clasif ? clasif.campos : {}) };
+      const a = sn.data(), campos = { ...M.camposPlantilla(r.d), ...(clasif ? clasif.campos : {}), ...extraSp };
       let k = 0;
       if (Object.keys(M.diferencias(a, campos)).length) { tx.update(ref, cambio(a, clasif && clasif.campos.tipoObligacion !== s(a.tipoObligacion) ? 'clasificó' : 'editó', campos)); k++; }
       recl.forEach((x, i) => { if (snV[i].exists() && !snV[i].data().documento) { tx.update(refsV[i], cambio(snV[i].data(), 'tomó el tipo de su obligación', x.campos)); k++; } });
@@ -336,7 +359,7 @@ export async function guardarObligacion(p, marca) {
     return { ok: true, id: pid };
   }
   const id = M.idPlantilla(marca), ref = FB.doc(d, 'obligaciones', id), clave = marca.t + marca.r;
-  const docNuevo = { ...M.docPlantillaNueva(id, r.d, hoy), clave, ...(clasif ? clasif.campos : {}) };
+  const docNuevo = { ...M.docPlantillaNueva(id, r.d, hoy), clave, ...(clasif ? clasif.campos : {}), ...extraSp };
   const cuotas = r.d.frecuencia === 'cuponera' ? M.vencimientosCuponera(id, r.d, hoy) : [];
   const n = await FB.runTransaction(d, async tx => {
     const sn = await tx.get(ref);
@@ -590,7 +613,9 @@ export async function agregarAbono(vencId, a, marca, subir) {
     if (x.repetido) return { repetido: true };
     if (x.error) throw error(x.error, 'datos');
     // v0.50.0: un abono desde la cartola queda con su traza (columna Cartola) y el id del cargo
-    lineas.forEach((l, k) => tx.set(FB.doc(d, 'gastos', ids[k]), nuevo({ ...l, abono: n0, ...(a.cartola ? { cartola: s(a.cartola), cartolaCargo: s(a.cargoId) } : {}) }, 'obligacion')));
+    // v0.63.0: un abono a mano de una obligación que se paga por banco espera su cargo; todos guardan de dónde salieron
+    const od = { tipo: 'vencimiento', vencimientoId: ref.id, obligacion: s(v.nombre), periodo: dia(v.fechaVencimiento) || '', abono: n0, ...(a.cartola ? { cartola: true, cargoId: s(a.cargoId) } : { aMano: true }), por: quien, en: M.ahoraChile().texto };
+    lineas.forEach((l, k) => tx.set(FB.doc(d, 'gastos', ids[k]), nuevo({ ...l, abono: n0, ...(a.cartola ? { cartola: s(a.cartola), cartolaCargo: s(a.cargoId) } : a.esperaCargo === true ? { esperaCargo: true, medioPago: 'banco' } : {}), origenDetalle: od }, 'obligacion')));
     tx.update(ref, cambio(v, 'abono', x.campos, { monto: x.abono.monto }));
     return { lineas: lineas.length, n: n0, total: G3.totalAbonos({ abonos: x.campos.abonos }) };
   });
@@ -624,4 +649,29 @@ export async function crearSuelto(p, marca) {
   });
   await despues(n);
   return { ok: true, id, repetido: !n };
+}
+
+// ═══════════════════════════════════════════════
+//  v0.63.0 · Detalle de un gasto con su origen (Conciliación → "Ya está en Gastos" y Registrados → Ver origen)
+//  ids: las líneas del registro. Lee lo que haga falta para decir de dónde salió: su vencimiento, el documento y las
+//  cargas del SII, o el cargo de la cartola. Devuelve { lineas: [{ id, d }], resumen, origen }.
+// ═══════════════════════════════════════════════
+export async function detalleGasto(ids) {
+  const l = [...new Set((Array.isArray(ids) ? ids : [ids]).map(x => s(x)).filter(Boolean))].slice(0, 40);
+  if (!l.length) throw error('Falta el gasto', 'datos');
+  const d = await db();
+  const sns = await Promise.all(l.map(id => FB.getDoc(FB.doc(d, 'gastos', id))));
+  const lineas = sns.filter(x => x.exists()).map(x => ({ id: x.id, d: x.data() }));
+  if (!lineas.length) throw error('Ese gasto ya no está', 'datos');
+  const g = lineas[0].d, ctx = {};
+  const tareas = [];
+  if (s(g.vencimientoId)) tareas.push(FB.getDoc(FB.doc(d, 'vencimientos', s(g.vencimientoId))).then(x => { if (x.exists()) ctx.vencimiento = x.data(); }).catch(() => {}));
+  const docId = s(g.siiDoc && g.siiDoc.id);
+  if (docId || s(g.origen) === 'sii') {
+    if (docId) tareas.push(FB.getDoc(FB.doc(d, 'sii_docs', docId)).then(x => { if (x.exists()) ctx.siiDoc = x.data(); }).catch(() => {}));
+    tareas.push(todos('sii_cargas').then(c => { ctx.cargas = c; }).catch(() => {}));
+  }
+  if (s(g.cartolaCargo)) tareas.push(FB.getDoc(FB.doc(d, 'cartola_cargos', s(g.cartolaCargo))).then(x => { if (x.exists()) ctx.cargo = x.data(); }).catch(() => {}));
+  await Promise.all(tareas);
+  return { ok: true, lineas, resumen: B.resumenLineas(lineas), origen: B.resolverOrigen(lineas, ctx), cargo: ctx.cargo ? { fecha: dia(ctx.cargo.fecha), monto: Number(ctx.cargo.monto) || 0, descripcion: s(ctx.cargo.descripcion) } : null };
 }

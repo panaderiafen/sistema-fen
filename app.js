@@ -9,35 +9,36 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.62.0';
-import * as Caja from './caja.js?v=0.62.0';
-import * as Stock from './stock.js?v=0.62.0';
-import * as Ajustes from './ajustes.js?v=0.62.0';
-import * as Apps from './apps.js?v=0.62.0';
-import * as Agenda from './agenda.js?v=0.62.0';
-import * as Gastos from './gastos.js?v=0.62.0';
-import * as G3 from './gastos-g3.js?v=0.62.0';
-import * as G3D from './gastos-g3d.js?v=0.62.0';
-import { resumenAnalisis } from './gastos-g2.js?v=0.62.0';
-import * as Sii from './sii.js?v=0.62.0';
-import * as GSii from './gastos-sii.js?v=0.62.0';
-import * as Previred from './previred.js?v=0.62.0';
-import * as B2b from './b2b.js?v=0.62.0';
-import * as Cartola from './cartola.js?v=0.62.0';
-import * as SiiFactura from './sii-factura.js?v=0.62.0';
-import * as PdfOrden from './pdf-orden.js?v=0.62.0';
-import * as Prod from './produccion.js?v=0.62.0';
+} from './firebase.js?v=0.63.0';
+import * as Caja from './caja.js?v=0.63.0';
+import * as Stock from './stock.js?v=0.63.0';
+import * as Ajustes from './ajustes.js?v=0.63.0';
+import * as Apps from './apps.js?v=0.63.0';
+import * as Agenda from './agenda.js?v=0.63.0';
+import * as Gastos from './gastos.js?v=0.63.0';
+import * as G3 from './gastos-g3.js?v=0.63.0';
+import * as G3D from './gastos-g3d.js?v=0.63.0';
+import * as GBanco from './gastos-banco.js?v=0.63.0';
+import { resumenAnalisis } from './gastos-g2.js?v=0.63.0';
+import * as Sii from './sii.js?v=0.63.0';
+import * as GSii from './gastos-sii.js?v=0.63.0';
+import * as Previred from './previred.js?v=0.63.0';
+import * as B2b from './b2b.js?v=0.63.0';
+import * as Cartola from './cartola.js?v=0.63.0';
+import * as SiiFactura from './sii-factura.js?v=0.63.0';
+import * as PdfOrden from './pdf-orden.js?v=0.63.0';
+import * as Prod from './produccion.js?v=0.63.0';
 import * as ProdK from './cocina/consumo.js?v=0.16.0';
-import * as VistaProd from './vista-produccion.js?v=0.62.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.62.0';
+import * as VistaProd from './vista-produccion.js?v=0.63.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.63.0';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.62.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.63.0');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.62.0');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.63.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.62.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.63.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -136,6 +137,7 @@ const P = {
   flecha: '<path d="M9 6l6 6-6 6"/>',
   lupa: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
   ajustes: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  puntos: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
   arriba: '<path d="M6 15l6-6 6 6"/>', izq: '<path d="M15 6l-6 6 6 6"/>', mas: '<path d="M12 5v14M5 12h14"/>',
   finanzas: '<path d="M4 20h16"/><path d="M5 16l4.5-4.5 3 3L19 8"/><path d="M15 8h4v4"/>',
   calendario: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>', abajo: '<path d="M6 9l6 6 6-6"/>'
@@ -339,7 +341,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.62.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.63.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -387,6 +389,12 @@ function irA(v) {
 // ── Hoy ────────────────────────────────────────────
 // Lee de la caja (mismo proyecto de Firebase) y los resuelve en "Ventas de caja". Gastos, B2B y Producción se conectan después.
 function itemPendiente(p) {
+  // v0.63.0: un pendiente con varias líneas y más de un enlace (no cabe en un solo <a>)
+  if (p.enlaces) return `<div class="pendiente pendiente-multi" id="${esc(p.id || '')}">
+    <div class="icono-caja c-${p.color}">${icono(p.icono)}</div>
+    <div class="txt">${p.origen ? `<small class="origen">${esc(p.origen)}</small>` : ''}<b>${esc(p.titulo)}</b>${(p.lineas || []).map(l => `<span>${esc(l)}</span>`).join('')}${p.detalle ? `<span class="pend-pregunta">${esc(p.detalle)}</span>` : ''}
+      <span class="pend-enlaces">${p.enlaces.map(([u, txt]) => `<a href="${esc(u)}">${esc(txt)}</a>`).join('')}</span></div>
+    <span class="chip c-${p.color}">${esc(p.chip)}</span></div>`;
   const fuera = /^https?:/.test(p.url) ? ' target="_blank" rel="noopener"' : '';
   return `<a class="pendiente" href="${esc(p.url)}"${fuera}>
     <div class="icono-caja c-${p.color}">${icono(p.icono)}</div>
@@ -551,14 +559,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.62.0').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.63.0').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.62.0').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.63.0').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -932,9 +940,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.62.0').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.63.0').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.62.0').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.63.0').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -994,7 +1002,7 @@ function pintarVencimientos(el, sub, d) {
       <div data-colapsar="3">${pagados.map(v => `<div class="fila-caja"><div class="txt"><b>${esc(v.nombre)}</b><span>Pagado el ${esc(fechaCaja(v.fechaPago))}${v.urlComprobante ? ' · <a href="' + esc(v.urlComprobante) + '" target="_blank" rel="noopener">comprobante</a>' : ''}</span>${v.abonos && v.abonos.length ? `<span class="nota">${esc(G3.textoAbonos(v.abonos, pesos))}</span>` : ''}</div>
         <div class="acciones"><span class="chip c-verde">${esc(pesos(Number(v.montoPago) || 0))}</span></div></div>`).join('')}</div></section>` : ''}
     ${base ? `<section class="tarjeta" aria-labelledby="t-bandeja" id="vb-bandeja-sec"><div class="titulo-fila"><h2 id="t-bandeja">Documentos sin obligación ${info('Documentos sin obligación', TXT_BANDEJA)}</h2><span id="vb-bandeja-n"></span></div><div id="vb-bandeja"><p class="ayuda">Cargando…</p></div></section>` : ''}
-    <p class="nota-i">(i) Pagar aquí hace lo mismo que en la app de Gastos: marca el vencimiento pagado, crea el gasto (o completa el de la compra a crédito) y genera el siguiente si es recurrente. El historial de pagos y las reglas están en Obligaciones. Anular un vencimiento no lo borra: queda ANULADO con su motivo.</p>`;
+    <p class="nota-i">(i) Pagar aquí hace lo mismo que en la app de Gastos: marca el vencimiento pagado, crea el gasto (o completa el de la compra a crédito) y genera el siguiente si es recurrente. El historial de pagos y las reglas están en Obligaciones. Anular un vencimiento no lo borra: queda ANULADO con su motivo.${base ? ' Los que dicen "Se paga desde la cartola" se pagan en el banco y se registran solos al conciliar la cartola: aquí solo te recuerdan pagarlos.' : ''}</p>`;
   if (base) {
     el.querySelector('.cifras').insertAdjacentHTML('afterend', `<div class="botones-venc"><button type="button" class="btn" id="vb-boleta">${icono('mas', 16)} Subir boleta</button>${info('Subir boleta', TXT_SUBIR_BOLETA)}<button type="button" class="btn-sec" id="vb-suelto">Vencimiento suelto</button>${info('Vencimiento suelto', TXT_SUELTO)}</div>`);
     $('vb-boleta').onclick = () => abrirSubirBoleta(null, d);
@@ -1002,6 +1010,10 @@ function pintarVencimientos(el, sub, d) {
     el.querySelectorAll('[data-boleta-v]').forEach(b => b.addEventListener('click', () => abrirSubirBoleta((d.vencimientos || []).find(v => v.id === b.dataset.boletaV), d)));
     el.querySelectorAll('[data-abono-v]').forEach(b => b.addEventListener('click', () => abrirAbono((d.vencimientos || []).find(v => v.id === b.dataset.abonoV))));
     el.querySelectorAll('[data-cerrar-v]').forEach(b => b.addEventListener('click', () => cerrarVencUI((d.vencimientos || []).find(v => v.id === b.dataset.cerrarV))));
+    // v0.63.0 · Vencimientos de banco: pago o abono a mano desde el menú (con el aviso de la cartola)
+    el.querySelectorAll('[data-pagar-mano]').forEach(b => b.addEventListener('click', () => { b.closest('details').open = false; abrirPago((d.vencimientos || []).find(v => v.id === b.dataset.pagarMano), { aMano: true }); }));
+    el.querySelectorAll('[data-abono-mano]').forEach(b => b.addEventListener('click', () => { b.closest('details').open = false; abrirAbono((d.vencimientos || []).find(v => v.id === b.dataset.abonoMano), { aMano: true }); }));
+    el.querySelectorAll('details.menu-venc').forEach(m => m.addEventListener('toggle', () => { if (m.open) el.querySelectorAll('details.menu-venc[open]').forEach(o => { if (o !== m) o.open = false; }); }));
     pintarBandeja(d);
   }
   el.querySelectorAll('[data-pagar]').forEach(b => b.addEventListener('click', () => abrirPago((d.vencimientos || []).find(v => v.id === b.dataset.pagar))));
@@ -1013,7 +1025,7 @@ async function abrirPagoPorId(id) {
   try { const d = await Gastos.datos(); const v = (d.vencimientos || []).find(x => String(x.id) === String(id));
     if (!v) { alert('Ese vencimiento ya no está en Gastos.'); return; }
     if (v.estado === 'PAGADO') { alert(`"${v.nombre}" ya está pagado (${fechaCaja(v.fechaPago)}).`); return; }
-    abrirPago(v);
+    abrirPago(v, { aMano: v.sePagaPor === 'banco' });
   } catch (e) { alert(e.message || mensajeError(e)); }
 }
 
@@ -1024,8 +1036,10 @@ function chipsTipoMonto(nombre, sel) {
 const filaArea = (cls, area = '', monto = '') => `<div class="fila-area"><select class="${cls}-area" aria-label="Área"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === area ? 'selected' : ''}>${a}</option>`).join('')}</select>
   <input class="${cls}-monto" type="number" inputmode="numeric" min="0" step="1" placeholder="$" value="${esc(monto)}" aria-label="Monto"><button type="button" class="btn-icono" data-quitar-area aria-label="Quitar área">×</button></div>`;
 
-function abrirPago(v) {
+function abrirPago(v, opc = {}) {
   if (!v) return;
+  // v0.63.0: un vencimiento de banco pagado a mano: aviso y sus gastos esperan el cargo de la cartola
+  const aMano = !!opc.aMano;
   // v0.51.0: con el certificado de Previred se paga el total del certificado y se crea un gasto por trabajador (sin reparto aquí)
   const prevPlan = v.documento && v.documento.tipo === 'previred' && v.documento.previred ? v.documento.previred : null;
   const usaAreas = !prevPlan && ((v.multiArea && v.multiArea.length) || v.area === 'MULTI');
@@ -1034,7 +1048,8 @@ function abrirPago(v) {
   const hoy = Caja.diaLocal();
   const partes = v.area === 'PRORRATEADO' ? [[v.pArea1, v.pPct1], [v.pArea2, v.pPct2], [v.pArea3, v.pPct3]].filter(([a, p]) => a && p) : [];
   const d = dialogo(`<form class="form-dialogo" novalidate>
-    <h2>Registrar pago</h2>
+    <h2>${aMano ? 'Registrar pago a mano' : 'Registrar pago'}</h2>
+    ${aMano ? `<p class="aviso-cc" id="pg-aviso-cartola">${icono('banco', 16)} ${esc(TXT_A_MANO)}</p>` : ''}
     <p class="ayuda"><b>${esc(v.nombre)}</b>${v.item ? ' · ' + esc(v.item) : ''} · vence ${esc(fechaCaja(v.fecha))}${v.fecha < hoy ? ' <span class="chip c-rojo chip-chico">Atrasado</span>' : ''}</p>
     ${prevPlan ? `<p class="ayuda" id="pg-previred">Certificado de Previred ${esc(G3D.nombreMes(prevPlan.periodo))}: se registra un gasto por trabajador (${(prevPlan.trabajadores || []).length}), sin IVA, con su área e ítem. El monto es el total del certificado.</p>` : partes.length ? `<p class="ayuda">Se reparte: ${partes.map(([a, p]) => `${esc(a)} ${esc(p)}%`).join(' · ')}</p>` : v.area && v.area !== 'MULTI' ? `<p class="ayuda">Área: ${esc(v.area)}</p>` : ''}
     ${docF ? `<p class="ayuda pg-factura" id="pg-factura">Neto ${pesos(docF.neto)} · IVA ${pesos(docF.iva)}${docF.exento ? ' · Exento ' + pesos(docF.exento) : ''}${docF.otroImpuesto ? ' · Otros impuestos ' + pesos(docF.otroImpuesto) : ''} · Total ${pesos(docF.total)} — de la factura N° ${esc(docF.folio)} ${info('Montos de la factura', 'Este vencimiento tiene su factura del SII: el gasto toma el neto y el IVA exactos de la factura (no se calculan con el 19%), por eso no hay que elegir el tipo de monto.\nSi pagas el total, el neto es el de la factura. Si pagas otro monto (parcial o distinto), el neto se calcula en la misma proporción y queda anotado en la observación del gasto.')}</p>` : ''}
@@ -1076,8 +1091,8 @@ function abrirPago(v) {
     const b = d.querySelector('#pg-guardar'); b.disabled = true; b.textContent = 'Guardando…';
     try {
       const archivo = await Gastos.prepararArchivo(d.querySelector('#pg-archivo').files[0]);
-      await Gastos.pagar({ id: v.id, montoPago: monto, fechaPago: fecha, tipoMonto: tipo(), obsPago: d.querySelector('#pg-obs').value, multiArea: usaAreas ? areas() : [], ...(archivo || {}) }, idem);
-      registrar('Pagó un vencimiento', `${v.nombre} · ${pesos(monto)} · ${fechaCaja(fecha)}`);
+      await Gastos.pagar({ id: v.id, montoPago: monto, fechaPago: fecha, tipoMonto: tipo(), obsPago: d.querySelector('#pg-obs').value, multiArea: usaAreas ? areas() : [], ...(aMano ? { esperaCargo: true } : {}), ...(archivo || {}) }, idem);
+      registrar(aMano ? 'Pagó a mano un vencimiento de banco' : 'Pagó un vencimiento', `${v.nombre} · ${pesos(monto)} · ${fechaCaja(fecha)}`);
       d.close(); refrescarAgenda();
     } catch (er) {
       if (er.code && er.code !== 'en_curso') idem = 'pago-' + Gastos.nuevaClave();
@@ -1100,7 +1115,8 @@ function pintarRegistrarGasto(el, sub, d) {
       <div id="gs-items"></div>
       <button type="button" class="btn-sec" id="gs-mas-item">${icono('mas', 16)} Agregar otro ítem</button>
       <div class="desglose desglose-grande" id="gs-total"></div>
-      <div class="campo"><span class="etiqueta">Forma de pago</span><div class="chips" role="radiogroup" aria-label="Forma de pago">${[['contado', 'Contado'], ['tarjeta', 'Tarjeta de crédito'], ['proveedor', 'Crédito proveedor']].map(([k, t]) => `<label class="chip-radio"><input type="radio" name="gs-forma" value="${k}" ${k === 'contado' ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div></div>
+      <div class="campo"><span class="etiqueta">Forma de pago ${info('Forma de pago', 'Efectivo: lo pagaste con plata en mano; se registra aquí.\nTransferencia o banco: lo pagaste desde la cuenta. Eso llega con la cartola y se registra en Conciliación → Cargos ("Gasto nuevo"), con la fecha del banco. Si igual lo registras aquí, queda esperando su cargo: cuando subas la cartola elige "Ya está en Gastos" para no duplicarlo.\nTarjeta de crédito o crédito del proveedor: se paga después; queda un vencimiento.')}</span><div class="chips" role="radiogroup" aria-label="Forma de pago">${(d.fuente === 'base' ? [['efectivo', 'Efectivo'], ['banco', 'Transferencia o banco'], ['tarjeta', 'Tarjeta de crédito'], ['proveedor', 'Crédito proveedor']] : [['contado', 'Contado'], ['tarjeta', 'Tarjeta de crédito'], ['proveedor', 'Crédito proveedor']]).map(([k, t], i) => `<label class="chip-radio"><input type="radio" name="gs-forma" value="${k}" ${i === 0 ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div>
+        <p class="aviso-cc oculto" id="gs-aviso-banco" role="status">${icono('banco', 16)} ${esc(TXT_BANCO_REG)} <a href="#conciliacion/cargos">Ir a Conciliación</a></p></div>
       <div class="campo oculto" id="gs-campo-fpago"><label for="gs-fpago">Fecha de pago ${info('Crédito', 'Con tarjeta o crédito de proveedor se crea un vencimiento en esa fecha, para pagarlo después desde Vencimientos.')}</label><input id="gs-fpago" type="date" min="${hoy}"></div>
       ${pre ? `<div class="campo"><span class="etiqueta">Boleta</span><p class="ayuda" id="gs-pre">Desde "Documentos sin obligación": la boleta ya está en Drive${pre.urlArchivo ? ` (<a href="${esc(pre.urlArchivo)}" target="_blank" rel="noopener">ver</a>)` : ''}${pre.monto ? ' · total ' + esc(pesos(pre.monto)) : ''}. Elige el ítem y escribe el monto.</p></div>`
         : `<div class="campo"><label for="gs-archivo">Foto o archivo de la boleta</label><input id="gs-archivo" type="file" accept="image/*,application/pdf" capture="environment"><span class="ayuda">Obligatoria, como en la app de Gastos. Se guarda en Drive, carpeta "Boletas Gastos".</span></div>`}
@@ -1146,7 +1162,8 @@ function pintarRegistrarGasto(el, sub, d) {
         : `<div class="campo"><label>Monto</label><input class="gs-mfijo" type="number" inputmode="numeric" min="0" step="1"></div>`}`;
     recalcular();
   };
-  $('form-gasto').addEventListener('change', e => { const s = e.target.closest('.item-gasto'); if (e.target.classList.contains('gs-item')) alElegir(s); if (e.target.name === 'gs-forma') $('gs-campo-fpago').classList.toggle('oculto', e.target.value === 'contado'); recalcular(); });
+  const alContado = f => ['contado', 'efectivo', 'banco'].includes(f);
+  $('form-gasto').addEventListener('change', e => { const s = e.target.closest('.item-gasto'); if (e.target.classList.contains('gs-item')) alElegir(s); if (e.target.name === 'gs-forma') { $('gs-campo-fpago').classList.toggle('oculto', alContado(e.target.value)); $('gs-aviso-banco').classList.toggle('oculto', e.target.value !== 'banco'); } recalcular(); });
   $('form-gasto').addEventListener('input', recalcular);
   $('form-gasto').addEventListener('click', e => {
     if (e.target.closest('[data-quitar-item]')) { e.target.closest('.item-gasto').remove(); recalcular(); }
@@ -1166,7 +1183,8 @@ function pintarRegistrarGasto(el, sub, d) {
         if (!q.area1 || !q.area2 || s !== 100) { err.textContent = `${x.item}: elige al menos dos áreas y que los % sumen 100.`; return; }
         if (new Set(usadas).size !== usadas.length) { err.textContent = `${x.item}: cada área una sola vez.`; return; } }
     }
-    const forma = el.querySelector('input[name="gs-forma"]:checked').value, fpago = $('gs-fpago').value;
+    // v0.63.0: efectivo y banco son al contado; lo de banco queda esperando su cargo en la cartola
+    const elegida = el.querySelector('input[name="gs-forma"]:checked').value, forma = alContado(elegida) ? 'contado' : elegida, medio = elegida === 'banco' ? 'banco' : elegida === 'efectivo' ? 'efectivo' : '', fpago = $('gs-fpago').value;
     if (forma !== 'contado' && !fpago) { err.textContent = 'Elige la fecha de pago del crédito.'; return; }
     const f = pre ? null : $('gs-archivo').files[0];
     if (!f && !pre) { err.textContent = 'Falta la foto o el archivo de la boleta.'; return; }
@@ -1175,11 +1193,11 @@ function pintarRegistrarGasto(el, sub, d) {
     try {
       const archivo = pre ? { urlArchivo: pre.urlArchivo, fileName: pre.nombreArchivo, pendienteId: pre.pendienteId } : await Gastos.prepararArchivo(f);
       const ahora = new Date();
-      await Gastos.registrar({ fecha: fecha.split('-').reverse().join('-'), hora: `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`, items: secs, tipoMonto: tipo(), formaPago: forma, fechaPago: forma === 'contado' ? '' : fpago, observacion: $('gs-obs').value, ...archivo }, idem);
+      await Gastos.registrar({ fecha: fecha.split('-').reverse().join('-'), hora: `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`, items: secs, tipoMonto: tipo(), formaPago: forma, ...(medio ? { medioPago: medio } : {}), fechaPago: forma === 'contado' ? '' : fpago, observacion: $('gs-obs').value, ...archivo }, idem);
       const total = secs.reduce((s, x) => s + Gastos.desglose(x.montoTotal, tipo(), x.esHarina).total, 0);
       registrar('Registró un gasto', `${secs.map(x => x.item).join(' + ')} · ${pesos(total)}`);
       idem = 'gasto-' + Gastos.nuevaClave();
-      alert(`Gasto registrado: ${secs.map(x => x.item).join(' + ')} · ${pesos(total)}${forma !== 'contado' ? `\n\nQuedó un vencimiento para el ${fechaCaja(fpago)}.` : ''}`);
+      alert(`Gasto registrado: ${secs.map(x => x.item).join(' + ')} · ${pesos(total)}${forma !== 'contado' ? `\n\nQuedó un vencimiento para el ${fechaCaja(fpago)}.` : ''}${medio === 'banco' ? '\n\nQuedó esperando su cargo: cuando subas la cartola, elige "Ya está en Gastos" en ese cargo.' : ''}`);
       if (pre) location.hash = '#gastos'; else pintarGastos('registrar');
     } catch (er) {
       // Si Gastos respondió (error de datos, ya pagado…), no se guardó nada: el próximo intento es un envío nuevo.
@@ -1256,7 +1274,7 @@ async function procesarSii(contenido, nombre, { guardar, tipo } = {}) {
   const msg = $('sii-msg');
   const { formato, facturas } = Sii.leer(contenido);
   if (!facturas.length) { if (msg) msg.textContent = 'No se reconocieron documentos en el archivo. Revisa que sea el XML o los Documentos recibidos (.xls) o el Registro de Compras (.csv) del SII.'; return; }
-  Object.assign(sii, { facturas, formato, nombre, busqueda: '', aviso: '', hint: '', idem: null, firma: '' });
+  Object.assign(sii, { facturas, formato, nombre, busqueda: '', aviso: '', hint: '', idem: null, firma: '', cargaId: '' });
   if (msg) msg.textContent = 'Revisando qué documentos ya están en Gastos…';
   pintarTrabajoSii(true);
   try {
@@ -1279,6 +1297,7 @@ async function procesarSii(contenido, nombre, { guardar, tipo } = {}) {
   if (!guardar) return;
   try {
     const r = await Sii.registrarCarga(facturas, nombre, tipo, contenido, 'carga-' + Gastos.nuevaClave());
+    if (sii.facturas === facturas && r && r.id) sii.cargaId = String(r.id);   // v0.63.0: la carga queda en el origen de cada gasto
     registrar('Subió un archivo del SII', `${nombre} · ${facturas.length} documentos`);
     if ($('sii-msg') && sii.facturas === facturas) $('sii-msg').textContent = r.conArchivo ? 'El archivo quedó guardado en el historial de cargas.' : 'La carga quedó en el historial, pero la copia en Drive no se pudo guardar.';
   } catch (e) {
@@ -1557,7 +1576,7 @@ async function importarSii(omitir) {
   if (btn) { btn.disabled = true; btn.textContent = 'Importando…'; }
   hint.innerHTML = '';
   try {
-    const r = await Sii.importar(listas, omitir, sii.idem);
+    const r = await Sii.importar(listas, omitir, sii.idem, { formato: sii.formato, archivo: sii.nombre, cargaId: sii.cargaId || '' });
     sii.idem = null;
     listas.forEach(l => { const f = sii.facturas.find(x => Sii.clave(x) === Sii.clave(l)); if (f) f.yaImportada = true; });
     sii.hint = `<p class="sii-ok">Importado: ${r.facturas} ${r.facturas === 1 ? 'documento' : 'documentos'} · ${r.filas} ${r.filas === 1 ? 'línea' : 'líneas'} de gasto${r.vencimientos ? ` · ${r.vencimientos} ${r.vencimientos === 1 ? 'vencimiento' : 'vencimientos'}` : ''}${r.detalle ? ` · ${r.detalle} productos en Detalle Compras` : ''}${r.aVencimientos ? ` · ${r.aVencimientos} ${r.aVencimientos === 1 ? 'factura completó el vencimiento de su obligación' : 'facturas completaron el vencimiento de su obligación'}` : ''}${r.aBandeja ? ` · ${r.aBandeja} en "Documentos sin obligación"` : ''}</p>`;
@@ -1661,6 +1680,7 @@ function eventosHistorialSii(cont) {
       try {
         const r = await Sii.archivo(b.dataset.reabrir);
         await procesarSii(r.contenido, r.nombre || 'archivo del SII');
+        sii.cargaId = String(b.dataset.reabrir);   // v0.63.0: lo importado desde aquí es de esa carga
         const t = $('sii-trabajo'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (er) { if (msg) msg.textContent = er.message || mensajeError(er); }
       pintarHistorialSii();
@@ -1733,16 +1753,28 @@ const TXT_BANDEJA = 'Boletas que subiste y no calzaron con ninguna obligación (
 const TXT_SUBIR_BOLETA = 'Sube el PDF o la foto de la boleta de luz, agua u otra cuenta. Queda en Drive (Fën · Gastos / Boletas y facturas / año, privada).\nDe un PDF se leen solos el N° de cliente, el total a pagar y la fecha de vencimiento: revísalos antes de guardar. De una foto se escriben a mano.\nCon el N° de cliente se busca la obligación y se completa su vencimiento del mes (monto y fecha real). Si no calza con ninguna, queda en "Documentos sin obligación".';
 const TXT_SUELTO = 'Un pago de una sola vez, sin obligación: una patente, un permiso, una multa. Queda en Vencimientos y en la Agenda hasta que lo pagues (al pagar se registra el gasto con su ítem y áreas).';
 const NOMBRE_EB = { esperando_documento: ['Esperando boleta', 'c-amarillo'], con_abonos: ['Con abonos', 'c-azul'] };
+// v0.63.0 · Lo que se paga por banco llega con la cartola
+const TXT_SE_PAGA = 'Cómo pagas esta obligación:\n• Banco (cartola): transferencia, cargo automático o pago desde la cuenta. No se registra a mano: el pago llega con la cartola (Conciliación → Cargos) y ahí queda registrado. El vencimiento te recuerda pagarlo.\n• Efectivo: se paga con "Pagar" en Vencimientos (no pasa por el banco).\n• Tarjeta de crédito: se paga con "Pagar"; el pago de la tarjeta llega después en la cartola como "Pago de tarjeta".\nLas obligaciones de antes, sin este dato, cuentan como banco.';
+const TXT_CHIP_CARTOLA = 'Esta obligación se paga por banco: págala en el banco cuando corresponda y no la registres aquí. Cuando subas la cartola, el cargo aparece en Conciliación → Cargos y ahí se registra el pago (con la fecha del banco).\nSi igual necesitas registrarlo antes (por ejemplo, para tener el comprobante), usa el menú del vencimiento → "Registrar pago a mano": cuando llegue la cartola, elige "Ya está en Gastos" para no duplicarlo.';
+const TXT_A_MANO = 'Este vencimiento se paga por banco: el cargo va a llegar con la cartola. Si lo registras ahora, cuando subas la cartola elige "Ya está en Gastos" en ese cargo (aparece primero en la lista) para no duplicarlo. Mientras tanto, Hoy lo muestra en "Esperan cartola".';
+const TXT_BANCO_REG = 'Lo que pagas por banco llega con la cartola; regístralo desde Conciliación para no duplicarlo.';
 function filaVencBase(v, rojo) {
   const eb = v.estadoBase || '', libre = v.tipoObligacion === 'libre', espera = eb === 'esperando_documento', doc = v.documento;
+  // v0.63.0: lo que se paga por banco no tiene "Pagar": llega con la cartola. A mano, desde el menú (con aviso)
+  const banco = v.sePagaPor === 'banco';
   const fechaTxt = espera ? `Fecha estimada ${fechaCaja(v.fechaEstimada || v.fecha)}` : fechaCaja(v.fecha);
   const det = [fechaTxt, v.area && v.area !== 'MULTI' ? v.area : v.area === 'MULTI' ? 'varias áreas' : '', v.item && v.item !== v.nombre ? v.item : '', v.suelto ? 'suelto' : ''].filter(Boolean).map(esc).join(' · ');
   const chipE = NOMBRE_EB[eb] ? `<span class="chip ${NOMBRE_EB[eb][1]} chip-chico">${NOMBRE_EB[eb][0]}</span>` : '';
   const monto = libre ? G3.totalAbonos(v) : montoV(v);
+  const chipBanco = `<span class="grupo-banco"><span class="chip c-azul chip-banco" data-cartola-v="${esc(v.id)}">${icono('banco', 14)} Se paga desde la cartola</span>${info('Se paga desde la cartola', TXT_CHIP_CARTOLA)}</span>`;
+  const anular = (v.abonos || []).length ? '' : `<button type="button" class="${banco ? 'menu-item btn-peligro' : 'btn-sec btn-chico btn-peligro'}" data-anular-v="${esc(v.id)}" aria-label="Anular ${esc(v.nombre)}">Anular</button>`;
   const acciones = (espera ? `<button type="button" class="btn-sec" data-boleta-v="${esc(v.id)}">Subir boleta</button>` : '')
-    + (libre ? `<button type="button" class="btn-sec" data-abono-v="${esc(v.id)}">Agregar abono</button>${(v.abonos || []).length ? `<button type="button" class="btn-sec" data-cerrar-v="${esc(v.id)}">Cerrar</button>` : ''}`
-      : `<button type="button" class="btn-sec" data-pagar="${esc(v.id)}">Pagar</button>`)
-    + ((v.abonos || []).length ? '' : `<button type="button" class="btn-sec btn-chico btn-peligro" data-anular-v="${esc(v.id)}" aria-label="Anular ${esc(v.nombre)}">Anular</button>`);
+    + (banco ? (espera ? '' : chipBanco) + ((v.abonos || []).length && libre ? `<button type="button" class="btn-sec" data-cerrar-v="${esc(v.id)}">Cerrar</button>` : '')
+      + `<details class="menu-venc"><summary class="btn-sec btn-chico" aria-label="Más acciones de ${esc(v.nombre)}">${icono('puntos', 18)}</summary><div class="menu-venc-lista" role="menu">`
+      + (libre ? `<button type="button" class="menu-item" data-abono-mano="${esc(v.id)}">Agregar abono a mano</button>` : `<button type="button" class="menu-item" data-pagar-mano="${esc(v.id)}">Registrar pago a mano</button>`)
+      + anular + '</div></details>'
+      : (libre ? `<button type="button" class="btn-sec" data-abono-v="${esc(v.id)}">Agregar abono</button>${(v.abonos || []).length ? `<button type="button" class="btn-sec" data-cerrar-v="${esc(v.id)}">Cerrar</button>` : ''}`
+        : `<button type="button" class="btn-sec" data-pagar="${esc(v.id)}">Pagar</button>`) + anular);
   return `<div class="fila-caja" data-venc-fila="${esc(v.id)}"><div class="txt"><b>${esc(v.nombre)}</b> ${chipE}<span>${det}</span>
     ${doc && doc.tipo === 'previred' ? `<span>Certificado de Previred${doc.previred ? ' ' + esc(G3D.nombreMes(doc.previred.periodo)) + ' · ' + (doc.previred.trabajadores || []).length + ' trabajadores (un gasto por trabajador al pagar)' : ''}${doc.url ? ` · <a href="${esc(doc.url)}" target="_blank" rel="noopener">ver PDF</a>` : ''}</span>` : doc ? `<span>${doc.tipo === 'sii' ? `Factura del SII${doc.folio ? ' F.' + esc(doc.folio) : ''}${doc.razonSocial ? ' · ' + esc(doc.razonSocial) : ''}` : `Boleta${doc.cliente ? ' N° cliente ' + esc(doc.cliente) : ''}`} · vence ${esc(fechaCaja(v.fechaDocumento || v.fecha))}${doc.url ? ` · <a href="${esc(doc.url)}" target="_blank" rel="noopener">ver boleta</a>` : ''}</span>` : ''}
     ${(v.abonos || []).length ? `<span class="nota">${esc(G3.textoAbonos(v.abonos, pesos))}</span>` : ''}${v.obs ? `<span class="nota">${esc(v.obs)}</span>` : ''}</div>
@@ -1849,10 +1881,11 @@ async function asignarPendiente(x) {
 }
 
 // Abonos (obligación de tipo libre)
-function abrirAbono(v) {
+function abrirAbono(v, opc = {}) {
   if (!v) return;
+  const aMano = !!opc.aMano;   // v0.63.0: abono a mano de una obligación de banco
   const hoy = Caja.diaLocal();
-  const dlg = dialogo(`<form class="form-dialogo" novalidate><h2>Agregar abono</h2>
+  const dlg = dialogo(`<form class="form-dialogo" novalidate><h2>${aMano ? 'Agregar abono a mano' : 'Agregar abono'}</h2>${aMano ? `<p class="aviso-cc" id="ab-aviso-cartola">${icono('banco', 16)} ${esc(TXT_A_MANO.replace('elige "Ya está en Gastos"', 'elige "Ya está en Gastos" (no "Abono")'))}</p>` : ''}
     <p class="ayuda"><b>${esc(v.nombre)}</b>${(v.abonos || []).length ? ' · ' + esc(G3.textoAbonos(v.abonos, pesos)) : ''}</p>
     <div class="grilla-montos"><div class="campo"><label for="ab-monto">Monto del abono</label><input id="ab-monto" type="number" inputmode="numeric" min="0" step="1"></div>
       <div class="campo"><label for="ab-fecha">Fecha</label><input id="ab-fecha" type="date" value="${hoy}" max="${hoy}"></div></div>
@@ -1873,7 +1906,7 @@ function abrirAbono(v) {
     const b = q('#ab-guardar'); b.disabled = true; b.textContent = 'Guardando…';
     try {
       const a = await Gastos.prepararArchivo(q('#ab-archivo').files[0]);
-      const r = await Gastos.agregarAbono(v.id, { monto, fecha, origen: 'mano', obs: q('#ab-obs').value, ...(a || {}) }, idem);
+      const r = await Gastos.agregarAbono(v.id, { monto, fecha, origen: 'mano', obs: q('#ab-obs').value, ...(aMano ? { esperaCargo: true } : {}), ...(a || {}) }, idem);
       registrar('Agregó un abono', `${v.nombre} · ${pesos(monto)} · ${fechaCaja(fecha)}`);
       dlg.close(); refrescarAgenda();
       return r;
@@ -1940,7 +1973,8 @@ async function pintarObligaciones(el, sub, d) {
     Number(p.montoEstimado) ? pesos(Number(p.montoEstimado)) + ' est.' : 'sin monto estimado', p.item ? p.item : '', p.area === 'PRORRATEADO' ? [[p.pArea1, p.pPct1], [p.pArea2, p.pPct2], [p.pArea3, p.pPct3]].filter(x => x[0]).map(x => `${x[0]} ${x[1]}%`).join(' · ') : p.area === 'MULTI' ? (p.multiArea || []).map(a => a.area).join(' + ') : p.area].filter(Boolean).map(esc).join(' · ');
   const base = d.fuente === 'base';
   // v0.49.0 (base nueva): el tipo de cada obligación; las que vienen de la planilla dicen "Sin clasificar"
-  const chipTipo = p => (!base ? '' : G3.sinClasificar(p) ? ' <span class="chip c-amarillo chip-chico">Sin clasificar</span>' : ` <span class="chip c-gris chip-chico">${esc(G3.NOMBRE_TIPO[p.tipoObligacion])}</span>`);
+  const chipTipo = p => (!base ? '' : (G3.sinClasificar(p) ? ' <span class="chip c-amarillo chip-chico">Sin clasificar</span>' : ` <span class="chip c-gris chip-chico">${esc(G3.NOMBRE_TIPO[p.tipoObligacion])}</span>`)
+    + ` <span class="chip ${GBanco.sePagaPor(p) === 'banco' ? 'c-azul' : 'c-gris'} chip-chico">${esc(GBanco.sePagaPor(p) === 'banco' ? 'Por banco' : GBanco.NOMBRE_SE_PAGA[GBanco.sePagaPor(p)])}</span>`);
   const fila = (p, activa) => `<div class="fila-caja"><div class="txt"><b>${esc(p.nombre)}</b>${chipTipo(p)}<span>${detalle(p)}</span>${base && p.identificador ? `<span>${/^previred$/i.test(p.identificador) ? 'Identificador: Previred (certificado de cotizaciones)' : 'N° cliente / RUT: ' + esc(p.identificador)}</span>` : ''}${activa && p.proximaFecha ? `<span>Próxima: ${esc(fechaIso(p.proximaFecha))}</span>` : ''}${p.obs ? `<span class="nota">${esc(p.obs)}</span>` : ''}</div>
     <div class="acciones"><button type="button" class="btn-sec btn-chico" data-editar-obl="${esc(p.id)}">Editar</button><button type="button" class="btn-sec btn-chico" data-archivar-obl="${esc(p.id)}" data-archivar="${activa ? '1' : ''}">${activa ? 'Archivar' : 'Reactivar'}</button></div></div>`;
   const hoy = new Date();
@@ -1984,7 +2018,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.62.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.63.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -2001,7 +2035,8 @@ function abrirObligacion(p, d, pre) {
     ${base ? `<div class="campo"><span class="etiqueta">Tipo ${info('Tipos de obligación', TXT_TIPOS)}</span><div class="chips" role="radiogroup" aria-label="Tipo de obligación">${G3.TIPOS_OBLIGACION.map(k => `<label class="chip-radio"><input type="radio" name="ob-tobl" value="${k}" ${tObl === k ? 'checked' : ''}><span>${esc(G3.NOMBRE_TIPO[k])}</span></label>`).join('')}</div>${p && !p.tipoObligacion ? '<span class="ayuda">Sin clasificar: funciona como monto fijo hasta que elijas un tipo.</span>' : ''}</div>
     <div class="grilla-montos" id="ob-c-doc"><div class="campo"><label for="ob-ident">N° de cliente o RUT del proveedor</label><input id="ob-ident" type="text" maxlength="40" value="${esc(p && !/^previred$/i.test(p.identificador || '') ? p.identificador || '' : !p && pre ? pre.identificador : '')}" autocomplete="off">
         <label class="check-linea"><input type="checkbox" id="ob-previred" ${p && /^previred$/i.test(p.identificador || '') ? 'checked' : ''}> Es Previred (cotizaciones) ${info('Identificador Previred', 'Márcalo en la obligación de las cotizaciones previsionales (tipo según documento).\nAl subir el certificado de Previred (Gastos → Previred), se completa el vencimiento de esta obligación con el total del certificado.\nLos gastos por trabajador (con su área e ítem) se crean al pagar el vencimiento, con Pagar o con la cartola.')}</label></div>
-      <div class="campo"><label for="ob-aviso">Recordar "Subir boleta" (días antes)</label><input id="ob-aviso" type="number" min="0" max="60" step="1" value="${esc(p && p.diasAviso !== '' && p.diasAviso != null ? p.diasAviso : G3.DIAS_AVISO)}"></div></div>` : ''}
+      <div class="campo"><label for="ob-aviso">Recordar "Subir boleta" (días antes)</label><input id="ob-aviso" type="number" min="0" max="60" step="1" value="${esc(p && p.diasAviso !== '' && p.diasAviso != null ? p.diasAviso : G3.DIAS_AVISO)}"></div></div>
+    <div class="campo"><span class="etiqueta">Se paga por ${info('Se paga por', TXT_SE_PAGA)}</span><div class="chips" role="radiogroup" aria-label="Se paga por">${GBanco.SE_PAGA.map(k => `<label class="chip-radio"><input type="radio" name="ob-sepaga" value="${k}" ${(p ? GBanco.sePagaPor(p) : 'banco') === k ? 'checked' : ''}><span>${esc(GBanco.NOMBRE_SE_PAGA[k])}</span></label>`).join('')}</div>${p && !GBanco.sePagaPorOk(p.sePagaPor) ? '<span class="ayuda">Sin elegir todavía: cuenta como banco.</span>' : ''}</div>` : ''}
     <div class="campo"><label for="ob-item">Ítem de gasto ${info('Ítem', 'Al pagar, el gasto se registra con este ítem (categoría, tipo y área salen del ítem). Si el ítem se reparte entre áreas, aquí defines cómo; al pagar puedes ajustar los montos del mes.\nSin ítem, la obligación solo avisa.')}</label>
       <select id="ob-item"><option value="">Sin ítem</option>${items.map(i => `<option value="${esc(i.item)}" ${p && p.item === i.item ? 'selected' : ''}>${esc(i.item)}</option>`).join('')}${p && p.item && !it0 ? `<option selected value="${esc(p.item)}">${esc(p.item)} (ya no está en la lista)</option>` : ''}</select></div>
     <div id="ob-areas"></div>
@@ -2064,6 +2099,7 @@ function abrirObligacion(p, d, pre) {
     if (!datos.nombre || !datos.frecuencia) { err.textContent = 'Completa el nombre y la frecuencia.'; return; }
     const tsel = base && q('input[name="ob-tobl"]:checked');
     if (tsel) Object.assign(datos, { tipoObligacion: tsel.value, identificador: tsel.value === 'documento' ? (q('#ob-previred').checked ? 'previred' : q('#ob-ident').value.trim()) : '', diasAviso: q('#ob-aviso').value });
+    if (base) datos.sePagaPor = (q('input[name="ob-sepaga"]:checked') || {}).value || 'banco';   // v0.63.0
     if (pre && pre.pendienteId) datos.pendienteId = pre.pendienteId;
     const it = items.find(i => i.item === datos.item);
     if (it && it.area === 'SELECCIONAR') datos.multiArea = [...dlg.querySelectorAll('#ob-multi .fila-area')].map(f => ({ area: f.querySelector('.ob-area').value, monto: Number(f.querySelector('.ob-monto').value) || 0 })).filter(a => a.area && a.monto > 0);
@@ -2101,13 +2137,16 @@ const mismaCompra = (a, b) => a.fecha === b.fecha && a.formaPago === b.formaPago
 
 // ── v0.18.0 · Gastos · Cartola: los cargos del banco ───────────
 // La misma cartola de B2B → Conciliación: aquí se dice qué es cada cargo.
-const cart = { d: null, cargando: false, err: '', msg: '', subiendo: false, ocupado: '', abierto: '', modo: {}, montos: {}, gasto: {}, nuevo: {}, ign: {}, buscarV: {}, histBuscar: '', dias: 60, sel: {}, abonoV: {}, tarj: {} };
+const cart = { d: null, cargando: false, err: '', msg: '', subiendo: false, ocupado: '', abierto: '', modo: {}, montos: {}, gasto: {}, nuevo: {}, ign: {}, buscarV: {}, histBuscar: '', dias: 60, sel: {}, abonoV: {}, tarj: {}, tras: {} };
 const ACC_CC = { vencimientos: 'Paga vencimientos', gasto: 'Ya está en Gastos', nuevo: 'Gasto nuevo', ignorar: 'No es gasto' };
 // v0.50.0 · Con la base nueva, un cargo también puede ser un abono a un vencimiento de tipo libre (sueldo líquido)
 // v0.62.0 · y un pago de la tarjeta de crédito (no es gasto: movimiento de flujo; las compras con tarjeta ya entraron por el SII)
-const ACC_CC_BASE = { vencimientos: 'Paga vencimientos', abono: 'Abono (sueldo)', gasto: 'Ya está en Gastos', nuevo: 'Gasto nuevo', pago_tarjeta: 'Pago de tarjeta', ignorar: 'No es gasto' };
+// v0.63.0 · y un traspaso entre cuentas propias (chequera ↔ cuenta corriente): tampoco es gasto
+const ACC_CC_BASE = { vencimientos: 'Paga vencimientos', abono: 'Abono (sueldo)', gasto: 'Ya está en Gastos', nuevo: 'Gasto nuevo', pago_tarjeta: 'Pago de tarjeta', traspaso: 'Traspaso entre cuentas propias', ignorar: 'No es gasto' };
 const accCc = () => (cart.d && cart.d.fuente === 'base' ? ACC_CC_BASE : ACC_CC);
-const MOTIVOS_IGN = ['Traspaso entre mis cuentas', 'Retiro de socios', 'Devolución o reverso'];
+const MOTIVOS_IGN0 = ['Traspaso entre mis cuentas', 'Retiro de socios', 'Devolución o reverso'];
+// v0.63.0: con la base nueva el traspaso tiene su propia opción
+const motivosIgn = () => (cart.d && cart.d.fuente === 'base' ? MOTIVOS_IGN0.slice(1) : MOTIVOS_IGN0);
 function cargarCartolaGastos(forzar) {
   cart.cargando = true; cart.err = '';
   Cartola.lista(forzar, cart.dias).then(d => { cart.d = d; }).catch(e => { cart.err = e.message || mensajeError(e); cart.errCode = e.code; })
@@ -2119,8 +2158,8 @@ function textoProp(p) {
   const por = { aprendido: 'aprendido', rut: 'por el RUT', monto: 'por el monto', 'monto fijo': 'monto fijo exacto', documento: 'por el monto del documento' }[p.por] || '';
   // v0.50.0 (base nueva): opciones sin propuesta automática y abonos
   if (p.sinPropuesta) return `<span class="prop-duda">${esc(p.duda || 'Elige cuál paga')}</span> <small>(${esc((p.opciones || []).map(o => `${o.nombre}${o.conDocumento ? ' ' + pesos(o.monto) : ' · sin documento'}`).join(' · '))})</small>`;
-  const t = p.tipo === 'vencimientos' ? `Paga: ${p.texto}` : p.tipo === 'abono' ? `Abono a ${p.texto}` : p.tipo === 'gasto' ? `Ya en Gastos: ${p.texto}` : p.tipo === 'nuevo' ? `Gasto nuevo: ${p.texto}` : p.tipo === 'pago_tarjeta' ? `Pago de tarjeta: ${p.texto}` : `No es gasto: ${p.motivo}`;
-  return `${esc(t)}${por ? ` <small>(${por})</small>` : ''}${p.duda ? ` <small class="prop-duda">${esc(p.duda)}</small>` : ''}`;
+  const t = p.tipo === 'vencimientos' ? `Paga: ${p.texto}` : p.tipo === 'abono' ? `Abono a ${p.texto}` : p.tipo === 'gasto' ? `Ya en Gastos: ${p.texto}` : p.tipo === 'nuevo' ? `Gasto nuevo: ${p.texto}` : p.tipo === 'pago_tarjeta' ? `Pago de tarjeta: ${p.texto}` : p.tipo === 'traspaso' ? `Traspaso entre cuentas propias${p.nota ? ': ' + p.nota : ''}` : `No es gasto: ${p.motivo}`;
+  return `${esc(t)}${p.tipo === 'gasto' && p.chip ? ` <span class="chip c-lila chip-chico chip-origen">${esc(p.chip)}</span>` : ''}${por ? ` <small>(${por})</small>` : ''}${p.duda ? ` <small class="prop-duda">${esc(p.duda)}</small>` : ''}`;
 }
 // Lo que se manda al confirmar una propuesta tal cual (null si le falta algo: se abre el detalle)
 function pedidoDeProp(c, p, items) {
@@ -2130,6 +2169,7 @@ function pedidoDeProp(c, p, items) {
   if (p.tipo === 'gasto') return { accion: 'gasto', filas: p.gasto.filas };
   if (p.tipo === 'ignorar') return { accion: 'ignorar', motivo: p.motivo, siempre: false };
   if (p.tipo === 'pago_tarjeta') return { accion: 'pago_tarjeta', tarjeta: p.tarjeta || '' };
+  if (p.tipo === 'traspaso') return { accion: 'traspaso', nota: p.nota || '' };
   const it = items.find(i => i.item === p.item); if (!it) return null;
   const x = { item: it.item };
   if (it.area === 'PRORRATEADO') { try { x.prorrateo = JSON.parse(p.area); } catch (e) { return null; } x.montoTotal = c.monto; }
@@ -2162,6 +2202,8 @@ function editorCargo(c, p, dg) {
       <div class="lista-gastos-cc">${libres.map(v => `<label class="opcion-cc"><input type="radio" name="cc-ab-${esc(c.id)}" data-cc-abono="${esc(c.id)}" value="${esc(v.id)}" ${v.id === elegido ? 'checked' : ''}><span><b>${esc(v.nombre)}</b> · vence ${esc(diaTexto(v.fecha))}${v.abonos.length ? `<small>${esc(G3.textoAbonos(v.abonos, pesos))}</small>` : '<small>sin abonos todavía</small>'}</span></label>`).join('')}</div>
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="abono" data-cc="${esc(c.id)}" ${elegido && !cart.ocupado ? '' : 'disabled'}>Agregar abono de ${pesos(c.monto)}</button></div>`
       : '<p class="ayuda">No hay vencimientos de tipo libre abiertos (Obligaciones → tipo "Libre (abonos)").</p>';
+  } else if (m === 'gasto' && D.fuente === 'base') {
+    cuerpo = editorYaEnGastos(c, p);
   } else if (m === 'gasto') {
     const d0 = g => Math.abs((new Date(g.fecha + 'T12:00:00') - new Date(c.fecha + 'T12:00:00')) / 864e5);
     const gs = (D.gastos || []).filter(g => d0(g) <= 45).sort((a, b) => Math.abs(a.monto - c.monto) - Math.abs(b.monto - c.monto) || d0(a) - d0(b)).slice(0, 8);
@@ -2187,14 +2229,65 @@ function editorCargo(c, p, dg) {
     cuerpo = `<p class="ayuda">No crea un gasto ${info('Pago de tarjeta de crédito', 'Las compras con tarjeta ya son gasto el día de la compra (entran por el SII, con su factura). Pagar la tarjeta es solo mover la plata: no es gasto ni entra al estado de resultados; queda anotado aquí como movimiento de flujo para el flujo de caja.\nLa mantención y los intereses de la tarjeta sí son gasto financiero: regístralos a mano en Gastos (ítem de gasto financiero).\nLo que eliges se aprende: la próxima vez un cargo con esta descripción se propone como pago de tarjeta.')}</p>
       <div class="campo"><label for="cc-tarj-${esc(c.id)}">Tarjeta (opcional)</label><input id="cc-tarj-${esc(c.id)}" data-cc-tarj="${esc(c.id)}" maxlength="80" value="${esc(t)}" placeholder="Por ejemplo: Visa BancoEstado"></div>
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="pago_tarjeta" data-cc="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Es pago de tarjeta</button></div>`;
+  } else if (m === 'traspaso') {
+    // v0.63.0 · Traspaso entre cuentas propias: no crea gasto (la plata sigue siendo de Fën); se aprende
+    const t = cart.tras[c.id] !== undefined ? cart.tras[c.id] : (p && p.tipo === 'traspaso' ? p.nota || '' : '');
+    cuerpo = `<p class="ayuda">No crea un gasto ${info('Traspaso entre cuentas propias', 'Plata que pasa de una cuenta tuya a otra (por ejemplo, de la chequera electrónica a la cuenta corriente, o al revés). No es gasto ni entra al estado de resultados: queda anotado en el cargo como movimiento de flujo.\nSi en la otra cuenta aparece el abono del mismo traspaso, no hay que hacer nada con él en Gastos.\nLo que eliges se aprende: la próxima vez un cargo con esta descripción se propone como traspaso.')}</p>
+      <div class="campo"><label for="cc-tras-${esc(c.id)}">Nota (opcional)</label><input id="cc-tras-${esc(c.id)}" data-cc-tras="${esc(c.id)}" maxlength="80" value="${esc(t)}" placeholder="Por ejemplo: chequera a cuenta corriente"></div>
+      <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="traspaso" data-cc="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Es un traspaso</button></div>`;
   } else {
-    const g = cart.ign[c.id] || (cart.ign[c.id] = { motivo: MOTIVOS_IGN[0], siempre: false });
-    cuerpo = `<div class="chips chips-chicos" role="radiogroup" aria-label="Motivo">${MOTIVOS_IGN.concat(['Otro']).map(t => `<label class="chip-radio"><input type="radio" name="cc-ign-${esc(c.id)}" data-cc-ign="${esc(c.id)}" value="${esc(t)}" ${(MOTIVOS_IGN.includes(g.motivo) ? g.motivo : 'Otro') === t ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>
-      ${MOTIVOS_IGN.includes(g.motivo) ? '' : `<div class="campo"><label for="cc-ignt-${esc(c.id)}">Motivo</label><input id="cc-ignt-${esc(c.id)}" data-cc-igntxt="${esc(c.id)}" maxlength="80" value="${esc(g.motivo === 'Otro' ? '' : g.motivo)}"></div>`}
+    const g = cart.ign[c.id] || (cart.ign[c.id] = { motivo: motivosIgn()[0], siempre: false });
+    cuerpo = `<div class="chips chips-chicos" role="radiogroup" aria-label="Motivo">${motivosIgn().concat(['Otro']).map(t => `<label class="chip-radio"><input type="radio" name="cc-ign-${esc(c.id)}" data-cc-ign="${esc(c.id)}" value="${esc(t)}" ${(motivosIgn().includes(g.motivo) ? g.motivo : 'Otro') === t ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>
+      ${motivosIgn().includes(g.motivo) ? '' : `<div class="campo"><label for="cc-ignt-${esc(c.id)}">Motivo</label><input id="cc-ignt-${esc(c.id)}" data-cc-igntxt="${esc(c.id)}" maxlength="80" value="${esc(g.motivo === 'Otro' ? '' : g.motivo)}"></div>`}
       <label class="check-linea"><input type="checkbox" data-cc-siempre="${esc(c.id)}" ${g.siempre ? 'checked' : ''}> Siempre que la descripción diga esto${c.rut ? ' (este RUT)' : ''} ${info('Siempre', 'Los próximos cargos con la misma descripción (o el mismo RUT) quedan como "No es gasto" solos al subir la cartola. Se puede quitar en "Lo aprendido".')}</label>
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" data-cc-ok="ignorar" data-cc="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>No es gasto</button></div>`;
   }
   return `<div class="mov-edit">${chips}${cuerpo}</div>`;
+}
+// v0.63.0 · "Ya está en Gastos" con la base nueva: lo pagado por banco a mano, las facturas del SII ya cargadas, los pagos de
+// vencimientos y lo al contado, sin cargo; monto exacto primero, después el más parecido y la fecha más cercana. Cada uno con
+// su origen y "Ver detalle".
+const claveG = x => [x.fecha, x.hora, x.monto, x.filas[0].fila].join('|');
+const CHIP_COLOR = { sii: 'c-lila', espera: 'c-azul', vencimiento: 'c-azul', efectivo: 'c-gris', contado: 'c-gris' };
+function editorYaEnGastos(c, p) {
+  const D = cart.d, R = GBanco.rankear(c, D.gastos || []).slice(0, 10);
+  const elegido = cart.gasto[c.id] || (p && p.tipo === 'gasto' ? claveG(p.gasto) : '');
+  const g = R.map(r => r.g).find(x => claveG(x) === elegido);
+  if (!R.length) return `<p class="ayuda">No hay gastos sin cargo cerca de esa fecha (registrados por banco a mano, facturas del SII ya cargadas, pagos de vencimientos o al contado).</p>`;
+  return `<p class="ayuda">Gastos ya registrados que esperan su cargo, del monto más parecido al más lejano ${info('Ya está en Gastos', 'Aparecen los gastos que todavía no tienen su cargo de la cartola:\n• pagados por banco y registrados a mano (pago a mano de un vencimiento, o Registrar con "Transferencia o banco"): esperan este cargo;\n• facturas del SII ya cargadas que se pagan después por transferencia (desde 5 días antes de la factura hasta 60 días después);\n• pagos de vencimientos sin cargo y gastos al contado.\nPrimero los del monto exacto, después el más parecido y la fecha más cercana. "Ver detalle" muestra el gasto completo y de dónde salió.\nAl elegirlo, el gasto queda con la cartola (no se crea otro) y deja de esperar su cargo.')}</p>
+    <div class="lista-gastos-cc">${R.map(({ g: x, exacto, dist, dif }) => { const k = claveG(x); return `<div class="opcion-cc-fila"><label class="opcion-cc"><input type="radio" name="cc-g-${esc(c.id)}" data-cc-gasto="${esc(c.id)}" value="${esc(k)}" ${k === elegido ? 'checked' : ''}><span><b>${pesos(x.monto)}</b> · ${esc(x.items.join(' + '))} · ${esc(diaTexto(x.fecha))}${x.razon ? ' · ' + esc(x.razon) : ''}${x.folio ? ' · F.' + esc(x.folio) : ''}
+        <span class="chip ${CHIP_COLOR[x.clase] || 'c-gris'} chip-chico chip-origen">${esc(x.chip)}</span>
+        <small>${exacto ? 'Monto exacto' : 'Diferencia ' + pesos(dif)} · ${dist === 0 ? 'mismo día' : dist > 0 ? `cargo ${dist} ${dist === 1 ? 'día' : 'días'} después` : `cargo ${-dist} ${dist === -1 ? 'día' : 'días'} antes`}</small>${x.obs ? `<small>${esc(x.obs)}</small>` : ''}</span></label>
+        <button type="button" class="btn-link btn-chico" data-cc-det="${esc(x.filas.map(f => f.id).join(','))}" data-cc="${esc(c.id)}" data-cc-k="${esc(k)}">Ver detalle</button></div>`; }).join('')}</div>
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="gasto" data-cc="${esc(c.id)}" ${g && Math.abs(g.monto - c.monto) <= g.filas.length && !cart.ocupado ? '' : 'disabled'}>Es este gasto</button>${g && Math.abs(g.monto - c.monto) > g.filas.length ? `<span class="ayuda">El gasto es de ${pesos(g.monto)}: debe ser igual al cargo. Corrígelo en <a href="#gastos/registrados">Registrados</a> si corresponde.</span>` : ''}</div>`;
+}
+// v0.63.0 · Detalle de un gasto con su origen (Conciliación y Registrados). opc = { cargo, elegir }
+async function abrirDetalleGasto(ids, opc = {}) {
+  const dlg = dialogo(`<div class="form-dialogo det-gasto-dlg"><h2>Detalle del gasto</h2><div id="dg-cuerpo"><p class="ayuda">Leyendo el gasto y su origen…</p></div>
+    <div class="botones"><button type="button" class="btn-sec" id="dg-cerrar">Cerrar</button>${opc.elegir ? '<button type="button" class="btn" id="dg-elegir">Es este gasto</button>' : ''}</div></div>`);
+  dlg.querySelector('#dg-cerrar').onclick = () => dlg.close();
+  if (opc.elegir) dlg.querySelector('#dg-elegir').onclick = () => { dlg.close(); opc.elegir(); };
+  let r;
+  try { r = await Gastos.detalleGasto(ids); } catch (e) { const c0 = dlg.querySelector('#dg-cuerpo'); if (c0) c0.innerHTML = `<p class="error" role="alert">${esc(e.message || mensajeError(e))}</p>`; return; }
+  const cu = dlg.querySelector('#dg-cuerpo'); if (!cu) return;
+  const R = r.resumen, O = r.origen, c = opc.cargo;
+  const fila = (k, v) => `<div class="dg-fila"><dt>${esc(k)}</dt><dd>${v}</dd></div>`;
+  cu.innerHTML = `${c ? `<p class="ayuda dg-cargo">Cargo de la cartola: <b>${pesos(c.monto)}</b> · ${esc(c.descripcion)} · ${esc(diaTexto(c.fecha))}${Math.abs(c.monto - R.total) <= R.areas.length ? ' · <span class="chip c-verde chip-chico">mismo monto</span>' : ` · <span class="chip c-amarillo chip-chico">diferencia ${pesos(Math.abs(c.monto - R.total))}</span>`}</p>` : ''}
+    <dl class="dg-lista">
+      ${fila('Fecha', esc(fechaIso(R.fecha)) + (R.hora ? ' · ' + esc(R.hora) : ''))}
+      ${R.fechaPago && R.fechaPago !== R.fecha ? fila('Fecha de pago', esc(fechaIso(R.fechaPago))) : ''}
+      ${fila(R.items.length === 1 ? 'Ítem' : 'Ítems', esc(R.items.join(' + ')))}
+      ${fila(R.areas.length === 1 ? 'Área' : 'Áreas y reparto', R.areas.length === 1 ? esc(R.areas[0].area || 'sin área') : `<span class="dg-areas">${R.areas.map(a => `<span>${esc(a.area || 'sin área')}${R.items.length > 1 ? ' · ' + esc(a.item) : ''} <b>${pesos(a.total)}</b>${R.total ? ` <small>(${Math.round(a.total * 100 / R.total)} %)</small>` : ''}</span>`).join('')}</span>`)}
+      ${fila('Neto · IVA · Total', `${pesos(R.neto)} · ${pesos(R.iva)} · <b>${pesos(R.total)}</b>`)}
+      ${fila('Tipo de monto', esc(R.tipoMonto || '—'))}
+      ${fila('Forma de pago', esc(R.forma))}
+      ${R.obs ? fila('Observación', esc(R.obs)) : ''}
+      ${fila('Archivos', R.archivos.length ? R.archivos.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener">${R.archivos.length > 1 ? 'Boleta o factura ' + (i + 1) : 'Boleta o factura'}</a>`).join(' · ') : 'sin archivo')}
+      ${fila('Cartola', R.cartola ? esc(R.cartola.replace(/\s*\[cc[0-9a-f]+\]$/, '')) : R.esperaCargo ? '<span class="chip c-azul chip-chico">Espera su cargo</span>' : 'sin cargo')}
+    </dl>
+    <h3 class="dg-tit">${icono('boleta', 16)} Origen ${info('Origen', 'De dónde salió este gasto: un registro a mano, el pago de un vencimiento, una carga del SII (con o sin detalle de productos), el certificado de Previred, la copia de la planilla antigua o un cargo de la cartola.')}</h3>
+    <p class="dg-origen" id="dg-origen"><b>${esc(O.titulo)}</b></p>
+    <dl class="dg-lista">${O.filas.map(([k, v]) => fila(k, esc(v))).join('')}</dl>`;
 }
 const normCc = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 function pintarCartola(el, sub, dg) {
@@ -2218,7 +2311,7 @@ function pintarCartola(el, sub, dg) {
   const casilla = c => (base && pedibles[c.id] ? `<label class="cc-sel" title="Confirmar con los seleccionados"><input type="checkbox" data-cc-sel="${esc(c.id)}" ${cart.sel[c.id] ? 'checked' : ''} ${cart.ocupado ? 'disabled' : ''} aria-label="Elegir ${esc(pesos(c.monto) + ' ' + c.descripcion)}"></label>` : '');
   const fila = c => { const p = props[c.id], auto = listos.includes(c); return `<details class="fila-orden-b2b mov" data-ccd="${esc(c.id)}" ${cart.abierto === c.id ? 'open' : ''}><summary class="fila-caja">${casilla(c)}<div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))}</span>${p ? `<small class="prop-cc">${textoProp(p)}</small>` : ''}</div>
       <div class="acciones">${auto ? `<button type="button" class="btn btn-chico" data-cc-auto="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${cart.abierto === c.id ? editorCargo(c, p, dg) : ''}</details>`; };
-  const TIPO_LOTE = { vencimientos: ['pago de vencimiento', 'pagos de vencimientos'], abono: ['abono', 'abonos'], gasto: ['ya en Gastos', 'ya en Gastos'], nuevo: ['gasto nuevo', 'gastos nuevos'], pago_tarjeta: ['pago de tarjeta', 'pagos de tarjeta'], ignorar: ['no es gasto', 'no son gasto'] };
+  const TIPO_LOTE = { vencimientos: ['pago de vencimiento', 'pagos de vencimientos'], abono: ['abono', 'abonos'], gasto: ['ya en Gastos', 'ya en Gastos'], nuevo: ['gasto nuevo', 'gastos nuevos'], pago_tarjeta: ['pago de tarjeta', 'pagos de tarjeta'], traspaso: ['traspaso', 'traspasos'], ignorar: ['no es gasto', 'no son gasto'] };
   const resLote = base ? Cartola.resumenLote(elegidos.map(c => ({ c, p: props[c.id] }))) : null;
   const textoLote = r => Object.entries(r.porTipo).map(([k, n]) => `${n} ${(TIPO_LOTE[k] || [k, k])[n === 1 ? 0 : 1]}`).join(' · ');
   const barraLote = base && Object.keys(pedibles).length ? `<div class="cc-lote" role="group" aria-label="Confirmar varios"><button type="button" class="btn btn-chico" id="cc-lote" ${elegidos.length && !cart.ocupado ? '' : 'disabled'}>Confirmar seleccionados (${elegidos.length})</button>
@@ -2314,19 +2407,20 @@ function resumenHecho(c) {
   if (c.accion === 'nuevo') return `Gasto nuevo: ${(d.items || []).join(' + ')}${d.sinFactura ? ' (sin factura)' : ''}`;
   if (c.accion === 'abono') return `Abono ${d.abono ? d.abono.n : ''} a ${d.abono ? d.abono.nombre : ''}`;
   if (c.accion === 'pago_tarjeta') return `Pago de tarjeta de crédito${d.tarjeta ? ' (' + d.tarjeta + ')' : ''}: no es gasto`;
+  if (c.accion === 'traspaso') return `Traspaso entre cuentas propias${d.nota ? ' (' + d.nota + ')' : ''}: no es gasto`;
   return `No es gasto: ${d.motivo || ''}${d.regla ? ' (siempre)' : d.siempre ? ' · se aprendió' : ''}`;
 }
 function histCcHtml(hechos) {
   return `<details class="tarjeta plegable" data-plegar="cc-hist" ${plegadas()['cc-hist'] === false ? 'open' : ''}><summary class="titulo-fila"><h2>Ya revisados</h2><span>últimos ${cart.dias} días · ${hechos.length}</span></summary>
     <div class="buscar-b2b"><input type="search" data-cc-hbuscar value="${esc(cart.histBuscar)}" placeholder="Buscar por descripción, monto o gasto" aria-label="Buscar en ya revisados"></div>
     ${hechos.length ? hechos.map(c => `<div class="fila-hist fila-caja" data-txt="${esc(normCc([c.descripcion, c.monto, resumenHecho(c), c.fecha].join(' ')))}"><div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))} · ${esc(resumenHecho(c))}</span><span class="nota">${esc(c.resueltoEl)} · ${esc(c.resueltoPor)}</span></div>
-      <div class="acciones"><span class="chip chip-chico ${c.estado === 'IGNORADO' || c.accion === 'pago_tarjeta' ? 'c-gris' : c.estado === 'A_MEDIAS' ? 'c-rojo' : 'c-verde'}">${c.estado === 'IGNORADO' ? 'No es gasto' : c.estado === 'A_MEDIAS' ? 'A medias: deshacer' : c.accion === 'pago_tarjeta' ? 'Pago de tarjeta' : 'Conciliado'}</span><button type="button" class="btn-sec btn-chico" data-cc-deshacer="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Deshacer</button></div></div>`).join('') : '<div class="vacio" style="border:0">Nada todavía.</div>'}
+      <div class="acciones"><span class="chip chip-chico ${c.estado === 'IGNORADO' || c.accion === 'pago_tarjeta' || c.accion === 'traspaso' ? 'c-gris' : c.estado === 'A_MEDIAS' ? 'c-rojo' : 'c-verde'}">${c.estado === 'IGNORADO' ? 'No es gasto' : c.estado === 'A_MEDIAS' ? 'A medias: deshacer' : c.accion === 'pago_tarjeta' ? 'Pago de tarjeta' : c.accion === 'traspaso' ? 'Traspaso' : 'Conciliado'}</span><button type="button" class="btn-sec btn-chico" data-cc-deshacer="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Deshacer</button></div></div>`).join('') : '<div class="vacio" style="border:0">Nada todavía.</div>'}
     <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-link" id="cc-hist-mas">Ver más antiguos</button></div></details>`;
 }
 function reglasCcHtml(D) {
   const l = D.reglas || [];
   if (!l.length) return '';
-  const que = r => r.accion === 'ignorar' ? `No es gasto: ${r.ejemplo}` : r.accion === 'pago_tarjeta' ? `Pago de tarjeta: ${r.ejemplo}` : r.accion === 'gasto' ? `Gasto nuevo: ${r.item}${r.sinFactura ? ' (sin factura)' : ''}` : r.accion === 'abono' ? `Abono a ${r.ejemplo}` : `Paga: ${r.ejemplo}`;
+  const que = r => r.accion === 'ignorar' ? `No es gasto: ${r.ejemplo}` : r.accion === 'pago_tarjeta' ? `Pago de tarjeta: ${r.ejemplo}` : r.accion === 'traspaso' ? `Traspaso entre cuentas propias: ${r.ejemplo}` : r.accion === 'gasto' ? `Gasto nuevo: ${r.item}${r.sinFactura ? ' (sin factura)' : ''}` : r.accion === 'abono' ? `Abono a ${r.ejemplo}` : `Paga: ${r.ejemplo}`;
   const cual = r => r.clave.startsWith('rut:') ? 'RUT ' + r.clave.slice(4).replace(/^(\d+)(\w)$/, '$1-$2') : '"' + r.clave.slice(4).toLowerCase() + '"';
   return `<details class="tarjeta plegable" data-plegar="cc-reglas" ${plegadas()['cc-reglas'] === false ? 'open' : ''}><summary class="titulo-fila"><h2>Lo aprendido ${info('Lo aprendido', 'Cada vez que confirmas, se recuerda qué es un cargo con esa descripción (o ese RUT) para proponerlo la próxima vez. "No es gasto" con "siempre" se aplica solo al subir la cartola.\nQuitar no cambia nada de lo ya conciliado.')}</h2><span>${l.length}</span></summary>
     ${l.map(r => `<div class="fila-caja"><div class="txt"><b>${esc(cual(r))}</b><span>${esc(que(r))} · ${r.veces} ${r.veces === 1 ? 'vez' : 'veces'}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico btn-peligro" data-cc-regla="${esc(r.clave)}" ${cart.ocupado ? 'disabled' : ''}>Quitar</button></div></div>`).join('')}</details>`;
@@ -2360,7 +2454,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   };
   const enviar = async (c, pedido) => {
     const r = await Cartola.resolver({ id: c.id, huella: c.huella, ...pedido }, 'cc-' + c.id + '-' + Gastos.nuevaClave());
-    ['modo', 'montos', 'gasto', 'nuevo', 'ign', 'buscarV', 'sel', 'abonoV', 'tarj'].forEach(k => { delete cart[k][c.id]; });
+    ['modo', 'montos', 'gasto', 'nuevo', 'ign', 'buscarV', 'sel', 'abonoV', 'tarj', 'tras'].forEach(k => { delete cart[k][c.id]; });
     if (cart.abierto === c.id) cart.abierto = '';
     registrar('Concilió un cargo', `${pesos(c.monto)} · ${c.descripcion} · ${accCc()[pedido.accion]}`);
     return r;
@@ -2390,7 +2484,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
     if (!confirm(`¿Confirmar ${lista.length} ${lista.length === 1 ? 'cargo' : 'cargos'} por ${pesos(r0.monto)}?\n\n${lista.slice(0, 12).map(x => `· ${pesos(x.c.monto)} ${x.c.descripcion} → ${accCc()[x.pedido.accion]}`).join('\n')}${lista.length > 12 ? '\n…' : ''}`)) return;
     cart.ocupado = 'lote'; cart.err = ''; cart.avance = `Confirmando 0 de ${lista.length}…`; repintar();
     const r = await Cartola.confirmarVarios(lista, (k, n) => { cart.avance = k < n ? `Confirmando ${k + 1} de ${n}…` : ''; const a = $('cc-lote-avance'); if (a) a.textContent = cart.avance; });
-    r.ok.forEach(id => { const c = cargo(id); ['modo', 'montos', 'gasto', 'nuevo', 'ign', 'buscarV', 'sel', 'abonoV', 'tarj'].forEach(k => { delete cart[k][id]; }); if (c) registrar('Concilió un cargo', `${pesos(c.monto)} · ${c.descripcion} · ${accCc()[(pedibles[id] || {}).accion] || ''}`); });
+    r.ok.forEach(id => { const c = cargo(id); ['modo', 'montos', 'gasto', 'nuevo', 'ign', 'buscarV', 'sel', 'abonoV', 'tarj', 'tras'].forEach(k => { delete cart[k][id]; }); if (c) registrar('Concilió un cargo', `${pesos(c.monto)} · ${c.descripcion} · ${accCc()[(pedibles[id] || {}).accion] || ''}`); });
     cart.msg = `Listo: ${r.ok.length} ${r.ok.length === 1 ? 'cargo confirmado' : 'cargos confirmados'}${r.errores.length ? `. ${r.errores.length} no se ${r.errores.length === 1 ? 'pudo' : 'pudieron'} (quedan marcados para revisar)` : ''}.`;
     if (r.errores.length) cart.err = r.errores.map(x => `${pesos(x.c.monto)} ${x.c.descripcion}: ${x.error}`).join(' · ');
     cart.ocupado = ''; cart.avance = ''; cargarCartolaGastos(true);
@@ -2428,14 +2522,22 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   el.querySelectorAll('[data-cc-ign]').forEach(i => i.addEventListener('change', () => { cart.ign[i.dataset.ccIgn].motivo = i.value; repintar(); }));
   el.querySelectorAll('[data-cc-igntxt]').forEach(i => i.addEventListener('input', () => { cart.ign[i.dataset.ccIgntxt].motivo = i.value || 'Otro'; }));
   el.querySelectorAll('[data-cc-tarj]').forEach(i => i.addEventListener('input', () => { cart.tarj[i.dataset.ccTarj] = i.value; }));
+  el.querySelectorAll('[data-cc-tras]').forEach(i => i.addEventListener('input', () => { cart.tras[i.dataset.ccTras] = i.value; }));
+  // v0.63.0 · Detalle del gasto propuesto (con su origen); desde ahí se puede elegir
+  el.querySelectorAll('[data-cc-det]').forEach(b => b.addEventListener('click', ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    const c = cargo(b.dataset.cc), k = b.dataset.ccK;
+    abrirDetalleGasto(b.dataset.ccDet.split(','), { cargo: c, elegir: () => { cart.gasto[c.id] = k; repintar(); } });
+  }));
   el.querySelectorAll('[data-cc-siempre]').forEach(i => i.addEventListener('change', () => { cart.ign[i.dataset.ccSiempre].siempre = i.checked; }));
   el.querySelectorAll('[data-cc-ok]').forEach(b => b.addEventListener('click', () => {
     const c = cargo(b.dataset.cc), a = b.dataset.ccOk;
     let pd;
     if (a === 'abono') { const v = cart.abonoV[c.id] || (props[c.id] && props[c.id].tipo === 'abono' ? props[c.id].vencId : ''); if (!v) return; pd = { accion: 'abono', vencId: v }; }
     else if (a === 'pago_tarjeta') pd = { accion: a, tarjeta: (cart.tarj[c.id] !== undefined ? cart.tarj[c.id] : (props[c.id] && props[c.id].tarjeta) || '').trim() };
+    else if (a === 'traspaso') pd = { accion: a, nota: (cart.tras[c.id] !== undefined ? cart.tras[c.id] : (props[c.id] && props[c.id].nota) || '').trim() };
     else if (a === 'vencimientos') pd = { accion: a, pagos: Object.entries(cart.montos[c.id] || {}).filter(([, m]) => m > 0).map(([id, monto]) => ({ id, monto })) };
-    else if (a === 'gasto') { const g = (D.gastos || []).find(x => [x.fecha, x.hora, x.monto, x.filas[0].fila].join('|') === cart.gasto[c.id] || (props[c.id] && props[c.id].gasto === x && !cart.gasto[c.id])); if (!g) return; pd = { accion: a, filas: g.filas }; }
+    else if (a === 'gasto') { const g = (D.gastos || []).find(x => [x.fecha, x.hora, x.monto, x.filas[0].fila].join('|') === cart.gasto[c.id] || (props[c.id] && props[c.id].tipo === 'gasto' && !cart.gasto[c.id] && [x.fecha, x.hora, x.monto, x.filas[0].fila].join('|') === [props[c.id].gasto.fecha, props[c.id].gasto.hora, props[c.id].gasto.monto, props[c.id].gasto.filas[0].fila].join('|'))); if (!g) return; pd = { accion: a, filas: g.filas }; }
     else if (a === 'nuevo') {
       const n = cart.nuevo[c.id], it = (dg.items || []).find(i => i.item === n.item); if (!it) return;
       const x = { item: it.item };
@@ -2456,7 +2558,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   el.querySelectorAll('[data-cc-deshacer]').forEach(b => b.addEventListener('click', async () => {
     const c = cargo(b.dataset.ccDeshacer); if (!c) return;
     const que = c.accion === 'vencimientos' ? '<p>Los vencimientos vuelven a quedar por pagar. Si el pago creó un gasto (una obligación), ese gasto pasa a "Gastos anulados"; si era una compra a crédito o una factura del SII, su gasto queda sin fecha de pago.</p>'
-      : c.accion === 'nuevo' ? '<p>El gasto que se creó pasa a "Gastos anulados" (no se borra).</p>' : c.accion === 'abono' ? '<p>El abono sale del vencimiento (queda anotado) y su gasto pasa a "Gastos anulados".</p>' : c.accion === 'gasto' ? '<p>El gasto queda igual; solo se le quita la cartola.</p>' : c.accion === 'pago_tarjeta' ? '<p>Deja de contar como pago de tarjeta (no había gasto: no cambia nada en Gastos).</p>' : '<p>No cambia nada en Gastos.</p>';
+      : c.accion === 'nuevo' ? '<p>El gasto que se creó pasa a "Gastos anulados" (no se borra).</p>' : c.accion === 'abono' ? '<p>El abono sale del vencimiento (queda anotado) y su gasto pasa a "Gastos anulados".</p>' : c.accion === 'gasto' ? '<p>El gasto queda igual; solo se le quita la cartola (si esperaba su cargo, vuelve a esperarlo).</p>' : c.accion === 'pago_tarjeta' ? '<p>Deja de contar como pago de tarjeta (no había gasto: no cambia nada en Gastos).</p>' : c.accion === 'traspaso' ? '<p>Deja de contar como traspaso (no había gasto: no cambia nada en Gastos).</p>' : '<p>No cambia nada en Gastos.</p>';
     const motivo = await pedirMotivo('Deshacer', `<p class="ayuda">${pesos(c.monto)} · ${esc(c.descripcion)} (${esc(diaTexto(c.fecha))}) · ${esc(resumenHecho(c))}</p>${que}<p class="ayuda">El cargo vuelve a "Para revisar" y lo aprendido de él se olvida.</p>`, 'Deshacer');
     if (!motivo) return;
     ocupado('deshacer', async () => { const r = await Cartola.deshacer(c.id, motivo, 'ccd-' + Gastos.nuevaClave()); cart.msg = `Listo: el cargo de ${pesos(c.monto)} volvió a "Para revisar".${(r.avisos || []).length ? ' ' + r.avisos.map(esc).join(' ') : ''}`; registrar('Deshizo un cargo conciliado', `${pesos(c.monto)} · ${c.descripcion} · ${motivo}`); });
@@ -2475,7 +2577,7 @@ async function pintarRegistrados(el, sub, d) {
   L = L.slice().sort((a, b) => b.fecha.localeCompare(a.fecha) || (b.hora || '').localeCompare(a.hora || '') || a.fila - b.fila);
   const meses = [...new Set(L.map(mesDe))].sort().reverse();
   el.innerHTML = cabGastos(sub) + `
-    <section class="tarjeta" aria-labelledby="t-reg"><div class="titulo-fila"><h2 id="t-reg">Gastos registrados ${info('Gastos registrados', 'Cada fila de la planilla Registro Gasto: una por ítem y área. Corregir cambia fecha, ítem, área, monto u observación (el neto se recalcula).\nAnular no borra: la fila pasa a la pestaña "Gastos anulados" de la planilla, con fecha, quién y motivo, y deja de sumar en todos lados (análisis, Looker, prorrateo).\nSi la compra tiene varias líneas (áreas o ítems), puedes anular toda la compra de una vez.\nSe muestran desde el 1 de enero del año pasado.')} ${infoDrive()}</h2><span id="reg-cuenta"></span></div>
+    <section class="tarjeta" aria-labelledby="t-reg"><div class="titulo-fila"><h2 id="t-reg">Gastos registrados ${info('Gastos registrados', 'Cada fila de la planilla Registro Gasto: una por ítem y área. Corregir cambia fecha, ítem, área, monto u observación (el neto se recalcula).\nAnular no borra: la fila pasa a la pestaña "Gastos anulados" de la planilla, con fecha, quién y motivo, y deja de sumar en todos lados (análisis, Looker, prorrateo).\nSi la compra tiene varias líneas (áreas o ítems), puedes anular toda la compra de una vez.\nVer origen: el gasto completo y de dónde salió (registro a mano, pago de un vencimiento, carga del SII, Previred, planilla antigua o cartola).\n"Espera cartola": se pagó por banco y se registró a mano; cuando llegue su cargo, en Conciliación elige "Ya está en Gastos".\nSe muestran desde el 1 de enero del año pasado.')} ${infoDrive()}</h2><span id="reg-cuenta"></span></div>
       <div class="filtros"><input id="reg-buscar" type="search" placeholder="Buscar ítem, área, monto, proveedor, folio u observación" value="${esc(reg.busqueda)}" aria-label="Buscar">
         <select id="reg-mes" aria-label="Mes"><option value="">Todos los meses</option>${meses.map(m => `<option value="${m}" ${reg.mes === m ? 'selected' : ''}>${MESES_LARGOS[+m.slice(5) - 1].replace(/^./, c => c.toUpperCase())} ${m.slice(0, 4)}</option>`).join('')}</select>
         <div class="chips chips-chicos" role="group" aria-label="Forma de pago">${[['todos', 'Todos'], ['credito', 'A crédito'], ['por_pagar', 'Por pagar']].map(([k, t]) => `<button type="button" class="chip-filtro" data-forma="${k}" aria-pressed="${reg.forma === k}">${t}</button>`).join('')}</div></div>
@@ -2491,9 +2593,10 @@ async function pintarRegistrados(el, sub, d) {
       return `<div class="fila-caja" data-fila="${g.fila}"><div class="txt"><b>${esc(g.item)}</b>
         <span>${esc(fechaIso(g.fecha))} · ${esc(g.area)}${g.formaPago && g.formaPago !== 'contado' ? ' · ' + (g.formaPago === 'tarjeta' ? 'tarjeta' : 'crédito proveedor') : ''}${g.vencimiento && e.t !== 'Pagado' ? ' · vence ' + esc(fechaIso(g.vencimiento)) : ''}</span>
         ${g.razonSocial || g.folio ? `<span>${esc(g.razonSocial || g.rut)}${g.folio ? ` · ${g.esNC ? 'NC' : 'F.'} ${esc(g.folio)}` : ''}</span>` : ''}${g.obs ? `<span class="nota">${esc(g.obs)}</span>` : ''}</div>
-        <div class="acciones"><span class="chip ${e.c} chip-chico">${e.t}</span><span class="chip c-gris">${esc(pesos(g.monto))}</span>
+        <div class="acciones"><span class="chip ${e.c} chip-chico">${e.t}</span>${g.esperaCargo ? `<span class="chip c-azul chip-chico" title="Pagado por banco y registrado a mano: espera su cargo en la cartola">Espera cartola</span>` : ''}<span class="chip c-gris">${esc(pesos(g.monto))}</span>
           ${g.urlFoto ? `<a class="btn-sec btn-chico btn-enlace" href="${esc(g.urlFoto)}" target="_blank" rel="noopener">Boleta</a>` : ''}
           ${g.rut && g.folio ? `<button type="button" class="btn-sec btn-chico" data-det-g="${g.fila}">Detalle</button>` : ''}
+          ${d.fuente === 'base' ? `<button type="button" class="btn-sec btn-chico" data-origen-g="${g.fila}">Ver origen</button>` : ''}
           <button type="button" class="btn-sec btn-chico" data-corregir="${g.fila}">Corregir</button><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-g="${g.fila}">Anular</button></div></div>`; }).join('')}</div>`
       : '<div class="vacio">No hay gastos con esos filtros.</div>';
     colapsar(cont);
@@ -2504,8 +2607,10 @@ async function pintarRegistrados(el, sub, d) {
   el.querySelectorAll('[data-forma]').forEach(b => b.onclick = () => { reg.forma = b.dataset.forma; el.querySelectorAll('[data-forma]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); pintarLista(); });
   $('reg-lista').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    const g = L.find(x => x.fila === +(b.dataset.corregir || b.dataset.anularG || b.dataset.detG)); if (!g) return;
-    if (b.dataset.corregir) corregirGasto(g, d);
+    const g = L.find(x => x.fila === +(b.dataset.corregir || b.dataset.anularG || b.dataset.detG || b.dataset.origenG)); if (!g) return;
+    // v0.63.0: el detalle con su origen (las líneas de la misma compra o del mismo pago van juntas)
+    if (b.dataset.origenG) abrirDetalleGasto([g, ...L.filter(x => x !== g && (mismaCompra(x, g) || (g.vencimientoId && x.vencimientoId === g.vencimientoId && x.fecha === g.fecha)))].map(x => x.id));
+    else if (b.dataset.corregir) corregirGasto(g, d);
     else if (b.dataset.anularG) anularGastoUI(g, L);
     else if (b.dataset.detG) verDetalleSii(g.rut, g.folio, g.esNC ? '61' : '');
   });
@@ -2842,6 +2947,15 @@ function pendientesApps(estados) {
   const ssc = de('gastos', 'sii_sin_cargar');
   (ssc && ssc.avisos || []).forEach((a, i) => L.push({ orden: 2.4 + i / 100, color: 'amarillo', icono: 'boleta', chip: 'Subir', url: '#gastos/sii', origen: 'Gastos', titulo: a.texto,
     detalle: a.clave === 'mes' ? 'Ninguna carga del SII tiene documentos de ese mes · Gastos → Cargas del SII' : 'Gastos → Cargas del SII' }));
+  // v0.63.0 · con la base nueva: lo que se paga por banco y todavía no aparece en la cartola
+  const ec = de('gastos', 'esperan_cartola');
+  if (ec && ec.cantidad > 0) {
+    const lineas = ec.lineas || [], enl = [];
+    if ((ec.vencimientos || []).length) enl.push(['#gastos', 'Ver Vencimientos']);
+    enl.push(['#conciliacion/cargos', 'Ir a Conciliación']);
+    L.push({ orden: 2.55, color: 'amarillo', icono: 'banco', chip: 'Revisar', id: 'pend-esperan-cartola', origen: 'Gastos', titulo: `Esperan cartola: ${ec.cantidad}`,
+      lineas: lineas.slice(0, 6).concat(lineas.length > 6 ? [`y ${lineas.length - 6} más`] : []), detalle: '¿Subiste la cartola o falta pagarlo?', enlaces: enl });
+  }
   // v0.18.0 · cargos de la cartola por revisar (script de Gastos v2.8.0)
   const cc = de('gastos', 'cartola_cargos');
   if (cc && cc.cantidad > 0) L.push({ orden: 2.6, color: 'azul', icono: 'boleta', chip: 'Revisar', url: '#conciliacion/cargos', origen: 'Gastos', titulo: `${veces(cc.cantidad, 'cargo', 'cargos')} de la cartola por revisar`,

@@ -5,14 +5,16 @@
 //  confirma cada una (Guardar) o marca varias y presiona "Aplicar propuestas". Guardar usa las reglas de la v0.49.0
 //  (sus vencimientos abiertos sin documento ni abonos toman el tipo nuevo). Reglas en gastos-g3d.js.
 //  Se abre en #gastos/clasificar (desde Obligaciones o desde Base nueva → Cambio a la base nueva).
+//  v0.63.0: también "Se paga por" (banco, efectivo o tarjeta) con su propuesta desde el historial (pagos con la cartola → banco).
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, pesos, fecha }
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.62.0';
-import * as G3 from './gastos-g3.js?v=0.62.0';
-import { ID_PREVIRED } from './gastos-g3d.js?v=0.62.0';
+import * as Gastos from './gastos.js?v=0.63.0';
+import * as G3 from './gastos-g3.js?v=0.63.0';
+import { ID_PREVIRED } from './gastos-g3d.js?v=0.63.0';
+import * as B from './gastos-banco.js?v=0.63.0';
 
 const st = { lista: null, msg: '', err: '', corriendo: false, sel: new Set() };
-const TXT = 'Para cada obligación activa se propone un tipo:\n• Monto fijo, si los últimos 3 pagos fueron del mismo monto (arriendo, cuotas).\n• Según documento, si es luz, agua, gas, internet o teléfono, o si el SII tiene facturas de un proveedor con ese nombre. El identificador es el N° de cliente que aparece en el nombre (si hay varios, eliges tú) o el RUT del proveedor del SII.\n• Libre (abonos), si es un sueldo o los montos cambian mucho.\n• Las cotizaciones van como según documento con identificador Previred: el certificado completa su vencimiento.\nNada se guarda solo: confirma cada una con Guardar, o marca varias y presiona "Aplicar propuestas". Puedes cambiar el tipo y el identificador antes. Al guardar, sus vencimientos abiertos (sin documento ni abonos) toman el tipo nuevo.';
+const TXT = 'Para cada obligación activa se propone un tipo:\n• Monto fijo, si los últimos 3 pagos fueron del mismo monto (arriendo, cuotas).\n• Según documento, si es luz, agua, gas, internet o teléfono, o si el SII tiene facturas de un proveedor con ese nombre. El identificador es el N° de cliente que aparece en el nombre (si hay varios, eliges tú) o el RUT del proveedor del SII.\n• Libre (abonos), si es un sueldo o los montos cambian mucho.\n• Las cotizaciones van como según documento con identificador Previred: el certificado completa su vencimiento.\nNada se guarda solo: confirma cada una con Guardar, o marca varias y presiona "Aplicar propuestas". Puedes cambiar el tipo y el identificador antes. Al guardar, sus vencimientos abiertos (sin documento ni abonos) toman el tipo nuevo.\n\nSe paga por: banco (la cartola registra el pago), efectivo o tarjeta de crédito (se pagan con "Pagar"). La propuesta sale de sus últimos pagos: si se pagaron con la cartola, banco; si sus gastos fueron en efectivo, efectivo. Sin historial: banco.';
 const nombreIdent = v => (v === ID_PREVIRED ? 'Previred' : v);
 
 export async function pintar(cont, H) {
@@ -29,6 +31,7 @@ function fila(o, H) {
   const ident = o.sinClasificar || !o.identificador ? p.identificador : o.identificador;
   const ops = [...new Set([ident].concat(p.opciones || []).filter(Boolean))];
   const pagos = o.pagos.length ? o.pagos.slice(0, 3).map(x => `${H.pesos(x.monto)} (${H.esc(H.fecha(x.fecha))})`).join(' · ') : 'sin pagos registrados';
+  const sp = o.sePagaPor || (o.propuestaSePaga || {}).valor || 'banco', ps = o.propuestaSePaga || { valor: 'banco', motivo: '' };
   const chip = o.sinClasificar ? '<span class="chip c-amarillo chip-chico">Sin clasificar</span>' : `<span class="chip c-gris chip-chico">${H.esc(G3.NOMBRE_TIPO[o.tipoObligacion] || o.tipoObligacion)}</span>`;
   const selIdent = ops.length > 1
     ? `<select data-cl-ident="${H.esc(o.id)}" aria-label="Identificador de ${H.esc(o.nombre)}">${ops.map(x => `<option value="${H.esc(x)}" ${x === ident ? 'selected' : ''}>${H.esc(nombreIdent(x))}</option>`).join('')}<option value="__otro">Otro…</option></select><input type="text" class="oculto" data-cl-otro="${H.esc(o.id)}" maxlength="40" aria-label="Otro identificador de ${H.esc(o.nombre)}">`
@@ -39,15 +42,17 @@ function fila(o, H) {
       <span>${[o.item, o.montoEstimado ? H.pesos(o.montoEstimado) + ' est.' : 'sin monto estimado', o.tipoMonto ? 'tipo de monto ' + o.tipoMonto : ''].filter(Boolean).map(H.esc).join(' · ')}</span>
       <span>Últimos pagos: ${pagos}</span>
       <span class="nota" data-cl-prop="${H.esc(o.id)}">Propuesta: <b>${H.esc(G3.NOMBRE_TIPO[p.tipo])}</b>${p.identificador ? ' · ' + H.esc(nombreIdent(p.identificador)) : ''} · ${H.esc(p.motivo)}${p.segura ? '' : ' (revísala)'}</span>
+      <span class="nota" data-cl-psp="${H.esc(o.id)}">Se paga por: <b>${H.esc(B.NOMBRE_SE_PAGA[ps.valor])}</b> · ${H.esc(ps.motivo)}${o.sePagaPor ? ` (guardado: ${H.esc(B.NOMBRE_SE_PAGA[o.sePagaPor])})` : ''}</span>
       <div class="clasif-campos"><select data-cl-tipo="${H.esc(o.id)}" aria-label="Tipo de ${H.esc(o.nombre)}">${G3.TIPOS_OBLIGACION.map(k => `<option value="${k}" ${k === tipo ? 'selected' : ''}>${H.esc(G3.NOMBRE_TIPO[k])}</option>`).join('')}</select>
         <span class="clasif-ident ${tipo === 'documento' ? '' : 'oculto'}" data-cl-cident="${H.esc(o.id)}">${selIdent}</span>
+        <select data-cl-sepaga="${H.esc(o.id)}" aria-label="Se paga por (${H.esc(o.nombre)})">${B.SE_PAGA.map(k => `<option value="${k}" ${k === sp ? 'selected' : ''}>${H.esc(B.NOMBRE_SE_PAGA[k])}</option>`).join('')}</select>
         <button type="button" class="btn-sec btn-chico" data-cl-guardar="${H.esc(o.id)}">Guardar</button></div>
       <span class="error" role="alert" data-cl-err="${H.esc(o.id)}"></span></div></div>`;
 }
 function dibujar(cont, H) {
   const L = st.lista, sinC = L.filter(o => o.sinClasificar).length;
   cont.innerHTML = `<div class="titulo-fila"><h2 id="t-clasif">Clasificar obligaciones ${H.info('Clasificar obligaciones', TXT)}</h2><a class="btn-sec btn-chico" href="#gastos/obligaciones">Volver a Obligaciones</a></div>
-    <p class="ayuda">${L.length} ${L.length === 1 ? 'obligación activa' : 'obligaciones activas'} · <b>${sinC}</b> sin clasificar. Revisa la propuesta de cada una; las marcadas se guardan con "Aplicar propuestas".</p>
+    <p class="ayuda">${L.length} ${L.length === 1 ? 'obligación activa' : 'obligaciones activas'} · <b>${sinC}</b> sin clasificar. Revisa la propuesta de cada una; las marcadas se guardan con "Aplicar propuestas".${(n => n ? ` ${n} todavía sin "Se paga por" guardado (cuentan como banco).` : '')(L.filter(o => !o.sePagaPor).length)}</p>
     <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="cl-aplicar" ${st.corriendo || !st.sel.size ? 'disabled' : ''}>Aplicar propuestas (${st.sel.size})</button></div>
     <p class="ayuda" id="cl-msg" role="status" aria-live="polite">${H.esc(st.msg)}</p>${st.err ? `<p class="error" role="alert" id="cl-err">${H.esc(st.err)}</p>` : ''}
     <div id="cl-lista">${L.map(o => fila(o, H)).join('') || '<div class="vacio">No hay obligaciones activas.</div>'}</div>`;
@@ -61,7 +66,7 @@ function leer(cont, id) {
   if (ident === '__otro') ident = (q('data-cl-otro') || {}).value || '';
   if (/^previred$/i.test(ident.trim())) ident = ID_PREVIRED;
   const o = st.lista.find(x => x.id === id);
-  return { id, tipoObligacion: tipo, identificador: tipo === 'documento' ? ident.trim() : '', diasAviso: o && o.diasAviso !== '' ? o.diasAviso : '' };
+  return { id, tipoObligacion: tipo, identificador: tipo === 'documento' ? ident.trim() : '', diasAviso: o && o.diasAviso !== '' ? o.diasAviso : '', sePagaPor: (q('data-cl-sepaga') || {}).value || 'banco' };
 }
 function conectar(cont, H) {
   if (!cont.dataset.clEscucha) cont.dataset.clEscucha = '1', cont.addEventListener('change', e => {

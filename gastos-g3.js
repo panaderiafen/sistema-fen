@@ -17,7 +17,7 @@
 //    toma el neto de la factura (netoFactura / conNetoSii).
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import { dia } from './gastos-modelo.js?v=0.62.0';
+import { dia } from './gastos-modelo.js?v=0.63.0';
 
 export const TIPOS_OBLIGACION = ['fijo', 'documento', 'libre'];
 export const NOMBRE_TIPO = { fijo: 'Monto fijo', documento: 'Según documento del mes', libre: 'Libre (abonos)' };
@@ -51,7 +51,9 @@ export function clasificacionDesdeForm(p) {
   else if (ident && !normIdent(ident)) return { error: 'El N° de cliente o RUT debe tener números' };
   const dias = p.diasAviso === '' || p.diasAviso == null ? DIAS_AVISO : parseInt(p.diasAviso, 10);
   if (!(dias >= 0 && dias <= 60)) return { error: 'El aviso va de 0 a 60 días antes' };
-  return { campos: { tipoObligacion: tipo, identificador: tipo === 'documento' ? ident : '', diasAviso: tipo === 'documento' ? dias : '' } };
+  // v0.63.0: "Se paga por" (banco, efectivo o tarjeta), si el formulario lo trae
+  const sp = ['banco', 'efectivo', 'tarjeta'].includes(s(p.sePagaPor)) ? s(p.sePagaPor) : '';
+  return { campos: { tipoObligacion: tipo, identificador: tipo === 'documento' ? ident : '', diasAviso: tipo === 'documento' ? dias : '', ...(sp ? { sePagaPor: sp } : {}) } };
 }
 
 // ── Estado de un vencimiento ──

@@ -19,12 +19,12 @@
 //  · v0.53.0: el documento del vencimiento guarda también neto, iva, exento, otroImpuesto, total, tipoDoc y esHarina de la
 //    factura (también al asignarla desde la bandeja): al pagarlo, el gasto toma el neto exacto. avisoCargas(): "SII sin cargar".
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.62.0';
-import * as GB from './gastos-base.js?v=0.62.0';
-import * as M from './gastos-g2.js?v=0.62.0';
-import * as S from './gastos-sii.js?v=0.62.0';
-import * as G3 from './gastos-g3.js?v=0.62.0';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.62.0';
+import * as FB from './firebase-gastos.js?v=0.63.0';
+import * as GB from './gastos-base.js?v=0.63.0';
+import * as M from './gastos-g2.js?v=0.63.0';
+import * as S from './gastos-sii.js?v=0.63.0';
+import * as G3 from './gastos-g3.js?v=0.63.0';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.63.0';
 
 const error = (msg, code, datos) => Object.assign(new Error(msg), { code, ...(datos ? { datos } : {}) });
 const s = v => String(v == null ? '' : v);
@@ -121,11 +121,11 @@ export async function detalle(rut, folio, tipo) {
 // ── Importar ──
 // marca: fija por envío (gastos.js): un reintento usa los mismos ids y no repite lo que ya quedó.
 const LOTE = 400;
-export async function importar(facturas, omitirRepetidas, marca) {
+export async function importar(facturas, omitirRepetidas, marca, origen) {
   // v0.50.0: las que van al vencimiento de su obligación, aparte (no crean gastos al importar)
   const aVenc = (Array.isArray(facturas) ? facturas : []).filter(f => f && f.aVencimiento), resto = (Array.isArray(facturas) ? facturas : []).filter(f => !(f && f.aVencimiento));
-  if (!aVenc.length) return importarGastos(resto, omitirRepetidas, marca);
-  const r = resto.length ? await importarGastos(resto, omitirRepetidas, marca) : { ok: true, filas: 0, vencimientos: 0, detalle: 0, facturas: 0 };
+  if (!aVenc.length) return importarGastos(resto, omitirRepetidas, marca, origen);
+  const r = resto.length ? await importarGastos(resto, omitirRepetidas, marca, origen) : { ok: true, filas: 0, vencimientos: 0, detalle: 0, facturas: 0 };
   const v = await importarAVencimientos(aVenc, marca);
   return { ...r, facturas: (r.facturas || 0) + v.facturas, detalle: (r.detalle || 0) + v.detalle, aVencimientos: v.aVencimientos, aBandeja: v.aBandeja, destinos: v.destinos };
 }
@@ -184,12 +184,15 @@ async function importarAVencimientos(lista, marca) {
   return out;
 }
 const dmaIso = t => { const m = /^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/.exec(s(t)); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : ''; };
-async function importarGastos(facturas, omitirRepetidas, marca) {
+async function importarGastos(facturas, omitirRepetidas, marca, origen) {
   const cat = await catalogo();
   const l = S.limpiarFacturas(facturas, cat.lista.filter(i => !i.archivado));
   if (l.error) throw error(l.error, 'datos');
   const limpias = l.limpias, hora = M.ahoraChile().hora;
   const planes = limpias.map((f, k) => S.planFactura(f, k, limpias.length, marca, hora));
+  // v0.63.0: de qué carga y de qué archivo sale cada gasto (para "Ver origen" y la conciliación)
+  const o = origen || {}, fmt0 = ['xml', 'detalle', 'registro'].includes(s(o.formato)) ? s(o.formato) : '', quienImp = correo(), enImp = M.ahoraChile().texto;
+  planes.forEach(p => p.gastos.forEach(g => { g.d.origenDetalle = { tipo: 'sii', formato: fmt0, archivo: S.sfTexto(s(o.archivo), 120), cargaId: s(o.cargaId).slice(0, 80), docId: p.docId, lineasDetalle: p.detalle.length, por: quienImp, en: enImp }; }));
   const [gastos, siiDocs] = await leer();
   const existentes = new Set(gastos.map(x => x.id));
   // Lo que ya quedó de este mismo envío (se cortó y se reintenta) no se repite ni cuenta como repetido
