@@ -22,6 +22,8 @@
 //  · v0.41.0: cada crítica puede contarse en envases (saco de 25 kg…): stockmp/{id}.envase.
 //  · v0.37.0 (P5): Bodega — stock de las materias primas críticas (bodega común), consumo por área con lo hecho
 //    en Cocina, proyección con lo planificado y alerta en Hoy. El cálculo es el de Cocina (copia en cocina/).
+//  · v0.58.0: la merma se valoriza con el motor de costeo de Finanzas (costos de fen-gastos); la planilla (op costos_merma)
+//    queda solo para lo que el motor no puede costear ("costo de la planilla"). El café de la bitácora también se valoriza.
 //  · v0.36.0 (P4b): merma de las cuatro áreas (anotada en Cocina) valorizada con los costos de la planilla,
 //    y la bitácora de turno de Cafetería (gramos de café); gramos por shot en la configuración de Cafetería.
 //  · v0.35.0: una cuenta de área puede entrar a varias áreas (cuentas/{uid}.areas; reglas v1.4.0, script v2.6.0).
@@ -31,11 +33,11 @@
 //    pendiente en Hoy y un correo por día, bodega y materia prima (script v2.9.0, op stock_alerta). Cafetería: shots
 //    de la calibración diaria en la configuración, días con venta para la calibración automática y su costo en Merma.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.56.0';
-import * as FB from './firebase-produccion.js?v=0.56.0';
-import * as Apps from './apps.js?v=0.56.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.56.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.56.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.58.0';
+import * as FB from './firebase-produccion.js?v=0.58.0';
+import * as Apps from './apps.js?v=0.58.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.58.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.58.0';
 import * as K from './cocina/consumo.js?v=0.16.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.11.0';
 
@@ -409,13 +411,29 @@ export async function mermaDelPeriodo({ desde, hasta }) {
   const diasCaf = {}; sn.docs.forEach(d => { const x = d.data(); if (x.area === 'CAF' && x.fecha) diasCaf[x.fecha] = x; });
   const calibraciones = K.calibracionesDiarias({ config: { CAF: cfgCaf }, dias: { CAF: diasCaf }, diasVentaCaf: diasVentaCaf || undefined, hoy: CM.hoyTxt(), desde }, desde, hasta);
   const mpCafe = cfgCaf.mp_cafe || '';
-  const claves = [...new Set(merma.map(a => (a.tipo === 'mp' ? 'mp' : 'receta') + ':' + a.item).concat(mpCafe && calibraciones.length ? ['mp:' + mpCafe] : []))];
+  // v0.58.0: primero con el motor de costeo de Finanzas (costos de fen-gastos); la planilla (op costos_merma) solo para lo que falte
+  const k3 = a => (a.tipo === 'mp' ? 'mp' : 'receta') + ':' + a.item + ':' + (a.unidad || 'un');
+  const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
+  if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
+  let costosMotor = null;
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.58.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
+  const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';
   if (claves.length) {
     try { costos = (await script('costos_merma', { items: claves.map(k => { const [tipo, ...r] = k.split(':'); return { tipo, id: r.join(':') }; }) }, VERSION_MERMA)).costos || {}; }
     catch (e) { errorCostos = e.message || String(e); }
   }
-  return { desde, hasta, merma, cafe, costos, errorCostos, calibraciones, mpCafe };
+  return { desde, hasta, merma, cafe, costos, costosMotor, errorCostos, calibraciones, mpCafe };
+}
+// v0.58.0: costo neto por unidad de un ítem: motor de costeo (Finanzas) → si falta o está incompleto, la planilla → si tampoco, el del motor
+// aunque esté incompleto. → { neto, fuente: 'motor'|'planilla'|'incompleto' } | null
+export function costoMermaItem(datos, tipo, id, unidad) {
+  const m = (datos.costosMotor || {})[`${tipo}:${id}:${unidad || 'un'}`], c = (datos.costos || {})[tipo + ':' + id];
+  if (m && !m.incompleto) return { neto: m.neto, fuente: 'motor' };
+  if (c && !c.falta) return { neto: c.neto, fuente: 'planilla' };
+  if (m) return { neto: m.neto, fuente: 'incompleto' };
+  return null;
 }
 // Por área: ítems sumados con su costo neto (null si no hay precio), total, y por motivo
 export function resumenMerma(datos) {
@@ -423,8 +441,10 @@ export function resumenMerma(datos) {
   (datos.merma || []).forEach(a => {
     const ar = areas[a.area] || (areas[a.area] = { area: a.area, items: {}, total: 0, sinCosto: 0, motivos: {} });
     const tipo = a.tipo === 'mp' ? 'mp' : 'receta', k = tipo + ':' + a.item + ':' + a.unidad + (a.derramado ? ':derramado' : '');
-    const c = (datos.costos || {})[tipo + ':' + a.item], neto = c && !c.falta ? Number(a.cantidad) * c.neto : null;
-    const it = ar.items[k] || (ar.items[k] = { nombre: a.nombre, tipo, unidad: a.unidad, cantidad: 0, neto: 0, sinCosto: false, motivos: {}, derramado: !!a.derramado });
+    const c = costoMermaItem(datos, tipo, a.item, a.unidad), neto = c ? Number(a.cantidad) * c.neto : null;
+    const it = ar.items[k] || (ar.items[k] = { nombre: a.nombre, tipo, unidad: a.unidad, cantidad: 0, neto: 0, sinCosto: false, motivos: {}, derramado: !!a.derramado, planilla: false, incompleto: false });
+    if (c && c.fuente === 'planilla') { it.planilla = true; ar.planilla = (ar.planilla || 0) + 1; }
+    if (c && c.fuente === 'incompleto') it.incompleto = true;
     it.cantidad += Number(a.cantidad) || 0;
     it.motivos[a.motivo] = (it.motivos[a.motivo] || 0) + 1;
     if (neto === null) { it.sinCosto = true; ar.sinCosto++; } else { it.neto += neto; ar.total += neto; ar.motivos[a.motivo] = (ar.motivos[a.motivo] || 0) + neto; }
@@ -434,11 +454,14 @@ export function resumenMerma(datos) {
   const cafe = { calibracion: 0, merma: 0, prueba_receta: 0, total: 0 };
   (datos.cafe || []).forEach(a => { const g = Number(a.gramos) || 0; if (a.tipo in cafe) cafe[a.tipo] += g; cafe.total += g; });
   // v0.54.0: calibración diaria (por día: automática o editada), valorizada con el costo neto del café (por gramo)
-  const cal = datos.calibraciones || [], cc = datos.mpCafe ? (datos.costos || {})['mp:' + datos.mpCafe] : null;
-  const gCal = cal.reduce((s, x) => s + x.gramos, 0);
+  // v0.58.0: el café se valoriza con el precio de la materia prima café (motor de Finanzas; si falta, la planilla)
+  const cal = datos.calibraciones || [], cc = datos.mpCafe ? costoMermaItem(datos, 'mp', datos.mpCafe, 'g') : null;
+  const gCal = cal.reduce((s, x) => s + x.gramos, 0), gBit = cafe.total;
   cafe.calibracionDiaria = { dias: cal.map(x => ({ fecha: x.fecha, shots: x.shots, gramos: x.gramos, auto: x.auto })), shots: cal.reduce((s, x) => s + x.shots, 0), gramos: gCal,
-    editados: cal.filter(x => !x.auto).length, neto: cc && !cc.falta ? gCal * cc.neto : null };
+    editados: cal.filter(x => !x.auto).length, neto: cc ? gCal * cc.neto : null };
   cafe.total += gCal;
+  cafe.porGramo = cc ? cc.neto : null; cafe.fuente = cc ? cc.fuente : '';
+  cafe.netoBitacora = cc ? gBit * cc.neto : null; cafe.netoTotal = cc ? cafe.total * cc.neto : null;
   return { areas: lista, total: lista.reduce((s, a) => s + a.total, 0), cafe };
 }
 

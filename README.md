@@ -1,9 +1,114 @@
-# Sistema Fën · v0.56.0
+# Sistema Fën · v0.58.0
 
-**App:** v0.56.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (nuevo) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 12 de octubre de 2026
+**App:** v0.58.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 13 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.58.0: Finanzas (F1 · paso 3): el costo directo de cada producto
+Plan acordado (`finanzas-plan.md`): costo directo = materias primas al precio neto de la última compra + sub recetas encadenadas + insumos y envases + merma de proceso, que se actualiza solo y muestra flecha y %. Todo en **fen-gastos** (solo administración): nada va a fen-produccion ni a Cocina, y las jefas no ven costos.
+
+**Finanzas → Costos → Productos** (pestaña nueva, la primera; el botón "Costos" abre aquí):
+- Tabla de las **recetas aprobadas** de las cuatro áreas (sin sub recetas ni borradores): producto, **costo directo por unidad** (o por kg si la receta rinde gramos), flecha y % **contra el mes anterior** y **contra el último cambio**, fecha del último cambio y la marca **Incompleto** con su motivo. Buscador, filtros por área (Panadería · Bollería · Pastelería · Cafetería) y orden por nombre, costo o **mayor alza**.
+- **Tocar un producto** abre su detalle: costo por unidad, costo del lote y lo que rinde, % contra el mes anterior y el último cambio; **desglose por ingrediente** (cantidad del lote, precio base por kg/l/un con su origen —SII con proveedor y folio, a mano o planilla— y fecha, costo con su cuenta, % del total); **sub recetas** con "Ver qué lleva" (sus ingredientes en la proporción que usa el producto, también anidadas); **insumos**; **merma de laminado**; e **historial** de cambios con su causa. Cada cifra tiene su (i).
+- **Subió el costo de N productos** (arriba de la tabla): los que subieron más del % de aviso contra el mes anterior, uno por línea, con la causa y **Visto**.
+- **Ajustes de Finanzas**: el % de aviso (por defecto **5 %**); cada cambio queda guardado.
+
+**Cómo se calcula** (todo neto; motor nuevo `finanzas-motor.js`, que usa los cálculos de Cocina de la carpeta `cocina/` sin cambiarlos):
+- **Materia prima en gramos:** gramos × precio por g. **Decisión g/ml:** si se compra por volumen (leche en litros) y la receta la pide en gramos, se usa **1 g = 1 ml** y el detalle lo marca "supuesto g = ml". Si se compra por unidad (huevos): gramos ÷ peso por unidad × precio por unidad (sin peso por unidad queda incompleto).
+- **Materia prima en unidades:** unidades × precio por unidad; si se compra por peso y tiene **peso por unidad**, unidades × peso × precio por g.
+- **Sub recetas** (la que tiene el ID de materia prima del ingrediente): costo de su lote ÷ peso de su lote, por gramo; en unidades, costo del lote ÷ porciones si rinde unidades (como baja Cocina: Croissant → 1 un de Masa), o costo por g × peso por unidad si rinde gramos. Encadenadas sin límite práctico; si una sub receta se usa a sí misma (ciclo) se marca incompleta con el ciclo. Masa madre o poolish sin receta: por sus componentes de la configuración de Panadería. El **pie de masa madre no suma** (se repone con la misma masa madre; Cocina tampoco lo descuenta).
+- **Insumos:** por unidad si la receta rinde unidades (× lo que rinde = el lote); por lote si rinde gramos (igual que la bodega).
+- **Merma de laminado** (productos de Bollería que llevan masa base): **(costo de la masa + costo del empaste) × merma % ÷ 100**, con la merma de Configuración de Producción → Bollería (`merma_laminado_pct`), la misma que usa la planificación para pedir más masas (masas = exactas × (1 + merma ÷ 100)); sin redondear a masas enteras, que es de la planificación y no del costo de una pieza.
+- **Costo por unidad** = costo del lote ÷ porciones. Sin porciones: se usa 1 y queda incompleto.
+- **Incompleto:** un ingrediente sin precio, sin contenido, que no está en el maestro, una unidad que no calza o una sub receta incompleta. El costo mostrado es solo lo que sí tiene costo.
+- **Cuándo se calcula:** al abrir Finanzas → Costos ("Calculando…"; como máximo cada 2 minutos en el mismo equipo) y justo después de cada cambio de precio (a mano, compra del SII aplicada o confirmada). Se calcula en el navegador.
+- **Historial:** cuando el costo por unidad cambia **más de 0,5 %** contra el último registrado (y el primer cálculo), con la causa: las materias primas que cambiaron de precio (con su %) o "cambió la receta". Nunca se borra.
+- **Mes anterior:** el último valor del historial **antes del día 1** del mes actual (si el producto es nuevo este mes, su primer valor del mes).
+
+**Hoy:** "Subió el costo de N productos" (origen Finanzas) cuando un producto completo subió más del % de aviso contra el mes anterior; abre Productos ordenado por mayor alza. "Visto" lo saca mientras el costo siga igual; si vuelve a subir, avisa de nuevo. Usa el último cálculo guardado.
+
+**Producción → Merma:** se valoriza con este motor: recetas y sub recetas con su costo por unidad o por gramo, materias primas con su precio por g/ml/un. La planilla (op `costos_merma`) queda solo para lo que el motor no puede costear o está incompleto, y ahí dice **"costo de la planilla"**. El **café de la bitácora de turno** (calibración extra, botado, pruebas) y la calibración diaria se valorizan con el precio de la materia prima café de Cafetería.
+
+**Revisión de datos:** grupo nuevo **Productos con costo incompleto** ("Ver costo" abre el detalle). Se marca revisado igual que lo demás.
+
+**Dónde se guarda (fen-gastos):** `costos_recetas/{recetaId}`: `area, nombre, tipo, aprobada, costoUnit, costoTotal, unidad (un|g), porciones, incompleto, sinCosto, precios {mpId: precio por base}, preciosUsados (hash), recetaHash, ultimoHist, preciosHist, calculadoEn, fecha`. `costos_recetas_hist/{autoId}` (solo agregar): `receta, anterior, nuevo, pct, causa [{mp, nombre, antes, despues, pct}], recetaCambio, primero, incompleto, fecha`. `costos_config/finanzas`: `alzaAviso` e historial. `costos_alzas_vistas/{recetaId}`: el "Visto" con su costo e historial. **Reglas de fen-gastos: no cambian** (la v0.1.0 ya cubre colecciones nuevas solo para `admins`). **Scripts: no cambian** (la op `costos_merma` sigue, solo como respaldo).
+
+Por dentro: nuevo `finanzas-motor.js` (puro: `crearMotor`, `costearTodo`, `costoMp`, `costoUnitario`, `planGuardar`, `referenciaMensual`, `ultimoCambio`, `filasProductos`, `alzas`). `finanzas.js`: `recalcularRecetas`, `recalcularTrasPrecio`, `leerProductos`, `guardarAjustes`, `marcarAlzaVista`, `alzasParaHoy`, `costosMerma`. `vista-finanzas.js`: Productos, detalle, alzas, ajustes y el grupo de Revisión. `produccion.js`/`vista-produccion.js`: merma con el motor y respaldo de la planilla. `app.js`: el aviso en Hoy.
+
+Pruebas: nueva `pruebas/sistemafen/finanzas-f1c.test.js` (12: 5 unitarias —receta simple, g = ml e insumo por unidad; sub receta en gramos y en unidades, anidadas, peso por unidad; merma de laminado; incompletos y ciclo; umbral del historial, causa, referencia del mes, alzas y visto— y 7 de punta a punta con recetas ficticias de las cuatro áreas: Productos, detalle, cambiar un precio → flecha e historial con causa, Hoy con el alza de más de 5 % y "Visto", Ajustes, Merma con el motor y la planilla de respaldo, Revisión de datos y celular). `finanzas-f1a` cambia el número de pendientes de Revisión (suma los productos incompletos). Capturas en `pruebas/capturas/finanzas-f1c/` (PC y celular 390).
+
+Archivos: nuevo `finanzas-motor.js`; cambian `finanzas.js`, `vista-finanzas.js`, `produccion.js`, `vista-produccion.js`, `app.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.58.0**.
+
+### Instalación v0.58.0 (unos 2 minutos; primero la v0.57.0 o la v0.56.0 si no están: esta versión las incluye)
+1. Si no instalaste la **v0.56.0**: su paso 1 (script de Producción v2.10.0). Nada más de scripts ni reglas.
+2. **Sistema Fën v0.58.0**: GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.58.0.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+3. Abre **Finanzas → Costos**: dice "Calculando…" y aparece **Productos**. El primer cálculo queda como punto de partida del historial (las flechas contra el mes anterior empiezan a tener sentido desde el próximo mes, o con el primer cambio de precio).
+
+### Lista de verificación v0.58.0
+- [ ] Abajo a la izquierda dice **v0.58.0**.
+- [ ] Finanzas → Costos abre **Productos** con las recetas aprobadas de las cuatro áreas.
+- [ ] Revisa 3 o 4 productos que conozcas (una hogaza, un croissant, una torta, un café): el desglose, las cantidades y los precios calzan.
+- [ ] En un croissant aparece la **merma de laminado** con el % de la configuración de Bollería.
+- [ ] Un producto con sub receta (masa madre, crema pastelera): "Ver qué lleva" muestra sus ingredientes.
+- [ ] Los que dicen **Incompleto** salen también en Revisión de datos → Productos con costo incompleto; corrige lo que falte (precio, contenido, peso por unidad).
+- [ ] Cambia un precio a mano (por ejemplo la harina): en Productos el costo sube, con flecha y %, y el detalle muestra en el historial "Harina … +X %". Si sube más de 5 %, aparece en **Hoy**; "Visto" lo saca.
+- [ ] Producción → Merma: los costos salen del motor; lo que no, dice "costo de la planilla". El café de la bitácora aparece valorizado.
+- [ ] En la tablet de Cocina no aparece nada nuevo (sin precios).
+- [ ] En el celular se ve bien (sin moverse de lado).
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.57.0: Productos desaparece, la merma vuelve a valorizarse solo con la planilla. Lo guardado en fen-gastos (`costos_recetas…`, `costos_config`, `costos_alzas_vistas`) queda ahí sin estorbar.
+
+## Novedades de la v0.57.0: Finanzas (F1 · paso 2): el precio desde la última compra del SII
+Regla acordada: el costo de cada materia prima o insumo usa el **precio neto de su última compra (SII)**, y se puede corregir a mano. Todo en **fen-gastos** (solo administración); nada va a fen-produccion ni a Cocina.
+
+**Finanzas → Costos → Compras del SII** (pestaña nueva, con el número de precios por confirmar):
+- Los productos de las facturas del SII (tipo **33 y 34**) de los **últimos 90 días**, agrupados por **proveedor + producto**: último precio neto por unidad facturada, fecha, folio, cuántas compras y su estado (**asociado a X** / **sin asociar** / **no es materia prima**). Las **notas de crédito** se muestran ("1 nota de crédito, no cambian el precio") pero no cambian precios. Buscador y filtros (Sin asociar · Asociadas · No son materia prima · Todas).
+- **Asociar** (se hace una vez por proveedor y producto; se aprende para todas las facturas que vengan): la materia prima se elige con el selector que se escribe para buscar, con las de **nombre parecido primero**; **"Una unidad de la factura trae"** viene llenado leyendo la unidad o el nombre, y se confirma. Muestra en vivo el precio por kg/l/un y en cuánto queda la materia prima (y el % contra ahora). O **"No es materia prima"** (gas, servicios, despacho…). **Cambiar** una asociación se puede: queda su historial.
+- **Precios por confirmar**: cuando la compra cambia el precio **más de ±40 %**, no se aplica solo. Muestra el precio actual y el de la factura, el % y la factura; **Confirmar** (nota opcional) o **Descartar** (motivo obligatorio). Nada se borra: queda confirmada o descartada, con quién y por qué.
+- **Facturas sin detalle** (cargadas con el CSV del Registro de Compras): "Esta carga no trae el detalle de productos (sube el XML para actualizar precios)", con la lista.
+- Botón **Revisar compras de los últimos 90 días**: revisa todo de nuevo. No repite nada (cada línea revisada queda anotada; solo se vuelve a mirar si cambia su asociación).
+
+**Cuándo se revisa solo:** justo después de **importar** un archivo del SII en Gastos (base nueva), sin frenar la importación; abajo del "Importado: …" aparece "Finanzas: N precios actualizados · M por confirmar · K productos sin asociar". Si falla, solo avisa (la importación ya quedó) y se puede repetir con el botón.
+
+**Cómo se calcula** (todo neto):
+- **Contenido de una unidad facturada:** si la factura cobra por **KG, G, LT o ML**, una unidad trae 1 de eso (manda la unidad de la factura, no el nombre). Si no (UN, SACO, CJ, vacío), se lee el nombre: "HARINA SACO 25 KG" → 25 kg; "MANTEQUILLA" en KG → 1 kg; **"LECHE 1 LT X12" → una caja de 12 × 1 l = 12 l** (decisión: "X12" es un paquete de 12; si la factura cobra cada litro, corrígelo a 1 l al asociar); "250G X 40" → 10 kg; "VASOS X50" → 50 un. "30 UN" queda como dudoso (¿cobra el paquete o una?).
+- **Precio de una unidad facturada:** PrcItem menos el descuento de la línea (DescuentoMonto ÷ cantidad); si no viene PrcItem, MontoItem ÷ cantidad. **Precio por g/ml/un** = eso ÷ contenido. **Precio neto de la materia prima** = precio por g/ml/un × el contenido de **su** unidad de compra (la materia prima conserva su unidad de compra; si no tenía contenido, toma el de la factura).
+- **Cuándo se aplica:** el precio de la **planilla** es solo de partida (cualquier compra lo reemplaza). Uno **a mano** se respeta si es del mismo día o más nuevo que la factura. Uno del **SII** solo lo cambia una compra más nueva (mismo día: folio mayor). Si varias facturas actualizan la misma materia prima, **gana la más nueva** (empate: folio mayor). Si la factura viene en otra unidad (por ejemplo en kg y la materia prima se compra por unidades) no se aplica y se dice por qué. Si hay un "por confirmar" más nuevo, una compra más vieja no lo pasa por encima; una más nueva lo reemplaza (queda "reemplazada").
+- Al aplicarse: origen **SII** con proveedor, folio y fecha (la fecha del precio es la de la factura) y una entrada en el historial ("Compra del SII: Proveedor F.123 (producto)").
+
+**Materias primas:** el origen dice **"SII · Proveedor · F.folio"** y la fecha; la flecha con % contra el precio anterior funciona igual con los cambios del SII. Al cambiar un precio a mano, deja de decir SII.
+
+**Hoy:** si hay precios por confirmar → pendiente **"Precios por confirmar (N)"** (origen Finanzas) que abre Compras del SII.
+
+**Dónde se guarda (fen-gastos):** `costos_asoc/{rut__nombre[__c-código]}` (clave = RUT del proveedor + nombre normalizado + código si el XML trae CdgItem): `rut, proveedor, nombreItem, codigo, mp | ignorar, contenidoPorUnidad {cantidad, unidad g|ml|un}, creada {por, fecha}, actualizada, version`. `costos_asoc_hist/{autoId}`: cada cambio de una asociación (antes, después, quién, nota). `costos_sii_procesadas/{línea}`: cada línea de factura ya revisada (resultado y motivo). `costos_por_confirmar/{autoId}`: los cambios de más de ±40 % con su estado (pendiente, confirmada, descartada, reemplazada). `costos_sii_revisiones/{autoId}`: cada revisión. `costos_mp` suma el campo `sii {rut, proveedor, folio, fecha, linea, nombreItem}`. **Reglas de fen-gastos: no cambian** (la regla v0.1.0 `/{coleccion}/{id}` ya deja leer y escribir cualquier colección nueva solo a una cuenta en `admins`). **Scripts: no cambian.**
+
+Por dentro: nuevo `finanzas-sii.js` (reglas puras: `normalizarItem`, `claveAsoc`, `contenidoDeLinea`, `precioUnitarioNeto`, `precioPorBaseLinea`, `lineasCompras`, `agrupar`, `sugerirMp`, `armarAsociacion`, `decidir`, `planPrecios`, `docAplicar`). `finanzas.js`: `leerCompras`, `preciosDesdeSii`, `preciosTrasImportar`, `guardarAsociacion`, `historialAsoc`, `resolverPorConfirmar`, `porConfirmarParaHoy`. `vista-finanzas.js`: pestaña Compras del SII. `sii.js`: después de importar con la base nueva, revisa los precios (sin esperar). `app.js`: aviso en Cargas del SII y el pendiente en Hoy. `finanzas-costos.js`: editar a mano deja `sii: null`.
+
+Pruebas: nueva `pruebas/sistemafen/finanzas-f1b.test.js` (16: 5 unitarias —nombre y clave, contenido "SACO 25 KG", "1 LT X12", KG…; precio con descuento; sugerencias y asociación con historial; reglas de fecha, a mano, ±40 %, empate por folio, idempotencia; líneas de 90 días, notas de crédito y facturas sin detalle— y 11 de punta a punta con Gastos en la base nueva y el script de Gastos v2.17.0 de verdad: importar un XML ficticio con 3 productos y una nota de crédito → asociar 2, ignorar 1 → precios SII con historial; revisar otra vez no repite; precio a mano más nuevo no se pisa; segunda factura +68 % → por confirmar → Hoy → confirmar; descartar con motivo; celular). Siguen pasando finanzas-f1a (10), e2e (54), gastos g3a (8), g3c (12), g3d (12) y g3e (11), hoy-v055 (4) y b2b-v052 (5). Capturas en `pruebas/capturas/finanzas-f1b/` (PC y celular 390).
+
+Archivos: nuevo `finanzas-sii.js`; cambian `finanzas.js`, `vista-finanzas.js`, `finanzas-costos.js`, `sii.js`, `app.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.57.0**.
+
+### Instalación v0.57.0 (unos 3 minutos; primero la v0.56.0 si no está instalada)
+1. Si todavía no instalaste la **v0.56.0**: haz primero su paso 1 (script de Producción v2.10.0). Esta versión la incluye: no hace falta subir la v0.56.0 por separado.
+2. **Sistema Fën v0.57.0**: GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.57.0.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+3. Finanzas → Costos → **Traer precios desde la planilla** (si no lo hiciste con la v0.56.0). Después, **Compras del SII**: asocia los productos que aparezcan (una vez cada uno). Si las facturas de los últimos 90 días se cargaron con el CSV, sube sus **XML** en Gastos → Cargas del SII para tener el detalle.
+
+### Lista de verificación v0.57.0
+- [ ] Abajo a la izquierda dice **v0.57.0**.
+- [ ] Finanzas → Costos muestra la pestaña **Compras del SII** con los productos de las facturas de los últimos 90 días.
+- [ ] Asocia la harina: la sugerida es la harina, el contenido dice 25 kg y el precio por kg calza con la factura. Al guardar, en **Materias primas** dice "SII · proveedor · F.folio".
+- [ ] Marca un producto que no es materia prima (gas, flete): sale de "Sin asociar".
+- [ ] Revisa 3 o 4 precios que conozcas contra su factura (neto, con descuento).
+- [ ] Cambia un precio a mano y vuelve a presionar **Revisar compras**: ese precio **no** cambia (si la factura es de antes).
+- [ ] Importa un archivo del SII en Gastos: abajo aparece "Finanzas: … precios actualizados".
+- [ ] Si algo queda **por confirmar**, aparece en **Hoy** y se confirma o descarta en Compras del SII.
+- [ ] En la tablet de Cocina no aparece nada nuevo (sin precios).
+- [ ] En el celular se ve bien (sin moverse de lado).
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.56.0: Compras del SII desaparece y los precios quedan como estaban (con origen SII si alguno se aplicó). Lo guardado en fen-gastos (`costos_asoc…`, `costos_sii_…`, `costos_por_confirmar`) queda ahí sin estorbar. La importación del SII en Gastos no depende de esto.
 
 ## Novedades de la v0.56.0: Finanzas (F1 · paso 1): Cómo trabajamos y el maestro de materias primas con costos
 Sección nueva **Finanzas** en el menú (después de Ventas de caja). Título "Finanzas", "Análisis financiero de Fën". Pestañas **Cómo trabajamos** y **Costos** (abajo: "Próximamente: Márgenes, Resultados, Flujo de caja, Metas"). Sigue el plan acordado el 12-oct (`finanzas-plan.md`). **Las jefas no ven nada de esto:** todo se guarda en **fen-gastos** (solo administración); nada va a fen-produccion ni a Cocina.

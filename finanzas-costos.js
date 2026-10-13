@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Finanzas · costos (F1 paso 1): reglas puras, sin red  v0.56.0
+//  Sistema Fën — Finanzas · costos (F1 paso 1): reglas puras, sin red  v0.57.0 (edicion: sii null)
 //  · parsearContenido: qué trae una unidad de compra ("25kg", "1lt", "saco 25 kg", "10un"…) → { cantidad, unidad: g|ml|un }
 //  · resolverContenido: lo mismo, y si es dudoso ("10un": ¿el precio es por 10 o por 1?) lo confirma con el
 //    costo_por_gramo de la planilla cuando calza; si no, queda sin contenido y se avisa.
@@ -204,7 +204,7 @@ export function edicion(actual, datos, { hoy, por } = {}) {
   const ppb = precioPorBase(precio, contenido);
   const anterior = actual ? { precioNeto: actual.precioNeto ?? null, contenido: actual.contenido || null, precioPorBase: actual.precioPorBase ?? null, fecha: actual.fecha || '' } : null;
   const doc = { precioNeto: precio, contenido, precioPorBase: ppb, contenidoProblema: '', contenidoNota: '', pesoPorUnidad: contenido.unidad === 'un' && peso > 0 ? peso : null,
-    origen: 'manual', fecha: hoy || '', por: por || '', anterior };
+    origen: 'manual', fecha: hoy || '', por: por || '', anterior, sii: null };
   const hist = { mp: actual && actual.id ? actual.id : '', precioNeto: precio, contenido, precioPorBase: ppb, origen: 'manual', motivo, fecha: hoy || '', por: por || '', anterior };
   return { doc, hist };
 }

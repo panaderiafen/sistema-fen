@@ -5,9 +5,9 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.56.0';
+import * as P from './produccion.js?v=0.58.0';
 import * as K from './cocina/consumo.js?v=0.16.0';
-import { conBuscador } from './buscador.js?v=0.56.0';
+import { conBuscador } from './buscador.js?v=0.58.0';
 
 const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -424,19 +424,19 @@ const UNID = { un: 'un', g: 'g', ml: 'ml' };
 const cantM = (n, u) => `${(Math.round((Number(n) || 0) * 10) / 10).toLocaleString('es-CL')} ${UNID[u] || ''}`;   // solo unidades conocidas (lo demás no se muestra)
 function seccionMerma(H) {
   const m = st.merma, r = m.datos ? P.resumenMerma(m.datos) : null;
-  const cab = `<div class="titulo-fila"><span class="ayuda">Lo perdido por área, valorizado ${H.info('Merma', 'Lo que las áreas anotan en Cocina como perdido (productos, preparaciones o materias primas), con su motivo.\nEl costo es neto (sin IVA), con los costos de la planilla: el de la receta en Maestro_recetas o el de la materia prima en MP_maestro. Las jefas no ven precios.\nSe copia sola a la hoja "Registro_merma" para Looker.\nLas anotaciones anuladas no cuentan.')}</span>
+  const cab = `<div class="titulo-fila"><span class="ayuda">Lo perdido por área, valorizado ${H.info('Merma', 'Lo que las áreas anotan en Cocina como perdido (productos, preparaciones o materias primas), con su motivo.\nEl costo es neto (sin IVA) y sale del costo directo de Finanzas (Finanzas → Costos → Productos): recetas y sub recetas con su costo por unidad o por gramo, y materias primas con el precio de su última compra. Si algo no tiene costo ahí (o está incompleto), se usa el de la planilla (Maestro_recetas o MP_maestro) y dice "costo de la planilla". Las jefas no ven precios.\nSe copia sola a la hoja "Registro_merma" para Looker.\nLas anotaciones anuladas no cuentan.')}</span>
       <div class="fila-campos" style="align-items:flex-end;gap:8px;flex-wrap:nowrap"><select id="prod-merma-per" aria-label="Período">${Object.entries(P.PERIODOS_MERMA).map(([k, t]) => `<option value="${k}" ${m.periodo === k ? 'selected' : ''}>${t}</option>`).join('')}</select><button type="button" class="btn-sec" id="prod-merma-ver" ${m.cargando ? 'disabled' : ''}>${m.cargando ? 'Leyendo…' : m.datos ? 'Actualizar' : 'Ver'}</button></div></div>`;
   if (!r) return cab + (m.msg ? `<p class="error">${H.esc(m.msg)}</p>` : '<p class="ayuda">Elige el período y presiona "Ver".</p>');
   const d = m.datos, rango = `${d.desde.split('-').reverse().slice(0, 2).join('/')} al ${d.hasta.split('-').reverse().slice(0, 2).join('/')}`;
   const area = a => `<div class="merma-area">
       <div class="titulo-fila" style="margin-top:10px"><h3 style="margin:0">${H.esc(P.AREAS[a.area] || a.area)}</h3><b>${pesosN(a.total)}${a.sinCosto ? ' <span class="chip c-amarillo">' + a.sinCosto + ' sin costo</span>' : ''}</b></div>
       <div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Ítem</th><th scope="col">Cantidad</th><th scope="col">Motivo</th><th scope="col" style="text-align:right">Costo neto</th></tr></thead><tbody>
-      ${a.items.map(it => `<tr><td>${H.esc(it.nombre)}${it.tipo === 'mp' ? ' <span class="ayuda">(MP)</span>' : ''}${it.derramado ? ' <span class="chip c-amarillo">Derramado</span>' : ''}</td><td>${cantM(it.cantidad, it.unidad)}</td><td>${Object.entries(it.motivos).map(([k, n]) => H.esc(P.MOTIVOS[k] || k) + (n > 1 ? ` (${n})` : '')).join(', ')}</td><td style="text-align:right">${it.sinCosto && !it.neto ? '<span class="ayuda">sin costo</span>' : pesosN(it.neto) + (it.sinCosto ? ' <span class="ayuda">(parcial)</span>' : '')}</td></tr>`).join('')}
+      ${a.items.map(it => `<tr><td>${H.esc(it.nombre)}${it.tipo === 'mp' ? ' <span class="ayuda">(MP)</span>' : ''}${it.derramado ? ' <span class="chip c-amarillo">Derramado</span>' : ''}</td><td>${cantM(it.cantidad, it.unidad)}</td><td>${Object.entries(it.motivos).map(([k, n]) => H.esc(P.MOTIVOS[k] || k) + (n > 1 ? ` (${n})` : '')).join(', ')}</td><td style="text-align:right">${it.sinCosto && !it.neto ? '<span class="ayuda">sin costo</span>' : pesosN(it.neto) + (it.sinCosto ? ' <span class="ayuda">(parcial)</span>' : '') + (it.planilla ? ' <span class="ayuda merma-fuente">costo de la planilla</span>' : '') + (it.incompleto ? ' <span class="ayuda merma-fuente">costo incompleto</span>' : '')}</td></tr>`).join('')}
       </tbody></table></div>
       ${Object.keys(a.motivos).length > 1 ? `<p class="ayuda">Por motivo: ${Object.entries(a.motivos).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${H.esc(P.MOTIVOS[k] || k)} ${pesosN(v)}`).join(' · ')}</p>` : ''}
     </div>`;
   return cab + `
-    <p class="ayuda">${H.esc(rango)} · Total: <b>${pesosN(r.total)}</b> neto${r.areas.some(a => a.sinCosto) ? ' (hay ítems sin costo en la planilla: no suman)' : ''}</p>
+    <p class="ayuda">${H.esc(rango)} · Total: <b>${pesosN(r.total)}</b> neto${r.areas.some(a => a.sinCosto) ? ' (hay ítems sin costo en la planilla: no suman)' : ''}${r.areas.some(a => a.planilla) ? ' · algunos con costo de la planilla' : ''}</p>
     ${d.errorCostos ? `<p class="error">No se pudieron leer los costos: ${H.esc(d.errorCostos)}</p>` : ''}
     ${r.areas.length ? r.areas.map(area).join('') : '<p class="ayuda">Nada anotado como merma en este período.</p>'}
     ${r.cafe.total ? seccionCafe(H, r.cafe) : ''}`;
@@ -446,10 +446,11 @@ const DIA_S = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 function seccionCafe(H, cafe) {
   const cd = cafe.calibracionDiaria;
   const dias = cd.dias.map(x => `<li>${H.esc(DIA_S[new Date(x.fecha + 'T12:00:00').getDay()] + ' ' + fechaC(x.fecha))}: ${H.esc(String(x.shots))} shots ${x.auto ? '(automática)' : '<b>(editada)</b>'} · ${cantM(x.gramos, 'g')}</li>`).join('');
-  return `<h3 style="margin:16px 0 4px">Café de Cafetería ${H.info('Café de Cafetería', 'Calibración diaria: los shots que se cuentan solos cada día que Cafetería vende en la caja (configuración de Cafetería; vacío = 6), o el número que la barista editó ese día en Cocina (0 si no se calibró). Se valoriza como gasto de calibración, con el costo neto del café (MP_maestro).\nCalibración extra, café botado y pruebas: lo anotado en la bitácora de turno.\nTodo esto se descuenta del café de la bodega de Cafetería.')}</h3>
+  return `<h3 style="margin:16px 0 4px">Café de Cafetería ${H.info('Café de Cafetería', 'Calibración diaria: los shots que se cuentan solos cada día que Cafetería vende en la caja (configuración de Cafetería; vacío = 6), o el número que la barista editó ese día en Cocina (0 si no se calibró). Se valoriza como gasto de calibración, con el costo neto del café (maestro de costos de Finanzas; si falta, MP_maestro).\nCalibración extra, café botado y pruebas: lo anotado en la bitácora de turno.\nTodo esto se descuenta del café de la bodega de Cafetería.')}</h3>
     <p class="ayuda">Calibración diaria: <b>${H.esc(String(cd.shots))} shots · ${cantM(cd.gramos, 'g')}</b> en ${cd.dias.length} ${cd.dias.length === 1 ? 'día' : 'días'}${cd.editados ? ` (${cd.editados} editado${cd.editados === 1 ? '' : 's'})` : ''}${cd.neto !== null ? ` · gasto de calibración <b>${pesosN(cd.neto)}</b> neto` : cd.gramos ? ' · sin costo del café' : ''}</p>
     ${cd.dias.length ? `<details><summary class="ayuda">Ver por día</summary><ul class="ayuda">${dias}</ul></details>` : ''}
-    <p class="ayuda">Bitácora de turno: calibración extra ${cantM(cafe.calibracion, 'g')} · café botado ${cantM(cafe.merma, 'g')} · pruebas ${cantM(cafe.prueba_receta, 'g')} · <b>total de café ${cantM(cafe.total, 'g')}</b> (con la calibración diaria)</p>`;
+    <p class="ayuda">Bitácora de turno: calibración extra ${cantM(cafe.calibracion, 'g')} · café botado ${cantM(cafe.merma, 'g')} · pruebas ${cantM(cafe.prueba_receta, 'g')} · <b>total de café ${cantM(cafe.total, 'g')}</b> (con la calibración diaria)</p>
+    ${cafe.porGramo !== null && cafe.porGramo !== undefined ? `<p class="ayuda" id="merma-cafe-valor">Valorizado: bitácora de turno <b>${pesosN(cafe.netoBitacora)}</b> · todo el café <b>${pesosN(cafe.netoTotal)}</b> neto · café a ${pesosN(cafe.porGramo * 1000)} / kg${cafe.fuente === 'planilla' ? ' (costo de la planilla)' : ''} ${H.info('Café valorizado', 'Los gramos de café (calibración diaria, calibración extra, café botado y pruebas) × el precio neto por gramo de la materia prima café de Cafetería (Configuración de Producción → Cafetería).\nEl precio sale del maestro de costos de Finanzas (última compra); si no está, de la planilla.')}</p>` : ''}`;
 }
 function conectarMerma(el, H) {
   const b = $('prod-merma-ver'), sel = $('prod-merma-per'); if (!b) return;

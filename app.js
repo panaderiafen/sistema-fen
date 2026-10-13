@@ -9,35 +9,35 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.56.0';
-import * as Caja from './caja.js?v=0.56.0';
-import * as Stock from './stock.js?v=0.56.0';
-import * as Ajustes from './ajustes.js?v=0.56.0';
-import * as Apps from './apps.js?v=0.56.0';
-import * as Agenda from './agenda.js?v=0.56.0';
-import * as Gastos from './gastos.js?v=0.56.0';
-import * as G3 from './gastos-g3.js?v=0.56.0';
-import * as G3D from './gastos-g3d.js?v=0.56.0';
-import { resumenAnalisis } from './gastos-g2.js?v=0.56.0';
-import * as Sii from './sii.js?v=0.56.0';
-import * as GSii from './gastos-sii.js?v=0.56.0';
-import * as Previred from './previred.js?v=0.56.0';
-import * as B2b from './b2b.js?v=0.56.0';
-import * as Cartola from './cartola.js?v=0.56.0';
-import * as SiiFactura from './sii-factura.js?v=0.56.0';
-import * as PdfOrden from './pdf-orden.js?v=0.56.0';
-import * as Prod from './produccion.js?v=0.56.0';
+} from './firebase.js?v=0.58.0';
+import * as Caja from './caja.js?v=0.58.0';
+import * as Stock from './stock.js?v=0.58.0';
+import * as Ajustes from './ajustes.js?v=0.58.0';
+import * as Apps from './apps.js?v=0.58.0';
+import * as Agenda from './agenda.js?v=0.58.0';
+import * as Gastos from './gastos.js?v=0.58.0';
+import * as G3 from './gastos-g3.js?v=0.58.0';
+import * as G3D from './gastos-g3d.js?v=0.58.0';
+import { resumenAnalisis } from './gastos-g2.js?v=0.58.0';
+import * as Sii from './sii.js?v=0.58.0';
+import * as GSii from './gastos-sii.js?v=0.58.0';
+import * as Previred from './previred.js?v=0.58.0';
+import * as B2b from './b2b.js?v=0.58.0';
+import * as Cartola from './cartola.js?v=0.58.0';
+import * as SiiFactura from './sii-factura.js?v=0.58.0';
+import * as PdfOrden from './pdf-orden.js?v=0.58.0';
+import * as Prod from './produccion.js?v=0.58.0';
 import * as ProdK from './cocina/consumo.js?v=0.16.0';
-import * as VistaProd from './vista-produccion.js?v=0.56.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.56.0';
+import * as VistaProd from './vista-produccion.js?v=0.58.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.58.0';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.56.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.58.0');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.56.0');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.58.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.56.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.58.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -339,7 +339,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.56.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.58.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -443,7 +443,7 @@ async function pintarHoy() {
           <div class="titulo-fila"><h2 id="t-fuentes">De dónde lee Hoy</h2><span id="hoy-hora"></span></div>
           <div id="fuentes"></div>
           <p class="nota-i">(i) Hoy solo lee: no cambia nada en las apps. Si una no responde, sus pendientes no aparecen hasta que vuelva.</p>
-          <p class="ayuda" style="margin-top:6px">Cómo se calcula cada pendiente ${info('Pendientes de las otras apps', 'Gastos: pagos atrasados (vencimientos pendientes con fecha pasada), pagos de los próximos 7 días (incluye hoy) y documentos del SII cargados que aún no tienen gasto. Con la base nueva, además: cargas del SII atrasadas (la última hace más de 7 días, o desde el día 5 sin la del mes pasado).\nVentas B2B: cobros atrasados según la frecuencia de pago de cada cliente (descuenta abonos), y órdenes sin folio; "atrasadas" según si el cliente factura diario, semanal o mensual. Es la misma cuenta que hace la app B2B.\nProducción: materias primas o insumos nuevos que pidieron las jefas y solicitudes de habilitar una materia prima en otra área.\nCada app guarda el resumen 2 minutos: un cambio recién hecho puede tardar eso en verse aquí. Tocar un pendiente abre la app.')}</p>
+          <p class="ayuda" style="margin-top:6px">Cómo se calcula cada pendiente ${info('Pendientes de las otras apps', 'Gastos: pagos atrasados (vencimientos pendientes con fecha pasada), pagos de los próximos 7 días (incluye hoy) y documentos del SII cargados que aún no tienen gasto. Con la base nueva, además: cargas del SII atrasadas (la última hace más de 7 días, o desde el día 5 sin la del mes pasado).\nVentas B2B: cobros atrasados según la frecuencia de pago de cada cliente (descuenta abonos), y órdenes sin folio; "atrasadas" según si el cliente factura diario, semanal o mensual. Es la misma cuenta que hace la app B2B.\nProducción: materias primas o insumos nuevos que pidieron las jefas y solicitudes de habilitar una materia prima en otra área.\nFinanzas: precios de la última compra del SII que cambian más de ±40 % y esperan que los confirmes (Finanzas → Costos → Compras del SII); y productos cuyo costo directo subió más del % de aviso (5 % si no lo cambias) contra el costo con que empezó el mes (Finanzas → Costos → Productos, donde se marcan "Visto"). Usa el último cálculo guardado (se calcula al abrir Costos y con cada cambio de precio).\nCada app guarda el resumen 2 minutos: un cambio recién hecho puede tardar eso en verse aquí. Tocar un pendiente abre la app.')}</p>
         </section>
       </div>
     </div>`;
@@ -548,6 +548,21 @@ async function pintarHoy() {
     const pronto = r.bajos.filter(x => !x.bajoAhora && x.bajoDesde);
     const t = x => `${x.nombre} · ${x.nombreBodega} (${['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][new Date(x.bajoDesde + 'T12:00:00').getDay()]} ${Number(x.bajoDesde.slice(8, 10))})`;
     if (pronto.length) pend.push({ orden: 2.9, color: 'amarillo', icono: 'alerta', chip: 'Ver', url: '#produccion', origen: 'Bodega', titulo: `${pronto.length} ${pronto.length === 1 ? 'materia prima queda' : 'materias primas quedan'} bajo el mínimo esta semana`, detalle: pronto.slice(0, 4).map(t).join(', ') + (pronto.length > 4 ? '…' : '') });
+    pintarLista();
+  }).catch(() => {});
+  // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
+  import('./finanzas.js?v=0.58.0').then(F => F.porConfirmarParaHoy()).then(l => {
+    if (!l || !l.length) return;
+    pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
+      detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
+    pintarLista();
+  }).catch(() => {});
+  // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
+  import('./finanzas.js?v=0.58.0').then(F => F.alzasParaHoy()).then(x => {
+    if (!x || !x.lista.length) return;
+    const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
+    pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
+      detalle: `${l.slice(0, 3).map(f => `${f.nombre} ${p(f.vsMes.pct)}`).join(', ')}${l.length > 3 ? '…' : ''} · más de ${String(x.umbral).replace('.', ',')} % contra el mes anterior` });
     pintarLista();
   }).catch(() => {});
   // v0.14: abonos de la cartola por revisar
@@ -917,9 +932,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.56.0').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.58.0').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.56.0').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.58.0').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -1547,6 +1562,13 @@ async function importarSii(omitir) {
     listas.forEach(l => { const f = sii.facturas.find(x => Sii.clave(x) === Sii.clave(l)); if (f) f.yaImportada = true; });
     sii.hint = `<p class="sii-ok">Importado: ${r.facturas} ${r.facturas === 1 ? 'documento' : 'documentos'} · ${r.filas} ${r.filas === 1 ? 'línea' : 'líneas'} de gasto${r.vencimientos ? ` · ${r.vencimientos} ${r.vencimientos === 1 ? 'vencimiento' : 'vencimientos'}` : ''}${r.detalle ? ` · ${r.detalle} productos en Detalle Compras` : ''}${r.aVencimientos ? ` · ${r.aVencimientos} ${r.aVencimientos === 1 ? 'factura completó el vencimiento de su obligación' : 'facturas completaron el vencimiento de su obligación'}` : ''}${r.aBandeja ? ` · ${r.aBandeja} en "Documentos sin obligación"` : ''}</p>`;
     registrar('Importó documentos del SII', `${r.facturas} documento(s) · ${sii.nombre}`);
+    // v0.57.0 · Finanzas: los precios de las materias primas desde estas facturas (llega después, sin frenar)
+    if (r.precios && typeof r.precios.then === 'function') r.precios.then(x => {
+      if (!x) return;
+      const t = x.error ? `<p class="aviso">No se pudieron revisar los precios de Finanzas (${esc(x.error)}). Hazlo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.</p>`
+        : (x.aplicadas.length || x.porConfirmar || x.sinAsociar) ? `<p class="ayuda" id="sii-precios">Finanzas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'precio actualizado' : 'precios actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver Compras del SII</a></p>` : '';
+      if (t) { sii.hint = (sii.hint || '') + t; const h = $('sii-import-hint') || document.querySelector('#v-gastos .sii-hint'); if (h && !h.querySelector('#sii-precios')) h.insertAdjacentHTML('beforeend', t); }
+    });
     Sii.olvidarClasificacion();   // lo recién importado ya cuenta para las próximas sugerencias
     pintarTrabajoSii(); cargarHistorialSii();
   } catch (e) {
@@ -1962,7 +1984,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.56.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.58.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
