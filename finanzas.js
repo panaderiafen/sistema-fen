@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Finanzas: datos (F1 pasos 1, 2 y 3: maestro con costos, precio desde el SII, costo directo por producto)  v0.58.0
+//  Sistema Fën — Finanzas: datos (F1 pasos 1, 2 y 3 y F2 paso 1: costos, precio desde el SII, costo directo por producto, ventas por producto)  v0.59.0
 //  Todo vive en fen-gastos (solo administración; las reglas v0.1.0 ya cubren colecciones nuevas):
 //   · costos_mp/{mpId}        (mismo id que fen-produccion mps / MP_maestro ID_MP): nombre, tipo (mp|insumo|sub_receta),
 //                             unidadCompra, contenido { cantidad, unidad: g|ml|un }, precioNeto (por unidad de compra),
@@ -27,16 +27,32 @@
 //                             recetaCambio, primero, incompleto, fecha, cuando, en } cuando el costo por unidad cambia más de 0,5 % (y el primer cálculo).
 //   · costos_config/finanzas  { alzaAviso (%, por defecto 5), historial }.
 //   · costos_alzas_vistas/{recetaId}  "visto" de un aviso de alza en Hoy: { costoUnit, fecha, por, historial }.
+//  v0.59.0 (F2 paso 1, ventas por producto, área y canal; reglas puras en finanzas-ventas.js):
+//   · fin_productos/{canal}_{productoId}  producto de la caja (fen-ventas productos) o de B2B (fen-b2b productos) → receta (y su área),
+//                             reventa (área y costo de compra neto, a mano) o "no es un producto" (propinas, cargos):
+//                             { canal caja|b2b, productoId, nombre, tipo receta|reventa|ignorar, receta, recetaNombre, reventa, costoReventaNeto,
+//                             ignorar, unidadesPorVenta (1; una "caja de 6" = 6), area, origen (catalogo|nombre|manual), nota, fecha, por }.
+//   · fin_productos_hist/{autoId}  solo agregar: { clave, nombre, accion nuevo|cambio, antes, despues, origen, nota, fecha, por, en }.
+//   · fin_ventas_mes/{AAAA-MM}_{caja|b2b}  las ventas de un mes ya cerrado (desde el día 8 del mes siguiente, sin cajas abiertas ni
+//                             cierres sin resumen): { mes, canal, lineas [{ suc, productoId, nombre, cantidad, neto, recetaCatalogo, areaCatalogo }],
+//                             neto, cierres | ordenes, creado, por }. Un mes guardado cuesta 1 lectura; "Volver a leer" lo rehace.
+//   Fuentes (solo lectura): fen-ventas resumenes_caja (un documento por cierre, ya trae cada producto) y cajas (para saber si falta
+//   algún resumen); fen-b2b ordenes (sin anuladas; precios netos) y productos; fen-produccion recetas (nombre y área).
 //  Se recalcula al abrir Finanzas → Costos y justo después de un cambio de precio (a mano, del SII o confirmado).
 //  Nada de esto va a fen-produccion ni a Cocina: las jefas no ven costos.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.58.0';
-import * as FB from './firebase-gastos.js?v=0.58.0';
-import * as GB from './gastos-base.js?v=0.58.0';
-import * as P from './produccion.js?v=0.58.0';
-import * as FC from './finanzas-costos.js?v=0.58.0';
-import * as FS from './finanzas-sii.js?v=0.58.0';
-import * as FM from './finanzas-motor.js?v=0.58.0';
+import { auth as authSF } from './firebase.js?v=0.59.0';
+import * as FB from './firebase-gastos.js?v=0.59.0';
+import * as GB from './gastos-base.js?v=0.59.0';
+import * as P from './produccion.js?v=0.59.0';
+import * as FC from './finanzas-costos.js?v=0.59.0';
+import * as FS from './finanzas-sii.js?v=0.59.0';
+import * as FM from './finanzas-motor.js?v=0.59.0';
+import * as FV from './finanzas-ventas.js?v=0.59.0';
+import * as Caja from './caja.js?v=0.59.0';
+import * as B from './b2b.js?v=0.59.0';
+import * as FBB from './firebase-b2b.js?v=0.59.0';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.59.0';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -307,4 +323,120 @@ export async function costosMerma(items) {
   const motor = FM.crearMotor(ctx), out = {};
   (items || []).forEach(it => { const c = FM.costoUnitario(motor, ctx.costos, it); if (c) out[`${it.tipo}:${it.id}:${it.unidad}`] = c; });
   return out;
+}
+
+// ═══════════════ v0.59.0 · Ventas por producto, área y canal (F2 paso 1) ═══════════════
+// Catálogos (una lectura por sesión): productos de la caja (fen-ventas) y de B2B (fen-b2b, si está conectada)
+let catB2b = null;
+async function catalogos() {
+  const caja = {}; (await Caja.productos()).forEach(p => { caja[p.id] = p; });
+  let b2b = {}, b2bEstado = 'ok', lecturas = 0;
+  try {
+    const cx = await B.conexion();
+    b2bEstado = cx.estado;
+    if (cx.estado === 'ok') {
+      if (!catB2b) { const sn = await FBB.getDocs(FBB.collection(cx.db, 'productos')); catB2b = {}; sn.docs.forEach(d => { catB2b[d.id] = { id: d.id, ...d.data() }; }); lecturas += Math.max(1, sn.docs.length); }
+      b2b = catB2b;
+    }
+  } catch (e) { b2bEstado = 'error'; }
+  return { caja, b2b, b2bEstado, lecturas };
+}
+// Recetas para asociar: las de fen-produccion (id, nombre, área, tipo, estado); si no está conectada, las del último costeo
+let recetasCache = null;
+export async function recetasVenta(forzar) {
+  if (recetasCache && !forzar) return recetasCache;
+  try {
+    const x = await P.mpsYRecetas();
+    recetasCache = (x.recetas || []).filter(r => !/borrador/i.test(String(r.estado || ''))).map(r => ({ id: r.id, nombre: r.nombre || r.id, area: r.area || '', tipo: r.tipo || 'receta', estado: r.estado || '' }));
+  } catch (e) {
+    const docs = await leerColeccion('costos_recetas').catch(() => ({}));
+    recetasCache = Object.values(docs).map(d => ({ id: d.id, nombre: d.nombre || d.id, area: d.area || '', tipo: d.tipo || 'receta', estado: 'aprobada' }));
+    recetasCache.sinProduccion = true;
+  }
+  recetasCache.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+  return recetasCache;
+}
+export async function leerVinculos() { return leerColeccion('fin_productos'); }
+
+// Un mes de la caja, sin caché: los resúmenes de sus cierres + las cajas del mes (para saber si falta alguno o hay abiertas)
+async function cajaDelMes(mes, hoy) {
+  const desde = `${mes}-01`, hasta = mes === FV.mesDe(hoy) ? hoy : FV.ultimoDia(mes);
+  const [sn, cajas] = await Promise.all([getDocsV(queryV(colV(dbV, 'resumenes_caja'), whereV('fecha', '>=', desde), whereV('fecha', '<=', hasta))), Caja.cajasDelRango(desde, hasta)]);
+  const res = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => (r.fecha || '') >= desde && (r.fecha || '') <= hasta);
+  const conRes = new Set(res.map(r => r.cajaId || r.id));
+  const abiertas = cajas.filter(c => c.estado !== 'cerrada');
+  const faltan = cajas.filter(c => c.estado === 'cerrada' && !conRes.has(c.id));
+  return { res, abiertas, faltan, lecturas: Math.max(1, sn.docs.length) + Math.max(1, cajas.length) };
+}
+// Ventas del período por mes y canal: de fin_ventas_mes si el mes ya está guardado; si no, de las fuentes (y se guarda si el mes está cerrado).
+// forzar: no usa lo guardado (lo vuelve a leer y lo rehace).
+export async function ventasPeriodo(per, { forzar = false, avance } = {}) {
+  const db = await dbG(), hoy = hoyTxt(), por = yo();
+  const cat = await catalogos();
+  let lecturas = cat.lecturas;
+  const meses = [], lineas = [], faltanTodas = [];
+  const conB2b = cat.b2bEstado === 'ok';
+  for (const mes of per.meses) {
+    if (avance) avance(mes);
+    const info = { mes, caja: null, b2b: null };
+    const [gc, gb] = forzar ? [null, null] : await Promise.all(['caja', 'b2b'].map(c => FB.getDoc(FB.doc(db, 'fin_ventas_mes', `${mes}_${c}`)).catch(() => null)));
+    if (!forzar) lecturas += 2;
+    // Caja
+    if (gc && gc.exists()) { const d = gc.data(); lineas.push(...(d.lineas || [])); info.caja = { fuente: 'guardado', cierres: d.cierres || 0, creado: d.creado || '' }; }
+    else {
+      const x = await cajaDelMes(mes, hoy); lecturas += x.lecturas;
+      const ls = FV.lineasDeResumenes(x.res, cat.caja); lineas.push(...ls);
+      faltanTodas.push(...x.faltan);
+      const guardar = FV.guardable(mes, hoy, { abiertas: x.abiertas.length, faltan: x.faltan.length });
+      if (guardar) await FB.setDoc(FB.doc(db, 'fin_ventas_mes', `${mes}_caja`), { ...FV.docMes(mes, 'caja', ls, { cierres: x.res.length }), creado: new Date().toISOString(), fecha: hoy, por, en: FB.serverTimestamp() });
+      info.caja = { fuente: 'leido', cierres: x.res.length, abiertas: x.abiertas.length, faltan: x.faltan.length, guardado: guardar };
+    }
+    // B2B
+    if (gb && gb.exists()) { const d = gb.data(); lineas.push(...(d.lineas || [])); info.b2b = { fuente: 'guardado', ordenes: d.ordenes || 0, creado: d.creado || '' }; }
+    else if (conB2b) {
+      const desde = `${mes}-01`, hasta = mes === FV.mesDe(hoy) ? hoy : FV.ultimoDia(mes);
+      if (forzar) B.olvidarAnalisisB2b();
+      const os = await B.ordenesEntre(desde, hasta); lecturas += Math.max(1, os.length);
+      const ls = FV.lineasDeOrdenes(os, cat.b2b); lineas.push(...ls);
+      const guardar = FV.guardable(mes, hoy);
+      if (guardar) await FB.setDoc(FB.doc(db, 'fin_ventas_mes', `${mes}_b2b`), { ...FV.docMes(mes, 'b2b', ls, { ordenes: os.length }), creado: new Date().toISOString(), fecha: hoy, por, en: FB.serverTimestamp() });
+      info.b2b = { fuente: 'leido', ordenes: os.length, guardado: guardar };
+    } else info.b2b = { fuente: 'sin_conexion' };
+    meses.push(info);
+  }
+  return { lineas: FV.conCatalogo(FV.juntar(lineas), cat.caja, cat.b2b), meses, lecturas, b2bEstado: cat.b2bEstado, faltan: faltanTodas };
+}
+// "Generar los que faltan": los resúmenes de cierres que no lo tienen (igual que Ventas de caja → Reportes)
+export async function generarResumenesFaltantes(cajas, avance) { return Caja.generarResumenes(cajas, avance); }
+
+// Guardar (o cambiar) el vínculo de un producto; queda su historial
+export async function guardarVinculo(datos) {
+  const db = await dbG(), hoy = hoyTxt(), por = yo(), recetas = await recetasVenta();
+  const clave = FV.claveProducto(datos.canal === 'b2b' ? 'b2b' : 'caja', datos.productoId), ref = FB.doc(db, 'fin_productos', clave);
+  return FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref), prev = sn.exists() ? sn.data() : null;
+    const { doc, hist } = FV.armarVinculo(prev, datos, { recetas, hoy, por });
+    tx.set(ref, { ...doc, updatedAt: FB.serverTimestamp() });
+    if (hist) tx.set(FB.doc(db, 'fin_productos_hist', idNuevo('vp-')), { ...hist, en: FB.serverTimestamp() });
+    return { clave, doc };
+  });
+}
+// Confirmar de una vez los vínculos que ya vienen del catálogo (ID de receta de la caja o de B2B que existe en Producción)
+export async function confirmarCatalogo(items) {
+  const db = await dbG(), hoy = hoyTxt(), por = yo(), recetas = await recetasVenta();
+  const ops = [];
+  (items || []).forEach(p => {
+    if (!p.propuesta || p.propuesta.origen !== 'catalogo') return;
+    const { doc, hist } = FV.armarVinculo(null, { canal: p.canal, productoId: p.productoId, nombre: p.nombre, tipo: 'receta', receta: p.propuesta.receta, unidadesPorVenta: 1, origen: 'catalogo' }, { recetas, hoy, por });
+    ops.push([FB.doc(db, 'fin_productos', p.clave), { ...doc, updatedAt: FB.serverTimestamp() }]);
+    ops.push([FB.doc(db, 'fin_productos_hist', idNuevo('vp-')), { ...hist, en: FB.serverTimestamp() }]);
+  });
+  for (let i = 0; i < ops.length; i += LOTE) { const b = FB.writeBatch(db); ops.slice(i, i + LOTE).forEach(([ref, d]) => b.set(ref, d)); await b.commit(); }
+  return ops.length / 2;
+}
+export async function historialVinculo(clave) {
+  const db = await dbG();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'fin_productos_hist'), FB.where('clave', '==', clave)));
+  const t = x => (x && typeof x.toMillis === 'function' ? x.toMillis() : 0);
+  return sn.docs.map(d => d.data()).sort((a, b) => t(b.en) - t(a.en));
 }

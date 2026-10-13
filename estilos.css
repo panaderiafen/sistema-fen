@@ -926,3 +926,47 @@ a.ag-item { text-decoration: none; }
   .fin-orden select { width: 100%; }
 }
 .fin-dcifras { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+/* v0.59.0 · Finanzas → Márgenes: ventas por producto, área y canal */
+.fin-mper { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin-top: 10px; }
+.fin-mrango { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.fin-mrango .campo { margin: 0; flex: 0 1 170px; min-width: 0; }
+.fin-mrango input { min-height: 40px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; padding: 0 10px; width: 100%; }
+.fin-mfuente { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.fin-mreleer { display: inline-flex; align-items: center; gap: 6px; }
+.fin-mcob { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: var(--fondo); }
+.fin-mcob-txt { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; justify-content: space-between; font-size: 15px; }
+.fin-mcob-txt > span { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.fin-mcob-txt a { color: var(--acento); font-weight: 600; }
+.fin-mbarra { margin-top: 8px; height: 8px; border-radius: 99px; background: var(--linea); overflow: hidden; }
+.fin-mbarra span { display: block; height: 100%; background: var(--acento); border-radius: 99px; }
+.fin-mcifras { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.fin-mcifras div > span:first-child { display: flex; align-items: center; gap: 4px; }
+.fin-mcifras b { font-size: 20px; }
+.fin-mtot { background: var(--menu) !important; }
+.fin-msin { background: var(--amarillo) !important; }
+.fin-mtabla { margin-top: 14px; }
+.fin-mfila { display: grid; grid-template-columns: minmax(0, 2.3fr) minmax(0, 1fr) repeat(3, minmax(0, 1.05fr)) minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px; border-bottom: 1px solid var(--linea); font-size: 14px; }
+.fin-mfila > span { min-width: 0; overflow-wrap: anywhere; display: flex; flex-direction: column; gap: 2px; }
+.fin-mfila > .fin-nombre { display: block; }
+.fin-mfila .fin-nombre > .ayuda { display: block; font-size: 12px; }
+.fin-mfila .ayuda { font-size: 12px; }
+.fin-mcab { padding: 0 10px 8px; font-size: 12px; font-weight: 600; color: var(--suave); }
+.fin-mtotal { background: var(--fondo); border-radius: 10px; border-bottom: 0; margin-top: 6px; }
+.fin-mlink { background: none; border: 0; padding: 0 4px; min-height: 32px; color: var(--acento); font-weight: 600; text-decoration: underline; cursor: pointer; font-size: 13px; }
+.fin-mcat { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 14px; background: var(--verde); }
+.fin-mcat > span { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; flex: 1 1 260px; min-width: 0; }
+.fin-mcat .btn { display: inline-flex; align-items: center; gap: 6px; }
+.fin-masoc .acciones { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.fin-masoc .acciones .btn { display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 760px) {
+  .fin-mcab { display: none; }
+  .fin-mfila { grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 12px 4px; }
+  .fin-mfila > .fin-nombre { grid-column: 1 / -1; }
+  .fin-mfila .fin-et { display: block; font-size: 11px; color: var(--suave); font-weight: 600; }
+  .fin-mtotal > span:empty { display: none; }
+  .fin-mrango .campo { flex: 1 1 130px; }
+  .fin-masoc .acciones { justify-content: stretch; }
+  .fin-masoc .acciones > * { flex: 1 1 auto; }
+}
+.fin-mfila > span > .chip { align-self: flex-start; }

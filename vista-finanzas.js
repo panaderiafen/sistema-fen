@@ -1,17 +1,20 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Finanzas  v0.58.0 (F1 pasos 1, 2 y 3)
-//  Pestañas: Cómo trabajamos (el método acordado el 12-oct, fijo) · Costos (Productos, Materias primas, Compras del SII y Revisión de datos).
+//  Sistema Fën — pantalla Finanzas  v0.59.0 (F1 pasos 1, 2 y 3; F2 paso 1)
+//  Pestañas: Cómo trabajamos (el método acordado el 12-oct, fijo) · Costos (Productos, Materias primas, Compras del SII y Revisión de datos) · Márgenes (Ventas por producto, Asociar productos).
 //  v0.58.0: Costos → Productos (costo directo por producto con el motor finanzas-motor.js; detalle por ingrediente, historial,
 //  alzas sobre el % de aviso y Ajustes de Finanzas). Rutas: #finanzas/costos/productos[/alzas | /r/{recetaId}].
-//  Más adelante: Márgenes, Resultados, Flujo de caja y Metas.
+//  v0.59.0: Márgenes (F2 paso 1): Ventas por producto (área × canal, neto) y Asociar productos (producto de venta → receta,
+//  reventa o "no es un producto"). Rutas: #finanzas/margenes[/asociar]. Reglas puras en finanzas-ventas.js.
+//  Más adelante: el margen de contribución en Márgenes, Resultados, Flujo de caja y Metas.
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.58.0';
-import * as FC from './finanzas-costos.js?v=0.58.0';
-import * as FS from './finanzas-sii.js?v=0.58.0';
-import * as FM from './finanzas-motor.js?v=0.58.0';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.58.0';
+import * as F from './finanzas.js?v=0.59.0';
+import * as FC from './finanzas-costos.js?v=0.59.0';
+import * as FS from './finanzas-sii.js?v=0.59.0';
+import * as FM from './finanzas-motor.js?v=0.59.0';
+import * as FV from './finanzas-ventas.js?v=0.59.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.59.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -50,13 +53,15 @@ const partes = () => (location.hash || '').replace('#', '').split('/');
 const cab = (tab) => `<div class="cabecera"><div><h1 id="t-finanzas">Finanzas</h1><p>Análisis financiero de Fën</p></div>
   <div class="pestanas" role="tablist" aria-label="Secciones de Finanzas">
     <a role="tab" href="#finanzas" aria-selected="${tab === 'como'}">Cómo trabajamos</a>
-    <a role="tab" href="#finanzas/costos/productos" aria-selected="${tab === 'costos'}">Costos</a></div></div>
-  <p class="fin-pronto">Próximamente: Márgenes, Resultados, Flujo de caja, Metas</p>`;
+    <a role="tab" href="#finanzas/costos/productos" aria-selected="${tab === 'costos'}">Costos</a>
+    <a role="tab" href="#finanzas/margenes" aria-selected="${tab === 'margenes'}">Márgenes</a></div></div>
+  <p class="fin-pronto">Próximamente: Resultados, Flujo de caja, Metas</p>`;
 
 export async function pintar(el, sub, H) {
-  const p = partes(), tab = p[1] === 'costos' ? 'costos' : 'como';
+  const p = partes(), tab = p[1] === 'costos' ? 'costos' : p[1] === 'margenes' ? 'margenes' : 'como';
   st.msg = ''; st.err = '';
   if (tab === 'como') { el.innerHTML = cab(tab) + comoTrabajamos(H); return; }
+  if (tab === 'margenes') return pintarMargenes(el, p[2] === 'asociar' ? 'asociar' : 'ventas', H);
   const parte = p[2] === 'revision' ? 'revision' : p[2] === 'compras' ? 'compras' : p[2] === 'productos' ? 'productos' : 'mp';
   el.innerHTML = cab(tab) + subPestanas(parte, null) + '<section class="tarjeta"><div class="vacio" style="border:0">Abriendo los costos…</div></section>';
   try {
@@ -697,4 +702,283 @@ function pintarDetalle(el, id, rv, H) {
     <h2 id="t-fin-dhist">Historial de cambios ${H.info('Historial del costo', 'Cada vez que el costo por unidad cambia más de 0,5 % queda aquí: fecha, costo anterior y nuevo, % y la causa (las materias primas que cambiaron de precio, o un cambio en la receta). No se borra.')}</h2>
     ${hs.length ? `<ul class="fin-hist-lista fin-dhist">${hs.map(h => `<li><div><b>${fechaTxt(h.fecha)}</b> · ${h.anterior === null || h.anterior === undefined ? '' : (unidad === 'g' ? FC.pesos(h.anterior * 1000) : FC.pesos(h.anterior)) + ' → '}<b>${unidad === 'g' ? FC.pesos(h.nuevo * 1000) + ' / kg' : FC.pesos(h.nuevo) + ' / un'}</b>${h.pct !== null && h.pct !== undefined ? ` <span class="fin-var ${h.pct > 0 ? 'fin-sube' : 'fin-baja'}">${h.pct > 0 ? '+' : '−'}${String(Math.abs(Math.round(h.pct * 10) / 10)).replace('.', ',')} %</span>` : ''}</div><span class="ayuda">${H.esc(causaTxt(h))}${h.incompleto ? ' · costo incompleto' : ''}</span></li>`).join('')}</ul>` : '<p class="ayuda">Sin cambios todavía.</p>'}
   </section>`;
+}
+
+// ═══════════════ v0.59.0 · Márgenes (F2 paso 1): ventas por producto, área y canal ═══════════════
+const MS = { per: 'mes', desde: '', hasta: '', datos: null, clave: '', vinc: {}, recetas: [], area: 'todas', canal: 'todos', q: '', verAsoc: false, msg: '', err: '' };
+const pesosM = v => FC.pesos(Math.round(Number(v) || 0));
+const cantM = v => (Math.round((Number(v) || 0) * 100) / 100).toLocaleString('es-CL');
+const NOMBRE_MES = m => { const [y, n] = String(m).split('-'); return `${['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][Number(n) - 1] || n} ${y}`; };
+const perActual = () => FV.periodo(MS.per, hoyTxt(), MS.desde, MS.hasta);
+const productosM = () => MS.datos ? FV.productosVendidos(MS.datos.lineas, MS.vinc, MS.recetas) : [];
+const PI2 = { caja: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V4h8v3M3 12h18"/>', camion: '<path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/>', recargar: PI.revisar };
+const icM = (n, t = 18) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${PI2[n] || PI[n] || ''}</svg>`;
+
+function subMargenes(parte, n) {
+  return `<div class="pastillas fin-sub" role="group" aria-label="Partes de Márgenes">
+    <a class="pastilla" href="#finanzas/margenes" aria-current="${parte === 'ventas' ? 'page' : 'false'}" aria-pressed="${parte === 'ventas'}">Ventas por producto</a>
+    <a class="pastilla" href="#finanzas/margenes/asociar" aria-current="${parte === 'asociar' ? 'page' : 'false'}" aria-pressed="${parte === 'asociar'}">Asociar productos${n ? ` <span class="chip c-amarillo chip-chico" title="Productos vendidos sin asociar">${n}</span>` : ''}</a></div>
+  <p class="fin-pronto">El margen de cada producto (precio neto − costo directo) llega en el próximo paso; aquí está la venta.</p>`;
+}
+function selectorPeriodo(H) {
+  const hoy = hoyTxt(), mesHoy = FV.mesDe(hoy);
+  const b = (k, t) => `<button type="button" class="chip-filtro" data-m-per="${k}" aria-pressed="${MS.per === k}">${t}</button>`;
+  return `<div class="fin-mper" role="group" aria-label="Período">
+    <div class="chips">${b('mes', 'Este mes')}${b('mesAnterior', 'Mes anterior')}${b('rango', 'Elegir meses')}</div>
+    <form class="fin-mrango ${MS.per === 'rango' ? '' : 'oculto'}" id="m-rango" novalidate>
+      <div class="campo"><label for="m-desde">Desde</label><input type="month" id="m-desde" max="${mesHoy}" value="${H.esc(MS.desde || FV.mesMas(mesHoy, -2))}"></div>
+      <div class="campo"><label for="m-hasta">Hasta</label><input type="month" id="m-hasta" max="${mesHoy}" value="${H.esc(MS.hasta || mesHoy)}"></div>
+      <button type="submit" class="btn-sec" id="m-ver">Ver</button></form></div>`;
+}
+async function pintarMargenes(el, parte, H) {
+  const per = perActual(), clave = per.meses.join(',');
+  const base = (cuerpo, n) => cab('margenes') + subMargenes(parte, n) + cuerpo;
+  el.innerHTML = base(`<section class="tarjeta">${selectorPeriodo(H)}<div class="vacio" style="border:0" role="status" id="m-leyendo">Leyendo las ventas de ${H.esc(per.meses.map(NOMBRE_MES).join(', '))}…</div></section>`);
+  conectarPeriodo(el, parte, H);
+  try {
+    if (!st.cx || st.cx.gastos.estado !== 'ok') st.cx = await F.conexiones();
+    if (st.cx.gastos.estado !== 'ok') return sinBase(el, 'margenes', H);
+    if (MS.clave !== clave || !MS.datos) {
+      const [d, v, r] = await Promise.all([F.ventasPeriodo(per, { avance: m => { const x = $('m-leyendo'); if (x) x.textContent = `Leyendo las ventas de ${NOMBRE_MES(m)}…`; } }), F.leerVinculos(), F.recetasVenta()]);
+      MS.datos = d; MS.vinc = v; MS.recetas = r; MS.clave = clave;
+    }
+  } catch (e) { el.innerHTML = base(`<section class="tarjeta">${selectorPeriodo(H)}<p class="error" role="alert">${H.esc(error(e, H))}</p></section>`); conectarPeriodo(el, parte, H); return; }
+  if (partes()[1] !== 'margenes') return;
+  dibujarMargenes(el, parte, H);
+}
+function dibujarMargenes(el, parte, H) {
+  const prods = productosM(), sin = prods.filter(p => !p.vinculo);
+  el.innerHTML = cab('margenes') + subMargenes(parte, sin.length) + (parte === 'asociar' ? htmlAsociar(prods, H) : htmlVentas(prods, H));
+  conectarPeriodo(el, parte, H);
+  if (parte === 'asociar') conectarAsociar(el, prods, H); else conectarVentas(el, prods, H);
+}
+function conectarPeriodo(el, parte, H) {
+  el.querySelectorAll('[data-m-per]').forEach(b => b.addEventListener('click', () => {
+    MS.per = b.dataset.mPer;
+    if (MS.per === 'rango') { el.querySelectorAll('[data-m-per]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); $('m-rango').classList.remove('oculto'); $('m-desde').focus(); return; }
+    MS.msg = ''; pintarMargenes(el, parte, H);
+  }));
+  const f = $('m-rango');
+  if (f) f.addEventListener('submit', ev => { ev.preventDefault(); MS.desde = $('m-desde').value; MS.hasta = $('m-hasta').value; if (!MS.desde || !MS.hasta) return; MS.per = 'rango'; MS.msg = ''; pintarMargenes(el, parte, H); });
+  const r = $('m-releer');
+  if (r) r.addEventListener('click', async () => {
+    r.disabled = true; r.lastChild.textContent = ' Leyendo…';
+    try { const per = perActual(); MS.datos = await F.ventasPeriodo(per, { forzar: true }); MS.clave = per.meses.join(','); MS.msg = 'Ventas leídas de nuevo desde la caja y B2B.'; H.registrar('Finanzas: volvió a leer las ventas', per.meses.join(', ')); dibujarMargenes(el, parte, H); }
+    catch (e) { r.disabled = false; r.lastChild.textContent = ' Volver a leer'; const x = $('m-err'); if (x) x.textContent = error(e, H); }
+  });
+  const g = $('m-generar');
+  if (g) g.addEventListener('click', async () => {
+    g.disabled = true; g.textContent = 'Generando…';
+    try {
+      const r2 = await F.generarResumenesFaltantes(MS.datos.faltan, (i, n) => { g.textContent = `Generando ${i} de ${n}…`; });
+      H.registrar('Finanzas: generó resúmenes de caja faltantes', `${r2.hechos} hechos, ${r2.fallas} con error`);
+      const per = perActual(); MS.datos = await F.ventasPeriodo(per, { forzar: true }); MS.msg = `Resúmenes generados: ${r2.hechos}${r2.fallas ? ` (${r2.fallas} con error)` : ''}.`; dibujarMargenes(el, parte, H);
+    } catch (e) { g.disabled = false; g.textContent = 'Generar los que faltan'; const x = $('m-err'); if (x) x.textContent = error(e, H); }
+  });
+}
+// Lo que se leyó (y de dónde) y los avisos del período
+function htmlFuente(H) {
+  const d = MS.datos; if (!d) return '';
+  const partesTxt = d.meses.map(m => {
+    const c = m.caja || {}, b = m.b2b || {};
+    const ct = c.fuente === 'guardado' ? 'caja guardada' : `${nf(c.cierres)} ${c.cierres === 1 ? 'cierre' : 'cierres'} de caja`;
+    const bt = b.fuente === 'guardado' ? 'B2B guardado' : b.fuente === 'sin_conexion' ? 'sin B2B' : `${nf(b.ordenes)} ${b.ordenes === 1 ? 'orden' : 'órdenes'} B2B`;
+    return `${NOMBRE_MES(m.mes)}: ${ct} · ${bt}`;
+  });
+  const abiertas = d.meses.reduce((a, m) => a + ((m.caja && m.caja.abiertas) || 0), 0), faltan = (d.faltan || []).length;
+  const guardados = d.meses.filter(m => (m.caja && m.caja.guardado) || (m.b2b && m.b2b.guardado)).map(m => NOMBRE_MES(m.mes));
+  const ayuda = 'Caja: se lee el resumen de cada cierre (un documento por cierre, que ya trae lo vendido de cada producto y descuenta las anuladas), no las ventas una por una. Un mes son unas 60 lecturas de resúmenes y otras tantas de cajas (para saber si falta algún resumen).\nB2B: las órdenes del mes (sin anuladas), una lectura por orden. Los precios de B2B ya son netos.\nUn mes cerrado (desde el día 8 del mes siguiente, sin cajas abiertas ni cierres sin resumen) se guarda en Finanzas: la próxima vez cuesta 1 lectura. "Volver a leer" lo rehace (por ejemplo, si se corrigió una orden de ese mes).\nLa caja: neto = bruto ÷ 1,19 de cada producto, después del descuento de línea.';
+  return `<p class="ayuda fin-mfuente">${H.esc(partesTxt.join(' · '))} · unas ${nf(d.lecturas)} lecturas ${H.info('De dónde salen las ventas', ayuda)}
+      <button type="button" class="btn-sec btn-chico fin-mreleer" id="m-releer">${icM('recargar', 16)} Volver a leer</button></p>
+    ${guardados.length ? `<p class="ayuda">Guardado en Finanzas (mes cerrado): ${H.esc(guardados.join(', '))}.</p>` : ''}
+    ${abiertas ? `<p class="aviso">${nf(abiertas)} ${abiertas === 1 ? 'caja sigue abierta' : 'cajas siguen abiertas'}: sus ventas no se cuentan hasta que se cierren.</p>` : ''}
+    ${faltan ? `<p class="aviso">${nf(faltan)} ${faltan === 1 ? 'cierre no tiene' : 'cierres no tienen'} resumen: sus ventas no se cuentan. <button type="button" class="btn-sec btn-chico" id="m-generar">Generar los que faltan</button></p>` : ''}
+    ${d.b2bEstado !== 'ok' ? '<p class="aviso">La base de B2B no está conectada: solo se ven las ventas de la caja (y los meses de B2B ya guardados). Conéctala en <a href="#b2b/base">Ventas B2B → Base nueva</a>.</p>' : ''}`;
+}
+function htmlCobertura(t, n, H) {
+  const pct = t.pct === null ? 0 : Math.max(0, Math.min(100, t.pct));
+  return `<div class="fin-mcob" id="m-cobertura"><div class="fin-mcob-txt"><span>Asociado: <b>${t.pctTxt}</b> de la venta neta del período ${H.info('Cobertura', `Parte de la venta neta del período cuyos productos ya están asociados: a su receta (y su área), a una reventa o marcados "no es un producto" (propinas, cargos).\nLo que falta asociar no tiene área, y en el próximo paso no tendrá costo ni margen.\nConviene partir por los que más venden (Asociar productos los ordena así).\nAsociado: ${pesosM(t.decidido)} de ${pesosM(t.todo)}.`)}</span>
+    ${n ? `<a href="#finanzas/margenes/asociar">Asociar ${nf(n)} ${n === 1 ? 'producto' : 'productos'} (${pesosM(t.sinAsociar)})</a>` : '<span class="ok-texto">Todo asociado</span>'}</div>
+    <div class="fin-mbarra" role="progressbar" aria-label="Venta asociada" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><span style="width:${pct}%"></span></div></div>`;
+}
+function htmlVentas(prods, H) {
+  const t = FV.totales(prods, { canal: MS.canal }), per = perActual();
+  const sin = prods.filter(p => !p.vinculo).length;
+  const cifra = (tit, v, ayuda, extra = '', cls = '') => `<div class="${cls}"><span>${tit}${ayuda ? ' ' + H.info(tit, ayuda) : ''}</span><b>${pesosM(v)}</b>${extra}</div>`;
+  const parte = v => (t.total > 0 ? `<span>${(Math.round(v / t.total * 1000) / 10).toLocaleString('es-CL')} %</span>` : '');
+  const canales = FV.SUCS.filter(sc => MS.canal === 'todos' || sc === MS.canal);
+  return `<section class="tarjeta" aria-labelledby="t-m-ventas">
+    <div class="titulo-fila fin-titulo"><h2 id="t-m-ventas">Ventas por producto ${H.info('Ventas por producto', 'Lo vendido en el período, en neto (sin IVA), por producto, área y canal.\nÁrea: la de la receta del producto (Panadería, Bollería, Pastelería, Cafetería); en una reventa, la que elegiste.\nCanal: caja Barros Arana, caja Ainavillo y B2B. Los productos de la caja y de B2B que van a la misma receta se ven en una sola fila.\nUnidades: lo vendido × unidades por venta (una "caja de 6" = 6 unidades de la receta).\nPrecio neto promedio: venta neta ÷ unidades.\nLos "no es un producto" (propinas, cargos) no suman.')}</h2>
+      <span class="ayuda">${H.esc(fechaTxt(per.desde))} al ${H.esc(fechaTxt(per.hasta))}</span></div>
+    ${selectorPeriodo(H)}
+    <p class="ok-texto" id="m-msg" role="status">${H.esc(MS.msg)}</p><p class="error" id="m-err" role="alert">${H.esc(MS.err)}</p>
+    ${htmlFuente(H)}
+    ${htmlCobertura(t, sin, H)}
+    <h3 class="fin-dtit">Por canal</h3>
+    <div class="fin-prev-cifras fin-mcifras" id="m-canales">
+      ${cifra('Venta neta', t.total, 'Toda la venta neta del período (y del canal elegido), sin los "no es un producto".', t.ignorado ? `<span>${pesosM(t.ignorado)} no son productos</span>` : '', 'fin-mtot')}
+      ${canales.map(sc => cifra(FV.NOMBRE_SUC[sc], t.porSuc[sc] || 0, '', parte(t.porSuc[sc] || 0))).join('')}</div>
+    <h3 class="fin-dtit">Por área</h3>
+    <div class="fin-prev-cifras fin-mcifras" id="m-areas">
+      ${FV.AREAS.map(a => cifra(FV.NOMBRE_AREA[a], t.porArea[a] || 0, '', parte(t.porArea[a] || 0))).join('')}
+      ${t.sinAsociar ? cifra('Sin asociar', t.sinAsociar, 'Venta de productos que todavía no tienen receta (ni son reventa): no tienen área. Asócialos en Asociar productos.', parte(t.sinAsociar), 'fin-msin') : ''}</div>
+    ${t.reventa ? `<p class="ayuda">Incluye ${pesosM(t.reventa)} de reventa (va al área que elegiste para cada una).</p>` : ''}
+    <div class="filtros fin-filtros">
+      <div class="fin-buscar">${ic('lupa', 18)}<label class="sr" for="m-q">Buscar producto</label><input type="search" id="m-q" placeholder="Buscar producto…" autocomplete="off" spellcheck="false" value="${H.esc(MS.q)}"></div>
+      <div class="chips" role="group" aria-label="Filtrar por área">${['todas', ...FV.AREAS, 'sin'].map(a => `<button type="button" class="chip-filtro" data-m-area="${a}" aria-pressed="${MS.area === a}">${a === 'todas' ? 'Todas' : a === 'sin' ? 'Sin asociar' : FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
+      <div class="chips" role="group" aria-label="Filtrar por canal">${['todos', ...FV.SUCS].map(c => `<button type="button" class="chip-filtro" data-m-canal="${c}" aria-pressed="${MS.canal === c}">${c === 'todos' ? 'Todos los canales' : FV.NOMBRE_SUC[c]}</button>`).join('')}</div></div>
+    <div class="fin-mtabla" aria-label="Ventas por producto">
+      <div class="fin-mfila fin-mcab" aria-hidden="true"><span>Producto</span><span>Área</span><span>Caja Barros</span><span>Caja Ainavillo</span><span>B2B</span><span>Unidades</span><span>Venta neta</span><span>Precio neto prom.</span></div>
+      <div id="m-filas"></div></div>
+  </section>`;
+}
+function filasVentas(prods) {
+  const q = MS.q;
+  return FV.tablaVentas(prods, { canal: MS.canal })
+    .filter(f => MS.area === 'todas' || (MS.area === 'sin' ? f.tipo === 'sin' : f.area === MS.area))
+    .filter(f => !normalizar(q) || coincide(`${f.nombre} ${f.fuentes.map(x => x.nombre).join(' ')}`, q));
+}
+function filaVenta(f, H) {
+  const celda = sc => { const x = f.porSuc[sc]; return x ? `${pesosM(x.neto)}<span class="ayuda">${cantM(x.cantidad)} ${x.cantidad === 1 ? 'vendido' : 'vendidos'}</span>` : '<span class="ayuda">—</span>'; };
+  const fuentes = f.fuentes.map(x => `${x.nombre} (${x.canal === 'b2b' ? 'B2B' : 'caja'}${x.unidadesPorVenta !== 1 ? ` × ${String(x.unidadesPorVenta).replace('.', ',')}` : ''})`).join(' · ');
+  const area = f.tipo === 'sin' ? '<span class="chip c-amarillo chip-chico">Sin asociar</span>' : `${H.esc(FV.NOMBRE_AREA[f.area] || f.area || '—')}${f.tipo === 'reventa' ? ' <span class="chip c-gris chip-chico">Reventa</span>' : ''}`;
+  return `<div class="fin-mfila" data-m-fila="${H.esc(f.clave)}">
+    <span class="fin-nombre"><b>${H.esc(f.nombre)}</b>${f.tipo === 'receta' ? `<span class="ayuda">${H.esc(fuentes)}</span>` : ''}${f.tipo === 'sin' ? ` <button type="button" class="fin-mlink" data-m-asociar="${H.esc(f.productoClave)}">Asociar</button>` : ''}</span>
+    <span><span class="fin-et">Área</span>${area}</span>
+    <span><span class="fin-et">Caja Barros</span>${celda('barros')}</span>
+    <span><span class="fin-et">Caja Ainavillo</span>${celda('ainavillo')}</span>
+    <span><span class="fin-et">B2B</span>${celda('b2b')}</span>
+    <span><span class="fin-et">Unidades</span>${cantM(f.unidades)}</span>
+    <span><span class="fin-et">Venta neta</span><b>${pesosM(f.neto)}</b></span>
+    <span><span class="fin-et">Precio neto prom.</span>${f.precioUnidad === null ? '—' : pesosM(f.precioUnidad)}${f.precioVenta !== null && f.precioVenta !== f.precioUnidad ? `<span class="ayuda">${pesosM(f.precioVenta)} por venta</span>` : ''}</span></div>`;
+}
+function pintarFilasVentas(prods, H) {
+  const c = $('m-filas'); if (!c) return;
+  const xs = filasVentas(prods);
+  const tot = xs.reduce((a, f) => ({ neto: a.neto + f.neto, unidades: a.unidades + f.unidades, s: FV.SUCS.reduce((o, sc) => ({ ...o, [sc]: (a.s[sc] || 0) + ((f.porSuc[sc] || {}).neto || 0) }), {}) }), { neto: 0, unidades: 0, s: {} });
+  c.innerHTML = xs.length ? xs.map(f => filaVenta(f, H)).join('') + `<div class="fin-mfila fin-mtotal" id="m-total">
+      <span class="fin-nombre"><b>Total (${nf(xs.length)} ${xs.length === 1 ? 'fila' : 'filas'})</b></span><span></span>
+      ${FV.SUCS.map(sc => `<span><span class="fin-et">${FV.NOMBRE_SUC[sc]}</span>${pesosM(tot.s[sc] || 0)}</span>`).join('')}
+      <span><span class="fin-et">Unidades</span>${cantM(tot.unidades)}</span><span><span class="fin-et">Venta neta</span><b>${pesosM(tot.neto)}</b></span><span></span></div>`
+    : `<div class="vacio">${MS.datos && MS.datos.lineas.length ? 'Nada con ese filtro.' : 'No hay ventas en este período.'}</div>`;
+}
+function conectarVentas(el, prods, H) {
+  pintarFilasVentas(prods, H);
+  const q = $('m-q'); if (q) q.addEventListener('input', () => { MS.q = q.value; pintarFilasVentas(prods, H); });
+  el.querySelectorAll('[data-m-area]').forEach(b => b.addEventListener('click', () => { MS.area = b.dataset.mArea; el.querySelectorAll('[data-m-area]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); pintarFilasVentas(prods, H); }));
+  el.querySelectorAll('[data-m-canal]').forEach(b => b.addEventListener('click', () => { MS.canal = b.dataset.mCanal; MS.msg = ''; dibujarMargenes(el, 'ventas', H); }));
+  const filas = $('m-filas');
+  if (filas) filas.addEventListener('click', ev => { const b = ev.target.closest('[data-m-asociar]'); if (b) { const p = prods.find(x => x.clave === b.dataset.mAsociar); if (p) dialogoVinculo(p, el, 'ventas', H); } });
+}
+
+// ── Asociar productos ──
+const canalTxt = p => (p.canal === 'b2b' ? 'B2B' : 'Caja');
+const ventaTxt = p => Object.entries(p.porSuc).map(([sc, x]) => `${FV.NOMBRE_SUC[sc]}: ${cantM(x.cantidad)} · ${pesosM(x.neto)}`).join(' · ');
+const propuestaTxt = p => !p.propuesta ? '' : p.propuesta.receta ? `${p.propuesta.recetaNombre}${p.propuesta.origen === 'catalogo' ? (p.canal === 'b2b' ? ' (del catálogo de B2B)' : ' (del catálogo de la caja)') : ' (nombre parecido)'}` : '';
+function htmlAsociar(prods, H) {
+  const t = FV.totales(prods), sin = prods.filter(p => !p.vinculo), asoc = prods.filter(p => p.vinculo);
+  const deCat = sin.filter(p => p.propuesta && p.propuesta.origen === 'catalogo');
+  const fila = (p, conCambio) => `<div class="fin-compra fin-masoc" data-m-prod="${H.esc(p.clave)}">
+    <div><b>${H.esc(p.nombre)}</b><span class="ayuda">${canalTxt(p)} · ${H.esc(p.productoId)}</span></div>
+    <div><span><b>${pesosM(p.neto)}</b> neto · ${cantM(p.cantidad)} ${p.cantidad === 1 ? 'vendido' : 'vendidos'}</span><span class="ayuda">${H.esc(ventaTxt(p))}</span></div>
+    <div>${conCambio ? `<span class="fin-asoc">${ic('enlace', 16)}<b>${H.esc(FV.textoVinculo(p.vinculo))}</b></span><span class="ayuda">${H.esc(p.vinculo.area ? FV.NOMBRE_AREA[p.vinculo.area] || p.vinculo.area : '')}${p.vinculo.por ? ` · ${H.esc(p.vinculo.por)} · ${fechaTxt(p.vinculo.fecha)}` : ''}</span>`
+      : p.propuesta && p.propuesta.receta ? `<span>Sugerencia: <b>${H.esc(propuestaTxt(p))}</b></span><span class="ayuda">${H.esc(FV.NOMBRE_AREA[p.propuesta.area] || p.propuesta.area || '')}</span>`
+      : `<span class="ayuda">Sin sugerencia${p.propuesta && p.propuesta.aviso ? ': ' + H.esc(p.propuesta.aviso) : ''}</span>`}</div>
+    <div class="acciones fin-c-acc">${!conCambio && p.propuesta && p.propuesta.receta ? `<button type="button" class="btn" data-m-confirmar="${H.esc(p.clave)}">${ic('check', 16)} Confirmar</button>` : ''}
+      <button type="button" class="btn-sec" data-m-asociar="${H.esc(p.clave)}">${conCambio ? 'Cambiar' : 'Asociar…'}</button></div></div>`;
+  return `<section class="tarjeta" aria-labelledby="t-m-asoc">
+    <div class="titulo-fila fin-titulo"><h2 id="t-m-asoc">Asociar productos ${H.info('Asociar productos', 'Cada producto que se vende en la caja o en B2B se asocia a la receta que lo produce: de ahí sale su área y, en el próximo paso, su costo y su margen.\nReventa: algo que se compra hecho y se vende (bebidas, por ejemplo). Eliges el área y anotas su costo de compra neto (por ahora a mano).\nNo es un producto: propinas, cargos de despacho, ajustes… no suman en la venta por producto.\nUnidades por venta: cuántas unidades de la receta lleva una venta (una "caja de 6" = 6).\nLa sugerencia sale primero del ID de receta que ya tiene el producto en el catálogo de la caja o de B2B; si no, de un nombre parecido. Nada se asocia solo: tú confirmas.\nCada cambio queda en el historial. Se guarda en Finanzas (fen-gastos): no cambia nada en la caja ni en B2B.')}</h2>
+      <span class="chip ${sin.length ? 'c-amarillo' : 'c-verde'}">${nf(sin.length)} sin asociar</span></div>
+    ${selectorPeriodo(H)}
+    <p class="ok-texto" id="m-msg" role="status">${H.esc(MS.msg)}</p><p class="error" id="m-err" role="alert">${H.esc(MS.err)}</p>
+    ${htmlFuente(H)}
+    ${htmlCobertura(t, sin.length, H)}
+    ${deCat.length ? `<div class="fin-mcat"><span>${nf(deCat.length)} ${deCat.length === 1 ? 'producto ya tiene' : 'productos ya tienen'} su receta en el catálogo de la caja o de B2B (${pesosM(deCat.reduce((a, p) => a + p.neto, 0))}). ${H.info('Vínculos del catálogo', 'Son los productos que ya tienen un ID de receta (ID_receta) en el catálogo de la caja o en Productos de B2B, y esa receta existe en Producción. Confirmarlos de una vez los asocia a esa receta, con 1 unidad por venta. Si alguno es una caja o un pack, cámbialo después con "Cambiar".')}</span>
+      <button type="button" class="btn" id="m-cat">${ic('check', 16)} Confirmar los ${nf(deCat.length)} del catálogo</button></div>` : ''}
+    <h3 class="fin-dtit">Sin asociar, de mayor a menor venta</h3>
+    <div class="fin-compras" id="m-sin">${sin.length ? sin.map(p => fila(p, false)).join('') : '<div class="vacio">Todos los productos vendidos en el período están asociados.</div>'}</div>
+    ${asoc.length ? `<details class="fin-sindet" id="m-asoc-det" ${MS.verAsoc ? 'open' : ''}><summary>Ya asociados <span class="chip c-gris chip-chico">${nf(asoc.length)}</span></summary>
+      <div class="fin-compras" id="m-asoc">${asoc.map(p => fila(p, true)).join('')}</div></details>` : ''}
+  </section>`;
+}
+function conectarAsociar(el, prods, H) {
+  const det = $('m-asoc-det'); if (det) det.addEventListener('toggle', () => { MS.verAsoc = det.open; });
+  el.querySelectorAll('[data-m-asociar]').forEach(b => b.addEventListener('click', () => { const p = prods.find(x => x.clave === b.dataset.mAsociar); if (p) dialogoVinculo(p, el, 'asociar', H); }));
+  el.querySelectorAll('[data-m-confirmar]').forEach(b => b.addEventListener('click', async () => {
+    const p = prods.find(x => x.clave === b.dataset.mConfirmar); if (!p || !p.propuesta) return;
+    b.disabled = true;
+    try {
+      const r = await F.guardarVinculo({ canal: p.canal, productoId: p.productoId, nombre: p.nombre, tipo: 'receta', receta: p.propuesta.receta, unidadesPorVenta: 1, origen: p.propuesta.origen });
+      MS.vinc[r.clave] = r.doc; H.registrar('Finanzas: asoció un producto de venta', `${p.nombre} → ${p.propuesta.recetaNombre}`);
+      MS.msg = `${p.nombre} → ${p.propuesta.recetaNombre}.`; dibujarMargenes(el, 'asociar', H);
+    } catch (e) { b.disabled = false; $('m-err').textContent = error(e, H); }
+  }));
+  const c = $('m-cat');
+  if (c) c.addEventListener('click', async () => {
+    c.disabled = true; c.lastChild.textContent = ' Guardando…';
+    try {
+      const n = await F.confirmarCatalogo(prods.filter(p => !p.vinculo && p.propuesta && p.propuesta.origen === 'catalogo'));
+      MS.vinc = await F.leerVinculos(); H.registrar('Finanzas: confirmó vínculos del catálogo', `${n} productos`);
+      MS.msg = `${nf(n)} ${n === 1 ? 'producto asociado' : 'productos asociados'} a su receta del catálogo.`; dibujarMargenes(el, 'asociar', H);
+    } catch (e) { c.disabled = false; c.lastChild.textContent = ' Confirmar los del catálogo'; $('m-err').textContent = error(e, H); }
+  });
+}
+function dialogoVinculo(p, el, volver, H) {
+  const v = p.vinculo, recetas = MS.recetas || [];
+  const sug = FV.sugerirRecetas(p.nombre, recetas), idsSug = new Set(sug.map(x => x.id));
+  const tipo0 = v ? v.tipo : 'receta';
+  const recSel = v && v.receta ? v.receta : p.propuesta && p.propuesta.receta ? p.propuesta.receta : '';
+  const area0 = (v && v.area) || p.areaCatalogo || '';
+  const etq = r => `${r.nombre}${r.area ? ' · ' + (FV.NOMBRE_AREA[FV.areaDe(r.area)] || r.area) : ''}${r.tipo === 'sub_receta' ? ' · sub receta' : ''}`;
+  const opt = (r, extra = '') => `<option value="${H.esc(r.id)}" ${r.id === recSel ? 'selected' : ''}>${H.esc(etq(r) + extra)}</option>`;
+  const catRec = p.recetaCatalogo && recetas.find(r => r.id === p.recetaCatalogo);
+  const ordenadas = [...recetas].sort((a, b) => (a.tipo === 'sub_receta') - (b.tipo === 'sub_receta') || String(a.nombre).localeCompare(String(b.nombre), 'es'));
+  const d = H.dialogo(`<form class="form-dialogo" id="m-vf" novalidate>
+    <h2>${v ? 'Cambiar asociación' : 'Asociar producto'}</h2>
+    <p class="fin-actual"><b>${H.esc(p.nombre)}</b> · ${canalTxt(p)}</p>
+    <p class="ayuda">${H.esc(ventaTxt(p))} en el período${p.recetaCatalogo ? ` · ID de receta en el catálogo: ${H.esc(p.recetaCatalogo)}${catRec ? '' : ' (no está en Producción)'}` : ''}</p>
+    <fieldset class="fin-as-tipo"><legend class="sr">Qué es</legend>
+      <label class="check"><input type="radio" name="m-vt" value="receta" ${tipo0 === 'receta' ? 'checked' : ''}> Se hace con una receta</label>
+      <label class="check"><input type="radio" name="m-vt" value="reventa" ${tipo0 === 'reventa' ? 'checked' : ''}> Es reventa (se compra hecho)</label>
+      <label class="check"><input type="radio" name="m-vt" value="ignorar" ${tipo0 === 'ignorar' ? 'checked' : ''}> No es un producto (propina, cargo, ajuste)</label></fieldset>
+    <div id="m-v-rec" class="${tipo0 === 'receta' ? '' : 'oculto'}"><div class="campo"><label for="m-v-receta">Receta</label><select id="m-v-receta"><option value="">Elige…</option>
+      ${catRec ? opt(catRec, ' · del catálogo') : ''}${sug.filter(x => !catRec || x.id !== catRec.id).map(x => opt(recetas.find(r => r.id === x.id), ' · parecida')).join('')}${ordenadas.filter(r => !idsSug.has(r.id) && (!catRec || r.id !== catRec.id)).map(r => opt(r)).join('')}</select>
+      ${sug.length || catRec ? '<span class="ayuda">Primero la del catálogo y las de nombre parecido.</span>' : ''}${recetas.sinProduccion ? '<span class="aviso">Producción no está conectada: la lista es la del último costeo (solo recetas aprobadas).</span>' : ''}</div></div>
+    <div id="m-v-rev" class="${tipo0 === 'reventa' ? '' : 'oculto'}">
+      <div class="campo"><label for="m-v-area">Área</label><select id="m-v-area"><option value="">Elige…</option>${FV.AREAS.map(a => `<option value="${a}" ${a === area0 ? 'selected' : ''}>${FV.NOMBRE_AREA[a]}</option>`).join('')}</select></div>
+      <div class="campo"><label for="m-v-costo">Costo de compra por unidad, neto (opcional) ${H.info('Costo de la reventa', 'Lo que pagas por una unidad, sin IVA. Por ahora se anota a mano; se usará para el margen en el próximo paso. Si lo copias de una boleta con IVA, marca la casilla.')}</label>
+        <input id="m-v-costo" type="number" inputmode="decimal" min="0" step="any" value="${v && v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? H.esc(String(v.costoReventaNeto)) : ''}">
+        <label class="check fin-check"><input type="checkbox" id="m-v-iva"> Lo escribo con IVA (19 %)</label></div></div>
+    <div id="m-v-upv" class="campo ${tipo0 === 'ignorar' ? 'oculto' : ''}"><label for="m-v-u">Unidades por venta ${H.info('Unidades por venta', 'Cuántas unidades de la receta (o de la reventa) lleva una venta de este producto. Casi siempre 1. Una "caja de 6 alfajores" = 6; "media docena" = 6.')}</label>
+      <input id="m-v-u" type="number" inputmode="decimal" min="0" step="any" value="${H.esc(String(v ? v.unidadesPorVenta ?? 1 : 1))}"></div>
+    <div class="campo"><label for="m-v-nota">Nota (opcional)</label><input id="m-v-nota" type="text" maxlength="200" value="${H.esc((v && v.nota) || '')}"></div>
+    <p class="error" id="m-v-err" role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" id="m-v-no">Cancelar</button><button type="submit" class="btn" id="m-v-si">Guardar</button></div>
+    ${v ? '<div class="fin-hist"><h3>Historial</h3><div id="m-v-hist"><p class="ayuda">Cargando…</p></div></div>' : ''}
+  </form>`);
+  conBuscador(d.querySelector('#m-v-receta'));
+  d.querySelector('#m-v-no').addEventListener('click', () => d.close());
+  const tipo = () => d.querySelector('input[name="m-vt"]:checked').value;
+  const vis = () => { const t = tipo(); d.querySelector('#m-v-rec').classList.toggle('oculto', t !== 'receta'); d.querySelector('#m-v-rev').classList.toggle('oculto', t !== 'reventa'); d.querySelector('#m-v-upv').classList.toggle('oculto', t === 'ignorar'); };
+  d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
+  if (v) F.historialVinculo(p.clave).then(hs => {
+    const c2 = d.querySelector('#m-v-hist'); if (!c2) return;
+    c2.innerHTML = hs.length ? `<ul class="fin-hist-lista">${hs.map(h => `<li><div><b>${fechaTxt(h.fecha)}</b> · ${H.esc(FV.textoVinculo(h.despues))}</div><span class="ayuda">${h.antes ? `Antes: ${H.esc(FV.textoVinculo(h.antes))} · ` : ''}${H.esc(h.por || '')}${h.nota ? ` · ${H.esc(h.nota)}` : ''}</span></li>`).join('')}</ul>` : '<p class="ayuda">Sin cambios.</p>';
+  }).catch(() => {});
+  d.querySelector('#m-vf').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const err = d.querySelector('#m-v-err'), b = d.querySelector('#m-v-si'); err.textContent = '';
+    const datos = { canal: p.canal, productoId: p.productoId, nombre: p.nombre, tipo: tipo(), receta: d.querySelector('#m-v-receta').value, area: d.querySelector('#m-v-area').value,
+      costoReventaNeto: d.querySelector('#m-v-costo').value, conIva: d.querySelector('#m-v-iva').checked, unidadesPorVenta: d.querySelector('#m-v-u').value, nota: d.querySelector('#m-v-nota').value,
+      origen: p.propuesta && p.propuesta.receta === d.querySelector('#m-v-receta').value ? p.propuesta.origen : 'manual' };
+    try { FV.armarVinculo(v, datos, { recetas }); } catch (e) { err.textContent = e.message; return; }
+    b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      const r = await F.guardarVinculo(datos);
+      MS.vinc[r.clave] = r.doc;
+      H.registrar('Finanzas: asoció un producto de venta', `${p.nombre} (${canalTxt(p)}) → ${FV.textoVinculo(r.doc)}`);
+      MS.msg = `${p.nombre} → ${FV.textoVinculo(r.doc)}.`; MS.err = '';
+      d.close(); dibujarMargenes(el, volver, H);
+    } catch (e) { err.textContent = error(e, H); b.disabled = false; b.textContent = 'Guardar'; }
+  });
 }

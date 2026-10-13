@@ -1,9 +1,52 @@
-# Sistema Fën · v0.58.0
+# Sistema Fën · v0.59.0
 
-**App:** v0.58.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 13 de octubre de 2026
+**App:** v0.59.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 14 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.59.0: Finanzas (F2 · paso 1): ventas por producto, área y canal
+Plan acordado (`finanzas-plan.md`, F2): dos ejes, el **área que produce** (Panadería, Bollería, Pastelería, Cafetería: la de la receta del producto) y el **canal donde se vende** (caja Barros Arana, caja Ainavillo, B2B). Todo en **neto**. Este paso trae solo la venta; el margen (precio neto − costo directo) llega en el paso 2.
+
+**Finanzas → Márgenes** (pestaña nueva):
+- **Ventas por producto:** período **Este mes**, **Mes anterior** o **Elegir meses** (hasta 12). Arriba, la línea **"Asociado: 92 % de la venta neta del período"** con su barra y (i), y tarjetas **por canal** (venta neta total, Barros, Ainavillo, B2B, con su %) y **por área** (más "Sin asociar"). Tabla: producto, área, venta neta y cantidad en **Caja Barros**, **Caja Ainavillo** y **B2B**, **unidades**, **venta neta** y **precio neto promedio** (venta ÷ unidades; si una venta trae varias unidades, también "por venta"). La caja y B2B de la **misma receta van en una sola fila** (debajo dice de qué productos sale). Filtros por área (y "Sin asociar"), por canal y buscador; fila de total. En el celular, cada producto es una tarjeta.
+- **Asociar productos:** los productos vendidos en el período **sin asociar, de mayor a menor venta** (para partir por los grandes), con su venta por sucursal y una **sugerencia**: primero el ID de receta que ya tienen en el catálogo de la caja (`idRecetaFen`) o en Productos de B2B (`idReceta`), si esa receta existe en Producción; si no, la receta de **nombre parecido**. **Confirmar** (la sugerencia), **Asociar…** (diálogo) o, de una vez, **"Confirmar los N del catálogo"**. Nada se asocia solo.
+- **Diálogo:** "Se hace con una receta" (lista con **escribir para buscar**; primero la del catálogo y las parecidas), "Es reventa" (área y **costo de compra neto** a mano, con casilla "lo escribo con IVA") o "No es un producto" (propinas, cargos, ajustes: no suman). **Unidades por venta** (1; una "caja de 6" = 6 unidades de la receta). Nota opcional e **historial** de cada cambio. "Ya asociados" se pueden **Cambiar**.
+- Avisos: **cajas abiertas** (no cuentan hasta cerrarse), **cierres sin resumen** (botón **Generar los que faltan**, igual que en Ventas de caja → Reportes) y B2B no conectada.
+
+**De dónde salen las ventas y cuánto cuesta leerlas** (debajo del período: qué se leyó, "unas N lecturas", (i) y **Volver a leer**):
+- **Caja:** el **resumen de cada cierre** (`resumenes_caja`, que ya trae cada producto con cantidad, bruto y neto, sin anuladas), no las ventas una por una; más las **cajas del mes** para saber si falta algún resumen o hay abiertas. Un mes ≈ 60 resúmenes + 60 cajas ≈ **120 lecturas**. Sucursal: "ainavillo" → Ainavillo; lo demás → Barros Arana.
+- **B2B:** las **órdenes del mes** sin anuladas (una lectura por orden). Los precios de B2B ya son **netos** (neto de la línea; si falta, cantidad × precio neto).
+- **Mes cerrado guardado:** desde el **día 8 del mes siguiente** (el cierre de mes es del 5 al 8), sin cajas abiertas ni cierres sin resumen, el mes se guarda en `fin_ventas_mes/{AAAA-MM}_{caja|b2b}`: la próxima vez cuesta **1 lectura por canal**. El mes en curso nunca se guarda. **Volver a leer** lo rehace (por ejemplo, si se corrigió una orden de un mes pasado).
+- Además, una vez por sesión: el catálogo de la caja, el de B2B y la lista de recetas de Producción.
+
+**Cómo se calcula:** venta neta de la caja = la del resumen (bruto ÷ 1,19 de cada línea, después del descuento); unidades = cantidad vendida × unidades por venta; área = la de la receta (en reventa, la elegida); "no es un producto" sale de la venta y de la tabla (se muestra aparte); **cobertura** = venta neta con vínculo (receta, reventa o "no es un producto") ÷ toda la venta neta del período. Los vínculos valen para todos los períodos.
+
+**Dónde se guarda (fen-gastos, solo administración):** `fin_productos/{caja|b2b}_{productoId}`: `canal, productoId, nombre, tipo (receta|reventa|ignorar), receta, recetaNombre, reventa, costoReventaNeto, ignorar, unidadesPorVenta, area, origen (catalogo|nombre|manual), nota, fecha, por`. `fin_productos_hist/{autoId}` (solo agregar): `clave, accion, antes, despues, origen, nota, fecha, por`. `fin_ventas_mes/{AAAA-MM}_{canal}`: `mes, canal, lineas [{suc, productoId, nombre, cantidad, neto, recetaCatalogo, areaCatalogo}], neto, cierres|ordenes, creado, por`. Nada se escribe en la caja, en B2B ni en Producción (salvo "Generar los que faltan", que crea el resumen del cierre en fen-ventas como siempre). Nada va a Cocina. **Reglas y scripts: no cambian** (la lectura de fen-ventas y fen-b2b ya la usaba Sistema Fën; fen-gastos v0.1.0 cubre colecciones nuevas solo para `admins`).
+
+Por dentro: nuevo `finanzas-ventas.js` (puro: `lineasDeResumenes`, `lineasDeOrdenes`, `juntar`, `conCatalogo`, `productosVendidos`, `tablaVentas`, `totales`, `cobertura`, `sugerirRecetas`, `proponer`, `armarVinculo`, `periodo`, `mesCerrado`, `guardable`, `docMes`). `finanzas.js`: `ventasPeriodo`, `recetasVenta`, `leerVinculos`, `guardarVinculo`, `confirmarCatalogo`, `historialVinculo`, `generarResumenesFaltantes`. `vista-finanzas.js`: pestaña Márgenes.
+
+Pruebas: nueva `pruebas/sistemafen/finanzas-f2a.test.js` (10: 5 unitarias —líneas desde resúmenes y órdenes con neto desde bruto y anuladas fuera; agregación con unidades por venta, reventa, "no es un producto" y cobertura; sugerencias; vínculos; períodos y mes cerrado— y 5 de punta a punta con caja y B2B simulados: cierres en Barros y Ainavillo + órdenes B2B con una anulada → totales; confirmar los del catálogo y asociar a mano → cobertura 0 → 86,5 → 94,7 %; generar el resumen que faltaba; septiembre guardado y leído de ahí, "Volver a leer"; celular). `finanzas-f1a` cambia el texto de "Próximamente". Capturas en `pruebas/capturas/finanzas-f2a/` (PC y celular 390).
+
+Archivos: nuevo `finanzas-ventas.js`; cambian `finanzas.js`, `vista-finanzas.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.59.0**.
+
+### Instalación v0.59.0 (unos 2 minutos; si no tienes la v0.56.0, primero su paso 1: script de Producción v2.10.0)
+1. **Sistema Fën v0.59.0**: GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.59.0.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+2. Abre **Finanzas → Márgenes → Asociar productos** y toca **Confirmar los N del catálogo**; después asocia a mano los más grandes que queden (cajas o packs: unidades por venta; bebidas y otros comprados hechos: reventa; propinas y cargos: no es un producto).
+
+### Lista de verificación v0.59.0
+- [ ] Abajo a la izquierda dice **v0.59.0**.
+- [ ] Finanzas muestra la pestaña **Márgenes**; "Este mes" lee las ventas (dice cuántos cierres, órdenes y lecturas).
+- [ ] La venta neta de la caja del mes anterior calza con **Ventas de caja → Reportes** (neto, las dos sucursales) y la de B2B con **Ventas B2B → Análisis** (neto del período).
+- [ ] **Confirmar los del catálogo** asocia los que ya tenían receta; la cobertura sube.
+- [ ] Asocia a mano 3 o 4 de los grandes; revisa que una caja/pack use sus **unidades por venta**.
+- [ ] La cobertura llega a más de 90 %.
+- [ ] Mes anterior, la primera vez: abajo dice "Guardado en Finanzas (mes cerrado)"; la segunda vez dice "caja guardada · B2B guardado" y pocas lecturas.
+- [ ] En la tablet de Cocina no aparece nada nuevo.
+- [ ] En el celular se ve bien (sin moverse de lado).
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.58.0: la pestaña Márgenes desaparece. Lo guardado en fen-gastos (`fin_productos…`, `fin_ventas_mes`) queda ahí sin estorbar.
 
 ## Novedades de la v0.58.0: Finanzas (F1 · paso 3): el costo directo de cada producto
 Plan acordado (`finanzas-plan.md`): costo directo = materias primas al precio neto de la última compra + sub recetas encadenadas + insumos y envases + merma de proceso, que se actualiza solo y muestra flecha y %. Todo en **fen-gastos** (solo administración): nada va a fen-produccion ni a Cocina, y las jefas no ven costos.
