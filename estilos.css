@@ -1270,7 +1270,7 @@ a.btn-sec { display: inline-flex; align-items: center; justify-content: center; 
 .fin-eerr th[scope=row] { line-height: 24px; }
 .fin-ctit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 
-/* ═══ v0.63.0 · Lo que se paga por banco llega con la cartola ═══ */
+/* ═══ v0.63.1 · Lo que se paga por banco llega con la cartola ═══ */
 .chip-banco { display: inline-flex; align-items: center; gap: 6px; }
 .chip-banco svg { flex: none; }
 .menu-venc { position: relative; }
@@ -1308,3 +1308,11 @@ a.btn-sec { display: inline-flex; align-items: center; justify-content: center; 
   .menu-venc-lista { position: static; margin-top: 6px; width: 100%; max-width: none; min-width: 0; box-shadow: none; }
 }
 .grupo-banco { display: inline-flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+
+/* v0.63.1 · Área de este abono (una área o un reparto en %) */
+.ab-areas-caja .fila-area input[data-ab-pct] { width: 72px; }
+.ab-areas-caja .ab-pct-monto { min-width: 76px; font-size: 13px; color: var(--suave, #666); text-align: right; white-space: nowrap; }
+.ab-areas-caja .ab-fuente { margin: 0 0 6px; }
+.ab-pie { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ab-suma { font-size: 13px; }
+@media (max-width: 420px) { .ab-areas-caja .ab-pct-monto { display: none; } .ab-areas-caja .fila-area input[data-ab-pct] { width: 64px; } }

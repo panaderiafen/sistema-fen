@@ -19,12 +19,12 @@
 //  · v0.53.0: el documento del vencimiento guarda también neto, iva, exento, otroImpuesto, total, tipoDoc y esHarina de la
 //    factura (también al asignarla desde la bandeja): al pagarlo, el gasto toma el neto exacto. avisoCargas(): "SII sin cargar".
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.63.0';
-import * as GB from './gastos-base.js?v=0.63.0';
-import * as M from './gastos-g2.js?v=0.63.0';
-import * as S from './gastos-sii.js?v=0.63.0';
-import * as G3 from './gastos-g3.js?v=0.63.0';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.63.0';
+import * as FB from './firebase-gastos.js?v=0.63.1';
+import * as GB from './gastos-base.js?v=0.63.1';
+import * as M from './gastos-g2.js?v=0.63.1';
+import * as S from './gastos-sii.js?v=0.63.1';
+import * as G3 from './gastos-g3.js?v=0.63.1';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.63.1';
 
 const error = (msg, code, datos) => Object.assign(new Error(msg), { code, ...(datos ? { datos } : {}) });
 const s = v => String(v == null ? '' : v);
@@ -190,7 +190,7 @@ async function importarGastos(facturas, omitirRepetidas, marca, origen) {
   if (l.error) throw error(l.error, 'datos');
   const limpias = l.limpias, hora = M.ahoraChile().hora;
   const planes = limpias.map((f, k) => S.planFactura(f, k, limpias.length, marca, hora));
-  // v0.63.0: de qué carga y de qué archivo sale cada gasto (para "Ver origen" y la conciliación)
+  // v0.63.1: de qué carga y de qué archivo sale cada gasto (para "Ver origen" y la conciliación)
   const o = origen || {}, fmt0 = ['xml', 'detalle', 'registro'].includes(s(o.formato)) ? s(o.formato) : '', quienImp = correo(), enImp = M.ahoraChile().texto;
   planes.forEach(p => p.gastos.forEach(g => { g.d.origenDetalle = { tipo: 'sii', formato: fmt0, archivo: S.sfTexto(s(o.archivo), 120), cargaId: s(o.cargaId).slice(0, 80), docId: p.docId, lineasDetalle: p.detalle.length, por: quienImp, en: enImp }; }));
   const [gastos, siiDocs] = await leer();

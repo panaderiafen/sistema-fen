@@ -1,9 +1,45 @@
-# Sistema Fën · v0.63.0
+# Sistema Fën · v0.63.1
 
-**App:** v0.63.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (nuevo, opcional: columnas nuevas en la planilla) · 13 de octubre de 2026
+**App:** v0.63.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 13 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.63.1: cada abono de sueldo va al área de esa persona
+**El problema:** una transferencia de sueldo a una persona (por ejemplo, a una trabajadora de Panadería) agregada como abono a la obligación libre "REMUNERACION LIQUIDO" tomaba el área (o el reparto) de la obligación: el sueldo de una sola persona quedaba repartido entre áreas. Solo con Gastos en la base nueva.
+
+- **"Área de este abono"** (con su (i)) al agregar un abono a cualquier obligación libre, en **Conciliación → Cargos → Abono (sueldo)** y en **Vencimientos → ⋮ → Agregar abono a mano**: **una área** o **"Repartir en %"** (hasta 4 áreas, % enteros que suman 100; muestra el monto de cada parte). Un reparto crea **una línea de gasto por área** (por ejemplo, PAN 60 % y B2B 40 % de $650.000 → $390.000 y $260.000; los montos suman exacto).
+- **La propuesta**, en este orden: **(a)** lo elegido la última vez para ese destinatario; **(b)** el área de **Previred** del trabajador, si el RUT o el nombre calza con uno de Cotizaciones Trabajadores (al menos 2 palabras del nombre, en cualquier orden, y un solo trabajador); **(c)** el área o el reparto de la obligación (como antes). Dice de dónde salió ("Propuesta: Recordado para este destinatario (…)", "Área de Previred: …", "Área de la obligación" o "Elegido por ti").
+- **Destinatario:** con la cartola, el **RUT** o la **glosa** del cargo (la misma clave que lo aprendido: mayúsculas, sin tildes, números largos fuera); a mano, el campo nuevo **"Para quién"** (opcional, con sugerencias). Si no hay nada recordado con esa clave, se busca por el mismo nombre (lo de la cartola sirve a mano y al revés).
+- **Queda recordado** al confirmar (si no tocaste el área de la obligación, no se recuerda). La próxima transferencia al mismo destinatario viene con el área ya puesta, pero el abono **sigue sin marcarse seguro**: igual lo confirmas tú (queda en "Para revisar").
+- **Área B2B** (nueva en la lista de áreas: ítems, gastos, Registrar, cartola), con su (i) en Ítems → Área: *costos del canal B2B: atención de clientes, órdenes y despacho*. Las áreas siguen siendo una lista fija de la app (no hay una configuración aparte): BOL, PAN, CAF, PAS, ADMIN, VENTAS y B2B. Con la planilla (sin la base nueva), el script no acepta B2B.
+- **Finanzas → Resultados → Clasificación (áreas):** B2B dice "Canal B2B (costo de canal): por ahora a Común" (con su (i)) y en el selector aparece "Canal B2B (costo de canal) · llega con F3" (gris). **Pendiente para F3:** el estado de resultados todavía no tiene la fila de costo de canal; mientras tanto B2B va a **Común**.
+- **Registrados → Corregir** ya cambiaba el área; funciona igual con las líneas de un abono (cada línea por su lado, con su historial).
+
+**Dónde se guarda (fen-gastos):** colección nueva **`abono_destinatarios/{id}`** (id `ad-rut-…`, `ad-txt-…` o `ad-nom-…`): `clave, nombre, areas [{ area, pct }], fuente, veces, ultimo { vencimientoId, obligacion, monto, fecha, origen, cargoId, por, en }, creado, version, historial`. **No pasa a la planilla** (es solo la memoria de la propuesta; los gastos sí, con su área). Cada abono del vencimiento suma `areas`, `fuenteArea` (recordado | previred | obligacion | elegido) y `destinatario { clave, nombre }`; sus gastos, `origenDetalle.destinatario` y `origenDetalle.areasAbono` ("PAN 60% · B2B 40%"), y la observación "Abono N · obligación · nombre". Deshacer el cargo no borra lo recordado (es solo una propuesta). **Reglas de Firestore y script: no cambian.**
+
+Por dentro: nuevo **`gastos-abono.js`** (puro: `claveDestinatario`, `idDestinatario`, `recordadoDe`, `trabajadorDe`, `areasDeObligacion`, `areasPorDefecto`, `validarAreas`, `vistaConAreas`, `textoAreas`); `gastos-fs.js` (`agregarAbono` con `areas`/`destinatario`: sin áreas usa la propuesta; recuerda en la misma transacción; `datosAbono`); `gastos-g3.js` (el abono guarda su área); `gastos-cartola-fs.js` (el abono de la cartola pasa áreas, glosa y RUT; `lista` trae lo recordado y los trabajadores); `gastos-cartola.js` (área de los vencimientos abiertos); `gastos-g2.js` y `app.js` (B2B, "Área de este abono", "Para quién"); `finanzas-resultados.js`/`vista-finanzas-resultados.js` (B2B a Común, pendiente F3); `estilos.css`.
+
+Pruebas: nueva `pruebas/sistemafen/gastos-v0631.test.js` (13: 4 unitarias —clave y normalización, Previred por nombre/RUT, orden de la propuesta, reparto exacto, B2B— y 9 de punta a punta: cartola → abono a "Lucía Vergara" (ficticia) con PAN 60 / B2B 40 → dos líneas y queda recordado; la siguiente cartola lo trae puesto y sin marcar seguro; "Martín Rojas" toma BOL de Previred; abono a mano con "Para quién" (lo recordado por el nombre → CAF); sin "Para quién" queda como antes; Registrados corrige la línea B2B; ítem nuevo con área B2B; la planilla con las áreas; 390). `sf-pantallas`: 2 pantallas nuevas (abono a mano con reparto y área del abono en la cartola) en los 3 tamaños. Capturas en `pruebas/capturas/gastos-v0631/`.
+
+Archivos: nuevo `gastos-abono.js`; cambian `app.js`, `gastos.js`, `gastos-fs.js`, `gastos-g2.js`, `gastos-g3.js`, `gastos-cartola.js`, `gastos-cartola-fs.js`, `finanzas-resultados.js`, `vista-finanzas-resultados.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.63.1**.
+
+### Instalación v0.63.1 (unos 3 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.63.1.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R). El script de Gastos sigue en v2.18.0.
+
+### Lista de verificación v0.63.1
+- [ ] Abajo a la izquierda dice **v0.63.1**.
+- [ ] **Conciliación → Cargos**: en una transferencia de sueldo, **Abono (sueldo)** → elige REMUNERACION LIQUIDO → aparece **"Área de este abono"** con la propuesta. Pon el área de esa persona (o **Repartir en %**), escribe "Para quién" y agrega el abono.
+- [ ] **Gastos → Registrados**: ese abono quedó en una línea por área (no repartido como la obligación).
+- [ ] Con la próxima cartola, la transferencia a la misma persona trae el área ya puesta ("Recordado para este destinatario") y sigue en "Para revisar".
+- [ ] Un trabajador que está en Previred y nunca se abonó: propone su área de Previred.
+- [ ] **Vencimientos → ⋮ → Agregar abono a mano**: "Para quién" y "Área de este abono".
+- [ ] (Si quieres usar B2B) **Gastos → Ítems → Nuevo ítem**: el área B2B está en la lista (y su (i)).
+- [ ] **Finanzas → Resultados → Clasificación**: cuando haya gastos B2B, dice "Canal B2B (costo de canal): por ahora a Común".
+- [ ] En el celular se ve bien (el reparto cabe en la pantalla).
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.63.0: los abonos vuelven a tomar el área de la obligación. Lo guardado (`abono_destinatarios`, `areas`/`destinatario` en los abonos) queda en fen-gastos sin estorbar, y los gastos ya creados conservan su área. Un gasto con área B2B sigue válido en la base (con la v0.63.0, B2B no aparece para elegirlo en gastos nuevos).
 
 ## Novedades de la v0.63.0: lo que se paga por banco llega con la cartola
 La forma de trabajar acordada: **todo lo que se paga por banco se registra desde la cartola; a mano solo el efectivo.** Los vencimientos dicen qué hay que **pagar**; la cartola lo **registra**. Si pagas y registras a mano igual, la cartola solo lo **confirma** ("Ya está en Gastos"). Solo con Gastos en la base nueva.

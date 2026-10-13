@@ -17,7 +17,7 @@
 //    toma el neto de la factura (netoFactura / conNetoSii).
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import { dia } from './gastos-modelo.js?v=0.63.0';
+import { dia } from './gastos-modelo.js?v=0.63.1';
 
 export const TIPOS_OBLIGACION = ['fijo', 'documento', 'libre'];
 export const NOMBRE_TIPO = { fijo: 'Monto fijo', documento: 'Según documento del mes', libre: 'Libre (abonos)' };
@@ -51,7 +51,7 @@ export function clasificacionDesdeForm(p) {
   else if (ident && !normIdent(ident)) return { error: 'El N° de cliente o RUT debe tener números' };
   const dias = p.diasAviso === '' || p.diasAviso == null ? DIAS_AVISO : parseInt(p.diasAviso, 10);
   if (!(dias >= 0 && dias <= 60)) return { error: 'El aviso va de 0 a 60 días antes' };
-  // v0.63.0: "Se paga por" (banco, efectivo o tarjeta), si el formulario lo trae
+  // v0.63.1: "Se paga por" (banco, efectivo o tarjeta), si el formulario lo trae
   const sp = ['banco', 'efectivo', 'tarjeta'].includes(s(p.sePagaPor)) ? s(p.sePagaPor) : '';
   return { campos: { tipoObligacion: tipo, identificador: tipo === 'documento' ? ident : '', diasAviso: tipo === 'documento' ? dias : '', ...(sp ? { sePagaPor: sp } : {}) } };
 }
@@ -203,7 +203,10 @@ export function agregarAbono(d, a) {
   const lista = Array.isArray(d.abonos) ? d.abonos : [];
   if (a.clave && lista.some(x => x.clave === a.clave)) return { repetido: true };
   if (a.cargoId && lista.some(x => x.cargoId && x.cargoId === a.cargoId)) return { repetido: true };
-  const abono = { monto, fecha: a.fecha, origen: a.origen === 'cartola' ? 'cartola' : 'mano', cargoId: s(a.cargoId), clave: s(a.clave), gastoIds: Array.isArray(a.gastoIds) ? a.gastoIds : [], url: s(a.url), por: s(a.por), en: s(a.en) };
+  const abono = { monto, fecha: a.fecha, origen: a.origen === 'cartola' ? 'cartola' : 'mano', cargoId: s(a.cargoId), clave: s(a.clave), gastoIds: Array.isArray(a.gastoIds) ? a.gastoIds : [], url: s(a.url), por: s(a.por), en: s(a.en),
+    // v0.63.1: el área (o reparto en %) de este abono y a quién fue
+    ...(Array.isArray(a.areas) && a.areas.length ? { areas: a.areas.map(x => ({ area: s(x.area), pct: num(x.pct) })), fuenteArea: s(a.fuenteArea) } : {}),
+    ...(a.destinatario && a.destinatario.clave ? { destinatario: { clave: s(a.destinatario.clave), nombre: s(a.destinatario.nombre) } } : {}) };
   return { abono, campos: { abonos: lista.concat([abono]), estado: 'con_abonos' } };
 }
 export function cerrar(d, quien, en) {

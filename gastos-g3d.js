@@ -10,10 +10,10 @@
 //    bruto (neto = final / 1,19) → neto = final.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as B from './gastos-banco.js?v=0.63.0';
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.63.0';
-import * as M from './gastos-g2.js?v=0.63.0';
-import * as G3 from './gastos-g3.js?v=0.63.0';
+import * as B from './gastos-banco.js?v=0.63.1';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.63.1';
+import * as M from './gastos-g2.js?v=0.63.1';
+import * as G3 from './gastos-g3.js?v=0.63.1';
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -223,7 +223,7 @@ export function proveedoresSii(siiDocs, fichas) {
   return [...m.values()];
 }
 // Lista para la pantalla: obligaciones activas con sus pagos y la propuesta
-// v0.63.0: también "Se paga por" (lo guardado; sin el campo = banco) y su propuesta desde el historial (gastos: [{ id, d }], opcional)
+// v0.63.1: también "Se paga por" (lo guardado; sin el campo = banco) y su propuesta desde el historial (gastos: [{ id, d }], opcional)
 export function listaClasificar(plantillas, vencs, proveedores, hoy, gastos) {
   const pagos = pagosPorObligacion(vencs);
   return (plantillas || []).filter(x => x.d && !x.d.quitadoEnPlanilla && s(x.d.estado || 'ACTIVA') === 'ACTIVA').map(x => {

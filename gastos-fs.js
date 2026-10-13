@@ -19,21 +19,22 @@
 //    subir la boleta del mes (completa su vencimiento o va a la bandeja "documentos_pendientes"), abonos y cerrar
 //    (tipo libre), vencimiento suelto. Los de tipo documento se crean 20 días antes (para esperar la boleta).
 //  · v0.51.0: pagar un vencimiento con el certificado de Previred crea un gasto por trabajador (gastos-g3d.js: lineasDelPago).
-//  · v0.63.0 (gastos-banco.js): lo que se paga por banco llega con la cartola. Cada vencimiento lleva "sePagaPor" (el de su
+//  · v0.63.1 (gastos-banco.js): lo que se paga por banco llega con la cartola. Cada vencimiento lleva "sePagaPor" (el de su
 //    obligación; sin el campo = banco). Un gasto registrado a mano por transferencia o banco, o el pago a mano de un vencimiento
 //    de banco, queda con esperaCargo = true (se apaga al vincularlo con su cargo). Lo nuevo guarda "origenDetalle" (de dónde
 //    salió: tipo, quién, cuándo y lo propio de cada origen); "origen" sigue siendo el texto de siempre (el script lo usa).
 //    Hoy: "Esperan cartola". detalleGasto(ids): las líneas y su origen, para el detalle del gasto.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.63.0';
-import * as FB from './firebase-gastos.js?v=0.63.0';
-import * as GB from './gastos-base.js?v=0.63.0';
-import * as GP from './gastos-planilla.js?v=0.63.0';
-import * as M from './gastos-g2.js?v=0.63.0';
-import * as G3 from './gastos-g3.js?v=0.63.0';
-import * as G3D from './gastos-g3d.js?v=0.63.0';
-import * as B from './gastos-banco.js?v=0.63.0';
-import { dia } from './gastos-modelo.js?v=0.63.0';
+import { auth as authSF } from './firebase.js?v=0.63.1';
+import * as FB from './firebase-gastos.js?v=0.63.1';
+import * as GB from './gastos-base.js?v=0.63.1';
+import * as GP from './gastos-planilla.js?v=0.63.1';
+import * as M from './gastos-g2.js?v=0.63.1';
+import * as G3 from './gastos-g3.js?v=0.63.1';
+import * as G3D from './gastos-g3d.js?v=0.63.1';
+import * as B from './gastos-banco.js?v=0.63.1';
+import { dia } from './gastos-modelo.js?v=0.63.1';
+import * as AB from './gastos-abono.js?v=0.63.1';
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';
@@ -112,12 +113,12 @@ export async function vencimientosAlDia() {
 export async function datos() {
   const { vencs, cat } = await vencimientosAlDia();
   const activos = cat.lista.filter(i => !i.archivado);
-  const sp = B.mapaSePaga(cat.plantillas);   // v0.63.0: cómo se paga cada vencimiento (el de su obligación)
+  const sp = B.mapaSePaga(cat.plantillas);   // v0.63.1: cómo se paga cada vencimiento (el de su obligación)
   const vencimientos = M.vencimientosVisibles(vencs, M.ahoraChile().dia).map(v => ({ ...v, sePagaPor: B.sePagaVenc(v, sp) }));
   return { ok: true, vencimientos, items: activos.filter(i => !i.esObligacionRecurrente), itemsSii: activos, areas: M.AREAS.slice(), fuente: 'base' };
 }
 // Para Hoy: atrasados y próximos 7 días (como sfPendientes del script), con los vencimientos al día
-// v0.63.0: más "Esperan cartola" (vencimientos de banco atrasados sin cargo y gastos que esperan su cargo). Los de banco que ya
+// v0.63.1: más "Esperan cartola" (vencimientos de banco atrasados sin cargo y gastos que esperan su cargo). Los de banco que ya
 // esperan la cartola no se repiten en "Pagos atrasados".
 export async function pendientesHoy() {
   const { vencs, cat } = await vencimientosAlDia(), hoy = M.ahoraChile().dia;
@@ -152,7 +153,7 @@ export async function registrar(p, marca, subir) {
   const fecha = dia(p.fecha);
   const forma = ['contado', 'tarjeta', 'proveedor'].includes(p.formaPago) ? p.formaPago : 'contado';
   if (forma !== 'contado' && !M.esIso(p.fechaPago)) throw error('Falta la fecha de pago del crédito', 'datos');
-  // v0.63.0: al contado, en efectivo o por banco (transferencia): lo de banco espera su cargo en la cartola
+  // v0.63.1: al contado, en efectivo o por banco (transferencia): lo de banco espera su cargo en la cartola
   const medio = forma === 'contado' ? (p.medioPago === 'banco' ? 'banco' : 'efectivo') : '';
   const cat = await catalogo(), li = M.limpiarItems(items, cat.lista.filter(i => !i.archivado));
   if (li.error) throw error(li.error, 'datos');
@@ -229,7 +230,7 @@ export async function pagar(p, marca, subir) {
   const areas = Array.isArray(p.multiArea) ? p.multiArea.filter(a => a && a.area && M.n(a.monto) > 0).map(a => ({ area: String(a.area), monto: M.n(a.monto) })) : [];
   if (areas.some(a => !M.AREAS.includes(a.area))) throw error('Área no válida', 'datos');
   const tipoMonto = M.tipoMontoOk(p.tipoMonto), obsPago = M.obsLibre(p.obsPago);
-  // v0.63.0: pagar a mano un vencimiento que se paga por banco: sus gastos esperan el cargo de la cartola (y lo dicen)
+  // v0.63.1: pagar a mano un vencimiento que se paga por banco: sus gastos esperan el cargo de la cartola (y lo dicen)
   const esperaCargo = p.esperaCargo === true;
   if (v0.estado === 'PAGADO') {
     // Un reintento del mismo envío (ya quedó): responde como si recién se hubiera hecho
@@ -338,7 +339,7 @@ export async function guardarObligacion(p, marca) {
   // v0.49.0: tipo (fijo, documento, libre), identificador y aviso, si el formulario los trae
   const clasif = p && p.tipoObligacion !== undefined ? G3.clasificacionDesdeForm(p) : null;
   if (clasif && clasif.error) throw error(clasif.error, 'datos');
-  // v0.63.0: "Se paga por" también sin tipo (una obligación sin clasificar)
+  // v0.63.1: "Se paga por" también sin tipo (una obligación sin clasificar)
   const sp = B.sePagaPorOk(p && p.sePagaPor), extraSp = sp && !(clasif && clasif.campos.sePagaPor) ? { sePagaPor: sp } : {};
   if (ex) {
     const ref = FB.doc(d, 'obligaciones', ex.id), pid = s(ex.d.id) || ex.id;
@@ -589,9 +590,13 @@ export async function resolverPendiente(id, accion, datos = {}) {
   return { ok: true, ...r };
 }
 
-// ── Abonos (obligación de tipo libre: sueldos líquidos). Cada abono crea su gasto con el ítem y reparto de la obligación ──
-// a = { monto, fecha (aaaa-mm-dd), origen ('mano' | 'cartola'), cargoId, obs, imageData… (comprobante, opcional) }.
+// ── Abonos (obligación de tipo libre: sueldos líquidos). Cada abono crea su gasto con el ítem de la obligación ──
+// a = { monto, fecha (aaaa-mm-dd), origen ('mano' | 'cartola'), cargoId, obs, imageData… (comprobante, opcional),
+//       v0.63.1: areas [{ area, pct }] (opcional), fuenteArea, destinatario { rut, descripcion, nombre } (opcional) }.
 // La etapa G3 (cartola) puede llamarla con { origen: 'cartola', cargoId }: el mismo cargo no se agrega dos veces.
+// v0.63.1 · El área es la de ESTE abono (una o un reparto en %), no la de la obligación: sin "areas", la propuesta
+// (lo recordado para el destinatario → el área de Previred del trabajador → la de la obligación). Lo elegido queda
+// recordado en abono_destinatarios/{id} (con su historial; no pasa a la planilla: los gastos sí, con su área).
 export async function agregarAbono(vencId, a, marca, subir) {
   const d = await db(), ref = FB.doc(d, 'vencimientos', String(vencId || '')), sn0 = await FB.getDoc(ref);
   if (!sn0.exists() || sn0.data().quitadoEnPlanilla) throw error('Ese vencimiento ya no existe', 'datos');
@@ -600,27 +605,57 @@ export async function agregarAbono(vencId, a, marca, subir) {
   const pre = G3.agregarAbono(v0, { ...a, clave });
   if (pre.repetido) return { ok: true, repetido: true };
   if (pre.error) throw error(pre.error, 'datos');
+  const dest = AB.claveDestinatario(a.destinatario), refD = dest ? FB.doc(d, 'abono_destinatarios', dest.id) : null;
+  let areas = [], fuenteArea = '';
+  if (Array.isArray(a.areas) && a.areas.length) {
+    const x = AB.validarAreas(a.areas, M.AREAS); if (x.error) throw error(x.error, 'datos');
+    areas = x.areas; fuenteArea = Object.keys(AB.FUENTES).includes(s(a.fuenteArea)) ? s(a.fuenteArea) : 'elegido';
+  } else {
+    const [ds, trab] = await Promise.all([dest ? todos('abono_destinatarios') : [], todos('cotiz_trabajadores')]);
+    const t = AB.trabajadorDe(vivos(trab).map(x => x.d), dest ? (dest.nombre || s((a.destinatario || {}).descripcion)) : '', (a.destinatario || {}).rut);
+    const x = AB.areasPorDefecto({ recordado: AB.recordadoDe(ds.map(y => y.d), dest, dest && dest.nombre), trabajador: t, v: M.vistaVencimiento(ref.id, v0), areas: M.AREAS });
+    areas = x.areas; fuenteArea = x.fuente;
+  }
   let url = '';
   if (a.imageData && subir) url = (await subir({ tipo: 'comprobante', fecha: dma(a.fecha), imageData: a.imageData, mimeType: a.mimeType || 'image/jpeg', fileName: String(a.fileName || 'comprobante.jpg').slice(0, 120) })).url || '';
   const hora = M.ahoraChile().hora, quien = correo() || 'Sistema Fën';
   const r = await FB.runTransaction(d, async tx => {
     const sn = await tx.get(ref), v = sn.data();
+    const snD = refD ? await tx.get(refD) : null;
     const n0 = (Array.isArray(v.abonos) ? v.abonos.length : 0) + 1;
-    const vista = M.vistaVencimiento(ref.id, v);
-    const lineas = M.lineasPago(vista, pre.abono.monto, a.fecha, M.obsLibre(a.obs) || `Abono ${n0} · ${s(v.nombre)}`, url, M.tipoMontoOk(v.tipoMonto), hora);
+    const vista0 = M.vistaVencimiento(ref.id, v), vista = areas.length ? AB.vistaConAreas(vista0, areas, pre.abono.monto) : vista0;
+    const obs0 = `Abono ${n0} · ${s(v.nombre)}${dest && dest.nombre ? ' · ' + dest.nombre : ''}`;
+    const lineas = M.lineasPago(vista, pre.abono.monto, a.fecha, M.obsLibre(a.obs) || obs0, url, M.tipoMontoOk(v.tipoMonto), hora);
     const ids = M.idsLineas('gp', marca, lineas.length);
-    const x = G3.agregarAbono(v, { ...a, clave, url, gastoIds: ids, por: quien, en: M.ahoraChile().texto });
+    const x = G3.agregarAbono(v, { ...a, clave, url, gastoIds: ids, por: quien, en: M.ahoraChile().texto, areas, fuenteArea, destinatario: dest });
     if (x.repetido) return { repetido: true };
     if (x.error) throw error(x.error, 'datos');
     // v0.50.0: un abono desde la cartola queda con su traza (columna Cartola) y el id del cargo
     // v0.63.0: un abono a mano de una obligación que se paga por banco espera su cargo; todos guardan de dónde salieron
-    const od = { tipo: 'vencimiento', vencimientoId: ref.id, obligacion: s(v.nombre), periodo: dia(v.fechaVencimiento) || '', abono: n0, ...(a.cartola ? { cartola: true, cargoId: s(a.cargoId) } : { aMano: true }), por: quien, en: M.ahoraChile().texto };
+    const od = { tipo: 'vencimiento', vencimientoId: ref.id, obligacion: s(v.nombre), periodo: dia(v.fechaVencimiento) || '', abono: n0, ...(a.cartola ? { cartola: true, cargoId: s(a.cargoId) } : { aMano: true }),
+      ...(dest ? { destinatario: dest.nombre || dest.clave } : {}), ...(areas.length ? { areasAbono: AB.textoAreas(areas) } : {}), por: quien, en: M.ahoraChile().texto };
     lineas.forEach((l, k) => tx.set(FB.doc(d, 'gastos', ids[k]), nuevo({ ...l, abono: n0, ...(a.cartola ? { cartola: s(a.cartola), cartolaCargo: s(a.cargoId) } : a.esperaCargo === true ? { esperaCargo: true, medioPago: 'banco' } : {}), origenDetalle: od }, 'obligacion')));
     tx.update(ref, cambio(v, 'abono', x.campos, { monto: x.abono.monto }));
-    return { lineas: lineas.length, n: n0, total: G3.totalAbonos({ abonos: x.campos.abonos }) };
+    // v0.63.1 · lo elegido queda recordado para este destinatario (se propone la próxima vez, sin marcarlo seguro)
+    // (si quedó el área de la obligación sin tocarla, no se recuerda: así Previred puede proponer después)
+    if (refD && areas.length && fuenteArea !== 'obligacion') {
+      const prev = snD && snD.exists() ? snD.data() : null, en = M.ahoraChile().texto;
+      const campos = { clave: dest.clave, nombre: dest.nombre || s(prev && prev.nombre), areas, fuente: fuenteArea, veces: (Number(prev && prev.veces) || 0) + 1,
+        ultimo: { vencimientoId: ref.id, obligacion: s(v.nombre), monto: x.abono.monto, fecha: a.fecha, origen: x.abono.origen, cargoId: s(a.cargoId), por: quien, en } };
+      const h = M.conHistorial(prev && prev.historial, { que: prev ? 'abono' : 'recordó', por: quien, en, cambios: M.diferencias(prev, { areas: campos.areas, nombre: campos.nombre }) });
+      if (prev) tx.update(refD, limpio({ ...campos, version: (Number(prev.version) || 0) + 1, historial: h }));
+      else tx.set(refD, limpio({ ...campos, creado: { por: quien, en: FB.serverTimestamp() }, version: 0, historial: h }));
+    }
+    return { lineas: lineas.length, n: n0, total: G3.totalAbonos({ abonos: x.campos.abonos }), areas, fuenteArea };
   });
   if (!r.repetido) await despues(1 + r.lineas);
   return { ok: true, ...r };
+}
+// v0.63.1 · Para "Área de este abono": lo recordado por destinatario y los trabajadores de Previred (con su área)
+export async function datosAbono() {
+  const [ds, trab] = await Promise.all([todos('abono_destinatarios'), todos('cotiz_trabajadores')]);
+  return { ok: true, destinatarios: ds.map(x => ({ id: x.id, clave: s(x.d.clave), nombre: s(x.d.nombre), areas: Array.isArray(x.d.areas) ? x.d.areas : [], veces: Number(x.d.veces) || 0 })),
+    trabajadores: vivos(trab).map(x => ({ rut: s(x.d.rut), nombre: s(x.d.nombre), area: s(x.d.area) })).filter(x => x.nombre && x.area) };
 }
 export async function cerrarVencimiento(id) {
   const d = await db(), ref = FB.doc(d, 'vencimientos', String(id || ''));
@@ -652,7 +687,7 @@ export async function crearSuelto(p, marca) {
 }
 
 // ═══════════════════════════════════════════════
-//  v0.63.0 · Detalle de un gasto con su origen (Conciliación → "Ya está en Gastos" y Registrados → Ver origen)
+//  v0.63.1 · Detalle de un gasto con su origen (Conciliación → "Ya está en Gastos" y Registrados → Ver origen)
 //  ids: las líneas del registro. Lee lo que haga falta para decir de dónde salió: su vencimiento, el documento y las
 //  cargas del SII, o el cargo de la cartola. Devuelve { lineas: [{ id, d }], resumen, origen }.
 // ═══════════════════════════════════════════════

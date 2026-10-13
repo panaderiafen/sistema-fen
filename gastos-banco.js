@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Lo que se paga por banco llega con la cartola  v0.63.0 (reglas puras, sin red)
+//  Sistema Fën — Lo que se paga por banco llega con la cartola  v0.63.1 (reglas puras, sin red)
 //  La forma de trabajar acordada (13-oct): todo lo que se paga por banco se REGISTRA desde la cartola; a mano solo el
 //  efectivo. Los vencimientos dicen qué hay que PAGAR; la cartola lo registra. Si se paga y registra a mano igual,
 //  la cartola solo lo confirma (lo vincula con "Ya está en Gastos").

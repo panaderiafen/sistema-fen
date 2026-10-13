@@ -8,25 +8,26 @@
 //    Cada cargo es independiente e idempotente por su id: confirmar dos veces el mismo cargo no paga dos veces
 //    (los ids de lo que crea salen del cargo y de cuántas veces se deshizo).
 //  · Abono (nuevo, obligación de tipo libre): agregarAbono(vencId, { monto, fecha, origen: 'cartola', cargoId }).
+//    v0.63.1: con el área de ESE abono (areas, fuenteArea) y el destinatario (glosa y RUT del cargo): se recuerda.
 //    Nunca se cierra solo.
 //  · Cada gasto y vencimiento tocado queda con "cartola" (la traza, como la columna Cartola) y "cartolaCargo" (el id).
 //  · Deshacer no borra: el cargo vuelve a revisar (con su historial), el vencimiento queda por pagar, un gasto creado
 //    aquí queda anulado y un abono sale del vencimiento (queda en abonosQuitados).
 //  · El archivo original va a Drive con el script (op archivo_subir, tipo "cartola", v2.16.0).
-//  · v0.63.0: "Traspaso entre cuentas propias" (no crea gasto, se aprende). "Ya está en Gastos" ofrece también lo pagado por
+//  · v0.63.1: "Traspaso entre cuentas propias" (no crea gasto, se aprende). "Ya está en Gastos" ofrece también lo pagado por
 //    banco a mano (esperaCargo), las facturas del SII ya cargadas sin cargo y los pagos de vencimientos sin cargo
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.63.0';
-import * as M from './gastos-g2.js?v=0.63.0';
-import * as G3 from './gastos-g3.js?v=0.63.0';
-import * as G3D from './gastos-g3d.js?v=0.63.0';
-import * as C from './gastos-cartola.js?v=0.63.0';
-import * as B from './gastos-banco.js?v=0.63.0';
-import { huella } from './gastos-modelo.js?v=0.63.0';
-import * as FS from './gastos-fs.js?v=0.63.0';
-import * as GB from './gastos-base.js?v=0.63.0';
+import * as FB from './firebase-gastos.js?v=0.63.1';
+import * as M from './gastos-g2.js?v=0.63.1';
+import * as G3 from './gastos-g3.js?v=0.63.1';
+import * as G3D from './gastos-g3d.js?v=0.63.1';
+import * as C from './gastos-cartola.js?v=0.63.1';
+import * as B from './gastos-banco.js?v=0.63.1';
+import { huella } from './gastos-modelo.js?v=0.63.1';
+import * as FS from './gastos-fs.js?v=0.63.1';
+import * as GB from './gastos-base.js?v=0.63.1';
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -55,7 +56,7 @@ async function abiertos() {
 export async function lista(diasP) {
   const hoy = M.ahoraChile().dia, dias = Math.min(400, Math.max(7, Math.round(Number(diasP)) || 60)), corte = G3.sumarDias(hoy, -dias);
   try { await FS.vencimientosAlDia(); } catch (e) {}
-  const [cg, ct, reglas, ab, gastos] = await Promise.all([todos('cartola_cargos'), todos('cartolas'), reglasTodas(), abiertos(), todos('gastos', FB.where('fecha', '>=', G3.sumarDias(hoy, -150)))]);
+  const [cg, ct, reglas, ab, gastos, dAb] = await Promise.all([todos('cartola_cargos'), todos('cartolas'), reglasTodas(), abiertos(), todos('gastos', FB.where('fecha', '>=', G3.sumarDias(hoy, -150))), FS.datosAbono().catch(() => ({ destinatarios: [], trabajadores: [] }))]);
   const cargos = cg.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCargo(x.id, x.d))
     .filter(c => c.id && (c.estado === C.ESTADOS.revisar || c.fecha >= corte || s(c.resueltoEl).slice(0, 10) >= corte))
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.monto - a.monto);
@@ -64,7 +65,8 @@ export async function lista(diasP) {
   const sinFactura = cargos.filter(c => c.estado === C.ESTADOS.conciliado && c.accion === 'nuevo' && !(c.detalle && c.detalle.sinFactura) && (porCargo[c.id] || []).length && porCargo[c.id].every(g => !s(g.rutProveedor).trim()))
     .map(c => ({ id: c.id, fecha: c.fecha, monto: c.monto, descripcion: c.descripcion, items: [...new Set(porCargo[c.id].map(g => s(g.itemGasto)))] }));
   return { ok: true, fuente: 'base', cargos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
-    vencimientos: ab.lista, gastos: B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon)))), sinFactura, siiSinImportar: {}, dias };
+    vencimientos: ab.lista, gastos: B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon)))), sinFactura, siiSinImportar: {}, dias,
+    abonoDest: dAb.destinatarios, trabajadores: dAb.trabajadores };   // v0.63.1: para "Área de este abono"
 }
 
 // cc_cargar: los cargos nuevos (los ya vistos no se repiten) y la fila de la cartola
@@ -166,7 +168,7 @@ export async function resolver(p) {
   if (accion === 'vencimientos') r = await resolverVencimientos(d, ref, c0, p.pagos, marca, tr, hora);
   else if (accion === 'gasto') r = await resolverGasto(d, ref, c0, p.filas, marca, tr);
   else if (accion === 'nuevo') r = await resolverNuevo(d, ref, c0, p.gasto || {}, marca, tr, hora);
-  else if (accion === 'abono') r = await resolverAbono(d, ref, c0, s(p.vencId), marca, tr);
+  else if (accion === 'abono') r = await resolverAbono(d, ref, c0, s(p.vencId), marca, tr, p);
   else if (accion === 'ignorar') {
     const motivo = C.texto(p.motivo, 80) || 'No es gasto', detalle = { motivo, siempre: !!p.siempre, marca: clave };
     r = await FB.runTransaction(d, async tx => {
@@ -187,7 +189,7 @@ export async function resolver(p) {
       return { n: 2, detalle, estado: C.ESTADOS.conciliado };
     });
   } else if (accion === C.TRASPASO) {
-    // v0.63.0 · Traspaso entre cuentas propias (chequera ↔ cuenta corriente): no crea gasto; movimiento de flujo que se aprende
+    // v0.63.1 · Traspaso entre cuentas propias (chequera ↔ cuenta corriente): no crea gasto; movimiento de flujo que se aprende
     const nota = C.texto(p.nota, 80), detalle = { movimiento: 'flujo', tipo: C.TRASPASO, nota, marca: clave };
     r = await FB.runTransaction(d, async tx => {
       const sn = await tx.get(ref), x = revisarCargo(sn, c0, clave); if (x.repetido) return { repetido: true };
@@ -266,7 +268,7 @@ async function resolverGasto(d, ref, c0, filas, marca, tr) {
   const ids = Array.isArray(filas) ? filas.map(f => s(f && (f.id || f.fila))).filter(Boolean) : [];
   if (!ids.length || ids.length > 40) throw error('Elige el gasto', 'datos');
   const clave = marca.t + marca.r;
-  // v0.63.0: el vencimiento pagado a mano de esos gastos (si lo hay) también queda con la cartola
+  // v0.63.1: el vencimiento pagado a mano de esos gastos (si lo hay) también queda con la cartola
   const pre = await Promise.all(ids.map(id => FB.getDoc(FB.doc(d, 'gastos', id))));
   const vIds = [...new Set(pre.filter(x => x.exists()).map(x => s(x.data().vencimientoId)).filter(Boolean))].slice(0, 5);
   return FB.runTransaction(d, async tx => {
@@ -326,13 +328,15 @@ async function resolverNuevo(d, ref, c0, gq, marca, tr, hora) {
 }
 
 // Abono a un vencimiento de tipo libre (sueldo líquido). Primero el abono (idempotente por el cargo), después el cargo.
-async function resolverAbono(d, ref, c0, vencId, marca, tr) {
+// v0.63.1 · con el área del abono (areas, fuenteArea) y el destinatario (la glosa y el RUT del cargo; nombre opcional)
+async function resolverAbono(d, ref, c0, vencId, marca, tr, p = {}) {
   if (!vencId) throw error('Elige el vencimiento que recibe el abono', 'datos');
   const sv = await FB.getDoc(FB.doc(d, 'vencimientos', vencId));
   if (!sv.exists()) throw error('Ese vencimiento ya no existe', 'datos');
   const v = sv.data();
   if (s(v.tipoObligacion) !== 'libre') throw error('Solo los vencimientos de tipo libre reciben abonos', 'datos');
-  const ra = await FS.agregarAbono(vencId, { monto: c0.monto, fecha: c0.fecha, origen: 'cartola', cargoId: c0.id, cartola: tr, obs: '' }, marca, null);
+  const ra = await FS.agregarAbono(vencId, { monto: c0.monto, fecha: c0.fecha, origen: 'cartola', cargoId: c0.id, cartola: tr, obs: '',
+    ...(Array.isArray(p.areas) && p.areas.length ? { areas: p.areas, fuenteArea: s(p.fuenteArea) } : {}), destinatario: { rut: c0.rut, descripcion: c0.descripcion, nombre: C.texto(p.nombre, 80) } }, marca, null);
   const clave = marca.t + marca.r;
   return FB.runTransaction(d, async tx => {
     const sn = await tx.get(ref), x = revisarCargo(sn, c0, clave); if (x.repetido) return { repetido: true };
@@ -340,7 +344,7 @@ async function resolverAbono(d, ref, c0, vencId, marca, tr) {
     const k = l.findIndex(y => y.cargoId === c0.id);
     if (k < 0) throw error('El abono no quedó en el vencimiento: vuelve a intentarlo.', 'cambio');
     const R = await leerRegla(tx, d, c0.clave);
-    const detalle = { abono: { vencimientoId: vencId, nombre: s(a.nombre), n: k + 1, monto: c0.monto, plantillaId: s(a.plantillaID), gastos: l[k].gastoIds || [] }, marca: clave, repetidoAbono: !!ra.repetido };
+    const detalle = { abono: { vencimientoId: vencId, nombre: s(a.nombre), n: k + 1, monto: c0.monto, plantillaId: s(a.plantillaID), gastos: l[k].gastoIds || [], ...(Array.isArray(l[k].areas) ? { areas: l[k].areas } : {}) }, marca: clave, repetidoAbono: !!ra.repetido };
     tx.update(ref, aCargo(c0, sn.data(), { estado: C.ESTADOS.conciliado, accion: 'abono', detalle: JSON.stringify(detalle) }));
     if (s(a.plantillaID)) escribirRegla(tx, R, C.reglaDe('abono', c0, { plantillaId: s(a.plantillaID), nombre: s(a.nombre) }), c0);
     return { n: 2, detalle };
@@ -381,7 +385,7 @@ export async function deshacer(id, motivoP) {
         ...(x.multiAntes != null ? { multiArea: x.multiAntes } : {}), obsPago: (`Pago deshecho ${t.slice(0, 10)} · ${por} · ${motivo} · antes: ${s(a.obsPago)}`).slice(0, 500) }, { motivo }));
       n++;
     });
-    // v0.63.0: el vencimiento pagado a mano que solo se confirmó con este cargo: pierde la cartola (sigue pagado)
+    // v0.63.1: el vencimiento pagado a mano que solo se confirmó con este cargo: pierde la cartola (sigue pagado)
     if (c.accion === 'gasto') snV.forEach((s0, i) => { if (!s0 || !s0.exists()) return; const a = s0.data(); if (s(a.cartolaCargo) !== c.id) return; tx.update(refsV[i], cambio(a, 'sin cartola (deshecho)', { cartola: '', cartolaCargo: '' }, { motivo })); n++; });
     // Abono: sale del vencimiento (queda en abonosQuitados)
     if (c.accion === 'abono' && snV[0] && snV[0].exists()) {
@@ -398,7 +402,7 @@ export async function deshacer(id, motivoP) {
     snG.forEach((sg, i) => {
       if (!sg.exists()) return; const g = sg.data(); if (g.estado !== 'vigente') return;
       const forma = s(g.formaPago);
-      // v0.63.0: lo que esperaba su cargo vuelve a esperarlo; la fecha de pago puesta al vincular se quita
+      // v0.63.1: lo que esperaba su cargo vuelve a esperarlo; la fecha de pago puesta al vincular se quita
       if (c.accion === 'gasto') tx.update(refsG[i], cambio(g, 'sin cartola (deshecho)', { cartola: '', cartolaCargo: '', ...((det.esperaban || []).includes(refsG[i].id) ? { esperaCargo: true } : {}), ...((det.conFechaPago || []).includes(refsG[i].id) ? { fechaPago: '' } : {}) }, { motivo }));
       else if (forma === 'proveedor' || forma === 'tarjeta') tx.update(refsG[i], cambio(g, 'pago deshecho (cartola)', { fechaPago: '', cartola: '', cartolaCargo: '' }, { motivo }));
       else tx.update(refsG[i], cambio(g, 'anuló', { estado: 'anulado', anulado }, { motivo: anulado.motivo }));

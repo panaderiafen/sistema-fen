@@ -8,10 +8,10 @@
 //  Reglas puras en finanzas-resultados.js; datos en finanzas.js (fen-gastos). No cambia ningún gasto.
 //  ctx = { cab, error, conexion, sinBase } de vista-finanzas.js; H = ayudas de app.js.
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.63.0';
-import * as FR from './finanzas-resultados.js?v=0.63.0';
-import * as FC from './finanzas-costos.js?v=0.63.0';
-import * as VE from './vista-finanzas-eerr.js?v=0.63.0';
+import * as F from './finanzas.js?v=0.63.1';
+import * as FR from './finanzas-resultados.js?v=0.63.1';
+import * as FC from './finanzas-costos.js?v=0.63.1';
+import * as VE from './vista-finanzas-eerr.js?v=0.63.1';
 
 const RS = { datos: null, filtro: 'todos', q: '', msg: '', err: '', sel: null, anioDep: '' };
 const $ = id => document.getElementById(id);
@@ -83,6 +83,7 @@ const avisoMsg = (txt) => { RS.msg = txt; RS.err = ''; };
 
 // ═══════════════ Clasificación ═══════════════
 const TXT_AREAS = 'Cada gasto tiene un código de área (el que se eligió al registrarlo). Aquí dices a qué parte del estado de resultados va:\n· Área propia (Panadería, Bollería, Pastelería o Cafetería): sus fijos y sueldos son "fijos propios" de esa área.\n· Común: Administración, Ventas y lo demás. Va al resultado del negocio sin repartir.\nLos gastos prorrateados ya se guardan en una línea por área (con su %), así que cada parte va a su área. Si una línea antigua dice "PRORRATEADO" con sus %, se reparte con esos %.\nPor defecto, las cuatro de producción son propias y el resto común.';
+const TXT_CANAL = 'B2B es el código de los costos del canal B2B (atención de clientes, órdenes y despacho). Su lugar en el estado de resultados es una fila "costo de canal" del canal B2B, que todavía no existe: llega con F3. Mientras tanto va a Común (sin repartir), igual que Administración y Ventas.';
 const TXT_TIPOS = 'Un tipo para cada ítem de gasto, para armar el estado de resultados (todo en neto):\n· Compras de materias primas o de reventa: no son una línea de gasto (su costo ya está en el costo directo); se usan para la desviación.\n· Remuneraciones y gastos fijos: van al área del gasto (propio) o a común, según el mapa de áreas.\n· Ya en el margen: comisiones de tarjeta y despacho B2B (no se cuentan dos veces).\n· Financiero: intereses y banco.\n· Fuera del resultado: capital de las cuotas (el interés va a financiero con la tabla del crédito), F29/IVA/PPM, inversiones (entran como depreciación), retiros y otros con motivo.\nLa propuesta sale de palabras del nombre del ítem y de su subtipo en Gastos (INVERSIÓN, FINANCIERO, PASIVO). Nada se guarda solo: tú aplicas o eliges.';
 function htmlClasificacion(H) {
   const areas = FR.areasDeGastos(RS.datos.gastos, FR.ANIO, mapaAreas());
@@ -91,9 +92,9 @@ function htmlClasificacion(H) {
   const opt = (v, sel, t) => `<option value="${v}" ${v === sel ? 'selected' : ''}>${t}</option>`;
   const filaArea = a => `<div class="fin-compra fin-rarea" data-r-area-fila="${H.esc(a.codigo)}">
     <div><b>${H.esc(a.codigo)}</b><span class="ayuda">${nf(a.n)} ${a.n === 1 ? 'línea' : 'líneas'} en ${FR.ANIO}${a.deProrrateo ? ` · ${nf(a.deProrrateo)} de prorrateo` : ''}</span></div>
-    <div><span>${pesos(a.neto)} neto</span>${a.guardado ? '' : `<span class="ayuda">Por defecto: ${H.esc(destinoTxt(a.defecto))}</span>`}</div>
+    <div><span>${pesos(a.neto)} neto</span>${a.guardado ? '' : `<span class="ayuda">Por defecto: ${H.esc(destinoTxt(a.defecto))}</span>`}${FR.CANALES_PENDIENTES[a.codigo] ? `<span class="ayuda">${H.esc(FR.CANALES_PENDIENTES[a.codigo])}: por ahora a Común ${H.info(FR.CANALES_PENDIENTES[a.codigo], TXT_CANAL)}</span>` : ''}</div>
     <div class="campo"><label for="r-ar-${H.esc(a.codigo)}" class="sr">Destino de ${H.esc(a.codigo)}</label><select id="r-ar-${H.esc(a.codigo)}" data-r-area="${H.esc(a.codigo)}">
-      ${FR.AREAS.map(x => opt(x, a.destino, `Área propia: ${FR.NOMBRE_AREA[x]}`)).join('')}${opt('comun', a.destino, 'Común (sin repartir)')}</select></div></div>`;
+      ${FR.AREAS.map(x => opt(x, a.destino, `Área propia: ${FR.NOMBRE_AREA[x]}`)).join('')}${opt('comun', a.destino, 'Común (sin repartir)')}${FR.CANALES_PENDIENTES[a.codigo] ? `<option value="" disabled>${H.esc(FR.CANALES_PENDIENTES[a.codigo])} · llega con F3</option>` : ''}</select></div></div>`;
   const ver = filtrarItems(con);
   const nProp = con.filter(puedeAplicar).length;
   return `<section class="tarjeta" aria-labelledby="t-r-areas">

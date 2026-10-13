@@ -16,10 +16,11 @@
 //  generarVencimientos acepta la antelación por obligación (tipo documento: antes, para esperar la boleta).
 //  Sin red: se prueba sola. Fechas y horas en hora de Chile (America/Santiago).
 // ═══════════════════════════════════════════════
-import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.63.0';
-import * as G3 from './gastos-g3.js?v=0.63.0';
+import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.63.1';
+import * as G3 from './gastos-g3.js?v=0.63.1';
 
-export const AREAS = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS'];
+// v0.63.1: B2B (costos del canal B2B: atención de clientes, órdenes y despacho)
+export const AREAS = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS', 'B2B'];
 export const ANTELACION_DIAS = 3;          // un vencimiento se crea 3 días antes (como el script)
 export const DIAS_MOSTRAR_PAGADOS = 7;
 export const ZONA = 'America/Santiago';
@@ -319,7 +320,7 @@ export function vistaGasto(id, d, k, creditos) {
   const g = { id, fila: k, huella: id + ':' + version, version, fecha, hora: s(d.hora).slice(0, 5), item: s(d.itemGasto), categoria: s(d.categoria), tipo: s(d.tipo),
     subTipo: s(d.subTipo), area: s(d.area), tipoMonto: s(d.tipoMonto), neto: n(d.montoNeto), monto, esHarina: s(d.esHarina) === 'Sí', formaPago: s(d.formaPago), fechaPago: dia(d.fechaPago),
     obs, urlFoto: s(d.urlFoto), rut: s(d.rutProveedor).trim(), razonSocial: s(d.razonSocial), folio: m ? m[2] : '', esNC: m ? (m[1] === 'NC' || monto < 0) : false, vencimientoId: s(d.vencimientoId),
-    // v0.63.0: pagado por banco a mano y todavía sin su cargo de la cartola; efectivo o banco; si ya tiene su cargo
+    // v0.63.1: pagado por banco a mano y todavía sin su cargo de la cartola; efectivo o banco; si ya tiene su cargo
     esperaCargo: d.esperaCargo === true, medioPago: s(d.medioPago), conCartola: !!(s(d.cartolaCargo) || /\[cc[0-9a-f]{10}\]/.test(s(d.cartola))) };
   if ((g.formaPago === 'tarjeta' || g.formaPago === 'proveedor') && creditos) {
     const v = (g.vencimientoId && creditos.porId[g.vencimientoId]) || creditos.porClave[g.item.trim().toUpperCase() + '|' + g.fecha] || creditos.porClave['|' + g.fecha];
@@ -437,7 +438,7 @@ export function vistaPlantilla(docId, d, vencs, hoy) {
     multiArea: json(d.multiArea), estado, fechaCreacion: dia(d.fechaCreacion), tipoMonto: s(d.tipoMonto), cuotas: json(d.cuotas), proximaFecha: proxima || '',
     // v0.49.0: tipo e identificador (solo si ya está clasificada: lo copiado de la planilla se ve igual que antes)
     ...(d.tipoObligacion !== undefined ? { tipoObligacion: s(d.tipoObligacion), identificador: s(d.identificador), diasAviso: d.diasAviso === undefined ? '' : d.diasAviso } : {}),
-    // v0.63.0: cómo se paga (sin el campo = banco: se ve como "banco" pero no se guarda hasta que se edite)
+    // v0.63.1: cómo se paga (sin el campo = banco: se ve como "banco" pero no se guarda hasta que se edite)
     ...(d.sePagaPor !== undefined ? { sePagaPor: s(d.sePagaPor) } : {}) };
 }
 export const plantillasVista = (plantillas, vencs, hoy) => (plantillas || []).filter(x => vivo(x.d)).map(x => vistaPlantilla(x.id, x.d, vencs, hoy)).filter(p => p.id);

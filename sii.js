@@ -8,7 +8,7 @@
 //  v0.48.0 (etapa G3): con Gastos en la base nueva (config/gastos: fuente "base"), las llamadas van a fen-gastos
 //  (gastos-sii-fs.js) con las mismas respuestas; "Sugerir % según ventas" sigue con el script. Con la planilla, igual que antes.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.63.0';
+import * as Gastos from './gastos.js?v=0.63.1';
 
 export const VERSION_MINIMA = '2.4.0';
 // v0.10.0: un documento se reconoce por RUT, folio y si es nota de crédito (tipo 61):
@@ -420,7 +420,7 @@ const base64Utf8 = texto => { const b = new TextEncoder().encode(texto); let s =
 const docsDe = facturas => facturas.map(f => ({ rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', total: f.total, fecha: fechaDDMMYYYYaISO(f.fecha), razonSocial: f.razonSocial }));
 
 // v0.48.0 · Con la base nueva, lo mismo en fen-gastos (gastos-sii-fs.js)
-const fsSii = () => import('./gastos-sii-fs.js?v=0.63.0');
+const fsSii = () => import('./gastos-sii-fs.js?v=0.63.1');
 const enBase = () => Gastos.enBase();
 export async function estado(facturas) { return (await enBase()) ? (await fsSii()).estado(docsDe(facturas)) : llamar('sii_estado', { documentos: docsDe(facturas) }); }
 export async function registrarCarga(facturas, nombre, tipo, contenido, idem) {
@@ -432,12 +432,12 @@ export async function archivo(id) { return (await enBase()) ? (await fsSii()).ar
 export async function detalle(rut, folio, tipo) { return (await enBase()) ? (await fsSii()).detalle(rut, folio, tipo) : llamar('sii_detalle', { rut, folio, ...(tipo !== undefined ? { tipo } : {}) }); }
 let ventasCache = null;
 export async function ventas() { if (!ventasCache || Date.now() - ventasCache.t > 600000) ventasCache = { t: Date.now(), d: await llamar('sii_ventas') }; return ventasCache.d; }
-// v0.63.0: origen = { formato ('xml' | 'detalle' | 'registro'), archivo, cargaId } del archivo abierto: queda en cada gasto (origenDetalle)
+// v0.63.1: origen = { formato ('xml' | 'detalle' | 'registro'), archivo, cargaId } del archivo abierto: queda en cada gasto (origenDetalle)
 export async function importar(listas, omitirRepetidas, idem, origen) {
   if (await enBase()) {
     const r = await (await fsSii()).importar(listas, !!omitirRepetidas, await Gastos.marcaDe(idem), origen || null); Gastos.olvidarTodo();
     // v0.57.0 · Finanzas: con lo importado ya guardado, revisa los precios de las materias primas (sin esperar; si falla, solo avisa)
-    r.precios = import('./finanzas.js?v=0.63.0').then(F => F.preciosTrasImportar()).catch(e => ({ error: e.message || String(e) }));
+    r.precios = import('./finanzas.js?v=0.63.1').then(F => F.preciosTrasImportar()).catch(e => ({ error: e.message || String(e) }));
     return r;
   }
   const r = await llamar('sii_importar', { facturas: listas, omitirRepetidas: !!omitirRepetidas }, idem); Gastos.olvidar(); return r;

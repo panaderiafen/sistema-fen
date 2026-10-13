@@ -11,7 +11,7 @@
 //  Todo en neto. Nada de esto cambia los gastos: es una capa de Finanzas (fen-gastos: fin_items, fin_config,
 //  fin_creditos, fin_inversiones).
 // ═══════════════════════════════════════════════
-import { idLimpio } from './gastos-modelo.js?v=0.63.0';
+import { idLimpio } from './gastos-modelo.js?v=0.63.1';
 
 export const ANIO = 2026;
 export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
@@ -99,6 +99,9 @@ export function lineasArea(g) {
 }
 
 // ── 2. Mapa de áreas de gasto ──
+// v0.63.1 · Códigos de canal (B2B: costos del canal B2B, atención de clientes, órdenes y despacho). El estado de resultados
+// todavía no tiene la fila "costo de canal": por ahora van a Común (pendiente para F3; no se construye ahora).
+export const CANALES_PENDIENTES = { B2B: 'Canal B2B (costo de canal)' };
 // Por defecto: las de producción son área propia (la misma); Administración, Ventas, Prorrateado y cualquier otra, común.
 export const destinoDefecto = codigo => (AREAS.includes(s(codigo).toUpperCase()) ? s(codigo).toUpperCase() : 'comun');
 export function destinoArea(codigo, mapa) {

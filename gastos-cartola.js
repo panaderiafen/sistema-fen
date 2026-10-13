@@ -16,14 +16,14 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.63.0';
-import * as B from './gastos-banco.js?v=0.63.0';
+import * as G3 from './gastos-g3.js?v=0.63.1';
+import * as B from './gastos-banco.js?v=0.63.1';
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
 // tipo: 'pago_tarjeta', tarjeta }) para el flujo de caja (F4). Se aprende como lo demás (regla accion 'pago_tarjeta').
 export const PAGO_TARJETA = 'pago_tarjeta';
-// v0.63.0 · "Traspaso entre cuentas propias" (chequera ↔ cuenta corriente): tampoco crea gasto; queda en el cargo como
+// v0.63.1 · "Traspaso entre cuentas propias" (chequera ↔ cuenta corriente): tampoco crea gasto; queda en el cargo como
 // movimiento de flujo (estado CONCILIADO, accion 'traspaso', detalle { movimiento: 'flujo', tipo: 'traspaso', nota }) y se aprende.
 export const TRASPASO = 'traspaso';
 export const ESTADOS = { revisar: 'POR_REVISAR', conciliado: 'CONCILIADO', ignorado: 'IGNORADO', aMedias: 'A_MEDIAS' };
@@ -165,7 +165,8 @@ export function vencimientosAbiertos(vencs, plantillas, siiRut, hoy) {
     const montoDoc = d.documento && num(d.montoDocumento) > 0 ? num(d.montoDocumento) : 0;
     out.push({ id, nombre: s(d.nombre), item: s(d.item), fecha: G3.fechaReal(d), monto: montoDoc || estimado, estimado, plantillaId: pid,
       estado: G3.estadoVista(d, hoy), estadoBase: G3.estadoBase(d), tipoObligacion: pid ? (o && G3.sinClasificar(o) && !s(d.tipoObligacion) ? 'sin_clasificar' : tipo || 'fijo') : '',
-      montoDocumento: montoDoc, conDocumento: !!d.documento, abonos: Array.isArray(d.abonos) ? d.abonos : [], suelto: d.suelto === true, obs: s(d.obs),
+      montoDocumento: montoDoc, conDocumento: !!d.documento, area: s(d.area), multiArea: Array.isArray(ma) ? ma : [], pArea1: s(d.pArea1), pPct1: s(d.pPct1), pArea2: s(d.pArea2), pPct2: s(d.pPct2), pArea3: s(d.pArea3), pPct3: s(d.pPct3),   // v0.63.1: para el área del abono
+      abonos: Array.isArray(d.abonos) ? d.abonos : [], suelto: d.suelto === true, obs: s(d.obs),
       folio: m ? m[2] : '', razon: m ? m[1].trim() : '', rut: (siiRut && siiRut[id]) || (d.documento && d.documento.tipo === 'sii' ? rutNorm(d.documento.rut) : ''), sii: '' });
   });
   return out.sort((a, b) => s(a.fecha).localeCompare(s(b.fecha)) || a.id.localeCompare(b.id));
@@ -204,7 +205,7 @@ export function proponer(c, D) {
   if (regla && regla.accion === 'ignorar') return { tipo: 'ignorar', seguro: true, motivo: regla.ejemplo || 'No es gasto', por: 'aprendido' };
   // v0.62.0 · Pago de la tarjeta de crédito aprendido (no es gasto: movimiento de flujo)
   if (regla && regla.accion === PAGO_TARJETA) return { tipo: PAGO_TARJETA, seguro: true, texto: regla.ejemplo || 'Pago de tarjeta de crédito', tarjeta: regla.ejemplo || '', por: 'aprendido' };
-  // v0.63.0 · Traspaso entre cuentas propias aprendido
+  // v0.63.1 · Traspaso entre cuentas propias aprendido
   if (regla && regla.accion === TRASPASO) return { tipo: TRASPASO, seguro: true, texto: regla.ejemplo || 'Traspaso entre cuentas propias', nota: regla.ejemplo || '', por: 'aprendido' };
   const aprendidoP = regla && (regla.accion === 'vencimiento' || regla.accion === 'abono') && s(regla.vencimiento).startsWith('p:') ? s(regla.vencimiento).slice(2) : '';
   // 1) Monto fijo: el monto exacto del vencimiento, dentro de la ventana
@@ -256,7 +257,7 @@ export function proponer(c, D) {
     const comb = combinacion(vencs.filter(v => !v.plantillaId && v.rut === c.rut), c.monto);
     if (comb) return { tipo: 'vencimientos', seguro: true, pagos: comb.map(v => ({ id: v.id, monto: v.monto })), texto: comb.map(v => v.nombre).join(' + '), por: 'rut' };
   }
-  // 6) Un gasto ya registrado sin cargo, del mismo monto (v0.63.0: también lo pagado por banco a mano, que espera su cargo, y las
+  // 6) Un gasto ya registrado sin cargo, del mismo monto (v0.63.1: también lo pagado por banco a mano, que espera su cargo, y las
   //    facturas del SII ya cargadas que se pagan después; cada uno con su ventana de días): el exacto más cercano
   const pg = B.propuestaGasto(c, D.gastos || []);
   if (pg) {
