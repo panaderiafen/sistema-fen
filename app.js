@@ -9,35 +9,35 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.59.0';
-import * as Caja from './caja.js?v=0.59.0';
-import * as Stock from './stock.js?v=0.59.0';
-import * as Ajustes from './ajustes.js?v=0.59.0';
-import * as Apps from './apps.js?v=0.59.0';
-import * as Agenda from './agenda.js?v=0.59.0';
-import * as Gastos from './gastos.js?v=0.59.0';
-import * as G3 from './gastos-g3.js?v=0.59.0';
-import * as G3D from './gastos-g3d.js?v=0.59.0';
-import { resumenAnalisis } from './gastos-g2.js?v=0.59.0';
-import * as Sii from './sii.js?v=0.59.0';
-import * as GSii from './gastos-sii.js?v=0.59.0';
-import * as Previred from './previred.js?v=0.59.0';
-import * as B2b from './b2b.js?v=0.59.0';
-import * as Cartola from './cartola.js?v=0.59.0';
-import * as SiiFactura from './sii-factura.js?v=0.59.0';
-import * as PdfOrden from './pdf-orden.js?v=0.59.0';
-import * as Prod from './produccion.js?v=0.59.0';
+} from './firebase.js?v=0.60.0';
+import * as Caja from './caja.js?v=0.60.0';
+import * as Stock from './stock.js?v=0.60.0';
+import * as Ajustes from './ajustes.js?v=0.60.0';
+import * as Apps from './apps.js?v=0.60.0';
+import * as Agenda from './agenda.js?v=0.60.0';
+import * as Gastos from './gastos.js?v=0.60.0';
+import * as G3 from './gastos-g3.js?v=0.60.0';
+import * as G3D from './gastos-g3d.js?v=0.60.0';
+import { resumenAnalisis } from './gastos-g2.js?v=0.60.0';
+import * as Sii from './sii.js?v=0.60.0';
+import * as GSii from './gastos-sii.js?v=0.60.0';
+import * as Previred from './previred.js?v=0.60.0';
+import * as B2b from './b2b.js?v=0.60.0';
+import * as Cartola from './cartola.js?v=0.60.0';
+import * as SiiFactura from './sii-factura.js?v=0.60.0';
+import * as PdfOrden from './pdf-orden.js?v=0.60.0';
+import * as Prod from './produccion.js?v=0.60.0';
 import * as ProdK from './cocina/consumo.js?v=0.16.0';
-import * as VistaProd from './vista-produccion.js?v=0.59.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.59.0';
+import * as VistaProd from './vista-produccion.js?v=0.60.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.60.0';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.59.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.60.0');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.59.0');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.60.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.59.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.60.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -339,7 +339,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.59.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.60.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -551,14 +551,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.59.0').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.60.0').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.59.0').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.60.0').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -932,9 +932,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.59.0').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.60.0').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.59.0').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.60.0').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -1984,7 +1984,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.59.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.60.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {

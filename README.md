@@ -1,9 +1,57 @@
-# Sistema Fën · v0.59.0
+# Sistema Fën · v0.60.0
 
-**App:** v0.59.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 14 de octubre de 2026
+**App:** v0.60.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 14 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.60.0: Finanzas (F2 · paso 2): margen de contribución, matriz volumen × margen y precio sugerido
+Modelo acordado (`finanzas-plan.md`, sección 1): **margen sobre el precio NETO**; precio = costo directo + **margen de contribución objetivo del área**; lo indirecto entra a nivel de área, **nunca repartido por unidad**.
+
+**Finanzas → Márgenes**, pestañas nuevas (las de la v0.59.0 siguen igual):
+- **Margen por producto:** tarjetas **por canal** (total, Caja Barros Arana, Caja Ainavillo, B2B) y **por área**, cada una con venta neta, costo directo, costos de venta, **margen de contribución (MC $)** y **MC %**. Tabla por producto: unidades, precio neto prom., costo unit., MC unit., MC %, MC total y % del MC total; filtros por área y canal y orden (mayor MC, mayor/menor MC %, unidades, venta, nombre). **Sin costo o incompleto** (sin asociar, receta sin costo o con costo incompleto, reventa sin costo de compra) va **aparte**, no entra en totales ni %, y arriba dice la cobertura ("Con costo: 94,8 % de la venta neta"). Selector **Costo del mes / Costo de hoy** que dice qué costo se usó.
+- **Volumen × margen:** por área, los productos con costo en cuatro grupos —**Estrellas**, **De volumen**, **Con potencial**, **Revisar**— con qué hacer en cada uno. Las **listas son lo principal**; al lado (en el celular, arriba) un gráfico de puntos numerados con los mismos productos.
+- **Precio sugerido:** por área con margen objetivo, cada producto con costo: costo directo de hoy, **Caja** (sugerido con IVA redondeado, su neto; actual = neto promedio del período y precio de lista del catálogo, con diferencia % y **Bajo / OK / Sobre**) y **B2B** (sugerido neto contra el neto promedio). Muestra el **recargo equivalente** del margen.
+- **Ajustes** (Ajustes de Finanzas: márgenes): **comisión de tarjeta** % por medio de pago (débito, crédito, otros) —vacía = **"Falta configurar"** (chip en la pestaña y aviso en Márgenes; en Hoy no aparece) y se usa 0 %—; **mezcla de medios de la caja** (solo si un mes no trae el dato); **despacho B2B** (% de la venta neta o $ por orden; 0 por defecto); **margen objetivo por área** (vacío por defecto; con su recargo); **redondeo** del precio con IVA de la caja ($10, $50 o $100). Historial de cambios.
+- **Asociar productos → diálogo:** campo nuevo **Costo extra por venta, neto** (envases que no están en la receta: caja, bolsa, vaso), por cada venta del producto.
+
+**Cómo se calcula** (todo neto; reglas puras en `finanzas-margenes.js`):
+- **MC = venta neta − costo directo − costos de venta. MC % = MC ÷ venta neta.**
+- **Costo directo:** receta → costo por unidad (Costos → Productos) × unidades (vendido × unidades por venta); reventa → costo de compra neto × unidades; + costo extra por venta × ventas. Recetas que rinden gramos se leen por kg.
+- **Costo del mes** (por defecto): para cada mes del período, el último costo del historial (`costos_recetas_hist`) hasta el último día del mes; el mes en curso usa el de hoy; sin historial de ese mes, el de hoy (y se dice). El historial guarda cambios > 0,5 %. **Costo de hoy:** el último cálculo para todo el período. Márgenes usa el **último cálculo guardado** (abre Costos para recalcular).
+- **Comisión de tarjeta (caja):** la empresa de pagos cobra sobre lo **pagado, con IVA**: comisión = venta neta × 1,19 × Σ(parte pagada con el medio × su comisión). La parte de cada medio sale de los **resúmenes de cierre** (`resumenes_caja.porMedio`, ya existía; efectivo = 0 %, transferencia y otros = "Otros"), por mes y sucursal; si un mes no lo trae (meses guardados antes de esta versión), la mezcla configurada; si tampoco, 0.
+- **Despacho B2B:** % × venta neta, o $ por orden × órdenes válidas del mes repartido según la venta neta de cada producto B2B.
+- **Matriz:** ejes = unidades vendidas y **MC unitario en $** (el eje clásico de la ingeniería de menú: lo que deja cada venta); cortes = promedio simple de unidades del área y MC unitario ponderado del área (MC total ÷ unidades). Igual o sobre el promedio cuenta como "alto".
+- **Precio sugerido:** neto = costo directo de hoy ÷ (1 − margen objetivo − costos de venta %), así el MC % queda **justo** en el objetivo después de la comisión o el despacho (dividir por (1 − m) y además por (1 − comisión) deja el MC un poco bajo el objetivo). Costos de venta %: caja = comisión del período ÷ venta neta de la caja; B2B = el % de despacho (o despacho ÷ venta B2B si es por orden). Con IVA = neto × 1,19 **redondeado hacia arriba** al múltiplo elegido. Diferencia = (actual − sugerido) ÷ sugerido; **OK** dentro de ±5 %. Recargo = m ÷ (1 − m); margen = r ÷ (1 + r).
+
+**Dónde se guarda (fen-gastos):** `costos_config/finanzas.margenes` `{ comision {debito, credito, otros}, mixCaja {…}, despacho {modo, valor}, margenObjetivo {PAN, BOL, PAS, CAF}, redondeo }` + `historialMargenes`. `fin_productos.costoExtraNeto`. `fin_ventas_mes` de la caja guarda además `porMedio` y el de B2B `ordenesValidas` (los meses ya guardados siguen sirviendo; "Volver a leer" les agrega el medio de pago). **Reglas y scripts: no cambian.** Nada va a Cocina.
+
+Por dentro: nuevo `finanzas-margenes.js` (puro: `configMargenes`, `validarConfig`, `mediosDeResumenes`, `tasaComision`, `comisionDe`, `costoReceta`, `calcularMargenes`, `totalesMargen`, `ordenarMargen`, `cuadrante`, `matriz`, `precioSugerido`, `margenARecargo`, `recargoAMargen`, `comparar`, `tablaPrecios`, `conListas`, `costosVentaPeriodo`). `finanzas.js`: `ventasPeriodo` devuelve `porMes` (líneas, medios de pago, órdenes) y el catálogo; `guardarAjustesMargenes`. `finanzas-ventas.js`: `costoExtraNeto` en el vínculo. `vista-finanzas.js`: las cuatro pestañas.
+
+Pruebas: nueva `pruebas/sistemafen/finanzas-f2b.test.js` (12: 6 unitarias —MC con unidades por venta, envase, reventa y sin costo aparte; comisión por medio de pago y despacho %/por orden; costo del mes desde el historial; cuadrantes; precio sugerido con IVA y redondeo, margen ↔ recargo; ajustes— y 6 de punta a punta con los datos de la f2a y costos ficticios: totales del margen, filtros y orden, Hoy sin el aviso; matriz por área; Ajustes → el aviso se va, el MC baja a $178.441 y aparece el precio sugerido; costo del mes vs de hoy; envase desde Asociar; celular 390). Todas las pantallas nuevas comprueban **sin moverse de lado** en PC y 390. Siguen pasando f1a/b/c, f2a, e2e (54) y hoy-v055. Capturas en `pruebas/capturas/finanzas-f2b/` (PC y celular 390).
+
+Archivos: nuevo `finanzas-margenes.js`; cambian `finanzas.js`, `finanzas-ventas.js`, `vista-finanzas.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.60.0**.
+
+### Instalación v0.60.0 (unos 2 minutos; incluye la v0.56.0–v0.59.0: si no tienes la v0.56.0, primero su paso 1, script de Producción v2.10.0)
+1. **Sistema Fën v0.60.0**: GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.60.0.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+2. Abre **Finanzas → Costos** una vez (recalcula el costo de los productos).
+3. **Finanzas → Márgenes → Ajustes:** escribe la **comisión de débito, crédito y otros** (de la liquidación de tu empresa de pagos, sin IVA), el **despacho B2B** si lo quieres contar, el **margen objetivo** de cada área que ya tengas pensado y el **redondeo**. Guardar.
+4. En **Ventas por producto**, mes anterior → **Volver a leer** (así ese mes guardado trae también el medio de pago).
+
+### Lista de verificación v0.60.0
+- [ ] Abajo a la izquierda dice **v0.60.0**.
+- [ ] Márgenes muestra **Margen por producto**, **Volumen × margen**, **Precio sugerido** y **Ajustes** (con "Falta configurar" hasta poner la comisión).
+- [ ] Margen por producto: la venta neta con costo + "sin costo o incompleto" = la venta neta de Ventas por producto.
+- [ ] Revisa 3 productos que conozcas: costo unit. = el de Costos → Productos (× unidades por venta en cajas o packs).
+- [ ] Pon la comisión en Ajustes: el aviso se va y los costos de venta de la caja dejan de ser $0.
+- [ ] Mes anterior con "Costo del mes": dice cuántas líneas usaron el costo de ese mes.
+- [ ] Volumen × margen: los grupos de cada área tienen sentido (las estrellas: las que más venden y mejor dejan).
+- [ ] Con margen objetivo en un área, Precio sugerido muestra el precio con IVA redondeado y Bajo/OK/Sobre contra tu precio de lista.
+- [ ] En **Hoy** no aparece nada nuevo; en la tablet de Cocina tampoco.
+- [ ] En el celular se ve bien (sin moverse de lado; el gráfico arriba y las listas abajo).
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.59.0: las pestañas nuevas desaparecen. Lo guardado (`costos_config/finanzas.margenes`, `costoExtraNeto`, `porMedio`) queda en fen-gastos sin estorbar.
 
 ## Novedades de la v0.59.0: Finanzas (F2 · paso 1): ventas por producto, área y canal
 Plan acordado (`finanzas-plan.md`, F2): dos ejes, el **área que produce** (Panadería, Bollería, Pastelería, Cafetería: la de la receta del producto) y el **canal donde se vende** (caja Barros Arana, caja Ainavillo, B2B). Todo en **neto**. Este paso trae solo la venta; el margen (precio neto − costo directo) llega en el paso 2.

@@ -970,3 +970,77 @@ a.ag-item { text-decoration: none; }
   .fin-masoc .acciones > * { flex: 1 1 auto; }
 }
 .fin-mfila > span > .chip { align-self: flex-start; }
+
+/* ── v0.60.0 · Finanzas → Márgenes: margen de contribución, matriz, precio sugerido, ajustes ── */
+.c-azul { background: var(--azul); color: var(--azul-t); }
+.fin-neg { color: var(--rojo-t); }
+.fin-mmodo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 12px; }
+.fin-mmodo > .ayuda { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; flex: 1 1 260px; min-width: 0; }
+.fin-mcob-nota { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 14px; }
+.fin-mcob-nota a { color: var(--acento); font-weight: 600; }
+#m-falta-com { display: flex; gap: 8px; align-items: flex-start; }
+#m-falta-com a { color: var(--acento); font-weight: 700; }
+.fin-mccs { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.fin-mcc { padding: 10px 12px; border-radius: 12px; background: var(--fondo); min-width: 0; }
+.fin-mcc h4 { margin: 0 0 6px; font-size: 14px; }
+.fin-mcc dl { margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.fin-mcc dl > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 13px; min-width: 0; }
+.fin-mcc dt { color: var(--suave); display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-width: 0; }
+.fin-mcc dd { margin: 0; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.fin-mcc .fin-mcc-mc { border-top: 1px solid var(--linea); margin-top: 3px; padding-top: 4px; font-weight: 700; }
+.fin-mcc .fin-mcc-mc dd { font-size: 17px; }
+.fin-mcc-tot { background: var(--menu); }
+.fin-mctabla { margin-top: 14px; }
+.fin-mcf { display: grid; grid-template-columns: minmax(0, 2.4fr) repeat(7, minmax(0, 1fr)); gap: 10px; align-items: start; padding: 10px; border-bottom: 1px solid var(--linea); font-size: 14px; font-variant-numeric: tabular-nums; }
+.fin-mcf > span { min-width: 0; overflow-wrap: anywhere; display: flex; flex-direction: column; gap: 2px; }
+.fin-mcf > .fin-nombre { display: block; }
+.fin-mcf .fin-nombre > .ayuda { font-size: 12px; }
+.fin-mcf .fin-mcf-src { display: block; }
+.fin-mcleyenda { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+.fin-mfuera { list-style: none; margin: 8px 0 0; padding: 0; }
+.fin-mfuera li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; padding: 10px 4px; border-bottom: 1px solid var(--linea); }
+.fin-mfuera li > div:first-child { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.fin-mfuera li .ayuda { display: block; }
+.fin-mfuera-d { display: flex; gap: 12px; align-items: center; }
+.fin-mfuera-d a { color: var(--acento); font-weight: 600; }
+.fin-mx-areas { margin-top: 12px; }
+.fin-mx-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; margin-top: 12px; align-items: start; }
+.fin-mx-fig { margin: 0; order: 2; }
+.fin-mx-svg { width: 100%; height: auto; max-width: 560px; display: block; }
+.fin-mx-listas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; order: 1; }
+.fin-mx-q { padding: 10px 12px; border-radius: 12px; border-left: 4px solid var(--linea); background: var(--fondo); min-width: 0; }
+.fin-mx-q h3 { margin: 0 0 4px; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.fin-mx-q ol { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fin-mx-q li { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.fin-mx-q li > span:last-child { min-width: 0; overflow-wrap: anywhere; display: flex; flex-direction: column; }
+.fin-mx-n { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; border: 1.6px solid var(--acento); color: var(--acento); font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.fin-mx-estrella { border-left-color: var(--verde-t); } .fin-mx-volumen { border-left-color: var(--amarillo-t); }
+.fin-mx-potencial { border-left-color: var(--azul-t); } .fin-mx-revisar { border-left-color: var(--rojo-t); }
+.fin-pr-area { margin-top: 14px; }
+.fin-pr-area h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.fin-pr-fila { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, 1.1fr); gap: 10px 16px; padding: 10px; border-bottom: 1px solid var(--linea); align-items: start; }
+.fin-pr-prod { min-width: 0; overflow-wrap: anywhere; }
+.fin-pr-prod .ayuda { display: block; }
+.fin-pr-canal { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.fin-pr-canal h4 { margin: 0; font-size: 12px; color: var(--suave); text-transform: uppercase; letter-spacing: .04em; }
+.fin-pr-canal > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; font-size: 14px; }
+.fin-pr-canal > div > span:first-child { color: var(--suave); font-size: 12px; flex: 0 0 100%; }
+.fin-pr-canal .chip { align-self: center; }
+.fin-majustes fieldset { border: 1px solid var(--linea); border-radius: 12px; padding: 10px 12px 12px; margin: 0 0 12px; min-width: 0; }
+.fin-majustes legend { float: left; width: 100%; font-weight: 700; padding: 0; margin: 0 0 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.fin-majustes legend + * { clear: both; }
+.fin-maj-campos { clear: both; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px 12px; }
+.fin-maj-campos .campo { margin: 0; min-width: 0; }
+.fin-maj-campos input, .fin-maj-campos select { width: 100%; }
+.fin-maj-red { margin-right: 12px; }
+@media (max-width: 760px) {
+  .fin-mcf { grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 12px 4px; }
+  .fin-mcf.fin-mcab { display: none; }
+  .fin-mcf > .fin-nombre { grid-column: 1 / -1; }
+  .fin-mcf .fin-et { display: block; font-size: 11px; color: var(--suave); font-weight: 600; }
+  .fin-mcf.fin-mtotal > span:empty { display: none; }
+  .fin-mx-grid { grid-template-columns: 1fr; }
+  .fin-mx-fig { order: 0; }
+  .fin-mx-listas { grid-template-columns: 1fr; }
+  .fin-pr-fila { grid-template-columns: 1fr; padding: 12px 4px; }
+}

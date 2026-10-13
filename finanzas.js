@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Finanzas: datos (F1 pasos 1, 2 y 3 y F2 paso 1: costos, precio desde el SII, costo directo por producto, ventas por producto)  v0.59.0
+//  Sistema Fën — Finanzas: datos (F1 pasos 1, 2 y 3 y F2 pasos 1 y 2: costos, precio desde el SII, costo directo por producto, ventas por producto, margen de contribución)  v0.60.0
 //  Todo vive en fen-gastos (solo administración; las reglas v0.1.0 ya cubren colecciones nuevas):
 //   · costos_mp/{mpId}        (mismo id que fen-produccion mps / MP_maestro ID_MP): nombre, tipo (mp|insumo|sub_receta),
 //                             unidadCompra, contenido { cantidad, unidad: g|ml|un }, precioNeto (por unidad de compra),
@@ -40,19 +40,24 @@
 //   algún resumen); fen-b2b ordenes (sin anuladas; precios netos) y productos; fen-produccion recetas (nombre y área).
 //  Se recalcula al abrir Finanzas → Costos y justo después de un cambio de precio (a mano, del SII o confirmado).
 //  Nada de esto va a fen-produccion ni a Cocina: las jefas no ven costos.
+//  v0.60.0 (F2 paso 2, margen de contribución; reglas puras en finanzas-margenes.js): ventasPeriodo devuelve también porMes
+//   [{ mes, lineas, medios (bruto por medio de pago y sucursal, de resumenes_caja.porMedio), ordenes (B2B válidas) }]; fin_ventas_mes de la caja
+//   guarda porMedio y el de B2B ordenesValidas. costos_config/finanzas.margenes (comisión por medio de pago, mezcla de la caja, despacho B2B,
+//   margen objetivo por área, redondeo) + historialMargenes. fin_productos.costoExtraNeto (envase por venta, neto).
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.59.0';
-import * as FB from './firebase-gastos.js?v=0.59.0';
-import * as GB from './gastos-base.js?v=0.59.0';
-import * as P from './produccion.js?v=0.59.0';
-import * as FC from './finanzas-costos.js?v=0.59.0';
-import * as FS from './finanzas-sii.js?v=0.59.0';
-import * as FM from './finanzas-motor.js?v=0.59.0';
-import * as FV from './finanzas-ventas.js?v=0.59.0';
-import * as Caja from './caja.js?v=0.59.0';
-import * as B from './b2b.js?v=0.59.0';
-import * as FBB from './firebase-b2b.js?v=0.59.0';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.59.0';
+import { auth as authSF } from './firebase.js?v=0.60.0';
+import * as FB from './firebase-gastos.js?v=0.60.0';
+import * as GB from './gastos-base.js?v=0.60.0';
+import * as P from './produccion.js?v=0.60.0';
+import * as FC from './finanzas-costos.js?v=0.60.0';
+import * as FS from './finanzas-sii.js?v=0.60.0';
+import * as FM from './finanzas-motor.js?v=0.60.0';
+import * as FV from './finanzas-ventas.js?v=0.60.0';
+import * as FMG from './finanzas-margenes.js?v=0.60.0';
+import * as Caja from './caja.js?v=0.60.0';
+import * as B from './b2b.js?v=0.60.0';
+import * as FBB from './firebase-b2b.js?v=0.60.0';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.60.0';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -374,37 +379,42 @@ export async function ventasPeriodo(per, { forzar = false, avance } = {}) {
   const db = await dbG(), hoy = hoyTxt(), por = yo();
   const cat = await catalogos();
   let lecturas = cat.lecturas;
-  const meses = [], lineas = [], faltanTodas = [];
+  const meses = [], lineas = [], faltanTodas = [], porMes = [];
   const conB2b = cat.b2bEstado === 'ok';
   for (const mes of per.meses) {
     if (avance) avance(mes);
     const info = { mes, caja: null, b2b: null };
+    const pm = { mes, lineas: [], medios: null, ordenes: 0 };   // v0.60.0: por mes (costo del mes, comisión por medio de pago, despacho por orden)
     const [gc, gb] = forzar ? [null, null] : await Promise.all(['caja', 'b2b'].map(c => FB.getDoc(FB.doc(db, 'fin_ventas_mes', `${mes}_${c}`)).catch(() => null)));
     if (!forzar) lecturas += 2;
     // Caja
-    if (gc && gc.exists()) { const d = gc.data(); lineas.push(...(d.lineas || [])); info.caja = { fuente: 'guardado', cierres: d.cierres || 0, creado: d.creado || '' }; }
+    if (gc && gc.exists()) { const d = gc.data(); lineas.push(...(d.lineas || [])); pm.lineas.push(...(d.lineas || [])); pm.medios = d.porMedio || null; info.caja = { fuente: 'guardado', cierres: d.cierres || 0, creado: d.creado || '', conMedios: !!d.porMedio }; }
     else {
       const x = await cajaDelMes(mes, hoy); lecturas += x.lecturas;
-      const ls = FV.lineasDeResumenes(x.res, cat.caja); lineas.push(...ls);
+      const ls = FV.lineasDeResumenes(x.res, cat.caja); lineas.push(...ls); pm.lineas.push(...ls);
+      pm.medios = FMG.mediosDeResumenes(x.res, FV.sucursalCaja);
       faltanTodas.push(...x.faltan);
       const guardar = FV.guardable(mes, hoy, { abiertas: x.abiertas.length, faltan: x.faltan.length });
-      if (guardar) await FB.setDoc(FB.doc(db, 'fin_ventas_mes', `${mes}_caja`), { ...FV.docMes(mes, 'caja', ls, { cierres: x.res.length }), creado: new Date().toISOString(), fecha: hoy, por, en: FB.serverTimestamp() });
-      info.caja = { fuente: 'leido', cierres: x.res.length, abiertas: x.abiertas.length, faltan: x.faltan.length, guardado: guardar };
+      if (guardar) await FB.setDoc(FB.doc(db, 'fin_ventas_mes', `${mes}_caja`), { ...FV.docMes(mes, 'caja', ls, { cierres: x.res.length, porMedio: pm.medios }), creado: new Date().toISOString(), fecha: hoy, por, en: FB.serverTimestamp() });
+      info.caja = { fuente: 'leido', cierres: x.res.length, abiertas: x.abiertas.length, faltan: x.faltan.length, guardado: guardar, conMedios: true };
     }
     // B2B
-    if (gb && gb.exists()) { const d = gb.data(); lineas.push(...(d.lineas || [])); info.b2b = { fuente: 'guardado', ordenes: d.ordenes || 0, creado: d.creado || '' }; }
+    if (gb && gb.exists()) { const d = gb.data(); lineas.push(...(d.lineas || [])); pm.lineas.push(...(d.lineas || [])); pm.ordenes = d.ordenesValidas ?? d.ordenes ?? 0; info.b2b = { fuente: 'guardado', ordenes: d.ordenes || 0, creado: d.creado || '' }; }
     else if (conB2b) {
       const desde = `${mes}-01`, hasta = mes === FV.mesDe(hoy) ? hoy : FV.ultimoDia(mes);
       if (forzar) B.olvidarAnalisisB2b();
       const os = await B.ordenesEntre(desde, hasta); lecturas += Math.max(1, os.length);
-      const ls = FV.lineasDeOrdenes(os, cat.b2b); lineas.push(...ls);
+      const ls = FV.lineasDeOrdenes(os, cat.b2b); lineas.push(...ls); pm.lineas.push(...ls);
+      pm.ordenes = os.filter(o => o && o.estado !== 'anulada' && !o.quitadoEnPlanilla).length;
       const guardar = FV.guardable(mes, hoy);
-      if (guardar) await FB.setDoc(FB.doc(db, 'fin_ventas_mes', `${mes}_b2b`), { ...FV.docMes(mes, 'b2b', ls, { ordenes: os.length }), creado: new Date().toISOString(), fecha: hoy, por, en: FB.serverTimestamp() });
+      if (guardar) await FB.setDoc(FB.doc(db, 'fin_ventas_mes', `${mes}_b2b`), { ...FV.docMes(mes, 'b2b', ls, { ordenes: os.length, ordenesValidas: pm.ordenes }), creado: new Date().toISOString(), fecha: hoy, por, en: FB.serverTimestamp() });
       info.b2b = { fuente: 'leido', ordenes: os.length, guardado: guardar };
     } else info.b2b = { fuente: 'sin_conexion' };
     meses.push(info);
+    pm.lineas = FV.conCatalogo(pm.lineas, cat.caja, cat.b2b);
+    porMes.push(pm);
   }
-  return { lineas: FV.conCatalogo(FV.juntar(lineas), cat.caja, cat.b2b), meses, lecturas, b2bEstado: cat.b2bEstado, faltan: faltanTodas };
+  return { lineas: FV.conCatalogo(FV.juntar(lineas), cat.caja, cat.b2b), meses, porMes, lecturas, b2bEstado: cat.b2bEstado, faltan: faltanTodas, catalogo: { caja: cat.caja, b2b: cat.b2b } };
 }
 // "Generar los que faltan": los resúmenes de cierres que no lo tienen (igual que Ventas de caja → Reportes)
 export async function generarResumenesFaltantes(cajas, avance) { return Caja.generarResumenes(cajas, avance); }
@@ -439,4 +449,17 @@ export async function historialVinculo(clave) {
   const sn = await FB.getDocs(FB.query(FB.collection(db, 'fin_productos_hist'), FB.where('clave', '==', clave)));
   const t = x => (x && typeof x.toMillis === 'function' ? x.toMillis() : 0);
   return sn.docs.map(d => d.data()).sort((a, b) => t(b.en) - t(a.en));
+}
+
+// ═══════════════ v0.60.0 · Margen de contribución (F2 paso 2) ═══════════════
+// Ajustes de márgenes: costos_config/finanzas, campo "margenes" (comisiones, mezcla de la caja, despacho B2B, margen objetivo, redondeo); historial
+export async function guardarAjustesMargenes(datos) {
+  const x = FMG.validarConfig(datos);
+  const db = await dbG(), ref = FB.doc(db, 'costos_config', 'finanzas'), fecha = hoyTxt(), por = yo();
+  await FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref), prev = sn.exists() ? sn.data() : {};
+    const historialMargenes = [...(Array.isArray(prev.historialMargenes) ? prev.historialMargenes : []), { antes: prev.margenes || null, despues: x, por, fecha }].slice(-50);
+    tx.set(ref, { ...prev, margenes: x, historialMargenes, updatedAt: FB.serverTimestamp() });
+  });
+  return FMG.configMargenes(x);
 }

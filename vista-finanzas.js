@@ -1,20 +1,22 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Finanzas  v0.59.0 (F1 pasos 1, 2 y 3; F2 paso 1)
+//  Sistema Fën — pantalla Finanzas  v0.60.0 (F1 pasos 1, 2 y 3; F2 pasos 1 y 2)
 //  Pestañas: Cómo trabajamos (el método acordado el 12-oct, fijo) · Costos (Productos, Materias primas, Compras del SII y Revisión de datos) · Márgenes (Ventas por producto, Asociar productos).
 //  v0.58.0: Costos → Productos (costo directo por producto con el motor finanzas-motor.js; detalle por ingrediente, historial,
 //  alzas sobre el % de aviso y Ajustes de Finanzas). Rutas: #finanzas/costos/productos[/alzas | /r/{recetaId}].
 //  v0.59.0: Márgenes (F2 paso 1): Ventas por producto (área × canal, neto) y Asociar productos (producto de venta → receta,
 //  reventa o "no es un producto"). Rutas: #finanzas/margenes[/asociar]. Reglas puras en finanzas-ventas.js.
-//  Más adelante: el margen de contribución en Márgenes, Resultados, Flujo de caja y Metas.
+//  v0.60.0: Márgenes (F2 paso 2): Margen por producto, Volumen × margen, Precio sugerido y Ajustes. Rutas: #finanzas/margenes/{margen|matriz|precios|ajustes}.
+//  Más adelante: Resultados, Flujo de caja y Metas.
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.59.0';
-import * as FC from './finanzas-costos.js?v=0.59.0';
-import * as FS from './finanzas-sii.js?v=0.59.0';
-import * as FM from './finanzas-motor.js?v=0.59.0';
-import * as FV from './finanzas-ventas.js?v=0.59.0';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.59.0';
+import * as F from './finanzas.js?v=0.60.0';
+import * as FC from './finanzas-costos.js?v=0.60.0';
+import * as FS from './finanzas-sii.js?v=0.60.0';
+import * as FM from './finanzas-motor.js?v=0.60.0';
+import * as FV from './finanzas-ventas.js?v=0.60.0';
+import * as FMG from './finanzas-margenes.js?v=0.60.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.60.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -60,8 +62,10 @@ const cab = (tab) => `<div class="cabecera"><div><h1 id="t-finanzas">Finanzas</h
 export async function pintar(el, sub, H) {
   const p = partes(), tab = p[1] === 'costos' ? 'costos' : p[1] === 'margenes' ? 'margenes' : 'como';
   st.msg = ''; st.err = '';
+  if (tab === 'margenes' && st.tabPrev !== 'margenes') MS.costos = null;   // v0.60.0: costos al día al entrar a Márgenes
+  st.tabPrev = tab;
   if (tab === 'como') { el.innerHTML = cab(tab) + comoTrabajamos(H); return; }
-  if (tab === 'margenes') return pintarMargenes(el, p[2] === 'asociar' ? 'asociar' : 'ventas', H);
+  if (tab === 'margenes') return pintarMargenes(el, ['asociar', 'margen', 'matriz', 'precios', 'ajustes'].includes(p[2]) ? p[2] : 'ventas', H);
   const parte = p[2] === 'revision' ? 'revision' : p[2] === 'compras' ? 'compras' : p[2] === 'productos' ? 'productos' : 'mp';
   el.innerHTML = cab(tab) + subPestanas(parte, null) + '<section class="tarjeta"><div class="vacio" style="border:0">Abriendo los costos…</div></section>';
   try {
@@ -715,10 +719,12 @@ const PI2 = { caja: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M
 const icM = (n, t = 18) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${PI2[n] || PI[n] || ''}</svg>`;
 
 function subMargenes(parte, n) {
+  const pill = (k, href, txt, extra = '') => `<a class="pastilla" href="#finanzas/margenes${href}" aria-current="${parte === k ? 'page' : 'false'}" aria-pressed="${parte === k}">${txt}${extra}</a>`;
+  const falta = MS.costos && !FMG.comisionConfigurada(cfgM());
   return `<div class="pastillas fin-sub" role="group" aria-label="Partes de Márgenes">
-    <a class="pastilla" href="#finanzas/margenes" aria-current="${parte === 'ventas' ? 'page' : 'false'}" aria-pressed="${parte === 'ventas'}">Ventas por producto</a>
-    <a class="pastilla" href="#finanzas/margenes/asociar" aria-current="${parte === 'asociar' ? 'page' : 'false'}" aria-pressed="${parte === 'asociar'}">Asociar productos${n ? ` <span class="chip c-amarillo chip-chico" title="Productos vendidos sin asociar">${n}</span>` : ''}</a></div>
-  <p class="fin-pronto">El margen de cada producto (precio neto − costo directo) llega en el próximo paso; aquí está la venta.</p>`;
+    ${pill('ventas', '', 'Ventas por producto')}${pill('margen', '/margen', 'Margen por producto')}${pill('matriz', '/matriz', 'Volumen × margen')}${pill('precios', '/precios', 'Precio sugerido')}
+    ${pill('asociar', '/asociar', 'Asociar productos', n ? ` <span class="chip c-amarillo chip-chico" title="Productos vendidos sin asociar">${n}</span>` : '')}
+    ${pill('ajustes', '/ajustes', 'Ajustes', falta ? ' <span class="chip c-amarillo chip-chico" id="m-falta-chip">Falta configurar</span>' : '')}</div>`;
 }
 function selectorPeriodo(H) {
   const hoy = hoyTxt(), mesHoy = FV.mesDe(hoy);
@@ -742,15 +748,23 @@ async function pintarMargenes(el, parte, H) {
       const [d, v, r] = await Promise.all([F.ventasPeriodo(per, { avance: m => { const x = $('m-leyendo'); if (x) x.textContent = `Leyendo las ventas de ${NOMBRE_MES(m)}…`; } }), F.leerVinculos(), F.recetasVenta()]);
       MS.datos = d; MS.vinc = v; MS.recetas = r; MS.clave = clave;
     }
+    // v0.60.0: costos (último cálculo guardado + historial) y ajustes de márgenes; una vez por visita a Márgenes
+    if (!MS.costos) MS.costos = await F.leerProductos();
   } catch (e) { el.innerHTML = base(`<section class="tarjeta">${selectorPeriodo(H)}<p class="error" role="alert">${H.esc(error(e, H))}</p></section>`); conectarPeriodo(el, parte, H); return; }
   if (partes()[1] !== 'margenes') return;
   dibujarMargenes(el, parte, H);
 }
 function dibujarMargenes(el, parte, H) {
   const prods = productosM(), sin = prods.filter(p => !p.vinculo);
-  el.innerHTML = cab('margenes') + subMargenes(parte, sin.length) + (parte === 'asociar' ? htmlAsociar(prods, H) : htmlVentas(prods, H));
+  const cuerpo = { asociar: () => htmlAsociar(prods, H), margen: () => htmlMargen(H), matriz: () => htmlMatriz(H), precios: () => htmlPrecios(H), ajustes: () => htmlAjustesM(H) }[parte];
+  el.innerHTML = cab('margenes') + subMargenes(parte, sin.length) + (cuerpo ? cuerpo() : htmlVentas(prods, H));
   conectarPeriodo(el, parte, H);
-  if (parte === 'asociar') conectarAsociar(el, prods, H); else conectarVentas(el, prods, H);
+  if (parte === 'asociar') conectarAsociar(el, prods, H);
+  else if (parte === 'margen') conectarMargen(el, H);
+  else if (parte === 'matriz') conectarMatriz(el, H);
+  else if (parte === 'precios') conectarPrecios(el, H);
+  else if (parte === 'ajustes') conectarAjustesM(el, H);
+  else conectarVentas(el, prods, H);
 }
 function conectarPeriodo(el, parte, H) {
   el.querySelectorAll('[data-m-per]').forEach(b => b.addEventListener('click', () => {
@@ -823,7 +837,7 @@ function htmlVentas(prods, H) {
       ${FV.AREAS.map(a => cifra(FV.NOMBRE_AREA[a], t.porArea[a] || 0, '', parte(t.porArea[a] || 0))).join('')}
       ${t.sinAsociar ? cifra('Sin asociar', t.sinAsociar, 'Venta de productos que todavía no tienen receta (ni son reventa): no tienen área. Asócialos en Asociar productos.', parte(t.sinAsociar), 'fin-msin') : ''}</div>
     ${t.reventa ? `<p class="ayuda">Incluye ${pesosM(t.reventa)} de reventa (va al área que elegiste para cada una).</p>` : ''}
-    <div class="filtros fin-filtros">
+    <div class="filtros fin-filtros" id="m-filtros-ventas">
       <div class="fin-buscar">${ic('lupa', 18)}<label class="sr" for="m-q">Buscar producto</label><input type="search" id="m-q" placeholder="Buscar producto…" autocomplete="off" spellcheck="false" value="${H.esc(MS.q)}"></div>
       <div class="chips" role="group" aria-label="Filtrar por área">${['todas', ...FV.AREAS, 'sin'].map(a => `<button type="button" class="chip-filtro" data-m-area="${a}" aria-pressed="${MS.area === a}">${a === 'todas' ? 'Todas' : a === 'sin' ? 'Sin asociar' : FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
       <div class="chips" role="group" aria-label="Filtrar por canal">${['todos', ...FV.SUCS].map(c => `<button type="button" class="chip-filtro" data-m-canal="${c}" aria-pressed="${MS.canal === c}">${c === 'todos' ? 'Todos los canales' : FV.NOMBRE_SUC[c]}</button>`).join('')}</div></div>
@@ -866,7 +880,7 @@ function conectarVentas(el, prods, H) {
   pintarFilasVentas(prods, H);
   const q = $('m-q'); if (q) q.addEventListener('input', () => { MS.q = q.value; pintarFilasVentas(prods, H); });
   el.querySelectorAll('[data-m-area]').forEach(b => b.addEventListener('click', () => { MS.area = b.dataset.mArea; el.querySelectorAll('[data-m-area]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); pintarFilasVentas(prods, H); }));
-  el.querySelectorAll('[data-m-canal]').forEach(b => b.addEventListener('click', () => { MS.canal = b.dataset.mCanal; MS.msg = ''; dibujarMargenes(el, 'ventas', H); }));
+  el.querySelectorAll('#m-filtros-ventas [data-m-canal]').forEach(b => b.addEventListener('click', () => { MS.canal = b.dataset.mCanal; MS.msg = ''; dibujarMargenes(el, 'ventas', H); }));
   const filas = $('m-filas');
   if (filas) filas.addEventListener('click', ev => { const b = ev.target.closest('[data-m-asociar]'); if (b) { const p = prods.find(x => x.clave === b.dataset.mAsociar); if (p) dialogoVinculo(p, el, 'ventas', H); } });
 }
@@ -887,7 +901,7 @@ function htmlAsociar(prods, H) {
     <div class="acciones fin-c-acc">${!conCambio && p.propuesta && p.propuesta.receta ? `<button type="button" class="btn" data-m-confirmar="${H.esc(p.clave)}">${ic('check', 16)} Confirmar</button>` : ''}
       <button type="button" class="btn-sec" data-m-asociar="${H.esc(p.clave)}">${conCambio ? 'Cambiar' : 'Asociar…'}</button></div></div>`;
   return `<section class="tarjeta" aria-labelledby="t-m-asoc">
-    <div class="titulo-fila fin-titulo"><h2 id="t-m-asoc">Asociar productos ${H.info('Asociar productos', 'Cada producto que se vende en la caja o en B2B se asocia a la receta que lo produce: de ahí sale su área y, en el próximo paso, su costo y su margen.\nReventa: algo que se compra hecho y se vende (bebidas, por ejemplo). Eliges el área y anotas su costo de compra neto (por ahora a mano).\nNo es un producto: propinas, cargos de despacho, ajustes… no suman en la venta por producto.\nUnidades por venta: cuántas unidades de la receta lleva una venta (una "caja de 6" = 6).\nLa sugerencia sale primero del ID de receta que ya tiene el producto en el catálogo de la caja o de B2B; si no, de un nombre parecido. Nada se asocia solo: tú confirmas.\nCada cambio queda en el historial. Se guarda en Finanzas (fen-gastos): no cambia nada en la caja ni en B2B.')}</h2>
+    <div class="titulo-fila fin-titulo"><h2 id="t-m-asoc">Asociar productos ${H.info('Asociar productos', 'Cada producto que se vende en la caja o en B2B se asocia a la receta que lo produce: de ahí sale su área, su costo y su margen.\nReventa: algo que se compra hecho y se vende (bebidas, por ejemplo). Eliges el área y anotas su costo de compra neto (por ahora a mano).\nNo es un producto: propinas, cargos de despacho, ajustes… no suman en la venta por producto.\nUnidades por venta: cuántas unidades de la receta lleva una venta (una "caja de 6" = 6).\nLa sugerencia sale primero del ID de receta que ya tiene el producto en el catálogo de la caja o de B2B; si no, de un nombre parecido. Nada se asocia solo: tú confirmas.\nCada cambio queda en el historial. Se guarda en Finanzas (fen-gastos): no cambia nada en la caja ni en B2B.')}</h2>
       <span class="chip ${sin.length ? 'c-amarillo' : 'c-verde'}">${nf(sin.length)} sin asociar</span></div>
     ${selectorPeriodo(H)}
     <p class="ok-texto" id="m-msg" role="status">${H.esc(MS.msg)}</p><p class="error" id="m-err" role="alert">${H.esc(MS.err)}</p>
@@ -946,11 +960,13 @@ function dialogoVinculo(p, el, volver, H) {
       ${sug.length || catRec ? '<span class="ayuda">Primero la del catálogo y las de nombre parecido.</span>' : ''}${recetas.sinProduccion ? '<span class="aviso">Producción no está conectada: la lista es la del último costeo (solo recetas aprobadas).</span>' : ''}</div></div>
     <div id="m-v-rev" class="${tipo0 === 'reventa' ? '' : 'oculto'}">
       <div class="campo"><label for="m-v-area">Área</label><select id="m-v-area"><option value="">Elige…</option>${FV.AREAS.map(a => `<option value="${a}" ${a === area0 ? 'selected' : ''}>${FV.NOMBRE_AREA[a]}</option>`).join('')}</select></div>
-      <div class="campo"><label for="m-v-costo">Costo de compra por unidad, neto (opcional) ${H.info('Costo de la reventa', 'Lo que pagas por una unidad, sin IVA. Por ahora se anota a mano; se usará para el margen en el próximo paso. Si lo copias de una boleta con IVA, marca la casilla.')}</label>
+      <div class="campo"><label for="m-v-costo">Costo de compra por unidad, neto (opcional) ${H.info('Costo de la reventa', 'Lo que pagas por una unidad, sin IVA. Por ahora se anota a mano; es el costo directo de la reventa en Margen por producto. Si lo copias de una boleta con IVA, marca la casilla.')}</label>
         <input id="m-v-costo" type="number" inputmode="decimal" min="0" step="any" value="${v && v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? H.esc(String(v.costoReventaNeto)) : ''}">
         <label class="check fin-check"><input type="checkbox" id="m-v-iva"> Lo escribo con IVA (19 %)</label></div></div>
     <div id="m-v-upv" class="campo ${tipo0 === 'ignorar' ? 'oculto' : ''}"><label for="m-v-u">Unidades por venta ${H.info('Unidades por venta', 'Cuántas unidades de la receta (o de la reventa) lleva una venta de este producto. Casi siempre 1. Una "caja de 6 alfajores" = 6; "media docena" = 6.')}</label>
       <input id="m-v-u" type="number" inputmode="decimal" min="0" step="any" value="${H.esc(String(v ? v.unidadesPorVenta ?? 1 : 1))}"></div>
+    <div id="m-v-extra" class="campo ${tipo0 === 'ignorar' ? 'oculto' : ''}"><label for="m-v-ex">Costo extra por venta, neto (opcional) ${H.info('Costo extra por venta', 'Envases o lo que se agrega al vender y no está en la receta (caja, bolsa, vaso, tapa), sin IVA, por cada venta de este producto: una "caja de 6" lleva una caja.\nSuma al costo directo en Margen por producto y en Precio sugerido.')}</label>
+      <input id="m-v-ex" type="number" inputmode="decimal" min="0" step="any" value="${v && v.costoExtraNeto !== null && v.costoExtraNeto !== undefined ? H.esc(String(v.costoExtraNeto)) : ''}"></div>
     <div class="campo"><label for="m-v-nota">Nota (opcional)</label><input id="m-v-nota" type="text" maxlength="200" value="${H.esc((v && v.nota) || '')}"></div>
     <p class="error" id="m-v-err" role="alert"></p>
     <div class="botones"><button type="button" class="btn-sec" id="m-v-no">Cancelar</button><button type="submit" class="btn" id="m-v-si">Guardar</button></div>
@@ -959,7 +975,7 @@ function dialogoVinculo(p, el, volver, H) {
   conBuscador(d.querySelector('#m-v-receta'));
   d.querySelector('#m-v-no').addEventListener('click', () => d.close());
   const tipo = () => d.querySelector('input[name="m-vt"]:checked').value;
-  const vis = () => { const t = tipo(); d.querySelector('#m-v-rec').classList.toggle('oculto', t !== 'receta'); d.querySelector('#m-v-rev').classList.toggle('oculto', t !== 'reventa'); d.querySelector('#m-v-upv').classList.toggle('oculto', t === 'ignorar'); };
+  const vis = () => { const t = tipo(); d.querySelector('#m-v-rec').classList.toggle('oculto', t !== 'receta'); d.querySelector('#m-v-rev').classList.toggle('oculto', t !== 'reventa'); d.querySelector('#m-v-upv').classList.toggle('oculto', t === 'ignorar'); d.querySelector('#m-v-extra').classList.toggle('oculto', t === 'ignorar'); };
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
   if (v) F.historialVinculo(p.clave).then(hs => {
     const c2 = d.querySelector('#m-v-hist'); if (!c2) return;
@@ -969,7 +985,7 @@ function dialogoVinculo(p, el, volver, H) {
     ev.preventDefault();
     const err = d.querySelector('#m-v-err'), b = d.querySelector('#m-v-si'); err.textContent = '';
     const datos = { canal: p.canal, productoId: p.productoId, nombre: p.nombre, tipo: tipo(), receta: d.querySelector('#m-v-receta').value, area: d.querySelector('#m-v-area').value,
-      costoReventaNeto: d.querySelector('#m-v-costo').value, conIva: d.querySelector('#m-v-iva').checked, unidadesPorVenta: d.querySelector('#m-v-u').value, nota: d.querySelector('#m-v-nota').value,
+      costoReventaNeto: d.querySelector('#m-v-costo').value, conIva: d.querySelector('#m-v-iva').checked, unidadesPorVenta: d.querySelector('#m-v-u').value, costoExtraNeto: d.querySelector('#m-v-ex').value, nota: d.querySelector('#m-v-nota').value,
       origen: p.propuesta && p.propuesta.receta === d.querySelector('#m-v-receta').value ? p.propuesta.origen : 'manual' };
     try { FV.armarVinculo(v, datos, { recetas }); } catch (e) { err.textContent = e.message; return; }
     b.disabled = true; b.textContent = 'Guardando…';
@@ -979,6 +995,267 @@ function dialogoVinculo(p, el, volver, H) {
       H.registrar('Finanzas: asoció un producto de venta', `${p.nombre} (${canalTxt(p)}) → ${FV.textoVinculo(r.doc)}`);
       MS.msg = `${p.nombre} → ${FV.textoVinculo(r.doc)}.`; MS.err = '';
       d.close(); dibujarMargenes(el, volver, H);
+    } catch (e) { err.textContent = error(e, H); b.disabled = false; b.textContent = 'Guardar'; }
+  });
+}
+
+// ═══════════════ v0.60.0 · Márgenes (F2 paso 2): margen de contribución, matriz volumen × margen, precio sugerido y ajustes ═══════════════
+// Reglas puras en finanzas-margenes.js. Usa el último costo guardado de cada receta (costos_recetas) y su historial (costo del mes).
+Object.assign(MS, { modo: 'mes', mcCanal: 'todos', mcArea: 'todas', mcOrden: 'mc', mxArea: '', prArea: 'todas', ajMsg: '' });
+const cfgM = () => FMG.configMargenes(MS.costos && MS.costos.config && MS.costos.config.margenes);
+const calcM = (canal = MS.mcCanal) => FMG.calcularMargenes(MS.datos ? MS.datos.porMes || [] : [], MS.vinc || {}, MS.costos || {}, cfgM(), { hoy: hoyTxt(), modo: MS.modo, canal });
+const pctM = (v, d = 1) => (v === null || v === undefined || !isFinite(v) ? '—' : `${(Math.round(v * 10 ** d) / 10 ** d).toLocaleString('es-CL')}\u00a0%`);
+const pctF = v => pctM(v * 100);
+const unidTxt = f => `${cantM(f.unidadesL)}${f.lectura === 'kg' ? ' kg' : ''}`;
+const porTxt = f => (f.lectura === 'kg' ? ' / kg' : '');
+const mcCls = v => (v === null || v === undefined ? '' : v < 0 ? 'fin-neg' : '');
+const MOTIVO = m => m.replace(/^sin costo calculado$/, 'la receta no tiene costo calculado (ábrela en Costos)').replace(/^costo 0$/, 'costo 0');
+
+// Aviso "falta configurar" (solo aquí, no en Hoy)
+function avisoComision(H) {
+  const c = cfgM();
+  if (FMG.comisionConfigurada(c)) return '';
+  return `<p class="aviso" id="m-falta-com">${ic('neto', 18)} <span><b>Falta configurar la comisión de tarjeta</b> (débito, crédito y otros). Mientras tanto se usa 0 % y el margen de la caja sale más alto de lo real. <a href="#finanzas/margenes/ajustes">Configurar en Ajustes</a></span></p>`;
+}
+function selectorCosto(H, r) {
+  const b = (k, t) => `<button type="button" class="chip-filtro" data-m-modo="${k}" aria-pressed="${MS.modo === k}">${t}</button>`;
+  const f = r.fuentes, usado = MS.modo === 'hoy' ? 'Costo de hoy para todo el período.'
+    : 'Costo del mes: ' + [f.mes ? `${nf(f.mes)} ${f.mes === 1 ? 'línea' : 'líneas'} con el costo de ese mes (historial)` : '', f.hoy ? `${nf(f.hoy)} del mes en curso con el costo de hoy` : '', f.hoy_sin_hist ? `${nf(f.hoy_sin_hist)} con el de hoy porque no hay historial de ese mes` : ''].filter(Boolean).join(', ') + '.';
+  return `<div class="fin-mmodo"><div class="chips" role="group" aria-label="Qué costo usar">${b('mes', 'Costo del mes')}${b('hoy', 'Costo de hoy')}</div>
+    <span class="ayuda" id="m-costo-usado">${H.esc(usado)} ${H.info('Qué costo directo se usa', 'Costo del mes (recomendado): para cada mes del período, el último costo por unidad registrado en el historial de Costos hasta el último día de ese mes. El mes en curso usa el costo de hoy. Si un producto no tiene historial de ese mes (por ejemplo, Costos se empezó a usar después), se usa el de hoy y se dice aquí.\nEl historial guarda los cambios de más de 0,5 %, así que el costo del mes puede diferir en menos de eso.\nCosto de hoy: el último cálculo de Costos para todo el período (útil para ver cómo quedaría el margen con los precios de compra de hoy).')}</span></div>`;
+}
+function tarjetaMC(tit, t, H, { id = '', ayuda = false, cls = '' } = {}) {
+  const i = (n, x) => (ayuda ? ' ' + H.info(n, x) : '');
+  return `<div class="fin-mcc ${cls}" ${id ? `id="${id}"` : ''}><h4>${H.esc(tit)}</h4><dl>
+    <div><dt>Venta neta${i('Venta neta', 'Lo vendido sin IVA, de los productos con costo (los sin costo van aparte, abajo).')}</dt><dd>${pesosM(t.neto)}</dd></div>
+    <div><dt>Costo directo${i('Costo directo', 'Receta: costo por unidad × unidades (vendido × unidades por venta). Reventa: costo de compra neto × unidades. Más el costo extra por venta (envases que no están en la receta).')}</dt><dd>− ${pesosM(t.costo)}</dd></div>
+    <div><dt>Costos de venta${i('Costos de venta', 'Caja: comisión de tarjeta = venta neta × 1,19 × (parte pagada con cada medio × su comisión). La comisión se cobra sobre lo pagado, con IVA.\nB2B: despacho (% de la venta neta, o $ por orden repartido según la venta de cada producto).\nSe configuran en Ajustes.')}</dt><dd>− ${pesosM(t.costoVenta)}</dd></div>
+    <div class="fin-mcc-mc"><dt>Margen de contribución${i('Margen de contribución', 'MC = venta neta − costo directo − costos de venta. Es lo que queda para pagar los fijos del área y los comunes, y la utilidad.')}</dt><dd class="${mcCls(t.mc)}">${pesosM(t.mc)}</dd></div>
+    <div><dt>MC %${i('MC %', 'MC ÷ venta neta. Se mide sobre el precio neto (sin IVA).')}</dt><dd><b>${pctM(t.mcPct)}</b></dd></div></dl></div>`;
+}
+
+// ── Margen por producto ──
+function htmlMargen(H) {
+  const r = calcM(), t = r.totales, per = perActual();
+  const filas = FMG.ordenarMargen(r.filas.filter(f => f.ok && (MS.mcArea === 'todas' || f.area === MS.mcArea)), MS.mcOrden);
+  const fuera = r.filas.filter(f => !f.ok).sort((a, b) => b.neto - a.neto);
+  const sucs = FV.SUCS.filter(sc => MS.mcCanal === 'todos' || sc === MS.mcCanal);
+  return `<section class="tarjeta" aria-labelledby="t-m-mc">
+    <div class="titulo-fila fin-titulo"><h2 id="t-m-mc">Margen por producto ${H.info('Margen de contribución por producto', 'MC = venta neta − costo directo − costos de venta (comisión de tarjeta en la caja, despacho en B2B). MC % = MC ÷ venta neta.\nTodo en neto. Lo indirecto (sueldos fijos, arriendo, luz) no se reparte por producto: entra a nivel de área en Resultados.\nLos productos sin costo (sin asociar, receta sin costo, costo incompleto o reventa sin costo de compra) se muestran aparte y no entran en los totales ni en los %.')}</h2>
+      <span class="ayuda">${H.esc(fechaTxt(per.desde))} al ${H.esc(fechaTxt(per.hasta))}</span></div>
+    ${selectorPeriodo(H)}
+    <p class="ok-texto" id="m-msg" role="status">${H.esc(MS.msg)}</p><p class="error" id="m-err" role="alert">${H.esc(MS.err)}</p>
+    ${htmlFuente(H)}
+    ${avisoComision(H)}
+    ${selectorCosto(H, r)}
+    <p class="fin-mcob-nota" id="m-mc-cob">Con costo: <b>${pctM(t.coberturaPct)}</b> de la venta neta (${pesosM(t.todo - t.excluido)} de ${pesosM(t.todo)}). ${H.info('Cobertura del margen', 'Parte de la venta neta del período (y canal elegido) que tiene costo directo y entra en el margen. El resto (abajo, "Sin costo o incompleto") no se cuenta en los totales ni en los %: hay que completarlo para que el margen del área sea real.')}${fuera.length ? ` <a href="#m-fuera">${nf(fuera.length)} sin costo o incompleto (${pesosM(t.excluido)})</a>` : ''}</p>
+    <h3 class="fin-dtit">Por canal</h3>
+    <div class="fin-mccs" id="m-mc-canales">${tarjetaMC(MS.mcCanal === 'todos' ? 'Total' : 'Total del canal', t.total, H, { ayuda: true, cls: 'fin-mcc-tot', id: 'm-mc-total' })}${sucs.map(sc => tarjetaMC(FV.NOMBRE_SUC[sc], t.porSuc[sc], H)).join('')}</div>
+    <h3 class="fin-dtit">Por área</h3>
+    <div class="fin-mccs" id="m-mc-areas">${FV.AREAS.map(a => tarjetaMC(FV.NOMBRE_AREA[a], t.porArea[a], H)).join('')}</div>
+    <div class="filtros fin-filtros" id="m-mc-filtros">
+      <div class="chips" role="group" aria-label="Filtrar por área">${['todas', ...FV.AREAS].map(a => `<button type="button" class="chip-filtro" data-mc-area="${a}" aria-pressed="${MS.mcArea === a}">${a === 'todas' ? 'Todas' : FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
+      <div class="chips" role="group" aria-label="Filtrar por canal">${['todos', ...FV.SUCS].map(c => `<button type="button" class="chip-filtro" data-mc-canal="${c}" aria-pressed="${MS.mcCanal === c}">${c === 'todos' ? 'Todos los canales' : FV.NOMBRE_SUC[c]}</button>`).join('')}</div>
+      <div class="campo fin-orden"><label for="m-mc-orden">Ordenar por</label><select id="m-mc-orden">${FMG.ORDENES_MC.map(([k, x]) => `<option value="${k}" ${MS.mcOrden === k ? 'selected' : ''}>${x}</option>`).join('')}</select></div></div>
+    <div class="fin-mctabla" aria-label="Margen por producto">
+      <div class="fin-mcf fin-mcab" aria-hidden="true"><span>Producto</span><span>Unidades</span><span>Precio neto prom.</span><span>Costo unit.</span><span>MC unit.</span><span>MC %</span><span>MC total</span><span>% del MC total</span></div>
+      <div id="m-mc-filas">${filas.length ? filas.map(f => filaMC(f, H)).join('') + filaTotalMC(filas) : `<div class="vacio">${r.filas.length ? 'Ningún producto con costo en este filtro.' : 'No hay ventas en este período.'}</div>`}</div></div>
+    <p class="ayuda fin-mcleyenda">Por unidad de la receta (o por kg si la receta rinde gramos). Costo unit. = costo directo ÷ unidades; MC unit. = MC ÷ unidades; % del MC total = MC del producto ÷ MC de todos los productos con costo. ${H.info('Cómo leer la tabla', 'Unidades: lo vendido × unidades por venta.\nPrecio neto prom.: venta neta ÷ unidades.\nCosto unit.: costo directo ÷ unidades (promedio del período si el costo cambió).\nMC unit.: (venta neta − costo directo − costos de venta) ÷ unidades.\nMC %: MC ÷ venta neta.\nMC total: el margen de contribución del producto en el período.\n% del MC total: cuánto aporta al margen de todos los productos con costo (del canal elegido).')}</p>
+  </section>
+  ${fuera.length ? `<section class="tarjeta" aria-labelledby="t-m-fuera" id="m-fuera">
+    <h2 id="t-m-fuera">Sin costo o incompleto <span class="chip c-amarillo chip-chico">${nf(fuera.length)}</span> ${H.info('Sin costo o incompleto', 'Productos vendidos que no entran en el margen: sin asociar a una receta, receta sin costo calculado o con costo incompleto (le falta precio a algún ingrediente), o reventa sin costo de compra.\nSu venta no se cuenta en los totales ni en los % de arriba. Complétalos en Asociar productos o en Costos.')}</h2>
+    <ul class="fin-mfuera">${fuera.map(f => `<li data-mc-fuera="${H.esc(f.clave)}"><div><b>${H.esc(f.nombre)}</b> <span class="ayuda">${H.esc(FV.NOMBRE_AREA[f.area] || 'Sin área')}</span><span class="ayuda">${H.esc(f.motivos.map(MOTIVO).join(' · '))}</span></div>
+      <div class="fin-mfuera-d"><span>${pesosM(f.neto)} <span class="ayuda">neto</span></span>${f.tipo === 'receta' ? `<a href="#finanzas/costos/productos/r/${encodeURIComponent(f.receta)}">Ver costo</a>` : '<a href="#finanzas/margenes/asociar">Asociar</a>'}</div></li>`).join('')}</ul></section>` : ''}`;
+}
+function filaMC(f, H) {
+  const fuentes = f.fuentes.map(x => `${x.nombre} (${x.canal === 'b2b' ? 'B2B' : 'caja'}${x.unidadesPorVenta !== 1 ? ` × ${String(x.unidadesPorVenta).replace('.', ',')}` : ''})`).join(' · ');
+  return `<div class="fin-mcf" data-mc-fila="${H.esc(f.clave)}">
+    <span class="fin-nombre"><b>${H.esc(f.nombre)}</b> <span class="ayuda">${H.esc(FV.NOMBRE_AREA[f.area] || f.area || '')}${f.tipo === 'reventa' ? ' · reventa' : ''}</span>${f.tipo === 'receta' ? `<span class="ayuda fin-mcf-src">${H.esc(fuentes)}</span>` : ''}${f.fuenteCosto.includes('hoy_sin_hist') && MS.modo === 'mes' ? '<span class="ayuda">Costo de hoy (sin historial de ese mes)</span>' : ''}</span>
+    <span><span class="fin-et">Unidades</span>${unidTxt(f)}</span>
+    <span><span class="fin-et">Precio neto prom.</span>${f.precioUnit === null ? '—' : pesosM(f.precioUnit) + porTxt(f)}</span>
+    <span><span class="fin-et">Costo unit.</span>${f.costoUnit === null ? '—' : pesosM(f.costoUnit) + porTxt(f)}</span>
+    <span><span class="fin-et">MC unit.</span><span class="${mcCls(f.mcUnit)}">${f.mcUnit === null ? '—' : pesosM(f.mcUnit) + porTxt(f)}</span></span>
+    <span><span class="fin-et">MC %</span><b class="${mcCls(f.mcPct)}">${pctM(f.mcPct)}</b></span>
+    <span><span class="fin-et">MC total</span><b class="${mcCls(f.mc)}">${pesosM(f.mc)}</b></span>
+    <span><span class="fin-et">% del MC total</span>${pctM(f.pctMcTotal)}</span></div>`;
+}
+function filaTotalMC(filas) {
+  const n = filas.reduce((a, f) => a + f.neto, 0), mc = filas.reduce((a, f) => a + f.mc, 0), pt = filas.reduce((a, f) => a + (f.pctMcTotal || 0), 0);
+  return `<div class="fin-mcf fin-mtotal" id="m-mc-tot"><span class="fin-nombre"><b>Total (${nf(filas.length)} ${filas.length === 1 ? 'producto' : 'productos'})</b> <span class="ayuda">venta neta ${pesosM(n)}</span></span>
+    <span></span><span></span><span></span><span></span><span><span class="fin-et">MC %</span><b>${pctM(n > 0 ? mc / n * 100 : null)}</b></span><span><span class="fin-et">MC total</span><b>${pesosM(mc)}</b></span><span><span class="fin-et">% del MC total</span>${pctM(pt)}</span></div>`;
+}
+function conectarModo(el, parte, H) {
+  el.querySelectorAll('[data-m-modo]').forEach(b => b.addEventListener('click', () => { MS.modo = b.dataset.mModo; MS.msg = ''; dibujarMargenes(el, parte, H); }));
+}
+function conectarMargen(el, H) {
+  conectarModo(el, 'margen', H);
+  el.querySelectorAll('[data-mc-area]').forEach(b => b.addEventListener('click', () => { MS.mcArea = b.dataset.mcArea; MS.msg = ''; dibujarMargenes(el, 'margen', H); }));
+  el.querySelectorAll('[data-mc-canal]').forEach(b => b.addEventListener('click', () => { MS.mcCanal = b.dataset.mcCanal; MS.msg = ''; dibujarMargenes(el, 'margen', H); }));
+  const o = $('m-mc-orden'); if (o) o.addEventListener('change', () => { MS.mcOrden = o.value; MS.msg = ''; dibujarMargenes(el, 'margen', H); });
+}
+
+// ── Matriz volumen × margen ──
+function svgMatriz(m, nums, H) {
+  const angosto = typeof matchMedia === 'function' && matchMedia('(max-width: 760px)').matches;   // en el celular, menos ancho = letra más grande
+  const W = angosto ? 310 : 400, Hh = angosto ? 270 : 290, L = 54, R = 10, T = 12, B = 40, pw = W - L - R, ph = Hh - T - B;
+  const xs = m.puntos.map(p => p.unidadesL), ys = m.puntos.map(p => p.mcUnit);
+  const xMax = Math.max(...xs, m.volProm) * 1.15 || 1;
+  let yMin = Math.min(0, ...ys, m.mcProm), yMax = Math.max(...ys, m.mcProm);
+  const pad = (yMax - yMin) * 0.15 || Math.abs(yMax) * 0.15 || 1; yMax += pad; if (yMin < 0) yMin -= pad;
+  const sx = x => L + x / xMax * pw, sy = y => T + (yMax - y) / (yMax - yMin) * ph;
+  const cx = sx(m.volProm), cy = sy(m.mcProm);
+  const k = v => Math.round(v).toLocaleString('es-CL');
+  const zona = (x, y, w, h, c) => `<rect x="${x}" y="${y}" width="${Math.max(0, w)}" height="${Math.max(0, h)}" fill="var(${c})" opacity=".55"/>`;
+  const rot = (x, y, t, a) => `<text x="${x}" y="${y}" text-anchor="${a}" font-size="10" font-weight="700" fill="var(--suave)" stroke="var(--tarjeta)" stroke-width="3" paint-order="stroke">${t}</text>`;
+  return `<svg class="fin-mx-svg" viewBox="0 0 ${W} ${Hh}" role="img" aria-labelledby="m-mx-svg-t m-mx-svg-d">
+    <title id="m-mx-svg-t">Matriz volumen × margen de ${H.esc(FV.NOMBRE_AREA[m.area])}</title>
+    <desc id="m-mx-svg-d">${nf(m.puntos.length)} productos. Eje horizontal: unidades vendidas (promedio ${k(m.volProm)}). Eje vertical: margen de contribución por unidad (promedio $${k(m.mcProm)}). Las listas de abajo tienen el mismo contenido.</desc>
+    ${zona(cx, T, L + pw - cx, cy - T, '--verde')}${zona(L, T, cx - L, cy - T, '--azul')}${zona(cx, cy, L + pw - cx, T + ph - cy, '--amarillo')}${zona(L, cy, cx - L, T + ph - cy, '--rojo')}
+    ${rot(cx + 4, cy - 5, 'Estrellas', 'start')}${rot(cx - 4, cy - 5, 'Con potencial', 'end')}${rot(cx + 4, cy + 13, 'De volumen', 'start')}${rot(cx - 4, cy + 13, 'Revisar', 'end')}
+    <line x1="${cx}" y1="${T}" x2="${cx}" y2="${T + ph}" stroke="var(--suave)" stroke-dasharray="4 3"/><line x1="${L}" y1="${cy}" x2="${L + pw}" y2="${cy}" stroke="var(--suave)" stroke-dasharray="4 3"/>
+    <line x1="${L}" y1="${T + ph}" x2="${L + pw}" y2="${T + ph}" stroke="var(--borde)"/><line x1="${L}" y1="${T}" x2="${L}" y2="${T + ph}" stroke="var(--borde)"/>
+    ${yMin < 0 ? `<line x1="${L}" y1="${sy(0)}" x2="${L + pw}" y2="${sy(0)}" stroke="var(--borde)"/>` : ''}
+    <text x="${L}" y="${T + ph + 14}" font-size="10" fill="var(--suave)">0</text><text x="${cx}" y="${T + ph + 14}" font-size="10" text-anchor="middle" fill="var(--suave)">${k(m.volProm)}</text>
+    <text x="${L + pw / 2}" y="${Hh - 6}" font-size="10.5" text-anchor="middle" fill="var(--texto)">Unidades vendidas →</text>
+    <text x="${L - 4}" y="${cy + 3}" font-size="10" text-anchor="end" fill="var(--suave)">$${k(m.mcProm)}</text>
+    <text x="11" y="${T + ph / 2}" font-size="10.5" text-anchor="middle" fill="var(--texto)" transform="rotate(-90 11 ${T + ph / 2})">MC por unidad →</text>
+    ${m.puntos.map(p => `<g><title>${H.esc(`${nums[p.clave]}. ${p.nombre}: ${cantM(p.unidadesL)} ${p.lectura}, MC $${k(p.mcUnit)} por ${p.lectura}`)}</title><circle cx="${sx(p.unidadesL)}" cy="${sy(p.mcUnit)}" r="9" fill="var(--tarjeta)" stroke="var(--acento)" stroke-width="1.6"/>
+      <text x="${sx(p.unidadesL)}" y="${sy(p.mcUnit) + 3.5}" font-size="9.5" font-weight="700" text-anchor="middle" fill="var(--acento)">${nums[p.clave]}</text></g>`).join('')}
+  </svg>`;
+}
+function htmlMatriz(H) {
+  const r = calcM('todos');
+  const conDatos = FV.AREAS.filter(a => r.filas.some(f => f.ok && f.area === a && f.unidadesL > 0));
+  if (!MS.mxArea || !FV.AREAS.includes(MS.mxArea)) MS.mxArea = conDatos[0] || 'PAN';
+  const m = FMG.matriz(r.filas, MS.mxArea), per = perActual();
+  const nums = {}; FMG.ordenarMargen(m.puntos, 'mc').forEach((p, i) => { nums[p.clave] = i + 1; });
+  const mezcla = m.puntos.some(p => p.lectura === 'kg') && m.puntos.some(p => p.lectura === 'un');
+  return `<section class="tarjeta" aria-labelledby="t-m-mx">
+    <div class="titulo-fila fin-titulo"><h2 id="t-m-mx">Volumen × margen ${H.info('Matriz volumen × margen', 'Cada producto con costo del área, según cuánto se vende (unidades del período) y cuánto deja cada unidad (margen de contribución por unidad, en pesos: el eje clásico de la ingeniería de menú, porque mide lo que aporta cada venta).\nLos cortes son los promedios del área: unidades = promedio simple de sus productos; MC por unidad = MC total del área ÷ unidades totales (promedio ponderado).\nEstrellas: mucho volumen y buen margen. De volumen: mucho volumen, margen bajo. Con potencial: poco volumen, buen margen. Revisar: poco volumen y margen bajo.\nTodos los canales juntos; usa el mismo costo que Margen por producto. Los productos sin costo no aparecen.')}</h2>
+      <span class="ayuda">${H.esc(fechaTxt(per.desde))} al ${H.esc(fechaTxt(per.hasta))}</span></div>
+    ${selectorPeriodo(H)}
+    <p class="ok-texto" id="m-msg" role="status">${H.esc(MS.msg)}</p><p class="error" id="m-err" role="alert">${H.esc(MS.err)}</p>
+    ${avisoComision(H)}
+    ${selectorCosto(H, r)}
+    <div class="chips fin-mx-areas" role="group" aria-label="Área">${FV.AREAS.map(a => `<button type="button" class="chip-filtro" data-mx-area="${a}" aria-pressed="${MS.mxArea === a}">${FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
+    ${m.puntos.length ? `<p class="ayuda" id="m-mx-prom">Promedios de ${H.esc(FV.NOMBRE_AREA[m.area])}: <b>${cantM(Math.round(m.volProm * 10) / 10)}</b> unidades por producto · MC <b>${pesosM(m.mcProm)}</b> por unidad ${H.info('Promedios del área', `Unidades: suma de las unidades de los ${m.puntos.length} productos ÷ ${m.puntos.length}.\nMC por unidad: MC total del área ÷ unidades totales.\nUn producto está "arriba" si su MC por unidad es igual o mayor que el promedio, y "a la derecha" si vende igual o más unidades que el promedio.`)}</p>
+      ${mezcla ? '<p class="aviso">En esta área hay productos por kg (recetas que rinden gramos) y por unidad: compáralos con cuidado.</p>' : ''}
+      <div class="fin-mx-grid">
+        <div class="fin-mx-listas" id="m-mx-listas">${FMG.CUADRANTES.map(c => `<div class="fin-mx-q fin-mx-${c}" data-mx-q="${c}"><h3>${FMG.NOMBRE_CUADRANTE[c]} <span class="chip c-gris chip-chico">${nf(m.grupos[c].length)}</span></h3>
+          <p class="ayuda">${H.esc(FMG.GUIA_CUADRANTE[c])}</p>
+          ${m.grupos[c].length ? `<ol>${m.grupos[c].map(p => `<li><span class="fin-mx-n" aria-hidden="true">${nums[p.clave]}</span><span><b>${H.esc(p.nombre)}</b><span class="ayuda">${cantM(p.unidadesL)} ${p.lectura === 'kg' ? 'kg' : 'un'} · MC ${pesosM(p.mcUnit)}${porTxt(p)} · ${pctM(p.mcPct)}</span></span></li>`).join('')}</ol>` : '<p class="ayuda">Ninguno.</p>'}</div>`).join('')}</div>
+        <figure class="fin-mx-fig">${svgMatriz(m, nums, H)}<figcaption class="ayuda">El número de cada punto es el de las listas. Línea punteada: promedios del área.</figcaption></figure>
+      </div>` : `<div class="vacio">${H.esc(FV.NOMBRE_AREA[m.area])} no tiene productos con costo vendidos en este período.</div>`}
+  </section>`;
+}
+function conectarMatriz(el, H) {
+  conectarModo(el, 'matriz', H);
+  el.querySelectorAll('[data-mx-area]').forEach(b => b.addEventListener('click', () => { MS.mxArea = b.dataset.mxArea; MS.msg = ''; dibujarMargenes(el, 'matriz', H); }));
+}
+
+// ── Precio sugerido ──
+function badgeDif(c) {
+  if (!c) return '';
+  const t = { bajo: ['c-rojo', 'Bajo'], ok: ['c-verde', 'OK'], sobre: ['c-azul', 'Sobre'] }[c.estado];
+  return ` <span class="chip ${t[0]} chip-chico" data-dif="${c.estado}">${t[1]} ${c.pct > 0 ? '+' : c.pct < 0 ? '−' : ''}${pctM(Math.abs(c.pct))}</span>`;
+}
+function htmlPrecios(H) {
+  const cfg = cfgM(), r = calcM('todos'), k = FMG.costosVentaPeriodo(r.totales, cfg);
+  const filas = FMG.tablaPrecios(FMG.conListas(r.filas, MS.datos && MS.datos.catalogo ? MS.datos.catalogo.caja : {}), (MS.costos && MS.costos.docs) || {}, cfg, { ...k, vinculos: MS.vinc || {} });
+  const areas = FV.AREAS.filter(a => MS.prArea === 'todas' || a === MS.prArea);
+  const sinObj = FV.AREAS.filter(a => cfg.margenObjetivo[a] === null);
+  const bloque = a => {
+    const xs = filas.filter(f => f.area === a).sort((x, y) => String(x.nombre).localeCompare(String(y.nombre), 'es'));
+    const m = cfg.margenObjetivo[a];
+    return `<div class="fin-pr-area" data-pr-area="${a}"><h3 class="fin-dtit">${FV.NOMBRE_AREA[a]} ${m === null ? '<span class="chip c-amarillo chip-chico">Sin margen objetivo</span>' : `<span class="ayuda">margen objetivo <b>${pctM(m)}</b> = recargo ${pctF(FMG.margenARecargo(m / 100))} sobre el costo</span>`}</h3>
+      ${m === null ? `<p class="ayuda">Define el margen objetivo de ${FV.NOMBRE_AREA[a]} en <a href="#finanzas/margenes/ajustes">Ajustes</a> para ver el precio sugerido.</p>`
+        : xs.length ? xs.map(f => filaPrecio(f, cfg, H)).join('') : '<p class="ayuda">Sin productos con costo vendidos en el período.</p>'}</div>`;
+  };
+  return `<section class="tarjeta" aria-labelledby="t-m-pr">
+    <div class="titulo-fila fin-titulo"><h2 id="t-m-pr">Precio sugerido ${H.info('Precio sugerido', 'Precio neto sugerido = costo directo de hoy ÷ (1 − margen objetivo del área − costos de venta %). Así, después de la comisión (caja) o el despacho (B2B), el margen de contribución queda justo en el objetivo.\nCon IVA (caja) = neto × 1,19, redondeado hacia arriba a $10, $50 o $100 (se elige en Ajustes).\nSe compara con el precio actual: el neto promedio del período (venta neta ÷ unidades) y, en la caja, el precio de lista del catálogo (con IVA). Diferencia = (actual − sugerido) ÷ sugerido. Bajo: más de 5 % por debajo. OK: ±5 %. Sobre: más de 5 % por encima.\nMargen ↔ recargo: recargo = margen ÷ (1 − margen); margen = recargo ÷ (1 + recargo).')}</h2></div>
+    ${selectorPeriodo(H)}
+    <p class="ok-texto" id="m-msg" role="status">${H.esc(MS.msg)}</p><p class="error" id="m-err" role="alert">${H.esc(MS.err)}</p>
+    ${avisoComision(H)}
+    <p class="ayuda" id="m-pr-k">Costos de venta usados: caja <b>${pctM(k.kCaja * 100, 2)}</b> del precio neto ${H.info('Costos de venta de la caja', 'Comisión de tarjeta del período como % de la venta neta de la caja: 1,19 × (parte pagada con débito × comisión débito + crédito × comisión crédito + otros × comisión otros). Si no hay ventas de la caja en el período, se usa la mezcla configurada en Ajustes.')} · B2B <b>${pctM(k.kB2b * 100, 2)}</b> ${H.info('Costos de venta de B2B', 'Despacho como % de la venta neta B2B: el % configurado, o (si es $ por orden) el despacho del período ÷ la venta neta B2B.')} · redondeo de la caja a $${nf(cfg.redondeo)}</p>
+    ${sinObj.length === 4 ? `<p class="aviso" id="m-pr-sinobj">Todavía no hay margen objetivo para ningún área. Defínelo en <a href="#finanzas/margenes/ajustes">Ajustes</a> (la etapa de Metas lo va a calcular con los fijos de cada área).</p>` : ''}
+    <div class="chips" role="group" aria-label="Filtrar por área">${['todas', ...FV.AREAS].map(a => `<button type="button" class="chip-filtro" data-pr-filtro="${a}" aria-pressed="${MS.prArea === a}">${a === 'todas' ? 'Todas' : FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
+    <div id="m-pr-lista">${areas.map(bloque).join('')}</div>
+  </section>`;
+}
+function filaPrecio(f, cfg, H) {
+  const por = f.lectura === 'kg' ? ' / kg' : '';
+  const c = f.canales.caja, b = f.canales.b2b;
+  const caja = c ? `<div class="fin-pr-canal"><h4>Caja</h4>
+      ${c.sugerido ? `<div><span>Sugerido</span><b>${pesosM(c.sugerido.conIvaRedondeado)}${por}</b><span class="ayuda">con IVA · neto ${pesosM(c.sugerido.neto)}</span></div>` : '<div><span>Sugerido</span><span class="ayuda">No se puede: margen + costos de venta llegan a 100 %</span></div>'}
+      <div><span>Actual (neto prom.)</span><b>${c.actualNeto === null ? '—' : pesosM(c.actualNeto) + por}</b>${badgeDif(c.vsProm)}</div>
+      ${c.lista ? `<div><span>Lista de la caja</span><b>${pesosM(c.lista)}${por}</b><span class="ayuda">con IVA</span>${badgeDif(c.vsLista)}</div>` : ''}</div>` : '';
+  const bb = b ? `<div class="fin-pr-canal"><h4>B2B</h4>
+      ${b.sugerido ? `<div><span>Sugerido</span><b>${pesosM(b.sugerido.neto)}${por}</b><span class="ayuda">neto</span></div>` : '<div><span>Sugerido</span><span class="ayuda">No se puede: margen + costos de venta llegan a 100 %</span></div>'}
+      <div><span>Actual (neto prom.)</span><b>${b.actualNeto === null ? '—' : pesosM(b.actualNeto) + por}</b>${badgeDif(b.vsProm)}</div></div>` : '';
+  return `<div class="fin-pr-fila" data-pr="${H.esc(f.clave)}"><div class="fin-pr-prod"><b>${H.esc(f.nombre)}</b>${f.tipo === 'reventa' ? ' <span class="chip c-gris chip-chico">Reventa</span>' : ''}<span class="ayuda">Costo directo hoy: ${f.costo === null ? '—' : pesosM(f.costo) + por}</span></div>${caja}${bb}</div>`;
+}
+function conectarPrecios(el, H) {
+  el.querySelectorAll('[data-pr-filtro]').forEach(b => b.addEventListener('click', () => { MS.prArea = b.dataset.prFiltro; MS.msg = ''; dibujarMargenes(el, 'precios', H); }));
+}
+
+// ── Ajustes de márgenes (costos_config/finanzas → margenes) ──
+function htmlAjustesM(H) {
+  const c = cfgM(), raw = (MS.costos && MS.costos.config) || {};
+  const medios = FMG.sumarMedios(...((MS.datos && MS.datos.porMes) || []).map(m => m.medios));
+  const todos = {}; Object.values(medios).forEach(x => Object.entries(x).forEach(([k, v]) => { todos[k] = (todos[k] || 0) + v; }));
+  const tc = FMG.tasaComision(todos, c);
+  const val = v => (v === null || v === undefined ? '' : H.esc(String(v)));
+  const campo = (id, et, v, ayuda, extra = '') => `<div class="campo"><label for="${id}">${et}${ayuda ? ' ' + ayuda : ''}</label><input id="${id}" type="number" inputmode="decimal" min="0" step="any" value="${val(v)}" ${extra}></div>`;
+  const hist = (Array.isArray(raw.historialMargenes) ? raw.historialMargenes : []).slice(-5).reverse();
+  const falta = !FMG.comisionConfigurada(c);
+  return `<section class="tarjeta" aria-labelledby="t-m-aj">
+    <div class="titulo-fila fin-titulo"><h2 id="t-m-aj">Ajustes de Finanzas: márgenes ${H.info('Ajustes de márgenes', 'Lo que se usa para el margen de contribución y el precio sugerido. Se guarda en Finanzas (fen-gastos, solo administración) y cada cambio queda en el historial con quién y cuándo.')}</h2></div>
+    <p class="ok-texto" id="m-aj-msg" role="status">${H.esc(MS.ajMsg)}</p>
+    <form id="m-aj" class="fin-majustes" novalidate>
+      <fieldset><legend>Comisión de tarjeta, por medio de pago ${falta ? '<span class="chip c-amarillo chip-chico" id="m-aj-falta">Falta configurar</span>' : '<span class="chip c-verde chip-chico">Configurada</span>'} ${H.info('Comisión de tarjeta', 'El % que cobra la empresa de tarjetas sobre lo pagado (con IVA), sin el IVA de la comisión (ese IVA es crédito fiscal). Míralo en la liquidación o la factura de la empresa de pagos.\nOtros: transferencias, apps de pago o cualquier medio que no sea efectivo, débito ni crédito (si no cobran, 0).\nMientras no se configure se usa 0 % y Márgenes avisa.')}</legend>
+        <div class="fin-maj-campos">${FMG.MEDIOS.map(k => campo(`m-aj-c-${k}`, `${FMG.NOMBRE_MEDIO[k]} (%)`, c.comision[k], '', 'max="20"')).join('')}</div></fieldset>
+      <fieldset><legend>Cómo se paga en la caja ${H.info('Medios de pago de la caja', 'La comisión se reparte según cuánto se pagó con cada medio. Se toma de los resúmenes de cierre de la caja (traen el total por medio de pago).\nLa mezcla de abajo se usa solo si en un mes no hay ese dato (por ejemplo, un mes guardado antes de esta versión: "Volver a leer" lo completa).')}</legend>
+        <p class="ayuda" id="m-aj-mix">${tc.fuente === 'caja' ? `En el período, según los cierres: efectivo ${pctF(tc.partes.efectivo)}, débito ${pctF(tc.partes.debito)}, crédito ${pctF(tc.partes.credito)}, otros ${pctF(tc.partes.otros)} → comisión ${pctF(tc.tasa)} de lo pagado.` : 'En el período no hay totales por medio de pago en los cierres.'}</p>
+        <div class="fin-maj-campos">${FMG.MEDIOS.map(k => campo(`m-aj-m-${k}`, `${FMG.NOMBRE_MEDIO[k]} (% venta)`, c.mixCaja[k], '', 'max="100"')).join('')}</div>
+        <p class="ayuda">Solo si falta el dato de los cierres. El resto se toma como efectivo.</p></fieldset>
+      <fieldset><legend>Despacho B2B ${H.info('Despacho B2B', 'Lo que cuesta llevar los pedidos B2B (combustible, flete), neto. Como % de la venta neta B2B, o como $ por orden (se reparte entre los productos de cada mes según su venta). Opcional: por defecto 0.')}</legend>
+        <div class="fin-maj-campos"><div class="campo"><label for="m-aj-dm">Cómo</label><select id="m-aj-dm"><option value="pct" ${c.despacho.modo === 'pct' ? 'selected' : ''}>% de venta</option><option value="orden" ${c.despacho.modo === 'orden' ? 'selected' : ''}>$ por orden</option></select></div>
+          ${campo('m-aj-dv', 'Valor', c.despacho.valor || '', '')}</div></fieldset>
+      <fieldset><legend>Margen objetivo por área (MC % sobre el precio neto) ${H.info('Margen objetivo', 'El margen de contribución que cada área necesita sobre su precio neto: margen objetivo = (fijos del área + utilidad objetivo) ÷ ventas esperadas del área.\nPor ahora se escribe a mano; la etapa de Metas (F5) lo va a calcular con los fijos reales y el presupuesto.\nVacío: no se calcula precio sugerido para esa área.\nRecargo equivalente sobre el costo = margen ÷ (1 − margen). Ej.: 60 % de margen = 150 % de recargo.')}</legend>
+        <div class="fin-maj-campos">${FV.AREAS.map(a => `<div class="campo"><label for="m-aj-o-${a}">${FV.NOMBRE_AREA[a]} (%)</label><input id="m-aj-o-${a}" type="number" inputmode="decimal" min="0" max="95" step="any" value="${val(c.margenObjetivo[a])}" data-recargo="m-aj-r-${a}"><span class="ayuda" id="m-aj-r-${a}">${c.margenObjetivo[a] === null ? 'Sin definir' : `= recargo ${pctF(FMG.margenARecargo(c.margenObjetivo[a] / 100))}`}</span></div>`).join('')}</div></fieldset>
+      <fieldset><legend>Redondeo del precio con IVA de la caja ${H.info('Redondeo', 'El precio sugerido con IVA de la caja se redondea hacia arriba a este múltiplo (para no quedar bajo el margen objetivo).')}</legend>
+        <div class="chips">${FMG.REDONDEOS.map(r => `<label class="check fin-maj-red"><input type="radio" name="m-aj-red" value="${r}" ${c.redondeo === r ? 'checked' : ''}> $${r}</label>`).join('')}</div></fieldset>
+      <p class="error" id="m-aj-err" role="alert"></p>
+      <button type="submit" class="btn" id="m-aj-si">Guardar</button>
+    </form>
+    ${hist.length ? `<h3 class="fin-dtit">Últimos cambios</h3><ul class="fin-hist-lista" id="m-aj-hist">${hist.map(h => `<li><div><b>${fechaTxt(h.fecha)}</b> · ${H.esc(h.por || '')}</div><span class="ayuda">${H.esc(resumenAj(h.despues))}</span></li>`).join('')}</ul>` : ''}
+  </section>`;
+}
+function resumenAj(x) {
+  if (!x) return '';
+  const c = FMG.configMargenes(x), p = v => (v === null ? '—' : String(v).replace('.', ',') + ' %');
+  return `Comisión débito ${p(c.comision.debito)}, crédito ${p(c.comision.credito)}, otros ${p(c.comision.otros)} · despacho ${c.despacho.modo === 'pct' ? p(c.despacho.valor) : '$' + nf(c.despacho.valor) + ' por orden'} · margen objetivo ${FV.AREAS.map(a => `${FV.NOMBRE_AREA[a]} ${p(c.margenObjetivo[a])}`).join(', ')} · redondeo $${c.redondeo}`;
+}
+function conectarAjustesM(el, H) {
+  el.querySelectorAll('[data-recargo]').forEach(i => i.addEventListener('input', () => {
+    const x = Number(String(i.value).replace(',', '.')), o = $(i.dataset.recargo);
+    o.textContent = i.value === '' ? 'Sin definir' : x >= 0 && x < 100 ? `= recargo ${pctF(FMG.margenARecargo(x / 100))}` : 'Entre 0 y 95';
+  }));
+  const f = $('m-aj');
+  f.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const err = $('m-aj-err'), b = $('m-aj-si'); err.textContent = '';
+    const v = id => $(id).value;
+    const datos = { comision: Object.fromEntries(FMG.MEDIOS.map(k => [k, v(`m-aj-c-${k}`)])), mixCaja: Object.fromEntries(FMG.MEDIOS.map(k => [k, v(`m-aj-m-${k}`)])),
+      despacho: { modo: v('m-aj-dm'), valor: v('m-aj-dv') }, margenObjetivo: Object.fromEntries(FV.AREAS.map(a => [a, v(`m-aj-o-${a}`)])),
+      redondeo: (f.querySelector('input[name="m-aj-red"]:checked') || {}).value };
+    try { FMG.validarConfig(datos); } catch (e) { err.textContent = e.message; return; }
+    b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      await F.guardarAjustesMargenes(datos);
+      MS.costos = await F.leerProductos();
+      H.registrar('Finanzas: cambió los ajustes de márgenes', resumenAj(FMG.validarConfig(datos)));
+      MS.ajMsg = 'Ajustes guardados.'; dibujarMargenes(el, 'ajustes', H); MS.ajMsg = '';
     } catch (e) { err.textContent = error(e, H); b.disabled = false; b.textContent = 'Guardar'; }
   });
 }

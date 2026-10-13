@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Finanzas F2 paso 1: ventas por producto, área y canal (funciones puras)  v0.59.0
+//  Sistema Fën — Finanzas F2 paso 1: ventas por producto, área y canal (funciones puras)  v0.60.0 (costo extra por venta en el vínculo)
 //  Sin Firebase ni pantalla: reciben los datos ya leídos (resúmenes de cierre de la caja, órdenes B2B,
 //  catálogos y vínculos guardados) y devuelven líneas, tablas, totales y cobertura. Todo en neto.
 //
@@ -168,7 +168,14 @@ export function armarVinculo(prev, datos, { recetas = [], hoy = '', por = '' } =
     if (c !== null && datos.conIva) c = red(c / 1.19, 2);
     Object.assign(doc, { reventa: true, area: a, costoReventaNeto: c });
   } else doc.ignorar = true;
-  const corto = x => x ? { tipo: x.tipo, receta: x.receta || null, recetaNombre: x.recetaNombre || '', unidadesPorVenta: x.unidadesPorVenta ?? 1, area: x.area || '', costoReventaNeto: x.costoReventaNeto ?? null } : null;
+  // v0.60.0: costo extra por venta, neto (envases que no están en la receta: caja, bolsa, vaso)
+  const ex = s(datos.costoExtraNeto).trim();
+  if (tipo !== 'ignorar' && ex !== '') {
+    const e = Number(ex.replace(',', '.'));
+    if (!(e >= 0)) throw new Error('Costo extra por venta: un número (o déjalo vacío).');
+    doc.costoExtraNeto = red(e, 2);
+  } else doc.costoExtraNeto = null;
+  const corto = x => x ? { tipo: x.tipo, receta: x.receta || null, recetaNombre: x.recetaNombre || '', unidadesPorVenta: x.unidadesPorVenta ?? 1, area: x.area || '', costoReventaNeto: x.costoReventaNeto ?? null, ...(x.costoExtraNeto !== null && x.costoExtraNeto !== undefined ? { costoExtraNeto: x.costoExtraNeto } : {}) } : null;
   const a = corto(prev), b = corto(doc);
   const igual = JSON.stringify(a) === JSON.stringify(b);
   return { doc, hist: igual ? null : { clave: claveProducto(canal, doc.productoId), nombre: doc.nombre, accion: prev ? 'cambio' : 'nuevo', antes: a, despues: b, origen: doc.origen, nota: doc.nota, fecha: hoy, por } };
@@ -178,7 +185,8 @@ export function textoVinculo(v) {
   if (v.tipo === 'ignorar') return 'No es un producto (no suma)';
   const u = upv(v) !== 1 ? ` × ${String(upv(v)).replace('.', ',')} un` : '';
   if (v.tipo === 'reventa') return `Reventa · ${NOMBRE_AREA[v.area] || v.area}${v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? ` · costo $${Math.round(v.costoReventaNeto).toLocaleString('es-CL')} neto` : ''}${u}`;
-  return `${v.recetaNombre || v.receta}${u}`;
+  const ex = v.costoExtraNeto > 0 ? ` · envase $${Math.round(v.costoExtraNeto).toLocaleString('es-CL')}` : '';
+  return `${v.recetaNombre || v.receta}${u}${ex}`;
 }
 
 // ── Productos vendidos (uno por canal y producto del catálogo) con su venta y vínculo ──

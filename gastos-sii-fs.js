@@ -19,12 +19,12 @@
 //  · v0.53.0: el documento del vencimiento guarda también neto, iva, exento, otroImpuesto, total, tipoDoc y esHarina de la
 //    factura (también al asignarla desde la bandeja): al pagarlo, el gasto toma el neto exacto. avisoCargas(): "SII sin cargar".
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.59.0';
-import * as GB from './gastos-base.js?v=0.59.0';
-import * as M from './gastos-g2.js?v=0.59.0';
-import * as S from './gastos-sii.js?v=0.59.0';
-import * as G3 from './gastos-g3.js?v=0.59.0';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.59.0';
+import * as FB from './firebase-gastos.js?v=0.60.0';
+import * as GB from './gastos-base.js?v=0.60.0';
+import * as M from './gastos-g2.js?v=0.60.0';
+import * as S from './gastos-sii.js?v=0.60.0';
+import * as G3 from './gastos-g3.js?v=0.60.0';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.60.0';
 
 const error = (msg, code, datos) => Object.assign(new Error(msg), { code, ...(datos ? { datos } : {}) });
 const s = v => String(v == null ? '' : v);
