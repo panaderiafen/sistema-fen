@@ -9,37 +9,38 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.63.1';
-import * as Caja from './caja.js?v=0.63.1';
-import * as Stock from './stock.js?v=0.63.1';
-import * as Ajustes from './ajustes.js?v=0.63.1';
-import * as Apps from './apps.js?v=0.63.1';
-import * as Agenda from './agenda.js?v=0.63.1';
-import * as Gastos from './gastos.js?v=0.63.1';
-import * as G3 from './gastos-g3.js?v=0.63.1';
-import * as G3D from './gastos-g3d.js?v=0.63.1';
-import * as GBanco from './gastos-banco.js?v=0.63.1';
-import * as AB from './gastos-abono.js?v=0.63.1';
-import { resumenAnalisis } from './gastos-g2.js?v=0.63.1';
-import * as Sii from './sii.js?v=0.63.1';
-import * as GSii from './gastos-sii.js?v=0.63.1';
-import * as Previred from './previred.js?v=0.63.1';
-import * as B2b from './b2b.js?v=0.63.1';
-import * as Cartola from './cartola.js?v=0.63.1';
-import * as SiiFactura from './sii-factura.js?v=0.63.1';
-import * as PdfOrden from './pdf-orden.js?v=0.63.1';
-import * as Prod from './produccion.js?v=0.63.1';
+} from './firebase.js?v=0.63.2';
+import * as Caja from './caja.js?v=0.63.2';
+import * as Stock from './stock.js?v=0.63.2';
+import * as Ajustes from './ajustes.js?v=0.63.2';
+import * as Apps from './apps.js?v=0.63.2';
+import * as Agenda from './agenda.js?v=0.63.2';
+import * as Gastos from './gastos.js?v=0.63.2';
+import * as G3 from './gastos-g3.js?v=0.63.2';
+import * as G3D from './gastos-g3d.js?v=0.63.2';
+import * as GBanco from './gastos-banco.js?v=0.63.2';
+import * as AB from './gastos-abono.js?v=0.63.2';
+import { resumenAnalisis } from './gastos-g2.js?v=0.63.2';
+import * as Sii from './sii.js?v=0.63.2';
+import * as GSii from './gastos-sii.js?v=0.63.2';
+import * as Previred from './previred.js?v=0.63.2';
+import * as B2b from './b2b.js?v=0.63.2';
+import * as Cartola from './cartola.js?v=0.63.2';
+import * as SiiFactura from './sii-factura.js?v=0.63.2';
+import * as PdfOrden from './pdf-orden.js?v=0.63.2';
+import * as Prod from './produccion.js?v=0.63.2';
+import * as FSG from './fs-cuota.js?v=0.63.2';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.16.0';
-import * as VistaProd from './vista-produccion.js?v=0.63.1';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.63.1';
+import * as VistaProd from './vista-produccion.js?v=0.63.2';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.63.2';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.63.1');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.63.2');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.63.1');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.63.2');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.63.1')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.63.2')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -342,7 +343,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.63.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.63.2" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -369,6 +370,8 @@ function irA(v) {
   if (/^#b2b\/conciliacion/.test(location.hash)) { location.replace('#conciliacion'); return; }
   if (/^#gastos\/cartola/.test(location.hash)) { location.replace('#conciliacion/cargos'); return; }
   VISTAS.forEach(x => $('v-' + x).classList.toggle('oculto', x !== v));
+  document.body.dataset.vista = v; document.body.dataset.sub = subVista() || '';   // v0.63.2: para desactivar botones si se acaba la cuota
+  pintarCuota();
   document.querySelectorAll('[data-vista]').forEach(a => {
     if (a.dataset.vista === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
@@ -386,6 +389,24 @@ function irA(v) {
   if (v === 'menu') pintarMenuCelular();
   window.scrollTo(0, 0);
 }
+
+// ── v0.63.2 · Cuota diaria de fen-gastos agotada ───
+// Firestore gratis (Spark): 50.000 lecturas y 20.000 escrituras al día por proyecto. Si fen-gastos responde resource-exhausted,
+// fs-gastos.js lo anota y aquí se muestra el letrero (arriba de cada pantalla) y se desactivan los botones de guardar de Gastos,
+// Conciliación de cargos y Finanzas. Caja (fen-ventas), B2B (fen-b2b) y Cocina (fen-produccion) tienen su propia cuota.
+function pintarCuota() {
+  const c = FSG.cuota(), main = $('principal');
+  document.body.classList.toggle('cuota-gastos', !!c.agotada);
+  let el = $('aviso-cuota');
+  if (!c.agotada) { if (el) el.hidden = true; return; }
+  if (!el && main) { main.insertAdjacentHTML('afterbegin', '<div id="aviso-cuota" class="aviso-cuota" role="alert"></div>'); el = $('aviso-cuota'); const m = main.querySelector('.marca-cel'); if (m) m.after(el); }
+  if (!el) return;
+  el.hidden = false;
+  el.innerHTML = `${icono('alerta', 20)}<div><b>Base de Gastos y Finanzas en pausa</b><p>${esc(c.mensaje)}</p></div>
+    ${info('Cuota diaria', 'La base de Gastos y Finanzas (fen-gastos) usa el plan gratis de Firebase: hasta 50.000 lecturas y 20.000 escrituras al día.\nCuando se acaba, Firebase no deja leer ni guardar hasta que se reinicia a medianoche de California (cerca de las 4:00 en Chile; 3:00 o 5:00 según la época del año).\nMientras tanto los botones de guardar de Gastos, Conciliación de cargos y Finanzas quedan desactivados, para que nada quede a medias.\nEn Configuración → Uso de la base hoy ves cuánto se usó desde este navegador.')}`;
+}
+FSG.alCambiarCuota(() => pintarCuota());
+setInterval(() => { if (document.body.classList.contains('cuota-gastos') && !FSG.cuota().agotada) pintarCuota(); }, 60000);
 
 // ── Hoy ────────────────────────────────────────────
 // Lee de la caja (mismo proyecto de Firebase) y los resuelve en "Ventas de caja". Gastos, B2B y Producción se conectan después.
@@ -560,14 +581,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.63.1').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.63.2').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.63.1').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.63.2').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -943,9 +964,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.63.1').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.63.2').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.63.1').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.63.2').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -2102,7 +2123,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.63.1')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.63.2')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -5223,6 +5244,33 @@ function abrirRescatar(m) {
 
 // ── Configuración del negocio ──────────────────────
 let recetasCache = null;
+// v0.63.2 · Uso de la base hoy (fen-gastos): lo contado desde este navegador desde las ~4:00 (reinicio de la cuota)
+function pintarUsoBase(el) {
+  const u = FSG.usoHoy(), c = FSG.cuota(), n = x => Number(x || 0).toLocaleString('es-CL'), mem = window.__fsMemoria ? window.__fsMemoria() : {};
+  const top = Object.entries(u.porCol).sort((a, b) => (b[1].l + b[1].e) - (a[1].l + a[1].e)).slice(0, 6);
+  const pct = (x, t) => Math.min(100, Math.round(x / t * 100));
+  const html = `<section class="tarjeta" aria-labelledby="t-uso-base" id="uso-base">
+    <div class="titulo-fila"><h2 id="t-uso-base">Uso de la base hoy ${info('Uso de la base hoy', 'La base de Gastos y Finanzas (fen-gastos) usa el plan gratis de Firebase: 50.000 lecturas y 20.000 escrituras al día. La cuenta parte de cero a medianoche de California (cerca de las 4:00 en Chile).\nEsto es solo lo de este navegador: si usaste Sistema Fën en otro equipo (o el celular), eso no aparece aquí. La cifra real está en la consola de Firebase (Uso y facturación).\nLas lecturas incluyen una más por cada consulta, por la regla de seguridad que revisa que seas administración.\nDesde la v0.63.2 lo leído queda en memoria y las colecciones grandes se guardan resumidas: abrir una pantalla de nuevo casi no lee.\n"Releer todo" vuelve a leer todo de la base y arma de nuevo los resúmenes (unas 7.000 lecturas): úsalo solo si algo no calza.')}</h2><span>${esc(FSG.diaCuota())}</span></div>
+    <p class="ayuda">Solo lo de este navegador desde el último reinicio de la cuota${c.agotada ? ' · <b>la cuota está agotada</b>' : ''}.</p>
+    <div class="uso-base-barras">
+      <div><b>${n(u.estimadoLecturas)}</b> lecturas <span class="ayuda">de 50.000</span><div class="barra-uso"><span style="width:${pct(u.estimadoLecturas, 50000)}%"></span></div></div>
+      <div><b>${n(u.escrituras)}</b> escrituras <span class="ayuda">de 20.000</span><div class="barra-uso"><span style="width:${pct(u.escrituras, 20000)}%"></span></div></div>
+    </div>
+    ${top.length ? `<p class="ayuda">Lo que más usó: ${top.map(([k, v]) => `${esc(k)} ${n(v.l)} / ${n(v.e)}`).join(' · ')} <span>(lecturas / escrituras)</span></p>` : ''}
+    <p class="ayuda">En memoria ahora: ${Object.keys(mem).length ? Object.entries(mem).map(([k, v]) => `${esc(k)} ${n(v)}`).join(' · ') : 'nada todavía'} · respondidas sin leer la base: ${n(u.desdeMemoria)}.</p>
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" id="uso-releer">Releer todo de la base</button><span class="ayuda" id="uso-estado" role="status"></span></div>
+  </section>`;
+  const prev = el.querySelector('#uso-base');
+  if (prev) prev.outerHTML = html; else el.insertAdjacentHTML('beforeend', html);
+  const b = el.querySelector('#uso-releer');
+  if (b) b.onclick = async () => {
+    if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
+    b.disabled = true; const st = el.querySelector('#uso-estado');
+    try { const db = await (await import('./gastos-base.js?v=0.63.2')).dbBase(); const FG = await import('./fs-gastos.js?v=0.63.2'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
+  };
+}
+
 async function pintarAjustes() {
   const el = $('v-ajustes');
   el.innerHTML = `<div class="cabecera"><div><h1 id="t-ajustes">Configuración</h1><p>Ajustes del negocio que usa la caja</p></div></div>
@@ -5299,6 +5347,8 @@ async function pintarAjustes() {
         <button type="submit" class="btn-sec btn-chico">Guardar</button>
         <span class="ayuda estado-cx" role="status">${conexiones[a.id] ? '' : 'Falta la dirección'}</span></form>`).join('')}
     </section>`;
+
+  pintarUsoBase(el);
 
   // Listas
   const trabajar = async (fila, fn, texto) => {

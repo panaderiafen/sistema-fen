@@ -6,9 +6,9 @@
 //  Igual que Cocina (programarPlanilla / pasarPlanilla / revisarPlanilla): si falla, se reintenta solo
 //  (al minuto y después cada 2 minutos). Los pasos 3 y 4 de G2 llaman programar() después de cada escritura.
 // ═══════════════════════════════════════════════
-import * as GB from './gastos-base.js?v=0.63.1';
-import * as Gastos from './gastos.js?v=0.63.1';
-import * as FB from './firebase-gastos.js?v=0.63.1';
+import * as GB from './gastos-base.js?v=0.63.2';
+import * as Gastos from './gastos.js?v=0.63.2';
+import * as FB from './fs-gastos.js?v=0.63.2';
 
 const E = { t: 0, corriendo: false, error: '', fallos: 0, pendientes: null, ultima: null, oyentes: new Set() };
 const avisar = () => E.oyentes.forEach(fn => { try { fn(estado()); } catch (e) {} });
@@ -36,7 +36,12 @@ export async function contar() {
   return E.pendientes;
 }
 
-export function programar(ms = 5000) { clearTimeout(E.t); E.t = setTimeout(pasar, ms); avisar(); }
+// v0.63.2: cada pasada cuesta lecturas en fen-gastos (el script revisa las 11 colecciones y el conteo otras 11): se juntan los
+// cambios de 20 segundos en una sola pasada (antes 5) y, si algo queda pegado, se espera cada vez más (1, 2, 4… hasta 30 minutos)
+// en vez de reintentar cada minuto todo el día.
+const JUNTAR_MS = 20000, MAX_ESPERA = 1800000;
+export function programar(ms = JUNTAR_MS) { clearTimeout(E.t); E.t = setTimeout(pasar, ms); avisar(); }
+const espera = n => Math.min(MAX_ESPERA, 60000 * Math.pow(2, Math.max(0, n - 1)));
 // Al abrir: si hay algo por pasar y no hay una copia en camino, se programa
 export async function revisar() {
   try { await contar(); } catch (e) { return estado(); }
@@ -56,18 +61,21 @@ export async function pasar() {
       r = await Gastos.planillaSync(await GB.tokenBase());
       if (!r.quedan || r.siguenPendientes || (r.errores && r.errores.length) || !r.pasados) break;
     }
-    E.error = ''; E.fallos = 0;
+    E.error = '';
     E.ultima = { en: new Date(), pasados: r.pasados || 0, avisos: r.avisos || [], errores: r.errores || [] };
-    if (r.errores && r.errores.length) { E.error = `${r.errores.length} ${r.errores.length === 1 ? 'cambio no se pudo escribir' : 'cambios no se pudieron escribir'} (${r.errores[0].error})`; E.fallos++; }
+    // Sin avances (quedó algo que no se puede pasar): cuenta como fallo para esperar más la próxima vez
+    E.fallos = r.pasados || !r.quedan ? 0 : E.fallos + 1;
+    if (r.errores && r.errores.length) { E.error = `${r.errores.length} ${r.errores.length === 1 ? 'cambio no se pudo escribir' : 'cambios no se pudieron escribir'} (${r.errores[0].error})`; E.fallos = Math.max(E.fallos, 1); }
   } catch (e) {
     E.error = (e && e.message) || String(e);
     E.fallos++;
   } finally {
     E.corriendo = false;
-    try { await contar(); } catch (e) {}
-    // Reintento solo: al minuto la primera vez, después cada 2 minutos. Si quedó algo (cambió mientras se copiaba), en un minuto.
-    if (E.error) programar(E.fallos <= 1 ? 60000 : 120000);
-    else if (E.pendientes > 0) programar(60000);
+    // v0.63.2: el conteo (11 consultas) solo si el script no dijo que terminó
+    if (E.error || !r || r.quedan) { try { await contar(); } catch (e) {} } else { E.pendientes = 0; }
+    // Reintento solo, cada vez más espaciado (1, 2, 4, 8… hasta 30 minutos). Si quedó algo y la pasada avanzó, en un minuto.
+    if (E.error) programar(espera(E.fallos));
+    else if (E.pendientes > 0) programar(E.fallos ? espera(E.fallos) : 60000);
     avisar();
   }
   return r;

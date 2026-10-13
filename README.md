@@ -1,9 +1,77 @@
-# Sistema Fën · v0.63.1
+# Sistema Fën · v0.63.2
 
-**App:** v0.63.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 13 de octubre de 2026
+**App:** v0.63.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 13 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.63.2: la base de Gastos y Finanzas ya no se queda sin cuota
+**El problema:** hoy fen-gastos dio **"Quota exceeded"**. El plan gratis de Firestore (Spark) da **50.000 lecturas y 20.000 escrituras al día** por proyecto, y cada pantalla de Gastos, Conciliación y Finanzas volvía a leer colecciones **enteras** cada vez que se abría: los 3.000 gastos, los 1.500 cargos de la cartola, los 500 vencimientos… Lo peor: **conciliar un cargo releía todo de nuevo** (≈ 4.900 lecturas por cargo) y **cada carga del SII** leía todos los gastos y documentos varias veces. Medido con el volumen de un año (3.000 gastos, 160 MP, 110 recetas, 400 documentos del SII, 40 obligaciones, 500 vencimientos, 1.500 cargos), un día pesado gastaba **≈ 598.000 lecturas** (12 veces la cuota). Ahora: **≈ 4.500 lecturas y 934 escrituras**.
+
+**No se perdió nada:** cuando Firestore dice "cuota agotada" no guarda nada a medias (lo guardado quedó guardado y lo que no, no entró).
+
+### Antes y después (lecturas en fen-gastos; prueba `cuota-v0632.test.js`)
+| Acción | v0.63.1 | v0.63.2 |
+|---|---:|---:|
+| Abrir la app en Hoy (cada apertura) | 735 | **41** |
+| Abrir la app en Hoy 20 veces | 14.700 | **820** |
+| Gastos → Registrados | 4.082 | **11** |
+| Ir y volver Registrados ↔ Hoy (5 veces) | 3.650 | **10** |
+| Abrir Conciliación → Cargos | 8.588 | **54** (la 1ª vez con la v0.63.2: 1.939) |
+| **Conciliar 100 cargos** (la lista se vuelve a armar después de cada uno) | **488.566** | **715** |
+| Gastos → Cargas del SII | 4.085 | **15** |
+| **Importar 2 cargas del SII** (40 facturas c/u) | **29.973** | **412** |
+| Finanzas → Costos (abrir) | 615 | **9** (sin cambios de precios: no recalcula ni escribe) |
+| Finanzas → Costos → Compras del SII | 1.143 | **12** |
+| Finanzas → Márgenes | 338 | **5** |
+| Finanzas → Resultados (estado de resultados) | 5.446 | **43** |
+| Volver a abrir todas las pestañas de Finanzas (3 vueltas, 24 aperturas) | 22.041 | **27** |
+| Abrir la app directo en Finanzas → Resultados | 5.447 | **55** |
+| **Día pesado completo** | **≈ 598.000** | **≈ 4.500** (y 934 escrituras) |
+
+Una sola vez (al abrir por primera vez la v0.63.2, y después cada 7 días): **≈ 3.700 lecturas** para armar los resúmenes (más ≈ 1.900 la primera vez que se abre Conciliación). Escrituras: conciliar 100 cargos son 430 (≈ 4 por cargo: el cargo, el gasto, lo aprendido y la marca para la planilla), como antes; lecturas, ≈ 7 por cargo (el cargo, lo aprendido y lo que se acaba de guardar). La prueba falla si una acción se pasa de su presupuesto o si el día pesado llega a 20.000 lecturas o 5.000 escrituras.
+
+### Qué cambió
+- **Todo fen-gastos pasa por `fs-gastos.js`** (antes cada módulo iba directo a `firebase-gastos.js`): Gastos, Conciliación de cargos, Finanzas, Previred, la copia a la planilla.
+- **Memoria de la sesión:** una colección leída queda en memoria mientras la app está abierta y las consultas (`where ==`, `>=`, `<=`, `in`, `limit`) se responden desde ahí. Cambiar de pestaña no vuelve a leer. Cada 2 minutos como máximo (o justo después de guardar algo) se pregunta **solo lo que cambió**.
+- **`_m` en cada escritura:** todo lo que se guarda desde Sistema Fën lleva `_m` (hora del servidor). "Lo que cambió" es `where('_m', '>', marca)` (la marca exacta, con nanosegundos, de lo último visto): **una condición sobre un solo campo**, usa el índice simple que Firestore crea solo. **No hace falta crear ningún índice compuesto.**
+- **Resúmenes guardados (para abrir la app barato):** las colecciones grandes también quedan guardadas en pocos documentos: los gastos, **uno por mes** en `fin_gastos_mes/{AAAA-MM}` (con sus **totales del mes por ítem y por área**: n, neto y final), y el resto en `cache_paquetes/{colección}~todo~k` (índice en `cache_paquetes/{colección}`). Al abrir la app se leen esos pocos documentos + lo que cambió desde que se armaron + un **conteo** (si el conteo no calza —algo entró sin `_m`—, se lee todo y se arman de nuevo). Se rearman solos cada 7 días o con **Configuración → Uso de la base hoy → Releer todo de la base**. Los meses cerrados quedan en un solo documento cada uno.
+- **Conciliación:** los candidatos ("Ya está en Gastos", facturas del SII, vencimientos) se buscan **en la memoria** (los gastos ya están ahí): conciliar un cargo ya no lee nada de nuevo, salvo lo que cambió. Es mejor que consultar por monto y fecha (eso costaría lecturas por cada cargo) y no pide índices.
+- **Hoy:** lee los resúmenes (≈ 41 lecturas por apertura en vez de 735).
+- **Costos:** el costo de los productos se recalcula **solo si cambió algo** (precios, recetas o configuración: se compara una huella) y escribe solo lo que cambió. Las recetas y MP de fen-produccion quedan 10 minutos en memoria (se vuelven a leer al aprobar o cambiar una receta desde Sistema Fën).
+- **Conexión con fen-gastos:** el "estás conectado y eres administración" queda 10 minutos en memoria (antes, 2 lecturas más por cada pantalla y acción, una de ellas en la base de la caja).
+- **Copia a la planilla:** se juntan los cambios de 20 segundos en una sola pasada (antes 5) y, si algo queda pegado, se reintenta cada vez más espaciado (1, 2, 4… hasta 30 minutos) en vez de cada minuto todo el día (eso solo podía gastar ≈ 2.000 lecturas por hora). El conteo de pendientes (11 consultas) se hace solo si el script no dijo que terminó.
+- **Sin escuchas en vivo** (`onSnapshot`) sobre colecciones de fen-gastos (ya no había; las de B2B son de fen-b2b, que tiene su propia cuota).
+- **Cuota agotada:** si Firestore responde `resource-exhausted` (en cualquier lectura o escritura), aparece arriba de cada pantalla el letrero (con su (i)): *"Se acabó la cuota diaria gratuita de la base de Gastos y Finanzas. No se perdió nada: lo guardado quedó guardado y lo que no, no entró. Vuelve a funcionar cerca de las 4:00 (hora de Chile). Caja, B2B y Cocina siguen funcionando."* La hora se calcula: medianoche de California pasada a hora de Chile (04:00 en octubre; 05:00 en enero; 03:00 en julio). Mientras tanto, los **botones de guardar de Gastos, Conciliación de cargos y Finanzas quedan desactivados** y nada intenta escribir. Se va solo al pasar la hora (o con la primera lectura que funcione).
+- **Configuración → Uso de la base hoy** (con su (i)): lecturas y escrituras **hechas desde este navegador** desde el último reinicio de la cuota (con barra contra 50.000 / 20.000), lo que más usó, lo que está en memoria y **Releer todo de la base** (≈ 7.000 lecturas: solo si algo no calza). La cifra real de todos los equipos está en la consola de Firebase (Uso y facturación).
+
+**Lo que lee Finanzas de las otras bases** (cada una con su propia cuota): fen-produccion ≈ 274 lecturas la primera vez (recetas, MP y configuración; después 10 minutos en memoria; antes ≈ 270 cada vez que se abría Costos o Márgenes: 1.656 en 3 vueltas, ahora 30); fen-b2b ≈ 4 (catálogo, una vez); fen-ventas (caja), los resúmenes del mes (los meses pasados quedan guardados en `fin_ventas_mes`). **Pendiente (otra entrega):** Hoy lee ≈ 445 documentos de fen-produccion en cada apertura (avisos de bodega y de Cocina): 20 aperturas son ≈ 8.900 lecturas de la cuota de Cocina. No es urgente (Cocina tiene su propia cuota de 50.000), pero conviene llevarlo al mismo esquema.
+
+**Dónde se guarda (fen-gastos, solo administración; las reglas v0.1.0 ya lo cubren):** campo `_m` en cada documento que se guarda desde ahora; `fin_gastos_mes/{AAAA-MM}` (y `{AAAA-MM}~k` si un mes no cabe en uno): `{ col, grupo, parte, de, v, filas (texto), n, hasta, mes, totales { n, vigentes, neto, final, porItem, porArea } }`; `cache_paquetes/{colección}` (índice: `{ v, col, construido, total, partes, hasta }`) y `cache_paquetes/{colección}~todo~k`. Son copias: **no pasan a la planilla** y se pueden rearmar en cualquier momento. **Reglas de Firestore y scripts: no cambian.** (Opcional, no hace falta: en la consola se puede excluir del índice el campo `filas` de `fin_gastos_mes` y `cache_paquetes`.)
+
+Por dentro: nuevos **`fs-gastos.js`** (memoria, `_m`, resúmenes, consultas en memoria, cuota y conteo de uso) y **`fs-cuota.js`** (puro: día de la cuota, hora de reinicio, texto del letrero, uso de hoy y estado "agotada"; lo usa la pantalla sin cargar Firebase); `firebase-gastos.js` (exporta `Timestamp`); `gastos-base.js` (conexión en memoria 10 min); `gastos-planilla.js` (juntar 20 s y esperar cada vez más); `finanzas.js` (huella del costeo, fen-produccion 10 min en memoria); `produccion.js` (`versionDatos`); `app.js` (letrero, botones desactivados, Uso de la base hoy); `estilos.css`; `finanzas.js`, `gastos-base.js`, `gastos-fs.js`, `gastos-cartola-fs.js`, `gastos-sii-fs.js`, `gastos-g3d-fs.js` y `gastos-planilla.js` importan `fs-gastos.js`.
+
+Pruebas: nueva `pruebas/sistemafen/cuota-v0632.test.js` (9: hora de reinicio y texto; el día pesado paso a paso con presupuesto por acción —Hoy ×20, Registrados, Conciliación, conciliar 100 cargos, 2 cargas del SII, cada pestaña de Finanzas varias veces— y el total bajo 20.000 / 5.000; letrero de cuota agotada con botones desactivados en PC y celular; Uso de la base hoy). `CUOTA_INFORME=1` imprime la tabla; `SF_DIR=<carpeta>` mide otra versión sin presupuestos (así se midió la v0.63.1). El Firestore simulado de fen-gastos pone la hora del servidor al confirmar (como Firestore), compara horas, acepta `>`/`<`/`in`, exporta `Timestamp` y simula la cuota agotada; en `finanzas-f3b` corregir un gasto "a mano" lleva `_m` como lo deja la app. Capturas en `pruebas/capturas/cuota-v0632/`.
+
+Archivos: nuevos `fs-gastos.js` y `fs-cuota.js`; cambian `app.js`, `firebase-gastos.js`, `gastos-base.js`, `gastos-planilla.js`, `gastos-fs.js`, `gastos-cartola-fs.js`, `gastos-sii-fs.js`, `gastos-g3d-fs.js`, `finanzas.js`, `produccion.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.63.2**.
+
+### Instalación v0.63.2 (unos 3 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.63.2.zip` (con la carpeta `cocina/`, que no cambia) → **Commit changes**. Espera 1 o 2 minutos. **Recarga Sistema Fën en todos los equipos donde esté abierto** (PC y celular; Ctrl+Shift+R en el PC): un equipo con la versión anterior abierta guarda sin `_m` y los otros no ven ese cambio hasta el rearmado semanal (o "Releer todo"). Nada en Apps Script ni en las reglas.
+
+Si hoy la cuota ya está agotada, la app muestra el letrero hasta cerca de las 4:00; la primera apertura después de esa hora arma los resúmenes (≈ 3.700 lecturas, una vez).
+
+### Lista de verificación v0.63.2
+- [ ] Abajo a la izquierda dice **v0.63.2**.
+- [ ] **Hoy** abre como siempre (la primera vez tarda un poco más: arma los resúmenes).
+- [ ] **Configuración → Uso de la base hoy**: aparecen las lecturas y escrituras de este navegador. Abre Gastos → Registrados, vuelve a Hoy y otra vez a Registrados: las lecturas casi no suben.
+- [ ] **Conciliación → Cargos**: concilia un cargo; la lista se actualiza y en Uso de la base hoy suben unas pocas lecturas (no miles).
+- [ ] **Gastos → Registrados**: el gasto recién conciliado aparece.
+- [ ] **Finanzas → Costos, Márgenes y Resultados**: se ven igual que antes; volver a abrirlas no lee de nuevo.
+- [ ] En el PC y en el celular, la tarjeta de Uso de la base hoy se ve bien.
+- [ ] Mañana, en la consola de Firebase (fen-gastos → Firestore → Uso), las lecturas del día quedan muy por debajo de 50.000.
+
+### Si algo sale mal
+Si algo no calza (un gasto que no aparece): **Configuración → Uso de la base hoy → Releer todo de la base**. Si hay que volver atrás, sube de nuevo los archivos de la v0.63.1: todo sigue funcionando como antes (con el consumo de antes); `_m`, `fin_gastos_mes` y `cache_paquetes` quedan en fen-gastos sin estorbar.
 
 ## Novedades de la v0.63.1: cada abono de sueldo va al área de esa persona
 **El problema:** una transferencia de sueldo a una persona (por ejemplo, a una trabajadora de Panadería) agregada como abono a la obligación libre "REMUNERACION LIQUIDO" tomaba el área (o el reparto) de la obligación: el sueldo de una sola persona quedaba repartido entre áreas. Solo con Gastos en la base nueva.

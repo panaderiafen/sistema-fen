@@ -33,11 +33,11 @@
 //    pendiente en Hoy y un correo por día, bodega y materia prima (script v2.9.0, op stock_alerta). Cafetería: shots
 //    de la calibración diaria en la configuración, días con venta para la calibración automática y su costo en Merma.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.63.1';
-import * as FB from './firebase-produccion.js?v=0.63.1';
-import * as Apps from './apps.js?v=0.63.1';
-import { armar, AREAS } from './produccion-modelo.js?v=0.63.1';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.63.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.63.2';
+import * as FB from './firebase-produccion.js?v=0.63.2';
+import * as Apps from './apps.js?v=0.63.2';
+import { armar, AREAS } from './produccion-modelo.js?v=0.63.2';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.63.2';
 import * as K from './cocina/consumo.js?v=0.16.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.11.0';
 
@@ -199,6 +199,7 @@ export async function leerConfigs() {
 }
 // cambios: { 'pie_mm.reserva_pct': 25, 'amasadora_kg': 10, … } → se mezcla con lo que hay (merge)
 export async function guardarConfigArea(area, cambios) {
+  versionDatos++;   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
   if (!CAMPOS_CONFIG[area]) throw new Error('Área sin configuración.');
   const db = await dbOk(), datos = {};
   Object.entries(cambios).forEach(([k, v]) => {
@@ -237,6 +238,9 @@ async function script(op, datos, minima = VERSION_RECETAS) {
 // nunca en fen-produccion (la base de las jefas no guarda costos).
 export async function mpCostos() { return (await script('mp_costos', {}, VERSION_COSTOS)).filas || []; }
 // v0.56.0 · Finanzas: materias primas y recetas de fen-produccion (nombres, tipo, estado e ingredientes; sin costos)
+// v0.63.2: sube cada vez que desde Sistema Fën cambia una receta, una materia prima o la configuración (Finanzas guarda en memoria
+// lo que lee de aquí y con esto sabe que tiene que volver a leer)
+export let versionDatos = 0;
 export async function mpsYRecetas() {
   const db = await dbOk();
   const [m, r] = await Promise.all([FB.getDocs(FB.collection(db, 'mps')), FB.getDocs(FB.collection(db, 'recetas'))]);
@@ -298,6 +302,7 @@ async function pasar(db, docId, desde, estado, comentario, extra = {}) {
   });
 }
 export async function devolver(prop, comentario) {
+  versionDatos++;   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
   if (!String(comentario || '').trim()) throw new Error('Escribe qué hay que corregir: la jefa lo ve en Cocina.');
   const db = await dbOk();
   await pasar(db, prop.docId, ['en_revision'], 'devuelta', String(comentario).trim().slice(0, 500));
@@ -305,10 +310,12 @@ export async function devolver(prop, comentario) {
 // Una aprobación que quedó a medias (se cortó internet o se cerró la página): vuelve a revisión para reintentar.
 // Reintentar no duplica: la receta nueva usa el ID de la propuesta y el cambio a una vigente escribe la misma versión.
 export async function destrabar(prop) {
+  versionDatos++;   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
   const db = await dbOk();
   await pasar(db, prop.docId, ['aprobando'], 'en_revision', 'La aprobación quedó a medias: vuelve a revisión');
 }
 export async function aprobar(prop, comentario) {
+  versionDatos++;   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
   const db = await dbOk();
   // 1) Se bloquea ("aprobando"): desde aquí la jefa no puede cambiarla ni retirarla (reglas v1.2.0)
   const p = { ...prop, ...(await pasar(db, prop.docId, ['en_revision'], 'aprobando', '')) };
@@ -338,6 +345,7 @@ export async function aprobar(prop, comentario) {
 // Materias primas pedidas: crear (con precio neto y unidad de compra) o habilitar una existente
 export const UNIDAD_COMPRA = /^(\d+([.,]\d+)?)?\s*(kg|g|lt|l|ml|un|unidad|unidades)$/i;
 export async function resolverSolicitud(sol, datos = {}) {
+  versionDatos++;   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
   if (!(sol.tipo === 'habilitar' || datos.habilitarId) && !UNIDAD_COMPRA.test(String(datos.unidad || '').trim())) throw new Error(`"${datos.unidad || ''}" no es una unidad de compra válida. Usa por ejemplo: kg, 25kg, g, lt, 500ml, un, 10un.`);
   const db = await dbOk();
   const r = sol.tipo === 'habilitar' || datos.habilitarId
@@ -366,6 +374,7 @@ export async function recetasDeArea(area) {
     .sort((a, b) => (b.sugerida - a.sugerida) || String(a.nombre).localeCompare(String(b.nombre), 'es'));
 }
 export async function moverRecetas(ids, desde = 'BOL', hacia = 'PAS') {
+  versionDatos++;   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
   const db = await dbOk();
   const r = await script('mover_area', { desde, hacia, ids }, VERSION_MOVER);
   const a = armar(r.hojas, null);
@@ -416,7 +425,7 @@ export async function mermaDelPeriodo({ desde, hasta }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.63.1')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.63.2')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
   const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';

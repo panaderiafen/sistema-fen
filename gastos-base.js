@@ -9,11 +9,11 @@
 //    copia (migracion/{coleccion} guarda una huella por documento, como en B2B).
 //  · En G1 nada cambia en el uso: Gastos sigue leyendo y escribiendo la planilla con el script.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.63.1';
-import * as FB from './firebase-gastos.js?v=0.63.1';
-import * as Gastos from './gastos.js?v=0.63.1';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.63.1';
-import { armar, cambios, comparar, totalesGastos, COLECCIONES, ANIO } from './gastos-modelo.js?v=0.63.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.63.2';
+import * as FB from './fs-gastos.js?v=0.63.2';
+import * as Gastos from './gastos.js?v=0.63.2';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.63.2';
+import { armar, cambios, comparar, totalesGastos, COLECCIONES, ANIO } from './gastos-modelo.js?v=0.63.2';
 
 export { ANIO };
 export const VERSION_EXPORTAR = '2.9.0';   // script de Gastos con la op "exportar" (SistemaFen.gs v1.8.0)
@@ -45,7 +45,18 @@ export async function guardarConfig(cfg) {
 
 // ── Sesión en fen-gastos ───────────────────────────
 // estado: sin_config | sin_sesion | sin_admin | ok
+// v0.63.2: el resultado "ok" queda en memoria 10 minutos (antes cada lectura de Gastos y Finanzas volvía a leer config/sistemaFen
+// en la base de Sistema Fën y admins/{uid} en fen-gastos: 2 lecturas más por cada pantalla y acción)
+let cxMemo = null;
+const CX_MS = 600000;
+export const olvidarConexion = () => { cxMemo = null; };
 export async function conexion() {
+  if (cxMemo && Date.now() - cxMemo.t < CX_MS && FB.conectado() && FB.conectado().auth.currentUser && cxMemo.uid === FB.conectado().auth.currentUser.uid) return cxMemo.r;
+  const r = await conexion0();
+  cxMemo = r.estado === 'ok' ? { t: Date.now(), r, uid: r.uid } : null;
+  return r;
+}
+async function conexion0() {
   const cfg = await leerConfig();
   if (!cfg) return { estado: 'sin_config', sugerida: cfgConocida() };
   const cx = await FB.conectar(cfg);
@@ -60,6 +71,7 @@ export async function conexion() {
   return { estado: 'ok', cfg, uid: u.uid, correo: u.email, db: cx.db };
 }
 export async function entrar(clave) {
+  cxMemo = null;
   const cfg = await leerConfig();
   await FB.conectar(cfg);
   await FB.entrar(authSF.currentUser.email, clave, false);
@@ -67,6 +79,7 @@ export async function entrar(clave) {
 }
 // Cierra la sesión de fen-gastos (al salir de Sistema Fën o si se revoca el equipo)
 export async function salir() {
+  cxMemo = null;
   try { if (!FB.conectado()) { const cfg = cfgLocal(); if (!cfg) return; await FB.conectar(cfg); } await FB.salir(); } catch (e) {}
 }
 async function dbOk() { const cx = await conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva de Gastos.'); return cx.db; }

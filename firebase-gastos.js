@@ -9,7 +9,7 @@ import {
 import {
   getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, writeBatch,
   query, where, orderBy, limit, serverTimestamp, getAggregateFromServer, sum, count,
-  onSnapshot, runTransaction, addDoc
+  onSnapshot, runTransaction, addDoc, Timestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 let actual = null;   // { proyecto, app, auth, db }
@@ -37,5 +37,5 @@ export async function idToken() { if (!actual || !actual.auth.currentUser) throw
 export {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, writeBatch,
   query, where, orderBy, limit, serverTimestamp, getAggregateFromServer, sum, count,
-  onSnapshot, runTransaction, addDoc
+  onSnapshot, runTransaction, addDoc, Timestamp
 };

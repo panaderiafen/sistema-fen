@@ -45,21 +45,21 @@
 //   guarda porMedio y el de B2B ordenesValidas. costos_config/finanzas.margenes (comisión por medio de pago, mezcla de la caja, despacho B2B,
 //   margen objetivo por área, redondeo) + historialMargenes. fin_productos.costoExtraNeto (envase por venta, neto).
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.63.1';
-import * as FB from './firebase-gastos.js?v=0.63.1';
-import * as GB from './gastos-base.js?v=0.63.1';
-import * as P from './produccion.js?v=0.63.1';
-import * as FC from './finanzas-costos.js?v=0.63.1';
-import * as FS from './finanzas-sii.js?v=0.63.1';
-import * as FM from './finanzas-motor.js?v=0.63.1';
-import * as FV from './finanzas-ventas.js?v=0.63.1';
-import * as FMG from './finanzas-margenes.js?v=0.63.1';
-import * as FR from './finanzas-resultados.js?v=0.63.1';
-import * as FE from './finanzas-eerr.js?v=0.63.1';
-import * as Caja from './caja.js?v=0.63.1';
-import * as B from './b2b.js?v=0.63.1';
-import * as FBB from './firebase-b2b.js?v=0.63.1';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.63.1';
+import { auth as authSF } from './firebase.js?v=0.63.2';
+import * as FB from './fs-gastos.js?v=0.63.2';
+import * as GB from './gastos-base.js?v=0.63.2';
+import * as P from './produccion.js?v=0.63.2';
+import * as FC from './finanzas-costos.js?v=0.63.2';
+import * as FS from './finanzas-sii.js?v=0.63.2';
+import * as FM from './finanzas-motor.js?v=0.63.2';
+import * as FV from './finanzas-ventas.js?v=0.63.2';
+import * as FMG from './finanzas-margenes.js?v=0.63.2';
+import * as FR from './finanzas-resultados.js?v=0.63.2';
+import * as FE from './finanzas-eerr.js?v=0.63.2';
+import * as Caja from './caja.js?v=0.63.2';
+import * as B from './b2b.js?v=0.63.2';
+import * as FBB from './firebase-b2b.js?v=0.63.2';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.63.2';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -86,7 +86,7 @@ export async function leer() {
 }
 // Lista actual de fen-produccion (si no está conectada, sigue sin ella)
 export async function produccion() {
-  try { return await P.mpsYRecetas(); } catch (e) { return { mps: [], recetas: [], error: e.message || String(e) }; }
+  try { return (await prodMotor())[0]; } catch (e) { return { mps: [], recetas: [], error: e.message || String(e) }; }
 }
 
 // ── Traer precios desde la planilla ──
@@ -251,8 +251,19 @@ export async function porConfirmarParaHoy() {
 
 // ═══════════════ v0.58.0 · Costo directo por producto (motor de costeo) ═══════════════
 // Recetas, materias primas y configuración de fen-produccion (sin costos) + el maestro de costos de fen-gastos
+// v0.63.2: recetas, materias primas y configuración de fen-produccion quedan 10 minutos en memoria (antes se leían enteras cada
+// vez que se abría Costos, Márgenes o Hoy: ~270 lecturas en la base de Cocina cada vez)
+let prodMemo = null;
+const PROD_MS = 600000;
+export const olvidarProduccion = () => { prodMemo = null; };
+async function prodMotor() {
+  if (prodMemo && Date.now() - prodMemo.t < PROD_MS && prodMemo.ver === P.versionDatos) return prodMemo.v;
+  const ver = P.versionDatos, v = await Promise.all([P.mpsYRecetas(), P.leerConfigs().catch(() => ({}))]);
+  prodMemo = { t: Date.now(), v, ver };
+  return v;
+}
 export async function datosMotor({ costos } = {}) {
-  const [prod, cfg, c] = await Promise.all([P.mpsYRecetas(), P.leerConfigs().catch(() => ({})), costos ? Promise.resolve(costos) : leerColeccion('costos_mp')]);
+  const [[prod, cfg], c] = await Promise.all([prodMotor(), costos ? Promise.resolve(costos) : leerColeccion('costos_mp')]);
   return { recetas: prod.recetas || [], mps: prod.mps || [], config: cfg || {}, costos: c };
 }
 async function leerColeccion(nombre) { const db = await dbG(); return mapa(await FB.getDocs(FB.collection(db, nombre))); }
@@ -260,9 +271,15 @@ let ultimoCalculo = 0, ultimoRes = null;
 export const ultimoResultado = () => ultimoRes;
 // Calcula todas las recetas aprobadas y guarda lo que cambió (costos_recetas) y el historial (más de 0,5 %).
 // → { resultados, docs (costos_recetas actualizados), cambios (entradas nuevas del historial), escritos }
-export async function recalcularRecetas({ costos } = {}) {
+// v0.63.2: si los precios, las recetas y la configuración son los mismos del último cálculo (misma huella) y el día no cambió,
+// no se recalcula ni se escribe nada (antes, cada apertura de Costos pasados 2 minutos).
+let huellaCalculo = '';
+const huellaDe = (ctx, hoy) => { const t = JSON.stringify([hoy, ctx.recetas, ctx.mps, ctx.config, ctx.costos]); let h1 = 2166136261, h2 = 5381; for (let i = 0; i < t.length; i++) { const c = t.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619); h2 = (Math.imul(h2, 33) + c) | 0; } return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36) + t.length; };
+export async function recalcularRecetas({ costos, forzar = false } = {}) {
   const db = await dbG(), hoy = hoyTxt(), cuando = new Date().toISOString();
-  const [ctx, act] = await Promise.all([datosMotor({ costos }), leerColeccion('costos_recetas')]);
+  const ctx = await datosMotor({ costos }), huella = huellaDe(ctx, hoy);
+  if (!forzar && ultimoRes && huella === huellaCalculo) { ultimoCalculo = Date.now(); return { ...ultimoRes, escritos: 0, sinCambios: true }; }
+  const act = await leerColeccion('costos_recetas');
   const resultados = FM.costearTodo(ctx);
   const nombres = {}; Object.entries(ctx.costos).forEach(([id, m]) => { nombres[id] = m.nombre || id; });
   const plan = FM.planGuardar(resultados, act, { hoy, cuando, nombres });
@@ -277,6 +294,7 @@ export async function recalcularRecetas({ costos } = {}) {
   ultimoCalculo = Date.now();
   const docs = { ...act }; plan.docs.forEach(x => { docs[x.id] = { id: x.id, ...x.doc }; });
   ultimoRes = { resultados, docs, cambios: plan.hist, escritos: ops.length, ctx, cuando };
+  huellaCalculo = huella;
   return ultimoRes;
 }
 // Después de cambiar un precio: recalcula (si fen-produccion no está conectada, no hace nada; nunca falla hacia afuera)
@@ -353,7 +371,7 @@ let recetasCache = null;
 export async function recetasVenta(forzar) {
   if (recetasCache && !forzar) return recetasCache;
   try {
-    const x = await P.mpsYRecetas();
+    const x = (await prodMotor())[0];
     recetasCache = (x.recetas || []).filter(r => !/borrador/i.test(String(r.estado || ''))).map(r => ({ id: r.id, nombre: r.nombre || r.id, area: r.area || '', tipo: r.tipo || 'receta', estado: r.estado || '' }));
   } catch (e) {
     const docs = await leerColeccion('costos_recetas').catch(() => ({}));
