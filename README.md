@@ -1,9 +1,51 @@
-# Sistema Fën · v0.55.0
+# Sistema Fën · v0.56.0
 
-**App:** v0.55.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.9.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 12 de octubre de 2026
+**App:** v0.56.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (nuevo) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 12 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.56.0: Finanzas (F1 · paso 1): Cómo trabajamos y el maestro de materias primas con costos
+Sección nueva **Finanzas** en el menú (después de Ventas de caja). Título "Finanzas", "Análisis financiero de Fën". Pestañas **Cómo trabajamos** y **Costos** (abajo: "Próximamente: Márgenes, Resultados, Flujo de caja, Metas"). Sigue el plan acordado el 12-oct (`finanzas-plan.md`). **Las jefas no ven nada de esto:** todo se guarda en **fen-gastos** (solo administración); nada va a fen-produccion ni a Cocina.
+
+**Cómo trabajamos** (fijo): los dos ejes (área y canal); los 5 pasos (todos los días · cierre del mes, día 5 a 8, con sus 4 condiciones: SII cargado, ventas de las dos sucursales, gastos conciliados, conteo de bodega → mes congelado · informes · decisiones · presupuesto del mes siguiente); reglas fijas (todo en neto, una sola fuente por dato, mes cerrado no se toca) y "Cómo se calcula": costo directo, margen de contribución (y su recargo equivalente), margen objetivo y del área, fijos propios y comunes, resultado en tres pisos, punto de equilibrio y qué queda fuera del resultado (capital de créditos, F29, inversiones → depreciación, retiros).
+
+**Costos → Materias primas:**
+- **Traer precios desde la planilla**: lee MP_maestro **con precios** (script de Producción v2.10.0, op nueva `mp_costos`, solo administración y solo lectura) y la lista de fen-produccion (nombres, tipo, estado). Primero muestra una **vista previa** (nuevas, cambian de precio, se respetan, con problemas, y el detalle) y no guarda nada hasta **Guardar N cambios**. Al volver a traer: solo cambia lo que vino de la planilla; lo que tiene precio **a mano** (o del SII, más adelante) **no se pisa** (sale en "Se respetan" con lo que dice la planilla).
+- **Contenido** de una unidad de compra: "25kg", "saco 25 kg", "1 kg", "1lt", "1000ml", "6x1lt", "un", "kg"… → g, ml o unidades. "10un" es dudoso (¿el precio es por 10 o por 1?): se confirma solo si el `costo_por_gramo` de la planilla calza; si no, queda **sin contenido** y se avisa. "frasco", "saco" sin peso, "1/2 kg" o dos cantidades: sin contenido y aviso.
+- **Lista** con buscador (sin tildes), filtros (Todas · Con problemas · Insumos · Sub recetas · Archivadas) y columnas: nombre, unidad de compra, contenido, precio neto, **precio por kg, l o un**, origen y fecha, y **flecha con %** contra el precio anterior (rojo si sube, verde si baja). En el celular, cada materia prima es una ficha.
+- **Tocar una fila**: cambiar precio neto (o escribirlo **con IVA**: guarda precio ÷ 1,19), contenido (cantidad + kg/g/l/ml/unidades), peso por unidad (si se compra por unidad) y **motivo (obligatorio)**. Muestra el precio por kg nuevo y el % contra ahora, y el **historial** (fecha, precio, origen, motivo, quién).
+- **Sub recetas**: aparecen con "se calcula de su receta" y no se editan (su costo llega con el motor de costeo, paso 3).
+- **Impuesto adicional** (harina): se guarda, pero **no** se suma al costo (en la harina es IVA anticipado y se recupera).
+
+**Costos → Revisión de datos** (con el número de pendientes en la pestaña): sin precio o precio 0 · contenido no reconocido · precio por kg/l/un de $0 o más de $100.000 · recetas **aprobadas** con ingredientes sin costo (no están en el maestro, archivados o sin precio) · unidades que no calzan (en unidades algo que se compra por peso; en gramos algo que se compra por unidad sin peso por unidad) · recetas sin porciones · sub recetas que se usan en otra unidad que la que rinden sin peso por unidad. **Corregir** abre el precio de esa materia prima; lo de recetas lleva a Producción. **Marcar revisado** la saca de la lista y vuelve sola si ese dato cambia; "Ver revisados" las muestra con quién y cuándo (y "Volver a la lista").
+
+**Dónde se guarda (fen-gastos):** `costos_mp/{mpId}` (mismo id que MP_maestro / fen-produccion `mps`): `nombre, tipo (mp|insumo|sub_receta), unidadCompra, contenido {cantidad, unidad g|ml|un}, precioNeto, impAdicionalPct, ivaPct, precioPorBase, pesoPorUnidad, origen (planilla|manual|sii), fecha, por, estado (activa|archivada), anterior, contenidoProblema, updatedAt`. `costos_mp_hist/{autoId}`: cada cambio `{mp, precioNeto, contenido, precioPorBase, origen, motivo, fecha, por, anterior, en}` (nunca se edita ni se borra). `costos_revision/{id}`: `{clave, huella, revisado {por, fecha}, historial}`. `costos_cargas/{autoId}`: cada carga desde la planilla. **Reglas de fen-gastos: no cambian** (la regla v0.1.0 `/{coleccion}/{id}` ya deja leer y escribir cualquier colección nueva solo a una cuenta en `admins`).
+
+Por dentro: nuevos `finanzas-costos.js` (reglas puras: `parsearContenido`, `resolverContenido`, `precioPorBase`, `porLectura`, `variacion`, `prepararCarga`, `edicion`, `revisarDatos`, `pendiente`), `finanzas.js` (datos en fen-gastos) y `vista-finanzas.js` (pantalla). `produccion.js`: `mpCostos()` (op `mp_costos`, pide script v2.10.0) y `mpsYRecetas()`. `app.js`: menú, vista `#finanzas`, `#finanzas/costos`, `#finanzas/costos/revision`.
+
+Pruebas: nueva `pruebas/sistemafen/finanzas-f1a.test.js` (10: 4 unitarias —contenido, precio por base y variación, carga que respeta lo manual, revisión de datos— y 6 de punta a punta con el script v2.10.0 de verdad y una MP_maestro ficticia). Script: `pruebas/produccion2100` (37, 1 nueva). Siguen pasando e2e (54), hoy-v055 (4), gastos g3d (12) y g3e (11), b2b-v052 (5) y cocina-p1 (32). Capturas en `pruebas/capturas/finanzas-f1a/` (PC y celular 390).
+
+Archivos: nuevos `finanzas-costos.js`, `finanzas.js`, `vista-finanzas.js`; cambian `app.js`, `produccion.js`, `index.html`, `estilos.css`, `config.js`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.56.0**.
+
+### Instalación v0.56.0 (orden: script → Sistema Fën; unos 5 minutos)
+1. **Script de Producción v2.10.0** (`produccion-script-v2.10.0.zip`): en el editor de Apps Script de Producción reemplaza **Seguridad** y **SistemaFen** → **Implementar → Gestionar implementaciones → editar → Nueva versión** (la dirección no cambia).
+2. **Sistema Fën v0.56.0**: GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.56.0.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+3. Finanzas → Costos → **Traer precios desde la planilla** → revisa la vista previa → **Guardar**. Después, **Revisión de datos**: es la revisión única de las materias primas y recetas.
+
+### Lista de verificación v0.56.0
+- [ ] Abajo a la izquierda dice **v0.56.0**. Configuración → Conexiones → Producción → "Probar": v2.10.0.
+- [ ] En el menú aparece **Finanzas** entre Ventas de caja y Configuración (también en Menú del celular).
+- [ ] **Cómo trabajamos** se lee bien (pasos, cierre con sus 4 condiciones, reglas fijas y Cómo se calcula).
+- [ ] Costos → **Traer precios desde la planilla**: la vista previa muestra cuántas nuevas y con problemas; al guardar aparece la lista.
+- [ ] La harina (saco 25 kg) muestra un precio por kg razonable. Revisa 3 o 4 que conozcas.
+- [ ] Cambia un precio con su motivo: aparece "A mano", la flecha con % y el historial. Vuelve a traer desde la planilla: ese precio **no** cambia.
+- [ ] **Revisión de datos**: revisa la lista; marca uno como revisado y comprueba que sale.
+- [ ] En la tablet de Cocina no aparece nada nuevo (sin precios).
+- [ ] En el celular se ve bien (sin moverse de lado).
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.55.0: Finanzas desaparece del menú; lo guardado en fen-gastos (`costos_…`) queda ahí sin estorbar. El script v2.10.0 puede quedarse (solo suma una lectura).
 
 ## Novedades de la v0.55.0: Hoy, "Ventas de hoy en caja"
 En **Hoy**, la tarjeta de **Ventas de ayer en caja** ahora tiene al lado **Ventas de hoy en caja**: lo vendido hoy hasta ahora, **bruto con IVA**, **sin las anuladas**, las **dos sucursales sumadas**.

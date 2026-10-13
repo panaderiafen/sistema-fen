@@ -31,11 +31,11 @@
 //    pendiente en Hoy y un correo por día, bodega y materia prima (script v2.9.0, op stock_alerta). Cafetería: shots
 //    de la calibración diaria en la configuración, días con venta para la calibración automática y su costo en Merma.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.55.0';
-import * as FB from './firebase-produccion.js?v=0.55.0';
-import * as Apps from './apps.js?v=0.55.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.55.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.55.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.56.0';
+import * as FB from './firebase-produccion.js?v=0.56.0';
+import * as Apps from './apps.js?v=0.56.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.56.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.56.0';
 import * as K from './cocina/consumo.js?v=0.16.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.11.0';
 
@@ -46,6 +46,7 @@ export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre área
 export const VERSION_MERMA = '2.7.0';    // script con costos_merma (SistemaFen.gs v2.4)
 export const VERSION_BODEGA = '2.8.0';   // script con bodega_adm (SistemaFen.gs v2.5)
 export const VERSION_ALERTAS = '2.9.0';  // script con stock_alerta (correo de bajo el mínimo; SistemaFen.gs v2.6)
+export const VERSION_COSTOS = '2.10.0';  // script con mp_costos (MP_maestro con precios para Finanzas; SistemaFen.gs v2.7)
 const K_CFG = 'fen_sistema_prod_cfg';
 const LOTE = 400;
 
@@ -229,6 +230,15 @@ async function script(op, datos, minima = VERSION_RECETAS) {
   if (r && r.code === 'version') r = await pedir(url + '?p=' + encodeURIComponent(cuerpo), {});
   if (!r || r.ok !== true) { const e = new Error((r && (r.error || r.msg)) || 'Respuesta inesperada del script de Producción.'); e.code = r && r.code; e.datos = r; throw e; }
   return r;
+}
+// v0.56.0 · Finanzas: MP_maestro CON precios (solo administración, solo lectura). Lo que llega se guarda en fen-gastos,
+// nunca en fen-produccion (la base de las jefas no guarda costos).
+export async function mpCostos() { return (await script('mp_costos', {}, VERSION_COSTOS)).filas || []; }
+// v0.56.0 · Finanzas: materias primas y recetas de fen-produccion (nombres, tipo, estado e ingredientes; sin costos)
+export async function mpsYRecetas() {
+  const db = await dbOk();
+  const [m, r] = await Promise.all([FB.getDocs(FB.collection(db, 'mps')), FB.getDocs(FB.collection(db, 'recetas'))]);
+  return { mps: m.docs.map(d => ({ id: d.id, ...d.data() })), recetas: r.docs.map(d => ({ id: d.id, ...d.data() })) };
 }
 // Lo que se costea de una receta de la base nueva (mismo formato que una propuesta)
 export function datosDeReceta(r) {

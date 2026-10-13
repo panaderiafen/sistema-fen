@@ -773,3 +773,83 @@ a.ag-item { text-decoration: none; }
   .cifra-doble > .cifra { padding: 16px; }
 }
 #c-hoy-suc .nowrap { white-space: nowrap; }
+
+/* ── v0.56.0 · Finanzas ─────────────────────────── */
+.fin-pronto { margin: -12px 0 0; font-size: 12px; color: var(--suave); }
+.fin-sub { margin-top: -6px; }
+.fin-sub .pastilla { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: var(--texto); }
+.fin-sub .pastilla[aria-pressed="true"] { color: var(--acento); }
+.fin-titulo { align-items: center; flex-wrap: wrap; }
+.fin-titulo .btn, .fin-titulo .btn-sec { display: inline-flex; align-items: center; gap: 6px; }
+/* Cómo trabajamos */
+.fin-pasos { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; }
+.fin-paso { display: flex; gap: 14px; padding: 14px 0; border-top: 1px solid var(--linea); }
+.fin-paso-ic { width: 42px; height: 42px; flex: none; border-radius: 12px; background: var(--acento-suave); color: var(--acento); display: flex; align-items: center; justify-content: center; }
+.fin-paso-txt { flex: 1; min-width: 0; }
+.fin-paso-txt p { margin: 4px 0 0; font-size: 14px; line-height: 1.5; }
+.fin-paso-tit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fin-paso-tit h3 { margin: 0; font-size: 15px; }
+.fin-num { width: 22px; height: 22px; border-radius: 11px; background: var(--menu); color: var(--suave); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.fin-cond { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 14px; }
+.fin-cond li { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; }
+.fin-cond svg { flex: none; margin-top: 2px; color: var(--verde-t); }
+.fin-reglas { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
+.fin-regla { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 14px; background: var(--fondo); border: 1px solid var(--linea); }
+.fin-regla svg { flex: none; color: var(--acento); }
+.fin-regla div { display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.45; }
+.fin-regla b { font-size: 15px; }
+.fin-regla span { color: var(--suave); }
+.fin-glosario { margin: 14px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.fin-def { padding: 14px; border-radius: 14px; border: 1px solid var(--linea); }
+.fin-def dt { font-weight: 700; font-size: 15px; color: var(--acento); }
+.fin-def dd { margin: 6px 0 0; font-size: 14px; line-height: 1.5; }
+.fin-ej { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--menu); font-size: 13px; color: var(--texto); }
+/* Materias primas */
+.fin-filtros { margin-top: 14px; }
+.fin-buscar { position: relative; flex: 1 1 260px; min-width: 0; display: flex; align-items: center; }
+.fin-filtros .fin-buscar input[type=search] { flex: 1 1 auto; height: 40px; min-height: 40px; padding: 0 12px 0 36px; font-size: 14px; }
+.fin-buscar svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--suave); pointer-events: none; }
+.fin-buscar input { flex: 1; min-width: 0; min-height: 40px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; padding: 0 12px 0 36px; font-size: 14px; }
+.fin-cuenta { opacity: .75; font-weight: 500; }
+.fin-tabla { margin-top: 14px; }
+.fin-cab, .fin-abrir { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, .8fr); gap: 10px; align-items: center; }
+.fin-cab { padding: 0 10px 8px; font-size: 12px; font-weight: 600; color: var(--suave); border-bottom: 1px solid var(--linea); }
+.fin-fila { border-bottom: 1px solid var(--linea); }
+.fin-abrir { width: 100%; padding: 10px; background: none; border: 0; text-align: left; font-size: 14px; cursor: pointer; border-radius: 10px; }
+.fin-abrir:hover { background: rgba(47, 90, 69, 0.05); }
+.fin-abrir > span { min-width: 0; overflow-wrap: anywhere; }
+.fin-nombre b { font-weight: 600; }
+.fin-et { display: none; }
+.fin-var { display: inline-flex; align-items: center; gap: 2px; font-weight: 700; font-size: 13px; white-space: nowrap; }
+.fin-sube { color: var(--rojo-t); }
+.fin-baja { color: var(--verde-t); }
+/* Diálogos */
+.fin-prev-cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; }
+.fin-prev-cifras div { padding: 10px; border-radius: 12px; background: var(--fondo); display: flex; flex-direction: column; gap: 2px; }
+.fin-prev-cifras b { font-size: 22px; }
+.fin-prev-cifras span { font-size: 12px; color: var(--suave); }
+.fin-prev summary { cursor: pointer; font-weight: 600; font-size: 14px; min-height: 36px; display: flex; align-items: center; gap: 8px; }
+.fin-prev-lista, .fin-hist-lista { list-style: none; margin: 4px 0 0; padding: 0; max-height: 240px; overflow-y: auto; }
+.fin-prev-lista li, .fin-hist-lista li { padding: 8px 0; border-top: 1px solid var(--linea); font-size: 13px; overflow-wrap: anywhere; }
+.fin-hist-lista li { display: flex; flex-direction: column; gap: 2px; }
+.fin-hist h3 { margin: 4px 0 0; font-size: 15px; }
+.fin-actual { margin: 0; font-size: 14px; }
+.fin-cont { display: flex; gap: 8px; }
+.fin-cont input { flex: 1 1 90px; min-width: 0; min-height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--borde); background: #fff; }
+.fin-cont select { flex: 0 0 auto; min-height: 48px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--borde); background: #fff; }
+.fin-check { font-weight: 500 !important; font-size: 13px !important; }
+.fin-calc { margin: 0; min-height: 20px; font-size: 14px; font-weight: 600; color: var(--acento); }
+/* Revisión de datos */
+.fin-item .acciones .btn-sec { display: inline-flex; align-items: center; gap: 6px; }
+.fin-enlace { text-decoration: none; color: var(--texto); }
+@media (max-width: 760px) {
+  .fin-pronto { margin-top: -8px; }
+  .fin-cab { display: none; }
+  .fin-buscar { flex: 0 0 auto; width: 100%; }
+  .fin-abrir { grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 12px 4px; }
+  .fin-abrir > .fin-nombre { grid-column: 1 / -1; }
+  .fin-et { display: block; font-size: 11px; color: var(--suave); font-weight: 600; }
+  .fin-glosario { grid-template-columns: minmax(0, 1fr); }
+  .fin-paso { gap: 10px; }
+  .fin-paso-ic { width: 36px; height: 36px; }
+}
