@@ -14,14 +14,14 @@
 //    aquí queda anulado y un abono sale del vencimiento (queda en abonosQuitados).
 //  · El archivo original va a Drive con el script (op archivo_subir, tipo "cartola", v2.16.0).
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.61.0';
-import * as M from './gastos-g2.js?v=0.61.0';
-import * as G3 from './gastos-g3.js?v=0.61.0';
-import * as G3D from './gastos-g3d.js?v=0.61.0';
-import * as C from './gastos-cartola.js?v=0.61.0';
-import { huella } from './gastos-modelo.js?v=0.61.0';
-import * as FS from './gastos-fs.js?v=0.61.0';
-import * as GB from './gastos-base.js?v=0.61.0';
+import * as FB from './firebase-gastos.js?v=0.62.0';
+import * as M from './gastos-g2.js?v=0.62.0';
+import * as G3 from './gastos-g3.js?v=0.62.0';
+import * as G3D from './gastos-g3d.js?v=0.62.0';
+import * as C from './gastos-cartola.js?v=0.62.0';
+import { huella } from './gastos-modelo.js?v=0.62.0';
+import * as FS from './gastos-fs.js?v=0.62.0';
+import * as GB from './gastos-base.js?v=0.62.0';
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -147,7 +147,7 @@ function revisarCargo(sn, c0, clave) {
   return { c };
 }
 
-// p = { id, huella, accion: 'vencimientos'|'gasto'|'nuevo'|'ignorar'|'abono', pagos, filas, gasto, motivo, siempre, vencId }
+// p = { id, huella, accion: 'vencimientos'|'gasto'|'nuevo'|'ignorar'|'abono'|'pago_tarjeta', pagos, filas, gasto, motivo, siempre, vencId, tarjeta }
 export async function resolver(p) {
   const { d, ref, c: c0 } = await leerCargo(p.id);
   if (s(p.huella) !== c0.huella) throw error('Ese cargo cambió. Recarga la lista.', 'cambio');
@@ -170,6 +170,16 @@ export async function resolver(p) {
       tx.update(ref, aCargo(c0, sn.data(), { estado: C.ESTADOS.ignorado, accion, detalle: JSON.stringify(detalle) }));
       if (R) escribirRegla(tx, R, C.reglaDe('ignorar', c0, { siempre: true, motivo }), c0);
       return { n: 1 + (R ? 1 : 0), detalle, estado: C.ESTADOS.ignorado };
+    });
+  } else if (accion === C.PAGO_TARJETA) {
+    // v0.62.0 · Pago de la tarjeta de crédito: no crea gasto (las compras con tarjeta ya entraron por el SII); es un movimiento de flujo
+    const tarjeta = C.texto(p.tarjeta, 80), detalle = { movimiento: 'flujo', tipo: C.PAGO_TARJETA, tarjeta, marca: clave };
+    r = await FB.runTransaction(d, async tx => {
+      const sn = await tx.get(ref), x = revisarCargo(sn, c0, clave); if (x.repetido) return { repetido: true };
+      const R = await leerRegla(tx, d, c0.clave);
+      tx.update(ref, aCargo(c0, sn.data(), { estado: C.ESTADOS.conciliado, accion, detalle: JSON.stringify(detalle) }));
+      escribirRegla(tx, R, C.reglaDe(C.PAGO_TARJETA, c0, { tarjeta }), c0);
+      return { n: 2, detalle, estado: C.ESTADOS.conciliado };
     });
   } else throw error('Acción desconocida', 'datos');
   if (r.repetido) return { ok: true, repetido: true, id: c0.id, accion };

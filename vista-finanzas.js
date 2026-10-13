@@ -7,18 +7,19 @@
 //  reventa o "no es un producto"). Rutas: #finanzas/margenes[/asociar]. Reglas puras en finanzas-ventas.js.
 //  v0.60.0: Márgenes (F2 paso 2): Margen por producto, Volumen × margen, Precio sugerido y Ajustes. Rutas: #finanzas/margenes/{margen|matriz|precios|ajustes}.
 //  v0.61.0: Resultados (F3 paso 1) en vista-finanzas-resultados.js: Clasificación, Créditos e Inversiones. Rutas: #finanzas/resultados[/creditos[/{id}] | /inversiones].
-//  Más adelante: Estado de resultados, Flujo de caja y Metas.
+//  v0.62.0: Resultados → Estado de resultados (por segmentos, tres pisos) y Cierre de mes (vista-finanzas-eerr.js).
+//  Más adelante: Flujo de caja y Metas.
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.61.0';
-import * as FC from './finanzas-costos.js?v=0.61.0';
-import * as FS from './finanzas-sii.js?v=0.61.0';
-import * as FM from './finanzas-motor.js?v=0.61.0';
-import * as FV from './finanzas-ventas.js?v=0.61.0';
-import * as FMG from './finanzas-margenes.js?v=0.61.0';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.61.0';
-import * as VR from './vista-finanzas-resultados.js?v=0.61.0';
+import * as F from './finanzas.js?v=0.62.0';
+import * as FC from './finanzas-costos.js?v=0.62.0';
+import * as FS from './finanzas-sii.js?v=0.62.0';
+import * as FM from './finanzas-motor.js?v=0.62.0';
+import * as FV from './finanzas-ventas.js?v=0.62.0';
+import * as FMG from './finanzas-margenes.js?v=0.62.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.62.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.62.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -60,7 +61,7 @@ const cab = (tab) => `<div class="cabecera"><div><h1 id="t-finanzas">Finanzas</h
     <a role="tab" href="#finanzas/costos/productos" aria-selected="${tab === 'costos'}">Costos</a>
     <a role="tab" href="#finanzas/margenes" aria-selected="${tab === 'margenes'}">Márgenes</a>
     <a role="tab" href="#finanzas/resultados" aria-selected="${tab === 'resultados'}">Resultados</a></div></div>
-  <p class="fin-pronto">Próximamente: Estado de resultados, Flujo de caja, Metas</p>`;
+  <p class="fin-pronto">Próximamente: Flujo de caja, Metas</p>`;
 
 export async function pintar(el, sub, H) {
   const p = partes(), tab = p[1] === 'costos' ? 'costos' : p[1] === 'margenes' ? 'margenes' : p[1] === 'resultados' ? 'resultados' : 'como';
@@ -70,7 +71,8 @@ export async function pintar(el, sub, H) {
   st.tabPrev = tab;
   if (tab === 'como') { el.innerHTML = cab(tab) + comoTrabajamos(H); return; }
   // v0.61.0: Resultados (F3 paso 1): Clasificación, Créditos e Inversiones
-  if (tab === 'resultados') return VR.pintarResultados(el, ['creditos', 'inversiones'].includes(p[2]) ? p[2] : 'clasificacion', H, { cab, error, sinBase, conexion: async () => { if (!st.cx || st.cx.gastos.estado !== 'ok') st.cx = await F.conexiones(); return st.cx; } });
+  // v0.62.0: Estado de resultados (primera parte) y Cierre de mes; Clasificación pasa a #finanzas/resultados/clasificacion
+  if (tab === 'resultados') return VR.pintarResultados(el, ['creditos', 'inversiones', 'clasificacion', 'cierre'].includes(p[2]) ? p[2] : 'eerr', H, { cab, error, sinBase, conexion: async () => { if (!st.cx || st.cx.gastos.estado !== 'ok') st.cx = await F.conexiones(); return st.cx; } });
   if (tab === 'margenes') return pintarMargenes(el, ['asociar', 'margen', 'matriz', 'precios', 'ajustes'].includes(p[2]) ? p[2] : 'ventas', H);
   const parte = p[2] === 'revision' ? 'revision' : p[2] === 'compras' ? 'compras' : p[2] === 'productos' ? 'productos' : 'mp';
   el.innerHTML = cab(tab) + subPestanas(parte, null) + '<section class="tarjeta"><div class="vacio" style="border:0">Abriendo los costos…</div></section>';
@@ -139,7 +141,9 @@ function comoTrabajamos(H) {
       ${def('Margen del área', 'Margen de contribución del área − sus fijos propios.')}
       ${def('Fijos propios y fijos comunes', '<b>Propios</b>: existen solo por esa área (por ejemplo, un sueldo o una máquina de una sola área). <b>Comunes</b>: son de todo el negocio (arriendo, contador, luz general, sueldo empresarial). En el resultado los comunes van <b>sin repartir</b>; aparte se puede ver un reparto por causa (m², kWh, horas), solo para conversar.')}
       ${def('Resultado del negocio', 'Tres pisos: ventas netas − costo directo = margen de contribución; − fijos propios = margen del área; − fijos comunes = resultado del negocio.')}
+      ${def('Mes cerrado y ajustes', 'Al cerrar el mes (Resultados → Cierre de mes) su estado de resultados queda congelado. Si después cambia algo de ese mes (una factura atrasada, un gasto corregido), el mes cerrado no se toca: la diferencia aparece como <b>Ajustes de meses cerrados</b> en el primer mes abierto siguiente.')}
       ${def('Punto de equilibrio', 'La venta neta que cubre los fijos: fijos ÷ % de margen de contribución.', 'Ejemplo: fijos $3.000.000 al mes y margen 60 % → hay que vender $5.000.000 netos en el mes.')}
+      ${def('Tarjeta de crédito', '<b>Compras con tarjeta</b>: son gasto el día de la compra (entran por el SII, con su factura). <b>Pago de la tarjeta</b>: queda fuera del resultado, es solo flujo de caja (en la cartola se marca "Pago de tarjeta": no crea gasto). <b>Mantención e intereses de la tarjeta</b>: gasto financiero, se registran a mano en Gastos.', 'Ejemplo: compras $100.000 en harina con la tarjeta el 10 de marzo → gasto de marzo. El 5 de abril pagas la tarjeta: ese cargo no es gasto (ya se contó en marzo). La comisión de mantención de $3.000 sí es gasto financiero de abril.')}
       ${def('Qué queda fuera del resultado', 'No son gasto del mes, van al flujo de caja: el <b>capital</b> de las cuotas de crédito (solo el interés es gasto), el pago de IVA (<b>F29</b>), las <b>inversiones</b> (entran al resultado como depreciación mensual según su vida útil) y los <b>retiros</b>. El sueldo empresarial sí es costo (fijo común).')}
     </dl>
   </section>`;

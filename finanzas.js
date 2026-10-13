@@ -45,20 +45,21 @@
 //   guarda porMedio y el de B2B ordenesValidas. costos_config/finanzas.margenes (comisión por medio de pago, mezcla de la caja, despacho B2B,
 //   margen objetivo por área, redondeo) + historialMargenes. fin_productos.costoExtraNeto (envase por venta, neto).
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.61.0';
-import * as FB from './firebase-gastos.js?v=0.61.0';
-import * as GB from './gastos-base.js?v=0.61.0';
-import * as P from './produccion.js?v=0.61.0';
-import * as FC from './finanzas-costos.js?v=0.61.0';
-import * as FS from './finanzas-sii.js?v=0.61.0';
-import * as FM from './finanzas-motor.js?v=0.61.0';
-import * as FV from './finanzas-ventas.js?v=0.61.0';
-import * as FMG from './finanzas-margenes.js?v=0.61.0';
-import * as FR from './finanzas-resultados.js?v=0.61.0';
-import * as Caja from './caja.js?v=0.61.0';
-import * as B from './b2b.js?v=0.61.0';
-import * as FBB from './firebase-b2b.js?v=0.61.0';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.61.0';
+import { auth as authSF } from './firebase.js?v=0.62.0';
+import * as FB from './firebase-gastos.js?v=0.62.0';
+import * as GB from './gastos-base.js?v=0.62.0';
+import * as P from './produccion.js?v=0.62.0';
+import * as FC from './finanzas-costos.js?v=0.62.0';
+import * as FS from './finanzas-sii.js?v=0.62.0';
+import * as FM from './finanzas-motor.js?v=0.62.0';
+import * as FV from './finanzas-ventas.js?v=0.62.0';
+import * as FMG from './finanzas-margenes.js?v=0.62.0';
+import * as FR from './finanzas-resultados.js?v=0.62.0';
+import * as FE from './finanzas-eerr.js?v=0.62.0';
+import * as Caja from './caja.js?v=0.62.0';
+import * as B from './b2b.js?v=0.62.0';
+import * as FBB from './firebase-b2b.js?v=0.62.0';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.62.0';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -575,4 +576,103 @@ export async function guardarInversion(gastoId, datos, info = {}) {
   });
   if (resCache) resCache.invGuardadas[gastoId] = doc;
   return doc;
+}
+
+// ═══════════════ v0.62.0 · Estado de resultados y cierre de mes (F3 paso 2) ═══════════════
+// Reglas puras en finanzas-eerr.js. Se guarda en fen-gastos (solo administración; las reglas v0.1.0 ya cubren colecciones nuevas):
+//  · fin_cierres/{AAAA-MM}   snapshot del mes cerrado: { mes, estado cerrado|reabierto, filas, canal, info, cuadratura, detalle, avisos,
+//                            costosUsados, checks, override { motivo, fallas } | null, ajustes { total, porMes } | null, cerradoPor, cerradoEn, version }.
+//                            Un mes cerrado se lee de aquí (congelado). Reabrir lo deja en "reabierto" (el snapshot anterior queda en el historial).
+//  · fin_cierres_hist/{autoId}  solo agregar: { mes, accion cerrado|reabierto, por, fecha, en, motivo, override, resultado, snapshotAnterior }.
+//  · fin_config/claves       claves de reparto de los comunes (vista secundaria): { bases { m2, kwh, horas }, porTipo, porItem, historial }.
+//  Lee (solo lectura): ventas (fin_ventas_mes / caja / B2B), costos, vínculos, merma y conteos de fen-produccion, gastos, créditos,
+//  inversiones, cargas del SII y cargos de la cartola (por revisar y pagos de tarjeta).
+export async function leerCierres() {
+  const db = await dbG();
+  const [c, k] = await Promise.all([FB.getDocs(FB.collection(db, 'fin_cierres')), FB.getDoc(FB.doc(db, 'fin_config', 'claves'))]);
+  return { cierres: mapa(c), claves: k.exists() ? k.data() : {} };
+}
+// Cargos de la cartola: por revisar y pagos de tarjeta (con su fecha aaaa-mm-dd)
+export async function cargosCartola() {
+  const db = await dbG();
+  const sn = await FB.getDocs(FB.collection(db, 'cartola_cargos'));
+  const dia = v => { const t = String(v || '').trim(); let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t); if (m) return m[0]; m = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/.exec(t); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : ''; };
+  const l = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => !x.quitadoEnPlanilla).map(x => ({ id: x.id, fecha: dia(x.fecha), monto: Number(x.monto) || 0, descripcion: String(x.descripcion || ''), estado: String(x.estado || ''), accion: String(x.accion || '') }));
+  return { porRevisar: l.filter(x => x.estado === 'POR_REVISAR'), pagosTarjeta: l.filter(x => x.accion === 'pago_tarjeta' && x.estado !== 'POR_REVISAR') };
+}
+export async function cargasSii() {
+  const db = await dbG();
+  const sn = await FB.getDocs(FB.collection(db, 'sii_cargas'));
+  return sn.docs.map(d => d.data()).filter(x => !x.quitadoEnPlanilla).map(x => ({ desde: String(x.periodoDesde || ''), hasta: String(x.periodoHasta || ''), quitada: x.quitada || '' }));
+}
+// La merma del mes valorizada (Producción → Merma, neto): por área y el café. null si fen-produccion no está conectada.
+async function mermaMes(mes) {
+  try {
+    const cx = await P.conexion(); if (cx.estado !== 'ok') return { disponible: false, detalle: [], cafe: 0 };
+    const d = await P.mermaDelPeriodo({ desde: mes + '-01', hasta: FV.ultimoDia(mes) }), r = P.resumenMerma(d);
+    const detalle = []; let sinCosto = 0;
+    r.areas.forEach(a => { sinCosto += a.sinCosto || 0; a.items.forEach(it => { if (it.neto) detalle.push({ area: a.area, nombre: it.nombre + (it.derramado ? ' (derramado)' : ''), neto: it.neto, cantidad: it.cantidad, unidad: it.unidad }); }); });
+    return { disponible: true, detalle, cafe: Number(r.cafe && r.cafe.netoTotal) || 0, sinCosto };
+  } catch (e) { console.warn('Finanzas: sin la merma de Producción', e); return { disponible: false, detalle: [], cafe: 0 }; }
+}
+// Todo lo de un mes para el estado de resultados (ventas, costos, vínculos, merma). forzar: vuelve a leer las ventas.
+const mesCache = {};
+export const olvidarMeses = () => { Object.keys(mesCache).forEach(k => delete mesCache[k]); };
+export async function datosMes(mes, { forzar = false } = {}) {
+  if (mesCache[mes] && !forzar) return mesCache[mes];
+  const [ventas, vinculos, costos, merma] = await Promise.all([ventasPeriodo({ meses: [mes] }, { forzar }), leerVinculos(), leerProductos(), mermaMes(mes)]);
+  const hoy = hoyTxt(), cfg = FMG.configMargenes(costos.config && costos.config.margenes);
+  const margen = FMG.calcularMargenes(ventas.porMes || [], vinculos || {}, costos, cfg, { hoy, modo: 'mes' });
+  const info = (ventas.meses || [])[0] || {};
+  const lAin = (ventas.lineas || []).filter(l => l.suc === 'ainavillo');
+  const netoTotal = margen.filas.reduce((a, f) => a + f.neto, 0), netoSin = margen.filas.filter(f => f.tipo === 'sin').reduce((a, f) => a + f.neto, 0);
+  const caja = info.caja || {};
+  mesCache[mes] = { mes, margen, merma, ventasInfo: { guardado: caja.fuente === 'guardado', abiertas: caja.abiertas || 0, faltan: caja.faltan || 0, nAinavillo: lAin.reduce((a, l) => a + (Number(l.cantidad) || 0), 0), netoAinavillo: lAin.reduce((a, l) => a + (Number(l.neto) || 0), 0), netoTotal, netoSinAsociar: netoSin, b2b: info.b2b || null } };
+  return mesCache[mes];
+}
+export async function conteosMes(mes) {
+  try { const cx = await P.conexion(); if (cx.estado !== 'ok') return { disponible: false }; const w = FE.ventanaConteo(mes); return { disponible: true, ...(await P.conteosEntre(w.desde, w.hasta)) }; }
+  catch (e) { return { disponible: false, error: e.message || String(e) }; }
+}
+// Cerrar un mes: guarda el snapshot (no se puede si ya está cerrado) y su historial
+export async function cerrarMes(mes, snap) {
+  const db = await dbG(), ref = FB.doc(db, 'fin_cierres', mes), fecha = hoyTxt(), por = yo();
+  return FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref), prev = sn.exists() ? sn.data() : null;
+    if (prev && prev.estado === 'cerrado') throw new Error(`${FE.mesTxt(mes)} ya está cerrado.`);
+    const d = { ...snap, cerradoPor: por, cerradoEn: new Date().toISOString(), fecha, version: (Number(prev && prev.version) || 0) + 1, updatedAt: FB.serverTimestamp() };
+    tx.set(ref, d);
+    tx.set(FB.doc(db, 'fin_cierres_hist', idNuevo('fc-')), { mes, accion: 'cerrado', por, fecha, en: FB.serverTimestamp(), motivo: snap.override ? snap.override.motivo : '', override: snap.override || null, resultado: snap.filas.resultado.total });
+    return d;
+  });
+}
+// Reabrir (se puede, pero no se recomienda): con motivo; el snapshot anterior queda en el historial
+export async function reabrirMes(mes, motivo) {
+  const m = String(motivo || '').trim();
+  if (m.length < 5) throw new Error('Escribe el motivo para reabrir (al menos 5 letras).');
+  const db = await dbG(), ref = FB.doc(db, 'fin_cierres', mes), fecha = hoyTxt(), por = yo();
+  await FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref); if (!sn.exists() || sn.data().estado !== 'cerrado') throw new Error(`${FE.mesTxt(mes)} no está cerrado.`);
+    const a = sn.data();
+    tx.set(FB.doc(db, 'fin_cierres_hist', idNuevo('fc-')), { mes, accion: 'reabierto', por, fecha, en: FB.serverTimestamp(), motivo: m.slice(0, 300), resultado: a.filas && a.filas.resultado ? a.filas.resultado.total : null,
+      snapshotAnterior: { filas: a.filas || null, info: a.info || null, cuadratura: a.cuadratura || null, ajustes: a.ajustes || null, cerradoPor: a.cerradoPor || '', cerradoEn: a.cerradoEn || '' } });
+    tx.update(ref, { estado: 'reabierto', reabiertoPor: por, reabiertoEn: new Date().toISOString(), motivoReabrir: m.slice(0, 300), version: (Number(a.version) || 0) + 1 });
+  });
+}
+export async function historialCierres(mes) {
+  const db = await dbG();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'fin_cierres_hist'), FB.where('mes', '==', mes)));
+  const t = x => (x && typeof x.toMillis === 'function' ? x.toMillis() : 0);
+  return sn.docs.map(d => d.data()).sort((a, b) => t(b.en) - t(a.en));
+}
+export async function guardarClaves(datos) {
+  const x = FE.validarClaves(datos);
+  const db = await dbG(), ref = FB.doc(db, 'fin_config', 'claves'), fecha = hoyTxt(), por = yo();
+  return FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref), prev = sn.exists() ? sn.data() : {};
+    const historial = [...(Array.isArray(prev.historial) ? prev.historial : []), { antes: { bases: prev.bases || null, porTipo: prev.porTipo || null, porItem: prev.porItem || null }, por, fecha }].slice(-30);
+    const d = { ...x, historial, por, fecha, updatedAt: FB.serverTimestamp() };
+    tx.set(ref, d);
+    return d;
+  });
 }

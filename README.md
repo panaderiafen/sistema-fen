@@ -1,9 +1,60 @@
-# Sistema Fën · v0.61.0
+# Sistema Fën · v0.62.0
 
-**App:** v0.61.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 14 de octubre de 2026
+**App:** v0.62.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 14 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.62.0: Finanzas (F3 · paso 2): estado de resultados por segmentos y cierre de mes
+Plan acordado (`finanzas-plan.md`, sección 1 y F3): el estado de resultados mensual **por área y total, en tres pisos**, el **cierre de mes** con su checklist y el mes **congelado**. Todo en neto. **No cambia ningún gasto.**
+
+**Finanzas → Resultados → Estado de resultados** (ahora la primera parte; Clasificación pasa a `#finanzas/resultados/clasificacion`)
+- **Mes** (meses de 2026; por defecto el anterior) y **Comparar con el mes anterior** (columnas del mes anterior y la variación). "Contra presupuesto" aparece gris: llega con Metas (F5).
+- Columnas **Panadería, Bollería, Pastelería, Cafetería, Común y Total**. Filas:
+  1. **Ventas netas** (por área que produce; ▼ abre por canal: Caja Barros Arana, Caja Ainavillo, B2B) − **costo directo de lo vendido** (receta × unidades al **costo del mes**; reventa a su costo de compra) − **costos de venta** (comisión de tarjeta, despacho) − **merma valorizada** (Producción → Merma, neto; el café de calibración va a Cafetería) = **Margen de contribución** ($ y % de ventas). Las ventas **sin asociar** van a Común sin costo directo (aviso).
+  2. − **remuneraciones propias** del área − **otros fijos propios** − **depreciación** del área = **Margen del área**.
+  3. Común: **remuneraciones comunes** (incluye el sueldo empresarial), **fijos comunes**, **depreciación común** → **Resultado operacional** (Total) − **financieros** (interés de las cuotas pagadas en el mes según la tabla de cada crédito + gastos tipo financiero) = **Resultado del mes**.
+- **Cada cifra se toca** y muestra de dónde sale (gastos con **Ver en Gastos**, que abre Registrados con el mes y el ítem; productos vendidos; merma; interés del crédito; depreciación).
+- **Fuera del resultado** (informativo): compras de MP y reventa, lo que ya está en el margen, capital de créditos (cuotas − interés), impuestos, inversiones, retiros, otros y **pagos de tarjeta** de la cartola.
+- **Cuadratura con Gastos:** total de gastos del mes en Gastos = en el resultado + interés dentro de las cuotas + compras + en el margen + fuera + sin clasificar. Muestra la **diferencia** (debe ser $0) y los ítems **sin clasificar** con el enlace a Clasificación.
+- **Comunes repartidos por causa** (vista secundaria, rotulada "solo para conversar"): **Claves de reparto** con bases por área (**m²**, **maquinaria kWh**, **horas**) o **% a mano** (suma 100), por tipo de común (remuneraciones, fijos, depreciación) y, si quieres, por ítem. Por defecto **sin repartir**. El total siempre es el mismo resultado operacional.
+
+**Resultados → Cierre de mes**
+- Revisiones automáticas del mes: **SII cargado** (alguna carga cubre hasta el último día), **ventas completas** (sin cajas abiertas ni cierres sin resumen), **Ainavillo registrando** (cuántos productos y cuánto; en 0 es solo **aviso**), **cartola conciliada** (sin cargos del mes por revisar), **conteo de bodega** en cada bodega (Producción y Cafetería) entre los **últimos 3 días del mes y los primeros 3 del siguiente**, **gastos clasificados** (0 sin tipo) y **productos vendidos sin asociar < 10 %**. Cada una con su (i) y "Revisar".
+- **Cerrar mes** (desde el mes siguiente): si algo falta, solo con **"Cerrar igual" + motivo**. Guarda el **snapshot** `fin_cierres/{AAAA-MM}` con el estado de resultados completo, los **costos usados**, las revisiones, el motivo, quién y cuándo. Desde ahí el mes se ve **congelado**.
+- Lo que cambie después en un mes cerrado (un gasto corregido, una factura atrasada) **no lo toca**: aparece como **"Ajustes de meses cerrados"** en el primer mes abierto siguiente (cálculo de hoy − snapshot − lo ya informado), con el detalle por fila y por gasto, y "Resultado del mes con ajustes". Al cerrar ese mes, el ajuste queda dentro de su snapshot y no se repite.
+- **Reabrir**: se puede, pero no se recomienda (se explica); pide **motivo** y queda en `fin_cierres_hist` con el snapshot anterior.
+
+**Agregados**
+- **Conciliación → Cargos (base nueva): "Pago de tarjeta"**. El cargo **no crea gasto**: queda en el mismo cargo como movimiento de flujo (estado Conciliado, acción `pago_tarjeta`, detalle `{ movimiento: 'flujo', tipo: 'pago_tarjeta', tarjeta }`), igual que "No es gasto" vive en el cargo; se **aprende** (la próxima vez se propone y viene marcado) y se deshace como lo demás. Para el flujo de caja (F4).
+- **Créditos → "Calcular la tasa desde la cuota"**: con monto, n° de cuotas y valor de la cuota (y la primera fecha) busca la **tasa mensual** del sistema francés (bisección + Newton, siempre converge), muestra la **anual equivalente** ((1 + i)^12 − 1) y arma la tabla.
+- **Política de la tarjeta de crédito** (en Cómo trabajamos → Cómo se calcula): **compras con tarjeta = gasto al comprar** (por el SII); **pago de la tarjeta = fuera del resultado** (flujo); **mantención e intereses de la tarjeta = financiero** (se registran a mano en Gastos).
+
+**Dónde se guarda (fen-gastos, solo administración):** `fin_cierres/{AAAA-MM}` `{ mes, estado cerrado|reabierto, filas, canal, info, cuadratura, detalle, avisos, costosUsados, checks, override, ajustes, cerradoPor, cerradoEn, version }`; `fin_cierres_hist` (solo agregar); `fin_config/claves` `{ bases { m2, kwh, horas }, porTipo, porItem, historial }`. Lee (solo lectura) ventas, costos, vínculos, merma y conteos de fen-produccion (`dias`), gastos, créditos, inversiones, cargas del SII y cargos de la cartola. **Reglas y scripts: no cambian.** Nada va a Cocina ni a Hoy.
+
+Por dentro: nuevo `finanzas-eerr.js` (puro: `lineasGastosMes`, `creditosDelMes`, `depreciacionDelMes`, `armarEERR`, `cuadratura`, `pctDe`, `validarClaves`, `repartirComunes`, `ventanaConteo`, `checksCierre`, `fallas`, `armarSnapshot`, `yaInformado`, `ajusteDe`, `mesDeAjuste`, `juntarAjustes`, `mesesDelAnio`); nuevo `vista-finanzas-eerr.js` (Estado de resultados y Cierre de mes); `finanzas-resultados.js`: `tasaDesdeCuota`; `finanzas.js`: `leerCierres`, `cargosCartola`, `cargasSii`, `datosMes`, `conteosMes`, `cerrarMes`, `reabrirMes`, `historialCierres`, `guardarClaves`; `produccion.js`: `conteosEntre`; `gastos-cartola.js` / `gastos-cartola-fs.js`: `pago_tarjeta`; `app.js`: la opción en la cartola y `verGastos` para Finanzas.
+
+Pruebas: nueva `pruebas/sistemafen/finanzas-f3b.test.js` (12: 6 unitarias —estado de resultados por piso y columna con info y cuadratura; reparto por causa que suma lo mismo; revisiones del cierre; snapshot y ajustes sin repetir; tasa desde la cuota ida y vuelta; pago de tarjeta en las reglas— y 6 de punta a punta con un septiembre ficticio: cifras exactas por piso y columna (resultado −$1.031.666), por canal, detalle, Ver en Gastos, comparar; pago de tarjeta sin gasto y aprendido; cierre con una revisión pendiente → cerrar igual con motivo → snapshot; luz corregida → septiembre congelado y ajuste −$10.000 en octubre; reparto con claves; tasa desde la cuota; reabrir; 390 y 768). `sf-pantallas` revisa 5 pantallas nuevas (estado de resultados por canal, detalle, comparar, repartido con claves, cierre) en los 3 tamaños; `finanzas-f1a` y `finanzas-f3a` cambian "Próximamente" y la ruta de Clasificación. Siguen pasando e2e (54), f1a/b/c, f2a/b, f3a, g3c/g3d/g3e, b2b-v018, hoy-v055 y sf-pantallas. Capturas en `pruebas/capturas/finanzas-f3b/` (PC y 390).
+
+Archivos: nuevos `finanzas-eerr.js` y `vista-finanzas-eerr.js`; cambian `finanzas.js`, `finanzas-resultados.js`, `vista-finanzas-resultados.js`, `vista-finanzas.js`, `gastos-cartola.js`, `gastos-cartola-fs.js`, `produccion.js`, `app.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.62.0**.
+
+### Instalación v0.62.0 (unos 2 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.62.0.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+
+### Lista de verificación v0.62.0
+- [ ] Abajo a la izquierda dice **v0.62.0**; Resultados abre en **Estado de resultados** y tiene **Cierre de mes**.
+- [ ] Septiembre: la **cuadratura** da diferencia **$0**; el total de gastos = el de Gastos → Análisis (neto, septiembre).
+- [ ] Toca 2 o 3 cifras (un fijo, la venta de Panadería): el detalle tiene sentido; "Ver en Gastos" abre Registrados filtrado.
+- [ ] Ventas netas por área ≈ Márgenes → Margen por producto (mismo mes, costo del mes); ▼ por canal ≈ Reportes de caja y Análisis B2B.
+- [ ] Intereses del mes = Créditos → Cuotas pagadas por mes.
+- [ ] Conciliación → Cargos: marca un pago de tarjeta como **Pago de tarjeta** → no aparece gasto nuevo; sale en "Fuera del resultado".
+- [ ] Créditos: prueba **Calcular la tasa desde la cuota** con un crédito que conozcas.
+- [ ] Cierre de mes de septiembre: revisa las 7 revisiones; cuando estén, **Cerrar septiembre 2026**. Luego el estado de resultados de septiembre dice "Mes cerrado".
+- [ ] Si quieres, Claves de reparto (vista secundaria) con tus m², kWh y horas.
+- [ ] En el celular se ve bien (la tabla se desliza dentro de su caja, con el concepto fijo a la izquierda).
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.61.0: Estado de resultados y Cierre de mes desaparecen. Lo guardado (`fin_cierres`, `fin_cierres_hist`, `fin_config/claves`, cargos con `pago_tarjeta`) queda en fen-gastos sin estorbar (un cargo marcado "Pago de tarjeta" se ve como conciliado).
 
 ## Novedades de la v0.61.0: Finanzas (F3 · paso 1): clasificar para el estado de resultados
 Plan acordado (`finanzas-plan.md`, F3 pasos 1–3): antes de armar el estado de resultados hay que decir **qué es cada gasto**. Pestaña nueva **Finanzas → Resultados** con tres partes. **No cambia ningún gasto**: es una capa de Finanzas en fen-gastos. Todo en neto.

@@ -9,35 +9,35 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.61.0';
-import * as Caja from './caja.js?v=0.61.0';
-import * as Stock from './stock.js?v=0.61.0';
-import * as Ajustes from './ajustes.js?v=0.61.0';
-import * as Apps from './apps.js?v=0.61.0';
-import * as Agenda from './agenda.js?v=0.61.0';
-import * as Gastos from './gastos.js?v=0.61.0';
-import * as G3 from './gastos-g3.js?v=0.61.0';
-import * as G3D from './gastos-g3d.js?v=0.61.0';
-import { resumenAnalisis } from './gastos-g2.js?v=0.61.0';
-import * as Sii from './sii.js?v=0.61.0';
-import * as GSii from './gastos-sii.js?v=0.61.0';
-import * as Previred from './previred.js?v=0.61.0';
-import * as B2b from './b2b.js?v=0.61.0';
-import * as Cartola from './cartola.js?v=0.61.0';
-import * as SiiFactura from './sii-factura.js?v=0.61.0';
-import * as PdfOrden from './pdf-orden.js?v=0.61.0';
-import * as Prod from './produccion.js?v=0.61.0';
+} from './firebase.js?v=0.62.0';
+import * as Caja from './caja.js?v=0.62.0';
+import * as Stock from './stock.js?v=0.62.0';
+import * as Ajustes from './ajustes.js?v=0.62.0';
+import * as Apps from './apps.js?v=0.62.0';
+import * as Agenda from './agenda.js?v=0.62.0';
+import * as Gastos from './gastos.js?v=0.62.0';
+import * as G3 from './gastos-g3.js?v=0.62.0';
+import * as G3D from './gastos-g3d.js?v=0.62.0';
+import { resumenAnalisis } from './gastos-g2.js?v=0.62.0';
+import * as Sii from './sii.js?v=0.62.0';
+import * as GSii from './gastos-sii.js?v=0.62.0';
+import * as Previred from './previred.js?v=0.62.0';
+import * as B2b from './b2b.js?v=0.62.0';
+import * as Cartola from './cartola.js?v=0.62.0';
+import * as SiiFactura from './sii-factura.js?v=0.62.0';
+import * as PdfOrden from './pdf-orden.js?v=0.62.0';
+import * as Prod from './produccion.js?v=0.62.0';
 import * as ProdK from './cocina/consumo.js?v=0.16.0';
-import * as VistaProd from './vista-produccion.js?v=0.61.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.61.0';
+import * as VistaProd from './vista-produccion.js?v=0.62.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.62.0';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.61.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.62.0');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.61.0');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.62.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.61.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.62.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -339,7 +339,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.61.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.62.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -551,14 +551,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.61.0').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.62.0').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.61.0').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.62.0').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -932,9 +932,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.61.0').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.62.0').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.61.0').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.62.0').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -1984,7 +1984,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.61.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.62.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -2101,10 +2101,11 @@ const mismaCompra = (a, b) => a.fecha === b.fecha && a.formaPago === b.formaPago
 
 // ── v0.18.0 · Gastos · Cartola: los cargos del banco ───────────
 // La misma cartola de B2B → Conciliación: aquí se dice qué es cada cargo.
-const cart = { d: null, cargando: false, err: '', msg: '', subiendo: false, ocupado: '', abierto: '', modo: {}, montos: {}, gasto: {}, nuevo: {}, ign: {}, buscarV: {}, histBuscar: '', dias: 60, sel: {}, abonoV: {} };
+const cart = { d: null, cargando: false, err: '', msg: '', subiendo: false, ocupado: '', abierto: '', modo: {}, montos: {}, gasto: {}, nuevo: {}, ign: {}, buscarV: {}, histBuscar: '', dias: 60, sel: {}, abonoV: {}, tarj: {} };
 const ACC_CC = { vencimientos: 'Paga vencimientos', gasto: 'Ya está en Gastos', nuevo: 'Gasto nuevo', ignorar: 'No es gasto' };
 // v0.50.0 · Con la base nueva, un cargo también puede ser un abono a un vencimiento de tipo libre (sueldo líquido)
-const ACC_CC_BASE = { vencimientos: 'Paga vencimientos', abono: 'Abono (sueldo)', gasto: 'Ya está en Gastos', nuevo: 'Gasto nuevo', ignorar: 'No es gasto' };
+// v0.62.0 · y un pago de la tarjeta de crédito (no es gasto: movimiento de flujo; las compras con tarjeta ya entraron por el SII)
+const ACC_CC_BASE = { vencimientos: 'Paga vencimientos', abono: 'Abono (sueldo)', gasto: 'Ya está en Gastos', nuevo: 'Gasto nuevo', pago_tarjeta: 'Pago de tarjeta', ignorar: 'No es gasto' };
 const accCc = () => (cart.d && cart.d.fuente === 'base' ? ACC_CC_BASE : ACC_CC);
 const MOTIVOS_IGN = ['Traspaso entre mis cuentas', 'Retiro de socios', 'Devolución o reverso'];
 function cargarCartolaGastos(forzar) {
@@ -2118,7 +2119,7 @@ function textoProp(p) {
   const por = { aprendido: 'aprendido', rut: 'por el RUT', monto: 'por el monto', 'monto fijo': 'monto fijo exacto', documento: 'por el monto del documento' }[p.por] || '';
   // v0.50.0 (base nueva): opciones sin propuesta automática y abonos
   if (p.sinPropuesta) return `<span class="prop-duda">${esc(p.duda || 'Elige cuál paga')}</span> <small>(${esc((p.opciones || []).map(o => `${o.nombre}${o.conDocumento ? ' ' + pesos(o.monto) : ' · sin documento'}`).join(' · '))})</small>`;
-  const t = p.tipo === 'vencimientos' ? `Paga: ${p.texto}` : p.tipo === 'abono' ? `Abono a ${p.texto}` : p.tipo === 'gasto' ? `Ya en Gastos: ${p.texto}` : p.tipo === 'nuevo' ? `Gasto nuevo: ${p.texto}` : `No es gasto: ${p.motivo}`;
+  const t = p.tipo === 'vencimientos' ? `Paga: ${p.texto}` : p.tipo === 'abono' ? `Abono a ${p.texto}` : p.tipo === 'gasto' ? `Ya en Gastos: ${p.texto}` : p.tipo === 'nuevo' ? `Gasto nuevo: ${p.texto}` : p.tipo === 'pago_tarjeta' ? `Pago de tarjeta: ${p.texto}` : `No es gasto: ${p.motivo}`;
   return `${esc(t)}${por ? ` <small>(${por})</small>` : ''}${p.duda ? ` <small class="prop-duda">${esc(p.duda)}</small>` : ''}`;
 }
 // Lo que se manda al confirmar una propuesta tal cual (null si le falta algo: se abre el detalle)
@@ -2128,6 +2129,7 @@ function pedidoDeProp(c, p, items) {
   if (p.tipo === 'vencimientos') return { accion: 'vencimientos', pagos: p.pagos };
   if (p.tipo === 'gasto') return { accion: 'gasto', filas: p.gasto.filas };
   if (p.tipo === 'ignorar') return { accion: 'ignorar', motivo: p.motivo, siempre: false };
+  if (p.tipo === 'pago_tarjeta') return { accion: 'pago_tarjeta', tarjeta: p.tarjeta || '' };
   const it = items.find(i => i.item === p.item); if (!it) return null;
   const x = { item: it.item };
   if (it.area === 'PRORRATEADO') { try { x.prorrateo = JSON.parse(p.area); } catch (e) { return null; } x.montoTotal = c.monto; }
@@ -2179,6 +2181,12 @@ function editorCargo(c, p, dg) {
       <label class="check-linea"><input type="checkbox" data-cc-nuevo="sinFactura" data-cc="${esc(c.id)}" ${n.sinFactura ? 'checked' : ''}> No lleva factura (sin IVA crédito: intereses, comisiones, impuestos…) ${info('Sin factura', 'Marcado: el monto queda sin IVA y no se avisa "pagado sin factura".\nSin marcar: el monto incluye IVA y, mientras no llegue su factura en una carga del SII (se vincula sola en Cargas del SII, por el monto), aparece en Avisos como "pagado sin factura": podría ser IVA crédito que se pierde.')}</label>
       <div class="campo"><label for="cc-obs-${esc(c.id)}">Observación</label><input id="cc-obs-${esc(c.id)}" data-cc-nuevo="obs" data-cc="${esc(c.id)}" maxlength="200" value="${esc(n.obs)}" placeholder="${esc('Cartola: ' + c.descripcion)}"></div>
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="nuevo" data-cc="${esc(c.id)}" ${it && !cart.ocupado ? '' : 'disabled'}>Registrar gasto de ${pesos(c.monto)}</button></div>`;
+  } else if (m === 'pago_tarjeta') {
+    // v0.62.0 · Pago de la tarjeta de crédito: no crea gasto; queda en el cargo como movimiento de flujo (para el flujo de caja)
+    const t = cart.tarj[c.id] !== undefined ? cart.tarj[c.id] : (p && p.tipo === 'pago_tarjeta' ? p.tarjeta || '' : '');
+    cuerpo = `<p class="ayuda">No crea un gasto ${info('Pago de tarjeta de crédito', 'Las compras con tarjeta ya son gasto el día de la compra (entran por el SII, con su factura). Pagar la tarjeta es solo mover la plata: no es gasto ni entra al estado de resultados; queda anotado aquí como movimiento de flujo para el flujo de caja.\nLa mantención y los intereses de la tarjeta sí son gasto financiero: regístralos a mano en Gastos (ítem de gasto financiero).\nLo que eliges se aprende: la próxima vez un cargo con esta descripción se propone como pago de tarjeta.')}</p>
+      <div class="campo"><label for="cc-tarj-${esc(c.id)}">Tarjeta (opcional)</label><input id="cc-tarj-${esc(c.id)}" data-cc-tarj="${esc(c.id)}" maxlength="80" value="${esc(t)}" placeholder="Por ejemplo: Visa BancoEstado"></div>
+      <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="pago_tarjeta" data-cc="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Es pago de tarjeta</button></div>`;
   } else {
     const g = cart.ign[c.id] || (cart.ign[c.id] = { motivo: MOTIVOS_IGN[0], siempre: false });
     cuerpo = `<div class="chips chips-chicos" role="radiogroup" aria-label="Motivo">${MOTIVOS_IGN.concat(['Otro']).map(t => `<label class="chip-radio"><input type="radio" name="cc-ign-${esc(c.id)}" data-cc-ign="${esc(c.id)}" value="${esc(t)}" ${(MOTIVOS_IGN.includes(g.motivo) ? g.motivo : 'Otro') === t ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>
@@ -2194,7 +2202,7 @@ function pintarCartola(el, sub, dg) {
   const D = cart.d;
   // Con la conciliación de B2B ya empezada, arriba va la misma tarjeta que en Abonos (una sola cartola, días y cuentas)
   const bd = b2b.datos, compartida = !!(bd && bd.conciliacion && bd.conciliacion.importado);
-  const subir = compartida ? tarjetaConcHtml(bd, bd.conciliacion) + (cart.msg ? `<p class="ayuda" role="status">${cart.msg}</p>` : '') + (cart.err ? `<p class="error" role="alert">${esc(cart.err)}</p>` : '') + (D ? `<details class="tarjeta plegable"><summary class="titulo-fila"><h2>Cartolas en Gastos</h2></summary>${coberturaCcHtml(D)}</details>` : '') : `<section class="tarjeta" aria-labelledby="t-cc"><div class="titulo-fila"><h2 id="t-cc">Cargar cartola ${info('Cartola', 'Sube la cartola de BancoEstado tal como la descargas (histórica o en línea), de la cuenta corriente o de la Chequera Electrónica. Es la misma de B2B → Conciliación: una sola subida reparte los abonos a B2B y los cargos a Gastos. Se pueden subir las dos aunque se repitan días: nada se cuenta dos veces.\nLuego dices qué es cada cargo: paga uno o varios vencimientos (con la fecha del banco), ya estaba en Gastos, es un gasto nuevo o no es gasto. Lo que confirmas se aprende para la próxima.')}</h2></div>
+  const subir = compartida ? tarjetaConcHtml(bd, bd.conciliacion) + (cart.msg ? `<p class="ayuda" role="status">${cart.msg}</p>` : '') + (cart.err ? `<p class="error" role="alert">${esc(cart.err)}</p>` : '') + (D ? `<details class="tarjeta plegable"><summary class="titulo-fila"><h2>Cartolas en Gastos</h2></summary>${coberturaCcHtml(D)}</details>` : '') : `<section class="tarjeta" aria-labelledby="t-cc"><div class="titulo-fila"><h2 id="t-cc">Cargar cartola ${info('Cartola', 'Sube la cartola de BancoEstado tal como la descargas (histórica o en línea), de la cuenta corriente o de la Chequera Electrónica. Es la misma de B2B → Conciliación: una sola subida reparte los abonos a B2B y los cargos a Gastos. Se pueden subir las dos aunque se repitan días: nada se cuenta dos veces.\nLuego dices qué es cada cargo: paga uno o varios vencimientos (con la fecha del banco), ya estaba en Gastos, es un gasto nuevo, es el pago de la tarjeta de crédito (con la base nueva: no crea gasto) o no es gasto. Lo que confirmas se aprende para la próxima.')}</h2></div>
     <div class="fila-cartola"><label class="btn" for="cc-archivo">${cart.subiendo ? 'Leyendo…' : 'Elegir cartola (.xlsx)'}</label><input id="cc-archivo" type="file" accept=".xlsx,.xls" class="sr" ${cart.subiendo ? 'disabled' : ''}></div>
     ${cart.msg ? `<p class="ayuda" role="status">${cart.msg}</p>` : ''}${cart.err ? `<p class="error" role="alert">${esc(cart.err)}</p>${cart.errCode === 'actualizar' || cart.errCode === 'sin_url' ? '<p class="ayuda"><a href="#ajustes/conexiones">Ir a Conexiones</a></p>' : ''}` : ''}
     ${D ? coberturaCcHtml(D) : ''}</section>`;
@@ -2210,7 +2218,7 @@ function pintarCartola(el, sub, dg) {
   const casilla = c => (base && pedibles[c.id] ? `<label class="cc-sel" title="Confirmar con los seleccionados"><input type="checkbox" data-cc-sel="${esc(c.id)}" ${cart.sel[c.id] ? 'checked' : ''} ${cart.ocupado ? 'disabled' : ''} aria-label="Elegir ${esc(pesos(c.monto) + ' ' + c.descripcion)}"></label>` : '');
   const fila = c => { const p = props[c.id], auto = listos.includes(c); return `<details class="fila-orden-b2b mov" data-ccd="${esc(c.id)}" ${cart.abierto === c.id ? 'open' : ''}><summary class="fila-caja">${casilla(c)}<div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))}</span>${p ? `<small class="prop-cc">${textoProp(p)}</small>` : ''}</div>
       <div class="acciones">${auto ? `<button type="button" class="btn btn-chico" data-cc-auto="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${cart.abierto === c.id ? editorCargo(c, p, dg) : ''}</details>`; };
-  const TIPO_LOTE = { vencimientos: ['pago de vencimiento', 'pagos de vencimientos'], abono: ['abono', 'abonos'], gasto: ['ya en Gastos', 'ya en Gastos'], nuevo: ['gasto nuevo', 'gastos nuevos'], ignorar: ['no es gasto', 'no son gasto'] };
+  const TIPO_LOTE = { vencimientos: ['pago de vencimiento', 'pagos de vencimientos'], abono: ['abono', 'abonos'], gasto: ['ya en Gastos', 'ya en Gastos'], nuevo: ['gasto nuevo', 'gastos nuevos'], pago_tarjeta: ['pago de tarjeta', 'pagos de tarjeta'], ignorar: ['no es gasto', 'no son gasto'] };
   const resLote = base ? Cartola.resumenLote(elegidos.map(c => ({ c, p: props[c.id] }))) : null;
   const textoLote = r => Object.entries(r.porTipo).map(([k, n]) => `${n} ${(TIPO_LOTE[k] || [k, k])[n === 1 ? 0 : 1]}`).join(' · ');
   const barraLote = base && Object.keys(pedibles).length ? `<div class="cc-lote" role="group" aria-label="Confirmar varios"><button type="button" class="btn btn-chico" id="cc-lote" ${elegidos.length && !cart.ocupado ? '' : 'disabled'}>Confirmar seleccionados (${elegidos.length})</button>
@@ -2305,19 +2313,20 @@ function resumenHecho(c) {
   if (c.accion === 'gasto') return `Ya estaba en Gastos: ${(d.items || []).join(' + ')}${d.fecha ? ' del ' + diaTexto(d.fecha) : ''}`;
   if (c.accion === 'nuevo') return `Gasto nuevo: ${(d.items || []).join(' + ')}${d.sinFactura ? ' (sin factura)' : ''}`;
   if (c.accion === 'abono') return `Abono ${d.abono ? d.abono.n : ''} a ${d.abono ? d.abono.nombre : ''}`;
+  if (c.accion === 'pago_tarjeta') return `Pago de tarjeta de crédito${d.tarjeta ? ' (' + d.tarjeta + ')' : ''}: no es gasto`;
   return `No es gasto: ${d.motivo || ''}${d.regla ? ' (siempre)' : d.siempre ? ' · se aprendió' : ''}`;
 }
 function histCcHtml(hechos) {
   return `<details class="tarjeta plegable" data-plegar="cc-hist" ${plegadas()['cc-hist'] === false ? 'open' : ''}><summary class="titulo-fila"><h2>Ya revisados</h2><span>últimos ${cart.dias} días · ${hechos.length}</span></summary>
     <div class="buscar-b2b"><input type="search" data-cc-hbuscar value="${esc(cart.histBuscar)}" placeholder="Buscar por descripción, monto o gasto" aria-label="Buscar en ya revisados"></div>
     ${hechos.length ? hechos.map(c => `<div class="fila-hist fila-caja" data-txt="${esc(normCc([c.descripcion, c.monto, resumenHecho(c), c.fecha].join(' ')))}"><div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))} · ${esc(resumenHecho(c))}</span><span class="nota">${esc(c.resueltoEl)} · ${esc(c.resueltoPor)}</span></div>
-      <div class="acciones"><span class="chip chip-chico ${c.estado === 'IGNORADO' ? 'c-gris' : c.estado === 'A_MEDIAS' ? 'c-rojo' : 'c-verde'}">${c.estado === 'IGNORADO' ? 'No es gasto' : c.estado === 'A_MEDIAS' ? 'A medias: deshacer' : 'Conciliado'}</span><button type="button" class="btn-sec btn-chico" data-cc-deshacer="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Deshacer</button></div></div>`).join('') : '<div class="vacio" style="border:0">Nada todavía.</div>'}
+      <div class="acciones"><span class="chip chip-chico ${c.estado === 'IGNORADO' || c.accion === 'pago_tarjeta' ? 'c-gris' : c.estado === 'A_MEDIAS' ? 'c-rojo' : 'c-verde'}">${c.estado === 'IGNORADO' ? 'No es gasto' : c.estado === 'A_MEDIAS' ? 'A medias: deshacer' : c.accion === 'pago_tarjeta' ? 'Pago de tarjeta' : 'Conciliado'}</span><button type="button" class="btn-sec btn-chico" data-cc-deshacer="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Deshacer</button></div></div>`).join('') : '<div class="vacio" style="border:0">Nada todavía.</div>'}
     <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-link" id="cc-hist-mas">Ver más antiguos</button></div></details>`;
 }
 function reglasCcHtml(D) {
   const l = D.reglas || [];
   if (!l.length) return '';
-  const que = r => r.accion === 'ignorar' ? `No es gasto: ${r.ejemplo}` : r.accion === 'gasto' ? `Gasto nuevo: ${r.item}${r.sinFactura ? ' (sin factura)' : ''}` : r.accion === 'abono' ? `Abono a ${r.ejemplo}` : `Paga: ${r.ejemplo}`;
+  const que = r => r.accion === 'ignorar' ? `No es gasto: ${r.ejemplo}` : r.accion === 'pago_tarjeta' ? `Pago de tarjeta: ${r.ejemplo}` : r.accion === 'gasto' ? `Gasto nuevo: ${r.item}${r.sinFactura ? ' (sin factura)' : ''}` : r.accion === 'abono' ? `Abono a ${r.ejemplo}` : `Paga: ${r.ejemplo}`;
   const cual = r => r.clave.startsWith('rut:') ? 'RUT ' + r.clave.slice(4).replace(/^(\d+)(\w)$/, '$1-$2') : '"' + r.clave.slice(4).toLowerCase() + '"';
   return `<details class="tarjeta plegable" data-plegar="cc-reglas" ${plegadas()['cc-reglas'] === false ? 'open' : ''}><summary class="titulo-fila"><h2>Lo aprendido ${info('Lo aprendido', 'Cada vez que confirmas, se recuerda qué es un cargo con esa descripción (o ese RUT) para proponerlo la próxima vez. "No es gasto" con "siempre" se aplica solo al subir la cartola.\nQuitar no cambia nada de lo ya conciliado.')}</h2><span>${l.length}</span></summary>
     ${l.map(r => `<div class="fila-caja"><div class="txt"><b>${esc(cual(r))}</b><span>${esc(que(r))} · ${r.veces} ${r.veces === 1 ? 'vez' : 'veces'}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico btn-peligro" data-cc-regla="${esc(r.clave)}" ${cart.ocupado ? 'disabled' : ''}>Quitar</button></div></div>`).join('')}</details>`;
@@ -2351,7 +2360,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   };
   const enviar = async (c, pedido) => {
     const r = await Cartola.resolver({ id: c.id, huella: c.huella, ...pedido }, 'cc-' + c.id + '-' + Gastos.nuevaClave());
-    ['modo', 'montos', 'gasto', 'nuevo', 'ign', 'buscarV', 'sel', 'abonoV'].forEach(k => { delete cart[k][c.id]; });
+    ['modo', 'montos', 'gasto', 'nuevo', 'ign', 'buscarV', 'sel', 'abonoV', 'tarj'].forEach(k => { delete cart[k][c.id]; });
     if (cart.abierto === c.id) cart.abierto = '';
     registrar('Concilió un cargo', `${pesos(c.monto)} · ${c.descripcion} · ${accCc()[pedido.accion]}`);
     return r;
@@ -2381,7 +2390,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
     if (!confirm(`¿Confirmar ${lista.length} ${lista.length === 1 ? 'cargo' : 'cargos'} por ${pesos(r0.monto)}?\n\n${lista.slice(0, 12).map(x => `· ${pesos(x.c.monto)} ${x.c.descripcion} → ${accCc()[x.pedido.accion]}`).join('\n')}${lista.length > 12 ? '\n…' : ''}`)) return;
     cart.ocupado = 'lote'; cart.err = ''; cart.avance = `Confirmando 0 de ${lista.length}…`; repintar();
     const r = await Cartola.confirmarVarios(lista, (k, n) => { cart.avance = k < n ? `Confirmando ${k + 1} de ${n}…` : ''; const a = $('cc-lote-avance'); if (a) a.textContent = cart.avance; });
-    r.ok.forEach(id => { const c = cargo(id); ['modo', 'montos', 'gasto', 'nuevo', 'ign', 'buscarV', 'sel', 'abonoV'].forEach(k => { delete cart[k][id]; }); if (c) registrar('Concilió un cargo', `${pesos(c.monto)} · ${c.descripcion} · ${accCc()[(pedibles[id] || {}).accion] || ''}`); });
+    r.ok.forEach(id => { const c = cargo(id); ['modo', 'montos', 'gasto', 'nuevo', 'ign', 'buscarV', 'sel', 'abonoV', 'tarj'].forEach(k => { delete cart[k][id]; }); if (c) registrar('Concilió un cargo', `${pesos(c.monto)} · ${c.descripcion} · ${accCc()[(pedibles[id] || {}).accion] || ''}`); });
     cart.msg = `Listo: ${r.ok.length} ${r.ok.length === 1 ? 'cargo confirmado' : 'cargos confirmados'}${r.errores.length ? `. ${r.errores.length} no se ${r.errores.length === 1 ? 'pudo' : 'pudieron'} (quedan marcados para revisar)` : ''}.`;
     if (r.errores.length) cart.err = r.errores.map(x => `${pesos(x.c.monto)} ${x.c.descripcion}: ${x.error}`).join(' · ');
     cart.ocupado = ''; cart.avance = ''; cargarCartolaGastos(true);
@@ -2418,11 +2427,13 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   }));
   el.querySelectorAll('[data-cc-ign]').forEach(i => i.addEventListener('change', () => { cart.ign[i.dataset.ccIgn].motivo = i.value; repintar(); }));
   el.querySelectorAll('[data-cc-igntxt]').forEach(i => i.addEventListener('input', () => { cart.ign[i.dataset.ccIgntxt].motivo = i.value || 'Otro'; }));
+  el.querySelectorAll('[data-cc-tarj]').forEach(i => i.addEventListener('input', () => { cart.tarj[i.dataset.ccTarj] = i.value; }));
   el.querySelectorAll('[data-cc-siempre]').forEach(i => i.addEventListener('change', () => { cart.ign[i.dataset.ccSiempre].siempre = i.checked; }));
   el.querySelectorAll('[data-cc-ok]').forEach(b => b.addEventListener('click', () => {
     const c = cargo(b.dataset.cc), a = b.dataset.ccOk;
     let pd;
     if (a === 'abono') { const v = cart.abonoV[c.id] || (props[c.id] && props[c.id].tipo === 'abono' ? props[c.id].vencId : ''); if (!v) return; pd = { accion: 'abono', vencId: v }; }
+    else if (a === 'pago_tarjeta') pd = { accion: a, tarjeta: (cart.tarj[c.id] !== undefined ? cart.tarj[c.id] : (props[c.id] && props[c.id].tarjeta) || '').trim() };
     else if (a === 'vencimientos') pd = { accion: a, pagos: Object.entries(cart.montos[c.id] || {}).filter(([, m]) => m > 0).map(([id, monto]) => ({ id, monto })) };
     else if (a === 'gasto') { const g = (D.gastos || []).find(x => [x.fecha, x.hora, x.monto, x.filas[0].fila].join('|') === cart.gasto[c.id] || (props[c.id] && props[c.id].gasto === x && !cart.gasto[c.id])); if (!g) return; pd = { accion: a, filas: g.filas }; }
     else if (a === 'nuevo') {
@@ -2445,7 +2456,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   el.querySelectorAll('[data-cc-deshacer]').forEach(b => b.addEventListener('click', async () => {
     const c = cargo(b.dataset.ccDeshacer); if (!c) return;
     const que = c.accion === 'vencimientos' ? '<p>Los vencimientos vuelven a quedar por pagar. Si el pago creó un gasto (una obligación), ese gasto pasa a "Gastos anulados"; si era una compra a crédito o una factura del SII, su gasto queda sin fecha de pago.</p>'
-      : c.accion === 'nuevo' ? '<p>El gasto que se creó pasa a "Gastos anulados" (no se borra).</p>' : c.accion === 'abono' ? '<p>El abono sale del vencimiento (queda anotado) y su gasto pasa a "Gastos anulados".</p>' : c.accion === 'gasto' ? '<p>El gasto queda igual; solo se le quita la cartola.</p>' : '<p>No cambia nada en Gastos.</p>';
+      : c.accion === 'nuevo' ? '<p>El gasto que se creó pasa a "Gastos anulados" (no se borra).</p>' : c.accion === 'abono' ? '<p>El abono sale del vencimiento (queda anotado) y su gasto pasa a "Gastos anulados".</p>' : c.accion === 'gasto' ? '<p>El gasto queda igual; solo se le quita la cartola.</p>' : c.accion === 'pago_tarjeta' ? '<p>Deja de contar como pago de tarjeta (no había gasto: no cambia nada en Gastos).</p>' : '<p>No cambia nada en Gastos.</p>';
     const motivo = await pedirMotivo('Deshacer', `<p class="ayuda">${pesos(c.monto)} · ${esc(c.descripcion)} (${esc(diaTexto(c.fecha))}) · ${esc(resumenHecho(c))}</p>${que}<p class="ayuda">El cargo vuelve a "Para revisar" y lo aprendido de él se olvida.</p>`, 'Deshacer');
     if (!motivo) return;
     ocupado('deshacer', async () => { const r = await Cartola.deshacer(c.id, motivo, 'ccd-' + Gastos.nuevaClave()); cart.msg = `Listo: el cargo de ${pesos(c.monto)} volvió a "Para revisar".${(r.avisos || []).length ? ' ' + r.avisos.map(esc).join(' ') : ''}`; registrar('Deshizo un cargo conciliado', `${pesos(c.monto)} · ${c.descripcion} · ${motivo}`); });
@@ -4519,7 +4530,9 @@ function pintarB2bAnalisis(el, sub) {
 // v0.56.0 · Finanzas: Cómo trabajamos y Costos (maestro de materias primas con costos en fen-gastos)
 async function pintarFinanzas(sub) {
   const el = $('v-finanzas');
-  try { (await vistaFinanzas()).pintar(el, sub, { esc, info, registrar, mensajeError, hace, dialogo }); }
+  // v0.62.0 · verGastos(mes, texto): abre Gastos → Registrados filtrado (desde el detalle del estado de resultados)
+  const verGastos = (mes, q) => { reg.mes = mes || ''; reg.busqueda = q || ''; reg.forma = 'todos'; location.hash = '#gastos/registrados'; };
+  try { (await vistaFinanzas()).pintar(el, sub, { esc, info, registrar, mensajeError, hace, dialogo, verGastos }); }
   catch (e) { el.innerHTML = `<div class="cabecera"><div><h1 id="t-finanzas">Finanzas</h1><p>Análisis financiero de Fën</p></div></div><section class="tarjeta"><p class="error">No se pudo abrir Finanzas (${esc(e.message || e)}). Revisa la conexión y recarga.</p></section>`; }
 }
 

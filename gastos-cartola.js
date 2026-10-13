@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Cartola con la base nueva (etapa G3, tercera parte): reglas puras  v0.50.0
+//  Sistema Fën — Cartola con la base nueva (etapa G3, tercera parte): reglas puras  v0.50.0 · v0.62.0 (pago de tarjeta)
 //  Solo con la base nueva (config/gastos: fuente "base"). Con la planilla, cartola.js sigue igual que en la v0.49.0.
 //  · Lo mismo que hacía Cartola.gs del script (estados POR_REVISAR / CONCILIADO / IGNORADO / A_MEDIAS, huella e id de
 //    cada cargo, ya visto por huella o por N° de operación, la clave de lo aprendido por RUT o por descripción, la traza
@@ -16,8 +16,12 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.61.0';
+import * as G3 from './gastos-g3.js?v=0.62.0';
 
+// v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
+// queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
+// tipo: 'pago_tarjeta', tarjeta }) para el flujo de caja (F4). Se aprende como lo demás (regla accion 'pago_tarjeta').
+export const PAGO_TARJETA = 'pago_tarjeta';
 export const ESTADOS = { revisar: 'POR_REVISAR', conciliado: 'CONCILIADO', ignorado: 'IGNORADO', aMedias: 'A_MEDIAS' };
 export const CUENTAS = { cc: 'Cta. Cte.', chequera: 'Chequera' };
 // Ventana de fechas para el monto fijo y el documento: el cargo puede llegar hasta 15 días antes del vencimiento y hasta 10 después
@@ -130,7 +134,7 @@ export function desaprender(act, accion, ahora, quien) {
 export function aDesaprender(c) {
   if (c.estado === ESTADOS.aMedias) return null;
   if (c.accion === 'ignorar') return c.detalle && c.detalle.siempre ? 'ignorar' : null;
-  return { vencimientos: 'vencimiento', nuevo: 'gasto', abono: 'abono' }[c.accion] || null;
+  return { vencimientos: 'vencimiento', nuevo: 'gasto', abono: 'abono', [PAGO_TARJETA]: PAGO_TARJETA }[c.accion] || null;
 }
 // "Deshecho … por …: motivo (antes: …)", al final del historial (texto, como la columna Historial)
 export function conDeshecho(c, motivo, ahora, quien) {
@@ -194,6 +198,8 @@ export function proponer(c, D) {
   const vencs = D.vencimientos || [];
   // 0) "No es gasto" aprendido
   if (regla && regla.accion === 'ignorar') return { tipo: 'ignorar', seguro: true, motivo: regla.ejemplo || 'No es gasto', por: 'aprendido' };
+  // v0.62.0 · Pago de la tarjeta de crédito aprendido (no es gasto: movimiento de flujo)
+  if (regla && regla.accion === PAGO_TARJETA) return { tipo: PAGO_TARJETA, seguro: true, texto: regla.ejemplo || 'Pago de tarjeta de crédito', tarjeta: regla.ejemplo || '', por: 'aprendido' };
   const aprendidoP = regla && (regla.accion === 'vencimiento' || regla.accion === 'abono') && s(regla.vencimiento).startsWith('p:') ? s(regla.vencimiento).slice(2) : '';
   // 1) Monto fijo: el monto exacto del vencimiento, dentro de la ventana
   const fijos = vencs.filter(v => v.plantillaId && v.tipoObligacion === 'fijo' && v.estadoBase !== 'con_abonos' && v.monto === c.monto && enVentana(c, v));
@@ -266,6 +272,7 @@ export function reglaDe(accion, c, x) {
   if (accion === 'abono') return { accion: 'abono', vencimiento: 'p:' + x.plantillaId, ejemplo: x.nombre, monto: c.monto };
   if (accion === 'nuevo') return { accion: 'gasto', item: x.it0.item, area: x.it0.prorrateo ? JSON.stringify(x.it0.prorrateo) : (x.it0.areas.length === 1 ? x.it0.areas[0].area : ''), sinFactura: !!x.sinFactura, ejemplo: c.descripcion, monto: c.monto };
   if (accion === 'ignorar' && x.siempre) return { accion: 'ignorar', ejemplo: x.motivo };
+  if (accion === PAGO_TARJETA) return { accion: PAGO_TARJETA, ejemplo: texto(x && x.tarjeta, 80) || 'Pago de tarjeta de crédito', monto: c.monto };
   return null;
 }
 // Pagos de varios vencimientos: revisa como ccPagarVencimientos. vs: { id → vencimiento abierto (vencimientosAbiertos) }

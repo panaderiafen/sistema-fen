@@ -33,11 +33,11 @@
 //    pendiente en Hoy y un correo por día, bodega y materia prima (script v2.9.0, op stock_alerta). Cafetería: shots
 //    de la calibración diaria en la configuración, días con venta para la calibración automática y su costo en Merma.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.61.0';
-import * as FB from './firebase-produccion.js?v=0.61.0';
-import * as Apps from './apps.js?v=0.61.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.61.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.61.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.62.0';
+import * as FB from './firebase-produccion.js?v=0.62.0';
+import * as Apps from './apps.js?v=0.62.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.62.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.62.0';
 import * as K from './cocina/consumo.js?v=0.16.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.11.0';
 
@@ -416,7 +416,7 @@ export async function mermaDelPeriodo({ desde, hasta }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.61.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.62.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
   const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';
@@ -465,6 +465,19 @@ export function resumenMerma(datos) {
   return { areas: lista, total: lista.reduce((s, a) => s + a.total, 0), cafe };
 }
 
+
+// v0.62.0 · Cierre de mes (Finanzas): los conteos de bodega anotados entre dos fechas, por bodega (Producción, Cafetería).
+// Solo lectura de dias/{AREA}_{fecha}.bodega (tipo 'conteo', sin anulados; la bodega como la calcula Cocina).
+// → { bodegas: ['PROD', 'CAF'], nombres: { PROD: 'Producción', … }, porBodega: { PROD: [fechas] } }
+export async function conteosEntre(desde, hasta) {
+  const db = await dbOk();
+  const [sn, cb] = await Promise.all([FB.getDocs(FB.query(FB.collection(db, 'dias'), FB.where('fecha', '>=', desde), FB.where('fecha', '<=', hasta))), FB.getDoc(FB.doc(db, 'config', 'bodegas')).catch(() => null)]);
+  const mapa = K.mapaBodegas(cb && cb.exists() ? cb.data() : undefined), bodegas = K.listaBodegas(mapa), dias = {};
+  sn.docs.forEach(d => { const x = d.data(); if (x.area && x.fecha && x.fecha >= desde && x.fecha <= hasta) (dias[x.area] || (dias[x.area] = {}))[x.fecha] = x; });
+  const porBodega = {};
+  K.movimientos(dias, mapa).filter(m => m.tipo === 'conteo').forEach(m => { (porBodega[m.bodega] || (porBodega[m.bodega] = [])).push(m.fecha); });
+  return { bodegas, nombres: Object.fromEntries(bodegas.map(b => [b, K.nombreBodega(b, mapa)])), porBodega };
+}
 
 // ═══════════════ P5: Bodega (materias primas críticas, bodega común) ═══════════════
 // Lee lo necesario de la base nueva (120 días de Cocina, planes, metas, ajustes, recetas, materias primas), calcula

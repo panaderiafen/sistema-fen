@@ -11,7 +11,7 @@
 //  Todo en neto. Nada de esto cambia los gastos: es una capa de Finanzas (fen-gastos: fin_items, fin_config,
 //  fin_creditos, fin_inversiones).
 // ═══════════════════════════════════════════════
-import { idLimpio } from './gastos-modelo.js?v=0.61.0';
+import { idLimpio } from './gastos-modelo.js?v=0.62.0';
 
 export const ANIO = 2026;
 export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
@@ -174,6 +174,31 @@ export function cuotaFrancesa(monto, tasaPct, n) {
   if (!(P > 0) || !(N > 0)) return 0;
   if (!(i > 0)) return r0(P / N);
   return r0(P * i / (1 - Math.pow(1 + i, -N)));
+}
+// v0.62.0 · La tasa desde la cuota: monto, n° de cuotas y valor de la cuota → tasa mensual del sistema francés.
+// Se busca i tal que monto × i ÷ (1 − (1 + i)^−n) = cuota (la cuota crece con la tasa: una sola solución). Bisección
+// (robusta, no se pierde) y al final unos pasos de Newton para afinar. → { tasa (% mensual), anual (% efectiva anual), cuotaCalc }
+export function tasaDesdeCuota(monto, n, cuota) {
+  const P = num(monto), N = Math.round(num(n)), C = num(cuota);
+  if (!(P > 0)) throw new Error('Escribe el monto del crédito');
+  if (!(N > 0) || N > 600) throw new Error('Escribe el número de cuotas (1 a 600)');
+  if (!(C > 0)) throw new Error('Escribe el valor de la cuota');
+  if (C * N < P - 0.5) throw new Error(`Las ${N} cuotas suman ${Math.round(C * N).toLocaleString('es-CL')}, menos que el monto: revisa los datos (la tasa saldría negativa).`);
+  if (N === 1) { const i = C / P - 1; return { tasa: i * 100, anual: (Math.pow(1 + i, 12) - 1) * 100, cuotaCalc: Math.round(C) }; }
+  const f = i => (i <= 1e-12 ? P / N : P * i / (1 - Math.pow(1 + i, -N))) - C;
+  if (Math.abs(f(0)) < 1e-9 || f(0) >= 0) return { tasa: 0, anual: 0, cuotaCalc: Math.round(P / N) };
+  let lo = 0, hi = 0.05;
+  while (f(hi) < 0 && hi < 50) hi *= 2;
+  if (f(hi) < 0) throw new Error('La cuota es demasiado alta para ese monto: revisa los datos.');
+  for (let k = 0; k < 200 && hi - lo > 1e-15; k++) { const m = (lo + hi) / 2; if (f(m) < 0) lo = m; else hi = m; }
+  let i = (lo + hi) / 2;
+  for (let k = 0; k < 5; k++) {
+    const h = Math.max(1e-10, i * 1e-6), d = (f(i + h) - f(i - h)) / (2 * h);
+    if (!(Math.abs(d) > 0)) break;
+    const x = i - f(i) / d; if (!(x > lo - 1e-9 && x < hi + 1e-9)) break; i = x;
+  }
+  if (num(i * 100) > 20) throw new Error(`La tasa saldría ${(i * 100).toFixed(2).replace('.', ',')} % mensual (más de 20 %): revisa los datos.`);
+  return { tasa: i * 100, anual: (Math.pow(1 + i, 12) - 1) * 100, cuotaCalc: cuotaFrancesa(P, i * 100, N) };
 }
 // Suma meses a una fecha aaaa-mm-dd manteniendo el día (si el mes es más corto, el último día del mes)
 export function sumarMeses(fecha, k) {

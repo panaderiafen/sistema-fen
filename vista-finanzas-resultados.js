@@ -2,13 +2,16 @@
 //  Sistema Fën — Finanzas → Resultados (F3 paso 1: clasificar para el estado de resultados)  v0.61.0
 //  Partes: Clasificación (paso 0: áreas de los gastos; paso 1: tipo para resultados de cada ítem) · Créditos (interés y capital
 //  de cada cuota) · Inversiones (vida útil y depreciación mensual por área).
-//  Rutas: #finanzas/resultados · #finanzas/resultados/creditos[/{id}] · #finanzas/resultados/inversiones.
+//  Rutas: #finanzas/resultados/clasificacion · #finanzas/resultados/creditos[/{id}] · #finanzas/resultados/inversiones.
+//  v0.62.0 (F3 paso 2): Estado de resultados (#finanzas/resultados, la primera parte) y Cierre de mes (#finanzas/resultados/cierre),
+//  en vista-finanzas-eerr.js.
 //  Reglas puras en finanzas-resultados.js; datos en finanzas.js (fen-gastos). No cambia ningún gasto.
 //  ctx = { cab, error, conexion, sinBase } de vista-finanzas.js; H = ayudas de app.js.
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.61.0';
-import * as FR from './finanzas-resultados.js?v=0.61.0';
-import * as FC from './finanzas-costos.js?v=0.61.0';
+import * as F from './finanzas.js?v=0.62.0';
+import * as FR from './finanzas-resultados.js?v=0.62.0';
+import * as FC from './finanzas-costos.js?v=0.62.0';
+import * as VE from './vista-finanzas-eerr.js?v=0.62.0';
 
 const RS = { datos: null, filtro: 'todos', q: '', msg: '', err: '', sel: null, anioDep: '' };
 const $ = id => document.getElementById(id);
@@ -33,7 +36,7 @@ const destinoTxt = d => FR.NOMBRE_AREA[d] || d;
 function subRes(parte, n) {
   const pill = (k, href, txt, extra = '') => `<a class="pastilla" href="#finanzas/resultados${href}" aria-current="${parte === k ? 'page' : 'false'}" aria-pressed="${parte === k}">${txt}${extra}</a>`;
   return `<div class="pastillas fin-sub" role="group" aria-label="Partes de Resultados">
-    ${pill('clasificacion', '', 'Clasificación', n ? ` <span class="chip c-amarillo chip-chico" title="Ítems sin clasificar">${n}</span>` : '')}${pill('creditos', '/creditos', 'Créditos')}${pill('inversiones', '/inversiones', 'Inversiones')}</div>`;
+    ${pill('eerr', '', 'Estado de resultados')}${pill('cierre', '/cierre', 'Cierre de mes')}${pill('clasificacion', '/clasificacion', 'Clasificación', n ? ` <span class="chip c-amarillo chip-chico" title="Ítems sin clasificar">${n}</span>` : '')}${pill('creditos', '/creditos', 'Créditos')}${pill('inversiones', '/inversiones', 'Inversiones')}</div>`;
 }
 
 export async function pintarResultados(el, parte, H, ctx) {
@@ -45,6 +48,11 @@ export async function pintarResultados(el, parte, H, ctx) {
     if (!RS.datos) RS.datos = await F.leerResultados();
   } catch (e) { el.innerHTML = base(`<section class="tarjeta"><p class="error" role="alert">${H.esc(ctx.error(e, H))}</p></section>`); return; }
   if (partes()[1] !== 'resultados') return;
+  // v0.62.0 · Estado de resultados y Cierre de mes
+  if (parte === 'eerr' || parte === 'cierre') {
+    const R = { get datos() { return RS.datos; }, cabecera: () => ctx.cab('resultados') + subRes(parte, sinClasificar().length), releer: async () => { RS.datos = await F.leerResultados(true); } };
+    return parte === 'cierre' ? VE.pintarCierre(el, H, ctx, R) : VE.pintarEERR(el, H, ctx, R);
+  }
   dibujar(el, parte, H, ctx);
 }
 function dibujar(el, parte, H, ctx) {
@@ -309,6 +317,8 @@ function dialogoCredito(c, H, ctx, volver, pre) {
       <div class="campo"><label for="r-c-n">N° de cuotas</label><input id="r-c-n" type="number" inputmode="numeric" min="1" max="600" step="1" value="${val(v.n)}"></div>
       <div class="campo"><label for="r-c-f1">Primera cuota</label><input id="r-c-f1" type="date" value="${val(v.fechaPrimera)}"></div>
       <div class="campo"><label for="r-c-cuota">Cuota del banco (opcional) ${H.info('Cuota', 'Vacía: se calcula con la fórmula del sistema francés y se redondea al peso. Si el banco cobra otra (por seguros o redondeo), escríbela: el interés se calcula igual y la última cuota ajusta.')}</label><input id="r-c-cuota" type="number" inputmode="numeric" min="0" step="1" value="${c && c.cuotaManual ? val(c.cuota) : val(pre && pre.cuota)}"></div></div>
+      <div class="fin-rtasa"><button type="button" class="btn-sec btn-chico" id="r-c-tasa-calc">Calcular la tasa desde la cuota</button> ${H.info('Tasa desde la cuota', 'Si el banco te dio el monto, el número de cuotas y el valor de la cuota pero no la tasa: escribe esos tres datos (la cuota en "Cuota del banco") y toca este botón. Se busca la tasa mensual del sistema francés que da exactamente esa cuota (método numérico, siempre llega a una sola respuesta) y se arma la tabla.\nTasa anual equivalente = (1 + tasa mensual)^12 − 1. Si la cuota del banco incluye seguros, la tasa sale un poco más alta que la del contrato: mejor pega la tabla del banco.')}
+        <p class="fin-calc" id="r-c-tasa-res" role="status"></p></div>
       <p class="fin-calc" id="r-c-calc" role="status"></p></div>
     <div id="r-c-man" class="${modo0 === 'manual' ? '' : 'oculto'}"><div class="campo"><label for="r-c-txt">Tabla ${H.info('Tabla manual', 'Copia la tabla del banco (de la planilla o del PDF) y pégala: una cuota por línea con N°, fecha, cuota, interés, capital y saldo, separados por tabulador o punto y coma. Los encabezados se saltan. Montos como 1.234.567 o $ 12.345; fechas 05/03/2026 o 2026-03-05.')}</label>
       <textarea id="r-c-txt" rows="6" placeholder="1\t05/03/2026\t95.000\t30.000\t65.000\t1.935.000">${H.esc(textoTabla)}</textarea></div>
@@ -336,6 +346,16 @@ function dialogoCredito(c, H, ctx, volver, pre) {
     try { const t = FR.tablaFrancesa(x); q('#r-c-calc').textContent = `Cuota ${pesos(t[0].cuota)}${Number(x.cuota) > 0 ? '' : ' (calculada)'} · última ${pesos(t[t.length - 1].cuota)} · intereses en total ${pesos(t.reduce((a, f) => a + f.interes, 0))}`; }
     catch (e) { q('#r-c-calc').textContent = ''; }
   };
+  // v0.62.0 · La tasa desde la cuota (monto, n° de cuotas y cuota del banco)
+  q('#r-c-tasa-calc').addEventListener('click', () => {
+    const out = q('#r-c-tasa-res'), err = q('#r-c-err'); err.textContent = '';
+    try {
+      const t = FR.tasaDesdeCuota(q('#r-c-monto').value, q('#r-c-n').value, q('#r-c-cuota').value);
+      q('#r-c-tasa').value = String(Math.round(t.tasa * 1e6) / 1e6);
+      out.textContent = `Tasa mensual ${pct(t.tasa, 4)} · anual equivalente ${pct(t.anual, 2)}`;
+      calc();
+    } catch (e) { out.textContent = ''; err.textContent = e.message; }
+  });
   d.querySelectorAll('input[name="r-c-modo"]').forEach(r => r.addEventListener('change', () => { q('#r-c-fr').classList.toggle('oculto', modo() !== 'frances'); q('#r-c-man').classList.toggle('oculto', modo() !== 'manual'); calc(); }));
   d.querySelectorAll('input, textarea').forEach(x => x.addEventListener('input', calc));
   calc();
@@ -380,7 +400,7 @@ function htmlInversiones(H) {
     ${mensajes(H)}
     ${fuente(H)}
     <div class="cifras fin-dcifras" id="r-inv-cifras">${cifra('Inversiones', nf(invs.length), `${nf(itemsInv)} ${itemsInv === 1 ? 'ítem' : 'ítems'} clasificados como inversión`)}${cifra('Valor neto', pesos(invs.reduce((a, i) => a + i.valor, 0)))}${cifra('Depreciación de este mes', pesos(deEste.total), H.esc(mesTxt(mesHoy)))}${cifra(`Depreciación ${H.esc(RS.anioDep)}`, pesos(tot))}</div>
-    <div class="fin-compras" id="r-invs">${invs.length ? invs.map(fila).join('') : `<div class="vacio">No hay gastos clasificados como inversión. ${itemsInv ? '' : 'Marca sus ítems como "Inversión" en '}<a href="#finanzas/resultados">Clasificación</a>.</div>`}</div>
+    <div class="fin-compras" id="r-invs">${invs.length ? invs.map(fila).join('') : `<div class="vacio">No hay gastos clasificados como inversión. ${itemsInv ? '' : 'Marca sus ítems como "Inversión" en '}<a href="#finanzas/resultados/clasificacion">Clasificación</a>.</div>`}</div>
   </section>
   ${invs.length ? `<section class="tarjeta" aria-labelledby="t-r-dep">
     <div class="titulo-fila fin-titulo"><h2 id="t-r-dep">Depreciación mensual por área ${H.info('Depreciación por área', 'Cada inversión se deprecia en partes iguales cada mes de su vida útil, y va al área de su gasto (si el gasto se prorrateó, a cada área en su %). Común = Administración, Ventas y lo demás, según el mapa de áreas.')}</h2></div>
@@ -413,5 +433,5 @@ function conectarInversiones(el, H, ctx, volver) {
 }
 
 // Al entrar a Resultados desde otra pestaña se vuelve a leer (lo de Gastos pudo cambiar)
-export function olvidar() { RS.datos = null; RS.msg = ''; RS.err = ''; F.olvidarResultados(); }
+export function olvidar() { RS.datos = null; RS.msg = ''; RS.err = ''; F.olvidarResultados(); VE.olvidar(); }
 RS.sel = new Set();
