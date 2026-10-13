@@ -33,11 +33,11 @@
 //    pendiente en Hoy y un correo por día, bodega y materia prima (script v2.9.0, op stock_alerta). Cafetería: shots
 //    de la calibración diaria en la configuración, días con venta para la calibración automática y su costo en Merma.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.60.1';
-import * as FB from './firebase-produccion.js?v=0.60.1';
-import * as Apps from './apps.js?v=0.60.1';
-import { armar, AREAS } from './produccion-modelo.js?v=0.60.1';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.60.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.61.0';
+import * as FB from './firebase-produccion.js?v=0.61.0';
+import * as Apps from './apps.js?v=0.61.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.61.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.61.0';
 import * as K from './cocina/consumo.js?v=0.16.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.11.0';
 
@@ -416,7 +416,7 @@ export async function mermaDelPeriodo({ desde, hasta }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.60.1')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.61.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
   const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';

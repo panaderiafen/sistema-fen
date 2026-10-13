@@ -45,19 +45,20 @@
 //   guarda porMedio y el de B2B ordenesValidas. costos_config/finanzas.margenes (comisión por medio de pago, mezcla de la caja, despacho B2B,
 //   margen objetivo por área, redondeo) + historialMargenes. fin_productos.costoExtraNeto (envase por venta, neto).
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.60.1';
-import * as FB from './firebase-gastos.js?v=0.60.1';
-import * as GB from './gastos-base.js?v=0.60.1';
-import * as P from './produccion.js?v=0.60.1';
-import * as FC from './finanzas-costos.js?v=0.60.1';
-import * as FS from './finanzas-sii.js?v=0.60.1';
-import * as FM from './finanzas-motor.js?v=0.60.1';
-import * as FV from './finanzas-ventas.js?v=0.60.1';
-import * as FMG from './finanzas-margenes.js?v=0.60.1';
-import * as Caja from './caja.js?v=0.60.1';
-import * as B from './b2b.js?v=0.60.1';
-import * as FBB from './firebase-b2b.js?v=0.60.1';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.60.1';
+import { auth as authSF } from './firebase.js?v=0.61.0';
+import * as FB from './firebase-gastos.js?v=0.61.0';
+import * as GB from './gastos-base.js?v=0.61.0';
+import * as P from './produccion.js?v=0.61.0';
+import * as FC from './finanzas-costos.js?v=0.61.0';
+import * as FS from './finanzas-sii.js?v=0.61.0';
+import * as FM from './finanzas-motor.js?v=0.61.0';
+import * as FV from './finanzas-ventas.js?v=0.61.0';
+import * as FMG from './finanzas-margenes.js?v=0.61.0';
+import * as FR from './finanzas-resultados.js?v=0.61.0';
+import * as Caja from './caja.js?v=0.61.0';
+import * as B from './b2b.js?v=0.61.0';
+import * as FBB from './firebase-b2b.js?v=0.61.0';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.61.0';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -462,4 +463,116 @@ export async function guardarAjustesMargenes(datos) {
     tx.set(ref, { ...prev, margenes: x, historialMargenes, updatedAt: FB.serverTimestamp() });
   });
   return FMG.configMargenes(x);
+}
+
+// ═══════════════ v0.61.0 · Resultados (F3 paso 1): clasificar para el estado de resultados ═══════════════
+// Reglas puras en finanzas-resultados.js. Se guarda en fen-gastos (solo administración; las reglas v0.1.0 ya cubren colecciones nuevas):
+//  · fin_items/{clave del ítem}   tipo para resultados del ítem: { item, clave, tipo, motivo, origen propuesta|manual, propuesta, fecha, por, version }.
+//  · fin_items_hist/{autoId}      solo agregar: { clave, item, antes, despues, origen, fecha, por, en }.
+//  · fin_config/resultados        { areasGasto { código: PAN|BOL|PAS|CAF|comun }, historialAreas [{ antes, despues, por, fecha }] }.
+//  · fin_creditos/{id}            { nombre, obligacionId, obligacionNombre, modo frances|manual, monto, tasa, n, fechaPrimera, cuota, cuotaManual,
+//                                 tabla [{ n, fecha, cuota, interes, capital, saldo }], nota, creado, actualizado, por, version, estado activo|archivado }.
+//  · fin_creditos_hist/{autoId}   solo agregar: { credito, accion, antes, despues, fecha, por, en }.
+//  · fin_inversiones/{gastoId}    { vidaUtilMeses, fechaInicio, nota, item, valorNeto, fecha, por, historial }.
+//  Lee (solo lectura): gastos, items, obligaciones y vencimientos de fen-gastos. No cambia ningún gasto.
+let resCache = null;
+export const olvidarResultados = () => { resCache = null; };
+export async function leerResultados(forzar) {
+  if (resCache && !forzar) return resCache;
+  const db = await dbG();
+  const col = n => FB.getDocs(FB.collection(db, n));
+  const [g, it, ob, ve, fi, cf, cr, inv] = await Promise.all(['gastos', 'items', 'obligaciones', 'vencimientos', 'fin_items'].map(col)
+    .concat([FB.getDoc(FB.doc(db, 'fin_config', 'resultados')), col('fin_creditos'), col('fin_inversiones')]));
+  const lista = sn => sn.docs.map(d => ({ id: d.id, ...d.data() }));
+  resCache = {
+    gastos: lista(g), items: lista(it).filter(x => !x.quitadoEnPlanilla), obligaciones: lista(ob).filter(x => !x.quitadoEnPlanilla), vencimientos: lista(ve),
+    fin: mapa(fi), config: cf.exists() ? cf.data() : {}, creditos: lista(cr), invGuardadas: mapa(inv), leido: Date.now()
+  };
+  return resCache;
+}
+// Guarda el tipo de varios ítems (uno o "Aplicar propuestas"): cada uno en transacción por lotes, con su historial
+export async function guardarTipos(lista) {
+  const db = await dbG(), hoy = hoyTxt(), por = yo();
+  const hechos = [];
+  for (let i = 0; i < lista.length; i += 150) {
+    const parte = lista.slice(i, i + 150);
+    await FB.runTransaction(db, async tx => {
+      const refs = parte.map(x => FB.doc(db, 'fin_items', FR.claveItem(x.item))), sns = [];
+      for (const r of refs) sns.push(await tx.get(r));
+      parte.forEach((x, k) => {
+        const prev = sns[k].exists() ? sns[k].data() : null;
+        const { doc, hist, igual } = FR.armarClasificacion(prev, x, { hoy, por });
+        if (igual) return;
+        tx.set(refs[k], { ...doc, updatedAt: FB.serverTimestamp() });
+        if (hist) tx.set(FB.doc(db, 'fin_items_hist', idNuevo('ci-')), { ...hist, en: FB.serverTimestamp() });
+        hechos.push(doc);
+      });
+    });
+  }
+  if (resCache) hechos.forEach(d => { resCache.fin[d.clave] = d; });
+  return hechos;
+}
+export async function historialTipo(clave) {
+  const db = await dbG();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'fin_items_hist'), FB.where('clave', '==', clave)));
+  const t = x => (x && typeof x.toMillis === 'function' ? x.toMillis() : 0);
+  return sn.docs.map(d => d.data()).sort((a, b) => t(b.en) - t(a.en));
+}
+export async function guardarAreasGasto(m) {
+  const x = FR.validarMapa(m);
+  const db = await dbG(), ref = FB.doc(db, 'fin_config', 'resultados'), fecha = hoyTxt(), por = yo();
+  const out = await FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref), prev = sn.exists() ? sn.data() : {};
+    const areasGasto = { ...(prev.areasGasto || {}), ...x };
+    const historialAreas = [...(Array.isArray(prev.historialAreas) ? prev.historialAreas : []), { antes: prev.areasGasto || null, despues: areasGasto, por, fecha }].slice(-50);
+    const d = { ...prev, areasGasto, historialAreas, updatedAt: FB.serverTimestamp() };
+    tx.set(ref, d);
+    return d;
+  });
+  if (resCache) resCache.config = out;
+  return out;
+}
+// Crear o cambiar un crédito (la tabla completa se guarda en el documento)
+export async function guardarCredito(id, datos) {
+  const x = FR.validarCredito(datos);
+  const db = await dbG(), fecha = hoyTxt(), por = yo(), cid = id || idNuevo('cr-'), ref = FB.doc(db, 'fin_creditos', cid);
+  const doc = await FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref), prev = sn.exists() ? sn.data() : null;
+    const d = { ...(prev || {}), ...x, estado: (prev && prev.estado) || 'activo', creado: (prev && prev.creado) || fecha, actualizado: fecha, por, version: (Number(prev && prev.version) || 0) + 1, updatedAt: FB.serverTimestamp() };
+    tx.set(ref, d);
+    const resumen = c => (c ? { nombre: c.nombre, obligacionId: c.obligacionId, modo: c.modo, monto: c.monto, tasa: c.tasa, n: c.n, cuota: c.cuota, fechaPrimera: c.fechaPrimera } : null);
+    tx.set(FB.doc(db, 'fin_creditos_hist', idNuevo('ch-')), { credito: cid, accion: prev ? 'cambio' : 'nuevo', antes: resumen(prev), despues: resumen(x), fecha, por, en: FB.serverTimestamp() });
+    return { id: cid, ...d };
+  });
+  if (resCache) { resCache.creditos = resCache.creditos.filter(c => c.id !== cid).concat([doc]); }
+  return doc;
+}
+export async function archivarCredito(id, archivar) {
+  const db = await dbG(), ref = FB.doc(db, 'fin_creditos', id), fecha = hoyTxt(), por = yo();
+  await FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref); if (!sn.exists()) throw new Error('Ese crédito ya no existe');
+    tx.update(ref, { estado: archivar ? 'archivado' : 'activo', actualizado: fecha, por, version: (Number(sn.data().version) || 0) + 1 });
+    tx.set(FB.doc(db, 'fin_creditos_hist', idNuevo('ch-')), { credito: id, accion: archivar ? 'archivado' : 'reactivado', antes: null, despues: null, fecha, por, en: FB.serverTimestamp() });
+  });
+  if (resCache) { const c = resCache.creditos.find(x => x.id === id); if (c) c.estado = archivar ? 'archivado' : 'activo'; }
+}
+export async function historialCredito(id) {
+  const db = await dbG();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'fin_creditos_hist'), FB.where('credito', '==', id)));
+  const t = x => (x && typeof x.toMillis === 'function' ? x.toMillis() : 0);
+  return sn.docs.map(d => d.data()).sort((a, b) => t(b.en) - t(a.en));
+}
+// Vida útil (y fecha de inicio) de una inversión; el historial queda en el mismo documento
+export async function guardarInversion(gastoId, datos, info = {}) {
+  const x = FR.validarInversion(datos);
+  const db = await dbG(), ref = FB.doc(db, 'fin_inversiones', gastoId), fecha = hoyTxt(), por = yo();
+  const doc = await FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref), prev = sn.exists() ? sn.data() : null;
+    const historial = [...(prev && Array.isArray(prev.historial) ? prev.historial : []), { antes: prev ? { vidaUtilMeses: prev.vidaUtilMeses, fechaInicio: prev.fechaInicio } : null, despues: { vidaUtilMeses: x.vidaUtilMeses, fechaInicio: x.fechaInicio }, por, fecha }].slice(-30);
+    const d = { ...x, item: String(info.item || ''), valorNeto: Number(info.valor) || 0, fecha, por, historial, updatedAt: FB.serverTimestamp() };
+    tx.set(ref, d);
+    return d;
+  });
+  if (resCache) resCache.invGuardadas[gastoId] = doc;
+  return doc;
 }

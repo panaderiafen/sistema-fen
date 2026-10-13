@@ -209,7 +209,7 @@ td select { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px 
   .fila-prod { grid-template-columns: minmax(0, 1fr) 56px 88px; gap: 8px; font-size: 13px; }
   .filtros { flex-direction: column; align-items: stretch; min-width: 0; max-width: 100%; }
   .filtros > * { min-width: 0; max-width: 100%; }
-  .chips { flex-wrap: wrap; }   /* v0.60.1: los filtros bajan de línea (antes se cortaban a la derecha sin aviso) */
+  .chips { flex-wrap: wrap; }   /* v0.61.0: los filtros bajan de línea (antes se cortaban a la derecha sin aviso) */
   .chip-filtro { flex: none; }
 }
 
@@ -1044,7 +1044,7 @@ a.ag-item { text-decoration: none; }
   .fin-mx-listas { grid-template-columns: 1fr; }
   .fin-pr-fila { grid-template-columns: 1fr; padding: 12px 4px; }
 }
-/* v0.60.1 · Pantallas en celular, tablet y PC */
+/* v0.61.0 · Pantallas en celular, tablet y PC */
 .fila-campos > * { min-width: 0; }
 .campo input, .campo select { min-width: 0; max-width: 100%; }
 .fila-campos.fila-bod { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
@@ -1117,3 +1117,59 @@ a.btn-sec { display: inline-flex; align-items: center; justify-content: center; 
 }
 /* Celular: si queda una cifra sola en la última fila, ocupa el ancho (antes quedaba un hueco a su lado) */
 @media (max-width: 760px) { .cifras:not(.cifras-3) > .cifra:last-child:nth-child(odd):not(:first-child) { grid-column: 1 / -1; } }
+
+/* ── v0.61.0 · Finanzas → Resultados: clasificación, créditos e inversiones ── */
+.fin-rarea { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.6fr); }
+.fin-rarea .campo, .fin-rtipo .campo, .fin-rvida .campo { margin: 0; }
+.fin-rarea select, .fin-rtipo select { width: 100%; min-height: 44px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; padding: 0 10px; font-size: 14px; }
+.fin-rbot { margin-top: 12px; }
+.fin-rleyenda { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.fin-rfiltros { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+.fin-rfiltros .chips { flex: 1 1 auto; }
+.fin-rfiltros input[type=search] { flex: 0 1 260px; min-width: 0; min-height: 40px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; padding: 0 12px; }
+.fin-rapl { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--fondo); }
+.fin-rapl .btn { display: inline-flex; align-items: center; gap: 6px; }
+.fin-ritem { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.4fr) minmax(0, 1.5fr) minmax(0, 1.6fr); align-items: start; }
+.fin-ritem.fin-rsin { background: linear-gradient(to right, var(--amarillo) 0 3px, transparent 3px); }
+.fin-rnom { flex-direction: row !important; gap: 8px !important; align-items: flex-start; }
+.fin-rnom > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fin-rsel { flex: none; margin-top: 1px; }
+.fin-rtipo { gap: 6px !important; }
+.fin-rmot { display: flex; gap: 6px; flex-wrap: wrap; }
+.fin-rmot input { flex: 1 1 140px; min-width: 0; min-height: 40px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; padding: 0 10px; }
+.fin-rmot.oculto { display: none; }
+.fin-rest { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.fin-rest:empty { display: none; }
+.fin-rsug { align-items: flex-start; }
+.fin-rsug .acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.fin-rsug .acciones .btn-sec { white-space: normal; text-align: left; }
+.fin-racc { display: flex; flex-wrap: wrap; gap: 8px; }
+.fin-racc .btn-sec { display: inline-flex; align-items: center; gap: 6px; }
+.fin-rtab td, .fin-rtab th { white-space: nowrap; }
+.fin-rtab td:last-child { white-space: normal; }
+.fin-rdep { min-width: 720px; }
+.fin-rdep td:last-child { white-space: nowrap; }
+.fin-rpag td { background: rgba(47, 90, 69, 0.04); }
+.fin-rpago { display: block; font-size: 12px; }
+.fin-rhoy td { font-weight: 600; }
+.fin-rtot td { border-top: 1px solid var(--linea); }
+.fin-rvida input { width: 100%; max-width: 140px; min-height: 40px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; padding: 0 10px; }
+.fin-rinv .fin-c-acc { gap: 6px; }
+@media (max-width: 760px) {
+  .fin-rarea, .fin-ritem { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .fin-rfiltros input[type=search] { flex: 1 1 100%; }
+  .fin-rapl { flex-direction: column; align-items: stretch; }
+  .fin-rapl .btn { justify-content: center; }
+  .fin-rvida input { max-width: none; }
+  .fin-rtab:not(.fin-rdep) td:last-child { white-space: normal; }
+}
+@media (max-width: 560px) {
+  .fin-rtab.tabla-cel-tarjetas td { white-space: normal; text-align: left !important; }
+  .fin-rtab.tabla-cel-tarjetas td:first-child { flex: 1 1 100%; font-weight: 700; }
+  .fin-rtab.tabla-cel-tarjetas td:last-child { flex: 1 1 100%; }
+  .fin-rtab.tabla-cel-tarjetas td:not(:first-child):not(:last-child) { flex: 1 1 28%; }
+}
+.fin-rsug > span { display: block; }
+.fin-rsel-vacio { display: inline-block; width: 18px; }
+@media (max-width: 760px) { .fin-rsel-vacio { display: none; } }
+@media (max-width: 560px) { #r-tabla td:first-child::before { content: 'Cuota '; } }

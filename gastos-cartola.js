@@ -16,7 +16,7 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.60.1';
+import * as G3 from './gastos-g3.js?v=0.61.0';
 
 export const ESTADOS = { revisar: 'POR_REVISAR', conciliado: 'CONCILIADO', ignorado: 'IGNORADO', aMedias: 'A_MEDIAS' };
 export const CUENTAS = { cc: 'Cta. Cte.', chequera: 'Chequera' };

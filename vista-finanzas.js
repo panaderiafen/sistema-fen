@@ -6,17 +6,19 @@
 //  v0.59.0: Márgenes (F2 paso 1): Ventas por producto (área × canal, neto) y Asociar productos (producto de venta → receta,
 //  reventa o "no es un producto"). Rutas: #finanzas/margenes[/asociar]. Reglas puras en finanzas-ventas.js.
 //  v0.60.0: Márgenes (F2 paso 2): Margen por producto, Volumen × margen, Precio sugerido y Ajustes. Rutas: #finanzas/margenes/{margen|matriz|precios|ajustes}.
-//  Más adelante: Resultados, Flujo de caja y Metas.
+//  v0.61.0: Resultados (F3 paso 1) en vista-finanzas-resultados.js: Clasificación, Créditos e Inversiones. Rutas: #finanzas/resultados[/creditos[/{id}] | /inversiones].
+//  Más adelante: Estado de resultados, Flujo de caja y Metas.
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.60.1';
-import * as FC from './finanzas-costos.js?v=0.60.1';
-import * as FS from './finanzas-sii.js?v=0.60.1';
-import * as FM from './finanzas-motor.js?v=0.60.1';
-import * as FV from './finanzas-ventas.js?v=0.60.1';
-import * as FMG from './finanzas-margenes.js?v=0.60.1';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.60.1';
+import * as F from './finanzas.js?v=0.61.0';
+import * as FC from './finanzas-costos.js?v=0.61.0';
+import * as FS from './finanzas-sii.js?v=0.61.0';
+import * as FM from './finanzas-motor.js?v=0.61.0';
+import * as FV from './finanzas-ventas.js?v=0.61.0';
+import * as FMG from './finanzas-margenes.js?v=0.61.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.61.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.61.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -56,15 +58,19 @@ const cab = (tab) => `<div class="cabecera"><div><h1 id="t-finanzas">Finanzas</h
   <div class="pestanas" role="tablist" aria-label="Secciones de Finanzas">
     <a role="tab" href="#finanzas" aria-selected="${tab === 'como'}">Cómo trabajamos</a>
     <a role="tab" href="#finanzas/costos/productos" aria-selected="${tab === 'costos'}">Costos</a>
-    <a role="tab" href="#finanzas/margenes" aria-selected="${tab === 'margenes'}">Márgenes</a></div></div>
-  <p class="fin-pronto">Próximamente: Resultados, Flujo de caja, Metas</p>`;
+    <a role="tab" href="#finanzas/margenes" aria-selected="${tab === 'margenes'}">Márgenes</a>
+    <a role="tab" href="#finanzas/resultados" aria-selected="${tab === 'resultados'}">Resultados</a></div></div>
+  <p class="fin-pronto">Próximamente: Estado de resultados, Flujo de caja, Metas</p>`;
 
 export async function pintar(el, sub, H) {
-  const p = partes(), tab = p[1] === 'costos' ? 'costos' : p[1] === 'margenes' ? 'margenes' : 'como';
+  const p = partes(), tab = p[1] === 'costos' ? 'costos' : p[1] === 'margenes' ? 'margenes' : p[1] === 'resultados' ? 'resultados' : 'como';
   st.msg = ''; st.err = '';
   if (tab === 'margenes' && st.tabPrev !== 'margenes') MS.costos = null;   // v0.60.0: costos al día al entrar a Márgenes
+  if (tab === 'resultados' && st.tabPrev !== 'resultados') VR.olvidar();   // v0.61.0: los gastos al día al entrar a Resultados
   st.tabPrev = tab;
   if (tab === 'como') { el.innerHTML = cab(tab) + comoTrabajamos(H); return; }
+  // v0.61.0: Resultados (F3 paso 1): Clasificación, Créditos e Inversiones
+  if (tab === 'resultados') return VR.pintarResultados(el, ['creditos', 'inversiones'].includes(p[2]) ? p[2] : 'clasificacion', H, { cab, error, sinBase, conexion: async () => { if (!st.cx || st.cx.gastos.estado !== 'ok') st.cx = await F.conexiones(); return st.cx; } });
   if (tab === 'margenes') return pintarMargenes(el, ['asociar', 'margen', 'matriz', 'precios', 'ajustes'].includes(p[2]) ? p[2] : 'ventas', H);
   const parte = p[2] === 'revision' ? 'revision' : p[2] === 'compras' ? 'compras' : p[2] === 'productos' ? 'productos' : 'mp';
   el.innerHTML = cab(tab) + subPestanas(parte, null) + '<section class="tarjeta"><div class="vacio" style="border:0">Abriendo los costos…</div></section>';

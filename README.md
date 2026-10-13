@@ -1,9 +1,45 @@
-# Sistema Fën · v0.60.1
+# Sistema Fën · v0.61.0
 
-**App:** v0.60.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 14 de octubre de 2026
+**App:** v0.61.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 14 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.61.0: Finanzas (F3 · paso 1): clasificar para el estado de resultados
+Plan acordado (`finanzas-plan.md`, F3 pasos 1–3): antes de armar el estado de resultados hay que decir **qué es cada gasto**. Pestaña nueva **Finanzas → Resultados** con tres partes. **No cambia ningún gasto**: es una capa de Finanzas en fen-gastos. Todo en neto.
+
+**Clasificación**
+- **Paso 0 · Áreas de los gastos:** los códigos de área de tus gastos de 2026 (PAN, BOL, PAS, CAF, ADMIN, VENTAS…) con cuántas líneas y cuánto neto, y a dónde va cada uno: **área propia** (Panadería, Bollería, Pastelería, Cafetería) o **común** (sin repartir). Por defecto: las cuatro de producción propias, el resto común. Los prorrateados ya se guardan una línea por área (cada parte a su área); una línea antigua "PRORRATEADO" con PArea/PPct se reparte con esos % (dice "N de prorrateo").
+- **Paso 1 · Tipo para resultados de cada ítem:** cada ítem con su **total neto 2026**, cuántos gastos y a qué áreas fue; la **propuesta** con su porqué y una lista para elegir. Tipos: compras de materias primas, compras de reventa (no son línea de gasto: van a la desviación), remuneraciones y gasto fijo (propio o común según el área), ya en el margen (comisión de tarjeta, despacho B2B), financiero (intereses, banco), cuota de crédito, impuestos (F29/IVA/PPM), inversión, retiro y otro fuera del resultado (**pide motivo**). Arriba: **"N de M ítems clasificados (X % del gasto 2026)"**. Marca las propuestas y **Aplicar propuestas**, o cambia una con la lista (se guarda al elegir). Filtros: sin clasificar, clasificados, distinto a la propuesta; buscador; **Historial** por ítem.
+- **Propuestas:** por palabras del nombre (MATERIA PRIMA/INSUMO/HARINA/LECHE… → compras MP; REMUNERACION/SUELDO/COTIZACION/PREVIRED → remuneraciones; ARRIENDO/LUZ/AGUA/GAS/INTERNET/TELEFONO/CONTABILIDAD → fijo; COMISION TRANSBANK/TARJETA → en el margen; INTERES/COMISION BANCARIA/MANTENCION → financiero; PRESTAMO/CREDITO/CUOTA/FONDO ESPERANZA → cuota de crédito; IVA/F29/PPM/IMPUESTO → impuestos; INVERSION/EQUIPO/MAQUINARIA → inversión; RETIRO → retiro). **Lo que ya marcaste como subtipo INVERSIÓN en Gastos manda** (→ inversión); si el nombre no dice nada: subtipo FINANCIERO → cuota de crédito, PASIVO → impuestos, categoría FIJO → fijo. "Mantención/reparación" de un equipo o del local → fijo. Nada se guarda solo.
+- Un ítem que mezcla cosas (por ejemplo "Mantención") se podrá cambiar **por gasto** más adelante; por ahora el tipo es por ítem.
+
+**Créditos:** cada crédito con su **obligación de Gastos** (las que parecen crédito aparecen con "Anotar…"). **Calcular** (monto, tasa mensual %, n° de cuotas, primera cuota y, si quieres, la cuota del banco): sistema francés, interés = saldo × tasa al peso, capital = cuota − interés, **la última cuota ajusta**. O **Pegar la tabla del banco** (N°, fecha, cuota, interés, capital, saldo; tabulador o punto y coma; montos chilenos; avisa si algo no cuadra). La tabla marca **cada cuota pagada** con el vencimiento pagado de su obligación (el del mismo mes; si no, en orden): **interés → financiero, capital → fuera**. Lista con pagadas, interés, capital y saldo; **Cuotas pagadas por mes**; Editar, Archivar e Historial.
+
+**Inversiones:** los gastos cuyo ítem es **Inversión** (todos los años de la base), con **vida útil** por defecto según el nombre (computación 36 meses, equipos 60, muebles 84, remodelación 120; se cambia y se guarda), desde el mes de la compra; **depreciación mensual = valor neto ÷ meses**. Tabla **por mes y área** (Panadería, Bollería, Pastelería, Cafetería, Común) del año elegido, con el área del gasto según el mapa.
+
+**Dónde se guarda (fen-gastos, solo administración):** `fin_items/{ítem}` `{ item, clave, tipo, motivo, origen propuesta|manual, propuesta, fecha, por, version }` + `fin_items_hist` (solo agregar); `fin_config/resultados` `{ areasGasto { código: PAN|BOL|PAS|CAF|comun }, historialAreas }`; `fin_creditos/{id}` `{ nombre, obligacionId, obligacionNombre, modo frances|manual, monto, tasa, n, fechaPrimera, cuota, cuotaManual, tabla [...], nota, estado, version }` + `fin_creditos_hist`; `fin_inversiones/{gastoId}` `{ vidaUtilMeses, fechaInicio, nota, item, valorNeto, historial }`. Lee gastos, ítems, obligaciones y vencimientos (una vez al entrar; "Volver a leer"). **Reglas y scripts: no cambian** (fen-gastos v0.1.0 cubre colecciones nuevas solo para `admins`). Nada va a Cocina ni a Hoy.
+
+Por dentro: nuevo `finanzas-resultados.js` (puro: `proponer`, `lineasArea`, `areasDeGastos`, `destinoArea`, `validarMapa`, `resumenItems`, `avance`, `armarClasificacion`, `cuotaFrancesa`, `tablaFrancesa`, `sumarMeses`, `numeroCL`, `fechaCL`, `parsearTabla`, `validarCredito`, `pagosDeObligacion`, `marcarPagos`, `creditoPorMes`, `vidaDefecto`, `inversiones`, `depreciacionPorMes`, `validarInversion`); nuevo `vista-finanzas-resultados.js` (las tres partes); `finanzas.js`: `leerResultados`, `guardarTipos`, `historialTipo`, `guardarAreasGasto`, `guardarCredito`, `archivarCredito`, `historialCredito`, `guardarInversion`; `vista-finanzas.js`: pestaña Resultados.
+
+Pruebas: nueva `pruebas/sistemafen/finanzas-f3a.test.js` (11: 7 unitarias —propuestas; áreas con prorrateo; resumen y avance; francés con la última cuota que ajusta; tabla pegada; cuotas pagadas; depreciación— y 4 de punta a punta con gastos ficticios: 0 → 10 → 11 de 11 (100 %), otro fuera con motivo, cambio a mano e historial, mapa de áreas; crédito desde la obligación con 2 cuotas pagadas (interés $28.850, capital $154.510) y tabla manual; inversiones 60 → 120 meses y tabla por área; celular 390 y tablet 768). `sf-pantallas` revisa además las 5 pantallas nuevas (con el diálogo) en los 3 tamaños; `finanzas-f1a` cambia el texto de "Próximamente". Siguen pasando e2e (54), f1a/b/c, f2a/b, g3d/g3e, b2b-v018 y hoy-v055. Capturas en `pruebas/capturas/finanzas-f3a/` (PC y 390).
+
+Archivos: nuevos `finanzas-resultados.js` y `vista-finanzas-resultados.js`; cambian `finanzas.js`, `vista-finanzas.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.61.0**.
+
+### Instalación v0.61.0 (unos 2 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.61.0.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+
+### Lista de verificación v0.61.0
+- [ ] Abajo a la izquierda dice **v0.61.0**; Finanzas tiene la pestaña **Resultados**.
+- [ ] **Paso 0:** aparecen tus códigos de área de 2026; revisa que ADMIN y VENTAS digan Común y las de producción su área → **Guardar áreas**.
+- [ ] **Paso 1:** revisa las propuestas (sobre todo las de Inversión, Cuota de crédito y las "Sin propuesta"), corrige las que no calcen, marca y **Aplicar propuestas**. Meta: **100 % del gasto 2026**.
+- [ ] El total neto de un ítem que conozcas = el de Gastos → Análisis (neto, 2026).
+- [ ] **Créditos:** anota CREDITO PAC BANCO ESTADO y FONDO ESPERANZA (mejor con la tabla del banco pegada); las cuotas ya pagadas aparecen como "Pagada" con su interés y capital.
+- [ ] **Inversiones:** están las compras que clasificaste como inversión; ajusta la vida útil de cada una y Guardar.
+- [ ] En el celular se ve bien (sin moverse de lado).
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.60.1: la pestaña Resultados desaparece. Lo guardado (`fin_items`, `fin_config`, `fin_creditos`, `fin_inversiones`) queda en fen-gastos sin estorbar.
 
 ## Novedades de la v0.60.1: todas las pantallas bien en celular, tablet y PC
 Regla de Emmanuel: cada pantalla se ve bien en **celular (390 × 844)**, **tablet (768 × 1024)** y **PC (1280 × 900)**: sin moverse de lado, sin textos cortados ni botones encimados, tablas en tarjetas o con scroll propio y aviso, diálogos que caben y menús que bajan de línea. Se revisaron **todas las vistas, pestañas y los diálogos principales** con una prueba nueva y sus capturas. **Solo cambia cómo se ve** (CSS y algo de marcado): nada de lo que hace la app cambia.
