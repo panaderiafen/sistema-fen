@@ -758,3 +758,18 @@ a.ag-item { text-decoration: none; }
 .buscador-msg { font-size: 13px; color: var(--suave); min-height: 0; }
 .buscador-msg:empty { display: none; }
 .buscador input[aria-invalid=true] ~ .buscador-msg { color: #B3261E; font-weight: 600; }
+
+/* v0.55.0: Hoy, ventas de ayer y de hoy en la misma tarjeta */
+.cifra-doble { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-column: span 2; padding: 0; overflow: hidden; }
+.cifra-doble > .cifra { padding: 22px 24px; min-width: 0; }
+.cifra-doble > .cifra + .cifra { border-left: 1px solid var(--linea); }
+.enlace-mitad { text-decoration: none; color: inherit; transition: background-color .15s; }
+.enlace-mitad:hover { background: var(--fondo, rgba(0,0,0,.03)); }
+.enlace-mitad:focus-visible { outline: 2px solid var(--acento); outline-offset: -2px; border-radius: 16px 0 0 16px; }
+#c-hoy-suc { font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) {
+  .cifras:has(.cifra-doble) { grid-template-columns: minmax(0, 1fr); }
+  .cifra-doble { grid-column: auto; }
+  .cifra-doble > .cifra { padding: 16px; }
+}
+#c-hoy-suc .nowrap { white-space: nowrap; }

@@ -8,7 +8,8 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   getFirestore, collection, doc, addDoc, getDoc, getDocs, updateDoc, setDoc, increment,
-  query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp, runTransaction
+  query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp, runTransaction,
+  getAggregateFromServer, sum, count
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // Instancia con nombre propio: Sistema Fën guarda su sesión aparte de la caja, aunque
@@ -22,5 +23,6 @@ export {
   setPersistence, browserLocalPersistence, browserSessionPersistence,
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc, setDoc, increment,
-  query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp, runTransaction
+  query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp, runTransaction,
+  getAggregateFromServer, sum, count
 };

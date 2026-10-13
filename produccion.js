@@ -31,11 +31,11 @@
 //    pendiente en Hoy y un correo por día, bodega y materia prima (script v2.9.0, op stock_alerta). Cafetería: shots
 //    de la calibración diaria en la configuración, días con venta para la calibración automática y su costo en Merma.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.54.1';
-import * as FB from './firebase-produccion.js?v=0.54.1';
-import * as Apps from './apps.js?v=0.54.1';
-import { armar, AREAS } from './produccion-modelo.js?v=0.54.1';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.54.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.55.0';
+import * as FB from './firebase-produccion.js?v=0.55.0';
+import * as Apps from './apps.js?v=0.55.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.55.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.55.0';
 import * as K from './cocina/consumo.js?v=0.16.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.11.0';
 

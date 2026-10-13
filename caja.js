@@ -12,8 +12,8 @@
 // ═══════════════════════════════════════════════
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
-  query, where, Timestamp, runTransaction
-} from './firebase.js?v=0.54.1';
+  query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
+} from './firebase.js?v=0.55.0';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -425,4 +425,40 @@ export async function generarResumenes(cajas, avance) {
     if (avance) avance(hechos + fallas, cajas.length);
   }
   return { hechos, fallas };
+}
+
+// ── v0.55.0: ventas de hoy (bruto con IVA, sin anuladas), para la tarjeta de Hoy ──
+// Hoy todavía no hay resúmenes (se escriben al cerrar), así que por cada caja de hoy:
+//  · cerrada y con resumen → se usa el resumen (ya descuenta anuladas; 0 lecturas extra);
+//  · si no → dos consultas de agregación sobre ventas (cajaId == caja): sum(total) de todas
+//    y sum(total) de las anuladas, y se restan. Cada agregación cuesta 1 lectura por cada
+//    1000 ventas (mínimo 1), no una por venta.
+//  · si la agregación falla (sin índice, sin red…), se leen las ventas de esa caja una vez.
+// cajasHoy: cajas con fecha de hoy (abiertas o cerradas). resumenes: { cajaId: resumen }.
+// Devuelve { total, porSuc: { sucursal: bruto }, nVentas, cajas }.
+export async function ventasDeHoy(cajasHoy, resumenes = {}) {
+  const ventasCaja = id => query(collection(db, 'ventas'), where('cajaId', '==', id));
+  const una = async c => {
+    const r = resumenes[c.id];
+    if (c.estado === 'cerrada' && r) return { suc: c.sucursal || r.sucursal || '', bruto: Number(r.totalBruto) || 0, n: Number(r.nVentas) || 0 };
+    try {
+      const [todas, anul] = await Promise.all([
+        getAggregateFromServer(ventasCaja(c.id), { bruto: sum('total'), n: count() }),
+        getAggregateFromServer(query(collection(db, 'ventas'), where('cajaId', '==', c.id), where('anulada', '==', true)), { bruto: sum('total'), n: count() })
+      ]);
+      const a = todas.data(), b = anul.data();
+      return { suc: c.sucursal || '', bruto: (Number(a.bruto) || 0) - (Number(b.bruto) || 0), n: (Number(a.n) || 0) - (Number(b.n) || 0) };
+    } catch (e) {
+      console.warn('Agregación no disponible, se leen las ventas de la caja', c.id, e && e.message);
+      const sn = await getDocs(ventasCaja(c.id));
+      let bruto = 0, n = 0;
+      sn.docs.forEach(d => { const v = d.data(); if (v.anulada === true) return; bruto += parseInt(v.total) || 0; n++; });
+      return { suc: c.sucursal || '', bruto, n };
+    }
+  };
+  const partes = await Promise.all(cajasHoy.map(una));
+  const porSuc = {};
+  let total = 0, nVentas = 0;
+  partes.forEach(p => { total += p.bruto; nVentas += p.n; if (p.bruto || p.n) porSuc[p.suc] = (porSuc[p.suc] || 0) + p.bruto; });
+  return { total, porSuc, nVentas, cajas: cajasHoy.length };
 }

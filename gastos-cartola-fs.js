@@ -14,14 +14,14 @@
 //    aquí queda anulado y un abono sale del vencimiento (queda en abonosQuitados).
 //  · El archivo original va a Drive con el script (op archivo_subir, tipo "cartola", v2.16.0).
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.54.1';
-import * as M from './gastos-g2.js?v=0.54.1';
-import * as G3 from './gastos-g3.js?v=0.54.1';
-import * as G3D from './gastos-g3d.js?v=0.54.1';
-import * as C from './gastos-cartola.js?v=0.54.1';
-import { huella } from './gastos-modelo.js?v=0.54.1';
-import * as FS from './gastos-fs.js?v=0.54.1';
-import * as GB from './gastos-base.js?v=0.54.1';
+import * as FB from './firebase-gastos.js?v=0.55.0';
+import * as M from './gastos-g2.js?v=0.55.0';
+import * as G3 from './gastos-g3.js?v=0.55.0';
+import * as G3D from './gastos-g3d.js?v=0.55.0';
+import * as C from './gastos-cartola.js?v=0.55.0';
+import { huella } from './gastos-modelo.js?v=0.55.0';
+import * as FS from './gastos-fs.js?v=0.55.0';
+import * as GB from './gastos-base.js?v=0.55.0';
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"

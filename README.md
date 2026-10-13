@@ -1,9 +1,46 @@
-# Sistema Fën · v0.54.1
+# Sistema Fën · v0.55.0
 
-**App:** v0.54.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** **v1.7.0** (nuevas, van en el zip de Cocina v0.16.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** **v2.9.0** · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 12 de octubre de 2026
+**App:** v0.55.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.9.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 12 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.55.0: Hoy, "Ventas de hoy en caja"
+En **Hoy**, la tarjeta de **Ventas de ayer en caja** ahora tiene al lado **Ventas de hoy en caja**: lo vendido hoy hasta ahora, **bruto con IVA**, **sin las anuladas**, las **dos sucursales sumadas**.
+
+- Si las dos sucursales vendieron hoy, abajo sale una línea chica: **"Barros $x · Ainavillo $y"**.
+- Mientras calcula dice **"…"**; si todavía no hay ventas: **$0** y **"Sin ventas aún"**.
+- Se calcula **al abrir Hoy** (no se actualiza solo): para ver lo último, vuelve a abrir Hoy.
+- Hoy no tiene "Ver reporte": el reporte de Ventas de caja lee los cierres, y hoy aparece ahí recién cuando la caja se cierra. Ayer sigue llevando a su reporte.
+- En PC: ayer y hoy lado a lado en la misma tarjeta, "Cajas abiertas ahora" al lado. En el celular: la tarjeta de ventas ocupa el ancho (ayer | hoy) y "Cajas abiertas ahora" va debajo.
+
+**Cómo se calcula (y cuánto lee):** se usan las cajas que Hoy ya leía (no hay consultas de cajas nuevas). Por cada caja con fecha de hoy:
+- **Cerrada y con resumen**: se usa su resumen del cierre (ya descuenta anuladas). La consulta de resúmenes de ayer ahora trae también los de hoy (`fecha in [ayer, hoy]`).
+- **Abierta (o cerrada sin resumen)**: dos **consultas de agregación** de Firestore sobre `ventas` con `cajaId` de esa caja: `sum(total)` + `count()` de todas, y lo mismo solo de las `anulada == true`; se restan. Cada agregación cuesta **1 lectura por cada 1.000 ventas** (mínimo 1). Un día normal con una caja por sucursal: **4 lecturas**, no una por venta.
+- Si la agregación fallara (por ejemplo, Firebase pide un índice), esa caja se suma leyendo sus ventas una vez (como el resumen), y Hoy sigue funcionando.
+
+Por dentro: `Caja.ventasDeHoy(cajasHoy, resumenes)` en `caja.js`; `firebase.js` exporta `getAggregateFromServer`, `sum` y `count` (SDK 10.12.0, el mismo); `pintarVentasHoy` en `app.js` (no frena el resto de Hoy). Las reglas v1.3.0 ya permiten leer `ventas` con sesión: no cambian.
+
+Pruebas: nuevas `pruebas/sistemafen/hoy-v055.test.js` (4: dos sucursales con una anulada y una caja cerrada con resumen → $18.500 y "Barros $7.500 · Ainavillo $11.000", 4 agregaciones; celular 390 sin moverse de lado; sin ventas → $0 · Sin ventas aún; una sola sucursal sin línea). El simulador de Firebase suma `getAggregateFromServer`. Siguen pasando `e2e` (54) y `b2b-v052`. Capturas en `pruebas/capturas/hoy-v055/`.
+
+Archivos: cambian `app.js`, `caja.js`, `firebase.js`, `estilos.css`, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.55.0**. No cambian reglas ni scripts.
+
+### Instalación v0.55.0 (unos 3 minutos)
+En GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.55.0.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+
+### Lista de verificación v0.55.0
+- [ ] Abajo a la izquierda dice **v0.55.0**.
+- [ ] En **Hoy**, la tarjeta de ventas muestra **Ventas de ayer en caja** y **Ventas de hoy en caja** juntas.
+- [ ] Con una caja abierta y alguna venta hoy: el monto de hoy coincide con el "Total ventas" de esa caja (bruto).
+- [ ] Si se anula una venta y vuelves a abrir Hoy: el monto baja.
+- [ ] Con las dos sucursales vendiendo: aparece "Barros $… · Ainavillo $…".
+- [ ] Antes de la primera venta del día: "$0" y "Sin ventas aún".
+- [ ] "Ver reporte" de ayer sigue abriendo el reporte de ayer.
+- [ ] En el celular se ve bien (sin moverse de lado).
+- [ ] Si Hoy dice "—" en ventas de hoy: abre la consola (F12) y avísame el mensaje (puede ser un índice que pida Firebase).
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.54.1: Hoy vuelve a mostrar solo las ventas de ayer.
 
 ## Novedades de la v0.54.1: escribir para buscar en las listas de materias primas
 Pedido de Emmanuel: donde eliges una materia prima o insumo de una lista, ahora también puedes **escribir el nombre**.

@@ -9,33 +9,33 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.54.1';
-import * as Caja from './caja.js?v=0.54.1';
-import * as Stock from './stock.js?v=0.54.1';
-import * as Ajustes from './ajustes.js?v=0.54.1';
-import * as Apps from './apps.js?v=0.54.1';
-import * as Agenda from './agenda.js?v=0.54.1';
-import * as Gastos from './gastos.js?v=0.54.1';
-import * as G3 from './gastos-g3.js?v=0.54.1';
-import * as G3D from './gastos-g3d.js?v=0.54.1';
-import { resumenAnalisis } from './gastos-g2.js?v=0.54.1';
-import * as Sii from './sii.js?v=0.54.1';
-import * as GSii from './gastos-sii.js?v=0.54.1';
-import * as Previred from './previred.js?v=0.54.1';
-import * as B2b from './b2b.js?v=0.54.1';
-import * as Cartola from './cartola.js?v=0.54.1';
-import * as SiiFactura from './sii-factura.js?v=0.54.1';
-import * as PdfOrden from './pdf-orden.js?v=0.54.1';
-import * as Prod from './produccion.js?v=0.54.1';
+} from './firebase.js?v=0.55.0';
+import * as Caja from './caja.js?v=0.55.0';
+import * as Stock from './stock.js?v=0.55.0';
+import * as Ajustes from './ajustes.js?v=0.55.0';
+import * as Apps from './apps.js?v=0.55.0';
+import * as Agenda from './agenda.js?v=0.55.0';
+import * as Gastos from './gastos.js?v=0.55.0';
+import * as G3 from './gastos-g3.js?v=0.55.0';
+import * as G3D from './gastos-g3d.js?v=0.55.0';
+import { resumenAnalisis } from './gastos-g2.js?v=0.55.0';
+import * as Sii from './sii.js?v=0.55.0';
+import * as GSii from './gastos-sii.js?v=0.55.0';
+import * as Previred from './previred.js?v=0.55.0';
+import * as B2b from './b2b.js?v=0.55.0';
+import * as Cartola from './cartola.js?v=0.55.0';
+import * as SiiFactura from './sii-factura.js?v=0.55.0';
+import * as PdfOrden from './pdf-orden.js?v=0.55.0';
+import * as Prod from './produccion.js?v=0.55.0';
 import * as ProdK from './cocina/consumo.js?v=0.16.0';
-import * as VistaProd from './vista-produccion.js?v=0.54.1';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.54.1';
+import * as VistaProd from './vista-produccion.js?v=0.55.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.55.0';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.54.1');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.55.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.54.1')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.55.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -336,7 +336,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.54.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.55.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -389,6 +389,25 @@ function itemPendiente(p) {
     <span class="chip c-${p.color}">${esc(p.chip)}</span></a>`;
 }
 
+// v0.55.0: "Ventas de hoy en caja" (en la misma tarjeta que ayer). No espera: se pinta cuando llega.
+const SUC_CORTA = { barros_arana: 'Barros', ainavillo: 'Ainavillo' };
+async function pintarVentasHoy(leyoCajas, cajas, resumenesHoy, hoy) {
+  const vistos = new Set();
+  const cajasHoy = cajas.filter(c => !vistos.has(c.id) && vistos.add(c.id) && Caja.normalizarFechaCaja(c.fecha) === hoy);
+  const res = {};
+  resumenesHoy.forEach(x => { res[x.cajaId || x.id] = x; });
+  let t = null;
+  try { if (leyoCajas) t = await Caja.ventasDeHoy(cajasHoy, res); } catch (e) { console.error('No se pudieron sumar las ventas de hoy', e); }
+  if (!$('c-hoy')) return; // se cambió de vista mientras cargaba
+  const n = $('c-hoy-n'), suc = $('c-hoy-suc');
+  if (!t) { $('c-hoy').textContent = '—'; n.textContent = 'No se pudo leer la caja'; return; }
+  $('c-hoy').textContent = pesos(t.total);
+  n.textContent = t.nVentas ? `${t.nVentas} ${t.nVentas === 1 ? 'venta' : 'ventas'} hasta ahora · bruto, con IVA` : 'Sin ventas aún';
+  const sucs = Object.keys(t.porSuc);
+  suc.hidden = sucs.length < 2;
+  suc.innerHTML = sucs.length < 2 ? '' : sucs.sort().reverse().map(k => `<span class="nowrap">${esc(SUC_CORTA[k] || sucursal(k))} ${pesos(t.porSuc[k])}</span>`).join(' · ');
+}
+
 async function pintarHoy() {
   const ahora = new Date();
   const hoy = diaLocal(ahora), ayer = diaLocal(new Date(ahora.getTime() - 864e5));
@@ -397,7 +416,10 @@ async function pintarHoy() {
   el.innerHTML = `
     <div class="cabecera"><div><h1 id="t-hoy">Hoy</h1><p id="hoy-sub">${fechaLarga} · revisando…</p></div></div>
     <div class="cifras">
-      <a class="tarjeta cifra enlace-cifra" href="#caja/reportes/ayer"><span class="rotulo">Ventas de ayer en caja</span><span class="valor" id="c-ventas">…</span><span class="nota" id="c-ventas-n">Bruto, con IVA</span><span class="ver-mas-cifra">Ver reporte</span></a>
+      <div class="tarjeta cifra-doble" aria-label="Ventas en caja">
+        <a class="cifra enlace-mitad enlace-cifra" href="#caja/reportes/ayer"><span class="rotulo">Ventas de ayer en caja</span><span class="valor" id="c-ventas">…</span><span class="nota" id="c-ventas-n">Bruto, con IVA</span><span class="ver-mas-cifra">Ver reporte</span></a>
+        <div class="cifra" id="c-hoy-caja"><span class="rotulo">Ventas de hoy en caja ${info('Ventas de hoy en caja', 'Lo vendido hoy hasta ahora en las cajas de hoy (abiertas o ya cerradas), las dos sucursales sumadas. Bruto, con IVA, sin las ventas anuladas.\nSe calcula al abrir Hoy: para ver lo último, vuelve a abrir Hoy.\nUna caja cerrada usa su resumen del cierre; una abierta se suma directo en la base (unas pocas lecturas, no una por venta).\nEl reporte de Ventas de caja muestra hoy recién cuando la caja se cierra.')}</span><span class="valor" id="c-hoy">…</span><span class="nota" id="c-hoy-n">Hasta ahora · bruto, con IVA</span><span class="nota" id="c-hoy-suc" hidden></span></div>
+      </div>
       <div class="tarjeta cifra"><span class="rotulo">Cajas abiertas ahora ${info('Cajas abiertas ahora', 'Cajas abiertas hoy que siguen vendiendo. Una caja de un día anterior que quedó abierta no cuenta aquí: aparece en Pendientes como "Caja anterior sin cerrar".')}</span><span class="valor" id="c-abiertas">…</span><span class="nota">Abiertas hoy</span></div>
     </div>
     <div class="columnas">
@@ -427,7 +449,7 @@ async function pintarHoy() {
     q('cajas', where('estado', '==', 'abierta')),
     q('cajas', where('apertura', '>=', Caja.haceDias(F.DIAS_HISTORIAL))),
     q('solicitudes_anulacion', where('estado', '==', 'pendiente')),
-    q('resumenes_caja', where('fecha', '==', ayer))
+    q('resumenes_caja', where('fecha', 'in', [ayer, hoy]))
   ]);
   if (!$('lista-pend')) return; // se cambió de vista mientras cargaba
   const docs = i => (r[i].status === 'fulfilled' ? r[i].value.docs.map(d => ({ id: d.id, ...d.data() })) : []);
@@ -462,7 +484,8 @@ async function pintarHoy() {
     pintarFuentes();
   };
 
-  const resumenes = docs(4);
+  const resumenes = docs(4).filter(x => x.fecha === ayer);
+  pintarVentasHoy(r[1].status === 'fulfilled' || r[2].status === 'fulfilled', [...docs(1), ...docs(2)], docs(4).filter(x => x.fecha === hoy), hoy);
   $('c-ventas').textContent = r[4].status === 'fulfilled' ? pesos(resumenes.reduce((a, x) => a + (Number(x.totalBruto) || 0), 0)) : '—';
   $('c-ventas-n').textContent = `${resumenes.length} ${resumenes.length === 1 ? 'cierre' : 'cierres'} · bruto, con IVA`;
   $('c-abiertas').textContent = r[1].status === 'fulfilled' ? String(abiertas.filter(c => c.fecha === hoy).length) : '—';
@@ -889,9 +912,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.54.1').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.55.0').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.54.1').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.55.0').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -1934,7 +1957,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.54.1')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.55.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
