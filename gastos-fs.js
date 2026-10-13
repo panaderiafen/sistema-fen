@@ -20,14 +20,14 @@
 //    (tipo libre), vencimiento suelto. Los de tipo documento se crean 20 días antes (para esperar la boleta).
 //  · v0.51.0: pagar un vencimiento con el certificado de Previred crea un gasto por trabajador (gastos-g3d.js: lineasDelPago).
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.60.0';
-import * as FB from './firebase-gastos.js?v=0.60.0';
-import * as GB from './gastos-base.js?v=0.60.0';
-import * as GP from './gastos-planilla.js?v=0.60.0';
-import * as M from './gastos-g2.js?v=0.60.0';
-import * as G3 from './gastos-g3.js?v=0.60.0';
-import * as G3D from './gastos-g3d.js?v=0.60.0';
-import { dia } from './gastos-modelo.js?v=0.60.0';
+import { auth as authSF } from './firebase.js?v=0.60.1';
+import * as FB from './firebase-gastos.js?v=0.60.1';
+import * as GB from './gastos-base.js?v=0.60.1';
+import * as GP from './gastos-planilla.js?v=0.60.1';
+import * as M from './gastos-g2.js?v=0.60.1';
+import * as G3 from './gastos-g3.js?v=0.60.1';
+import * as G3D from './gastos-g3d.js?v=0.60.1';
+import { dia } from './gastos-modelo.js?v=0.60.1';
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';

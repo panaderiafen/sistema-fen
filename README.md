@@ -1,9 +1,47 @@
-# Sistema Fën · v0.60.0
+# Sistema Fën · v0.60.1
 
-**App:** v0.60.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 14 de octubre de 2026
+**App:** v0.60.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.17.0 (sin cambios) · 14 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.60.1: todas las pantallas bien en celular, tablet y PC
+Regla de Emmanuel: cada pantalla se ve bien en **celular (390 × 844)**, **tablet (768 × 1024)** y **PC (1280 × 900)**: sin moverse de lado, sin textos cortados ni botones encimados, tablas en tarjetas o con scroll propio y aviso, diálogos que caben y menús que bajan de línea. Se revisaron **todas las vistas, pestañas y los diálogos principales** con una prueba nueva y sus capturas. **Solo cambia cómo se ve** (CSS y algo de marcado): nada de lo que hace la app cambia.
+
+**Lo que se arregló**
+- **Producción → Bodega se movía de lado en el celular** (la página medía ~600 px): (1) las listas de materias primas con nombres largos ensanchaban sus filas ("Agregar crítica", "Llegó mercadería", "El café de la bitácora…"); ahora esas filas se acomodan (en el celular, un campo por línea y el botón a lo ancho) y una lista nunca es más ancha que su caja; (2) el texto oculto para lectores de pantalla de la columna "Quitar" se salía de la tabla. Pasa en las dos bodegas (Producción y Cafetería).
+- **Ventas B2B → Estado de cuenta y Análisis** se movían de lado en el celular con un cliente de nombre largo en la lista "Cliente".
+- **Tablet (768 px): el contenido caía debajo del menú lateral** (entre 761 y 819 px de ancho). Ahora el menú es más angosto y el contenido va a su lado; **Seguridad** muestra los equipos como en el celular (la tabla necesita 640 px).
+- **Barras de pestañas** (Gastos, Ventas B2B, Ventas de caja, Producción → Bodega): bajan de línea en vez de esconder pestañas a la derecha (en el celular, la pestaña elegida —por ejemplo Registrar— quedaba fuera de la vista).
+- **Filtros en pastillas** (Bruto/Neto/Sin IVA, forma de pago, períodos de Análisis y Reportes, áreas de Finanzas, "Mostrar" de la Agenda): en el celular bajan de línea; antes se cortaban a la derecha sin aviso.
+- **Finanzas → Costos y Márgenes**: en el celular las partes van en dos columnas parejas (antes una por fila y de anchos distintos).
+- **Gastos → Registrados**: el buscador se veía como un cuadro gigante en el celular.
+- **Tablas con scroll propio**: sombra en el borde cuando hay más columnas a la derecha (o a la izquierda), primera columna fija en el celular, y cifras y campos con su unidad sin partirse ("20 kg", "6,5 kg"). **Ventas B2B → Productos** pasa a tarjetas en el celular (nombre, precio base, categoría y receta con su rótulo, y Editar/Archivar abajo).
+- **Títulos con botón** ("Nueva obligación", "Nuevo ítem"…): el botón ya no se aprieta en dos líneas; si no cabe, baja.
+- **Botones que son enlaces** ("Volver a Obligaciones", "Revisar y clasificar"): se ven como botón, sin subrayado.
+- **Clasificar obligaciones**: la lista de tipo y el N° de cliente con el mismo estilo de los demás campos.
+- **Configuración** (motivos de merma, tipos de leche…): en el celular cada nombre va con sus botones ↑ ↓ Quitar en la misma fila (antes quedaban sueltos debajo, pegados al siguiente).
+- **Cifras en el celular**: si queda una sola en la última fila (Gastos: "Resto del mes"), ocupa el ancho en vez de dejar un hueco.
+
+**Prueba nueva:** `pruebas/sistemafen/sf-pantallas.test.js` (4: celular, tablet, PC y sin errores de la página). Visita Hoy (y Agregar a la agenda), Agenda (mes, nuevo evento, etiquetas), Gastos (todas las pestañas con la base nueva, Pagar, Nueva obligación, Nuevo ítem, Clasificar, Base nueva), Conciliación (abonos y cargos), Ventas B2B (todas las pestañas, Por facturar abierto), Producción (Desde Cocina con una receta y dos materias primas por revisar, Bodega calculada en las dos bodegas, Merma, Configuración), Ventas de caja (cierres, anulaciones, reportes, merma y stock), Finanzas (todas las pestañas y partes), Configuración, Seguridad y Menú, en los 3 tamaños. Revisa: sin scroll de lado de la página, nada fuera de la pantalla (salvo dentro de una caja con scroll propio), contenido cortado, botones encimados, diálogos dentro de la pantalla y con scroll, y el contenido al lado del menú lateral. Capturas: `pruebas/capturas/sf-pantallas/<sección>-<celular|tablet|pc>.png` (147). Para una sola: `SF_VISTA=celular SF_SOLO=produccion`.
+
+Archivos: cambian `estilos.css`, `vista-produccion.js` (clases de las filas de Bodega), `app.js` (tabla de Productos de B2B con rótulos), `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.60.1**. No cambian reglas ni scripts.
+
+### Instalación v0.60.1 (unos 2 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.60.1.zip` (con la carpeta `cocina/`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R; en el celular, cierra y vuelve a abrir la pestaña).
+
+### Lista de verificación v0.60.1
+- [ ] Abajo a la izquierda dice **v0.60.1**.
+- [ ] Celular: **Producción → Bodega** (Producción y Cafetería) ya no se mueve de lado; las tablas muestran una sombra a la derecha y se deslizan dentro de su caja.
+- [ ] Celular: en **Gastos → Registrar** se ven todas las pestañas (en dos o tres líneas) y la elegida está marcada.
+- [ ] Celular: "Bruto (con IVA) · Neto (+IVA) · Sin IVA" y la forma de pago se ven completos.
+- [ ] Celular: **Gastos → Registrados**, el buscador es de una línea.
+- [ ] Celular: **Ventas B2B → Productos** en tarjetas; Estado de cuenta y Análisis sin moverse de lado.
+- [ ] Tablet (o la ventana del PC angosta, ~800 px): el contenido va al lado del menú, no debajo.
+- [ ] PC: todo igual que antes.
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.60.0: vuelve como estaba (no hay datos nuevos).
 
 ## Novedades de la v0.60.0: Finanzas (F2 · paso 2): margen de contribución, matriz volumen × margen y precio sugerido
 Modelo acordado (`finanzas-plan.md`, sección 1): **margen sobre el precio NETO**; precio = costo directo + **margen de contribución objetivo del área**; lo indirecto entra a nivel de área, **nunca repartido por unidad**.

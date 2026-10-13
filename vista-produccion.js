@@ -5,9 +5,9 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.60.0';
+import * as P from './produccion.js?v=0.60.1';
 import * as K from './cocina/consumo.js?v=0.16.0';
-import { conBuscador } from './buscador.js?v=0.60.0';
+import { conBuscador } from './buscador.js?v=0.60.1';
 
 const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -135,9 +135,9 @@ async function pintarBase(el, H, cx) {
       ${cuentas.length ? `<h3 style="margin:14px 0 4px;font-size:15px">Cuentas ${H.info('Cambiar las áreas de una cuenta', 'Toca "Cambiar" para cargar la cuenta en el formulario de abajo, marca o desmarca áreas y presiona Guardar.\nSi una tablet ya estaba abierta, toma el cambio en la próxima carga.')}</h3>
       <div class="lista-simple">${cuentas.map(c => `<div class="fila-caja fila-compacta"><div class="txt"><b>${P.areasDeCuenta(c).map(a => H.esc(P.AREAS[a])).join(' + ') || 'Sin área'}</b><span>${H.esc(c.uid)}</span></div><button type="button" class="btn-sec" data-cta-editar="${H.esc(c.uid)}">Cambiar</button></div>`).join('')}</div>` : ''}
       <form id="prod-cuenta" style="margin-top:12px">
-        <div class="fila-campos" style="align-items:flex-end">
+        <div class="fila-campos fila-bod">
           <div class="campo"><label for="prod-cta-area">Área principal ${H.info('Área principal', 'Con esta área abre la tablet la primera vez. Después recuerda la última en que estuvo.')}</label><select id="prod-cta-area">${Object.entries(P.AREAS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
-          <div class="campo" style="flex:2"><label for="prod-cta-uid">UID de la cuenta del área</label><input id="prod-cta-uid" spellcheck="false" autocomplete="off"></div>
+          <div class="campo campo-ancho"><label for="prod-cta-uid">UID de la cuenta del área</label><input id="prod-cta-uid" spellcheck="false" autocomplete="off"></div>
         </div>
         <fieldset style="border:0;padding:0;margin:8px 0 0"><legend style="font-weight:600;font-size:14px;margin-bottom:4px">También entra a ${H.info('Más de un área', 'Marca las otras áreas a las que puede entrar esta tablet (por ejemplo, una tablet compartida entre Bollería y Pastelería).\nArriba de la app aparece "Cambiar de área". En cada área se pide el PIN de una persona de esa área, y la tablet ve y cambia solo lo de esa área mientras está en ella.')}</legend>
           <div style="display:flex;gap:16px;flex-wrap:wrap">${Object.entries(P.AREAS).map(([k, v]) => `<label style="display:flex;gap:6px;align-items:center;min-height:44px"><input type="checkbox" name="prod-cta-otras" value="${k}">${v}</label>`).join('')}</div>
@@ -299,8 +299,8 @@ function seccionBodega(H) {
       ${cons.map(x => `<tr><td>${H.esc(x.nombre)}</td>${AR.map(a => `<td style="text-align:right">${x.porArea[a] ? H.esc(K.texto(x.porArea[a], x.unidad)) : ''}</td>`).join('')}<td style="text-align:right"><b>${H.esc(K.texto(x.total, x.unidad))}</b></td></tr>`).join('')}
       </tbody></table></div>` : '<p class="ayuda">Nada marcado como hecho en este período.</p>'}
     <h3 style="margin:16px 0 4px">Cafetería ${H.info('Consumo de Cafetería', 'Cafetería descuenta de SU bodega lo VENDIDO en la caja: cada producto vinculado a una receta de Cafetería (en la caja, Configuración → Conexión con fën-producción) se baja por su receta hasta las materias primas. Los cierres cuentan al final de su día; la caja abierta, venta por venta.\nAdemás, el café de la bitácora de turno (calibración diaria automática o editada, calibración extra, café botado, pruebas) se descuenta de la materia prima que elijas aquí, y lo derramado baja la preparación entera.\nLos productos de otras áreas que se venden en la cafetería (croissant, pan) no descuentan aquí: los cuenta su área al hacerlos.')}</h3>
-    <div class="fila-campos" style="align-items:flex-end">
-      <div class="campo" style="flex:2"><label for="prod-bod-cafe">El café de la bitácora de turno sale de</label><select id="prod-bod-cafe"><option value="">(no descuenta)</option>${c.datos.mps.filter(m => m.tipo !== 'sub_receta' && (m.estado || 'activa') === 'activa').sort((a, x) => a.nombre.localeCompare(x.nombre, 'es')).map(m => `<option value="${H.esc(m.id)}" ${((c.datos.config.CAF || {}).mp_cafe) === m.id ? 'selected' : ''}>${H.esc(m.nombre)}</option>`).join('')}</select></div>
+    <div class="fila-campos fila-bod">
+      <div class="campo campo-ancho"><label for="prod-bod-cafe">El café de la bitácora de turno sale de</label><select id="prod-bod-cafe"><option value="">(no descuenta)</option>${c.datos.mps.filter(m => m.tipo !== 'sub_receta' && (m.estado || 'activa') === 'activa').sort((a, x) => a.nombre.localeCompare(x.nombre, 'es')).map(m => `<option value="${H.esc(m.id)}" ${((c.datos.config.CAF || {}).mp_cafe) === m.id ? 'selected' : ''}>${H.esc(m.nombre)}</option>`).join('')}</select></div>
       <button type="button" class="btn-sec" id="prod-bod-cafe-ok">Guardar</button>
     </div>
     ${c.cafe && c.cafe.error ? `<p class="error">No se pudieron leer las ventas de la caja: ${H.esc(c.cafe.error)}</p>` : ''}
@@ -327,16 +327,16 @@ function seccionUnaBodega(H, c, bod) {
   return `<h3 style="margin:12px 0 2px">Bodega ${H.esc(nombre)}</h3><p class="ayuda" style="margin-top:0">${areas ? 'La usan: ' + H.esc(areas) : 'Ningún área la usa'}</p>
     ${lista.length ? `<div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Materia prima</th><th scope="col">Estado</th><th scope="col" style="text-align:right">Stock</th><th scope="col">Mínimo</th><th scope="col">Se cuenta en ${H.info('Se cuenta en', 'Vacío: se cuenta y se recibe en kg, litros o unidades.\nCon un envase (por ejemplo "saco" de 25 kg), en Cocina se escriben los sacos más lo suelto (3 sacos + 5 kg = 80 kg), y el stock también se ve en sacos. Si cambia el formato (centeno en sacos de 20 kg), lo cambias aquí.')}</th><th scope="col">Alcanza</th><th scope="col">Último conteo</th><th scope="col"><span class="sr">Quitar</span></th></tr></thead><tbody>${filas}</tbody></table></div>
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="prod-bod-min${s}" data-bod-guardar="${H.esc(bod)}">Guardar cambios</button></div>` : `<p class="ayuda">Todavía no hay materias primas críticas en ${H.esc(nombre)}. Agrega las que quieres controlar${bod === 'CAF' ? ' (café, leche, vasos…)' : ' (harina, mantequilla…)'}.</p>`}
-    <div class="fila-campos" style="align-items:flex-end;margin-top:8px">
-      <div class="campo" style="flex:2"><label for="prod-bod-nueva${s}">Agregar crítica en ${H.esc(nombre)}</label><select id="prod-bod-nueva${s}"><option value="">Elige una materia prima…</option>${otras.map(m => `<option value="${H.esc(m.id)}">${H.esc(m.nombre)}</option>`).join('')}</select></div>
+    <div class="fila-campos fila-bod" style="margin-top:8px">
+      <div class="campo campo-ancho"><label for="prod-bod-nueva${s}">Agregar crítica en ${H.esc(nombre)}</label><select id="prod-bod-nueva${s}"><option value="">Elige una materia prima…</option>${otras.map(m => `<option value="${H.esc(m.id)}">${H.esc(m.nombre)}</option>`).join('')}</select></div>
       <div class="campo"><label for="prod-bod-nueva-min${s}">Mínimo</label><input id="prod-bod-nueva-min${s}" inputmode="decimal" placeholder="kg, l o un"></div>
       <button type="button" class="btn-sec" id="prod-bod-agregar${s}" data-bod-agregar="${H.esc(bod)}">Agregar</button>
     </div>
     ${lista.length ? `<h3 style="margin:16px 0 4px">Llegó mercadería a ${H.esc(nombre)}</h3>
-    <div class="fila-campos" style="align-items:flex-end">
-      <div class="campo" style="flex:2"><label for="prod-bod-ll-mp${s}">Materia prima</label><select id="prod-bod-ll-mp${s}">${lista.map(e => `<option value="${H.esc(e.mp.id)}">${H.esc(e.mp.nombre)} (${K.unidadEntrada(e.cfg.unidad)})</option>`).join('')}</select></div>
+    <div class="fila-campos fila-bod">
+      <div class="campo campo-ancho"><label for="prod-bod-ll-mp${s}">Materia prima</label><select id="prod-bod-ll-mp${s}">${lista.map(e => `<option value="${H.esc(e.mp.id)}">${H.esc(e.mp.nombre)} (${K.unidadEntrada(e.cfg.unidad)})</option>`).join('')}</select></div>
       <div class="campo"><label for="prod-bod-ll-cant${s}">Cantidad</label><input id="prod-bod-ll-cant${s}" inputmode="decimal"></div>
-      <div class="campo" style="flex:2"><label for="prod-bod-ll-nota${s}">Proveedor o factura</label><input id="prod-bod-ll-nota${s}" maxlength="120"></div>
+      <div class="campo campo-ancho"><label for="prod-bod-ll-nota${s}">Proveedor o factura</label><input id="prod-bod-ll-nota${s}" maxlength="120"></div>
       <button type="button" class="btn-sec" id="prod-bod-llegada${s}" data-bod-llegada="${H.esc(bod)}">Anotar llegada</button>
     </div>` : ''}
     ${pasables.length ? `<details class="aviso" style="margin-top:14px" id="prod-bod-pasar"><summary><b>Pasar a Cafetería</b> · una vez, para las que hoy son críticas solo por Cafetería</summary>

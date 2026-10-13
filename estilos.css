@@ -209,7 +209,7 @@ td select { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px 
   .fila-prod { grid-template-columns: minmax(0, 1fr) 56px 88px; gap: 8px; font-size: 13px; }
   .filtros { flex-direction: column; align-items: stretch; min-width: 0; max-width: 100%; }
   .filtros > * { min-width: 0; max-width: 100%; }
-  .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .chips { flex-wrap: wrap; }   /* v0.60.1: los filtros bajan de línea (antes se cortaban a la derecha sin aviso) */
   .chip-filtro { flex: none; }
 }
 
@@ -1044,3 +1044,76 @@ a.ag-item { text-decoration: none; }
   .fin-mx-listas { grid-template-columns: 1fr; }
   .fin-pr-fila { grid-template-columns: 1fr; padding: 12px 4px; }
 }
+/* v0.60.1 · Pantallas en celular, tablet y PC */
+.fila-campos > * { min-width: 0; }
+.campo input, .campo select { min-width: 0; max-width: 100%; }
+.fila-campos.fila-bod { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.fila-bod > .campo { flex: 1 1 140px; }
+.fila-bod > .campo-ancho { flex: 2 1 240px; }
+.fila-bod > button { flex: none; min-height: 48px; }
+@media (max-width: 480px) { .fila-bod > .campo, .fila-bod > .campo-ancho { flex-basis: 100%; } .fila-bod > button { width: 100%; } }
+.campo { min-width: 0; }
+.tabla-b2b { position: relative; }   /* el texto para lectores de pantalla (.sr) no se escapa de la caja con scroll */
+/* Barras de pestañas: bajan de línea en vez de esconder pestañas a la derecha (en el celular la elegida quedaba fuera de la vista) */
+.pestanas, #v-gastos .pestanas { flex-wrap: wrap; overflow-x: visible; }
+.pestanas a, .pestanas button { white-space: nowrap; flex: none; }
+@media (max-width: 760px) { .pestanas a, .pestanas button { padding: 0 12px; } }
+/* Botones que son enlaces: se ven como botón (sin subrayado ni texto partido) */
+a.btn-sec { display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; color: var(--texto); white-space: nowrap; }
+/* Título con botón: el botón no se aprieta (baja de línea si no cabe) */
+.titulo-fila { flex-wrap: wrap; }
+.titulo-fila > .btn, .titulo-fila > .btn-sec, .titulo-fila > button { flex: none; white-space: nowrap; }
+/* Clasificar obligaciones: la lista y el campo con el mismo estilo de los demás */
+.clasif-campos select, .clasif-campos input[type="text"] { border-radius: 10px; border: 1px solid var(--borde); background: #fff; padding: 0 10px; font-size: 14px; }
+@media (max-width: 760px) {
+  .filtros input[type=search] { flex: none; }   /* en columna, la base de 260px se volvía alto: el buscador quedaba gigante */
+}
+/* Órdenes B2B (Buscar, Estado de cuenta, Por facturar) en el celular: las etiquetas una bajo otra, el nombre con más espacio */
+@media (max-width: 480px) { .fila-orden-b2b > summary.fila-caja .acciones { flex-direction: column; align-items: flex-end; gap: 4px; } }
+/* Tablas con scroll propio: sombra a la derecha (o izquierda) cuando hay más columnas, y la primera columna fija en el celular */
+.tabla-b2b {
+  background: linear-gradient(to right, var(--tarjeta) 30%, rgba(255, 253, 249, 0)) left center / 32px 100% no-repeat local,
+    linear-gradient(to left, var(--tarjeta) 30%, rgba(255, 253, 249, 0)) right center / 32px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(31, 42, 36, .16), rgba(31, 42, 36, 0)) left center / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(31, 42, 36, .16), rgba(31, 42, 36, 0)) right center / 12px 100% no-repeat scroll;
+}
+@media (max-width: 640px) {
+  .tabla-b2b .tabla-tiempos th:first-child, .tabla-b2b .tabla-tiempos td:first-child { position: sticky; left: 0; z-index: 1; background: var(--tarjeta); box-shadow: 1px 0 0 var(--linea); }
+  .tabla-b2b .tabla-tiempos tr.cambio td:first-child { background: #FBF6EA; }
+}
+/* En el celular, una tabla corta pasa a tarjetas (cada fila: nombre arriba, los datos con su rótulo, los botones abajo) */
+@media (max-width: 560px) {
+  .tabla-cel-tarjetas thead { display: none; }
+  .tabla-cel-tarjetas, .tabla-cel-tarjetas tbody { display: block; }
+  .tabla-cel-tarjetas tr { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 12px 0; border-top: 1px solid var(--linea); }
+  .tabla-b2b .tabla-cel-tarjetas td { display: block; padding: 0; border: 0; position: static; box-shadow: none; background: none; }
+  .tabla-cel-tarjetas td:first-child, .tabla-cel-tarjetas td:last-child { flex: 1 1 100%; }
+  .tabla-cel-tarjetas td[data-et]::before { content: attr(data-et); display: block; font-size: 11px; font-weight: 600; color: var(--suave); }
+  .tabla-cel-tarjetas td:last-child .acciones { margin-top: 4px; }
+}
+/* Configuración: cada nombre con sus botones en la misma fila (antes los botones quedaban sueltos debajo, pegados al siguiente) */
+@media (max-width: 760px) { .fila-edit input[type=text] { flex: 1 1 140px; } }
+/* Finanzas: las partes de Costos y Márgenes en dos columnas parejas en el celular (antes, una por fila y de anchos distintos) */
+@media (max-width: 480px) {
+  .fin-sub { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .fin-sub .pastilla { display: flex; align-items: center; justify-content: center; text-align: center; padding-left: 8px; padding-right: 8px; white-space: normal; }
+}
+/* Tablas con scroll: cifras y campos con su unidad sin partirse; la primera columna con un ancho mínimo legible */
+.tabla-b2b .tabla-tiempos td:has(> input), .tabla-b2b .tabla-tiempos td[style*="text-align:right"], .tabla-b2b .tabla-tiempos th[style*="text-align:right"] { white-space: nowrap; }
+@media (max-width: 640px) { .tabla-b2b .tabla-tiempos:not(.tabla-cel-tarjetas) td:first-child { min-width: 108px; } }
+/* Tablet (761–1023 px): menú lateral más angosto y el contenido a su lado (antes, de 761 a 819 px el contenido caía debajo del menú) */
+@media (min-width: 761px) and (max-width: 1023px) {
+  .lateral { flex: 0 0 212px; padding: 24px 10px; }
+  .lateral .marca .logo { width: 108px; }
+  main { flex: 1 1 0; padding: 28px 24px 88px; }
+}
+.tabla-caja { position: relative; }
+/* Seguridad en tablet: los equipos como en el celular (la tabla necesita 640 px) */
+@media (min-width: 761px) and (max-width: 1023px) {
+  .tabla-caja { display: none; }
+  .lista-equipos-cel { display: flex; flex-direction: column; gap: 12px; }
+  .equipo-cel { border-top: 1px solid var(--linea); padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .equipo-cel .fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+}
+/* Celular: si queda una cifra sola en la última fila, ocupa el ancho (antes quedaba un hueco a su lado) */
+@media (max-width: 760px) { .cifras:not(.cifras-3) > .cifra:last-child:nth-child(odd):not(:first-child) { grid-column: 1 / -1; } }

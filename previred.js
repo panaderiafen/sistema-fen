@@ -9,7 +9,7 @@
 //  respuestas. El estado dice además a dónde va el certificado (destino): al vencimiento de la obligación "Cotizaciones"
 //  (los gastos por trabajador se crean al pagarlo) o, si no hay, como siempre (los gastos al guardar) con una nota.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.60.0';
+import * as Gastos from './gastos.js?v=0.60.1';
 
 export const VERSION_MINIMA = '2.5.0';
 // v0.51.0: con la base nueva, a fen-gastos (las escrituras antiguas de Previred en la planilla las rechaza el script v2.17.0)
