@@ -40,15 +40,15 @@
 //    bodega y lo que espera de Cocina, con limit y count) y no vuelve a leer en cada apertura. Cada cambio hecho desde aquí
 //    olvida lo que toca; "Actualizar" (Hoy y Producción) olvida todo. Sin escuchas en vivo (onSnapshot) sobre fen-produccion.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.63.3';
-import * as FBr from './firebase-produccion.js?v=0.63.3';
-import * as Apps from './apps.js?v=0.63.3';
-import { armar, AREAS } from './produccion-modelo.js?v=0.63.3';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.63.3';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.63.4';
+import * as FBr from './firebase-produccion.js?v=0.63.4';
+import * as Apps from './apps.js?v=0.63.4';
+import { armar, AREAS } from './produccion-modelo.js?v=0.63.4';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.63.4';
 import * as K from './cocina/consumo.js?v=0.16.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.11.0';
-import * as M from './fs-memoria.js?v=0.63.3';
-import { produccion as QP, esCuota } from './fs-cuota.js?v=0.63.3';
+import * as M from './fs-memoria.js?v=0.63.4';
+import { produccion as QP, esCuota } from './fs-cuota.js?v=0.63.4';
 
 // ── v0.63.3: todo pedido a fen-produccion pasa por aquí: se cuenta (Configuración → Uso de la base hoy) y, si Firestore dice
 // "cuota agotada" (resource-exhausted), se muestra el letrero de Producción/Cocina. Cada escritura de Sistema Fën en recetas,
@@ -568,7 +568,7 @@ export async function mermaDelPeriodo({ desde, hasta, fresco = false }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.63.3')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.63.4')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
   const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';

@@ -1,9 +1,30 @@
-# Sistema Fën · v0.63.3
+# Sistema Fën · v0.63.4
 
-**App:** v0.63.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 13 de octubre de 2026
+**App:** v0.63.4 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 13 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.63.4: la transferencia del sábado calza con el abono del lunes
+**El problema:** una transferencia hecha el sábado 3 de octubre aparece en la cartola en línea el lunes 5. El cruce con el archivo de transferencias recibidas solo aceptaba el mismo día o ±1, así que ese abono quedaba sin "Transfirió: …" y sin reconocer al cliente por el RUT.
+
+**Ahora:**
+- El abono de la cartola puede tener fecha **desde 1 día antes** de la transferencia (la hora del banco puede caer en otro día) **hasta 3 días hábiles después**. No cuentan sábados, domingos ni feriados de Chile.
+- Si hay varias posibles, gana la de **fecha más cercana**. Si empatan, la que calza con el nombre, como antes. Si sigue el empate, el abono queda sin transferencia y se revisa a mano.
+- **Una transferencia nunca queda en dos abonos.** Se asigna primero el par más cercano de todos: el abono del lunes no le quita al del martes su transferencia del martes.
+- **El archivo se reconoce por los encabezados de la tabla** (RUT Origen, Monto, Fecha…), en cualquier hoja y fila. Ya no depende del título ni del nombre de la hoja. Sirve igual para "Consulta transferencias recibidas" y para "Consulta Transferencia Electrónica". También acepta la fecha y la hora en columnas separadas.
+- Los feriados están en `feriados-cl.js`: los de 2026 y 2027 más el 31 de diciembre (feriado bancario). Asistencia guarda sus feriados en su planilla, por eso van aparte. **Hay que agregar 2028 antes de que termine 2027.** Si falta un año, solo se saltan sábados y domingos.
+- No hay lecturas nuevas: las transferencias siguen en fen-b2b (config/conciliacion) y se leen una vez con la conciliación, no por abono.
+- Arreglo de paso: después de "Ya lo revisé" en un cliente que dejó de comprar, **Hoy** ya no muestra el aviso guardado de antes.
+
+Archivos: nuevo `feriados-cl.js`; cambian `b2b.js`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). La carpeta `cocina/` no cambia. No cambian las reglas ni los scripts. Abajo a la izquierda: **v0.63.4**.
+
+### Lista de verificación v0.63.4
+- [ ] Abajo a la izquierda dice **v0.63.4**.
+- [ ] Sube el archivo de transferencias recibidas del 1 al 9 de octubre: el mensaje dice cuántas trae y cuántas son nuevas.
+- [ ] En Conciliación, el abono del lunes 5 de la transferencia del sábado 3 muestra "Transfirió: … · RUT …" (y el cliente, si su RUT está en Clientes).
+- [ ] Si BancoEstado entrega el archivo con otro título ("Consulta Transferencia Electrónica"), igual se reconoce como transferencias (no como cartola).
+- [ ] Dos abonos del mismo monto en días distintos no muestran la misma transferencia.
 
 ## Novedades de la v0.63.3: Sistema Fën ya no gasta la cuota de Cocina
 **El problema:** fen-produccion es la base de las **tablets de Cocina** (su propia cuota gratis: 50.000 lecturas al día, sumando las tablets y Sistema Fën). Sistema Fën leía colecciones enteras cada vez: cada apertura de **Hoy** ≈ 196 lecturas (avisos de bodega: todo el stock, las 160 MP y la configuración; lo que espera de Cocina), cada vez que se abría **Producción** ≈ 463, **Calcular** la bodega ≈ 880 (120 días de Cocina, recetas, MP…), cada **Merma** ≈ 286 y **Costos** ≈ 277. Un día pesado de administración: **≈ 10.700 lecturas** de la cuota de Cocina. Ahora: **≈ 2.300**.
@@ -1341,7 +1362,7 @@ Archivos: cambian `app.js`, `b2b.js`, `estilos.css`, `config.js`, `README.md` y 
 ## Novedades de la v0.27.0: RUT de quien transfiere (archivo "Transferencias recibidas")
 La cartola no trae el RUT de quien transfiere: solo la descripción, que el banco corta ("TEF DE PROSUMER SPA"). El archivo de BancoEstado **"Consulta de transferencias recibidas"** sí lo trae, junto con el nombre completo y el banco.
 - **Se sube por el mismo botón** de Conciliación ("Elegir cartola"). Sistema Fën reconoce solo qué archivo es.
-- Cada abono de la cartola se cruza con su transferencia por cuenta, monto y día (o ±1 día). Si hay dos iguales, desempata por el nombre. El abono muestra: "Transfirió: NOMBRE COMPLETO · RUT · Banco · hora".
+- Cada abono de la cartola se cruza con su transferencia por cuenta, monto y día (o ±1 día; desde la v0.63.4: desde 1 día antes hasta 3 días hábiles después). Si hay dos iguales, desempata por el nombre. El abono muestra: "Transfirió: NOMBRE COMPLETO · RUT · Banco · hora".
 - **Si el RUT es el de un cliente** (Clientes → RUT), el abono se reconoce solo. El RUT pesa más que lo aprendido por el nombre.
 - **Si el RUT no es de ningún cliente** (por ejemplo, paga el dueño con su cuenta personal), al elegir el cliente y confirmar se aprende ese RUT. La próxima vez se reconoce solo.
 - Se guardan las transferencias de los últimos 180 días, en la base de B2B (no en GitHub). Subir el mismo archivo otra vez no repite nada.

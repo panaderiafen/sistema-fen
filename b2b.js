@@ -8,11 +8,12 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.63.3';
-import * as FB from './firebase-b2b.js?v=0.63.3';
-import * as Apps from './apps.js?v=0.63.3';
-import * as Mem from './fs-memoria.js?v=0.63.3';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.63.3';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.63.4';
+import * as FB from './firebase-b2b.js?v=0.63.4';
+import * as Apps from './apps.js?v=0.63.4';
+import * as Mem from './fs-memoria.js?v=0.63.4';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.63.4';
+import { distanciaTef } from './feriados-cl.js?v=0.63.4';   // v0.63.4: días hábiles para cruzar transferencias
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -941,7 +942,7 @@ export function analisisClientes(ordenes, abonos, clientes, hoy = hoyTxt()) {
 export async function revisarDejoDeComprar(clienteId, ultimaCompra, nota) {
   const db = await dbOk();
   await FB.updateDoc(FB.doc(db, 'clientes', clienteId), { avisoCompra: { revisado: ahoraTxt(), ultimaCompra: ultimaCompra || null, nota: String(nota || '').trim().slice(0, 200) || null, por: authSF.currentUser.email } });
-  uso.escrituras++;
+  uso.escrituras++; olvidarAgendaB2b();   // v0.63.4: Hoy no muestra el aviso guardado de antes
 }
 export const dejoVigente = (cliente, a) => !!(a && a.dejo && cliente && cliente.estado !== 'archivado' && !(cliente.avisoCompra && cliente.avisoCompra.ultimaCompra === a.ultimaCompra));
 // Para Hoy: clientes que dejaron de comprar (sin "Ya lo revisé"). Solo con la base nueva en uso; no pide nada.
@@ -1040,18 +1041,33 @@ export function leerCartola(wb, XLSX) {
   const fs = filas.map(f => f.fecha).filter(Boolean).sort();
   return { tipo, identificador, filas, cuenta, nCartola: tipo === 'historica' ? nCartola : null, desde: (tipo === 'historica' && desdeC) || fs[0] || null, hasta: (tipo === 'historica' && hastaC) || fs[fs.length - 1] || null };
 }
-// ═══ v0.27.0 · Transferencias recibidas (BancoEstado: "Consulta transferencias recibidas", hoja Transferencias) ═══
+// ═══ v0.27.0 · Transferencias recibidas (BancoEstado: "Consulta transferencias recibidas" o "Consulta Transferencia Electrónica") ═══
 // Trae lo que la cartola no tiene: el RUT, el nombre completo y el banco de quien transfiere.
+// v0.63.4: se reconoce por los encabezados de la tabla (Rut Origen, Monto, Fecha…), en cualquier hoja y fila, no por el título
+// ni por el nombre de la hoja: el banco cambia el título según la consulta.
+const COLS_TEF = { op: ['N OPERACION', 'N DE OPERACION', 'NRO OPERACION', 'NUMERO OPERACION', 'NUMERO DE OPERACION', 'OPERACION'], fecha: ['FECHA HORA', 'FECHA Y HORA', 'FECHA'], hora: ['HORA'],
+  rut: ['RUT ORIGEN', 'RUT DE ORIGEN', 'RUT ORIGINADOR', 'RUT EMISOR'], nombre: ['NOMBRE ORIGEN', 'NOMBRE DE ORIGEN', 'NOMBRE ORIGINADOR', 'NOMBRE EMISOR'], banco: ['BANCO ORIGEN', 'BANCO DE ORIGEN', 'BANCO EMISOR'],
+  monto: ['MONTO', 'MONTO TRANSFERIDO', 'MONTO TRANSFERENCIA'], alias: ['ALIAS DESTINO'], cuentaDest: ['CUENTA DESTINO', 'CUENTA DE DESTINO'] };
+function encabezadoTef(fila) {
+  const n = (fila || []).map(normCartola), idx = {};
+  Object.entries(COLS_TEF).forEach(([k, al]) => { const i = n.findIndex(x => al.includes(x)); if (i >= 0) idx[k] = i; });
+  return idx.rut !== undefined && idx.monto !== undefined && idx.fecha !== undefined ? idx : null;
+}
 export function leerTransferencias(wb, XLSX) {
-  if (!wb.SheetNames.includes('Transferencias')) return null;
-  const filas = XLSX.utils.sheet_to_json(wb.Sheets['Transferencias'], { defval: '' });
-  if (!filas.length || !('Rut Origen' in filas[0])) return null;
-  const fechaHora = v => { if (v instanceof Date) return { f: hoyTxt(v), h: `${String(v.getHours()).padStart(2, '0')}:${String(v.getMinutes()).padStart(2, '0')}` }; const m = /(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}:\d{2}))?/.exec(String(v || '')); return m ? { f: `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`, h: m[4] || '' } : { f: '', h: '' }; };
-  return filas.map(r => {
-    const fh = fechaHora(r['Fecha - Hora']), rut = normRut(r['Rut Origen']);
-    return { op: String(r['N° Operación'] || r['N° Operacion'] || '').replace(/\D/g, ''), fecha: fh.f, hora: fh.h, rut, rutTxt: String(r['Rut Origen'] || '').trim(), nombre: String(r['Nombre Origen'] || '').trim().slice(0, 80),
-      banco: String(r['Banco Origen'] || '').trim().slice(0, 40), monto: montoCartola(r['Monto']), cuenta: /corriente/i.test(String(r['Alias Destino'] || '')) ? 'cc' : 'chequera' };
-  }).filter(t => t.fecha && t.monto > 0 && t.rut);
+  for (const nombre of wb.SheetNames) {
+    const filas = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { header: 1, defval: '' });
+    const h = filas.slice(0, 40).findIndex(f => encabezadoTef(f));
+    if (h < 0) continue;
+    const ix = encabezadoTef(filas[h]), v = (r, k) => ix[k] === undefined ? '' : r[ix[k]];
+    const fechaHora = x => { if (x instanceof Date) return { f: hoyTxt(x), h: x.getHours() || x.getMinutes() ? `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}` : '' }; const m = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:\s+(\d{1,2}:\d{2}))?/.exec(String(x || '')); return m ? { f: `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`, h: m[4] || '' } : { f: '', h: '' }; };
+    return filas.slice(h + 1).map(r => {
+      const fh = fechaHora(v(r, 'fecha')), hs = /(\d{1,2}:\d{2})/.exec(String(v(r, 'hora') instanceof Date ? `${v(r, 'hora').getHours()}:${String(v(r, 'hora').getMinutes()).padStart(2, '0')}` : v(r, 'hora')));
+      const rut = normRut(v(r, 'rut'));
+      return { op: String(v(r, 'op') || '').replace(/\D/g, ''), fecha: fh.f, hora: fh.h || (hs ? hs[1].padStart(5, '0') : ''), rut, rutTxt: String(v(r, 'rut') || '').trim(), nombre: String(v(r, 'nombre') || '').trim().slice(0, 80),
+        banco: String(v(r, 'banco') || '').trim().slice(0, 40), monto: montoCartola(v(r, 'monto')), cuenta: /corriente/i.test(String(v(r, 'alias') || v(r, 'cuentaDest') || '')) ? 'cc' : 'chequera' };
+    }).filter(t => t.fecha && t.monto > 0 && t.rut);
+  }
+  return null;
 }
 // Se guardan en config/conciliacion.transferencias (sin repetir por N° de operación; los últimos 180 días, hasta 800)
 export async function guardarTransferencias(lista) {
@@ -1067,15 +1083,40 @@ export async function guardarTransferencias(lista) {
   uso.escrituras++;
   return { leidas: lista.length, nuevas };
 }
-// La transferencia de un abono de la cartola: misma cuenta, mismo monto, mismo día (o ±1); si hay varias, la que calza con el nombre
-export function transferenciaDe(mov, tefs, usadas) {
-  const cand = (tefs || []).filter(t => t.monto === mov.monto && (t.cuenta || 'chequera') === (mov.cuenta || 'chequera') && !(usadas && usadas.has(t)));
-  const dia = cand.filter(t => t.fecha === mov.fecha), cerca = dia.length ? dia : cand.filter(t => Math.abs(diasEntre(t.fecha, mov.fecha)) <= 1);
-  if (cerca.length <= 1) return cerca[0] || null;
-  const pag = normCartola(mov.descripcion).replace(PREFIJOS, '').trim();
-  const porNombre = cerca.filter(t => { const n = normCartola(t.nombre); return pag && (n.startsWith(pag) || pag.startsWith(n)); });
-  return porNombre.length === 1 ? porNombre[0] : null;
+// La transferencia de un abono de la cartola: misma cuenta y mismo monto; la cartola puede anotarla desde un día antes
+// (zona horaria) hasta 3 días hábiles después (v0.63.4: una del sábado aparece el lunes). Gana la fecha más cercana;
+// si empatan, la que calza con el nombre. Una transferencia nunca queda en dos abonos.
+const nombreCalza = (mov, t) => { const pag = normCartola(mov.descripcion).replace(PREFIJOS, '').trim(), n = normCartola(t.nombre); return !!(pag && n && (n.startsWith(pag) || pag.startsWith(n))); };
+// Para varios abonos a la vez: Map(mov → transferencia). Se asigna primero el par más cercano de todos (así el abono
+// del lunes no le quita al del martes su transferencia del martes); un abono con dos posibles sin desempate queda sin ella.
+export function asignarTransferencias(movs, tefs, usadas) {
+  const out = new Map(), libres = new Set((tefs || []).filter(t => !(usadas && usadas.has(t)))), porMonto = new Map();
+  libres.forEach(t => { const k = t.monto + '|' + (t.cuenta || 'chequera'); if (!porMonto.has(k)) porMonto.set(k, []); porMonto.get(k).push(t); });
+  const cands = new Map();
+  (movs || []).forEach(mv => {
+    const l = (porMonto.get(mv.monto + '|' + (mv.cuenta || 'chequera')) || []).map(t => ({ t, d: distanciaTef(t.fecha, mv.fecha) })).filter(x => x.d !== null);
+    if (l.length) cands.set(mv, l);
+  });
+  for (;;) {
+    let mejor = null;
+    [...cands.keys()].forEach((mv, orden) => {
+      const l = cands.get(mv).filter(x => libres.has(x.t));
+      if (!l.length) { cands.delete(mv); return; }
+      const dmin = Math.min(...l.map(x => x.d)), tramo = l.filter(x => x.d === dmin);
+      let elegida = null, porNombre = false;
+      const mismoRut = l2 => l2.every(x => x.t.rut === l2[0].t.rut);   // iguales (mismo RUT): da lo mismo cuál
+      if (tramo.length === 1 || mismoRut(tramo)) { elegida = tramo[0].t; porNombre = nombreCalza(mv, elegida); }
+      else { const n = tramo.filter(x => nombreCalza(mv, x.t)); if (n.length === 1 || (n.length > 1 && mismoRut(n))) { elegida = n[0].t; porNombre = true; } }
+      if (!elegida) return;   // empate sin desempate: espera (si otro abono se lleva una, puede quedar sola)
+      const clave = [dmin, porNombre ? 0 : 1, orden];
+      if (!mejor || clave[0] < mejor.clave[0] || (clave[0] === mejor.clave[0] && (clave[1] < mejor.clave[1] || (clave[1] === mejor.clave[1] && clave[2] < mejor.clave[2])))) mejor = { mv, t: elegida, clave };
+    });
+    if (!mejor) break;
+    out.set(mejor.mv, mejor.t); libres.delete(mejor.t); cands.delete(mejor.mv);
+  }
+  return out;
 }
+export function transferenciaDe(mov, tefs, usadas) { return asignarTransferencias([mov], tefs, usadas).get(mov) || null; }
 export const huellaMovimiento = f => `${f.fecha}|${f.saldo}|${f.abonos}|${normCartola(f.descripcion)}`;
 export async function idMovimiento(huella) {
   const b = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(huella));
@@ -1208,11 +1249,11 @@ function ordenesQueSuman(f, monto) {
 }
 // mov: movimientos pendientes (en orden); ctx: { clientes, ordenes, abonos, equivalencias, pagados: [{clienteId, total, fechaPago, folio}] }
 export function proponer(movs, ctx) {
-  const porCobrar = foliosPorCobrar(ctx.ordenes, ctx.abonos, ctx.clientes), reservados = new Set(), out = {}, tefUsadas = new Set();
+  const porCobrar = foliosPorCobrar(ctx.ordenes, ctx.abonos, ctx.clientes), reservados = new Set(), out = {}, tefDe = asignarTransferencias(movs, ctx.transferencias);
   const listaN = n => n.length === 1 ? 'la orden N° ' + n[0] : 'las órdenes N° ' + n.slice(0, -1).join(', ') + ' y ' + n[n.length - 1];
   movs.forEach(mv => {
     // v0.27.0: el RUT de la transferencia (archivo "transferencias recibidas") manda sobre lo aprendido y el nombre
-    const tef = transferenciaDe(mv, ctx.transferencias, tefUsadas); if (tef) tefUsadas.add(tef);
+    const tef = tefDe.get(mv) || null;   // v0.63.4: todas a la vez (la más cercana; nunca una en dos abonos)
     const eqRut = tef && (ctx.equivalencias || []).find(e => e.rut && e.rut === tef.rut);
     const porTef = tef && (ctx.clientes.find(c => c.rut && normRut(c.rut) === tef.rut && c.estado !== 'archivado') || (eqRut && ctx.clientes.find(c => c.id === eqRut.clienteId)));
     const forz = ctx.forzados && ctx.forzados[mv.id] && ctx.clientes.find(c => c.id === ctx.forzados[mv.id]);
