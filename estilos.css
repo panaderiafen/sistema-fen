@@ -1426,3 +1426,22 @@ p.volver a { display: inline-flex; gap: 4px; align-items: center; }
   .tabla-asignar td:last-child select { width: 100%; min-height: 44px; }
 }
 .resp-sel select { min-height: 36px; margin-top: 4px; }
+/* v0.65.1 · Previred: opción sugerida, grupo de planillas en "Ya está en Gastos" y pagos unidos en Previred */
+.pastilla.pastilla-sug { border-color: var(--amarillo-t); box-shadow: 0 0 0 2px var(--amarillo); }
+.pastilla .chip-chico { margin-left: 4px; vertical-align: middle; }
+.cc-grupo-prev { margin: 4px 0 10px; }
+.cc-grupo-prev .opcion-cc-fila { align-items: center; }
+.cc-pl-ya { overflow-wrap: anywhere; }
+.prev-unidos { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--linea); }
+.prev-unidos .fila-caja .txt span { overflow-wrap: anywhere; }
+
+/* v0.65.2 · Solo montos exactos: Seguro / Probable, "Ver parecidos" plegado y el aviso de la cartola en línea */
+.chip-conf { margin-left: 4px; }
+.mov-parecidos, .cc-parecidos { margin: 6px 0 8px; font-size: 13px; }
+.mov-parecidos > summary, .cc-parecidos > summary { cursor: pointer; color: var(--suave); min-height: 36px; display: flex; align-items: center; font-weight: 600; }
+.mov-parecido { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; padding: 4px 0; border-top: 1px solid var(--linea, #e5e5e5); }
+.mov-parecido > span { min-width: 0; overflow-wrap: anywhere; }
+.mov-otras { margin: 4px 0 8px; font-size: 13px; overflow-wrap: anywhere; }
+.mov-sin-exactas, .cc-sin-exactas { overflow-wrap: anywhere; }
+.aviso-enlinea { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 8px 0 4px; }
+.aviso-enlinea > span { flex: 1 1 240px; min-width: 0; }

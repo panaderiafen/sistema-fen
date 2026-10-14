@@ -13,11 +13,12 @@
 //    lado, con las reglas de la v0.49.0 para sus vencimientos abiertos).
 //  · Arreglo "siniva": vista previa y aplicar (cada gasto con su historial "ajuste siniva" y la marca para la planilla).
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.65.0';
-import * as M from './gastos-g2.js?v=0.65.0';
-import * as G3 from './gastos-g3.js?v=0.65.0';
-import * as D from './gastos-g3d.js?v=0.65.0';
-import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.65.0';
+import * as FB from './fs-gastos.js?v=0.65.2';
+import * as M from './gastos-g2.js?v=0.65.2';
+import * as G3 from './gastos-g3.js?v=0.65.2';
+import * as D from './gastos-g3d.js?v=0.65.2';
+import * as C from './gastos-cartola.js?v=0.65.2';
+import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.65.2';
 
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const s = v => String(v == null ? '' : v);
@@ -34,7 +35,16 @@ export async function cotEstado(p) {
   }
   return r;
 }
-export async function cotLista() { return D.listaCot(await todos('cotizaciones')); }
+// v0.65.1: cada mes con sus pagos del banco unidos (previred_planillas y, si su vencimiento se pagó con la cartola, esos cargos)
+export async function cotLista() {
+  const [cot, pl, vencs, cg] = await Promise.all([todos('cotizaciones'), todos('previred_planillas').catch(() => []), todos('vencimientos'), todos('cartola_cargos').catch(() => [])]);
+  const r = D.listaCot(cot);
+  const abiertos = new Set(vencs.filter(x => x.d && !x.d.quitadoEnPlanilla && G3.abierto(x.d)).map(x => x.id));
+  const pls = C.planillasPrevired(r.periodos, Object.fromEntries(pl.map(x => [x.id, x.d])), abiertos, cg.filter(x => !x.d.quitadoEnPlanilla && x.d.accion === C.PREVIRED).map(x => C.vistaCargo(x.id, x.d)));
+  const porPer = Object.fromEntries(pls.map(x => [x.periodo, x]));
+  r.periodos.forEach(P => { const x = porPer[P.periodo]; if (x) Object.assign(P, { pagos: x.pagos, unido: x.unido, falta: x.falta, conciliada: x.conciliada, vencAbierto: x.vencAbierto, quitados: x.quitados }); });
+  return r;
+}
 
 // p = { periodo, fechaPago, fecha, vencimientoId, trabajadores, archivoBase64, nombreArchivo }; marca fija por envío
 export async function cotRegistrar(p, marca, subir) {

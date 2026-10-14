@@ -1,9 +1,99 @@
-# Sistema Fën · v0.65.0
+# Sistema Fën · v0.65.2
 
-**App:** v0.65.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** **v1.8.0 (nuevas)** · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** **v2.11.0 (nuevo)** · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.0 · 14 de octubre de 2026
+**App:** v0.65.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.0 (sin cambios) · 14 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.65.2: con la cartola en línea, solo montos exactos (adiós a las "cabezas de pescado")
+**Dónde:** Conciliación → Cartola (Abonos (B2B) y Cargos (Gastos)).
+
+### El problema
+La cartola en línea corta la glosa ("TEF DE", "TEF A"). Con eso los abonos se iban a clientes al azar y "Ya está en Gastos" listaba más de 100 gastos de la planilla antigua de monto "parecido".
+
+### Abonos (B2B)
+- **Seguro:** se sabe quién pagó: el RUT de las **transferencias recibidas** (o de la glosa), lo **aprendido**, el **nombre completo** en la glosa o lo **elegiste tú** (como hasta ahora). Si además calza exacto y de una sola forma, va a **Listos para confirmar**.
+- **Probable:** nada dice quién pagó, pero el monto calza **exacto (±$1)** con: el saldo de un folio, la suma de **2 a 4 folios del mismo cliente** (los más antiguos primero), **una orden** dentro de un folio de varias órdenes, o **todo lo que debe** el cliente. Si hay varios, primero el que **vence más cerca** de la fecha del pago (y abajo "Otras coincidencias exactas" para elegir). Va a **Para revisar** con el chip **Probable**: **nunca se confirma solo**.
+- **Sin exacto:** no se propone ningún cliente. Dice **"Sin coincidencias exactas"** y que busques el monto con **"$"** en Ventas B2B (Cobranza u Órdenes). **"Ver parecidos"** (plegado) muestra folios, órdenes y totales a ±2 % (primero el cliente cuya glosa se parece), con **Elegir**.
+- Confirmar un Probable aprende la glosa solo si dice algo de quién paga ("TEF DE 0001234" o "TRANSFERENCIA DE TERCEROS" no se aprenden; el RUT de la transferencia, sí).
+
+### Cargos (Gastos) — "Ya está en Gastos"
+- Por defecto, **solo los del mismo monto (±$1) y de fechas que calzan**: facturas del SII **de 5 días antes a 45 después**; a mano, vencimientos y lo que espera su cargo **±10 días**; **planilla antigua ±5 días**. Cada uno con **Seguro** (mismo RUT o proveedor: transferencia enviada, RUT de la glosa o glosa aprendida) o **Probable** (monto y fecha).
+- Si no hay: **"Sin coincidencias exactas"**. **"Ver parecidos"** (plegado) es la lista de antes: el monto más parecido, filtros por origen y los días en amarillo (10+) y rojo (20+).
+- La propuesta del cargo ("Ya en Gastos: …") usa las mismas ventanas y dice Seguro o Probable. **Previred no cambia** (el grupo "Planillas de Previred" sigue primero).
+
+### Aviso de la cartola en línea
+Después de subir una cartola en línea (o si lo que queda abierto viene casi todo de ella), arriba en Conciliación → Cartola: *"La cartola en línea trae poca información. Sube también las transferencias recibidas y enviadas del mismo día (BancoEstado → Consulta de transferencias) para reconocer quién pagó y a quién pagaste."* **Entendido** lo cierra hasta la próxima subida en línea (se recuerda en este navegador).
+
+### Lecturas
+Ninguna nueva: todo se calcula en memoria con lo que ya se leía. `cuota-v0632` y `cuota-v0633` pasan con los mismos presupuestos.
+
+### Instalación v0.65.2 (unos 2 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.65.2.zip` (con la carpeta `cocina/`, que no cambia) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC). Nada en Apps Script, reglas ni Cocina.
+
+### Lista de verificación v0.65.2
+- [ ] Abajo a la izquierda dice **v0.65.2**.
+- [ ] Subo una cartola en línea: arriba aparece el aviso de las transferencias; **Entendido** lo cierra y al recargar no vuelve.
+- [ ] Un abono igual al saldo de un folio, sin RUT: en "Para revisar" con **Probable** y ese cliente; no está en "Listos para confirmar".
+- [ ] Un abono igual a dos folios del mismo cliente: propone los dos folios.
+- [ ] Un abono que no calza con nadie: en "Sin cliente", sin cliente elegido, "Sin coincidencias exactas" y "Ver parecidos" plegado.
+- [ ] Subo las transferencias recibidas: el abono de ese RUT pasa a **Seguro** en "Listos para confirmar".
+- [ ] Un cargo "TEF A" con solo gastos parecidos de la planilla antigua: "Ya está en Gastos" dice "Sin coincidencias exactas"; "Ver parecidos" muestra la lista con los días en amarillo y rojo.
+- [ ] Un cargo de Previred sigue mostrando "Planillas de Previred" primero.
+- [ ] En el celular nada se sale de lado.
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.65.1. No se guardó nada nuevo en las bases (solo el "Entendido" del aviso, en este navegador).
+
+Por dentro: `b2b.js` (`esExacto`, `sumasDeFolios`, `calcesExactos`, `confianzaAbono`, `probablesAbono`, `parecidosAbono`, `glosaInformativa`; `proponer` con Seguro primero y Probables solo exactos), `gastos-banco.js` (`VENTANAS_EXACTAS`, `ventanaExacta`, `enVentanaExacta`, `proveedorCalza`, `confianzaCargo`, `exactosCargo`, `candidatosCargo`; `propuestaGasto` con las ventanas), `app.js` (chips Seguro/Probable, Sin coincidencias exactas, Ver parecidos, aviso de la cartola en línea), `estilos.css`, `config.js`, `index.html` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia.
+
+Pruebas: nueva `pruebas/sistemafen/conciliacion-v0652.test.js` (9: 3 unitarias —subconjuntos de 2 a 4 folios con tope, calces, confianza, parecidos, glosa que se aprende, proponer, ventanas de los cargos, Seguro por RUT/proveedor— y de punta a punta con datos ficticios: abono = saldo de un folio → Probable; = dos folios → propuesto; sin exacto → sin cliente y Ver parecidos; RUT → Seguro; cargo con solo planilla antigua aproximada → ninguno, Ver parecidos los muestra; aviso en línea por subida; 390 px). Ajustadas al cambio: `b2b-v014` (el abono de $15.000 sin cliente calza exacto con un folio → Probable) y `conciliacion-v064` (los filtros de "Ya está en Gastos" están dentro de "Ver parecidos"). Siguen pasando `b2b-v012…v0635`, `conciliacion-v064`, `previred-v0651`, `gastos-v063`, `e2e`, `cuota-v0632`, `cuota-v0633` y `sf-pantallas`. Capturas en `pruebas/capturas/conciliacion-v0652/`.
+
+## Novedades de la v0.65.1: Previred ya registrado se une con sus cargos del banco (sin gastos)
+**Dónde:** Conciliación → Cartola (un cargo de AFP, IPS, Fonasa, isapre, caja o mutual) y Conciliación → Previred. Solo con Gastos en la base nueva.
+
+### El caso (real)
+El certificado de agosto 2026 se subió antes (pagado el 15-09: sus gastos por trabajador ya existen y no queda vencimiento abierto). En la cartola del 16-09 llegan "PAGO DE CUENTAS AFP … CESANTIA" $9.510, "PAGO DE CUENTAS INSTITUTO DE SEGUR" $188.354, "PAGO DE CUENTAS FONASA" $332.622… "Pago de Previred" no encontraba nada (buscaba solo vencimientos abiertos) y "Ya está en Gastos" mostraba más de 100 gastos sueltos de la planilla antigua.
+
+### Qué cambia en cómo trabajas
+- Abres uno de esos cargos y viene **"Pago de Previred (cotizaciones)" sugerido** (resaltado). Ahora lista también las **planillas ya registradas** (los meses cargados): las con vencimiento abierto se **pagan** como siempre; las ya pagadas se **unen** ("ya registrada · solo unir").
+- **Propuesta:** la planilla cuya fecha de pago (del certificado) está a 5 días o menos del cargo; si no hay, la más reciente que no esté conciliada completa ("Por la fecha del cargo").
+- **Vienen marcados** los cargos de Previred (AFP, FONASA, ISAPRE, INSTITUTO DE SEGUR, IPS, CAJA, MUTUAL, PREVIRED) de ±3 días hábiles. Ves **"Unidos $X de $total · faltan $Y"** y el botón **"Unir N cargos a la planilla (sin gastos)"**.
+- **No se crea ningún gasto:** los gastos son los del certificado (uno por trabajador). Cuando lo unido iguala el total (±$10) la planilla queda **"pagada y conciliada"**, con su fecha de pago del certificado (las del banco son informativas). No deja pasarse del total.
+- **Otro día u otra cuenta:** abre ese cargo y únelo a la misma planilla (dice lo ya unido).
+- **Deshacer** (Ya revisados, o en Previred junto a cada cargo): quita **solo ese cargo** (queda anotado en la planilla) y vuelve a "Para revisar"; los demás siguen unidos.
+- **"Ya está en Gastos"** de un cargo de Previred: arriba va el grupo **"Planillas de Previred"** (con "Unir a esta planilla"), antes de los gastos sueltos.
+- **Conciliación → Previred:** cada mes cargado dice **"Pagos del banco unidos: $X de $total"** con sus cargos (también los pagados con la cartola desde su vencimiento, v0.64.0).
+
+### Dónde se guarda (fen-gastos; las reglas v0.1.0 ya lo cubren)
+- Nueva colección `previred_planillas/{AAAA-MM}` (una por mes, solo la crean los cargos unidos): `{ periodo, total, fechaPago (la del certificado), trabajadores, pagos: [{ cargoId, monto, fecha, descripcion, cuenta, cuentaN, por, en, marca }], pagosQuitados: [… + quitado { por, en, motivo }], unido, falta, estado: parcial | pagada_conciliada | sin_pagos, conciliadaEl, conciliadaPor, historial }`. **No pasa a la planilla de Google.** Los meses cargados (`cotizaciones`) no cambian.
+- Cargos: acción `previred_planilla`, estado CONCILIADO, detalle `previredPlanilla { planillaId, nombre, total, fechaPago, cargos, suma, unido, falta, completa }`. No se aprende regla nueva (la glosa basta).
+- **Finanzas:** estos cargos **no son gasto** (contarlos sería doble: el gasto es el del certificado). No entran al estado de resultados ni a la cuadratura y salen de "por revisar" del cierre. Para el flujo de caja (F4): `cargosCartola().pagosPrevired` y `previred_planillas/{mes}.pagos [{ cargoId, monto, fecha }]`.
+- Script de Gastos: sin cambios (v2.18.0). Reglas: sin cambios.
+
+### Lecturas (cuota de fen-gastos; `cuota-v0632.test.js`, volumen de un año)
+Lista de cargos con planillas ×20 = 8 lecturas (todo en memoria: `cotizaciones` ya está en los resúmenes y `previred_planillas` son pocos documentos); unir 3 cargos = 6 lecturas y 5 escrituras; deshacer uno = 4 y 3. Conciliar 100 cargos sigue en 715. Día pesado: 4.880 lecturas (bajo 20.000).
+
+### Instalación v0.65.1 (unos 2 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.65.1.zip` (con la carpeta `cocina/`, que no cambia) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC). Nada en Apps Script, reglas ni Cocina.
+
+### Lista de verificación v0.65.1
+- [ ] Abajo a la izquierda dice **v0.65.1**.
+- [ ] Conciliación → Cartola: el cargo de Fonasa del 16-09 dice "Pago de Previred: Planilla de agosto 2026 (Unidos $0 de $868.818 · faltan $868.818)".
+- [ ] Al abrirlo, "Pago de Previred" viene resaltado ("Sugerido"), la planilla de agosto marcada "Por la fecha del cargo" y los cargos de Previred de esos días marcados.
+- [ ] **Unir** → "Unidos $X de $868.818 · faltan $Y"; en Gastos no aparece ningún gasto nuevo.
+- [ ] Un cargo de otro día se une a la misma planilla; al completar: **"pagada y conciliada"**.
+- [ ] Conciliación → Previred → agosto: "Pagos del banco unidos: $868.818 de $868.818" con los cargos; **Deshacer** uno → vuelve a "faltan" y el cargo a "Para revisar".
+- [ ] "Ya está en Gastos" de un cargo de AFP: arriba "Planillas de Previred", después los gastos.
+- [ ] Un vencimiento de Cotizaciones abierto con su certificado se sigue pagando como en la v0.64.0.
+- [ ] En el celular nada se sale de lado.
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.65.0. Los cargos ya unidos quedan conciliados (acción `previred_planilla`) y `previred_planillas` queda en fen-gastos sin estorbar; con la v0.65.0 no se pueden deshacer desde la app (avísame si hace falta).
+
+Por dentro: `gastos-cartola.js` (planillas, opciones, propuesta por la fecha del certificado, ±3 días hábiles, avance y tope; `proponer` también con planillas), `gastos-cartola-fs.js` (planillas en la lista, `previred_planilla` y su deshacer por cargo), `gastos-g3d-fs.js` (Previred: pagos unidos por mes), `app.js` (Pago de Previred con planillas, sugerido, grupo en Ya está en Gastos, Previred), `finanzas.js` (`pagosPrevired`), `estilos.css`, `config.js`, `index.html` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia.
+
+Pruebas: nueva `pruebas/sistemafen/previred-v0651.test.js` (10: 1 unitaria —avance, propuesta −5..+5 o la más reciente sin conciliar, ±3 hábiles, tope, la propuesta del cargo— y de punta a punta con datos ficticios: planilla de $868.818, tres cargos del mismo día → faltan; cuarto otro día → pagada y conciliada; deshacer uno; ningún gasto; "Planillas de Previred" primero; Finanzas; 390 px). `cuota-v0632.test.js`: caso nuevo (lista ×20, unir, deshacer). Siguen pasando `conciliacion-v064`, `gastos-g3a…g3e`, `gastos-v063`, `e2e`, `cuota-v0632`, `cuota-v0633`, `sf-pantallas` y `finanzas-f3b`. Capturas en `pruebas/capturas/previred-v0651/`.
 
 ## Novedades de la v0.65.0: bodegas por área responsable (Panadería, Bollería, Pastelería, Cafetería)
 **Dónde:** Producción → Bodega (y Hoy). Va con **Cocina v0.17.0**, el **script de Producción v2.11.0** y las **reglas v1.8.0** de fen-produccion.

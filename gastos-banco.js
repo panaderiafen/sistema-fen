@@ -173,14 +173,40 @@ export function rankear(c, grupos, ventanas = VENTANAS) {
   }).filter(Boolean).sort((a, b) => (b.exacto - a.exacto) || ((a.g.clase === 'efectivo') - (b.g.clase === 'efectivo')) || (b.exacto && a.exacto ? (b.rut - a.rut) || (b.g.esperaCargo - a.g.esperaCargo) : 0)
     || a.dif - b.dif || Math.abs(a.dist) - Math.abs(b.dist));
 }
-// La propuesta automática "Ya está en Gastos": solo montos exactos (sin el efectivo). null si no hay.
+// ═══ v0.65.2 · "Ya está en Gastos" por defecto: solo montos EXACTOS (±$1) dentro de su ventana de fechas ═══
+// dist = días del documento (o del pago a mano) al cargo. Facturas del SII: de 5 días antes a 45 después; lo demás (a mano,
+// vencimientos, lo que espera su cargo): ±10 días; la planilla antigua: ±5 días (era la que llenaba la lista de "cabezas de pescado").
+export const VENTANAS_EXACTAS = { sii: [-5, 45], otros: [-10, 10], planilla: [-5, 5] };
+export const ventanaExacta = g => (g && g.clase === 'sii' ? VENTANAS_EXACTAS.sii : grupoOrigen(g) === 'planilla' ? VENTANAS_EXACTAS.planilla : VENTANAS_EXACTAS.otros);
+export const enVentanaExacta = (dist, g) => { const v = ventanaExacta(g); return dist >= v[0] && dist <= v[1]; };
+// ¿El proveedor reconocido del cargo (por la transferencia enviada, el RUT de la glosa o la glosa aprendida) es el del gasto?
+export function proveedorCalza(c, g) {
+  const p = c && c.proveedor; if (!p || !g) return false;
+  if (p.rut && g.rut && rutNorm(p.rut) === g.rut) return true;
+  const a = normTxt(p.nombre), b = normTxt(g.razon);
+  return a.length >= 6 && b.length >= 6 && (a.startsWith(b) || b.startsWith(a));
+}
+// Confianza de un candidato exacto: 'seguro' (el mismo RUT o proveedor, o la propuesta segura) | 'probable' (monto y fecha)
+export const confianzaCargo = (r, seguroProp) => (r.rut || r.prov || seguroProp ? 'seguro' : 'probable');
+// Los exactos en su ventana (sin el efectivo; con un RUT en el cargo, no los de otro RUT), primero Seguro, después la fecha más cercana
+export function exactosCargo(c, grupos) {
+  return rankear(c, grupos).filter(x => x.exacto && x.g.clase !== 'efectivo' && enVentanaExacta(x.dist, x.g) && (!c.rut || !x.g.rut || x.g.rut === c.rut))
+    .map(x => ({ ...x, prov: proveedorCalza(c, x.g) }))
+    .sort((a, b) => ((b.rut || b.prov) - (a.rut || a.prov)) || (b.g.esperaCargo - a.g.esperaCargo) || Math.abs(a.dist) - Math.abs(b.dist));
+}
+// Lo que muestra "Ya está en Gastos": { exactos (con su confianza), parecidos (la lista ancha de antes, sin los exactos) }
+export function candidatosCargo(c, grupos) {
+  const ex = exactosCargo(c, grupos), pg = propuestaGasto(c, grupos), ids = new Set(ex.map(x => x.g));
+  return { exactos: ex.map(x => ({ ...x, confianza: confianzaCargo(x, pg && pg.seguro && pg.a.g === x.g) })), parecidos: rankear(c, grupos).filter(x => !ids.has(x.g)) };
+}
+// La propuesta automática "Ya está en Gastos": solo montos exactos en su ventana (sin el efectivo). null si no hay.
 export function propuestaGasto(c, grupos) {
-  const l = rankear(c, grupos).filter(x => x.exacto && x.g.clase !== 'efectivo' && (!c.rut || !x.g.rut || x.g.rut === c.rut));
+  const l = exactosCargo(c, grupos);
   if (!l.length) return null;
-  const [a, b] = l, empate = b && b.rut === a.rut && Math.abs(b.dist) === Math.abs(a.dist);
-  // Seguro: por el RUT, o el único del monto con el pago a mano esperando su cargo o a 3 días o menos
-  const seguro = !empate && (a.rut || (l.length === 1 && (a.g.esperaCargo || Math.abs(a.dist) <= 3)));
-  return { a, otros: l.slice(1, 4), seguro, por: a.rut ? 'rut' : 'monto' };
+  const [a, b] = l, empate = b && (b.rut || b.prov) === (a.rut || a.prov) && Math.abs(b.dist) === Math.abs(a.dist);
+  // Seguro: por el RUT o el proveedor, o el único del monto con el pago a mano esperando su cargo o a 3 días o menos
+  const seguro = !empate && (a.rut || a.prov || (l.length === 1 && (a.g.esperaCargo || Math.abs(a.dist) <= 3)));
+  return { a, otros: l.slice(1, 4), seguro: !!seguro, por: a.rut ? 'rut' : a.prov ? 'proveedor' : 'monto' };
 }
 
 // ═══ v0.64.0 · "Ya está en Gastos": filtros por origen y días entre la compra y el cargo ═══

@@ -45,21 +45,21 @@
 //   guarda porMedio y el de B2B ordenesValidas. costos_config/finanzas.margenes (comisión por medio de pago, mezcla de la caja, despacho B2B,
 //   margen objetivo por área, redondeo) + historialMargenes. fin_productos.costoExtraNeto (envase por venta, neto).
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.65.0';
-import * as FB from './fs-gastos.js?v=0.65.0';
-import * as GB from './gastos-base.js?v=0.65.0';
-import * as P from './produccion.js?v=0.65.0';
-import * as FC from './finanzas-costos.js?v=0.65.0';
-import * as FS from './finanzas-sii.js?v=0.65.0';
-import * as FM from './finanzas-motor.js?v=0.65.0';
-import * as FV from './finanzas-ventas.js?v=0.65.0';
-import * as FMG from './finanzas-margenes.js?v=0.65.0';
-import * as FR from './finanzas-resultados.js?v=0.65.0';
-import * as FE from './finanzas-eerr.js?v=0.65.0';
-import * as Caja from './caja.js?v=0.65.0';
-import * as B from './b2b.js?v=0.65.0';
-import * as FBB from './firebase-b2b.js?v=0.65.0';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.65.0';
+import { auth as authSF } from './firebase.js?v=0.65.2';
+import * as FB from './fs-gastos.js?v=0.65.2';
+import * as GB from './gastos-base.js?v=0.65.2';
+import * as P from './produccion.js?v=0.65.2';
+import * as FC from './finanzas-costos.js?v=0.65.2';
+import * as FS from './finanzas-sii.js?v=0.65.2';
+import * as FM from './finanzas-motor.js?v=0.65.2';
+import * as FV from './finanzas-ventas.js?v=0.65.2';
+import * as FMG from './finanzas-margenes.js?v=0.65.2';
+import * as FR from './finanzas-resultados.js?v=0.65.2';
+import * as FE from './finanzas-eerr.js?v=0.65.2';
+import * as Caja from './caja.js?v=0.65.2';
+import * as B from './b2b.js?v=0.65.2';
+import * as FBB from './firebase-b2b.js?v=0.65.2';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.65.2';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -620,7 +620,11 @@ export async function cargosCartola() {
   const sn = await FB.getDocs(FB.collection(db, 'cartola_cargos'));
   const dia = v => { const t = String(v || '').trim(); let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t); if (m) return m[0]; m = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/.exec(t); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : ''; };
   const l = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => !x.quitadoEnPlanilla).map(x => ({ id: x.id, fecha: dia(x.fecha), monto: Number(x.monto) || 0, descripcion: String(x.descripcion || ''), estado: String(x.estado || ''), accion: String(x.accion || '') }));
-  return { porRevisar: l.filter(x => x.estado === 'POR_REVISAR'), pagosTarjeta: l.filter(x => x.accion === 'pago_tarjeta' && x.estado !== 'POR_REVISAR') };
+  // v0.65.1 · Cargos unidos a una planilla de Previred ya registrada (accion previred_planilla): NO son gasto (el gasto es el del
+  // certificado, uno por trabajador; contarlos sería doble). No entran al estado de resultados ni a la cuadratura; quedan aquí para
+  // el flujo de caja (F4), que también puede leer previred_planillas/{AAAA-MM}.pagos [{ cargoId, monto, fecha }].
+  return { porRevisar: l.filter(x => x.estado === 'POR_REVISAR'), pagosTarjeta: l.filter(x => x.accion === 'pago_tarjeta' && x.estado !== 'POR_REVISAR'),
+    pagosPrevired: l.filter(x => x.accion === 'previred_planilla' && x.estado !== 'POR_REVISAR') };
 }
 export async function cargasSii() {
   const db = await dbG();

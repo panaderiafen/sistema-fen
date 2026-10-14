@@ -8,12 +8,12 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.65.0';
-import * as FB from './firebase-b2b.js?v=0.65.0';
-import * as Apps from './apps.js?v=0.65.0';
-import * as Mem from './fs-memoria.js?v=0.65.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.65.0';
-import { distanciaTef } from './feriados-cl.js?v=0.65.0';   // v0.63.4: días hábiles para cruzar transferencias
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.65.2';
+import * as FB from './firebase-b2b.js?v=0.65.2';
+import * as Apps from './apps.js?v=0.65.2';
+import * as Mem from './fs-memoria.js?v=0.65.2';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.65.2';
+import { distanciaTef } from './feriados-cl.js?v=0.65.2';   // v0.63.4: días hábiles para cruzar transferencias
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1266,13 +1266,6 @@ export function repartoFIFO(folios, monto) {
   for (const f of folios) { if (resto <= 0) break; const m = Math.min(resto, f.saldo); a.push({ folio: f.folio, monto: m }); resto -= m; }
   return { asignaciones: a, sobra: Math.max(0, resto) };
 }
-// Todas las combinaciones de folios que suman exacto (hasta 16 folios)
-function combinacionesExactas(folios, monto) {
-  if (folios.length > 12) return [];   // con muchos folios no se busca: se propone por antigüedad y se revisa
-  const n = folios.length, out = [];
-  for (let m = 1; m < (1 << n) && out.length < 50; m++) { let s = 0, edad = 0; for (let i = 0; i < n; i++) if (m & (1 << i)) { s += folios[i].saldo; edad += i; } if (s === monto) out.push({ edad, l: folios.filter((_, i) => m & (1 << i)) }); }
-  return out.sort((a, b) => a.edad - b.edad).map(x => x.l);   // primero la de los folios más antiguos
-}
 // v0.26.0 · Órdenes sin pagar de un folio que suman exacto un monto (no todas: eso es el folio completo)
 function ordenesQueSuman(f, monto) {
   const pend = (f.detalle || []).filter(d => !d.pagadaEl), n = pend.length, out = [];
@@ -1280,36 +1273,137 @@ function ordenesQueSuman(f, monto) {
   for (let m = 1; m < (1 << n) - 1 && out.length < 20; m++) { let s = 0, edad = 0; for (let i = 0; i < n; i++) if (m & (1 << i)) { s += pend[i].total; edad += i; } if (s === monto) out.push({ edad, l: pend.filter((_, i) => m & (1 << i)) }); }
   return out.sort((a, b) => a.edad - b.edad).map(x => x.l.map(d => d.n));
 }
+// ═══ v0.65.2 · Solo montos EXACTOS (±$1): con la cartola en línea (glosas pobres) no se adivina el cliente ═══
+// Seguro: el cliente se sabe por el RUT (transferencias recibidas o la glosa), por lo aprendido, porque lo elegiste tú o porque la
+// glosa trae su nombre completo (como siempre). Probable: nadie dice quién es, pero el monto calza EXACTO con lo que debe un cliente
+// (un folio, 2 a 4 folios, una orden de un folio de varias o todo lo que debe). Nunca se confirma solo. Si no calza exacto: nada.
+export const TOL_EXACTO = 1;
+export const SEGUROS = ['transferencia', 'rut', 'aprendido', 'manual', 'nombre'];
+export const PARECIDO = 0.02;   // "Ver parecidos": ±2 %
+export const esExacto = (a, b) => Math.abs(Math.round(Number(a) || 0) - Math.round(Number(b) || 0)) <= TOL_EXACTO;
+// Confianza de una propuesta de abono: 'seguro' | 'probable' | null (no se muestra)
+export function confianzaAbono({ por, exacto, pendientes }) {
+  if (SEGUROS.includes(por)) return 'seguro';
+  return exacto && pendientes ? 'probable' : null;
+}
+// Subconjuntos de min..max folios (los más antiguos primero) que suman el monto (±$1). Limitado: a lo más maxFolios folios
+// (los más antiguos) y `tope` combinaciones probadas. Devuelve listas de folios, primero las de folios más antiguos (y menos folios).
+export function sumasDeFolios(folios, monto, { min = 2, max = 4, tope = 20000, maxFolios = 20, maxRes = 20 } = {}) {
+  const l = (folios || []).filter(f => f.saldo > 0).slice(0, maxFolios), out = []; let probadas = 0;
+  const rec = (i, el, suma) => {
+    if (probadas >= tope || out.length >= maxRes * 4) return;
+    if (el.length >= min && esExacto(suma, monto)) out.push({ edad: el.reduce((a, k) => a + k, 0), el: el.slice() });
+    if (el.length === max) return;
+    for (let k = i; k < l.length; k++) {
+      if (suma + l[k].saldo > monto + TOL_EXACTO) continue;
+      probadas++; el.push(k); rec(k + 1, el, suma + l[k].saldo); el.pop();
+      if (probadas >= tope) return;
+    }
+  };
+  rec(0, [], 0);
+  return out.sort((a, b) => a.edad - b.edad || a.el.length - b.el.length).slice(0, maxRes).map(x => x.el.map(k => l[k]));
+}
+// Reparto de un calce: cada folio con su saldo; si el monto queda $1 bajo el saldo, el último lleva $1 menos
+const repartoExacto = (fs, monto) => { const a = fs.map(f => ({ folio: f.folio, monto: f.saldo })), t = a.reduce((x, y) => x + y.monto, 0); if (t > monto && a.length) a[a.length - 1].monto -= t - monto; return a; };
+// Calces exactos de un monto con los folios por cobrar de UN cliente (folios del más antiguo al más nuevo; limite = último día de
+// pedidos que cuentan). → [{ tipo: folio|folios|orden|total, asignaciones, folios, texto }], el primero es el mejor.
+export function calcesExactos(monto, folios, limite = '9999-12-31') {
+  const out = [], vistos = new Set(), fs = (folios || []).filter(f => f.saldo > 0);
+  const add = (tipo, lista, asignaciones, texto) => { const k = tipo === 'orden' ? 'o' + asignaciones[0].ordenes.join(',') : lista.map(f => f.folio).sort().join(','); if (vistos.has(k)) return; vistos.add(k); out.push({ tipo, folios: lista.map(f => f.folio), asignaciones, texto }); };
+  fs.filter(f => esExacto(f.saldo, monto)).forEach(f => add('folio', [f], repartoExacto([f], monto), `el saldo del folio ${f.folio}`));
+  sumasDeFolios(fs, monto).forEach(l => add('folios', l, repartoExacto(l, monto), `los folios ${l.map(f => f.folio).join(' + ')}`));
+  fs.forEach(f => { const pend = (f.detalle || []).filter(d => !d.pagadaEl); if (pend.length < 2) return;
+    pend.filter(d => (!d.fecha || d.fecha <= limite) && esExacto(d.total, monto)).forEach(d => add('orden', [f], [{ folio: f.folio, monto: Math.min(f.saldo, monto), ordenes: [d.n] }], `la orden N° ${d.n} del folio ${f.folio}`)); });
+  if (fs.length > 1 && esExacto(fs.reduce((x, f) => x + f.saldo, 0), monto)) add('total', fs, repartoExacto(fs, monto), `todo lo que debe (${fs.length} folios)`);
+  return out;
+}
+// "Ver parecidos": folios, órdenes y totales a ±2 % (no exactos), primero los del cliente de la pista (hintId), después la diferencia
+export function parecidosAbono(monto, porCobrar, clientes, hintId, max = 8) {
+  const tol = Math.max(TOL_EXACTO + 1, Math.round(monto * PARECIDO)), out = [], nom = id => ((clientes || []).find(c => c.id === id) || {}).nombre || '';
+  Object.entries(porCobrar || {}).forEach(([cid, fs]) => {
+    const add = (que, m, folio) => { const dif = Math.round(m - monto); if (Math.abs(dif) > TOL_EXACTO && Math.abs(dif) <= tol) out.push({ clienteId: cid, cliente: nom(cid) || (fs[0] && fs[0].cliente) || cid, que, monto: m, dif, folio }); };
+    fs.forEach(f => { add(`folio ${f.folio}`, f.saldo, f.folio); (f.detalle || []).filter(d => !d.pagadaEl).forEach(d => { if ((f.detalle || []).length > 1) add(`orden N° ${d.n} del folio ${f.folio}`, d.total, f.folio); }); });
+    if (fs.length > 1) add(`todo lo que debe (${fs.length} folios)`, fs.reduce((x, f) => x + f.saldo, 0), '');
+  });
+  return out.sort((a, b) => ((b.clienteId === hintId) - (a.clienteId === hintId)) || Math.abs(a.dif) - Math.abs(b.dif)).slice(0, max);
+}
+// ¿La glosa dice algo de quién paga? (para aprender al confirmar un Probable: "TEF DE" o "TRANSFERENCIA DE TERCEROS" no se aprenden)
+export function glosaInformativa(desc) {
+  const dn = normCartola(desc).replace(PREFIJOS, '').replace(/\b(TERCEROS|OTROS BANCOS|BANCOESTADO|EN LINEA|INTERNET|CTA|CTE|RUT)\b/g, ' ').replace(/\d+/g, ' ').replace(/\s+/g, ' ').trim();
+  return dn.split(' ').filter(w => w.length >= 3).length >= 2 || dn.replace(/ /g, '').length >= 8;
+}
+// Vencimiento de un folio para ordenar los Probables (fecha + plazo del cliente) y cuán cerca está del pago
+const venceFolio = (f, c) => (f.fecha ? masDiasB(f.fecha, plazoCliente(c)) : '');
+// Probables de un abono sin cliente seguro: calces exactos de cada cliente (con folios pedidos hasta el día siguiente al pago).
+// Primero el cliente de la pista (nombre cortado), después el vencimiento más cercano a la fecha del pago (vencidos antes si empatan).
+export function probablesAbono(mv, porCobrar, clientes, reservados, hintId) {
+  const limite = mv.fecha ? masDiasB(mv.fecha, 1) : '9999-12-31', out = [];
+  Object.entries(porCobrar || {}).forEach(([cid, todos]) => {
+    const c = (clientes || []).find(x => x.id === cid); if (!c || c.estado === 'archivado') return;
+    const folios = todos.filter(f => !(reservados && reservados.has(f.folio))).filter(f => { const d = (f.detalle || []).filter(x => !x.pagadaEl); return !d.length || d.every(x => !x.fecha || x.fecha <= limite); });
+    calcesExactos(mv.monto, folios, limite).forEach((k, i) => {
+      const fs = folios.filter(f => k.folios.includes(f.folio)), vence = fs.map(f => venceFolio(f, c)).filter(Boolean).sort()[0] || '';
+      const dist = vence && mv.fecha ? Math.abs(diasEntre(vence, mv.fecha)) : 9999;
+      out.push({ clienteId: cid, cliente: c.nombre, calce: k, vence, dist, vencido: !!(vence && mv.fecha && vence <= mv.fecha), i });
+    });
+  });
+  return out.sort((a, b) => ((b.clienteId === hintId) - (a.clienteId === hintId)) || a.dist - b.dist || (b.vencido - a.vencido) || a.i - b.i);
+}
+const TXT_BUSCA_MONTO = 'Busca el monto con "$" en Ventas B2B (Cobranza u Órdenes), o elige el cliente.';
 // mov: movimientos pendientes (en orden); ctx: { clientes, ordenes, abonos, equivalencias, pagados: [{clienteId, total, fechaPago, folio}] }
+// v0.65.2: primero los de cliente seguro (reservan sus folios), después los Probables (solo montos exactos)
 export function proponer(movs, ctx) {
   const porCobrar = foliosPorCobrar(ctx.ordenes, ctx.abonos, ctx.clientes), reservados = new Set(), out = {}, tefDe = asignarTransferencias(movs, ctx.transferencias);
   const listaN = n => n.length === 1 ? 'la orden N° ' + n[0] : 'las órdenes N° ' + n.slice(0, -1).join(', ') + ' y ' + n[n.length - 1];
+  const ident = new Map();
   movs.forEach(mv => {
     // v0.27.0: el RUT de la transferencia (archivo "transferencias recibidas") manda sobre lo aprendido y el nombre
     const tef = tefDe.get(mv) || null;   // v0.63.4: todas a la vez (la más cercana; nunca una en dos abonos)
     const eqRut = tef && (ctx.equivalencias || []).find(e => e.rut && e.rut === tef.rut);
     const porTef = tef && (ctx.clientes.find(c => c.rut && normRut(c.rut) === tef.rut && c.estado !== 'archivado') || (eqRut && ctx.clientes.find(c => c.id === eqRut.clienteId)));
     const forz = ctx.forzados && ctx.forzados[mv.id] && ctx.clientes.find(c => c.id === ctx.forzados[mv.id]);
-    const id = forz ? { cliente: forz, por: 'manual' } : porTef ? { cliente: porTef, por: 'transferencia' } : identificarCliente(mv, ctx.clientes, ctx.equivalencias);
-    if (!id) { out[mv.id] = { tipo: 'sinCliente', tef }; return; }
+    ident.set(mv, { tef, id: forz ? { cliente: forz, por: 'manual' } : porTef ? { cliente: porTef, por: 'transferencia' } : identificarCliente(mv, ctx.clientes, ctx.equivalencias) });
+  });
+  const seguroId = mv => { const x = ident.get(mv).id; return !!(x && SEGUROS.includes(x.por)); };
+  // ¿Ya se registró a mano un pago de ese monto? (v0.28.0: todos los del cliente en los 15 días antes del pago, o hasta 3 después)
+  const similaresDe = (mv, cid) => { const cerca = p => p.fechaPago && diasEntre(p.fechaPago, mv.fecha) <= 15 && diasEntre(mv.fecha, p.fechaPago) <= 3;
+    return (ctx.pagados || []).filter(p => p.clienteId === cid && Math.abs(Math.round(p.total) - mv.monto) <= 3 && cerca(p)).sort((a, b) => String(b.fechaPago).localeCompare(String(a.fechaPago))); };
+  const avisoDe = similares => similares.length ? `Ojo: ${similares.length === 1 ? 'el folio ' + similares[0].folio + ' ya se registró pagado el ' + fechaDMY(similares[0].fechaPago) : 'ya hay ' + similares.length + ' folios pagados con este monto en esos días: ' + similares.map(p => `${p.folio} (${fechaDMY(p.fechaPago)})`).join(', ')}. Si es el mismo pago, marca "Ya estaba registrado".` : '';
+  movs.filter(seguroId).concat(movs.filter(mv => !seguroId(mv))).forEach(mv => {
+    const { tef, id } = ident.get(mv);
+    if (!id || !SEGUROS.includes(id.por)) {
+      // ── Probable: el monto calza exacto con lo que debe un cliente (con pista de nombre cortado, ese cliente primero) ──
+      const hintId = id ? id.cliente.id : '', cands = probablesAbono(mv, porCobrar, ctx.clientes, reservados, hintId);
+      if (!cands.length) {
+        out[mv.id] = { tipo: 'sinCliente', tef, sinExactas: true, pista: id ? { clienteId: id.cliente.id, cliente: id.cliente.nombre } : null, parecidos: parecidosAbono(mv.monto, porCobrar, ctx.clientes, hintId),
+          motivo: `Sin coincidencias exactas: ningún folio, suma de folios, orden ni total de un cliente calza con ${milesCL(mv.monto)} (±$1).${id ? ` La glosa se parece a ${id.cliente.nombre}, pero no es seguro.` : ''} ${TXT_BUSCA_MONTO}` };
+        return;
+      }
+      const a = cands[0], c = ctx.clientes.find(x => x.id === a.clienteId), todos = porCobrar[a.clienteId] || [];
+      a.calce.folios.forEach(f => reservados.add(f));
+      const similares = similaresDe(mv, a.clienteId), yaPagado = similares[0] || null, otros = cands.filter(x => x !== a).slice(0, 5);
+      out[mv.id] = { tipo: 'revisar', confianza: 'probable', clienteId: c.id, cliente: c.nombre, por: id ? 'nombre-parcial' : 'monto', folios: todos, posteriores: [], limite: mv.fecha ? masDiasB(mv.fecha, 1) : '', tef,
+        asignaciones: a.calce.asignaciones, sobra: Math.max(0, mv.monto - a.calce.asignaciones.reduce((x, y) => x + y.monto, 0)), similares, yaPagado,
+        candidatos: otros.map(x => ({ clienteId: x.clienteId, cliente: x.cliente, texto: x.calce.texto, vence: x.vence })),
+        motivo: [avisoDe(similares), `Probable: el monto calza exacto con ${a.calce.texto} de ${c.nombre}${a.vence ? ` (${a.vencido ? 'venció' : 'vence'} el ${fechaDMY(a.vence)})` : ''}, pero nada dice que pagó este cliente${id ? ' (la glosa se parece a su nombre)' : ''}. Confírmalo tú.`, otros.length ? `Otras coincidencias exactas: ${otros.map(x => x.cliente + ' (' + x.calce.texto + ')').join(' · ')}.` : ''].filter(Boolean).join(' ') };
+      return;
+    }
     const c = id.cliente, todos = (porCobrar[c.id] || []).filter(f => !reservados.has(f.folio));
     // v0.28.0 · Solo cuenta lo pedido hasta el día siguiente al pago (el banco puede anotar la transferencia un día después)
     const limite = mv.fecha ? masDiasB(mv.fecha, 1) : '9999-12-31';
     const ordAntes = f => (f.detalle || []).filter(d => !d.pagadaEl && (!d.fecha || d.fecha <= limite));
     const folioAntes = f => { const d = (f.detalle || []).filter(x => !x.pagadaEl); return !d.length || d.every(x => !x.fecha || x.fecha <= limite); };
     const folios = todos.filter(folioAntes), posteriores = todos.filter(f => !folioAntes(f)).map(f => f.folio);
-    const base = { clienteId: c.id, cliente: c.nombre, por: id.por, folios: todos, posteriores, limite, tef };
-    // ¿Ya se registró a mano un pago de ese monto? (v0.28.0: todos los del cliente en los 15 días antes del pago, o hasta 3 después)
-    const cerca = p => p.fechaPago && diasEntre(p.fechaPago, mv.fecha) <= 15 && diasEntre(mv.fecha, p.fechaPago) <= 3;
-    const similares = (ctx.pagados || []).filter(p => p.clienteId === c.id && Math.abs(Math.round(p.total) - mv.monto) <= 3 && cerca(p)).sort((a, b) => String(b.fechaPago).localeCompare(String(a.fechaPago)));
-    const yaPagado = similares[0] || null;
-    const avisoYa = similares.length ? `Ojo: ${similares.length === 1 ? 'el folio ' + similares[0].folio + ' ya se registró pagado el ' + fechaDMY(similares[0].fechaPago) : 'ya hay ' + similares.length + ' folios pagados con este monto en esos días: ' + similares.map(p => `${p.folio} (${fechaDMY(p.fechaPago)})`).join(', ')}. Si es el mismo pago, marca "Ya estaba registrado".` : '';
+    const base = { clienteId: c.id, cliente: c.nombre, por: id.por, confianza: 'seguro', folios: todos, posteriores, limite, tef };
+    const similares = similaresDe(mv, c.id), yaPagado = similares[0] || null, avisoYa = avisoDe(similares);
     if (!folios.length) { out[mv.id] = { ...base, tipo: 'revisar', sinCalce: true, similares, motivo: avisoYa || (todos.length ? `Sus folios por cobrar son de pedidos posteriores al pago (${fechaDMY(mv.fecha)}). ¿Es un pago ya registrado o un abono adelantado?` : 'No tiene folios por cobrar.'), yaPagado, asignaciones: [], sobra: mv.monto }; return; }
-    // 1) un folio completo  2) varios folios completos
-    const exactos = folios.filter(f => f.saldo === mv.monto), comb = exactos.length ? [] : combinacionesExactas(folios, mv.monto);
+    // 1) un folio completo  2) de 2 a 4 folios completos (v0.65.2: ±$1, los más antiguos primero)  2b) todo lo que debe
+    const exactos = folios.filter(f => esExacto(f.saldo, mv.monto));
+    let comb = exactos.length ? [] : sumasDeFolios(folios, mv.monto);
+    if (!exactos.length && !comb.length && folios.length > 4 && esExacto(folios.reduce((x, f) => x + f.saldo, 0), mv.monto)) comb = [folios];
     let asignaciones = null, motivo = '', unica = false;
-    if (exactos.length) { asignaciones = [{ folio: exactos[0].folio, monto: exactos[0].saldo }]; unica = exactos.length === 1; motivo = exactos.length > 1 ? `Hay ${exactos.length} folios con ese mismo saldo: se propone el más antiguo.` : 'Calza exacto con un folio.'; }
-    else if (comb.length) { asignaciones = comb[0].map(f => ({ folio: f.folio, monto: f.saldo })); unica = comb.length === 1; motivo = comb.length > 1 ? 'Más de una combinación de folios suma ese monto: se propone la de los más antiguos.' : `Paga ${comb[0].length} folios juntos.`; }
+    if (exactos.length) { asignaciones = repartoExacto([exactos[0]], mv.monto); unica = exactos.length === 1; motivo = exactos.length > 1 ? `Hay ${exactos.length} folios con ese mismo saldo: se propone el más antiguo.` : 'Calza exacto con un folio.'; }
+    else if (comb.length) { asignaciones = repartoExacto(comb[0], mv.monto); unica = comb.length === 1; motivo = comb.length > 1 ? 'Más de una combinación de folios suma ese monto: se propone la de los más antiguos.' : comb[0].length === folios.length && folios.length > 4 ? `Paga todo lo que debe (${folios.length} folios).` : `Paga ${comb[0].length} folios juntos.`; }
     else {
       // 3) folios más antiguos completos + algunas órdenes (anteriores al pago) del siguiente
       let acc = 0; const previos = []; let porOrden = null;
@@ -1322,9 +1416,9 @@ export function proponer(movs, ctx) {
       // 4) una sola orden (anterior al pago) que calce: la más antigua
       if (!porOrden) {
         const una = [];
-        todos.forEach(f => ordAntes(f).forEach(d => { if (d.total === mv.monto && (f.detalle || []).filter(x => !x.pagadaEl).length > 1) una.push({ f, d }); }));
+        todos.forEach(f => ordAntes(f).forEach(d => { if (esExacto(d.total, mv.monto) && (f.detalle || []).filter(x => !x.pagadaEl).length > 1) una.push({ f, d }); }));
         una.sort((a, b) => String(a.d.fecha).localeCompare(String(b.d.fecha)) || a.d.n - b.d.n);
-        if (una.length) porOrden = { previos: [], folio: una[0].f, ordenes: [una[0].d.n], monto: mv.monto, varias: una.length > 1 };
+        if (una.length) porOrden = { previos: [], folio: una[0].f, ordenes: [una[0].d.n], monto: Math.min(una[0].f.saldo, mv.monto), varias: una.length > 1 };
       }
       if (porOrden) {
         asignaciones = porOrden.previos.map(f => ({ folio: f.folio, monto: f.saldo })).concat([{ folio: porOrden.folio.folio, monto: porOrden.monto, ordenes: porOrden.ordenes }]);
@@ -1332,28 +1426,27 @@ export function proponer(movs, ctx) {
         motivo = (porOrden.previos.length ? `Paga ${porOrden.previos.length === 1 ? 'el folio ' + porOrden.previos[0].folio : 'los folios ' + porOrden.previos.map(f => f.folio).join(', ')} y ` : 'Paga ') + `${listaN(porOrden.ordenes)} del folio ${porOrden.folio.folio}.` + (porOrden.varias ? ' Hay otra orden o combinación que suma lo mismo: se propone la más antigua.' : '');
       }
     }
-    const seguro = id.por !== 'nombre-parcial';
-    const parcial = 'El nombre se reconoció solo en parte (el banco corta la descripción): confirma que es este cliente.';
     // Se confirma sola solo si no hay ninguna duda: una sola forma de calzar y ningún pago igual ya registrado
-    if (asignaciones && unica && !yaPagado && seguro) {
+    if (asignaciones && unica && !yaPagado) {
       asignaciones.forEach(a => reservados.add(a.folio));
-      out[mv.id] = { ...base, tipo: 'auto', motivo, asignaciones, sobra: 0 };
+      out[mv.id] = { ...base, tipo: 'auto', motivo, asignaciones, sobra: Math.max(0, mv.monto - asignaciones.reduce((x, y) => x + y.monto, 0)) };
       return;
     }
     // 5) paga más que todo lo que debe (pedidos anteriores al pago): todos sus folios y lo que sobra, a favor
     const deuda = folios.reduce((x, f) => x + f.saldo, 0);
     if (!asignaciones && mv.monto > deuda && !similares.length) {   // con un pago igual ya registrado, lo probable es que sea ese
       out[mv.id] = { ...base, tipo: 'revisar', similares, yaPagado, asignaciones: folios.map(f => ({ folio: f.folio, monto: f.saldo })), sobra: mv.monto - deuda,
-        motivo: [!seguro ? parcial : '', avisoYa, `Paga ${folios.length === 1 ? 'su folio' : 'sus ' + folios.length + ' folios'} y sobran $${(mv.monto - deuda).toLocaleString('es-CL')}: pagó de más o adelantó un pago.`].filter(Boolean).join(' ') };
+        motivo: [avisoYa, `Paga ${folios.length === 1 ? 'su folio' : 'sus ' + folios.length + ' folios'} y sobran $${(mv.monto - deuda).toLocaleString('es-CL')}: pagó de más o adelantó un pago.`].filter(Boolean).join(' ') };
       return;
     }
     // v0.28.0: si no calza con nada, no se inventa un reparto: abono a un folio (lo eliges tú) o pago ya registrado
+    // v0.65.2: "Sin coincidencias exactas" y, plegado, "Ver parecidos" (±2 %) de este cliente
     if (!asignaciones) {
-      out[mv.id] = { ...base, tipo: 'revisar', sinCalce: true, similares, yaPagado, asignaciones: [], sobra: mv.monto,
-        motivo: [!seguro ? parcial : '', avisoYa || `No calza con ningún folio ni orden pedida hasta el ${fechaDMY(limite)}. ¿Es un abono a un folio (tócalo abajo) o un pago que ya estaba registrado?`].filter(Boolean).join(' ') };
+      out[mv.id] = { ...base, tipo: 'revisar', sinCalce: true, sinExactas: true, similares, yaPagado, asignaciones: [], sobra: mv.monto, parecidos: parecidosAbono(mv.monto, { [c.id]: folios }, ctx.clientes, c.id),
+        motivo: avisoYa || `Sin coincidencias exactas. No calza con ningún folio ni orden pedida hasta el ${fechaDMY(limite)}. ¿Es un abono a un folio (tócalo abajo) o un pago que ya estaba registrado? ${TXT_BUSCA_MONTO.replace(', o elige el cliente', '')}` };
       return;
     }
-    out[mv.id] = { ...base, tipo: 'revisar', similares, yaPagado, asignaciones, sobra: 0, motivo: [!seguro ? parcial : '', avisoYa, motivo].filter(Boolean).join(' ') };
+    out[mv.id] = { ...base, tipo: 'revisar', similares, yaPagado, asignaciones, sobra: 0, motivo: [avisoYa, motivo].filter(Boolean).join(' ') };
   });
   return out;
 }

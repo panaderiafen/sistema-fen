@@ -19,17 +19,17 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.65.0';
-import * as M from './gastos-g2.js?v=0.65.0';
-import * as G3 from './gastos-g3.js?v=0.65.0';
-import * as G3D from './gastos-g3d.js?v=0.65.0';
-import * as C from './gastos-cartola.js?v=0.65.0';
-import * as B from './gastos-banco.js?v=0.65.0';
-import { huella } from './gastos-modelo.js?v=0.65.0';
-import * as FS from './gastos-fs.js?v=0.65.0';
-import * as GB from './gastos-base.js?v=0.65.0';
-import * as TE from './tef-enviadas.js?v=0.65.0';
-import * as P from './proveedores.js?v=0.65.0';
+import * as FB from './fs-gastos.js?v=0.65.2';
+import * as M from './gastos-g2.js?v=0.65.2';
+import * as G3 from './gastos-g3.js?v=0.65.2';
+import * as G3D from './gastos-g3d.js?v=0.65.2';
+import * as C from './gastos-cartola.js?v=0.65.2';
+import * as B from './gastos-banco.js?v=0.65.2';
+import { huella } from './gastos-modelo.js?v=0.65.2';
+import * as FS from './gastos-fs.js?v=0.65.2';
+import * as GB from './gastos-base.js?v=0.65.2';
+import * as TE from './tef-enviadas.js?v=0.65.2';
+import * as P from './proveedores.js?v=0.65.2';
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -58,8 +58,8 @@ async function abiertos() {
 export async function lista(diasP) {
   const hoy = M.ahoraChile().dia, dias = Math.min(400, Math.max(7, Math.round(Number(diasP)) || 60)), corte = G3.sumarDias(hoy, -dias);
   try { await FS.vencimientosAlDia(); } catch (e) {}
-  const [cg, ct, reglas, ab, gastos, dAb, tefs, provs] = await Promise.all([todos('cartola_cargos'), todos('cartolas'), reglasTodas(), abiertos(), todos('gastos', FB.where('fecha', '>=', G3.sumarDias(hoy, -150))), FS.datosAbono().catch(() => ({ destinatarios: [], trabajadores: [] })),
-    todos('tef_enviadas').catch(() => []), todos('proveedores').catch(() => [])]);
+  const [cg, ct, reglas, ab, gastos, dAb, tefs, provs, dPl] = await Promise.all([todos('cartola_cargos'), todos('cartolas'), reglasTodas(), abiertos(), todos('gastos', FB.where('fecha', '>=', G3.sumarDias(hoy, -150))), FS.datosAbono().catch(() => ({ destinatarios: [], trabajadores: [] })),
+    todos('tef_enviadas').catch(() => []), todos('proveedores').catch(() => []), datosPlanillas()]);
   const cargos = cg.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCargo(x.id, x.d))
     .filter(c => c.id && (c.estado === C.ESTADOS.revisar || c.fecha >= corte || s(c.resueltoEl).slice(0, 10) >= corte))
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.monto - a.monto);
@@ -77,10 +77,28 @@ export async function lista(diasP) {
   const porCargo = {}; gastos.forEach(x => { const k = s(x.d.cartolaCargo); if (k && x.d.estado === 'vigente') (porCargo[k] = porCargo[k] || []).push(x.d); });
   const sinFactura = cargos.filter(c => c.estado === C.ESTADOS.conciliado && c.accion === 'nuevo' && !(c.detalle && c.detalle.sinFactura) && (porCargo[c.id] || []).length && porCargo[c.id].every(g => !s(g.rutProveedor).trim()))
     .map(c => ({ id: c.id, fecha: c.fecha, monto: c.monto, descripcion: c.descripcion, items: [...new Set(porCargo[c.id].map(g => s(g.itemGasto)))] }));
-  return { ok: true, fuente: 'base', cargos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
+  // v0.65.1 · Planillas de Previred ya registradas (meses cargados) con sus pagos del banco unidos
+  const planillas = armarPlanillas(dPl, ab, cg);
+  return { ok: true, fuente: 'base', planillas, cargos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
     vencimientos: ab.lista, gastos: B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon)))), sinFactura, siiSinImportar: {}, dias,
     abonoDest: dAb.destinatarios, trabajadores: dAb.trabajadores,   // v0.63.1: para "Área de este abono"
     enviadas: { n: enviadas.length, hasta: enviadas.map(x => x.fecha).sort().pop() || '', subidas: [...new Set(enviadas.map(x => x.subida.slice(0, 10)))].sort().slice(-3) } };
+}
+
+// v0.65.1 · Las planillas de Previred: meses cargados (cotizaciones, ya en memoria) y sus pagos unidos (previred_planillas,
+// un documento por mes: pocos). Sin lecturas por cargo.
+async function datosPlanillas() {
+  const [cot, pl] = await Promise.all([todos('cotizaciones').catch(() => []), todos(COL_PLANILLAS).catch(() => [])]);
+  return { periodos: G3D.listaCot(cot).periodos, docs: Object.fromEntries(pl.map(x => [x.id, x.d])) };
+}
+const armarPlanillas = (dPl, ab, cg) => C.planillasPrevired(dPl.periodos, dPl.docs, new Set(ab.lista.map(v => v.id)),
+  cg.filter(x => !x.d.quitadoEnPlanilla && x.d.accion === C.PREVIRED).map(x => C.vistaCargo(x.id, x.d)));
+export const COL_PLANILLAS = 'previred_planillas';
+// La planilla de Previred unida no pasa a la planilla de Google (como tef_enviadas y proveedores): sin la marca de copia
+const sinPlanilla = o => { const x = { ...o }; delete x.planillaPendiente; delete x.hechoEnBase; return x; };
+export async function planillas() {
+  const [dPl, ab, cg] = await Promise.all([datosPlanillas(), abiertos(), todos('cartola_cargos')]);
+  return armarPlanillas(dPl, ab, cg);
 }
 
 // cc_cargar: los cargos nuevos (los ya vistos no se repiten) y la fila de la cartola
@@ -192,6 +210,7 @@ export async function resolver(p) {
   else if (accion === 'abono') r = await resolverAbono(d, ref, c0, s(p.vencId), marca, tr, p);
   else if (accion === C.ABONO_PARCIAL) r = await resolverAbonoParcial(d, ref, c0, s(p.vencId), marca, tr);
   else if (accion === C.PREVIRED) return resolverPrevired(c0, p, marca, tr);
+  else if (accion === C.PREVIRED_PLANILLA) return unirPlanilla(c0, p, marca);
   else if (accion === 'ignorar') {
     const motivo = C.texto(p.motivo, 80) || 'No es gasto', detalle = { motivo, siempre: !!p.siempre, marca: clave };
     r = await FB.runTransaction(d, async tx => {
@@ -442,6 +461,72 @@ async function resolverPrevired(c0, p, marca, tr) {
   try { await FS.vencimientosAlDia(); } catch (e) {}
   return { ok: true, id: c0.id, accion: C.PREVIRED, estado: C.ESTADOS.conciliado, detalle: r.detalle };
 }
+// v0.65.1 · Unir cargos del banco a una planilla de Previred ya registrada (mes cargado, gastos por trabajador ya creados):
+// NO crea gastos. Una transacción: los cargos (por revisar, misma huella) quedan conciliados con accion 'previred_planilla' y
+// la planilla (previred_planillas/{AAAA-MM}) suma sus pagos vinculados. Lo unido no puede pasarse del total (±$10).
+// p = { planillaId: 'AAAA-MM', cargos: [{ id, huella }] }
+async function unirPlanilla(c0, p, marca) {
+  const d = await dbBase(), per = s(p.planillaId).slice(0, 7);
+  const lista = (Array.isArray(p.cargos) ? p.cargos : []).map(x => ({ id: s(x && x.id), huella: s(x && x.huella) })).filter(x => x.id);
+  if (!lista.some(x => x.id === c0.id)) lista.unshift({ id: c0.id, huella: c0.huella });
+  if (lista.length > 12) throw error('Son demasiados cargos de una vez (máximo 12)', 'datos');
+  if (new Set(lista.map(x => x.id)).size !== lista.length) throw error('Un cargo está repetido', 'datos');
+  const pl = (await planillas()).find(x => x.periodo === per);
+  if (!pl) throw error('Esa planilla de Previred ya no está (Conciliación → Previred)', 'datos');
+  if (pl.vencAbierto) throw error('Esa planilla tiene su vencimiento de Cotizaciones por pagar: págalo con "Pago de Previred" en vez de unir.', 'datos');
+  const clave = marca.t + marca.r, t = ahora(), por = quien();
+  const refP = FB.doc(d, COL_PLANILLAS, per), refsC = lista.map(x => FB.doc(d, 'cartola_cargos', x.id));
+  const r = await FB.runTransaction(d, async tx => {
+    const snC = []; for (const rf of refsC) snC.push(await tx.get(rf));
+    const snP = await tx.get(refP);
+    const cs = snC.map((sn, i) => { if (!sn.exists()) throw error('Un cargo ya no está. Recarga la lista.', 'datos'); const c = C.vistaCargo(sn.id, sn.data()); if (lista[i].huella && c.huella !== lista[i].huella) throw error('Un cargo cambió. Recarga la lista.', 'cambio'); return c; });
+    const c00 = cs.find(c => c.id === c0.id);
+    if (c00.estado !== C.ESTADOS.revisar) { if (c00.detalle && c00.detalle.marca === clave) return { repetido: true }; throw error(`Ese cargo ya se había resuelto (${c00.accion}). Recarga la lista.`, 'resuelto'); }
+    const otro = cs.find(c => c.estado !== C.ESTADOS.revisar); if (otro) throw error(`El cargo de ${otro.monto} (${otro.descripcion}) ya se había resuelto. Recarga la lista.`, 'resuelto');
+    const a = snP.exists() ? snP.data() : null, antes = Array.isArray(a && a.pagos) ? a.pagos : [];
+    if (cs.some(c => antes.some(x => s(x.cargoId) === c.id))) throw error('Un cargo ya estaba unido a esta planilla. Recarga la lista.', 'resuelto');
+    // Lo unido: lo del documento (al día, dentro de la transacción) y lo pagado con la cartola por su vencimiento (v0.64.0)
+    const previo = antes.reduce((x, y) => x + (Number(y.monto) || 0), 0) + pl.pagos.filter(x => x.porVencimiento).reduce((x, y) => x + y.monto, 0);
+    const suma = cs.reduce((x, c) => x + c.monto, 0), q = C.revisarUnion({ ...pl, unido: previo }, suma);
+    if (q.error) throw error(q.error, 'datos');
+    const nuevos = cs.map(c => ({ cargoId: c.id, monto: c.monto, fecha: c.fecha, descripcion: C.texto(c.descripcion, 120), cuenta: s(c.cuenta), cuentaN: s(c.cuentaN), por, en: t, marca: clave }));
+    const campos = { periodo: per, total: pl.total, fechaPago: pl.fechaPago, trabajadores: pl.n, pagos: antes.concat(nuevos), unido: q.avance.unido, falta: q.avance.falta,
+      estado: q.avance.completa ? 'pagada_conciliada' : 'parcial', ...(q.avance.completa ? { conciliadaEl: t, conciliadaPor: por } : { conciliadaEl: '', conciliadaPor: '' }) };
+    if (a) tx.update(refP, sinPlanilla(cambio(a, `unió ${cs.length} ${cs.length === 1 ? 'cargo' : 'cargos'} del banco`, campos))); else tx.set(refP, sinPlanilla(nuevo({ ...campos, pagosQuitados: [] }, 'previred')));
+    const grupo = { planillaId: per, nombre: pl.nombre, total: pl.total, fechaPago: pl.fechaPago, cargos: cs.map(c => ({ id: c.id, monto: c.monto, fecha: c.fecha, descripcion: c.descripcion })), suma, unido: q.avance.unido, falta: q.avance.falta, completa: q.avance.completa, principal: c0.id };
+    cs.forEach((c, i) => tx.update(refsC[i], aCargo(c, snC[i].data(), { estado: C.ESTADOS.conciliado, accion: C.PREVIRED_PLANILLA, detalle: JSON.stringify({ previredPlanilla: grupo, marca: clave }).slice(0, 45000) })));
+    return { n: 1 + cs.length, detalle: { previredPlanilla: grupo } };
+  });
+  if (r.repetido) return { ok: true, repetido: true, id: c0.id, accion: C.PREVIRED_PLANILLA };
+  await despues(r.n);
+  return { ok: true, id: c0.id, accion: C.PREVIRED_PLANILLA, estado: C.ESTADOS.conciliado, detalle: r.detalle };
+}
+// v0.65.1 · Deshacer UN cargo unido a una planilla: sale de sus pagos (queda en pagosQuitados con el motivo), la planilla
+// recalcula lo unido (deja de estar "pagada y conciliada" si falta) y el cargo vuelve a revisar. Los demás cargos siguen unidos.
+async function deshacerUnion(d, c0, motivo) {
+  const g = (c0.detalle && c0.detalle.previredPlanilla) || {}, per = s(g.planillaId).slice(0, 7), t = ahora(), por = quien(), avisos = [];
+  const ref = FB.doc(d, 'cartola_cargos', c0.id), refP = per ? FB.doc(d, COL_PLANILLAS, per) : null;
+  const r = await FB.runTransaction(d, async tx => {
+    const sn = await tx.get(ref); if (!sn.exists()) throw error('Ese cargo ya no está', 'datos');
+    const snP = refP ? await tx.get(refP) : null;
+    const c = C.vistaCargo(sn.id, sn.data()); if (c.estado === C.ESTADOS.revisar) return { yaEstaba: true };
+    let n = 1;
+    if (snP && snP.exists()) {
+      const a = snP.data(), l = Array.isArray(a.pagos) ? a.pagos : [], fuera = l.filter(x => s(x.cargoId) === c.id), quedan = l.filter(x => s(x.cargoId) !== c.id);
+      if (fuera.length) {
+        const av = C.avancePlanilla(Number(a.total) || 0, quedan.reduce((x, y) => x + (Number(y.monto) || 0), 0));
+        tx.update(refP, sinPlanilla(cambio(a, 'quitó un cargo del banco (deshecho)', { pagos: quedan, pagosQuitados: (Array.isArray(a.pagosQuitados) ? a.pagosQuitados : []).concat(fuera.map(x => ({ ...x, quitado: { por, en: t, motivo } }))),
+          unido: av.unido, falta: av.falta, estado: av.completa ? 'pagada_conciliada' : quedan.length ? 'parcial' : 'sin_pagos', ...(av.completa ? {} : { conciliadaEl: '', conciliadaPor: '' }) }, { motivo })));
+        n++;
+      } else avisos.push('El cargo ya no estaba en la planilla: no se tocó.');
+    } else avisos.push('La planilla ya no está: solo vuelve el cargo.');
+    tx.update(ref, cambioCargo(sn.data(), 'deshizo', { estado: C.ESTADOS.revisar, accion: '', detalle: '', resueltoEl: '', resueltoPor: '', historial: C.conDeshecho(c, motivo, t, por) }, { motivo }));
+    return { n };
+  });
+  if (r.yaEstaba) return { ok: true, yaEstaba: true };
+  await despues(r.n);
+  return { ok: true, avisos };
+}
 // v0.64.0 · La glosa del cargo queda en la ficha del proveedor (de la factura pagada, del gasto o el que se mostró). Sin lecturas
 // nuevas: las fichas ya están en memoria. Una escritura solo si la glosa todavía no estaba.
 async function aprenderGlosa(c0, p, det) {
@@ -481,6 +566,7 @@ export async function deshacer(id, motivoP) {
   const { d, ref, c: c0 } = await leerCargo(id);
   if (c0.estado === C.ESTADOS.revisar) return { ok: true, yaEstaba: true };
   if (c0.accion === C.PREVIRED) return deshacerPrevired(d, c0, motivo);
+  if (c0.accion === C.PREVIRED_PLANILLA) return deshacerUnion(d, c0, motivo);
   const refTxt = '[' + c0.id + ']', det = c0.detalle || {};
   // Gastos de este cargo: por su id (hechos en la base) o por la traza (conciliados en la planilla y copiados en G1)
   const g1 = await todos('gastos', FB.where('cartolaCargo', '==', c0.id));

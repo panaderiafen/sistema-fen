@@ -10,10 +10,10 @@
 //    bruto (neto = final / 1,19) → neto = final.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as B from './gastos-banco.js?v=0.65.0';
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.65.0';
-import * as M from './gastos-g2.js?v=0.65.0';
-import * as G3 from './gastos-g3.js?v=0.65.0';
+import * as B from './gastos-banco.js?v=0.65.2';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.65.2';
+import * as M from './gastos-g2.js?v=0.65.2';
+import * as G3 from './gastos-g3.js?v=0.65.2';
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');

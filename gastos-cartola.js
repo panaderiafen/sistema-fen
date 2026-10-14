@@ -16,8 +16,9 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.65.0';
-import * as B from './gastos-banco.js?v=0.65.0';
+import * as G3 from './gastos-g3.js?v=0.65.2';
+import * as B from './gastos-banco.js?v=0.65.2';
+import { habilesEntre } from './feriados-cl.js?v=0.65.2';
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
@@ -176,7 +177,7 @@ export function vencimientosAbiertos(vencs, plantillas, siiRut, hoy) {
       abonos: Array.isArray(d.abonos) ? d.abonos : [], suelto: d.suelto === true, obs: s(d.obs),
       // v0.64.0: período (abono de sueldo), total y saldo (pagos parciales), certificado de Previred
       periodo: /^\d{4}-\d{2}$/.test(s(d.periodoKey)) ? s(d.periodoKey) : dia(d.fechaVencimiento).slice(0, 7), total: G3.totalVenc(d), saldo: G3.saldoVenc(d), conLineas: G3.conLineas(d), fechaSaldo: dia(d.fechaSaldo),
-      previred: d.documento && d.documento.tipo === 'previred' && d.documento.previred ? { periodo: s(d.documento.previred.periodo), total: (d.documento.previred.trabajadores || []).reduce((t, x) => t + num(x.total), 0), n: (d.documento.previred.trabajadores || []).length } : null,
+      previred: d.documento && d.documento.tipo === 'previred' && d.documento.previred ? { periodo: s(d.documento.previred.periodo), fechaPago: dia(d.documento.previred.fechaPago), total: (d.documento.previred.trabajadores || []).reduce((t, x) => t + num(x.total), 0), n: (d.documento.previred.trabajadores || []).length } : null,
       folio: m ? m[2] : '', razon: m ? m[1].trim() : '', rut: (siiRut && siiRut[id]) || (d.documento && d.documento.tipo === 'sii' ? rutNorm(d.documento.rut) : ''), sii: '' });
   });
   return out.sort((a, b) => s(a.fecha).localeCompare(s(b.fecha)) || a.id.localeCompare(b.id));
@@ -233,7 +234,11 @@ export function proponer(c, D) {
   // v0.64.0 · Pago de Previred en varios cargos (AFP, IPS, Fonasa, isapre, caja, mutual): se juntan y se comparan con el certificado
   if ((regla && regla.accion === PREVIRED) || esGlosaPrevired(c.descripcion)) {
     const vp = vencPrevired(vencs, c.fecha);
-    if (vp) return { tipo: PREVIRED, seguro: false, vencId: vp.id, texto: `${vp.nombre} (certificado de ${fmt(vp.previred.total)})`, por: regla && regla.accion === PREVIRED ? 'aprendido' : 'glosa' };
+    // v0.65.1: también las planillas ya registradas (meses cargados): la de fecha de pago cercana al cargo o la más reciente sin conciliar
+    const op = opcionPropuesta(opcionesPrevired(vencs, D.planillas || []), c.fecha), por = regla && regla.accion === PREVIRED ? 'aprendido' : 'glosa';
+    if (op && op.tipo === 'planilla') return { tipo: PREVIRED, seguro: false, opcion: op.id, planillaId: op.planillaId, texto: `${op.nombre} (${textoAvance(avancePlanilla(op.total, op.unido))})`, por };
+    if (op && op.tipo === 'venc') return { tipo: PREVIRED, seguro: false, vencId: op.vencId, opcion: op.id, texto: `${op.nombre} (certificado de ${fmt(op.total)})`, por };
+    if (vp) return { tipo: PREVIRED, seguro: false, vencId: vp.id, opcion: vp.id, texto: `${vp.nombre} (certificado de ${fmt(vp.previred.total)})`, por };
   }
   // v0.64.0 · El saldo de un vencimiento con abonos (no libre): el último abono lo cierra
   const saldos = vencs.filter(v => v.estadoBase === 'con_abonos' && v.tipoObligacion !== 'libre' && !v.previred && v.saldo > 0 && v.saldo === c.monto && (!c.rut || !v.rut || v.rut === c.rut));
@@ -327,6 +332,92 @@ export function hermanosPrevired(c, cargos, reglas) {
 export const juntablesPrevired = (c, cargos, reglas) => { const h = new Set(hermanosPrevired(c, cargos, reglas).map(x => x.id)); return (cargos || []).filter(x => x.estado === ESTADOS.revisar && Math.abs(dias(x.fecha, c.fecha)) <= 1).sort((a, b) => (h.has(b.id) - h.has(a.id)) || b.monto - a.monto); };
 export const TOLERANCIA_PREVIRED = 10;
 export function cuadraPrevired(suma, total) { const dif = Math.round(suma - total); return { dif, igual: Math.abs(dif) <= TOLERANCIA_PREVIRED }; }
+
+// ═══ v0.65.1 · Planillas de Previred ya registradas (meses cargados) ═══
+// Un mes cargado cuyo certificado ya se pagó (sus gastos por trabajador ya existen, no hay vencimiento abierto) se UNE con
+// los cargos del banco: los cargos quedan conciliados (accion 'previred_planilla') y la planilla guarda sus pagos vinculados
+// (previred_planillas/{AAAA-MM}: pagos [{ cargoId, monto, fecha, descripcion, cuenta, por, en }], pagosQuitados). No se
+// crean gastos. Cuando lo unido iguala el total (±$10) la planilla queda "pagada y conciliada" (su fecha de pago sigue
+// siendo la del certificado; las fechas del banco son informativas). Se pueden unir más cargos otro día o de otra cuenta, y
+// deshacer cada uno (queda en pagosQuitados).
+export const PREVIRED_PLANILLA = 'previred_planilla';
+export const VENTANA_PLANILLA = 5;          // días entre la fecha de pago del certificado y el cargo para proponerla
+export const HABILES_PLANILLA = 3;         // los cargos de Previred de ±3 días hábiles vienen marcados
+const perNorm = p => { const m = /^(\d{4})-?(\d{2})/.exec(s(p)); return m ? `${m[1]}-${m[2]}` : ''; };
+// ¿Están a ±N días hábiles? (mismo día = 0; sábado → lunes = 1)
+export function habilesDist(a, b) {
+  if (!esIso(a) || !esIso(b)) return 99;
+  if (a === b) return 0;
+  const [x, y] = a < b ? [a, b] : [b, a];
+  if (dias(y, x) > 20) return 99;
+  return Math.max(1, habilesEntre(x, y));
+}
+// Pagos unidos de una planilla: los de su documento (vigentes) y, si su vencimiento se pagó con la cartola (v0.64.0), esos cargos
+export function pagosDePlanilla(doc, cargos, vencimientoId) {
+  const l = (Array.isArray(doc && doc.pagos) ? doc.pagos : []).map(x => ({ cargoId: s(x.cargoId), monto: num(x.monto), fecha: dia(x.fecha), descripcion: s(x.descripcion), cuenta: s(x.cuenta), en: s(x.en), por: s(x.por) })).filter(x => x.cargoId);
+  const ya = new Set(l.map(x => x.cargoId));
+  if (vencimientoId) (cargos || []).forEach(c => { const g = c.accion === PREVIRED && c.estado !== ESTADOS.revisar && c.detalle && c.detalle.previred; if (g && s(g.vencimientoId) === s(vencimientoId) && !ya.has(c.id)) { ya.add(c.id); l.push({ cargoId: c.id, monto: c.monto, fecha: c.fecha, descripcion: c.descripcion, cuenta: s(c.cuenta), porVencimiento: true }); } });
+  return l.sort((a, b) => a.fecha.localeCompare(b.fecha) || b.monto - a.monto);
+}
+export function avancePlanilla(total, unido) {
+  const falta = Math.round(total - unido);
+  return { unido: Math.round(unido), total: Math.round(total), falta, completa: unido > 0 && Math.abs(falta) <= TOLERANCIA_PREVIRED };
+}
+// "Unidos $X de $total · faltan $Y" (o "· pagada y conciliada")
+export function textoAvance(a) {
+  return `Unidos ${fmt(a.unido)} de ${fmt(a.total)} · ${a.completa ? 'pagada y conciliada' : a.falta > 0 ? `faltan ${fmt(a.falta)}` : `te pasas en ${fmt(-a.falta)}`}`;
+}
+// periodos: listaCot(…).periodos [{ periodo, fechaPago, total, trabajadores, vencimientoId }]; docs: { AAAA-MM → previred_planillas };
+// abiertosIds: Set de vencimientos abiertos; cargos: vistaCargo (para los pagados con la cartola en la v0.64.0)
+export function planillasPrevired(periodos, docs, abiertosIds, cargos) {
+  return (periodos || []).map(P => {
+    const per = perNorm(P.periodo), doc = (docs || {})[per] || null, vid = s(P.vencimientoId);
+    const pagos = pagosDePlanilla(doc, cargos, vid), av = avancePlanilla(num(P.total), pagos.reduce((t, x) => t + x.monto, 0));
+    return { id: per, periodo: per, nombre: 'Planilla de ' + nombrePeriodo(per), total: num(P.total), fechaPago: dia(P.fechaPago), n: (P.trabajadores || []).length, vencimientoId: vid,
+      vencAbierto: !!(vid && abiertosIds && abiertosIds.has(vid)), pagos, unido: av.unido, falta: av.falta, conciliada: av.completa,
+      quitados: (Array.isArray(doc && doc.pagosQuitados) ? doc.pagosQuitados : []).length };
+  }).filter(x => x.periodo).sort((a, b) => b.periodo.localeCompare(a.periodo));
+}
+// Las opciones del "Pago de Previred": los vencimientos de Cotizaciones abiertos con su certificado (se PAGAN, como en la
+// v0.64.0) y las planillas registradas sin vencimiento abierto (se UNEN, sin gastos). Cada una con su fecha de pago y su avance.
+export function opcionesPrevired(vencs, planillas) {
+  const vs = (vencs || []).filter(v => v.previred && v.previred.total > 0 && v.estadoBase !== 'pagado');
+  const porVenc = {}; (planillas || []).forEach(p => { if (p.vencimientoId) porVenc[p.vencimientoId] = p; });
+  const out = vs.map(v => { const pl = porVenc[v.id]; return { tipo: 'venc', id: v.id, vencId: v.id, nombre: v.nombre, periodo: perNorm(v.previred.periodo), total: v.previred.total, n: v.previred.n,
+    fechaPago: dia(v.previred.fechaPago) || (pl ? pl.fechaPago : ''), fecha: v.fecha, unido: 0, falta: v.previred.total, conciliada: false }; });
+  (planillas || []).filter(p => !p.vencAbierto).forEach(p => out.push({ tipo: 'planilla', id: 'pl:' + p.periodo, planillaId: p.periodo, nombre: p.nombre, periodo: p.periodo, total: p.total, n: p.n, fechaPago: p.fechaPago, fecha: p.fechaPago,
+    unido: p.unido, falta: p.falta, conciliada: p.conciliada, pagos: p.pagos }));
+  return out;
+}
+// La propuesta: la de fecha de pago (certificado) a −5..+5 días del cargo (la más cercana); si no, el vencimiento abierto más
+// cercano (como en la v0.64.0); si no, el mes más reciente sin conciliar completo. null si no hay.
+export function opcionPropuesta(ops, fecha) {
+  const abiertas = (ops || []).filter(o => !o.conciliada);
+  if (!abiertas.length) return null;
+  const cerca = abiertas.filter(o => esIso(o.fechaPago) && esIso(fecha) && Math.abs(dias(fecha, o.fechaPago)) <= VENTANA_PLANILLA)
+    .sort((a, b) => Math.abs(dias(fecha, a.fechaPago)) - Math.abs(dias(fecha, b.fechaPago)) || b.periodo.localeCompare(a.periodo));
+  if (cerca.length) return cerca[0];
+  const vs = abiertas.filter(o => o.tipo === 'venc');
+  if (vs.length) return vs.slice().sort((a, b) => Math.abs(dias(a.fecha, fecha)) - Math.abs(dias(b.fecha, fecha)) || s(b.fecha).localeCompare(s(a.fecha)))[0];
+  return abiertas.slice().sort((a, b) => b.periodo.localeCompare(a.periodo))[0];
+}
+// Para una planilla registrada: los cargos por revisar de Previred (glosa o lo aprendido) a ±3 días hábiles vienen marcados
+export function hermanosPlanilla(c, cargos, reglas) {
+  const R = {}; (reglas || []).forEach(r => { if (!r.quitada) R[r.clave] = r; });
+  return (cargos || []).filter(x => x.estado === ESTADOS.revisar && habilesDist(x.fecha, c.fecha) <= HABILES_PLANILLA && (x.id === c.id || esGlosaPrevired(x.descripcion) || (R[x.clave || claveDe(x.descripcion)] || {}).accion === PREVIRED));
+}
+// Los que se pueden unir: los hermanos y los demás por revisar del mismo día (±1); los de Previred primero
+export const juntablesPlanilla = (c, cargos, reglas) => { const h = hermanosPlanilla(c, cargos, reglas), ids = new Set(h.map(x => x.id));
+  return h.concat((cargos || []).filter(x => !ids.has(x.id) && x.estado === ESTADOS.revisar && Math.abs(dias(x.fecha, c.fecha)) <= 1)).sort((a, b) => (ids.has(b.id) - ids.has(a.id)) || a.fecha.localeCompare(b.fecha) || b.monto - a.monto); };
+// ¿Se puede unir? suma de lo marcado contra lo que falta (no se pasa del total más la tolerancia)
+export function revisarUnion(planilla, suma) {
+  if (!planilla) return { error: 'Esa planilla de Previred ya no está' };
+  if (planilla.vencAbierto) return { error: 'Esa planilla tiene su vencimiento de Cotizaciones por pagar: págalo (Pago de Previred) en vez de unir.' };
+  if (!(suma > 0)) return { error: 'Marca los cargos del pago' };
+  const av = avancePlanilla(planilla.total, planilla.unido + suma);
+  if (av.falta < -TOLERANCIA_PREVIRED) return { error: `Con estos cargos se pasa del total de la planilla (${fmt(planilla.total)}) en ${fmt(-av.falta)}: revisa los marcados.` };
+  return { avance: av };
+}
 // ── Origen del cargo: de qué archivo salió ──
 // fuentes (v0.64.0, al subir): [{ tipo: historica|enlinea|tef, numero, generada, subida }]; lo de antes se deduce de la cartola
 export function fuentesCargo(c) {
