@@ -17,7 +17,7 @@
 //    toma el neto de la factura (netoFactura / conNetoSii).
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import { dia } from './gastos-modelo.js?v=0.63.7';
+import { dia } from './gastos-modelo.js?v=0.65.0';
 
 export const TIPOS_OBLIGACION = ['fijo', 'documento', 'libre'];
 export const NOMBRE_TIPO = { fijo: 'Monto fijo', documento: 'Según documento del mes', libre: 'Libre (abonos)' };
@@ -76,7 +76,8 @@ export function estadoPlanilla(e) {
   return x;    // ya viene en el formato de la planilla
 }
 // La fecha que vale: la del documento (fecha real) si llegó; si no, la de la obligación (estimada)
-export const fechaReal = d => dia(d && d.fechaDocumento) || dia(d && d.fechaVencimiento) || s(d && d.fechaVencimiento);
+// v0.64.0: un vencimiento con abonos (pago parcial) cuyo saldo se reagendó vale por la fecha nueva del saldo
+export const fechaReal = d => (d && dia(d.fechaSaldo) && estadoBase(d) === 'con_abonos' ? dia(d.fechaSaldo) : '') || dia(d && d.fechaDocumento) || dia(d && d.fechaVencimiento) || s(d && d.fechaVencimiento);
 // Para las pantallas de siempre (Vencimientos, Hoy, Agenda): PENDIENTE / VENCIDA / PAGADO / ANULADO
 export function estadoVista(d, hoy) {
   const e = estadoBase(d);
@@ -209,6 +210,59 @@ export function agregarAbono(d, a) {
     ...(a.destinatario && a.destinatario.clave ? { destinatario: { clave: s(a.destinatario.clave), nombre: s(a.destinatario.nombre) } } : {}) };
   return { abono, campos: { abonos: lista.concat([abono]), estado: 'con_abonos' } };
 }
+// ═══ v0.64.0 · Abonos a vencimientos de factura, documento o monto fijo (pagos parciales) ═══
+// Lo acordado: el gasto es el del documento completo (lo devengado); los abonos solo registran la caja (fecha, monto, cargo).
+//  · Vencimiento de una obligación (fijo, documento, sin clasificar) o suelto: el gasto se crea COMPLETO con el primer abono.
+//  · Factura del SII o compra a crédito: su gasto ya existe (se creó al importar o registrar); los abonos no crean gastos y el
+//    último le pone la fecha de pago.
+//  · Previred no acepta abonos (el certificado se paga completo); las obligaciones libres siguen con su propio abono.
+// Total del vencimiento: el del documento (boleta o factura) o, si no llegó, el estimado (con su reparto por área)
+export function totalVenc(d) {
+  if (num(d && d.montoDocumento) > 0) return num(d.montoDocumento);
+  let ma = d && d.multiArea; if (typeof ma === 'string') { try { ma = JSON.parse(ma); } catch (e) { ma = null; } }
+  if (Array.isArray(ma) && ma.length) return ma.reduce((t, a) => t + num(a.monto), 0);
+  return num(d && d.montoEstimado);
+}
+export const saldoVenc = d => Math.max(0, totalVenc(d) - totalAbonos(d));
+export const esLibre = d => s(d && d.tipoObligacion) === 'libre';
+export const esPrevired = d => !!(d && d.documento && d.documento.tipo === 'previred');
+// ¿Crea sus gastos al pagarse? (obligación o suelto). Las facturas del SII y compras a crédito ya tienen su gasto.
+export const conLineas = d => !!(s(d && (d.plantillaID || d.plantillaId)) || (d && d.suelto === true));
+// a = { monto, fecha, origen, cargoId, clave, por, en, gastoIds }. Devuelve { error } | { repetido } | { campos, abono, final, saldo, total, primero }
+export function abonoParcial(d, a) {
+  if (esLibre(d)) return { error: 'Es una obligación libre: usa "Agregar abono"' };
+  if (esPrevired(d)) return { error: 'Previred se paga completo (el total del certificado): en la cartola usa "Pago de Previred".' };
+  const e = estadoBase(d);
+  if (e === 'pagado') return { error: 'Ese vencimiento ya está pagado' };
+  if (e === 'anulado') return { error: 'Ese vencimiento fue anulado' };
+  const monto = Math.round(num(a.monto)), total = totalVenc(d);
+  if (!(monto > 0)) return { error: 'El monto del abono debe ser mayor que 0' };
+  if (!esIso(a.fecha)) return { error: 'Falta la fecha del abono' };
+  if (!(total > 0)) return { error: 'Este vencimiento no tiene monto: págalo completo.' };
+  const lista = Array.isArray(d.abonos) ? d.abonos : [];
+  if (a.clave && lista.some(x => x.clave === a.clave)) return { repetido: true };
+  if (a.cargoId && lista.some(x => x.cargoId && x.cargoId === a.cargoId)) return { repetido: true };
+  const saldo0 = total - totalAbonos(d);
+  if (monto > saldo0) return { error: `El abono (${fmt(monto)}) es mayor que el saldo (${fmt(saldo0)})` };
+  const abono = { monto, fecha: a.fecha, origen: a.origen === 'cartola' ? 'cartola' : 'mano', cargoId: s(a.cargoId), clave: s(a.clave), gastoIds: Array.isArray(a.gastoIds) ? a.gastoIds : [], url: s(a.url), por: s(a.por), en: s(a.en), parcial: true };
+  const abonos = lista.concat([abono]), saldo = saldo0 - monto, final = saldo === 0;
+  const campos = final ? { abonos, estado: 'pagado', fechaPago: a.fecha, montoPago: String(total), fechaSaldo: '' } : { abonos, estado: 'con_abonos' };
+  return { campos, abono, final, saldo, total, primero: !lista.length };
+}
+// Quitar el abono de un cargo (deshacer): { error } | { campos, quedan, eraPrimero, cerraba }
+export function quitarAbonoParcial(d, cargoId, quitado) {
+  const l = Array.isArray(d.abonos) ? d.abonos : [], k = l.findIndex(x => x.cargoId && x.cargoId === cargoId);
+  if (k < 0) return { error: 'El abono ya no estaba' };
+  const quedan = l.filter((x, i) => i !== k), eraPrimero = k === 0 && !!(l[k].gastoIds || []).length, cerraba = estadoBase(d) === 'pagado';
+  if (eraPrimero && quedan.length) return { error: `"${s(d.nombre)}" tiene otros abonos después de este: deshaz primero esos cargos.` };
+  const espera = s(d.tipoObligacion) === 'documento' && !d.documento;
+  return { quedan, eraPrimero, cerraba, campos: { abonos: quedan, estado: quedan.length ? 'con_abonos' : (espera ? 'esperando_documento' : 'por_pagar'), fechaPago: '', montoPago: '',
+    abonosQuitados: (Array.isArray(d.abonosQuitados) ? d.abonosQuitados : []).concat([{ ...l[k], quitado }]) } };
+}
+// "Con abonos · saldo $X" (para las listas)
+export const textoSaldo = (d, pesos) => { const f = pesos || fmt; return `Con abonos · saldo ${f(saldoVenc(d))}`; };
+const fmt = x => '$' + Math.round(x).toLocaleString('es-CL');
+
 export function cerrar(d, quien, en) {
   const e = estadoBase(d);
   if (e === 'pagado') return { yaEstaba: true };

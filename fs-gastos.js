@@ -18,8 +18,8 @@
 //  · Uso de hoy: lecturas y escrituras hechas desde este navegador (Configuración). La lectura de un documento cuenta 1;
 //    una consulta vacía cuenta 1; además, cada pedido cuenta 1 por la regla de seguridad (exists de admins).
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.63.7';
-import { diaCuota, proximoReinicio, horaChile, esCuota, mensajeCuota, anotar, contarMemoria, usoHoy, reiniciarUso, cuota, alCambiarCuota, marcarAgotada, marcarViva, olvidarCuota, errorCuota } from './fs-cuota.js?v=0.63.7';
+import * as FB from './firebase-gastos.js?v=0.65.0';
+import { diaCuota, proximoReinicio, horaChile, esCuota, mensajeCuota, anotar, contarMemoria, usoHoy, reiniciarUso, cuota, alCambiarCuota, marcarAgotada, marcarViva, olvidarCuota, errorCuota } from './fs-cuota.js?v=0.65.0';
 export { diaCuota, proximoReinicio, horaChile, esCuota, mensajeCuota, usoHoy, reiniciarUso, cuota, alCambiarCuota, olvidarCuota };
 
 export const VERSION_PAQUETES = 1;
@@ -30,7 +30,7 @@ const DIAS_RECONSTRUIR = 7;         // los paquetes se rearman leyendo todo cada
 const MAX_PARTE = 600000;           // bytes de texto por documento de paquete (Firestore acepta hasta 1 MB)
 const PERSISTIR_DESDE = 20;         // cambios acumulados desde el paquete que justifican reescribirlo
 export const PAQUETES = ['gastos', 'vencimientos', 'obligaciones', 'items', 'cartola_cargos', 'cartolas', 'cartola_reglas', 'sii_docs', 'cotizaciones', 'cotiz_trabajadores',
-  'abono_destinatarios', 'proveedores', 'costos_mp', 'costos_recetas', 'costos_recetas_hist', 'costos_asoc', 'costos_sii_procesadas', 'fin_items', 'fin_productos'];
+  'abono_destinatarios', 'proveedores', 'tef_enviadas', 'costos_mp', 'costos_recetas', 'costos_recetas_hist', 'costos_asoc', 'costos_sii_procesadas', 'fin_items', 'fin_productos'];
 const VOLATILES = new Set(['planillaPendiente', 'planillaEn']);
 const SIN_MEMORIA = new Set(['admins', 'migracion', 'cache_paquetes', 'fin_gastos_mes']);
 const COL_PAQ = 'cache_paquetes', COL_MES = 'fin_gastos_mes';

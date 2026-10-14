@@ -25,16 +25,16 @@
 //    salió: tipo, quién, cuándo y lo propio de cada origen); "origen" sigue siendo el texto de siempre (el script lo usa).
 //    Hoy: "Esperan cartola". detalleGasto(ids): las líneas y su origen, para el detalle del gasto.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.63.7';
-import * as FB from './fs-gastos.js?v=0.63.7';
-import * as GB from './gastos-base.js?v=0.63.7';
-import * as GP from './gastos-planilla.js?v=0.63.7';
-import * as M from './gastos-g2.js?v=0.63.7';
-import * as G3 from './gastos-g3.js?v=0.63.7';
-import * as G3D from './gastos-g3d.js?v=0.63.7';
-import * as B from './gastos-banco.js?v=0.63.7';
-import { dia } from './gastos-modelo.js?v=0.63.7';
-import * as AB from './gastos-abono.js?v=0.63.7';
+import { auth as authSF } from './firebase.js?v=0.65.0';
+import * as FB from './fs-gastos.js?v=0.65.0';
+import * as GB from './gastos-base.js?v=0.65.0';
+import * as GP from './gastos-planilla.js?v=0.65.0';
+import * as M from './gastos-g2.js?v=0.65.0';
+import * as G3 from './gastos-g3.js?v=0.65.0';
+import * as G3D from './gastos-g3d.js?v=0.65.0';
+import * as B from './gastos-banco.js?v=0.65.0';
+import { dia } from './gastos-modelo.js?v=0.65.0';
+import * as AB from './gastos-abono.js?v=0.65.0';
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';
@@ -651,6 +651,76 @@ export async function agregarAbono(vencId, a, marca, subir) {
   if (!r.repetido) await despues(1 + r.lineas);
   return { ok: true, ...r };
 }
+// ═══ v0.64.0 · Abono (pago parcial) a un vencimiento que no es libre: obligación fija o según documento, suelto, factura del SII
+// o compra a crédito. Lo acordado: el gasto es el documento COMPLETO (lo devengado); los abonos registran la caja.
+//  · Obligación o suelto (sus gastos nacen al pagar): con el PRIMER abono se crea el gasto completo (total del documento o lo
+//    estimado), con el ítem y las áreas de la obligación; queda con el cargo del primer abono.
+//  · Factura del SII o compra a crédito: su gasto ya existe; los abonos no crean gastos y el ÚLTIMO le pone la fecha de pago.
+//  · Cada abono: { fecha, monto, origen: cartola | mano, cargoId, parcial: true, gastoIds (el primero) }: para el flujo de caja (F4).
+//  · El último abono (saldo 0) deja el vencimiento pagado. "Reagendar saldo" le pone una fecha nueva al saldo (Agenda y Hoy).
+// a = { monto, fecha, origen, cargoId, cartola (traza), obs }
+export async function abonoParcial(vencId, a, marca) {
+  const d = await db(), ref = FB.doc(d, 'vencimientos', String(vencId || '')), sn0 = await FB.getDoc(ref);
+  if (!sn0.exists() || sn0.data().quitadoEnPlanilla) throw error('Ese vencimiento ya no existe', 'datos');
+  const v0 = sn0.data(), clave = marca.t + marca.r, quien = correo() || 'Sistema Fën';
+  const pre = G3.abonoParcial(v0, { ...a, clave });
+  if (pre.repetido) return { ok: true, repetido: true };
+  if (pre.error) throw error(pre.error, 'datos');
+  const conL = G3.conLineas(v0);
+  // Factura del SII o compra a crédito que queda pagada con este abono: sus gastos reciben la fecha de pago
+  let credito = [];
+  if (!conL && pre.final) {
+    const m = /^\s*📋\s*(.*?)\s+F\.(\d+)\s*$/.exec(s(v0.nombre)), folio = m ? m[2] : '';
+    if (folio) credito = (await todos('gastos', FB.where('folio', '==', folio))).filter(x => x.d.estado === 'vigente' && !s(x.d.fechaPago) && ['proveedor', 'tarjeta'].includes(s(x.d.formaPago)));
+    if (!credito.length && s(v0.item)) {
+      const delItem = (await todos('gastos', FB.where('itemGasto', '==', s(v0.item)))).sort((x, y) => s(y.d.fecha).localeCompare(s(x.d.fecha)) || s(y.d.hora).localeCompare(s(x.d.hora)) || y.id.localeCompare(x.id));
+      credito = M.gastosDelCredito(M.vistaVencimiento(ref.id, v0), delItem);
+    }
+  }
+  const hora = M.ahoraChile().hora, en = M.ahoraChile().texto;
+  const r = await FB.runTransaction(d, async tx => {
+    const sn = await tx.get(ref), v = sn.data();
+    const refsC = credito.map(x => FB.doc(d, 'gastos', x.id)), snC = [];
+    for (const rf of refsC) snC.push(await tx.get(rf));
+    const x = G3.abonoParcial(v, { ...a, clave, por: quien, en });
+    if (x.repetido) return { repetido: true };
+    if (x.error) throw error(x.error, 'datos');
+    let lineas = [], ids = [], tocados = 0;
+    if (conL && x.primero) {
+      const vista = M.vistaVencimiento(ref.id, v), tipoMonto = s(v.tipoMonto) === 'siniva' ? 'siniva' : M.tipoMontoOk(v.tipoMonto);
+      const lp = G3D.lineasDelPago(vista, v, x.total, a.fecha, M.obsLibre(a.obs) || `${s(v.nombre)} · documento completo (pagado en abonos)`, '', tipoMonto, hora);
+      if (lp.error) throw error(lp.error, 'datos');
+      lineas = lp.lineas; ids = M.idsLineas('gp', marca, lineas.length);
+      const od = { tipo: 'vencimiento', vencimientoId: ref.id, obligacion: s(v.nombre), periodo: dia(v.fechaVencimiento) || '', abonoParcial: true, ...(a.cartola ? { cartola: true, cargoId: s(a.cargoId) } : { aMano: true }), por: quien, en };
+      lineas.forEach((l, k) => tx.set(FB.doc(d, 'gastos', ids[k]), nuevo({ ...l, ...(a.cartola ? { cartola: s(a.cartola), cartolaCargo: s(a.cargoId) } : {}), origenDetalle: od }, 'obligacion')));
+      x.campos.abonos[x.campos.abonos.length - 1].gastoIds = ids;
+    }
+    if (!conL && x.final) snC.forEach((s2, i) => {
+      if (!s2.exists()) return; const g = s2.data(); if (g.fechaPago || g.estado !== 'vigente') return;
+      tx.update(refsC[i], cambio(g, 'pagó (último abono)', { fechaPago: a.fecha, ...(a.cartola ? { cartola: s(a.cartola), cartolaCargo: s(a.cargoId) } : {}) }, { vencimiento: ref.id })); tocados++;
+    });
+    tx.update(ref, cambio(v, x.final ? 'último abono (pagado)' : 'abono parcial', x.campos, { monto: x.abono.monto }));
+    return { lineas: lineas.length, gastos: ids, completados: tocados, final: x.final, saldo: x.saldo, total: x.total, n: x.campos.abonos.length };
+  });
+  if (r.repetido) return { ok: true, repetido: true };
+  await despues(1 + r.lineas + r.completados);
+  if (r.final) { try { await vencimientosAlDia(); } catch (e) {} }
+  return { ok: true, ...r };
+}
+// "Reagendar saldo": fecha nueva para lo que falta pagar (vale para Agenda, Hoy y los atrasos)
+export async function reagendarSaldo(vencId, fecha, nota) {
+  if (!M.esIso(fecha)) throw error('Elige la fecha nueva del saldo', 'datos');
+  const d = await db(), ref = FB.doc(d, 'vencimientos', String(vencId || ''));
+  await FB.runTransaction(d, async tx => {
+    const sn = await tx.get(ref); if (!sn.exists()) throw error('Ese vencimiento ya no existe', 'datos');
+    const v = sn.data();
+    if (G3.estadoBase(v) !== 'con_abonos' || G3.esLibre(v)) throw error('Solo se reagenda el saldo de un vencimiento con abonos', 'datos');
+    tx.update(ref, cambio(v, 'reagendó el saldo', { fechaSaldo: fecha }, { nota: M.obsLibre(nota, 200) || '' }));
+  });
+  await despues(1);
+  return { ok: true };
+}
+
 // v0.63.1 · Para "Área de este abono": lo recordado por destinatario y los trabajadores de Previred (con su área)
 export async function datosAbono() {
   const [ds, trab] = await Promise.all([todos('abono_destinatarios'), todos('cotiz_trabajadores')]);

@@ -1,6 +1,24 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — consumo de materias primas, stock de las bodegas y proyección (sin pantalla)  v0.16.0
+//  fën · Cocina — consumo de materias primas, stock de las bodegas y proyección (sin pantalla)  v0.17.0
 //  La usa Sistema Fën (que lee las cuatro áreas; copia exacta en sistema-fen/cocina/).
+//
+//  v0.17.0 · BODEGAS POR ÁREA RESPONSABLE (decisión de Emmanuel, 14-oct): cuatro bodegas, PAN, BOL, PAS y CAF.
+//    · Cada materia prima crítica de producción tiene UNA bodega responsable (la harina → PAN). Su stock es uno solo y
+//      baja con lo que consume CUALQUIER área (la harina que usan Bollería y Pastelería baja la de Panadería).
+//      Puede además ser crítica en CAF (otro stock físico, como en la v0.16.0).
+//    · Ruta del consumo (bodegaConsumo): Cafetería → CAF; Panadería, Bollería y Pastelería → la bodega de producción
+//      donde esa materia prima es crítica. Si es crítica en más de una de producción (aviso en Sistema Fën): la del área
+//      que consume si la tiene; si no, la primera (la responsable).
+//    · Se activa al confirmar en Sistema Fën ("Asignar responsables"): config/bodegas = { modo: 'responsable',
+//      areas: { PAN: 'PAN', BOL: 'BOL', PAS: 'PAS', CAF: 'CAF' }, responsables: { mpId: 'PAN' | 'BOL' | 'PAS' },
+//      confirmado: { por, en (ISO) }, historial: [...] }. Sin confirmar = como la v0.16.0 (PROD para PAN/BOL/PAS).
+//    · DATOS COMPATIBLES (nada se mueve ni se borra): el stock de producción de cada materia prima sigue en
+//      stockmp/{mpId} y conteosmp/{mpId}; su bodega es la responsable (config/bodegas.responsables; sin ella, PAN).
+//      Cambiar la responsable no copia nada: el mismo documento, los mismos conteos y llegadas (continuidad).
+//      Si se marca crítica en OTRA bodega de producción va en stockmp/{BODEGA}__{mpId} (como CAF__).
+//    · Llegadas y conteos: las de antes (bodega 'PROD' o sin campo) van al stock de siempre (stockmp/{mpId}); las nuevas
+//      llevan la bodega del área ('PAN', 'BOL'…). Después de confirmar, un área solo mueve lo suyo (bodegaMov).
+//    · Avisos (areasAviso): el correo va a las jefas del área RESPONSABLE (no a las de otras áreas de esa bodega).
 //
 //  v0.16.0 · BODEGAS SEPARADAS (decisión de Emmanuel, 12-oct): el stock es por BODEGA (lugar físico), no por área.
 //    · Hoy: "PROD" (Producción: Panadería, Bollería y Pastelería, como siempre) y "CAF" (Cafetería).
@@ -65,42 +83,165 @@ import * as R from './registros.js?v=0.11.0';
 
 const n0 = v => M.num(v);
 
-// ── Bodegas (v0.16.0) ──
+// ── Bodegas (v0.16.0; v0.17.0: por área responsable) ──
 export const BODEGA_PRINCIPAL = 'PROD';
 export const BODEGAS_DEF = { PROD: 'Producción', CAF: 'Cafetería' };
 export const AREA_BODEGA_DEF = { PAN: 'PROD', BOL: 'PROD', PAS: 'PROD', CAF: 'CAF' };
+// v0.17.0
+export const MODO_RESP = 'responsable';
+export const AREAS_PROD = ['PAN', 'BOL', 'PAS'];
+export const AREA_BODEGA_RESP = { PAN: 'PAN', BOL: 'BOL', PAS: 'PAS', CAF: 'CAF' };
+export const BODEGAS_RESP = { PAN: 'Panadería', BOL: 'Bollería', PAS: 'Pastelería', CAF: 'Cafetería' };
 const esCodigo = v => typeof v === 'string' && /^[A-Z]{2,8}$/.test(v);
-// El mapa vigente (config/bodegas, si existe, sobre lo de siempre): { areas: { AREA: BODEGA }, nombres: { BODEGA: nombre } }
+const esIdMp = v => typeof v === 'string' && /^[A-Za-z0-9_-]{1,60}$/.test(v) && !/__/.test(v);
+// El mapa vigente (config/bodegas, si existe, sobre lo de siempre):
+// { areas: { AREA: BODEGA }, nombres: { BODEGA: nombre }, modo: 'compartida' | 'responsable', responsables: { mpId: BODEGA }, confirmadoEn }
 export function mapaBodegas(cfg) {
-  const c = cfg && typeof cfg === 'object' ? cfg : {}, areas = { ...AREA_BODEGA_DEF }, nombres = { ...BODEGAS_DEF };
+  const c = cfg && typeof cfg === 'object' ? cfg : {}, resp = c.modo === MODO_RESP;
+  const areas = { ...(resp ? AREA_BODEGA_RESP : AREA_BODEGA_DEF) }, nombres = { ...BODEGAS_DEF, ...(resp ? BODEGAS_RESP : {}) };
   Object.entries(c.nombres || {}).forEach(([b, n]) => { if (esCodigo(b) && typeof n === 'string' && n.trim()) nombres[b] = n.trim().slice(0, 40); });
   Object.entries(c.areas || {}).forEach(([a, b]) => { if (esCodigo(a) && esCodigo(b)) { areas[a] = b; if (!nombres[b]) nombres[b] = b; } });
-  return { areas, nombres };
+  const m = { areas, nombres, modo: resp ? MODO_RESP : 'compartida', responsables: {}, confirmadoEn: '' };
+  if (resp) {
+    const prod = bodegasProd(m);
+    Object.entries(c.responsables || {}).forEach(([mp, b]) => { if (esIdMp(mp) && prod.includes(b)) m.responsables[mp] = b; });
+    const en = c.confirmado && c.confirmado.en;
+    m.confirmadoEn = typeof en === 'string' ? en : en && typeof en.toDate === 'function' ? en.toDate().toISOString() : '';
+  }
+  return m;
 }
+export const esResponsable = mapa => !!mapa && mapa.modo === MODO_RESP;
 export const bodegaDe = (area, mapa) => ((mapa || mapaBodegas()).areas[area]) || BODEGA_PRINCIPAL;
 export const nombreBodega = (b, mapa) => ((mapa || mapaBodegas()).nombres[b]) || b;
-// Las bodegas en uso (las que tienen al menos un área), Producción primero
-export const listaBodegas = mapa => { const m = mapa || mapaBodegas(); return [...new Set([BODEGA_PRINCIPAL, ...Object.values(m.areas)])]; };
+// Las bodegas de producción (las de Panadería, Bollería y Pastelería): ['PROD'] sin confirmar; ['PAN', 'BOL', 'PAS'] con responsables
+export const bodegasProd = mapa => { const m = mapa || mapaBodegas(); return [...new Set(AREAS_PROD.map(a => m.areas[a] || BODEGA_PRINCIPAL))]; };
+export const esProduccion = (b, mapa) => bodegasProd(mapa).includes(b);
+// Las bodegas en uso (las que tienen al menos un área). Sin confirmar: Producción primero (como v0.16.0); con responsables: PAN, BOL, PAS, CAF
+export const listaBodegas = mapa => {
+  const m = mapa || mapaBodegas();
+  return esResponsable(m) ? [...new Set([...bodegasProd(m), ...Object.values(m.areas)])] : [...new Set([BODEGA_PRINCIPAL, ...Object.values(m.areas)])];
+};
 export const areasDeBodega = (b, mapa) => Object.entries((mapa || mapaBodegas()).areas).filter(([, x]) => x === b).map(([a]) => a);
+// v0.17.0: a quién avisar (jefas) de una bodega. Con responsables: solo el área responsable (la del mismo código o, si no hay,
+// la primera área de esa bodega), nunca las otras áreas mapeadas a la misma bodega. Sin confirmar: todas las áreas de la bodega.
+export function areasAviso(b, mapa) {
+  const m = mapa || mapaBodegas(), todas = areasDeBodega(b, m);
+  if (!esResponsable(m)) return todas;
+  return todas.includes(b) ? [b] : todas.slice(0, 1);
+}
+// v0.17.0: la bodega RESPONSABLE de una materia prima (la que lleva su stock de producción en stockmp/{mpId}).
+// Sin confirmar: PROD. Con responsables: la elegida en Sistema Fën; si no se eligió, la primera de producción (PAN).
+export const principalDe = (mpId, mapa) => { const m = mapa || mapaBodegas(); return esResponsable(m) ? (m.responsables[mpId] || bodegasProd(m)[0]) : BODEGA_PRINCIPAL; };
+export const tieneResponsable = (mpId, mapa) => !!(mapa && esResponsable(mapa) && mapa.responsables[mpId]);
 // Id del documento en stockmp y conteosmp: PROD = el id de la materia prima (como siempre); otra = "CAF__MP090"
 export const idStock = (bodega, mpId) => !bodega || bodega === BODEGA_PRINCIPAL ? String(mpId) : bodega + '__' + mpId;
+// v0.17.0: el id donde vive el stock de una materia prima en una bodega: en su responsable, {mpId} (el de siempre); en otra, {BODEGA}__{mpId}
+export const idStockEn = (bodega, mpId, mapa) => !bodega || bodega === principalDe(mpId, mapa) ? String(mpId) : bodega + '__' + mpId;
 export function deIdStock(id) { const m = /^([A-Z]{2,8})__(.+)$/.exec(String(id || '')); return m ? { bodega: m[1], mp: m[2] } : { bodega: BODEGA_PRINCIPAL, mp: String(id || '') }; }
-// stockmp de una bodega: { mpId: doc }
-export function stockDe(stockmp, bodega) {
-  const r = {}; Object.entries(stockmp || {}).forEach(([id, d]) => { const x = deIdStock(id); if (x.bodega === (bodega || BODEGA_PRINCIPAL)) r[x.mp] = d; });
+// v0.17.0: la bodega (lógica) de un documento de stockmp / conteosmp: {mpId} = la responsable; {BODEGA}__{mpId} = esa
+export function bodegaDocId(id, mapa) {
+  const x = deIdStock(id);
+  if (!/__/.test(String(id || ''))) return { bodega: principalDe(x.mp, mapa), mp: x.mp, principal: true };
+  return { ...x, principal: false };
+}
+// stockmp de una bodega: { mpId: doc }. v0.17.0: con mapa (responsables), {mpId} va a su responsable; un {BODEGA}__{mpId}
+// que repite la responsable no cuenta (manda el de siempre)
+export function stockDe(stockmp, bodega, mapa) {
+  const r = {}, b = bodega || BODEGA_PRINCIPAL;
+  Object.entries(stockmp || {}).forEach(([id, d]) => {
+    const x = bodegaDocId(id, mapa); if (x.bodega !== b) return;
+    if (!x.principal && esResponsable(mapa) && principalDe(x.mp, mapa) === b) return;
+    if (x.principal || !r[x.mp]) r[x.mp] = d;
+  });
   return r;
 }
-// Crítica y mínimo en una bodega: en PROD, si Sistema Fën no la configuró, vale la planilla; en las demás, solo Sistema Fën
-export function controlEn(bodega, mp, sm) {
-  if (!bodega || bodega === BODEGA_PRINCIPAL) return control(mp, sm);
+// Crítica y mínimo en una bodega: en la responsable (PROD sin confirmar), si Sistema Fën no la configuró, vale la planilla;
+// en las demás, solo Sistema Fën
+export function controlEn(bodega, mp, sm, mapa) {
+  if (!bodega || bodega === principalDe(mp && mp.id, mapa)) return control(mp, sm);
   return control({ ...(mp || {}), critica: false, stockSeguridad: 0 }, sm);
+}
+// v0.17.0: todas las críticas de todas las bodegas: [{ bodega, mp, cfg, docId, sm }] (activas, sin sub recetas)
+export function puestos(mps, stockmp, mapa) {
+  const m = mapa || mapaBodegas(), out = [];
+  const activas = (mps || []).filter(x => x && (x.estado || 'activa') === 'activa' && x.tipo !== 'sub_receta');
+  listaBodegas(m).forEach(b => {
+    const docs = stockDe(stockmp, b, m);
+    activas.forEach(x => { const cfg = controlEn(b, x, docs[x.id], m); if (cfg.critica) out.push({ bodega: b, mp: x, cfg, docId: idStockEn(b, x.id, m), sm: docs[x.id] || null }); });
+  });
+  return out;
+}
+// v0.17.0: por materia prima, las bodegas de producción donde es crítica (la responsable primero): { mpId: ['PAN', 'BOL'] }
+export function rutas(ps, mapa) {
+  const m = mapa || mapaBodegas(), r = {}, orden = bodegasProd(m);
+  (ps || []).filter(p => orden.includes(p.bodega)).forEach(p => { const id = p.mp.id || p.mp; (r[id] || (r[id] = [])).push(p.bodega); });
+  Object.entries(r).forEach(([id, l]) => { const pr = principalDe(id, m); r[id] = [...new Set(l)].sort((a, b) => (b === pr) - (a === pr) || orden.indexOf(a) - orden.indexOf(b)); });
+  return r;
+}
+// v0.17.0: las que son críticas en más de una bodega de producción (aviso en Sistema Fën): [{ mp, bodegas }]
+export const repetidasProd = (ps, mapa) => Object.entries(rutas(ps, mapa)).filter(([, l]) => l.length > 1).map(([mp, bodegas]) => ({ mp, bodegas }));
+// v0.17.0: a qué bodega va lo que consume un área de una materia prima
+export function bodegaConsumo(area, mpId, rts, mapa) {
+  const m = mapa || mapaBodegas(), propia = bodegaDe(area, m);
+  if (!esResponsable(m) || !AREAS_PROD.includes(area) || !esProduccion(propia, m)) return propia;
+  const l = (rts || {})[mpId] || [];
+  if (!l.length) return principalDe(mpId, m);
+  return l.length > 1 && l.includes(propia) ? propia : l[0];
+}
+// v0.17.0: las rutas de unos datos (con datos.stockmp = { id: doc }); se calculan una vez por objeto de datos
+const rutasCache = new WeakMap();
+function rutasDatos(datos, mapa) {
+  if (!esResponsable(mapa)) return {};
+  if (datos && typeof datos === 'object' && rutasCache.has(datos)) return rutasCache.get(datos);
+  const r = rutas(puestos(datos.mps, datos.stockmp || {}, mapa), mapa);
+  if (datos && typeof datos === 'object') rutasCache.set(datos, r);
+  return r;
 }
 // La bodega de una llegada o conteo: la anotada (sin el campo = PROD, lo anterior a v0.16.0). Un área solo mueve la suya:
 // si anotó otra, no vale (null). Administración (ADM) puede cualquiera.
-export function bodegaMov(area, a, mapa) {
-  const b = esCodigo(a && a.bodega) ? a.bodega : BODEGA_PRINCIPAL;
-  if (area === 'ADM') return b;
-  return b === bodegaDe(area, mapa) || (!(a && a.bodega) && b === BODEGA_PRINCIPAL) ? b : null;
+// v0.17.0 (con responsables): 'PROD' o sin campo = el stock de siempre (stockmp/{mpId}) → su responsable. Lo anterior a la
+// confirmación vale siempre (historia); una tablet que siga anotando 'PROD' después, solo si su área es la responsable.
+// Lo nuevo lleva la bodega del área ('PAN', 'BOL'…) y solo vale si es la del área. Además lleva el documento de stock
+// (a.stock = '{mpId}' o '{BODEGA}__{mpId}'): si después cambia la responsable, la anotación sigue con su stock (continuidad).
+export function destinoMov(area, a, mapa) {
+  const m = mapa || mapaBodegas(), cod = esCodigo(a && a.bodega) ? a.bodega : BODEGA_PRINCIPAL, mp = a && a.mp;
+  if (!esResponsable(m)) {
+    const b = area === 'ADM' || cod === bodegaDe(area, m) || (!(a && a.bodega) && cod === BODEGA_PRINCIPAL) ? cod : null;
+    return b ? { bodega: b, docId: idStock(b, mp) } : null;
+  }
+  const legado = cod === BODEGA_PRINCIPAL;
+  const doc = a && typeof a.stock === 'string' && (a.stock === String(mp) || a.stock === cod + '__' + mp) ? a.stock : null;
+  const docId = legado ? String(mp) : doc || idStockEn(cod, mp, m), destino = bodegaDocId(docId, m).bodega;
+  if (area === 'ADM') return { bodega: destino, docId };
+  if (legado) {
+    if (!(a && a.bodega)) return { bodega: destino, docId };              // antes de la v0.16.0 (bodega común)
+    if (!AREAS_PROD.includes(area)) return null;
+    return !m.confirmadoEn || String((a && a.en) || '') < m.confirmadoEn || destino === bodegaDe(area, m) ? { bodega: destino, docId } : null;
+  }
+  return cod === bodegaDe(area, m) ? { bodega: destino, docId } : null;
+}
+export const bodegaMov = (area, a, mapa) => { const d = destinoMov(area, a, mapa); return d ? d.bodega : null; };
+// v0.17.0: propuesta de responsable por uso (pantalla "Asignar responsables" de Sistema Fën)
+// uso: { PAN: g, BOL: g, PAS: g }. Las harinas (nombre que empieza con "harina") → PAN (se comparten); si no, el área que
+// más la usa; sin uso, PAN. → { propuesta, pct: { PAN, BOL, PAS }, motivo: 'harina' | 'uso' | 'sin uso' }
+export function proponerResponsable(mp, uso) {
+  const u = uso || {}, tot = AREAS_PROD.reduce((s, a) => s + Math.max(0, n0(u[a])), 0);
+  const pct = Object.fromEntries(AREAS_PROD.map(a => [a, tot > 0 ? Math.round(Math.max(0, n0(u[a])) * 100 / tot) : 0]));
+  if (/^harina/.test(norm(mp && mp.nombre))) return { propuesta: 'PAN', pct, motivo: 'harina' };
+  if (!(tot > 0)) return { propuesta: 'PAN', pct, motivo: 'sin uso' };
+  const mx = AREAS_PROD.reduce((x, a) => (n0(u[a]) > n0(u[x]) ? a : x), 'PAN');
+  return { propuesta: mx, pct, motivo: 'uso' };
+}
+// Uso por área de producción de cada materia prima: lo consumido (eventos) o, si no hay, las recetas (un lote de cada una)
+export function usoPorArea(eventos, datos) {
+  const ev = {}, rec = {};
+  (eventos || []).forEach(e => { if (!AREAS_PROD.includes(e.area)) return; const x = ev[e.mp] || (ev[e.mp] = {}); x[e.area] = (x[e.area] || 0) + n0(e.cantidad); });
+  const d = datos || {}, ctx = { recetas: d.recetas || [], mps: d.mps || [], config: {} };
+  (d.recetas || []).filter(r => r && AREAS_PROD.includes(r.area) && r.estado !== 'anulada').forEach(r => {
+    let res; try { res = bajar(r, M.porciones(r), { ...ctx, config: (d.config || {})[r.area] || {} }, { parar: rs => rs.area && rs.area !== r.area }); } catch (e) { return; }
+    Object.entries(res.out).forEach(([mp, q]) => { const x = rec[mp] || (rec[mp] = {}); x[r.area] = (x[r.area] || 0) + q; });
+  });
+  return { eventos: ev, recetas: rec, de: mp => { const e = ev[mp]; return e && Object.values(e).some(v => v > 0) ? { uso: e, fuente: 'consumo' } : rec[mp] ? { uso: rec[mp], fuente: 'recetas' } : { uso: {}, fuente: '' }; } };
 }
 // Lo que hay "ahora" para la tablet: el último cálculo de Sistema Fën (stockmp.estado) o, si después se contó, ese conteo;
 // más las llegadas posteriores que ve la tablet. → { hay, desde: 'calculo'|'conteo', en } o null (sin datos)
@@ -260,6 +401,8 @@ export const empGramosPorMasa = (masaId, ctx) => {
 // ── Lo consumido (hecho) ──
 // datos: { recetas, mps, config: { AREA: cfg }, ajustes: { AREA: { id: ajuste } }, dias: { AREA: { fecha: doc } }, planes: { 'AREA_lunes': plan } }
 // → [{ area, bodega, fecha, en, mp, cantidad, origen }] (sin anuladas). v0.16.0: bodega = la del área (config/bodegas)
+// v0.17.0: con responsables, bodega = bodegaConsumo (la de producción donde esa materia prima es crítica); necesita
+// datos.stockmp = { id: doc } (si no viene, solo vale lo crítico de la planilla)
 export function consumo(datos, desde = '0000-00-00', hasta = '9999-12-31') {
   const ev = [], sinId = {};
   const ctxDe = area => ({ recetas: datos.recetas || [], mps: datos.mps || [], config: (datos.config || {})[area] || {} });
@@ -321,8 +464,8 @@ export function consumo(datos, desde = '0000-00-00', hasta = '9999-12-31') {
     const aj = ajustesDe(((datos.ajustes || {}).CAF) || {}, v.fecha);
     agregar('CAF', v.fecha, v.en, r.nombre + ' (venta)', bajar(r, n0(v.cantidad), ctxC, { ajustes: aj, parar: rs => rs.area && rs.area !== 'CAF', sinId }));
   });
-  const mapa = mapaBodegas((datos.config || {}).bodegas);
-  ev.forEach(e => { e.bodega = bodegaDe(e.area, mapa); });
+  const mapa = mapaBodegas((datos.config || {}).bodegas), rts = rutasDatos(datos, mapa);
+  ev.forEach(e => { e.bodega = bodegaConsumo(e.area, e.mp, rts, mapa); });
   return { eventos: ev.sort((a, b) => a.en.localeCompare(b.en)), sinId };
 }
 
@@ -335,13 +478,14 @@ export function porMp(eventos) {
 
 // ── Bodega: llegadas y conteos (de todas las áreas y de Administración) ──
 // v0.16.0: cada uno con su bodega (bodegaMov); los de un área con la bodega de otra no se cuentan
+// v0.17.0: con responsables, la bodega lógica (PAN, BOL…) y docId (el documento de stock: {mpId} en la responsable)
 export function movimientos(dias, mapa) {
   const out = [], m = mapa || mapaBodegas();
   Object.entries(dias || {}).forEach(([area, ds]) => Object.entries(ds || {}).forEach(([fecha, d]) =>
     Object.entries((d && d.bodega) || {}).forEach(([id, a]) => {
       if (!a || a.anulado || !a.mp) return;
-      const bodega = bodegaMov(area, a, m); if (!bodega) return;
-      out.push({ ...a, id, area, bodega, fecha, en: enDe(fecha, a.en), cantidad: n0(a.cantidad) });
+      const d = destinoMov(area, a, m); if (!d) return;
+      out.push({ ...a, id, area, bodega: d.bodega, docId: d.docId, fecha, en: enDe(fecha, a.en), cantidad: n0(a.cantidad) });
     })));
   return out.sort((a, b) => a.en.localeCompare(b.en));
 }
@@ -367,9 +511,12 @@ export function stock(mpId, movs, eventos, bodega) {
 // Se llama desde MAÑANA: lo de hoy se descuenta del stock cuando lo marcan hecho (si no, se restaría dos veces).
 // datos además: metas: { 'BOL_lunes': meta }, hoy (para el ritmo de Pastelería)
 // v0.16.0: bodega (opcional) = solo las áreas de esa bodega
+// v0.17.0: con responsables, lo de cada área va a la bodega de cada materia prima (bodegaConsumo), como el consumo
 export function proyeccion(datos, desde, dias = 7, eventos = [], bodega = null) {
-  const r = {}, sinId = {}, mapa = mapaBodegas((datos.config || {}).bodegas), va = area => !bodega || bodegaDe(area, mapa) === bodega;
-  const add = (f, res) => Object.entries(res.out).forEach(([mp, q]) => { const x = r[f] || (r[f] = {}); x[mp] = (x[mp] || 0) + q; });
+  const r = {}, sinId = {}, mapa = mapaBodegas((datos.config || {}).bodegas), rts = rutasDatos(datos, mapa);
+  const resp = esResponsable(mapa), va = area => !bodega || resp || bodegaDe(area, mapa) === bodega;
+  const vaMp = (area, mp) => !bodega || bodegaConsumo(area, mp, rts, mapa) === bodega;
+  const add = (f, res, area) => Object.entries(res.out).forEach(([mp, q]) => { if (!vaMp(area, mp)) return; const x = r[f] || (r[f] = {}); x[mp] = (x[mp] || 0) + q; });
   const fechas = []; for (let i = 0; i < dias; i++) fechas.push(M.sumarDias(desde, i));
   const ctxDe = area => ({ recetas: datos.recetas || [], mps: datos.mps || [], config: (datos.config || {})[area] || {} });
   // Panadería (y cualquier área con plan semanal): lo planificado de cada día
@@ -378,7 +525,7 @@ export function proyeccion(datos, desde, dias = 7, eventos = [], bodega = null) 
     const ctx = ctxDe(area), deOtra = rs => rs.area && rs.area !== area;
     fechas.filter(f => M.lunesDe(f) === plan.lunes).forEach(f => {
       const aj = ajustesDe(((datos.ajustes || {})[area]) || {}, f);
-      M.planDelDia(plan, f, ctx.recetas).forEach(({ receta, unidades }) => add(f, bajar(receta, unidades, ctx, { ajustes: aj, parar: deOtra, sinId })));
+      M.planDelDia(plan, f, ctx.recetas).forEach(({ receta, unidades }) => add(f, bajar(receta, unidades, ctx, { ajustes: aj, parar: deOtra, sinId }), area));
     });
   });
   // Bollería: masas a elaborar y lo que piden las metas de productos (repartido en la semana). v0.14.0: el empaste
@@ -388,17 +535,17 @@ export function proyeccion(datos, desde, dias = 7, eventos = [], bodega = null) 
     const metaElab = (datos.metas || {})['BOL_' + M.sumarDias(M.lunesDe(f), 7)], idx = M.indiceDia(f);
     Object.entries((metaElab && metaElab.elaboracion) || {}).forEach(([masaId, ds]) => {
       const n = n0((ds || {})['d' + idx]), m = recetaPorId(ctxB, masaId); if (!(n > 0) || !m) return;
-      add(f, bajar(m, n, ctxB, { parar: deOtraB, sinId }));
+      add(f, bajar(m, n, ctxB, { parar: deOtraB, sinId }), 'BOL');
     });
     const meta = (datos.metas || {})['BOL_' + M.lunesDe(f)];
     Object.entries((meta && meta.productos) || {}).forEach(([pid, piezas]) => {
       const p = recetaPorId(ctxB, pid); if (!p || !(n0(piezas) > 0)) return;
-      add(f, bajar(p, n0(piezas) / 7, ctxB, { parar: rs => deOtraB(rs) || B.esMasaBase(rs), sinId }));
+      add(f, bajar(p, n0(piezas) / 7, ctxB, { parar: rs => deOtraB(rs) || B.esMasaBase(rs), sinId }), 'BOL');
     });
   });
   // Pastelería y Cafetería: al ritmo de los últimos 14 días (lo hecho, lo vendido y el café de la bitácora)
   const hoy = datos.hoy || desde, d14 = M.sumarDias(hoy, -14);
-  const ritmo = {}; (eventos || []).filter(e => (e.area === 'PAS' || e.area === 'CAF') && va(e.area) && e.origen !== 'Merma' && e.fecha >= d14 && e.fecha < hoy).forEach(e => { ritmo[e.mp] = (ritmo[e.mp] || 0) + e.cantidad / 14; });
+  const ritmo = {}; (eventos || []).filter(e => (e.area === 'PAS' || e.area === 'CAF') && (e.bodega && bodega ? e.bodega === bodega : va(e.area) && vaMp(e.area, e.mp)) && e.origen !== 'Merma' && e.fecha >= d14 && e.fecha < hoy).forEach(e => { ritmo[e.mp] = (ritmo[e.mp] || 0) + e.cantidad / 14; });
   fechas.forEach(f => Object.entries(ritmo).forEach(([mp, q]) => { const x = r[f] || (r[f] = {}); x[mp] = (x[mp] || 0) + q; }));
   return { porDia: r, fechas, sinId };
 }

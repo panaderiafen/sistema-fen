@@ -12,8 +12,8 @@
 //    forman (últimos 2 años) y su posición en la planilla, para dar exactamente lo mismo que el script.
 //  Sin red: se prueba sola. Los documentos usan los mismos nombres que la copia G1 (gastos-modelo.armar).
 // ═══════════════════════════════════════════════
-import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.63.7';
-import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.63.7';
+import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.65.0';
+import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.65.0';
 
 export const RE_FOLIO_OBS = /(?:^|[^A-Za-z])(NC|F)\.(\d+)/;
 const s = v => String(v == null ? '' : v);
@@ -113,8 +113,9 @@ export function coincidencias(gastos, documentos) {
     const fechaISO = dia(d.fecha);
     if (!fechaISO) return;
     const clave = fechaISO + '|' + t(d.observacion);
-    if (!grupos[clave]) grupos[clave] = { fecha: fechaISO, filas: [], detalleFilas: [], total: 0, items: {}, areas: {}, obs: s(d.observacion), formaPago: s(d.formaPago) };
+    if (!grupos[clave]) grupos[clave] = { fecha: fechaISO, filas: [], detalleFilas: [], total: 0, items: {}, areas: {}, obs: s(d.observacion), formaPago: s(d.formaPago), espera: false };
     const g = grupos[clave], monto = pf(d.montoFinal);
+    if (d.esperaFactura === true) g.espera = true;   // v0.64.0: gasto nuevo desde la cartola de un mes sin el SII cargado
     g.filas.push(id);
     g.detalleFilas.push({ fila: id, monto, item: s(d.itemGasto), area: s(d.area), obs: s(d.observacion) });
     g.total += monto;
@@ -127,6 +128,15 @@ export function coincidencias(gastos, documentos) {
     const candidatos = [];
     Object.keys(grupos).forEach(k => {
       const g = grupos[k], dias = difDias(g.fecha, doc.fecha);
+      // v0.64.0 · Un gasto de la cartola que espera su factura: la factura puede ser de 5 días antes hasta 30 días después del cargo,
+      // y el monto puede diferir en $1 (redondeo del IVA)
+      if (g.espera) {
+        const dd = Math.round((new Date(doc.fecha + 'T00:00:00') - new Date(g.fecha + 'T00:00:00')) / 86400000);
+        if (dd >= -5 && dd <= 30 && Math.abs(Math.round(g.total) - Math.round(Math.abs(doc.total))) <= 1)
+          candidatos.push({ fecha: g.fecha, total: Math.round(g.total), items: Object.keys(g.items), areas: Object.keys(g.areas).map(a => ({ area: a, monto: Math.round(g.areas[a]) })),
+            obs: g.obs, formaPago: g.formaPago, filas: g.filas.slice(), diasDif: Math.abs(dd), parcial: false, desdeCartola: true });
+        return;
+      }
       if (dias > 5) return;
       if (Math.round(g.total) === Math.round(Math.abs(doc.total))) {
         candidatos.push({ fecha: g.fecha, total: Math.round(g.total), items: Object.keys(g.items), areas: Object.keys(g.areas).map(a => ({ area: a, monto: Math.round(g.areas[a]) })),
@@ -139,7 +149,7 @@ export function coincidencias(gastos, documentos) {
           obs: f.obs, formaPago: g.formaPago, filas: [f.fila], diasDif: dias, parcial: true });
       });
     });
-    candidatos.sort((a, b) => a.diasDif - b.diasDif);
+    candidatos.sort((a, b) => (b.desdeCartola === true) - (a.desdeCartola === true) || a.diasDif - b.diasDif);
     if (candidatos.length) resultado[doc.rut + '|' + doc.folio] = candidatos.slice(0, 4);
   });
   return resultado;

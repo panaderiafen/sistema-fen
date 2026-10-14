@@ -137,7 +137,8 @@ export function candidatosGastos(gastos, hoy, facturasAbiertas) {
     if (!x) {
       const od = d.origenDetalle || {};
       x = porRegistro[k] = { fecha: f, hora: s(d.hora).slice(0, 5), items: [], monto: 0, obs: s(d.observacion), rut: rutNorm(d.rutProveedor), razon: s(d.razonSocial), folio, filas: [],
-        clase, chip: chipDe(d, clase), esperaCargo: d.esperaCargo === true, vencimientoId: s(d.vencimientoId), siiDocId: s(d.siiDoc && d.siiDoc.id), formato: s(od.formato), medio: s(d.medioPago || od.medio) };
+        clase, chip: chipDe(d, clase), esperaCargo: d.esperaCargo === true, vencimientoId: s(d.vencimientoId), siiDocId: s(d.siiDoc && d.siiDoc.id), formato: s(od.formato), medio: s(d.medioPago || od.medio),
+        planilla: !!s(d.hoja), mano: s(d.origen) === 'mano' || od.tipo === 'mano' };   // v0.64.0: para los filtros por origen
       out.push(x);
     }
     if (x.filas.length >= 40) return;
@@ -180,6 +181,26 @@ export function propuestaGasto(c, grupos) {
   // Seguro: por el RUT, o el único del monto con el pago a mano esperando su cargo o a 3 días o menos
   const seguro = !empate && (a.rut || (l.length === 1 && (a.g.esperaCargo || Math.abs(a.dist) <= 3)));
   return { a, otros: l.slice(1, 4), seguro, por: a.rut ? 'rut' : 'monto' };
+}
+
+// ═══ v0.64.0 · "Ya está en Gastos": filtros por origen y días entre la compra y el cargo ═══
+export const FILTROS_ORIGEN = [['todos', 'Todos'], ['sii_detalle', 'SII con detalle'], ['rcv', 'Registro de compras (RCV)'], ['mano', 'A mano'], ['vencimiento', 'Vencimientos'], ['planilla', 'Planilla antigua']];
+// El grupo de origen de un candidato (candidatosGastos)
+export function grupoOrigen(x) {
+  if (!x) return 'mano';
+  if (x.clase === 'sii') return x.formato === 'registro' ? 'rcv' : 'sii_detalle';
+  if (x.clase === 'vencimiento' || x.vencimientoId) return 'vencimiento';
+  if (x.planilla) return 'planilla';
+  return 'mano';
+}
+export const filtrarOrigen = (lista, f) => (!f || f === 'todos' ? lista : (lista || []).filter(r => grupoOrigen(r.g || r) === f));
+// Color de "cargo N días después": amarillo desde 10, rojo desde 20 (puede no ser la compra de este cargo)
+export const DIAS_AVISO_CARGO = { amarillo: 10, rojo: 20 };
+export const colorDias = dist => (dist >= DIAS_AVISO_CARGO.rojo ? 'rojo' : dist >= DIAS_AVISO_CARGO.amarillo ? 'amarillo' : '');
+export function textoDias(dist) {
+  if (dist === 0) return 'mismo día';
+  if (dist < 0) return `cargo ${-dist} ${dist === -1 ? 'día' : 'días'} antes`;
+  return `cargo ${dist} ${dist === 1 ? 'día' : 'días'} después` + (dist >= DIAS_AVISO_CARGO.rojo ? ' · puede no ser la compra de este cargo' : '');
 }
 
 // ── Origen de un gasto ──

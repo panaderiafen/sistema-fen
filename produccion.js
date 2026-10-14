@@ -39,16 +39,21 @@
 //    cierre), planes, metas, ajustes, cuentas y lo vendido en la caja para Cafetería. Hoy guarda sus dos resúmenes (avisos de
 //    bodega y lo que espera de Cocina, con limit y count) y no vuelve a leer en cada apertura. Cada cambio hecho desde aquí
 //    olvida lo que toca; "Actualizar" (Hoy y Producción) olvida todo. Sin escuchas en vivo (onSnapshot) sobre fen-produccion.
+//  · v0.65.0: BODEGAS POR ÁREA RESPONSABLE (Panadería, Bollería, Pastelería y Cafetería; cocina/consumo.js v0.17.0). Cada
+//    materia prima crítica de producción tiene UNA bodega responsable; su stock (el mismo stockmp/{mpId} de siempre) baja con
+//    lo que consume cualquier área. "Asignar responsables" (una vez) propone por uso y, al confirmar, guarda config/bodegas
+//    { modo: 'responsable', areas, responsables, confirmado, historial }. Sin confirmar: como la v0.54.0. Correo de bajo el
+//    mínimo solo a las jefas del área responsable (script v2.11.0). Las mismas lecturas que antes (config ya se leía).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.63.7';
-import * as FBr from './firebase-produccion.js?v=0.63.7';
-import * as Apps from './apps.js?v=0.63.7';
-import { armar, AREAS } from './produccion-modelo.js?v=0.63.7';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.63.7';
-import * as K from './cocina/consumo.js?v=0.16.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.65.0';
+import * as FBr from './firebase-produccion.js?v=0.65.0';
+import * as Apps from './apps.js?v=0.65.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.65.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.65.0';
+import * as K from './cocina/consumo.js?v=0.17.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.11.0';
-import * as M from './fs-memoria.js?v=0.63.7';
-import { produccion as QP, esCuota } from './fs-cuota.js?v=0.63.7';
+import * as M from './fs-memoria.js?v=0.65.0';
+import { produccion as QP, esCuota } from './fs-cuota.js?v=0.65.0';
 
 // ── v0.63.3: todo pedido a fen-produccion pasa por aquí: se cuenta (Configuración → Uso de la base hoy) y, si Firestore dice
 // "cuota agotada" (resource-exhausted), se muestra el letrero de Producción/Cocina. Cada escritura de Sistema Fën en recetas,
@@ -104,7 +109,7 @@ async function conMarca(col, fn, forzar = false) {
 }
 
 export { AREAS };
-export { resumenPropuesta } from './finanzas-motor.js?v=0.63.7';
+export { resumenPropuesta } from './finanzas-motor.js?v=0.65.0';
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
@@ -112,6 +117,7 @@ export const VERSION_MERMA = '2.7.0';    // script con costos_merma (SistemaFen.
 export const VERSION_BODEGA = '2.8.0';   // script con bodega_adm (SistemaFen.gs v2.5)
 export const VERSION_ALERTAS = '2.9.0';  // script con stock_alerta (correo de bajo el mínimo; SistemaFen.gs v2.6)
 export const VERSION_COSTOS = '2.10.0';  // script con mp_costos (MP_maestro con precios para Finanzas; SistemaFen.gs v2.7)
+export const VERSION_RESP = '2.11.0';    // script que avisa solo a las jefas del área responsable (SistemaFen.gs v2.8)
 const K_CFG = 'fen_sistema_prod_cfg';
 const LOTE = 400;
 
@@ -425,7 +431,7 @@ export async function pendientesCocina({ forzar = false } = {}) {
 // (precios de la planilla), como antes. Siempre se sabe si se vende por unidad (Cafetería o vinculada en Finanzas).
 export async function costear(prop) {
   let fin = null;
-  try { fin = await (await import('./finanzas.js?v=0.63.7')).costosPropuesta(prop); } catch (e) { console.warn('Recetas por aprobar: sin el motor de Finanzas', e); fin = null; }
+  try { fin = await (await import('./finanzas.js?v=0.65.0')).costosPropuesta(prop); } catch (e) { console.warn('Recetas por aprobar: sin el motor de Finanzas', e); fin = null; }
   const okFin = fin && fin.propuesta && !(fin.propuesta.sinPrecio || []).length && (!prop.vigente || (fin.vigente && !(fin.vigente.sinPrecio || []).length));
   if (okFin) return fin;
   const recetas = [{ clave: 'propuesta', datos: prop.datos }];
@@ -579,7 +585,7 @@ export async function mermaDelPeriodo({ desde, hasta, fresco = false }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.63.7')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.65.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
   const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';
@@ -664,6 +670,7 @@ export async function calcularBodega({ guardar = true, hoy = CM.hoyTxt(), fresco
   pl.forEach(x => { datos.planes[x.id] = sinIdDe(x); });
   mt.forEach(x => { datos.metas[x.id] = sinIdDe(x); });
   const control = {}; sm.forEach(x => { control[x.id] = sinIdDe(x); });
+  datos.stockmp = control;   // v0.65.0: la ruta del consumo (bodega responsable) mira qué es crítico dónde
   // Cafetería: lo vendido en la caja (fen-ventas) y los días con venta (calibración diaria automática)
   let cafe = { ventas: [], sinReceta: {}, diasVenta: [], error: '' };
   try { cafe = await ventasCafeteria(desde, datos.recetas, forzar); } catch (e) { cafe.error = e.message || String(e); }
@@ -673,22 +680,26 @@ export async function calcularBodega({ guardar = true, hoy = CM.hoyTxt(), fresco
   // v0.54.0: por bodega (Producción y Cafetería): críticas, movimientos, consumo y proyección de cada una
   const mapa = K.mapaBodegas(datos.config.bodegas), bodegas = K.listaBodegas(mapa);
   const movs = K.movimientos(datos.dias, mapa);
-  const activa = m => (m.estado || 'activa') === 'activa' && m.tipo !== 'sub_receta';
+  // v0.65.0: con responsables, PAN, BOL, PAS y CAF (K.puestos: cada crítica en su bodega, con el documento donde vive)
+  const ps = K.puestos(datos.mps, control, mapa);
   const orden = (a, b) => (b.bajoAhora - a.bajoAhora) || ((a.bajoDesde || '9') < (b.bajoDesde || '9') ? -1 : (a.bajoDesde || '9') > (b.bajoDesde || '9') ? 1 : 0) || a.mp.nombre.localeCompare(b.mp.nombre, 'es');
   const porBodega = {}, proys = {};
   bodegas.forEach(bod => {
-    const docs = K.stockDe(control, bod);
     const proy = proys[bod] = K.proyeccion(datos, CM.sumarDias(hoy, 1), 7, eventos, bod);   // desde mañana: lo de hoy se descuenta al marcarlo hecho
-    porBodega[bod] = datos.mps.filter(m => activa(m) && K.controlEn(bod, m, docs[m.id]).critica)
-      .map(m => { const cfg = K.controlEn(bod, m, docs[m.id]); return { ...K.estado(m, cfg, K.stock(m.id, movs, eventos, bod), proy), bodega: bod, docId: K.idStock(bod, m.id) }; })
+    porBodega[bod] = ps.filter(p => p.bodega === bod)
+      .map(p => ({ ...K.estado(p.mp, p.cfg, K.stock(p.mp.id, movs, eventos, bod), proy), bodega: bod, docId: p.docId }))
       .sort(orden);
   });
   const criticas = bodegas.flatMap(b => porBodega[b]);
-  const proy = proys[K.BODEGA_PRINCIPAL];
+  const proy = proys[K.BODEGA_PRINCIPAL] || proys[bodegas[0]];
+  // v0.65.0: avisos de la configuración (críticas en dos bodegas de producción; críticas sin responsable elegida) y la propuesta
+  const repetidas = K.esResponsable(mapa) ? K.repetidasProd(ps, mapa) : [];
+  const sinResponsable = K.esResponsable(mapa) ? ps.filter(p => p.docId === p.mp.id && K.esProduccion(p.bodega, mapa) && !K.tieneResponsable(p.mp.id, mapa)).map(p => p.mp.id) : [];
+  const propuesta = propuestaResponsables({ datos, eventos, ps, mapa });
   const en = new Date().toISOString();
   if (guardar && criticas.length) {
     const b = FB.writeBatch(db);
-    criticas.forEach(e => b.set(FB.doc(db, 'stockmp', e.docId), { ...(e.bodega !== K.BODEGA_PRINCIPAL ? { bodega: e.bodega, mp: e.mp.id } : {}), estado: {
+    criticas.forEach(e => b.set(FB.doc(db, 'stockmp', e.docId), { ...(e.docId !== e.mp.id ? { bodega: e.bodega, mp: e.mp.id } : {}), estado: {
       contado: e.st.contado, stock: e.st.contado ? Math.round(e.st.stock) : null, alcanza: e.alcanza === null ? null : Math.round(e.alcanza * 10) / 10,
       bajoAhora: !!e.bajoAhora, bajoDesde: e.bajoDesde || null, minimo: Math.round(e.cfg.seguridad), en } }, { merge: true }));
     await b.commit();
@@ -700,7 +711,19 @@ export async function calcularBodega({ guardar = true, hoy = CM.hoyTxt(), fresco
   // Llegadas anotadas aquí que todavía no pasan a la planilla (si el script falló al anotarlas)
   const pendientes = Object.entries((datos.dias.ADM) || {}).flatMap(([fecha, d]) => Object.entries(d.bodega || {}).filter(([, b]) => b && !b.planilla).map(([id, b]) => ({ ...b, id, fecha })));
   if (pendientes.length) pasarLlegadasAdm(db, pendientes).catch(() => {});
-  return { hoy, desde, datos, control, eventos, movs, proy, proys, criticas, porBodega, bodegas, mapa, sinId, en, cafe };
+  return { hoy, desde, datos, control, eventos, movs, proy, proys, criticas, porBodega, bodegas, mapa, sinId, en, cafe, repetidas, sinResponsable, propuesta };
+}
+// v0.65.0 · "Asignar responsables": las críticas de producción (sin confirmar: las de PROD) con el uso por área (lo consumido en
+// los 120 días leídos; si no hay, las recetas) y la propuesta. Sin lecturas: usa lo ya calculado.
+// → [{ mp, uso: { PAN, BOL, PAS } (g, ml o un), pct, fuente: 'consumo' | 'recetas' | '', propuesta, motivo, actual }]
+export function propuestaResponsables({ datos, eventos, ps, mapa }) {
+  const u = K.usoPorArea(eventos, datos), vistos = new Set(), out = [];
+  (ps || []).filter(p => K.esProduccion(p.bodega, mapa) && p.docId === p.mp.id).forEach(p => {
+    if (vistos.has(p.mp.id)) return; vistos.add(p.mp.id);
+    const x = u.de(p.mp.id), pr = K.proponerResponsable(p.mp, x.uso);
+    out.push({ mp: p.mp, uso: x.uso, fuente: x.fuente, ...pr, actual: K.tieneResponsable(p.mp.id, mapa) ? mapa.responsables[p.mp.id] : '' });
+  });
+  return out.sort((a, b) => a.mp.nombre.localeCompare(b.mp.nombre, 'es'));
 }
 // Lo vendido desde "desde": los resúmenes de cada cierre (un día por caja) y, de las cajas abiertas, sus ventas
 // (con su hora). Cada línea va con la receta vinculada al producto en la caja (idRecetaFen); las de Cafetería
@@ -776,15 +799,16 @@ export function consumoPeriodo(calc, { desde, hasta }) {
 // Crítica y mínimo de una materia prima (seguridad en g, ml o un)
 // envase: { nombre: 'saco', tamano: 25000 (g, ml o un) } o null (se cuenta en kg, l o un)
 // v0.54.0: bodega = 'PROD' (stockmp/{mpId}, como siempre) o 'CAF' (stockmp/CAF__{mpId})
+// v0.65.0: con responsables, en la bodega responsable de esa materia prima va en stockmp/{mpId} (el de siempre); en otra, {BODEGA}__{mpId}
 const datosControl = ({ critica, seguridad, envase }) => {
   const datos = { critica: !!critica, seguridad: Math.max(0, Number(seguridad) || 0), editado: { por: authSF.currentUser.email, en: FB.serverTimestamp() } };
   if (envase !== undefined) datos.envase = envase && String(envase.nombre || '').trim() && Number(envase.tamano) > 0 ? { nombre: String(envase.nombre).trim().slice(0, 20), tamano: Number(envase.tamano) } : null;
   return datos;
 };
 export async function guardarControl(mpId, x, bodega = K.BODEGA_PRINCIPAL) {
-  const db = await dbOk(), datos = datosControl(x);
-  if (bodega !== K.BODEGA_PRINCIPAL) Object.assign(datos, { bodega, mp: mpId });
-  await FB.setDoc(FB.doc(db, 'stockmp', K.idStock(bodega, mpId)), datos, { merge: true });
+  const db = await dbOk(), datos = datosControl(x), mapa = K.mapaBodegas((await configMem()).bodegas || null), id = K.idStockEn(bodega, mpId, mapa);
+  if (id !== String(mpId)) Object.assign(datos, { bodega, mp: mpId });
+  await FB.setDoc(FB.doc(db, 'stockmp', id), datos, { merge: true });
   cambio('stockmp', 'hoy:alertas');
 }
 // "Pasar a Cafetería" (una vez, para las que hoy son críticas en Producción solo por Cafetería): copia crítica, mínimo y
@@ -813,11 +837,35 @@ export async function guardarMapaBodegas(areas, nombres) {
   await FB.setDoc(FB.doc(db, 'config', 'bodegas'), { areas, nombres, editado: { por: authSF.currentUser.email, en: FB.serverTimestamp() } }, { merge: true });
   cambio('config', 'hoy:alertas');
 }
+// v0.65.0 · Bodegas por área responsable. cambios = { mpId: 'PAN' | 'BOL' | 'PAS' }. confirmar = true la primera vez (pantalla
+// "Asignar responsables"): pasa a modo 'responsable' con el mapa PAN→PAN, BOL→BOL, PAS→PAS, CAF→CAF. Nada se copia ni se borra:
+// el stock, los conteos y las llegadas siguen en stockmp/{mpId} y conteosmp/{mpId}; solo cambia de qué bodega es.
+// Queda la historia (config/bodegas.historial, las últimas 200 vueltas: { en, por, cambios: { mpId: [antes, ahora] } }).
+export async function guardarResponsables(cambios, { confirmar = false } = {}) {
+  const db = await dbOk(), por = authSF.currentUser.email, en = new Date().toISOString();
+  const ref = FB.doc(db, 'config', 'bodegas'), sn = await FB.getDoc(ref), act = sn.exists() ? sn.data() : {};
+  const antes = { ...(act.responsables || {}) }, nuevos = { ...antes }, hechos = {};
+  if (!confirmar && act.modo !== K.MODO_RESP) throw new Error('Primero confirma los responsables (Asignar responsables).');
+  Object.entries(cambios || {}).forEach(([mp, b]) => {
+    if (!/^[A-Za-z0-9_-]{1,60}$/.test(mp) || /__/.test(mp) || !K.AREAS_PROD.includes(b)) return;
+    if (antes[mp] !== b) hechos[mp] = [antes[mp] || (act.modo === K.MODO_RESP ? 'PAN' : 'PROD'), b];
+    nuevos[mp] = b;
+  });
+  if (!Object.keys(hechos).length && (!confirmar || act.modo === K.MODO_RESP)) return { cambios: 0 };
+  const primera = act.modo !== K.MODO_RESP;
+  const historial = [...(Array.isArray(act.historial) ? act.historial : []), { en, por, cambios: hechos, ...(primera ? { confirmado: true } : {}) }].slice(-200);
+  const datos = { modo: K.MODO_RESP, responsables: nuevos, historial, editado: { por, en: FB.serverTimestamp() } };
+  if (primera) Object.assign(datos, { areas: { ...K.AREA_BODEGA_RESP }, nombres: { ...K.BODEGAS_RESP }, confirmado: { por, en }, antes: { areas: act.areas || null, nombres: act.nombres || null } });
+  await FB.setDoc(ref, datos, { merge: true });
+  cambio('config', 'stockmp', 'hoy:alertas');
+  return { cambios: Object.keys(hechos).length };
+}
 // Llegada desde Sistema Fën (va al día de Administración: dias/ADM_{fecha}), a la bodega elegida
 export async function registrarLlegada(mp, cantidadBase, nota, bodega = K.BODEGA_PRINCIPAL) {
   const db = await dbOk(), hoy = CM.hoyTxt(), id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   if (!(Number(cantidadBase) > 0)) throw new Error('La cantidad tiene que ser mayor que 0.');
-  const b = { tipo: 'llegada', mp: mp.id, nombre: mp.nombre, bodega, cantidad: Math.round(Number(cantidadBase) * 100) / 100, unidad: K.unidadMp(mp), nota: String(nota || '').slice(0, 120), por: authSF.currentUser.email, en: new Date().toISOString() };
+  const mapa = K.mapaBodegas((await configMem()).bodegas || null);
+  const b = { tipo: 'llegada', mp: mp.id, nombre: mp.nombre, bodega, ...(K.esResponsable(mapa) ? { stock: K.idStockEn(bodega, mp.id, mapa) } : {}), cantidad: Math.round(Number(cantidadBase) * 100) / 100, unidad: K.unidadMp(mp), nota: String(nota || '').slice(0, 120), por: authSF.currentUser.email, en: new Date().toISOString() };
   await FB.setDoc(FB.doc(db, 'dias', 'ADM_' + hoy), { area: 'ADM', fecha: hoy, bodega: { [id]: b }, actualizado: { por: authSF.currentUser.email, en: FB.serverTimestamp() } }, { merge: true });
   cambio('dias:', 'hoy:alertas'); if (diasInc) diasInc.revisado = 0;
   try { await pasarLlegadasAdm(db, [{ ...b, id, fecha: hoy }]); } catch (e) {}   // si falla, se reintenta al calcular la bodega
@@ -842,7 +890,7 @@ async function alertasLeer() {
     let lista = null;
     if (ultimo && Date.now() - new Date(ultimo).getTime() < 6 * 3600000) {
       // Las críticas de hoy (activas, en cada bodega): todas tienen que venir del último cálculo; si no, se calcula de nuevo
-      const crit = K.listaBodegas(mapa).flatMap(b => { const docs = K.stockDe(sm, b); return mps.filter(m => K.controlEn(b, m, docs[m.id]).critica).map(m => ({ m, b, d: docs[m.id], cfg: K.controlEn(b, m, docs[m.id]) })); });
+      const crit = K.puestos(mps, sm, mapa).map(p => ({ m: p.mp, b: p.bodega, d: p.sm, cfg: p.cfg }));
       if (crit.every(x => x.d && x.d.estado && x.d.estado.en === ultimo))
         lista = crit.map(x => ({ bodega: x.b, mp: x.m.id, nombre: x.m.nombre, unidad: x.cfg.unidad, minimo: x.cfg.seguridad, ...x.d.estado }));
     }
@@ -857,6 +905,7 @@ async function alertasLeer() {
   }
 }
 // Correo de "bajo el mínimo" (script v2.9.0, stock_alerta): el script manda uno por día, bodega y materia prima.
+// v0.65.0: con responsables, a las jefas del área responsable (script v2.11.0: recibe modo).
 // Aquí además se recuerda en el equipo lo ya pedido hoy, para no llamar al script cada vez que se abre Hoy.
 const K_ALERTAS = 'fen_sf_alertas_stock';
 export async function avisarBajos(bajos, mapa) {
@@ -865,7 +914,7 @@ export async function avisarBajos(bajos, mapa) {
   const nuevas = (bajos || []).filter(x => x.bajoAhora && K.bajoMinimo(x.hay, x.minimo) && !hechas[K.claveAlerta(hoy, x.bodega, x.mp)]);
   if (!nuevas.length) return { pedidas: 0 };
   const m = mapa || K.mapaBodegas();
-  const r = await script('stock_alerta', { fecha: hoy, mapa: m.areas, alertas: nuevas.map(x => ({ bodega: x.bodega, nombreBodega: K.nombreBodega(x.bodega, m), mp: x.mp, nombre: x.nombre, unidad: x.unidad, hay: Math.round(x.hay), minimo: Math.round(x.minimo) })) }, VERSION_ALERTAS);
+  const r = await script('stock_alerta', { fecha: hoy, mapa: m.areas, modo: m.modo, alertas: nuevas.map(x => ({ bodega: x.bodega, nombreBodega: K.nombreBodega(x.bodega, m), mp: x.mp, nombre: x.nombre, unidad: x.unidad, hay: Math.round(x.hay), minimo: Math.round(x.minimo) })) }, K.esResponsable(m) ? VERSION_RESP : VERSION_ALERTAS);
   const limpio = {}; Object.entries(hechas).forEach(([k, v]) => { if (k.slice(0, 10) >= CM.sumarDias(hoy, -3)) limpio[k] = v; });
   nuevas.forEach(x => { limpio[K.claveAlerta(hoy, x.bodega, x.mp)] = 1; });
   try { localStorage.setItem(K_ALERTAS, JSON.stringify(limpio)); } catch (e) {}

@@ -16,8 +16,8 @@
 //  generarVencimientos acepta la antelación por obligación (tipo documento: antes, para esperar la boleta).
 //  Sin red: se prueba sola. Fechas y horas en hora de Chile (America/Santiago).
 // ═══════════════════════════════════════════════
-import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.63.7';
-import * as G3 from './gastos-g3.js?v=0.63.7';
+import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.65.0';
+import * as G3 from './gastos-g3.js?v=0.65.0';
 
 // v0.63.1: B2B (costos del canal B2B: atención de clientes, órdenes y despacho)
 export const AREAS = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS', 'B2B'];
@@ -272,7 +272,7 @@ export function vistaVencimiento(id, d, hoy) {
   return { ...v, estado: G3.estadoVista(d, hoy || ahoraChile().dia), estadoBase: G3.estadoBase(d), fecha: G3.fechaReal(d), fechaEstimada: dia(d.fechaEstimada) || '',
     tipoObligacion: s(d.tipoObligacion), montoDocumento: d.montoDocumento === undefined ? '' : s(d.montoDocumento), fechaDocumento: dia(d.fechaDocumento) || '',
     documento: d.documento && typeof d.documento === 'object' ? d.documento : null, abonos: Array.isArray(d.abonos) ? d.abonos : [], suelto: d.suelto === true,
-    cerrado: d.cerrado || null, diasAviso: d.diasAviso === undefined ? '' : d.diasAviso };
+    cerrado: d.cerrado || null, diasAviso: d.diasAviso === undefined ? '' : d.diasAviso, fechaSaldo: dia(d.fechaSaldo) || '' };   // v0.64.0: saldo reagendado
 }
 function vistaVencimiento0(id, d) {
   return { id, plantillaId: s(d.plantillaID), nombre: s(d.nombre), item: s(d.item), periodoKey: s(d.periodoKey), fecha: dia(d.fechaVencimiento) || s(d.fechaVencimiento),

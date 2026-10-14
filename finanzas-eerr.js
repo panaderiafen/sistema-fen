@@ -21,7 +21,7 @@
 //  no se toca: lo que cambie después aparece como "Ajustes de meses cerrados" en el primer mes abierto siguiente
 //  (= cálculo de hoy del mes cerrado − su snapshot − lo ya informado como ajuste en otros meses cerrados).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.63.7';
+import * as FR from './finanzas-resultados.js?v=0.65.0';
 
 export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
 export const COLS = ['PAN', 'BOL', 'PAS', 'CAF', 'comun'];
@@ -284,7 +284,7 @@ export function checksCierre(D) {
   const tocan = vivas.filter(c => c.desde <= fin && c.hasta >= ini), hasta = tocan.map(c => c.hasta).sort().pop() || '';
   add('sii', 'SII del mes cargado', tocan.length && hasta >= fin,
     !tocan.length ? `No hay ninguna carga del SII con documentos de ${mesTxt(mes)}.` : hasta >= fin ? `Cargado hasta el ${fechaCorta(hasta > fin ? fin : hasta)}.` : `Las cargas llegan solo hasta el ${fechaCorta(hasta)}: falta el resto del mes.`,
-    '#gastos/sii', 'Que las compras del SII de todo el mes estén cargadas en Gastos → Cargas del SII (alguna carga cubre hasta el último día del mes). Sin eso faltan facturas en Gastos y el costo de las materias primas no está al día.');
+    '#conciliacion/sii', 'Que las compras del SII de todo el mes estén cargadas en Conciliación → Cargas del SII (alguna carga cubre hasta el último día del mes). Sin eso faltan facturas en Gastos y el costo de las materias primas no está al día.');
   // 2. Ventas completas (las dos sucursales y B2B): sin cajas abiertas ni cierres sin resumen
   const v = D.ventas || {};
   add('ventas', 'Ventas completas', !v.abiertas && !v.faltan,

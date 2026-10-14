@@ -1,9 +1,122 @@
-# Sistema Fën · v0.63.7
+# Sistema Fën · v0.65.0
 
-**App:** v0.63.7 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 14 de octubre de 2026
+**App:** v0.65.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** **v1.8.0 (nuevas)** · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** **v2.11.0 (nuevo)** · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.0 · 14 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.65.0: bodegas por área responsable (Panadería, Bollería, Pastelería, Cafetería)
+**Dónde:** Producción → Bodega (y Hoy). Va con **Cocina v0.17.0**, el **script de Producción v2.11.0** y las **reglas v1.8.0** de fen-produccion.
+
+### La decisión (14-oct)
+- Cuatro bodegas: **Panadería, Bollería, Pastelería y Cafetería**. Panadería y Bollería comparten el espacio, pero Bollería necesita cuidar más su consumo y tiene más materias primas; Pastelería tiene la suya.
+- Cada materia prima crítica tiene **UNA bodega responsable** (las harinas → Panadería). Su stock es uno solo y **baja con lo que consume cualquier área**: la harina que usan Bollería y Pastelería baja la de Panadería. Puede además ser crítica en Cafetería (otro stock físico, como ahora).
+- Ruta del consumo: lo de Cafetería → Cafetería; lo de Panadería, Bollería y Pastelería → la bodega de producción donde esa materia prima es crítica. Si es crítica en dos de producción (no debería), se avisa aquí: va a la del área que consume si la tiene; si no, a la responsable.
+- Cada área ve, cuenta y recibe en Cocina **solo lo suyo**. Hoy (aquí) muestra **todo**. El correo de bajo el mínimo va a ti y **solo a las jefas del área responsable**: Cafetería nunca recibe la harina; Bollería no recibe lo de Panadería.
+
+### Qué cambia en cómo trabajas
+1. **Asignar responsables (una vez).** Producción → Bodega → Calcular: arriba aparece **"Asignar responsables"** con cada crítica de Producción, el **uso por área** (% de Panadería, Bollería y Pastelería: lo consumido en los últimos 120 días o, si no hay, sus recetas) y la **propuesta**: harinas → Panadería; lo demás, el área que más la usa. Cambia lo que quieras y **Confirmar responsables**. Hasta confirmar, todo sigue como hoy (Producción compartida). (i) explica.
+2. **Pestañas Panadería · Bollería · Pastelería · Cafetería.** Cada una dice quién es la responsable. En cada fila hay **Responsable** (lista): cambiarla pasa la materia prima a otra área **sin mover el stock** (mismo documento, mismos conteos y llegadas) y queda en la historia.
+3. **Agregar crítica** en una pestaña de producción deja a esa área como responsable (si ya era de otra, pregunta).
+4. **Avisos:** "Críticas en más de una bodega de producción" (si pasa, con Quitar en su pestaña) y "Sin responsable elegida (van a Panadería)".
+5. **Hoy:** "Bajo el mínimo: Harina de fuerza (Panadería)" — una línea por materia prima y bodega, como antes.
+
+### Cómo queda guardado (fen-produccion; backward compatible, nada se copia ni se borra)
+- `config/bodegas` = `{ modo: 'responsable', areas: { PAN: 'PAN', BOL: 'BOL', PAS: 'PAS', CAF: 'CAF' }, nombres, responsables: { mpId: 'PAN' | 'BOL' | 'PAS' }, confirmado: { por, en (ISO) }, historial: [{ en, por, cambios: { mpId: [antes, ahora] }, confirmado? }] (últimos 200), antes: { areas, nombres } }`.
+- **Stock de producción:** sigue en `stockmp/{mpId}` y `conteosmp/{mpId}` (los de siempre); su bodega es la responsable. Cambiar la responsable solo cambia `responsables[mpId]`: continuidad total del stock y del historial de conteos. Una crítica en **otra** bodega de producción iría en `stockmp/{BODEGA}__{mpId}` (como `CAF__`).
+- **Llegadas y conteos:** los de antes (`bodega: 'PROD'` o sin campo) cuentan para la responsable de hoy (un conteo de harina hecho por Bollería con la v0.16 sigue siendo el último conteo de la harina de Panadería). Los nuevos llevan `'PAN'`, `'BOL'`… Después de confirmar, una anotación de un área sobre algo que no es suyo no se cuenta (y las reglas v1.8.0 no la dejan escribir).
+- El cálculo es `cocina/consumo.js` v0.17.0 (copia exacta de Cocina). Las llegadas de Administración siguen en `dias/ADM_{fecha}` con la bodega elegida.
+
+### Lecturas (cuota de fen-produccion)
+Ninguna lectura nueva: `config/bodegas` ya venía con la configuración (en memoria), la propuesta sale del cálculo de la bodega que ya se hace (120 días) y confirmar o cambiar una responsable = 1 lectura + 1 escritura de `config/bodegas`. Medido con `cuota-v0633.test.js` normal y con `BODEGAS_RESP=1` (bodegas confirmadas): mismos presupuestos. Cocina: las mismas escuchas que la v0.16.4 (`config/bodegas`, `stockmp`, `conteosmp`), cero lecturas nuevas.
+
+### Instalación v0.65.0 (orden: reglas → script → Sistema Fën → Cocina)
+1. **Reglas v1.8.0** de fen-produccion (`reglas-produccion-v1.8.0.zip` o `fen-cocina-v0.17.0.zip` → `firestore-produccion.rules`): consola de Firebase → **fen-produccion** → Firestore Database → Reglas → pegar todo → **Publicar**.
+2. **Script de Producción v2.11.0** (`produccion-script-v2.11.0.zip`): reemplaza **Seguridad** y **SistemaFen** → Implementar → Gestionar implementaciones → ✏️ → **Nueva versión**. Ping: `"version":"2.11.0"`.
+3. **Sistema Fën v0.65.0**: GitHub, repo **sistema-fen**, raíz → sube **todos** los archivos del zip (con la carpeta `cocina/`: cambia `cocina/consumo.js`) → Commit. Recarga (Ctrl+Shift+R).
+4. **Cocina v0.17.0** (`fen-cocina-v0.17.0.zip`) y **recarga todas las tablets**.
+5. Producción → Bodega → Calcular → **Asignar responsables** → Confirmar.
+
+### Lista de verificación v0.65.0
+- [ ] Abajo a la izquierda dice **v0.65.0**; Configuración → Conexiones: el script de Producción en **v2.11.0**.
+- [ ] Producción → Bodega → Calcular: aparece "Asignar responsables" con el % de uso por área y la propuesta (harinas → Panadería). El (i) explica.
+- [ ] Cambio una propuesta y **Confirmar responsables** → pestañas **Panadería · Bollería · Pastelería · Cafetería**; el stock de cada una es el mismo de antes.
+- [ ] En la pestaña Bollería, cambio la responsable de una materia prima a Pastelería → aparece en Pastelería con el mismo stock.
+- [ ] Bollería marca masas hechas en Cocina → Calcular: baja la harina de **Panadería**.
+- [ ] Algo bajo el mínimo: Hoy dice "Bajo el mínimo: … (Panadería)" y llega un correo a ti y a las jefas de esa área (no a las demás).
+- [ ] Celular, tablet y PC: nada se sale de lado (también la tabla de Asignar responsables).
+
+### Si algo sale mal
+Sube de nuevo la v0.64.0. Si ya confirmaste, en la consola de Firebase, documento `config/bodegas`: `modo` = `compartida` y `areas` = `{ PAN: 'PROD', BOL: 'PROD', PAS: 'PROD', CAF: 'CAF' }` (lo que quedó en `antes`), o avísame y lo hago: todo vuelve a la bodega común sin perder nada (los responsables y la historia quedan guardados para volver a confirmar). Las reglas v1.8.0 y el script v2.11.0 pueden quedar.
+
+Pruebas: `pruebas/cocina/responsables.test.mjs` (9 unitarias: mapa, ids compatibles, lo que ve cada área, ruta del consumo y stock único, repetidas, llegadas y conteos antes/después de confirmar, continuidad al cambiar la responsable, a quién avisar, propuesta por uso), `pruebas/sistemafen/reglas-v180.test.mjs` (4, simulador de reglas), `pruebas/produccion2110` (40, 3 nuevas: destinatarios exactos y la tablet solo avisa de lo suyo), `cocina-p1.test.js` (5 de punta a punta nuevas: Asignar responsables en 390/768/1024/1280, la harina de Panadería baja con lo de Bollería, cada área ve solo lo suyo y las reglas, aviso y correo exacto, cambiar responsable sin mover el stock). Capturas en `pruebas/capturas/bodegas-v017/`.
+
+Archivos: cambian `produccion.js`, `vista-produccion.js`, `cocina/consumo.js` (v0.17.0, copia exacta de Cocina), `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). Abajo a la izquierda: **v0.65.0**.
+
+## Novedades de la v0.64.0: Conciliación, el centro de todos los archivos
+**Dónde:** Conciliación (menú). Solo con Gastos en la base nueva (lo de B2B, igual que antes).
+
+### Qué cambia en cómo trabajas
+- **Todos los archivos se suben en un solo lugar:** Conciliación → botón **Subir archivo** (arriba, con su (i)). Reconoce solo la cartola (histórica o en línea), las transferencias recibidas, las **transferencias enviadas** (nuevo), el archivo del SII (XML, XLS o CSV) y el certificado de Previred (PDF), y te lleva a su pestaña.
+- **Cargas del SII y Previred salieron de Gastos:** ahora están en Conciliación (pestañas **Cartola · Cargas del SII · Previred · Proveedores**). Los enlaces viejos (`#gastos/sii`, `#gastos/previred`) llevan solos al lugar nuevo.
+- **Baja también la "consulta de transferencias enviadas"** de BancoEstado cuando bajes la cartola (sobre todo la en línea): con ella cada cargo dice a quién pagaste y se reconoce el proveedor.
+- **Previred se concilia de una vez:** abre uno de los cargos (AFP, IPS, Fonasa, isapre, caja, mutual) → **Pago de Previred (cotizaciones)**: los del mismo día ya vienen marcados; si suman el certificado, un toque paga el vencimiento.
+- **Pagos en partes:** si un cargo es menos que la factura o el vencimiento, queda como **abono** ("Con abonos · saldo $X"); el último lo deja pagado. **Reagendar saldo** si quedaste en pagar el resto otro día.
+- **Sueldos:** al hacer un abono eliges el **mes**; un cargo de los primeros 15 días propone el mes anterior.
+- **Proveedores sin factura** (el maestro, los huevos): créales una **ficha a mano** en Conciliación → Proveedores (cómo aparecen en la cartola, ítem y área): sus cargos se reconocen solos.
+- **Reventa:** lo que compras para vender tal cual va al ítem **PRODUCTOS DE REVENTA** con el área donde se vende (explicado en Finanzas → Cómo trabajamos y en el (i) de Gastos).
+
+### Lo nuevo, punto por punto
+1. **Reventa.** Finanzas → Resultados → Clasificación propone "Compras de productos de reventa" cuando el ítem dice REVENTA, CHOCOLATE(S), INFUSION(ES), TE/TES o MAGIA (además de bebidas y jugos). Cómo trabajamos tiene "Productos de reventa" (ítem PRODUCTOS DE REVENTA con el área donde se vende; el costo de lo vendido = costo de compra neto del producto en Márgenes → Asociar productos × unidades; la compra no es línea de gasto). El mismo texto en un (i) de Gastos → Registrar e Ítems. **Pendiente:** que el costo de compra de la reventa se actualice solo con cada factura del SII (hoy se escribe a mano).
+2. **Conciliación = centro de archivos.** Pestañas Cartola (con Abonos (B2B) y Cargos (Gastos) dentro), Cargas del SII (la misma pantalla reorganizada en la v0.63.7), Previred y Proveedores. **Subir archivo** reconoce: transferencias enviadas (por los encabezados), transferencias recibidas y cartola (.xlsx), SII (XML/XLS/CSV; un .xls que no es cartola va al SII) y Previred (PDF). Gastos ya no tiene esas pestañas.
+3. **Abono de sueldo: elegir el mes.** Aparecen todos los vencimientos libres abiertos (de cualquier mes), el más nuevo primero, con su período ("octubre 2026"). La propuesta ("Por la fecha del cargo"): los sueldos del mes M se pagan a inicios de M+1, así que si el cargo es del día 15 o antes se propone el del mes anterior (si sigue abierto); si no, el del mes del cargo. Lo aprendido también usa esta regla. Puedes elegir otro.
+4. **"Ya está en Gastos": filtros y factura que llega después.** Chips **Todos · SII con detalle · Registro de compras (RCV) · A mano · Vencimientos · Planilla antigua** (con cuántos hay). Si ninguna carga del SII cubre el mes del cargo (la misma cobertura de "Qué está cubierto"): "El SII de octubre no está cargado: esta compra podría tener factura que llega después." Un **Gasto nuevo** en ese caso queda `esperaFactura: true` (salvo "No lleva factura"). Al cargar el SII, una factura del mismo monto (±$1) de 5 días antes hasta 30 días después del cargo aparece en esa carga como **"Ya está en Gastos (desde la cartola)"** para vincularla en vez de crear otro gasto. Nunca se vincula ni duplica solo.
+5. **Pago de Previred desde la cartola.** Opción nueva en el cargo. Se marcan los cargos del mismo día (±1) que parecen de Previred (por la glosa o lo aprendido); se suman contra el total del certificado del vencimiento de Cotizaciones. Iguales (±$10) → paga el vencimiento como siempre (un gasto por trabajador con su área e ítem: lo del certificado) y todos los cargos quedan conciliados juntos. Distintos → muestra la diferencia; se confirma escribiendo el motivo (queda en el vencimiento) o se cancela. Se aprende. **Deshacer uno deshace el pago completo** (todos sus cargos vuelven a revisar, el vencimiento queda por pagar, los gastos anulados). Un solo cargo por el total se sigue proponiendo como antes ("Paga vencimientos").
+6. **Proveedores.** De la glosa del cargo se lee "TEF A RUT …" (con dígito verificador), "TEF A <NOMBRE>" o "TRANSF A <NOMBRE>"; con la transferencia enviada, su RUT y nombre completo. Se busca la ficha `proveedores/{rut}` (o lo aprendido de esa glosa, o el nombre) y el cargo muestra **"Proveedor: …"** y, al abrirlo, "… · le compras: harina t80 25 kg, levadura … · últimas facturas: F.777 (01-10) $238.000" con **Ver ficha**; sus facturas por pagar salen primero ("de este proveedor"). Pestaña **Proveedores**: lista, búsqueda (nombre, RUT, producto, glosa), detalle (lo que le compras —productos del detalle del SII e ítems de siempre—, facturas por pagar y últimas, pagos vinculados, cómo aparece en la cartola) y **fichas a mano** (nombre, RUT opcional, glosas, ítem y área usuales: "Gasto nuevo" viene con ese ítem). Al confirmar un cargo de un proveedor conocido, su glosa queda aprendida en la ficha. "Armar fichas" (Base nueva) no borra lo puesto a mano. Todo desde la memoria: ninguna lectura por cargo.
+7. **Días entre la compra y el cargo** (Ya está en Gastos): "cargo N días después" en **amarillo** desde 10 días y en **rojo** desde 20, con "puede no ser la compra de este cargo".
+8. **Pagos parciales (abonos) a vencimientos que no son libres y a facturas.** En Paga vencimientos, con un solo vencimiento elegido y el cargo menor a lo que falta: "se registra como abono y queda saldo $X" → **Registrar abono**. A mano (efectivo): Gastos → Vencimientos → **Abono** (o en el menú de los tres puntos de los de banco, "Registrar abono (pago parcial)"). Estado **"Con abonos · saldo $X"**, con los abonos y "de $total". **Reagendar saldo**: fecha nueva para lo que falta (Agenda, Hoy y atrasos usan esa fecha). El último abono lo deja pagado. Un cargo igual al saldo se propone solo ("Abono al saldo de …").
+   **Decisión (lo devengado):** el gasto es el **documento completo**, nunca el abono. Factura del SII o compra a crédito: su gasto ya existe (se creó al importar); los abonos no crean gastos y el **último le pone la fecha de pago**. Obligación fija o según documento (o vencimiento suelto), cuyos gastos nacen al pagar: el **gasto completo se crea con el primer abono** (total del documento o lo estimado, con su ítem y áreas) y queda con el cargo de ese abono. Cada abono guarda `{ fecha, monto, origen: cartola | mano, cargoId, parcial: true }` para el flujo de caja (F4). Previred y las obligaciones libres no usan esto (tienen lo suyo). Deshacer: el abono sale (queda en `abonosQuitados`); si era el primero, su gasto completo queda anulado (si hay abonos después, primero hay que deshacer esos).
+9. **Origen del cargo.** Cada cargo dice de qué archivo salió: "Cartola histórica N°060 (14-10)" (N° y día en que se subió), "Cartola en línea del 13-10-2026", "Transferencias enviadas del 14-10-2026". Se guarda al subir (`fuentes: [{ tipo, numero, generada, subida }]`); si el mismo cargo llega después en otro archivo (la histórica después de la en línea) se le suma la fuente. Lo de antes se deduce de la cartola. Si viene solo de la en línea y la glosa trae poca información: "Viene de la cartola en línea, que trae poca información: sube la consulta de transferencias enviadas o la cartola histórica." (con su (i): la histórica llega cada 36 movimientos).
+10. **Transferencias ENVIADAS** (BancoEstado "TefSimpleConsultaEnviadas_<rut>_<fecha>.xlsx"): hoja Encabezado (Cuenta Origen "número | tipo", Fecha Desde/Hasta, Estado) y hoja Transferencias (N° de Operación, Fecha de Ejecución "dd/mm/aaaa hh:mm", Rut Destino, Nombre Destino, Cuenta Destino, Banco Destino, Concepto, Monto). Se reconoce por los encabezados. Se guardan en fen-gastos `tef_enviadas/{cuenta}_{operación}` (solo los últimos 180 días; subir el mismo archivo no repite). Cruce con los **cargos**: misma cuenta (tipo y últimos 4 dígitos), monto exacto y la ventana de la v0.63.4 (1 día antes a 3 días hábiles después, `feriados-cl.js`); una transferencia nunca en dos cargos. El cargo muestra **"Pagaste a: NOMBRE · RUT · Banco · hora · «concepto»"**; su RUT sirve para el proveedor y para el abono de sueldo (la clave del destinatario de la v0.63.1 usa el RUT; "Para quién" viene con el nombre).
+
+### Lecturas (cuota de fen-gastos)
+Medido en `cuota-v0632.test.js` (volumen de un año): subir 300 transferencias enviadas = 300 escrituras y 0 lecturas; la primera lista de cargos después lee esas 300 una vez; después, 20 listas con 120 cargos por revisar (cada uno con su transferencia y su proveedor) = **0 lecturas**; Proveedores ×5 = 0; pago de Previred con 3 cargos = 10 lecturas y 10 escrituras. Conciliar 100 cargos sigue en 715 lecturas. Día pesado: ≈ 4.800 lecturas (bajo 20.000).
+
+### Dónde se guarda (fen-gastos; las reglas v0.1.0 ya lo cubren)
+- `tef_enviadas/{cuenta}_{operación}`: `{ op, fecha, hora, rut, rutTxt, nombre, cuentaDest, banco, concepto, monto, cuentaNum, cuentaTipo, cuentaFin, archivo, subida, por }`. **No pasa a la planilla.**
+- `proveedores/{rut}` o `proveedores/pm-<nombre>` (a mano): suma `nombre, glosas, item, area, manual, historial`. No pasa a la planilla (como siempre).
+- Cargos: `fuentes`; acción `previred` (detalle `previred { vencimientoId, total, suma, diferencia, motivo, cargos, gastos }`) y `abono_parcial` (detalle `abonoParcial { vencimientoId, n, monto, total, saldo, final, gastos }`). Lo aprendido: acción `previred`.
+- Vencimientos: abonos con `parcial: true`, `fechaSaldo`, y en Previred `pago { cargos, diferencia, motivo }`. Gastos: `esperaFactura`, `origenDetalle.abonoParcial`.
+- **Script de Gastos: sin cambios (v2.18.0).** La planilla no necesita columnas nuevas: los abonos parciales van en la columna Abonos (texto, como los de sueldo) y el estado sigue PENDIENTE/PAGADO; `fechaSaldo`, `esperaFactura` y `fuentes` quedan solo en la base. **Reglas: sin cambios.**
+
+Por dentro: nuevos `tef-enviadas.js` (leer, id, cruce, texto) y `proveedores.js` (glosa, búsqueda, lo que le compras, fichas a mano); `gastos-cartola.js` (período del abono, Previred, saldo, fuentes del cargo), `gastos-cartola-fs.js` (lista con enviadas y proveedores, `abono_parcial`, `previred` y su deshacer, `guardarEnviadas`, `proveedoresLista`, `guardarFicha`, glosa aprendida), `gastos-fs.js` (`abonoParcial`, `reagendarSaldo`), `gastos-g3.js` (`abonoParcial`, `quitarAbonoParcial`, `totalVenc`, `saldoVenc`, `fechaReal` con el saldo reagendado), `gastos-banco.js` (filtros por origen, color de los días), `gastos-sii.js`/`gastos-sii-fs.js` (desde la cartola, ±$1; "Armar fichas" conserva lo puesto a mano), `finanzas-resultados.js` (reventa), `vista-finanzas.js` (Cómo trabajamos), `fs-gastos.js` (`tef_enviadas` en los resúmenes), `cartola.js`, `gastos.js`, `gastos-g2.js`, `app.js`, `estilos.css` (también: el menú de tres puntos del vencimiento se abre dentro de la fila).
+
+Pruebas: nueva `pruebas/sistemafen/conciliacion-v064.test.js` (25: 10 unitarias y 15 de punta a punta con datos ficticios: pestañas y rutas viejas; Subir archivo con enviadas (sin repetir) y cartola; origen, "Pagaste a" y proveedor; abono parcial a la factura y al arriendo (gasto completo), Reagendar saldo; Previred con 3 cargos, deshacer y con diferencia y motivo; sueldo por mes y RUT; filtros y días; esperando factura → XML → "desde la cartola"; en línea: el saldo cierra la factura y aviso de glosa pobre; Proveedores y ficha a mano; reventa; planilla; 390). Fixture ficticio `pruebas/sistemafen/datos/tef-enviadas-prueba.xlsx`. `cuota-v0632.test.js`: caso nuevo (enviadas, proveedores, Previred, sin lecturas por cargo). `sf-pantallas.test.js`: Cargas del SII y Previred en Conciliación, Proveedores, ficha nueva, Previred y Ya está en Gastos en el cargo, Abono, en 390/768/1280. Ajustadas a las rutas nuevas: `b2b-v018`, `gastos-g3e`, `gastos-g3c` (el período en la propuesta del abono) y `gastos-g2` (la nota de Drive de Consulta de cargas va en su (i), desde la v0.63.7). Capturas en `pruebas/capturas/conciliacion-v064/`.
+
+Archivos: nuevos `tef-enviadas.js` y `proveedores.js`; cambian los de arriba, `config.js`, `index.html`, `README.md` y los demás `.js` (solo versión). La carpeta `cocina/` no cambia. Abajo a la izquierda: **v0.64.0**.
+
+### Instalación v0.64.0 (unos 3 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.64.0.zip` (con la carpeta `cocina/`, que no cambia) → **Commit changes**. Espera 1 o 2 minutos y recarga Sistema Fën en todos los equipos (Ctrl+Shift+R en el PC). Nada en Apps Script, reglas ni Cocina.
+
+### Lista de verificación v0.64.0
+- [ ] Abajo a la izquierda dice **v0.64.0**.
+- [ ] Gastos ya no tiene "Cargas del SII" ni "Previred"; Conciliación tiene **Cartola · Cargas del SII · Previred · Proveedores** y el botón **Subir archivo**.
+- [ ] Un marcador viejo a `#gastos/sii` abre Conciliación → Cargas del SII.
+- [ ] **Subir archivo** con la consulta de transferencias enviadas: dice cuántas trae y cuántas son nuevas; subirla de nuevo: 0 nuevas.
+- [ ] **Subir archivo** con la cartola: va a Cargos; un cargo por transferencia dice "Pagaste a: …" y su origen ("Cartola histórica N°… (dd-mm)").
+- [ ] Un cargo a un proveedor con facturas: "Proveedor: …"; al abrirlo, "le compras: …" y su factura por pagar primero.
+- [ ] Un cargo menor que su factura: "Registrar abono" → la factura queda "Con abonos · saldo $X"; el cargo del saldo se propone y la deja pagada.
+- [ ] Gastos → Vencimientos: "Abono" / "Reagendar saldo" en uno con monto.
+- [ ] Previred: abre el cargo de la AFP → "Pago de Previred": los del día vienen marcados y calzan con el certificado → Pagar.
+- [ ] Abono de sueldo a inicios de mes: propone el mes anterior ("Por la fecha del cargo").
+- [ ] Ya está en Gastos: filtros por origen; un gasto de hace más de 20 días sale en rojo.
+- [ ] Gasto nuevo de un mes sin SII: avisa; al cargar el SII de ese mes, la factura dice "Ya está en Gastos (desde la cartola)".
+- [ ] Proveedores: crea una ficha a mano para uno sin factura (con cómo aparece en la cartola).
+- [ ] Finanzas → Cómo trabajamos: "Productos de reventa".
+- [ ] En el celular nada se sale de lado.
+
+### Si algo sale mal
+Sube de nuevo los archivos de la v0.63.7: Cargas del SII y Previred vuelven a Gastos y todo funciona como antes. Lo guardado (`tef_enviadas`, fichas a mano, `fuentes`, abonos parciales, `fechaSaldo`, `esperaFactura`) queda en fen-gastos sin estorbar; con la v0.63.7, un vencimiento con abonos parciales se ve "Con abonos" pero no se puede seguir abonando: termina de pagarlo cuando vuelvas a la v0.64.0.
 
 ## Novedades de la v0.63.7: Cargas del SII — la carga abierta debajo de la lista e "Importar compra" una por una
 **Dónde:** Gastos → Cargas del SII.

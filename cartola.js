@@ -8,13 +8,13 @@
 //  v0.50.0: con Gastos en la base nueva, todo va a gastos-cartola-fs.js (fen-gastos) y las propuestas siguen la forma de
 //  trabajar acordada (gastos-cartola.js: monto fijo, documento, abonos). Con la planilla, igual que en la v0.49.0.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.63.7';
-import * as CB from './gastos-cartola.js?v=0.63.7';
-export { resumenLote } from './gastos-cartola.js?v=0.63.7';
+import * as Gastos from './gastos.js?v=0.65.0';
+import * as CB from './gastos-cartola.js?v=0.65.0';
+export { resumenLote } from './gastos-cartola.js?v=0.65.0';
 
 export const VERSION_CARTOLA = '2.8.0';
 const op = (o, d, idem) => Gastos.llamar(o, d, idem, VERSION_CARTOLA);
-const fsC = () => import('./gastos-cartola-fs.js?v=0.63.7');
+const fsC = () => import('./gastos-cartola-fs.js?v=0.65.0');
 const enBase = () => Gastos.enBase();
 
 let cache = null;
@@ -69,6 +69,12 @@ export async function confirmarVarios(lista, avance = () => {}) {
   avance(lista.length, lista.length, null);
   return out;
 }
+
+// v0.64.0 · Transferencias enviadas y Proveedores (solo con la base nueva)
+const soloBase = async () => { if (!(await enBase())) throw Object.assign(new Error('Esto funciona cuando Gastos trabaja con la base nueva (Gastos → Base nueva).'), { code: 'planilla' }); return fsC(); };
+export async function guardarEnviadas(L, nombre) { const r = await (await soloBase()).guardarEnviadas(L, nombre); olvidar(); return r; }
+export async function proveedores() { return (await soloBase()).proveedoresLista(); }
+export async function guardarFicha(p) { const r = await (await soloBase()).guardarFicha(p); olvidar(); return r; }
 
 // ── Propuestas ──
 const norm = s => String(s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();

@@ -19,12 +19,12 @@
 //  · v0.53.0: el documento del vencimiento guarda también neto, iva, exento, otroImpuesto, total, tipoDoc y esHarina de la
 //    factura (también al asignarla desde la bandeja): al pagarlo, el gasto toma el neto exacto. avisoCargas(): "SII sin cargar".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.63.7';
-import * as GB from './gastos-base.js?v=0.63.7';
-import * as M from './gastos-g2.js?v=0.63.7';
-import * as S from './gastos-sii.js?v=0.63.7';
-import * as G3 from './gastos-g3.js?v=0.63.7';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.63.7';
+import * as FB from './fs-gastos.js?v=0.65.0';
+import * as GB from './gastos-base.js?v=0.65.0';
+import * as M from './gastos-g2.js?v=0.65.0';
+import * as S from './gastos-sii.js?v=0.65.0';
+import * as G3 from './gastos-g3.js?v=0.65.0';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.65.0';
 
 const error = (msg, code, datos) => Object.assign(new Error(msg), { code, ...(datos ? { datos } : {}) });
 const s = v => String(v == null ? '' : v);
@@ -295,11 +295,11 @@ export async function vincular(p) {
       if (!g || g.estado !== 'vigente' || g.quitadoEnPlanilla || s(g.rutProveedor).trim() || s(g.fecha).slice(0, 10) !== p.fecha) throw error(CAMBIO, 'cambio');
       suma += parseFloat(g.montoFinal) || 0;
     });
-    if (Math.round(suma) !== Math.round(Number(p.total))) throw error(CAMBIO, 'cambio');
+    if (Math.abs(Math.round(suma) - Math.round(Number(p.total))) > (sns.some(sn => sn.data().esperaFactura === true) ? 1 : 0)) throw error(CAMBIO, 'cambio');
     const filas = [];
     sns.forEach((sn, i) => {
       const g = sn.data(), obs = S.obsVinculada(g.observacion, folio, tipo), m = obs.match(S.RE_FOLIO_OBS);
-      const campos = { rutProveedor: rut, razonSocial: razon, observacion: obs, folio: m ? m[2] : '', esNC: m ? (m[1] === 'NC' || Number(g.montoFinal) < 0) : false, siiDoc: { id: docId, rut, folio, tipo } };
+      const campos = { rutProveedor: rut, razonSocial: razon, observacion: obs, folio: m ? m[2] : '', esNC: m ? (m[1] === 'NC' || Number(g.montoFinal) < 0) : false, siiDoc: { id: docId, rut, folio, tipo }, ...(g.esperaFactura === true ? { esperaFactura: false } : {}) };
       tx.update(refs[i], cambioLigero(g, 'vinculó', campos, { documento: S.claveDocumento(rut, folio, tipo) }));
       const x = S.filaGasto(ids[i], { ...g, ...campos }); if (x) filas.push(x);
     });
@@ -377,6 +377,8 @@ export async function armarProveedores(avance = () => {}) {
   const ids = Object.keys(fichas), conDatos = ids.length;
   // Las que ya no tienen nada en los últimos 2 años quedan vacías (no se borran)
   prev.forEach(x => { if (!fichas[x.id]) { fichas[x.id] = { ...x.d, filas: [], prods: [], documentos: 0, productos: 0 }; ids.push(x.id); } });
+  // v0.64.0: lo puesto a mano en la ficha (nombre, glosas de la cartola, ítem y área usuales) no se pierde al rearmar
+  prev.forEach(x => { const f = fichas[x.id], a = x.d || {}; if (!f) return; ['manual', 'nombre', 'glosas', 'item', 'area', 'archivado', 'historial', 'version', 'creado', 'glosaAprendida'].forEach(k => { if (a[k] !== undefined && f[k] === undefined) f[k] = a[k]; }); });
   let hechos = 0;
   for (let i = 0; i < ids.length; i += 200) {
     const b = FB.writeBatch(d);

@@ -16,8 +16,8 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.63.7';
-import * as B from './gastos-banco.js?v=0.63.7';
+import * as G3 from './gastos-g3.js?v=0.65.0';
+import * as B from './gastos-banco.js?v=0.65.0';
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
@@ -66,7 +66,8 @@ const json = t => { if (t && typeof t === 'object') return t; try { return t ? J
 export function vistaCargo(id, d) {
   const c = { id: s(d.id) || id, docId: id, huella: s(d.huella), cuenta: s(d.cuenta), cuentaN: s(d.cuentaN), fecha: dia(d.fecha), descripcion: s(d.descripcion), monto: num(d.monto), saldo: num(d.saldo),
     operacion: s(d.nOperacion), cartola: s(d.cartola), nCartola: s(d.nCartola), subidaEl: s(d.subidaEl).slice(0, 16), subidaPor: s(d.subidaPor), estado: s(d.estado),
-    accion: s(d.accion), detalle: json(d.detalle), resueltoEl: s(d.resueltoEl).slice(0, 16), resueltoPor: s(d.resueltoPor), historial: s(d.historial), version: Number(d.version) || 0 };
+    accion: s(d.accion), detalle: json(d.detalle), resueltoEl: s(d.resueltoEl).slice(0, 16), resueltoPor: s(d.resueltoPor), historial: s(d.historial), version: Number(d.version) || 0,
+    fuentes: Array.isArray(d.fuentes) ? d.fuentes : [] };   // v0.64.0: de qué archivos salió
   c.rut = rutDe(c.descripcion); c.clave = claveDe(c.descripcion);
   return c;
 }
@@ -97,20 +98,26 @@ export function limpiarCarga(meta, lista) {
 // existentes: cargos vistaCargo; limpios con { id, huella } ya calculados; reglas: mapaReglas.
 // Devuelve { nuevos: [{ id, doc }], cuenta: { cargos, nuevos, yaVistos, ignorados } }
 export function planCarga(L, existentes, reglas, ahora, quien) {
-  const ya = new Set(), porOp = new Set();
-  (existentes || []).forEach(c => { ya.add(c.id); const k = claveOp(c.cuenta, c.fecha, c.monto, c.operacion); if (k) porOp.add(k); });
-  const r = { cargos: L.limpios.length, nuevos: 0, yaVistos: 0, ignorados: 0 }, nuevos = [];
+  const ya = new Set(), porOp = new Map(), porId = new Map();
+  (existentes || []).forEach(c => { ya.add(c.id); porId.set(c.id, c); const k = claveOp(c.cuenta, c.fecha, c.monto, c.operacion); if (k) porOp.set(k, c); });
+  const r = { cargos: L.limpios.length, nuevos: 0, yaVistos: 0, ignorados: 0 }, nuevos = [], masFuentes = [];
   L.limpios.forEach(x => {
     const ko = claveOp(L.cuenta, x.fecha, x.monto, x.operacion);
-    if (ya.has(x.id) || (ko && porOp.has(ko))) { r.yaVistos++; return; }
-    ya.add(x.id); if (ko) porOp.add(ko);
+    if (ya.has(x.id) || (ko && porOp.has(ko))) {
+      r.yaVistos++;
+      // v0.64.0: el mismo cargo en otra clase de archivo (en línea → histórica): se anota la fuente nueva
+      const prev = porId.get(x.id) || (ko && porOp.get(ko));
+      if (prev && L.fuente && !fuentesCargo(prev).some(f => f.tipo === L.fuente.tipo)) masFuentes.push({ id: prev.docId || prev.id, fuentes: fuentesCargo(prev).concat([L.fuente]) });
+      return;
+    }
+    ya.add(x.id); if (ko) porOp.set(ko, { id: x.id, fuentes: L.fuente ? [L.fuente] : [] }); porId.set(x.id, { id: x.id, fuentes: L.fuente ? [L.fuente] : [] });
     const regla = reglas[claveDe(x.descripcion)], ign = regla && regla.accion === 'ignorar';
     nuevos.push({ id: x.id, doc: { id: x.id, huella: x.huella, cuenta: L.cuenta, cuentaN: L.cuentaN, fecha: x.fecha, descripcion: x.descripcion, monto: x.monto, saldo: x.saldo, nOperacion: x.operacion,
-      cartola: L.ident, nCartola: L.nCartola, subidaEl: ahora, subidaPor: quien, estado: ign ? ESTADOS.ignorado : ESTADOS.revisar, accion: ign ? 'ignorar' : '',
+      cartola: L.ident, nCartola: L.nCartola, subidaEl: ahora, subidaPor: quien, ...(L.fuente ? { fuentes: [L.fuente] } : {}), estado: ign ? ESTADOS.ignorado : ESTADOS.revisar, accion: ign ? 'ignorar' : '',
       detalle: ign ? JSON.stringify({ motivo: regla.ejemplo || 'No es gasto', regla: true }) : '', resueltoEl: ign ? ahora : '', resueltoPor: ign ? 'regla (siempre)' : '', historial: '' } });
     if (ign) r.ignorados++; else r.nuevos++;
   });
-  return { nuevos, cuenta: r };
+  return { nuevos, cuenta: r, masFuentes };
 }
 // La fila de la cartola (una vez por cartola y cuenta; una cartola grande llega en partes: la parte 2 en adelante suma)
 export function filaCartola(previa, meta, L, r, parte, ahora, quien) {
@@ -138,7 +145,7 @@ export function desaprender(act, accion, ahora, quien) {
 export function aDesaprender(c) {
   if (c.estado === ESTADOS.aMedias) return null;
   if (c.accion === 'ignorar') return c.detalle && c.detalle.siempre ? 'ignorar' : null;
-  return { vencimientos: 'vencimiento', nuevo: 'gasto', abono: 'abono', [PAGO_TARJETA]: PAGO_TARJETA, [TRASPASO]: TRASPASO }[c.accion] || null;
+  return { vencimientos: 'vencimiento', nuevo: 'gasto', abono: 'abono', [PAGO_TARJETA]: PAGO_TARJETA, [TRASPASO]: TRASPASO, [PREVIRED]: PREVIRED }[c.accion] || null;
 }
 // "Deshecho … por …: motivo (antes: …)", al final del historial (texto, como la columna Historial)
 export function conDeshecho(c, motivo, ahora, quien) {
@@ -167,6 +174,9 @@ export function vencimientosAbiertos(vencs, plantillas, siiRut, hoy) {
       estado: G3.estadoVista(d, hoy), estadoBase: G3.estadoBase(d), tipoObligacion: pid ? (o && G3.sinClasificar(o) && !s(d.tipoObligacion) ? 'sin_clasificar' : tipo || 'fijo') : '',
       montoDocumento: montoDoc, conDocumento: !!d.documento, area: s(d.area), multiArea: Array.isArray(ma) ? ma : [], pArea1: s(d.pArea1), pPct1: s(d.pPct1), pArea2: s(d.pArea2), pPct2: s(d.pPct2), pArea3: s(d.pArea3), pPct3: s(d.pPct3),   // v0.63.1: para el área del abono
       abonos: Array.isArray(d.abonos) ? d.abonos : [], suelto: d.suelto === true, obs: s(d.obs),
+      // v0.64.0: período (abono de sueldo), total y saldo (pagos parciales), certificado de Previred
+      periodo: /^\d{4}-\d{2}$/.test(s(d.periodoKey)) ? s(d.periodoKey) : dia(d.fechaVencimiento).slice(0, 7), total: G3.totalVenc(d), saldo: G3.saldoVenc(d), conLineas: G3.conLineas(d), fechaSaldo: dia(d.fechaSaldo),
+      previred: d.documento && d.documento.tipo === 'previred' && d.documento.previred ? { periodo: s(d.documento.previred.periodo), total: (d.documento.previred.trabajadores || []).reduce((t, x) => t + num(x.total), 0), n: (d.documento.previred.trabajadores || []).length } : null,
       folio: m ? m[2] : '', razon: m ? m[1].trim() : '', rut: (siiRut && siiRut[id]) || (d.documento && d.documento.tipo === 'sii' ? rutNorm(d.documento.rut) : ''), sii: '' });
   });
   return out.sort((a, b) => s(a.fecha).localeCompare(s(b.fecha)) || a.id.localeCompare(b.id));
@@ -220,6 +230,14 @@ export function proponer(c, D) {
   const docs = vencs.filter(v => v.plantillaId && v.tipoObligacion === 'documento');
   const conMonto = docs.filter(v => v.montoDocumento > 0 && v.montoDocumento === c.monto && enVentana(c, v));
   if (conMonto.length === 1) return pagoDe(c, conMonto[0], 'documento', true, `${conMonto[0].nombre} (documento de ${fmt(conMonto[0].montoDocumento)})`);
+  // v0.64.0 · Pago de Previred en varios cargos (AFP, IPS, Fonasa, isapre, caja, mutual): se juntan y se comparan con el certificado
+  if ((regla && regla.accion === PREVIRED) || esGlosaPrevired(c.descripcion)) {
+    const vp = vencPrevired(vencs, c.fecha);
+    if (vp) return { tipo: PREVIRED, seguro: false, vencId: vp.id, texto: `${vp.nombre} (certificado de ${fmt(vp.previred.total)})`, por: regla && regla.accion === PREVIRED ? 'aprendido' : 'glosa' };
+  }
+  // v0.64.0 · El saldo de un vencimiento con abonos (no libre): el último abono lo cierra
+  const saldos = vencs.filter(v => v.estadoBase === 'con_abonos' && v.tipoObligacion !== 'libre' && !v.previred && v.saldo > 0 && v.saldo === c.monto && (!c.rut || !v.rut || v.rut === c.rut));
+  if (saldos.length === 1) return { tipo: ABONO_PARCIAL, seguro: false, vencId: saldos[0].id, texto: `saldo de ${saldos[0].nombre}`, por: 'saldo' };
   // Choque de montos, o lo aprendido apunta a una obligación según documento sin documento todavía: opciones, sin propuesta automática
   // Lo aprendido apunta a una obligación; las de su mismo ítem (Luz Barros y Luz Ainavillo) son las opciones.
   // Sin nada aprendido: las que esperan su documento con un monto estimado parecido (±30%).
@@ -237,8 +255,9 @@ export function proponer(c, D) {
   if (regla && regla.accion === 'abono' && aprendidoP) {
     const l = vencs.filter(v => v.plantillaId === aprendidoP && v.tipoObligacion === 'libre');
     if (l.length) {
-      const v = l.slice().sort((a, b) => Math.abs(dias(a.fecha, c.fecha)) - Math.abs(dias(b.fecha, c.fecha)))[0];
-      return { tipo: 'abono', seguro: false, vencId: v.id, texto: v.nombre, por: 'aprendido', opciones: l.map(opcion) };
+      // v0.64.0: el vencimiento del período que corresponde a la fecha del cargo (los sueldos del mes se pagan a inicios del siguiente)
+      const v = periodoPropuesto(c, l) || l.slice().sort((a, b) => Math.abs(dias(a.fecha, c.fecha)) - Math.abs(dias(b.fecha, c.fecha)))[0];
+      return { tipo: 'abono', seguro: false, vencId: v.id, texto: v.nombre + (v.periodo ? ' · ' + nombrePeriodo(v.periodo) : ''), por: 'aprendido', opciones: l.map(opcion) };
     }
   }
   // 4) Lo aprendido de un vencimiento (fijo o sin clasificar): a revisar si no es el monto exacto
@@ -273,6 +292,64 @@ export function proponer(c, D) {
 }
 const fmt = n => '$' + Math.round(n).toLocaleString('es-CL');
 
+// ═══ v0.64.0 ═══
+export const PREVIRED = 'previred';
+export const ABONO_PARCIAL = 'abono_parcial';
+const MESES_L = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+export const nombrePeriodo = p => { const m = /^(\d{4})-?(\d{2})/.exec(s(p)); return m ? `${MESES_L[Number(m[2]) - 1]} ${m[1]}` : s(p); };
+const mesAnterior = m => { const [y, mm] = m.split('-').map(Number); return mm === 1 ? `${y - 1}-12` : `${y}-${String(mm - 1).padStart(2, '0')}`; };
+// ── Abono de sueldo: los vencimientos libres abiertos de cualquier mes, el más nuevo primero ──
+export const libresOrdenados = vencs => (vencs || []).filter(v => v.tipoObligacion === 'libre').slice().sort((a, b) => s(b.periodo).localeCompare(s(a.periodo)) || s(b.fecha).localeCompare(s(a.fecha)) || a.nombre.localeCompare(b.nombre));
+// El que corresponde a la fecha del cargo: los sueldos del mes M se pagan a inicios de M+1, así que un cargo del día 15 o antes
+// va al vencimiento del mes anterior si sigue abierto; si no, al del mes del cargo. Solo si hay uno claro (null si no).
+export function periodoPropuesto(c, libres) {
+  if (!c || !esIso(c.fecha) || !(libres || []).length) return null;
+  const mes = c.fecha.slice(0, 7), ant = mesAnterior(mes), diaC = Number(c.fecha.slice(8, 10));
+  const de = m => libres.filter(v => v.periodo === m);
+  for (const m of diaC <= 15 ? [ant, mes] : [mes]) { const l = de(m); if (l.length === 1) return l[0]; if (l.length > 1) return null; }
+  return null;
+}
+// ── Pago de Previred desde la cartola (varios cargos: AFP, IPS, Fonasa, isapre, caja, mutual) ──
+export const RE_PREVIRED = /\bAFPS?\b|INSTITUTO DE SEGUR|\bIPS\b|FONASA|\bISAPRES?\b|\bCAJA\b|\bMUTUAL\b|PREVIRED|\bISL\b|\bACHS\b|\bIST\b|HABITAT|PROVIDA|CUPRUM|PLANVITAL|BANMEDICA|COLMENA|CONSALUD|CRUZ BLANCA|VIDA TRES|NUEVA MAS ?VIDA|PAGO DE CUENTAS (AFP|IPS|PREV)/;
+export const esGlosaPrevired = desc => RE_PREVIRED.test(norm(desc));
+// El vencimiento de Cotizaciones abierto con su certificado (el de fecha más cercana al cargo); null si no hay
+export function vencPrevired(vencs, fecha) {
+  const l = (vencs || []).filter(v => v.previred && v.previred.total > 0 && v.estadoBase !== 'pagado');
+  if (!l.length) return null;
+  return l.slice().sort((a, b) => Math.abs(dias(a.fecha, fecha)) - Math.abs(dias(b.fecha, fecha)) || s(b.fecha).localeCompare(s(a.fecha)))[0];
+}
+// Los cargos por revisar del mismo día (±1) que parecen parte del pago de Previred (por la glosa o lo aprendido)
+export function hermanosPrevired(c, cargos, reglas) {
+  const R = {}; (reglas || []).forEach(r => { if (!r.quitada) R[r.clave] = r; });
+  return (cargos || []).filter(x => x.estado === ESTADOS.revisar && Math.abs(dias(x.fecha, c.fecha)) <= 1 && (x.id === c.id || esGlosaPrevired(x.descripcion) || (R[x.clave || claveDe(x.descripcion)] || {}).accion === PREVIRED));
+}
+// Los cargos que se pueden juntar con éste (por revisar, ±1 día), los de Previred primero
+export const juntablesPrevired = (c, cargos, reglas) => { const h = new Set(hermanosPrevired(c, cargos, reglas).map(x => x.id)); return (cargos || []).filter(x => x.estado === ESTADOS.revisar && Math.abs(dias(x.fecha, c.fecha)) <= 1).sort((a, b) => (h.has(b.id) - h.has(a.id)) || b.monto - a.monto); };
+export const TOLERANCIA_PREVIRED = 10;
+export function cuadraPrevired(suma, total) { const dif = Math.round(suma - total); return { dif, igual: Math.abs(dif) <= TOLERANCIA_PREVIRED }; }
+// ── Origen del cargo: de qué archivo salió ──
+// fuentes (v0.64.0, al subir): [{ tipo: historica|enlinea|tef, numero, generada, subida }]; lo de antes se deduce de la cartola
+export function fuentesCargo(c) {
+  const l = Array.isArray(c && c.fuentes) ? c.fuentes.filter(f => f && f.tipo) : [];
+  if (l.length) return l;
+  if (!c) return [];
+  const gen = /generada (\d{2})\/(\d{2})\/(\d{4})/.exec(s(c.cartola));
+  return [{ tipo: c.nCartola ? 'historica' : 'enlinea', numero: s(c.nCartola), generada: gen ? `${gen[3]}-${gen[2]}-${gen[1]}` : '', subida: dia(c.subidaEl) }];
+}
+export function textoFuente(f) {
+  const dm = x => (esIso(x) ? `${x.slice(8, 10)}-${x.slice(5, 7)}` : '');
+  if (f.tipo === 'historica') return `Cartola histórica N°${f.numero || '?'}${f.subida ? ` (${dm(f.subida)})` : ''}`;
+  if (f.tipo === 'tef') return `Transferencias enviadas del ${dma(f.subida || f.generada)}`;
+  return `Cartola en línea del ${dma(f.generada || f.subida)}`;
+}
+// ¿Viene solo de la cartola en línea? (trae poca información)
+export const soloEnLinea = c => { const l = fuentesCargo(c); return l.length > 0 && l.every(f => f.tipo === 'enlinea'); };
+// La fuente de una carga: { tipo, numero, generada, subida }
+export function fuenteDeCarga(meta, subida) {
+  const gen = /(\d{2})\/(\d{2})\/(\d{4})/.exec(s(meta && meta.id).replace(/^.*generada /, ''));
+  return { tipo: meta && meta.tipo === 'historica' ? 'historica' : 'enlinea', numero: s(meta && meta.nCartola).replace(/[^0-9A-Za-z]/g, '').slice(0, 10), generada: meta && meta.tipo !== 'historica' && gen ? `${gen[3]}-${gen[2]}-${gen[1]}` : '', subida: dia(subida) };
+}
+
 // Lo que se aprende al resolver (regla), según la acción
 export function reglaDe(accion, c, x) {
   if (accion === 'vencimientos') { const v0 = x.pagados[0]; return { accion: 'vencimiento', vencimiento: v0.plantillaId ? 'p:' + v0.plantillaId : (v0.rut ? 'rut:' + v0.rut : 'n:' + norm(v0.razon || v0.nombre).slice(0, 60)), ejemplo: v0.nombre, monto: c.monto }; }
@@ -281,6 +358,7 @@ export function reglaDe(accion, c, x) {
   if (accion === 'ignorar' && x.siempre) return { accion: 'ignorar', ejemplo: x.motivo };
   if (accion === PAGO_TARJETA) return { accion: PAGO_TARJETA, ejemplo: texto(x && x.tarjeta, 80) || 'Pago de tarjeta de crédito', monto: c.monto };
   if (accion === TRASPASO) return { accion: TRASPASO, ejemplo: texto(x && x.nota, 80) || 'Traspaso entre cuentas propias', monto: c.monto };
+  if (accion === PREVIRED) return { accion: PREVIRED, ejemplo: 'Pago de Previred', monto: c.monto };
   return null;
 }
 // Pagos de varios vencimientos: revisa como ccPagarVencimientos. vs: { id → vencimiento abierto (vencimientosAbiertos) }

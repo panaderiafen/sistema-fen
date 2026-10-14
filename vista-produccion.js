@@ -5,9 +5,9 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.63.7';
-import * as K from './cocina/consumo.js?v=0.16.0';
-import { conBuscador } from './buscador.js?v=0.63.7';
+import * as P from './produccion.js?v=0.65.0';
+import * as K from './cocina/consumo.js?v=0.17.0';
+import { conBuscador } from './buscador.js?v=0.65.0';
 
 const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -280,23 +280,27 @@ function seccionConfig(cfgs, H) {
 // Las de Producción conservan los mismos campos de antes (ids sin sufijo); las de otra bodega llevan "-{BODEGA}".
 const fechaC = f => f ? f.slice(8, 10) + '/' + f.slice(5, 7) : '';
 const sufijo = bod => bod === K.BODEGA_PRINCIPAL ? '' : '-' + bod;
+// v0.65.0 · Bodegas por área responsable: textos de la ayuda (i)
+const INFO_RESP = 'Cada materia prima crítica de producción tiene UNA bodega responsable: Panadería, Bollería o Pastelería (Cafetería tiene la suya, como antes).\nSu stock es uno solo y baja con lo que consume CUALQUIER área: la harina es de Panadería y baja también con lo que usan Bollería y Pastelería.\nEn Cocina, cada área ve, cuenta y recibe solo las de su bodega. El correo de bajo el mínimo llega a ti y a las jefas del área responsable (no a las demás).\nSi una materia prima es crítica en dos bodegas de producción, se avisa aquí: lo que consume un área va a la suya si la tiene; si no, a la primera.\nCambiar la responsable no mueve nada: el stock, los conteos y las llegadas siguen igual (mismo documento); solo cambia quién la ve y a quién le llega el aviso. Queda la historia de cada cambio.';
+const INFO_ASIGNAR = 'Hasta ahora Panadería, Bollería y Pastelería compartían una bodega (Producción). Desde aquí cada materia prima crítica queda a cargo de UNA de ellas.\nLa propuesta sale del uso: lo consumido por cada área en los últimos 120 días (o, si no hay consumo, sus recetas). Las harinas van a Panadería aunque las usen otras áreas (se comparten).\nRevisa y cambia lo que quieras; nada se aplica hasta "Confirmar responsables". Hasta entonces todo sigue como hoy.\nAl confirmar no se copia ni se borra nada: el stock, los conteos y las llegadas siguen en el mismo lugar. Después puedes cambiar la responsable de cada una en su pestaña.';
 const bajosDe = lista => lista.filter(e => e.st.contado && (e.bajoAhora || e.bajoDesde)).length;
 function seccionBodega(H) {
   const b = st.bodega, c = b.calc;
   const cab = `<div class="titulo-fila"><span class="ayuda">Stock de las críticas por bodega, consumo por área y llegadas ${H.info('Bodega (materias primas críticas)', 'Hay dos bodegas, cada una con su stock: Producción (Panadería, Bollería y Pastelería: lo que cuenta un área vale para las tres) y Cafetería (solo Cafetería).\nUna materia prima puede ser crítica en una o en las dos, con su propio mínimo, llegadas, conteos y stock. Lo que consume Cafetería (ventas de la caja, calibración diaria y extra, derramado, merma) baja la bodega de Cafetería; lo de las otras áreas, la de Producción. Si una materia prima no es crítica en esa bodega, no se sigue ahí.\nStock = último conteo + llegadas − lo consumido. El conteo vale como cierre de su día (se cuenta después de la producción; en Cafetería, después de cerrar la caja): lo hecho ese día ya está incluido y se descuenta desde el día siguiente.\nLas jefas anotan llegadas y conteos en Cocina → Bodega, solo de su bodega. El conteo corrige la cuenta. Si faltó, es lo que se usa sin anotar (harina de mesón, pruebas, pérdidas chicas) o algo hecho que no se marcó; si sobró, una llegada o un hecho que no se anotó.\n"Alcanza" y "bajo el mínimo" usan lo planificado de los próximos 7 días (Panadería: el plan; Bollería: masas y metas; Pastelería y Cafetería: su ritmo de los últimos 14 días).\nBajo el mínimo: aparece en Hoy, en Cocina (arriba de la Bodega del área) y llega un correo (uno por día por materia prima) a ti y a las jefas de esa bodega. Se revisa cuando se abre Sistema Fën o Cocina, o se hace un conteo: no hay revisión automática de noche.\nEn Producción, si no marcas una crítica aquí, vale lo de la planilla (es_critica, stock_seguridad).')}</span>
     <button type="button" class="btn-sec" id="prod-bod-calc" ${b.cargando ? 'disabled' : ''}>${b.cargando ? 'Calculando…' : c ? 'Calcular de nuevo' : 'Calcular'}</button></div>`;
   if (!c) return cab + (b.msg ? `<p class="error">${H.esc(b.msg)}</p>` : '<p class="ayuda">Presiona "Calcular" (lee los últimos 120 días de Cocina).</p>');
-  const bods = c.bodegas || [K.BODEGA_PRINCIPAL], ver = bods.includes(b.ver) ? b.ver : bods[0];
+  const bods = c.bodegas || [K.BODEGA_PRINCIPAL], ver = bods.includes(b.ver) ? b.ver : bods[0], resp = K.esResponsable(c.mapa);
   const pest = `<div class="pestanas pest-bodega" role="tablist" aria-label="Bodegas">${bods.map(x => { const n = bajosDe(c.porBodega[x] || []); return `<button type="button" role="tab" data-bod-tab="${H.esc(x)}" aria-selected="${x === ver}">${H.esc(K.nombreBodega(x, c.mapa))}${n ? ` <span class="chip c-rojo">${n}</span>` : ''}</button>`; }).join('')}</div>`;
   const per = P.periodoMerma(b.periodo), cons = P.consumoPeriodo(c, per);
   const AR = ['PAN', 'BOL', 'PAS', 'CAF'].filter(a => cons.some(x => x.porArea[a]));
   const sinId = Object.keys(c.sinId || {});
   return cab + `
-    <p class="ayuda">Calculado el ${H.esc(fechaC(c.hoy))} a las ${H.esc(new Date(c.en).toTimeString().slice(0, 5))} · las jefas ven en Cocina lo de su bodega que está bajo el mínimo.</p>
+    <p class="ayuda">Calculado el ${H.esc(fechaC(c.hoy))} a las ${H.esc(new Date(c.en).toTimeString().slice(0, 5))} · las jefas ven en Cocina lo de su bodega que está bajo el mínimo.${resp ? ' ' + H.info('Bodegas por área responsable', INFO_RESP) : ''}</p>
+    ${resp ? avisosResp(H, c) : seccionAsignar(H, c)}
     ${pest}
     <div class="bod-bodega" data-bodega="${H.esc(ver)}">${seccionUnaBodega(H, c, ver)}</div>
     <div class="error" id="prod-bod-err" role="alert">${H.esc(b.msg)}</div>
-    <div class="titulo-fila" style="margin-top:18px"><h3 style="margin:0">Consumo por área ${H.info('Consumo por área', 'Todas las materias primas (no solo las críticas), con lo que se marcó como hecho en Cocina, lo vendido en la caja (Cafetería) y la merma de materias primas. Las sub recetas se bajan hasta sus materias primas; la de otra área la cuenta el área que la hace.\nLa columna Cafetería baja la bodega de Cafetería; las demás, la de Producción.')}</h3>
+    <div class="titulo-fila" style="margin-top:18px"><h3 style="margin:0">Consumo por área ${H.info('Consumo por área', 'Todas las materias primas (no solo las críticas), con lo que se marcó como hecho en Cocina, lo vendido en la caja (Cafetería) y la merma de materias primas. Las sub recetas se bajan hasta sus materias primas; la de otra área la cuenta el área que la hace.\nLa columna Cafetería baja la bodega de Cafetería; las demás, la de Producción (con responsables: la bodega responsable de cada materia prima, por ejemplo la harina de Bollería baja la de Panadería).')}</h3>
       <select id="prod-bod-per" aria-label="Período">${Object.entries(P.PERIODOS_MERMA).map(([k, t]) => `<option value="${k}" ${b.periodo === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
     ${cons.length ? `<div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Materia prima</th>${AR.map(a => `<th scope="col" style="text-align:right">${H.esc(P.AREAS[a])}</th>`).join('')}<th scope="col" style="text-align:right">Total</th></tr></thead><tbody>
       ${cons.map(x => `<tr><td>${H.esc(x.nombre)}</td>${AR.map(a => `<td style="text-align:right">${x.porArea[a] ? H.esc(K.texto(x.porArea[a], x.unidad)) : ''}</td>`).join('')}<td style="text-align:right"><b>${H.esc(K.texto(x.total, x.unidad))}</b></td></tr>`).join('')}
@@ -310,14 +314,40 @@ function seccionBodega(H) {
     ${c.cafe && Object.keys(c.cafe.sinReceta).length ? `<p class="ayuda">Vendidos en Cafetería sin receta vinculada en la caja (no descuentan): ${H.esc(Object.entries(c.cafe.sinReceta).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([n, q]) => `${n} (${Math.round(q)})`).join(', '))}${Object.keys(c.cafe.sinReceta).length > 10 ? '…' : ''}. Vincúlalos en la caja para que cuenten.</p>` : ''}
     ${sinId.length ? `<p class="ayuda">Ingredientes sin materia prima en el maestro (no se cuentan): ${H.esc(sinId.slice(0, 8).join(', '))}${sinId.length > 8 ? '…' : ''}.</p>` : ''}`;
 }
+// v0.65.0 · "Asignar responsables" (una vez, mientras Producción es una sola bodega): propuesta por uso, se cambia y se confirma
+function seccionAsignar(H, c) {
+  const lista = c.propuesta || [], b = st.bodega, elegidas = b.resp || {};
+  if (!lista.length) return '';
+  const pct = (x, a) => x.fuente ? `${x.pct[a]} %` : '—';
+  const fuente = x => x.fuente === 'consumo' ? 'consumo (120 días)' : x.fuente === 'recetas' ? 'recetas' : 'sin uso';
+  const motivo = x => x.motivo === 'harina' ? 'Harina: va a Panadería' : x.motivo === 'uso' ? 'La que más la usa' : 'Sin uso: Panadería';
+  return `<details class="aviso asignar-resp" id="prod-bod-asignar" ${b.asignarAbierto === false ? '' : 'open'}><summary><b>Asignar responsables</b> · cada materia prima crítica, a cargo de una sola área</summary>
+    <p class="ayuda">Propuesta por uso. Revisa, cambia lo que quieras y confirma. Hasta confirmar, Panadería, Bollería y Pastelería siguen compartiendo la bodega Producción. ${H.info('Asignar responsables', INFO_ASIGNAR)}</p>
+    <div class="tabla-b2b"><table class="tabla-tiempos tabla-asignar"><thead><tr><th scope="col">Materia prima</th><th scope="col" style="text-align:right">Panadería</th><th scope="col" style="text-align:right">Bollería</th><th scope="col" style="text-align:right">Pastelería</th><th scope="col">Según</th><th scope="col">Responsable</th></tr></thead><tbody>
+    ${lista.map(x => `<tr><td>${H.esc(x.mp.nombre)}<br><span class="ayuda">${H.esc(motivo(x))}</span></td>${K.AREAS_PROD.map(a => `<td style="text-align:right">${H.esc(pct(x, a))}</td>`).join('')}<td class="ayuda">${H.esc(fuente(x))}</td>
+      <td><select data-bod-asignar="${H.esc(x.mp.id)}" aria-label="Responsable de ${H.esc(x.mp.nombre)}">${K.AREAS_PROD.map(a => `<option value="${a}" ${(elegidas[x.mp.id] || x.propuesta) === a ? 'selected' : ''}>${H.esc(P.AREAS[a])}</option>`).join('')}</select></td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="prod-bod-asignar-ok">Confirmar responsables</button></div></details>`;
+}
+// v0.65.0 · Avisos de la configuración: críticas en dos bodegas de producción y críticas sin responsable elegida
+function avisosResp(H, c) {
+  const nom = id => { const m = c.datos.mps.find(x => x.id === id); return m ? m.nombre : id; };
+  const rep = (c.repetidas || []).map(r => `<li><b>${H.esc(nom(r.mp))}</b>: crítica en ${H.esc(r.bodegas.map(x => K.nombreBodega(x, c.mapa)).join(' y '))}. Lo que consume un área va a la suya si la tiene; si no, a ${H.esc(K.nombreBodega(r.bodegas[0], c.mapa))}. Si es un error, quítala de una (botón Quitar en su pestaña).</li>`).join('');
+  const sin = (c.sinResponsable || []).map(id => H.esc(nom(id))).join(', ');
+  return `${rep ? `<div class="aviso" id="prod-bod-repetidas" role="status"><b>Críticas en más de una bodega de producción</b><ul>${rep}</ul></div>` : ''}
+    ${sin ? `<p class="ayuda" id="prod-bod-sinresp">Sin responsable elegida (van a Panadería): ${sin}. Elige la responsable en la pestaña de Panadería.</p>` : ''}`;
+}
 // Una bodega: críticas (estado, stock, mínimo, envase, alcanza, último conteo), agregar, llegadas y (Producción) pasar a Cafetería
 function seccionUnaBodega(H, c, bod) {
   const lista = c.porBodega[bod] || [], s = sufijo(bod), nombre = K.nombreBodega(bod, c.mapa);
   const areas = K.areasDeBodega(bod, c.mapa).map(a => P.AREAS[a] || a).join(', ');
+  const resp = K.esResponsable(c.mapa), prodB = resp && K.esProduccion(bod, c.mapa);
+  // v0.65.0: la responsable de cada una (las que viven en su documento de siempre); se cambia aquí y no mueve el stock
+  const selResp = e => prodB && e.docId === e.mp.id ? `<br><label class="ayuda resp-sel">Responsable <select data-bod-resp="${H.esc(e.mp.id)}" aria-label="Responsable de ${H.esc(e.mp.nombre)}">${K.AREAS_PROD.map(a => `<option value="${a}" ${a === bod ? 'selected' : ''}>${H.esc(P.AREAS[a])}</option>`).join('')}</select></label>` : prodB ? '<br><span class="chip c-amarillo">También en otra bodega</span>' : '';
   const est = e => !e.st.contado ? '<span class="chip c-gris" title="No hay conteo en los últimos 120 días">Falta conteo</span>' : e.bajoAhora ? '<span class="chip c-rojo">Bajo el mínimo</span>' : e.bajoDesde ? `<span class="chip c-amarillo">Bajo el ${H.esc(fechaC(e.bajoDesde))}</span>` : '<span class="chip c-verde">Bien</span>';
   const dif = e => { const t = e.st.teoricoAlContar; if (t === null || t === undefined) return ''; const d = e.st.conteo.cantidad - t; return Math.abs(d) < 1 ? ' · cuadró' : d < 0 ? ` · faltaron ${H.esc(K.texto(-d, e.cfg.unidad))} (uso sin anotar: mesón, pruebas…)` : ` · sobraron ${H.esc(K.texto(d, e.cfg.unidad))} (llegada o hecho sin anotar)`; };
   const filas = lista.map(e => `<tr>
-      <td>${H.esc(e.mp.nombre)}</td><td>${est(e)}</td>
+      <td>${H.esc(e.mp.nombre)}${selResp(e)}</td><td>${est(e)}</td>
       <td style="text-align:right">${e.st.contado ? H.esc(K.texto(e.st.stock, e.cfg.unidad)) + (e.cfg.envase ? `<br><span class="ayuda">${H.esc((Math.round(e.st.stock / e.cfg.envase.tamano * 10) / 10).toLocaleString('es-CL'))} ${H.esc(K.envases(e.cfg.envase.nombre, 2))}</span>` : '') : '—'}</td>
       <td><input class="bod-min" data-bod-min="${H.esc(e.docId)}" inputmode="decimal" value="${H.esc(String(K.deBase(e.cfg.seguridad, e.cfg.unidad)).replace('.', ','))}" aria-label="Mínimo de ${H.esc(e.mp.nombre)} en ${H.esc(nombre)}" style="width:80px"> ${K.unidadEntrada(e.cfg.unidad)}</td>
       <td class="bod-env"><input data-bod-env-n="${H.esc(e.docId)}" value="${H.esc(e.cfg.envase ? e.cfg.envase.nombre : '')}" placeholder="${K.unidadEntrada(e.cfg.unidad)}" maxlength="20" aria-label="Envase de ${H.esc(e.mp.nombre)}" style="width:72px"> de <input data-bod-env-t="${H.esc(e.docId)}" inputmode="decimal" value="${e.cfg.envase ? H.esc(String(K.deBase(e.cfg.envase.tamano, e.cfg.unidad)).replace('.', ',')) : ''}" aria-label="Tamaño del envase de ${H.esc(e.mp.nombre)}" style="width:56px"> ${K.unidadEntrada(e.cfg.unidad)}</td>
@@ -326,8 +356,10 @@ function seccionUnaBodega(H, c, bod) {
       <td><button type="button" class="btn-link" data-bod-quitar="${H.esc(e.docId)}">Quitar</button></td></tr>`).join('');
   const otras = c.datos.mps.filter(m => (m.estado || 'activa') === 'activa' && m.tipo !== 'sub_receta' && !lista.some(e => e.mp.id === m.id)).sort((a, x) => a.nombre.localeCompare(x.nombre, 'es'));
   const enCaf = new Set((c.porBodega.CAF || []).map(e => e.mp.id));
-  const pasables = bod === K.BODEGA_PRINCIPAL && (c.bodegas || []).includes('CAF') ? lista.filter(e => !enCaf.has(e.mp.id)) : [];
-  return `<h3 style="margin:12px 0 2px">Bodega ${H.esc(nombre)}</h3><p class="ayuda" style="margin-top:0">${areas ? 'La usan: ' + H.esc(areas) : 'Ningún área la usa'}</p>
+  const pasables = (bod === K.BODEGA_PRINCIPAL || prodB) && (c.bodegas || []).includes('CAF') ? lista.filter(e => !enCaf.has(e.mp.id)) : [];
+  const quien = prodB ? `Responsable: ${H.esc(P.AREAS[K.areasAviso(bod, c.mapa)[0]] || nombre)} (la ve, la cuenta y recibe el aviso). Su stock baja con lo que consume cualquier área.`
+    : areas ? 'La usan: ' + H.esc(areas) : 'Ningún área la usa';
+  return `<h3 style="margin:12px 0 2px">Bodega ${H.esc(nombre)}</h3><p class="ayuda" style="margin-top:0">${quien}</p>
     ${lista.length ? `<div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Materia prima</th><th scope="col">Estado</th><th scope="col" style="text-align:right">Stock</th><th scope="col">Mínimo</th><th scope="col">Se cuenta en ${H.info('Se cuenta en', 'Vacío: se cuenta y se recibe en kg, litros o unidades.\nCon un envase (por ejemplo "saco" de 25 kg), en Cocina se escriben los sacos más lo suelto (3 sacos + 5 kg = 80 kg), y el stock también se ve en sacos. Si cambia el formato (centeno en sacos de 20 kg), lo cambias aquí.')}</th><th scope="col">Alcanza</th><th scope="col">Último conteo</th><th scope="col"><span class="sr">Quitar</span></th></tr></thead><tbody>${filas}</tbody></table></div>
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="prod-bod-min${s}" data-bod-guardar="${H.esc(bod)}">Guardar cambios</button></div>` : `<p class="ayuda">Todavía no hay materias primas críticas en ${H.esc(nombre)}. Agrega las que quieres controlar${bod === 'CAF' ? ' (café, leche, vasos…)' : ' (harina, mantequilla…)'}.</p>`}
     <div class="fila-campos fila-bod" style="margin-top:8px">
@@ -369,6 +401,15 @@ function conectarBodega(H) {
     const bod = ag.dataset.bodAgregar, s = sufijo(bod), id = $b('prod-bod-nueva' + s).value; if (!id) { err('Elige una materia prima.'); return; }
     const u = K.unidadMp(mp(id)), t = $b('prod-bod-nueva-min' + s).value, seg = t.trim() === '' ? 0 : leerCant(t, u);
     if (seg === null) { err('El mínimo es un número (en kg, l o un).'); return; }
+    // v0.65.0: en una bodega de producción (con responsables), esa área queda como responsable (el stock de siempre)
+    const c = b.calc;
+    if (K.esResponsable(c.mapa) && K.esProduccion(bod, c.mapa)) {
+      const otra = c.criticas.find(e => e.mp.id === id && e.docId === id && e.bodega !== bod);
+      if (otra && !confirm(`${mp(id).nombre} ya es crítica en ${nomB(otra.bodega)}. ¿Pasarla a ${nomB(bod)}? El stock y los conteos siguen igual.`)) return;
+      (async () => { try { await P.guardarResponsables({ [id]: bod }); H.registrar('Cambió la bodega responsable', `${mp(id).nombre} → ${nomB(bod)}`); } catch (e) { b.msg = error(e, H); repintarB(); return; }
+        guardar([[id, { critica: true, seguridad: seg }, bod]], 'Marcó una materia prima crítica (Bodega ' + nomB(bod) + ')'); })();
+      return;
+    }
     guardar([[id, { critica: true, seguridad: seg }, bod]], 'Marcó una materia prima crítica (Bodega ' + nomB(bod) + ')');
   });
   const gm = document.querySelector('[data-bod-guardar]');
@@ -396,6 +437,25 @@ function conectarBodega(H) {
     const e = b.calc.criticas.find(y => y.docId === x.dataset.bodQuitar); if (!e) return;
     if (!confirm(`¿Quitar ${e.mp.nombre} de las críticas de ${nomB(e.bodega)}? Deja de llevar stock y alerta ahí. Sus llegadas y conteos quedan guardados.`)) return;
     guardar([[e.mp.id, { critica: false, seguridad: e.cfg.seguridad }, e.bodega]], 'Quitó una materia prima crítica (Bodega ' + nomB(e.bodega) + ')');
+  }));
+  // v0.65.0 · Asignar responsables (una vez) y cambiar la responsable de una
+  document.querySelectorAll('[data-bod-asignar]').forEach(x => x.addEventListener('change', () => { b.resp = { ...(b.resp || {}), [x.dataset.bodAsignar]: x.value }; }));
+  const asg = $b('prod-bod-asignar');
+  if (asg) asg.addEventListener('toggle', () => { b.asignarAbierto = asg.open; });
+  const asgOk = $b('prod-bod-asignar-ok');
+  if (asgOk) asgOk.addEventListener('click', async () => {
+    const elegidas = {}; document.querySelectorAll('[data-bod-asignar]').forEach(x => { elegidas[x.dataset.bodAsignar] = x.value; });
+    const n = Object.keys(elegidas).length, cuenta = a => Object.values(elegidas).filter(v => v === a).length;
+    if (!confirm(`¿Confirmar responsables? Panadería ${cuenta('PAN')}, Bollería ${cuenta('BOL')}, Pastelería ${cuenta('PAS')} (${n} en total). Cada área verá y contará solo las suyas en Cocina. No se copia ni se borra nada.`)) return;
+    asgOk.disabled = true;
+    try { await P.guardarResponsables(elegidas, { confirmar: true }); H.registrar('Confirmó las bodegas por área responsable', Object.entries(elegidas).map(([id, a]) => `${(mp(id) || {}).nombre || id} → ${P.AREAS[a]}`).join(', ')); b.resp = null; b.ver = 'PAN'; await calcular(); }
+    catch (e) { b.msg = error(e, H); repintarB(); }
+  });
+  document.querySelectorAll('[data-bod-resp]').forEach(x => x.addEventListener('change', async () => {
+    const id = x.dataset.bodResp, m = mp(id), de = b.ver, a = x.value; if (a === de) return;
+    if (!confirm(`¿Pasar ${m ? m.nombre : id} de ${P.AREAS[de] || de} a ${P.AREAS[a] || a}? El stock, los conteos y las llegadas siguen igual; desde ahora la ve, la cuenta y recibe el aviso ${P.AREAS[a] || a}.`)) { x.value = de; return; }
+    try { await P.guardarResponsables({ [id]: a }); H.registrar('Cambió la bodega responsable', `${m ? m.nombre : id}: ${P.AREAS[de] || de} → ${P.AREAS[a] || a}`); b.ver = a; await calcular(); }
+    catch (e) { b.msg = error(e, H); repintarB(); }
   }));
   const pasar = $b('prod-bod-pasar-ok');
   if (pasar) pasar.addEventListener('click', async () => {

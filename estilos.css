@@ -1353,6 +1353,7 @@ a.btn-sec { display: inline-flex; align-items: center; justify-content: center; 
 body.cuota-gastos #v-gastos .btn, body.cuota-gastos #v-gastos button[type="submit"],
 body.cuota-gastos #v-finanzas .btn, body.cuota-gastos #v-finanzas button[type="submit"],
 body.cuota-gastos[data-sub="cargos"] #v-conciliacion .btn, body.cuota-gastos[data-sub="cargos"] #v-conciliacion button[type="submit"], body.cuota-gastos[data-sub="cargos"] #v-conciliacion [data-cc-ok],
+body.cuota-gastos[data-sub="sii"] #v-conciliacion .btn, body.cuota-gastos[data-sub="previred"] #v-conciliacion .btn, body.cuota-gastos[data-sub="proveedores"] #v-conciliacion .btn, body.cuota-gastos[data-sub="sii"] #v-conciliacion button[type="submit"], body.cuota-gastos[data-sub="previred"] #v-conciliacion button[type="submit"],
 body.cuota-produccion #v-produccion .btn, body.cuota-produccion #v-produccion button[type="submit"], body.cuota-produccion #prod-actualizar,
 body.cuota-gastos #uso-releer { pointer-events: none; opacity: 0.45; filter: grayscale(1); }
 .uso-base-barras { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 24px; margin: 8px 0 12px; }
@@ -1370,3 +1371,58 @@ body.cuota-gastos #uso-releer { pointer-events: none; opacity: 0.45; filter: gra
 .prop-secundaria .cifra .valor { font-size: 16px; }
 .prop-titular b, #prod-cocina .cifra .nota b { white-space: nowrap; }
 #prop-ingredientes .chip { display: inline-block; margin-top: 2px; }
+
+/* v0.64.0 · Conciliación: centro de archivos (Subir archivo, pestañas y la cartola dentro), origen del cargo, transferencias
+   enviadas, proveedor, filtros por origen, días entre compra y cargo, pagos parciales y Proveedores */
+.conc-subir { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 10px; }
+.conc-subir .conc-subir-msg { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.conc-subir .error { flex: 1 1 100%; }
+#v-conciliacion .pestanas { flex-wrap: nowrap; }
+.conc-sub { margin-top: 10px; flex: 1 1 100%; }
+.conc-sub .pastilla { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.fila-orden-b2b .txt small.cc-origen, .fila-orden-b2b .txt small.cc-tef, .fila-orden-b2b .txt small.cc-prov { display: block; font-size: 12px; color: var(--suave); overflow-wrap: anywhere; }
+small.cc-tef, p.cc-tef { color: var(--azul-t); }
+small.cc-prov { color: var(--lila-t); }
+.cc-prov-det { margin: 4px 0 8px; overflow-wrap: anywhere; }
+.cc-prov-det svg { vertical-align: -2px; margin-right: 2px; }
+.cc-filtros { margin: 6px 0 8px; }
+.cc-dias.dias-amarillo { color: var(--amarillo-t); background: var(--amarillo); border-radius: 6px; padding: 0 4px; font-weight: 600; }
+.cc-dias.dias-rojo { color: var(--rojo-t); background: var(--rojo); border-radius: 6px; padding: 0 4px; font-weight: 600; }
+.cc-parcial, .cc-sin-sii, .cc-pobre { overflow-wrap: anywhere; }
+.cc-prev-venc { margin: 6px 0; }
+.fila-prov-acc { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.fila-prov-acc .buscar-b2b { flex: 1 1 260px; min-width: 0; }
+a.fila-prov { color: inherit; text-decoration: none; }
+a.fila-prov:hover b { text-decoration: underline; }
+.fila-prov .txt small { display: block; font-size: 12px; color: var(--suave); }
+p.volver { margin: 0 0 10px; }
+p.volver a { display: inline-flex; gap: 4px; align-items: center; }
+@media (max-width: 600px) { .conc-subir .btn { flex: 1 1 auto; justify-content: center; } }
+#v-conciliacion .cabecera > .pestanas { flex: 0 1 auto; order: 3; min-width: 0; max-width: 100%; overflow-x: auto; }
+#v-conciliacion .cabecera > .conc-sub { order: 4; }
+#v-conciliacion .cabecera > .conc-subir { order: 2; margin: 0; }
+#v-conciliacion .cabecera > div:first-child { order: 1; }
+#v-conciliacion .cabecera::after { content: ''; flex: 1 1 100%; order: 2; height: 0; }
+/* v0.64.0 · El menú del vencimiento (tres puntos) tiene más acciones (abono, reagendar): se abre dentro de la fila, sin tapar la de abajo */
+.menu-venc[open] { flex-basis: 100%; display: flex; flex-direction: column; align-items: flex-end; }
+.menu-venc[open] .menu-venc-lista { position: static; margin-top: 6px; width: min(320px, 100%); max-width: none; min-width: 0; box-shadow: none; }
+
+/* v0.65.0 · Bodega → Asignar responsables: en el celular cada materia prima es una tarjeta (el % por área en una línea y
+   la responsable a lo ancho), sin deslizar la tabla */
+@media (max-width: 640px) {
+  .tabla-asignar thead { display: none; }   /* cada celda dice su área (::before) */
+  .tabla-b2b:has(> .tabla-asignar) { background: none; }
+  .tabla-asignar, .tabla-asignar tbody { display: block; width: 100%; }
+  .tabla-asignar tr { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--linea); }
+  .tabla-b2b .tabla-tiempos.tabla-asignar td { display: block; padding: 0; border: 0; position: static; background: none; box-shadow: none; min-width: 0; white-space: normal; text-align: left !important; }
+  .tabla-asignar td:first-child { grid-column: 1 / -1; }
+  .tabla-b2b .tabla-tiempos.tabla-asignar td:nth-child(2), .tabla-b2b .tabla-tiempos.tabla-asignar td:nth-child(3), .tabla-b2b .tabla-tiempos.tabla-asignar td:nth-child(4) { white-space: nowrap; }
+  .tabla-asignar td:nth-child(2)::before { content: 'Panadería '; color: var(--suave); }
+  .tabla-asignar td:nth-child(3)::before { content: 'Bollería '; color: var(--suave); }
+  .tabla-asignar td:nth-child(4)::before { content: 'Pastelería '; color: var(--suave); }
+  .tabla-asignar td:nth-child(5) { grid-column: 1 / -1; }
+  .tabla-asignar td:nth-child(5)::before { content: 'Según: '; }
+  .tabla-asignar td:last-child { grid-column: 1 / -1; }
+  .tabla-asignar td:last-child select { width: 100%; min-height: 44px; }
+}
+.resp-sel select { min-height: 36px; margin-top: 4px; }

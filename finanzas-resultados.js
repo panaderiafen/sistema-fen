@@ -11,7 +11,7 @@
 //  Todo en neto. Nada de esto cambia los gastos: es una capa de Finanzas (fen-gastos: fin_items, fin_config,
 //  fin_creditos, fin_inversiones).
 // ═══════════════════════════════════════════════
-import { idLimpio } from './gastos-modelo.js?v=0.63.7';
+import { idLimpio } from './gastos-modelo.js?v=0.65.0';
 
 export const ANIO = 2026;
 export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
@@ -54,7 +54,8 @@ const REGLAS = [
   ['inversion', /\b(INVERSION(ES)?|EQUIPOS?|EQUIPAMIENTO|MAQUINARIAS?|MAQUINAS?|HORNOS?|AMASADORA|LAMINADORA|REFRIGERADOR|VITRINAS?|MOBILIARIO|MUEBLES?|COMPUTADOR(ES)?|NOTEBOOK|REMODELACION|HABILITACION)\b/],
   ['remuneraciones', /\b(REMUNERACION(ES)?|SUELDOS?|SALARIOS?|COTIZACION(ES)?|PREVIRED|FINIQUITOS?|GRATIFICACION(ES)?|BONOS?|AGUINALDOS?|HONORARIOS?|MUTUAL)\b/],
   ['fijo', /\b(ARRIENDOS?|LUZ|ELECTRICIDAD|ENEL|CGE|AGUA|ESSBIO|GAS|INTERNET|TELEFONO|TELEFONIA|CELULAR|CONTABILIDAD|CONTADOR|SEGUROS?|PATENTE|REPARACION(ES)?|ASEO|SOFTWARE|SUSCRIPCION(ES)?|GASTOS? COMUNES?|VIGILANCIA|ALARMA)\b/],
-  ['compras_reventa', /\b(REVENTA|BEBIDAS?|JUGOS?)\b/],
+  // v0.64.0: lo que se compra hecho para vender tal cual (chocolates, infusiones, té, la marca Magia): reventa
+  ['compras_reventa', /\b(REVENTA|BEBIDAS?|JUGOS?|CHOCOLATES?|INFUSION(ES)?|TES?|MAGIA)\b/],
   ['compras_mp', /\b(MATERIAS? PRIMAS?|INSUMOS?|HARINAS?|LECHES?|MANTEQUILLA|HUEVOS?|AZUCAR|LEVADURA|CHOCOLATE|CREMA|FRUTAS?|ENVASES?|PACKAGING|EMBALAJE|CAFE EN GRANO|CAFE)\b/]
 ];
 const PALABRA = { compras_mp: 'materias primas', compras_reventa: 'reventa', remuneraciones: 'remuneración', fijo: 'gasto fijo', en_margen: 'comisión de tarjeta o despacho', financiero: 'interés o banco',

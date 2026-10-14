@@ -12,14 +12,14 @@
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.63.7';
-import * as FC from './finanzas-costos.js?v=0.63.7';
-import * as FS from './finanzas-sii.js?v=0.63.7';
-import * as FM from './finanzas-motor.js?v=0.63.7';
-import * as FV from './finanzas-ventas.js?v=0.63.7';
-import * as FMG from './finanzas-margenes.js?v=0.63.7';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.63.7';
-import * as VR from './vista-finanzas-resultados.js?v=0.63.7';
+import * as F from './finanzas.js?v=0.65.0';
+import * as FC from './finanzas-costos.js?v=0.65.0';
+import * as FS from './finanzas-sii.js?v=0.65.0';
+import * as FM from './finanzas-motor.js?v=0.65.0';
+import * as FV from './finanzas-ventas.js?v=0.65.0';
+import * as FMG from './finanzas-margenes.js?v=0.65.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.65.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.65.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -156,6 +156,7 @@ function comoTrabajamos(H) {
       ${def('Mes cerrado y ajustes', 'Al cerrar el mes (Resultados → Cierre de mes) su estado de resultados queda congelado. Si después cambia algo de ese mes (una factura atrasada, un gasto corregido), el mes cerrado no se toca: la diferencia aparece como <b>Ajustes de meses cerrados</b> en el primer mes abierto siguiente.')}
       ${def('Punto de equilibrio', 'La venta neta que cubre los fijos: fijos ÷ % de margen de contribución.', 'Ejemplo: fijos $3.000.000 al mes y margen 60 % → hay que vender $5.000.000 netos en el mes.')}
       ${def('Tarjeta de crédito', '<b>Compras con tarjeta</b>: son gasto el día de la compra (entran por el SII, con su factura). <b>Pago de la tarjeta</b>: queda fuera del resultado, es solo flujo de caja (en la cartola se marca "Pago de tarjeta": no crea gasto). <b>Mantención e intereses de la tarjeta</b>: gasto financiero, se registran a mano en Gastos.', 'Ejemplo: compras $100.000 en harina con la tarjeta el 10 de marzo → gasto de marzo. El 5 de abril pagas la tarjeta: ese cargo no es gasto (ya se contó en marzo). La comisión de mantención de $3.000 sí es gasto financiero de abril.')}
+      ${def('Productos de reventa', 'Lo que compras hecho para venderlo tal cual (bebidas, jugos, chocolates, té e infusiones, Magia…). <b>En Gastos</b> la compra va al ítem "PRODUCTOS DE REVENTA" con el <b>área donde se vende</b>. En Resultados → Clasificación ese ítem es "Compras de productos de reventa" (se propone solo por el nombre: reventa, chocolate, infusión, té, Magia): <b>no es una línea de gasto</b>. Lo que entra al resultado es el costo de lo <b>vendido</b>: el costo de compra neto de cada producto (Márgenes → Asociar productos, tipo Reventa) × las unidades vendidas. <b>Pendiente:</b> que ese costo se actualice solo con cada factura del SII; por ahora se escribe a mano.', 'Ejemplo: compras 24 chocolates a $500 netos c/u ($12.000) y vendes 10 en el mes → al resultado entran $5.000 de costo; los 14 que quedan no son gasto todavía.')}
       ${def('Qué queda fuera del resultado', 'No son gasto del mes, van al flujo de caja: el <b>capital</b> de las cuotas de crédito (solo el interés es gasto), el pago de IVA (<b>F29</b>), las <b>inversiones</b> (entran al resultado como depreciación mensual según su vida útil) y los <b>retiros</b>. El sueldo empresarial sí es costo (fijo común).')}
     </dl>
   </section>`;
