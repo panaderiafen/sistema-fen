@@ -1337,3 +1337,14 @@ body.cuota-gastos #uso-releer { pointer-events: none; opacity: 0.45; filter: gra
 .barra-uso { height: 8px; border-radius: 4px; background: var(--linea); margin-top: 6px; overflow: hidden; }
 .barra-uso span { display: block; height: 100%; background: var(--acento); border-radius: 4px; }
 #uso-base .ayuda { overflow-wrap: anywhere; }
+/* v0.63.6 · Recetas por aprobar: el costo del lote primero; el costo por gramo, secundario */
+.prop-titular { margin: 12px 0 4px; font-size: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.prop-titular b { font-size: 22px; }
+.prop-baja { color: var(--verde-t); font-weight: 700; }
+.prop-costo { display: inline-block; margin-left: 4px; font-size: 12px; color: var(--suave); white-space: nowrap; }
+.prop-costo::before { content: '· '; }
+.prop-secundaria { margin: 4px 0 10px; opacity: .9; }
+.prop-secundaria .cifra { padding: 8px 12px; border-radius: 10px; background: var(--fondo); }
+.prop-secundaria .cifra .valor { font-size: 16px; }
+.prop-titular b, #prod-cocina .cifra .nota b { white-space: nowrap; }
+#prop-ingredientes .chip { display: inline-block; margin-top: 2px; }

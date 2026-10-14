@@ -1,9 +1,32 @@
-# Sistema Fën · v0.63.5
+# Sistema Fën · v0.63.6
 
-**App:** v0.63.5 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 13 de octubre de 2026
+**App:** v0.63.6 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 13 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.63.6: al aprobar una receta, lo primero es el costo del lote (o de la unidad), no el del gramo
+**El problema:** en Producción → Desde Cocina → Recetas por aprobar, un espresso que pasaba de 14 g de café (rinde 28 g) a 17 g de café + 23 g de agua (rinde 40 g) mostraba "−14,6 %" por gramo. El gramo bajaba solo porque había más agua: cada taza subía de $353 a $431 (+22 %).
+
+**Ahora:**
+- **Arriba, el cambio que importa:** "+22 % el costo del lote (neto)", o "el costo por unidad" si la receta rinde unidades. Su (i) explica por qué el gramo no sirve para comparar.
+- **Los dos lotes siempre:** "Lote vigente $353 · 28 g" y "Lote propuesto $431 · 40 g · +22 %". Si la receta rinde unidades, también **Vigente · por unidad** y **Propuesta · por unidad** con su %.
+- **Por gramo, abajo y más chico** (vigente y propuesta, con su %), como dato secundario.
+- **Aviso** si la receta rinde gramos pero se vende por unidad (es de Cafetería, o está vinculada a un producto de la caja o de B2B en Finanzas → Ventas por producto): "Esta receta rinde en gramos pero se vende por unidad: compara el costo del lote. Conviene que rinda unidades (ej. 1 espresso)." con su (i).
+- **Costo neto por ingrediente** en la tabla, en la columna vigente y en la propuesta (café 14 g $353 → 17 g $429): se ve qué ingrediente mueve el costo.
+- **De dónde sale el costo:** primero el costo neto de Finanzas (motor de costeo, precio de la última compra). Si Finanzas no está conectada o le falta el precio de algún ingrediente, el del script con los precios de la planilla, como antes (los costos por ingrediente que Finanzas sí tenga se siguen mostrando).
+- Las jefas no ven nada de esto: la pantalla es solo de Sistema Fën. Nada de costos va a Cocina.
+
+Archivos: cambian `vista-produccion.js` (detalle de la propuesta), `produccion.js` (`costear`: Finanzas primero), `finanzas.js` (`costosPropuesta`), `finanzas-motor.js` (`compararPropuesta`, `vendePorUnidad`, `resumenPropuesta`), `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). La carpeta `cocina/` no cambia. No cambian las reglas ni los scripts. Pruebas: `pruebas/sistemafen/sf-pantallas.test.js` (espresso ficticio, PC y celular; capturas en `pruebas/capturas/aprobacion-v0636/`) y `finanzas-f1c.test.js`. Abajo a la izquierda: **v0.63.6**.
+
+### Lista de verificación v0.63.6
+- [ ] Abajo a la izquierda dice **v0.63.6**.
+- [ ] Producción → Desde Cocina → Revisar una receta que rinde gramos (ej. un espresso): arriba dice "+… % el costo del lote (neto)", con su (i).
+- [ ] Se ven "Lote vigente" y "Lote propuesto" con sus gramos y el % del lote; el costo por gramo queda abajo, más chico.
+- [ ] Si es de Cafetería (o está vinculada a un producto en Finanzas): aparece el aviso amarillo "Esta receta rinde en gramos pero se vende por unidad…" con su (i).
+- [ ] La tabla de ingredientes muestra el costo neto de cada uno, vigente y propuesta; el que más cambia salta a la vista.
+- [ ] Una receta que rinde unidades (ej. Hogaza): "Vigente · por unidad" y "Propuesta · por unidad" con su %, y arriba "el costo por unidad"; sin aviso.
+- [ ] En el celular nada se sale de lado.
 
 ## Novedades de la v0.63.5: buscar por monto en Ventas B2B
 **Para qué:** encontrar una orden, un folio o un abono sabiendo solo cuánto era (por ejemplo, la transferencia de $35.700 que llegó sin nombre).

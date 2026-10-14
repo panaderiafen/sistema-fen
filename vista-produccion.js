@@ -5,9 +5,9 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.63.5';
+import * as P from './produccion.js?v=0.63.6';
 import * as K from './cocina/consumo.js?v=0.16.0';
-import { conBuscador } from './buscador.js?v=0.63.5';
+import { conBuscador } from './buscador.js?v=0.63.6';
 
 const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -467,6 +467,7 @@ function conectarMerma(el, H) {
 }
 
 // ═══════════════ Recetas por aprobar y materias primas pedidas (desde Cocina) ═══════════════
+const FMr = c => P.resumenPropuesta(c);
 const pesosN = v => '$' + Math.round(Number(v) || 0).toLocaleString('es-CL');
 const pesosD = v => '$' + (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('es-CL');
 const ESTADO_TXT = { en_revision: 'En revisión', devuelta: 'Devuelta', aprobada: 'Aprobada' };
@@ -562,9 +563,12 @@ function detallePropuesta(p, H) {
   const cant = i => i ? (i.unidades !== null && i.unidades !== undefined && i.unidades !== '' ? `${String(i.unidades).replace('.', ',')} un · ` : '') + `${(Math.round((Number(i.gramos) || 0) * 10) / 10).toLocaleString('es-CL')} g` : '—';
   const vIngs = v ? v.ingredientes || [] : [];
   const ids = [...new Set([...(d.ingredientes || []).map(i => i.id), ...vIngs.map(i => i.id)])];
+  // v0.63.6: costo neto por ingrediente (Finanzas), vigente y propuesta: se ve qué ingrediente mueve el costo
+  const lnV = c && !c.error && c.vigente && c.vigente.lineas, lnP = c && !c.error && c.propuesta && c.propuesta.lineas, conCosto = !!(lnP || lnV);
+  const cst = (ln, id, hay) => (!hay ? '' : ln && ln[id] !== null && ln[id] !== undefined ? ` <span class="prop-costo">${pesosN(ln[id])}</span>` : ln && id in ln ? ' <span class="prop-costo">sin precio</span>' : '');
   const filas = ids.map(id => {
     const a = vIngs.find(i => i.id === id), b = (d.ingredientes || []).find(i => i.id === id), igual = a && b && cant(a) === cant(b);
-    return `<tr${igual ? '' : ' class="cambio"'}><td>${H.esc((b || a).nombre)}</td>${v ? `<td>${cant(a)}</td>` : ''}<td>${cant(b)}${!a && v ? ' <span class="chip c-verde">nuevo</span>' : !b ? ' <span class="chip c-rojo">sale</span>' : ''}</td></tr>`;
+    return `<tr${igual ? '' : ' class="cambio"'}><td>${H.esc((b || a).nombre)}</td>${v ? `<td>${cant(a)}${cst(lnV, id, !!a)}</td>` : ''}<td>${cant(b)}${cst(lnP, id, !!b)}${!a && v ? ' <span class="chip c-verde">nuevo</span>' : !b ? ' <span class="chip c-rojo">sale</span>' : ''}</td></tr>`;
   }).join('');
   const otros = [];
   const cmp = (t, x, y) => { if (String(x ?? '') !== String(y ?? '')) otros.push(`${t}: ${H.esc(String(x ?? '—'))} → <b>${H.esc(String(y ?? '—'))}</b>`); };
@@ -574,19 +578,32 @@ function detallePropuesta(p, H) {
     if (JSON.stringify(v.pasos || []) !== JSON.stringify(d.pasos || [])) otros.push(`Pasos: ${(v.pasos || []).length} → <b>${(d.pasos || []).length}</b> (cambiaron)`);
     if (JSON.stringify((v.insumos || []).map(i => i.id)) !== JSON.stringify((d.insumos || []).map(i => i.id))) otros.push('Insumos: cambiaron');
   } else otros.push(`Rinde ${H.esc(String(d.porciones))} ${d.unidad === 'g' ? 'g' : 'un'} · ${d.tipo === 'sub_receta' ? 'sub receta' : 'receta'}${d.clasificacion ? ' · ' + H.esc(d.clasificacion) : ''} · ${(d.pasos || []).length} pasos`);
-  const costo = !c ? '<p class="ayuda">Calculando el costo con los precios de la planilla…</p>' : c.error ? `<p class="error">${H.esc(c.error)}</p>` : (() => {
-    const n = c.propuesta, o = c.vigente, dif = o && o.unidadNeto ? (n.unidadNeto - o.unidadNeto) / o.unidadNeto * 100 : null;
+  const pct = x => (x === null || x === undefined || !isFinite(x) ? '' : `${x > 0 ? '+' : x < 0 ? '−' : ''}${(Math.round(Math.abs(x) * 10) / 10).toLocaleString('es-CL')} %`);
+  const pctCls = x => (x > 0.05 ? 'dif-mal' : x < -0.05 ? 'prop-baja' : '');
+  const rinde = x => `${H.esc(String(x.porciones))} ${x.unidad === 'g' ? 'g' : 'un'}`;
+  const costo = !c ? '<p class="ayuda">Calculando el costo (neto, con Finanzas o con los precios de la planilla)…</p>' : c.error ? `<p class="error">${H.esc(c.error)}</p>` : (() => {
+    const n = c.propuesta, o = c.vigente, R = FMr(c);
     const avisos = [...(n.faltan || []).map(x => `${x}: no está en MP_maestro`), ...(n.sinPrecio || []).map(x => `${x}: sin precio`)];
-    return `<div class="cifras" style="margin:10px 0">
-      ${o ? `<div class="tarjeta cifra"><span class="rotulo">Vigente · por ${v.unidad === 'g' ? 'gramo' : 'unidad'}</span><span class="valor">${pesosD(o.unidadNeto)}</span><span class="nota">neto · bruto ${pesosD(o.unidadBruto)}</span></div>` : ''}
-      <div class="tarjeta cifra"><span class="rotulo">Propuesta · por ${d.unidad === 'g' ? 'gramo' : 'unidad'}</span><span class="valor">${pesosD(n.unidadNeto)}</span><span class="nota">neto · bruto ${pesosD(n.unidadBruto)}${dif !== null ? ` · <b>${dif >= 0 ? '+' : ''}${(Math.round(dif * 10) / 10).toLocaleString('es-CL')} %</b>` : ''}</span></div>
-      <div class="tarjeta cifra"><span class="rotulo">Lote completo</span><span class="valor">${pesosN(n.loteNeto)}</span><span class="nota">neto · ${H.esc(String(d.porciones))} ${d.unidad === 'g' ? 'g' : 'un'}</span></div>
-    </div>${avisos.length ? `<p class="aviso">${avisos.map(H.esc).join(' · ')}</p>` : ''}`;
+    const rv = o ? { porciones: v.porciones, unidad: v.unidad } : null, rn = { porciones: d.porciones, unidad: d.unidad };
+    const fuente = c.fuente === 'finanzas' ? 'Costo neto de Finanzas (Finanzas → Costos: precio de la última compra).' : 'Costo neto con los precios de la planilla (Finanzas no tiene todos los precios de esta receta).';
+    const tit = R.titular ? `<p class="prop-titular" id="prop-titular"><b class="${pctCls(R.titular.pct)}">${pct(R.titular.pct)}</b> el costo ${R.titular.que} (neto) ${H.info('Qué cambia', `Lo primero es el costo ${R.titular.que === 'por unidad' ? 'por unidad (lo que cuesta cada una)' : 'del lote completo (todo lo que se hace con la receta)'}, no el costo por gramo.\nSi la receta rinde más gramos porque lleva más agua o leche, el gramo sale más barato aunque cada taza o pieza cueste más: por eso el costo por gramo queda abajo, como dato secundario.\n${fuente}`)}</p>` : '';
+    const vpu = c.vendePorUnidad && c.vendePorUnidad.si ? `<p class="aviso" id="prop-aviso-unidad">Esta receta rinde en gramos pero se vende por unidad: compara el costo del lote. Conviene que rinda unidades (ej. 1 espresso). ${H.info('Rinde en gramos, se vende por unidad', `Esta receta ${c.vendePorUnidad.motivo || 'se vende por unidad'}. Su costo se calcula por gramo, y el gramo cambia cuando cambia el rendimiento (más agua = más gramos), aunque cada taza cueste lo mismo o más.\nMientras rinda gramos, mira el costo del lote (lo que cuesta hacerla una vez).\nSi en Cocina se cambia para que rinda unidades (por ejemplo 1 espresso), el costo por unidad sale directo y se compara bien.`)}</p>` : '';
+    const lote = `<div class="cifras" style="margin:10px 0">
+      ${o ? `<div class="tarjeta cifra"><span class="rotulo">Lote vigente</span><span class="valor">${pesosN(o.loteNeto)}</span><span class="nota">neto · ${rinde(rv)}</span></div>` : ''}
+      <div class="tarjeta cifra"><span class="rotulo">Lote propuesto</span><span class="valor">${pesosN(n.loteNeto)}</span><span class="nota">neto · ${rinde(rn)}${R.pctLote !== null ? ` · <b class="${pctCls(R.pctLote)}">${pct(R.pctLote)}</b>` : ''}</span></div>
+      ${R.unN !== null ? `${R.unV !== null ? `<div class="tarjeta cifra"><span class="rotulo">Vigente · por unidad</span><span class="valor">${pesosD(R.unV)}</span><span class="nota">neto · bruto ${pesosD(R.unV * 1.19)}</span></div>` : ''}<div class="tarjeta cifra"><span class="rotulo">Propuesta · por unidad</span><span class="valor">${pesosD(R.unN)}</span><span class="nota">neto · bruto ${pesosD(R.unN * 1.19)}${R.pctUn !== null ? ` · <b class="${pctCls(R.pctUn)}">${pct(R.pctUn)}</b>` : ''}</span></div>` : ''}
+    </div>`;
+    const pgV = o ? (o.unidad === 'g' ? o.unidadNeto : o.porGramo) : null, pgN = n.unidad === 'g' ? n.unidadNeto : n.porGramo;
+    const gramo = pgN !== null && pgN !== undefined ? `<div class="cifras prop-secundaria" id="prop-por-gramo">
+      ${pgV !== null && pgV !== undefined ? `<div class="cifra"><span class="rotulo">Vigente · por gramo</span><span class="valor">${pesosD(pgV)}</span><span class="nota">neto · bruto ${pesosD(pgV * 1.19)}</span></div>` : ''}
+      <div class="cifra"><span class="rotulo">Propuesta · por gramo</span><span class="valor">${pesosD(pgN)}</span><span class="nota">neto · bruto ${pesosD(pgN * 1.19)}${R.pctGramo !== null ? ` · ${pct(R.pctGramo)}` : ''}</span></div>
+    </div>` : '';
+    return `${tit}${vpu}${lote}${gramo}${avisos.length ? `<p class="aviso">${avisos.map(H.esc).join(' · ')}</p>` : ''}`;
   })();
   const ult = [...(p.historial || [])].reverse().find(h => h.comentario);
   return `<div style="border-top:1px solid var(--borde);margin-top:10px;padding-top:10px">
     ${ult ? `<p class="ayuda">Nota de ${H.esc(ult.por || '')}: ${H.esc(ult.comentario)}</p>` : ''}
-    <div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Ingrediente</th>${v ? '<th scope="col">Vigente</th>' : ''}<th scope="col">Propuesta</th></tr></thead><tbody>${filas}</tbody></table></div>
+    <div class="tabla-b2b"><table class="tabla-tiempos" id="prop-ingredientes"><thead><tr><th scope="col">Ingrediente</th>${v ? `<th scope="col">Vigente${conCosto ? ' · costo neto' : ''}</th>` : ''}<th scope="col">Propuesta${conCosto ? ' · costo neto' : ''}</th></tr></thead><tbody>${filas}</tbody></table></div>
     ${otros.length ? `<ul class="ayuda" style="margin:8px 0 0 18px">${otros.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
     ${costo}
     <div class="campo"><label for="prop-com">Comentario (si la devuelves, la jefa lo ve; si la apruebas, queda en el registro)</label><textarea id="prop-com" rows="2" maxlength="500" style="font:inherit;padding:10px;border-radius:10px;border:1px solid var(--borde)"></textarea></div>

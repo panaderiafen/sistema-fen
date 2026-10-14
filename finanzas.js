@@ -45,21 +45,21 @@
 //   guarda porMedio y el de B2B ordenesValidas. costos_config/finanzas.margenes (comisión por medio de pago, mezcla de la caja, despacho B2B,
 //   margen objetivo por área, redondeo) + historialMargenes. fin_productos.costoExtraNeto (envase por venta, neto).
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.63.5';
-import * as FB from './fs-gastos.js?v=0.63.5';
-import * as GB from './gastos-base.js?v=0.63.5';
-import * as P from './produccion.js?v=0.63.5';
-import * as FC from './finanzas-costos.js?v=0.63.5';
-import * as FS from './finanzas-sii.js?v=0.63.5';
-import * as FM from './finanzas-motor.js?v=0.63.5';
-import * as FV from './finanzas-ventas.js?v=0.63.5';
-import * as FMG from './finanzas-margenes.js?v=0.63.5';
-import * as FR from './finanzas-resultados.js?v=0.63.5';
-import * as FE from './finanzas-eerr.js?v=0.63.5';
-import * as Caja from './caja.js?v=0.63.5';
-import * as B from './b2b.js?v=0.63.5';
-import * as FBB from './firebase-b2b.js?v=0.63.5';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.63.5';
+import { auth as authSF } from './firebase.js?v=0.63.6';
+import * as FB from './fs-gastos.js?v=0.63.6';
+import * as GB from './gastos-base.js?v=0.63.6';
+import * as P from './produccion.js?v=0.63.6';
+import * as FC from './finanzas-costos.js?v=0.63.6';
+import * as FS from './finanzas-sii.js?v=0.63.6';
+import * as FM from './finanzas-motor.js?v=0.63.6';
+import * as FV from './finanzas-ventas.js?v=0.63.6';
+import * as FMG from './finanzas-margenes.js?v=0.63.6';
+import * as FR from './finanzas-resultados.js?v=0.63.6';
+import * as FE from './finanzas-eerr.js?v=0.63.6';
+import * as Caja from './caja.js?v=0.63.6';
+import * as B from './b2b.js?v=0.63.6';
+import * as FBB from './firebase-b2b.js?v=0.63.6';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.63.6';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -344,6 +344,14 @@ export async function costosMerma(items) {
   const motor = FM.crearMotor(ctx), out = {};
   (items || []).forEach(it => { const c = FM.costoUnitario(motor, ctx.costos, it); if (c) out[`${it.tipo}:${it.id}:${it.unidad}`] = c; });
   return out;
+}
+
+// v0.63.6: Recetas por aprobar (Producción → Desde Cocina): propuesta vs vigente con el costo neto del motor (null si fen-gastos no está)
+export async function costosPropuesta(prop) {
+  const cx = await GB.conexion().catch(() => null);
+  if (!cx || cx.estado !== 'ok') return null;
+  const [ctx, vinc] = await Promise.all([datosMotor(), leerVinculos().catch(() => ({}))]);
+  return FM.compararPropuesta(ctx, prop, vinc);
 }
 
 // ═══════════════ v0.59.0 · Ventas por producto, área y canal (F2 paso 1) ═══════════════

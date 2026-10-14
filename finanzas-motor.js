@@ -283,3 +283,50 @@ export function alzas(filas, vistas, umbral = ALZA_DEFECTO) {
     .filter(f => { const v = (vistas || {})[f.id]; return !(v && n(v.costoUnit) > 0 && Math.abs(pctCambio(f.costoUnit, v.costoUnit)) <= UMBRAL_HIST); })
     .sort((a, b) => b.vsMes.pct - a.vsMes.pct);
 }
+
+// ── v0.63.6 · Recetas por aprobar (Producción → Desde Cocina): propuesta vs vigente con el costo neto de Finanzas ──
+// prop: { docId, area, recetaId, datos, vigente }. vinculos: fin_productos (para saber si se vende por unidad).
+// → { fuente: 'finanzas', propuesta, vigente|null, vendePorUnidad: { si, motivo } }. Cada lado: { unidad, porciones, unidadNeto,
+//   unidadBruto, loteNeto, porGramo, pesoLote, faltan: [], sinPrecio: [ingredientes sin costo], lineas: { ingId: costo|null } }.
+export const IVA = 0.19;
+export function compararPropuesta(ctx, prop, vinculos = {}) {
+  const d = (prop && prop.datos) || {}, area = (prop && prop.area) || '', rid = (prop && prop.recetaId) || '';
+  const base = (ctx.recetas || []).filter(r => r && r.id !== rid);
+  const lado = (r, id) => {
+    const rec = { ...r, id, area: r.area || area, estado: 'aprobada' };
+    const res = crearMotor({ ...ctx, recetas: [...base, rec] }).costear(id);
+    if (!res || res.ciclo) return null;
+    const lineas = {};
+    res.desglose.forEach(l => { if (l.id) lineas[l.id] = (lineas[l.id] || 0) + (l.costo === null ? NaN : l.costo); });
+    Object.keys(lineas).forEach(k => { if (!isFinite(lineas[k])) lineas[k] = null; });
+    return { unidad: res.unidad, porciones: res.porciones, unidadNeto: res.costoUnit, unidadBruto: res.costoUnit * (1 + IVA), loteNeto: res.costoTotal,
+      porGramo: res.porGramo, pesoLote: res.pesoLote, faltan: [], sinPrecio: res.ingredientesSinCosto, incompleto: res.incompleto, lineas };
+  };
+  const propuesta = lado(d, rid || `propuesta:${(prop && prop.docId) || ''}`);
+  const vigente = prop && prop.vigente ? lado(prop.vigente, rid || 'vigente') : null;
+  return { fuente: 'finanzas', propuesta, vigente, vendePorUnidad: vendePorUnidad(prop, vinculos) };
+}
+// ¿Rinde gramos pero se vende por unidad? Cafetería, una receta vinculada a un producto de la caja o de B2B (fin_productos),
+// o tipo "vendible". → { si, motivo }
+export function vendePorUnidad(prop, vinculos = {}) {
+  const d = (prop && prop.datos) || {}, v = (prop && prop.vigente) || {};
+  if ((d.unidad || v.unidad) !== 'g') return { si: false, motivo: '' };
+  if ((prop && prop.area) === 'CAF') return { si: true, motivo: 'es de Cafetería' };
+  if (/vendible/i.test(t(d.tipo)) || /vendible/i.test(t(v.tipo))) return { si: true, motivo: 'es tipo vendible' };
+  const rid = prop && prop.recetaId;
+  const vin = rid ? Object.values(vinculos || {}).find(x => x && x.tipo !== 'ignorar' && !x.ignorar && x.receta === rid) : null;
+  if (vin) return { si: true, motivo: `está vinculada a ${t(vin.nombre) || 'un producto'} (${vin.canal === 'b2b' ? 'B2B' : 'caja'})` };
+  return { si: false, motivo: '' };
+}
+// Lote y unidad: lo que se lee primero. → { loteV, loteN, pctLote, unV, unN, pctUn, pctGramo, titular: { pct, que } }
+export function resumenPropuesta(c) {
+  const n0 = c && c.propuesta, o = c && c.vigente;
+  if (!n0) return null;
+  const pctLote = o ? pctCambio(n0.loteNeto, o.loteNeto) : null;
+  const porUn = x => (x && x.unidad === 'un' ? x.unidadNeto : null);
+  const unV = porUn(o), unN = porUn(n0), pctUn = unV !== null && unN !== null ? pctCambio(unN, unV) : null;
+  const pg = x => (x ? (x.unidad === 'g' ? x.unidadNeto : (x.porGramo ?? null)) : null);
+  const pctGramo = o && pg(o) !== null && pg(n0) !== null ? pctCambio(pg(n0), pg(o)) : null;
+  const titular = pctUn !== null ? { pct: pctUn, que: 'por unidad' } : pctLote !== null ? { pct: pctLote, que: 'del lote' } : null;
+  return { loteV: o ? o.loteNeto : null, loteN: n0.loteNeto, pctLote, unV, unN, pctUn, pctGramo, titular };
+}

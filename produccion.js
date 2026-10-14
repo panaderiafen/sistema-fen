@@ -40,15 +40,15 @@
 //    bodega y lo que espera de Cocina, con limit y count) y no vuelve a leer en cada apertura. Cada cambio hecho desde aquí
 //    olvida lo que toca; "Actualizar" (Hoy y Producción) olvida todo. Sin escuchas en vivo (onSnapshot) sobre fen-produccion.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.63.5';
-import * as FBr from './firebase-produccion.js?v=0.63.5';
-import * as Apps from './apps.js?v=0.63.5';
-import { armar, AREAS } from './produccion-modelo.js?v=0.63.5';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.63.5';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.63.6';
+import * as FBr from './firebase-produccion.js?v=0.63.6';
+import * as Apps from './apps.js?v=0.63.6';
+import { armar, AREAS } from './produccion-modelo.js?v=0.63.6';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.63.6';
 import * as K from './cocina/consumo.js?v=0.16.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.11.0';
-import * as M from './fs-memoria.js?v=0.63.5';
-import { produccion as QP, esCuota } from './fs-cuota.js?v=0.63.5';
+import * as M from './fs-memoria.js?v=0.63.6';
+import { produccion as QP, esCuota } from './fs-cuota.js?v=0.63.6';
 
 // ── v0.63.3: todo pedido a fen-produccion pasa por aquí: se cuenta (Configuración → Uso de la base hoy) y, si Firestore dice
 // "cuota agotada" (resource-exhausted), se muestra el letrero de Producción/Cocina. Cada escritura de Sistema Fën en recetas,
@@ -104,6 +104,7 @@ async function conMarca(col, fn, forzar = false) {
 }
 
 export { AREAS };
+export { resumenPropuesta } from './finanzas-motor.js?v=0.63.6';
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
@@ -420,11 +421,21 @@ export async function pendientesCocina({ forzar = false } = {}) {
   } catch (e) { return null; }
 }
 // Costo por unidad de la propuesta y de la versión vigente (con los precios de la planilla)
+// v0.63.6: primero el costo neto de Finanzas (motor, con el costo por ingrediente); si no está o le falta algún precio, el script
+// (precios de la planilla), como antes. Siempre se sabe si se vende por unidad (Cafetería o vinculada en Finanzas).
 export async function costear(prop) {
+  let fin = null;
+  try { fin = await (await import('./finanzas.js?v=0.63.6')).costosPropuesta(prop); } catch (e) { console.warn('Recetas por aprobar: sin el motor de Finanzas', e); fin = null; }
+  const okFin = fin && fin.propuesta && !(fin.propuesta.sinPrecio || []).length && (!prop.vigente || (fin.vigente && !(fin.vigente.sinPrecio || []).length));
+  if (okFin) return fin;
   const recetas = [{ clave: 'propuesta', datos: prop.datos }];
   if (prop.vigente) recetas.push({ clave: 'vigente', datos: datosDeReceta(prop.vigente) });
   const r = await script('costear', { recetas });
-  return r.costos;
+  const c = r.costos || {}, d = prop.datos || {}, v = prop.vigente || {};
+  const marca = (x, rr, f) => (x ? { ...x, unidad: rr.unidad === 'g' ? 'g' : 'un', porciones: Number(rr.porciones) || 1, lineas: f ? f.lineas : null } : x);
+  let vpu = fin ? fin.vendePorUnidad : null;
+  if (!vpu) { const g = (d.unidad || v.unidad) === 'g'; vpu = { si: g && prop.area === 'CAF', motivo: g && prop.area === 'CAF' ? 'es de Cafetería' : '' }; }
+  return { fuente: 'planilla', propuesta: marca(c.propuesta, d, fin && fin.propuesta), vigente: prop.vigente ? marca(c.vigente, v, fin && fin.vigente) : null, vendePorUnidad: vpu };
 }
 const paso = (prop, estado, comentario, extra = {}) => ({
   estado, ...extra,
@@ -568,7 +579,7 @@ export async function mermaDelPeriodo({ desde, hasta, fresco = false }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.63.5')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.63.6')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
   const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';
