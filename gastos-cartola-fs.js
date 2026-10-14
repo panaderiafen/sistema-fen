@@ -19,15 +19,15 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.63.2';
-import * as M from './gastos-g2.js?v=0.63.2';
-import * as G3 from './gastos-g3.js?v=0.63.2';
-import * as G3D from './gastos-g3d.js?v=0.63.2';
-import * as C from './gastos-cartola.js?v=0.63.2';
-import * as B from './gastos-banco.js?v=0.63.2';
-import { huella } from './gastos-modelo.js?v=0.63.2';
-import * as FS from './gastos-fs.js?v=0.63.2';
-import * as GB from './gastos-base.js?v=0.63.2';
+import * as FB from './fs-gastos.js?v=0.63.3';
+import * as M from './gastos-g2.js?v=0.63.3';
+import * as G3 from './gastos-g3.js?v=0.63.3';
+import * as G3D from './gastos-g3d.js?v=0.63.3';
+import * as C from './gastos-cartola.js?v=0.63.3';
+import * as B from './gastos-banco.js?v=0.63.3';
+import { huella } from './gastos-modelo.js?v=0.63.3';
+import * as FS from './gastos-fs.js?v=0.63.3';
+import * as GB from './gastos-base.js?v=0.63.3';
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"

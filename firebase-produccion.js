@@ -1,4 +1,4 @@
-// Sistema Fën — conexión con la base nueva de Producción (proyecto Firebase fen-produccion)  v0.31.0
+// Sistema Fën — conexión con la base nueva de Producción (proyecto Firebase fen-produccion)  v0.63.3 (exporta Timestamp)
 // Proyecto aparte (como fen-b2b): cuota propia; las cuentas de las áreas de la cocina viven ahí.
 // Todo lo de fen-produccion entra por este archivo. Se conecta recién cuando hay configuración guardada.
 import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -9,7 +9,7 @@ import {
 import {
   getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, writeBatch,
   query, where, orderBy, limit, serverTimestamp, getAggregateFromServer, sum, count,
-  onSnapshot, runTransaction, addDoc
+  onSnapshot, runTransaction, addDoc, Timestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 let actual = null;   // { proyecto, app, auth, db }
@@ -35,5 +35,5 @@ export async function salir() { if (actual) await signOut(actual.auth); }
 export {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, writeBatch,
   query, where, orderBy, limit, serverTimestamp, getAggregateFromServer, sum, count,
-  onSnapshot, runTransaction, addDoc
+  onSnapshot, runTransaction, addDoc, Timestamp
 };

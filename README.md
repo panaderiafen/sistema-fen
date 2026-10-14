@@ -1,9 +1,65 @@
-# Sistema Fën · v0.63.2
+# Sistema Fën · v0.63.3
 
-**App:** v0.63.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 13 de octubre de 2026
+**App:** v0.63.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 13 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.63.3: Sistema Fën ya no gasta la cuota de Cocina
+**El problema:** fen-produccion es la base de las **tablets de Cocina** (su propia cuota gratis: 50.000 lecturas al día, sumando las tablets y Sistema Fën). Sistema Fën leía colecciones enteras cada vez: cada apertura de **Hoy** ≈ 196 lecturas (avisos de bodega: todo el stock, las 160 MP y la configuración; lo que espera de Cocina), cada vez que se abría **Producción** ≈ 463, **Calcular** la bodega ≈ 880 (120 días de Cocina, recetas, MP…), cada **Merma** ≈ 286 y **Costos** ≈ 277. Un día pesado de administración: **≈ 10.700 lecturas** de la cuota de Cocina. Ahora: **≈ 2.300**.
+
+### Antes y después (lecturas en fen-produccion; prueba `cuota-v0633.test.js`, volumen de un año)
+| Acción | v0.63.2 | v0.63.3 |
+|---|---:|---:|
+| Abrir la app en Hoy, 1ª vez (nada guardado; calcula la bodega) | 1.076 | **1.080** (una vez; después queda guardado) |
+| Abrir la app en Hoy otra vez (dentro de 10 minutos) | 196 | **1** |
+| Abrir Hoy pasados 10 minutos | 196 | **8** |
+| Hoy → **Actualizar** (vuelve a leer; de los días de Cocina, solo lo que cambió) | 196 | **197** |
+| Hoy cada 30 minutos durante el día, con Cocina anotando (máximo) | 196 | **33** |
+| Volver a Hoy 10 veces en la misma apertura | 1.960 | **0** |
+| Producción: 1ª vez / 5 veces | 463 / 2.315 | **90 / 110** |
+| Producción → Bodega → **Calcular** (lo pides tú: vuelve a leer, salvo los días que no cambiaron) | 880 | **383** |
+| Producción → Merma → Ver | 286 | **1** |
+| Finanzas → Costos (1ª vez / 5 veces) | 277 / 281 | **0 / 0** (ya en memoria) |
+| Finanzas → Resultados ×3 (merma del mes y conteos) | 127 | **0** |
+| **Día pesado** (Hoy cada 30 min de 8:00 a 17:30, Producción ×5, Calcular ×2, Merma ×4, Costos ×5, Resultados ×3) | **10.652** | **2.300** (78 escrituras) |
+
+La prueba falla si Hoy pasa de 40 lecturas por apertura (después de la primera) o si el día pesado pasa de 3.000.
+
+### Qué cambió
+- **Una sola memoria para Hoy, Producción y Finanzas** (`fs-memoria.js`): lo que leyó una pantalla no lo vuelve a leer otra. Lo que no es chico queda solo mientras la app está abierta; lo chico, también en este navegador.
+- **Recetas, materias primas, configuración y stock de la bodega con "marca de cambio":** esas colecciones solo las escribe Sistema Fën (las reglas no dejan que Cocina las cambie). Cada vez que Sistema Fën guarda en una de ellas sube su marca en el documento `migracion/sf_cambios`. Los otros equipos leen esa marca (1 lectura cada 10 minutos) y vuelven a leer la colección **solo si cambió**. Igual se releen una vez al día, por si acaso.
+- **Días de Cocina, solo lo que cambió:** cada guardado de Cocina lleva `actualizado.en` (hora del servidor; así lo hace Cocina desde siempre). Se leen una vez los 120 días de la bodega y después se pregunta solo `actualizado.en ≥ lo último visto` (una condición sobre un solo campo: **no hace falta crear índices**). Las llegadas anotadas en Sistema Fën (`dias/ADM_…`) ahora también llevan `actualizado.en`. Merma, conteos del cierre y Finanzas usan esos mismos días.
+- **Hoy:** recetas y MP por aprobar con `limit` + `count()` (cuántas y las 3 primeras); avisos de bodega 10 minutos en memoria; la conexión ("eres administración") 10 minutos.
+- **Calcular la bodega:** cuando lo pide Hoy (el último cálculo tiene más de 6 horas) usa lo guardado con su marca y los días que cambiaron (≈ 30 lecturas); cuando lo pides tú (Calcular) vuelve a leer recetas, MP, configuración y stock por si acaso, pero de los 120 días de Cocina solo los que cambiaron (≈ 380 en vez de ≈ 880).
+- **Actualizar** (Hoy y Producción, con su (i)): vuelve a leer todo lo de Producción (por si algo cambió por fuera de Sistema Fën), salvo los días de Cocina, de los que pregunta solo lo que cambió.
+- **Cuota agotada en fen-produccion:** el mismo letrero de la v0.63.2, con su (i): *"Se acabó la cuota diaria gratuita de la base de Producción/Cocina. No se perdió nada: lo guardado quedó guardado y lo que no, no entró. Vuelve a funcionar cerca de las 4:00 (hora de Chile). Las tablets de Cocina también quedan en pausa hasta esa hora (lo que anoten se guarda solo cuando vuelva). Gastos, Caja y B2B siguen funcionando."* Mientras tanto, los botones de Producción quedan desactivados. `fs-cuota.js` ahora sirve para cualquier base (`crearCuota`).
+- **Configuración → Uso de la base hoy:** nueva línea con lo leído y escrito en fen-produccion desde este navegador.
+- **Sin escuchas en vivo** sobre fen-produccion (no había ni hay).
+
+**Cocina (fen-cocina) no cambia (sigue la v0.16.2).** Estimado de un día normal: ≈ 2.400–2.600 lecturas por tablet (abrir 1 vez + ≈ 2 reconexiones de más de 30 minutos ≈ 730 cada una: recetas 110, MP 160, stock, conteos, personas y **todos los días del área ≈ 365**; más ≈ 2 lecturas por cada cosa que se anota y 25 por cada cálculo de la bodega); con 5 equipos **≈ 12.000 al día**, más ≈ 2.300 de Sistema Fën en un día pesado: muy por debajo de 50.000. A vigilar: el escuchador de los días del área crece 1 documento por día (en 2 años ≈ 17.000 al día); si una tablet se reconecta muchas veces (se duerme o pierde el wifi a cada rato), cada reconexión de más de 30 minutos vuelve a leer todo.
+
+**Dónde se guarda (fen-produccion; las reglas v1.7.0 ya lo cubren):** `migracion/sf_cambios` = `{ recetas, mps, config, stockmp (texto que cambia), en }` (solo administración); `actualizado: { por, en }` en `dias/ADM_{fecha}`. Cocina no lee ninguno de los dos y sigue leyendo todo igual. **Reglas, scripts y Cocina: no cambian.**
+
+Por dentro: `produccion.js` (todo pedido a fen-produccion pasa por un envoltorio que cuenta, detecta la cuota y sube la marca; memoria con marca; días incrementales; `olvidarTodo` al entrar, salir o copiar la planilla), `fs-cuota.js` (`crearCuota(base)`; `produccion`), `fs-memoria.js` (nuevo), `firebase-produccion.js` (exporta `Timestamp`), `app.js` (letrero de Producción/Cocina, Actualizar, Uso de la base hoy), `b2b.js` (conexión y config en memoria), `finanzas.js` (usa la memoria compartida), `vista-produccion.js` (Actualizar), `estilos.css`. Archivos: todos los `.js` cambian al menos la versión; la carpeta `cocina/` no cambia.
+
+Pruebas: nueva `pruebas/sistemafen/cuota-v0633.test.js` (7: Hoy ×20, Hoy ×10 en la misma apertura, Producción ×5 con Calcular y Merma, Finanzas, Actualizar + 10 minutos + llegada que borra la alerta + celular sin scroll lateral, **día pesado ≤ 3.000** con Hoy ≤ 40, sin escuchas en vivo). El Firestore simulado de fen-produccion compara horas por su valor y exporta `Timestamp`. `SF_DIR=<carpeta>` mide otra versión sin presupuestos. Capturas en `pruebas/capturas/cuota-v0633/`.
+
+### Instalación v0.63.3 (unos 3 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.63.3.zip` (con la carpeta `cocina/`, que no cambia) → **Commit changes**. Espera 1 o 2 minutos y **recarga Sistema Fën en todos los equipos** (Ctrl+Shift+R en el PC). Nada en Apps Script, reglas ni Cocina.
+
+### Lista de verificación v0.63.3
+- [ ] Abajo a la izquierda dice **v0.63.3**.
+- [ ] **Hoy** muestra lo mismo que antes (avisos de bodega, recetas y MP por aprobar de Cocina).
+- [ ] **Configuración → Uso de la base hoy**: aparece la línea de **Producción/Cocina**. Abre Hoy, Producción y Finanzas → Costos varias veces: las lecturas de Producción/Cocina casi no suben.
+- [ ] **Producción → Bodega → Calcular**: el cálculo se ve igual que antes.
+- [ ] Anota una llegada en Producción → Bodega: el aviso de Hoy se actualiza al tiro.
+- [ ] Aprueba (o cambia) una receta desde Sistema Fën en el PC: en el celular se ve a más tardar en 10 minutos (o con **Actualizar**).
+- [ ] Cocina en las tablets funciona igual (no se instaló nada ahí).
+- [ ] Mañana, en la consola de Firebase (fen-produccion → Firestore → Uso), las lecturas del día quedan muy por debajo de 50.000.
+
+### Si algo sale mal
+Si algo no calza (un aviso viejo, una receta que no aparece): **Actualizar** en Hoy o Producción; si sigue, cierra sesión de la base de Producción y vuelve a entrar (borra todo lo guardado). Para volver atrás, sube los archivos de la v0.63.2: todo funciona como antes; `migracion/sf_cambios` y `actualizado` en los días de Administración quedan sin estorbar.
 
 ## Novedades de la v0.63.2: la base de Gastos y Finanzas ya no se queda sin cuota
 **El problema:** hoy fen-gastos dio **"Quota exceeded"**. El plan gratis de Firestore (Spark) da **50.000 lecturas y 20.000 escrituras al día** por proyecto, y cada pantalla de Gastos, Conciliación y Finanzas volvía a leer colecciones **enteras** cada vez que se abría: los 3.000 gastos, los 1.500 cargos de la cartola, los 500 vencimientos… Lo peor: **conciliar un cargo releía todo de nuevo** (≈ 4.900 lecturas por cargo) y **cada carga del SII** leía todos los gastos y documentos varias veces. Medido con el volumen de un año (3.000 gastos, 160 MP, 110 recetas, 400 documentos del SII, 40 obligaciones, 500 vencimientos, 1.500 cargos), un día pesado gastaba **≈ 598.000 lecturas** (12 veces la cuota). Ahora: **≈ 4.500 lecturas y 934 escrituras**.

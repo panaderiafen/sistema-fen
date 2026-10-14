@@ -45,21 +45,21 @@
 //   guarda porMedio y el de B2B ordenesValidas. costos_config/finanzas.margenes (comisión por medio de pago, mezcla de la caja, despacho B2B,
 //   margen objetivo por área, redondeo) + historialMargenes. fin_productos.costoExtraNeto (envase por venta, neto).
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.63.2';
-import * as FB from './fs-gastos.js?v=0.63.2';
-import * as GB from './gastos-base.js?v=0.63.2';
-import * as P from './produccion.js?v=0.63.2';
-import * as FC from './finanzas-costos.js?v=0.63.2';
-import * as FS from './finanzas-sii.js?v=0.63.2';
-import * as FM from './finanzas-motor.js?v=0.63.2';
-import * as FV from './finanzas-ventas.js?v=0.63.2';
-import * as FMG from './finanzas-margenes.js?v=0.63.2';
-import * as FR from './finanzas-resultados.js?v=0.63.2';
-import * as FE from './finanzas-eerr.js?v=0.63.2';
-import * as Caja from './caja.js?v=0.63.2';
-import * as B from './b2b.js?v=0.63.2';
-import * as FBB from './firebase-b2b.js?v=0.63.2';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.63.2';
+import { auth as authSF } from './firebase.js?v=0.63.3';
+import * as FB from './fs-gastos.js?v=0.63.3';
+import * as GB from './gastos-base.js?v=0.63.3';
+import * as P from './produccion.js?v=0.63.3';
+import * as FC from './finanzas-costos.js?v=0.63.3';
+import * as FS from './finanzas-sii.js?v=0.63.3';
+import * as FM from './finanzas-motor.js?v=0.63.3';
+import * as FV from './finanzas-ventas.js?v=0.63.3';
+import * as FMG from './finanzas-margenes.js?v=0.63.3';
+import * as FR from './finanzas-resultados.js?v=0.63.3';
+import * as FE from './finanzas-eerr.js?v=0.63.3';
+import * as Caja from './caja.js?v=0.63.3';
+import * as B from './b2b.js?v=0.63.3';
+import * as FBB from './firebase-b2b.js?v=0.63.3';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.63.3';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -253,14 +253,10 @@ export async function porConfirmarParaHoy() {
 // Recetas, materias primas y configuración de fen-produccion (sin costos) + el maestro de costos de fen-gastos
 // v0.63.2: recetas, materias primas y configuración de fen-produccion quedan 10 minutos en memoria (antes se leían enteras cada
 // vez que se abría Costos, Márgenes o Hoy: ~270 lecturas en la base de Cocina cada vez)
-let prodMemo = null;
-const PROD_MS = 600000;
-export const olvidarProduccion = () => { prodMemo = null; };
+// v0.63.3: esa memoria ahora es la de produccion.js (fs-memoria.js), compartida con Hoy y Producción (y guardada en este navegador)
+export const olvidarProduccion = () => { P.olvidarMemoria(); };
 async function prodMotor() {
-  if (prodMemo && Date.now() - prodMemo.t < PROD_MS && prodMemo.ver === P.versionDatos) return prodMemo.v;
-  const ver = P.versionDatos, v = await Promise.all([P.mpsYRecetas(), P.leerConfigs().catch(() => ({}))]);
-  prodMemo = { t: Date.now(), v, ver };
-  return v;
+  return Promise.all([P.mpsYRecetas(), P.leerConfigs().catch(() => ({}))]);
 }
 export async function datosMotor({ costos } = {}) {
   const [[prod, cfg], c] = await Promise.all([prodMotor(), costos ? Promise.resolve(costos) : leerColeccion('costos_mp')]);

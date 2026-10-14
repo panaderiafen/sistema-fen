@@ -5,9 +5,9 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.63.2';
+import * as P from './produccion.js?v=0.63.3';
 import * as K from './cocina/consumo.js?v=0.16.0';
-import { conBuscador } from './buscador.js?v=0.63.2';
+import { conBuscador } from './buscador.js?v=0.63.3';
 
 const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -40,9 +40,12 @@ const resumenBodega = () => {
   return `${c.criticas.length} ${c.criticas.length === 1 ? 'crítica' : 'críticas'}${porB && (c.bodegas || []).length > 1 ? ` (${porB})` : ''}${bajos ? ` · <span class="chip c-rojo">${bajos} bajo el mínimo</span>` : c.criticas.length ? ' · bien' : ''}${sin ? ` · ${sin} sin conteo` : ''}`;
 };
 const resumenMerma = () => st.merma.datos ? `${P.PERIODOS_MERMA[st.merma.periodo]}: ${pesosN(P.resumenMerma(st.merma.datos).total)} neto` : 'Toca para ver lo perdido';
-const cab = H => `<div class="cabecera"><div><h1 id="t-produccion">Producción</h1><p>Base nueva de la cocina (fen-produccion) · la app actual sigue funcionando igual</p></div></div>`;
+const cab = H => `<div class="cabecera"><div><h1 id="t-produccion">Producción</h1><p>Base nueva de la cocina (fen-produccion) · la app actual sigue funcionando igual</p></div>
+  <div class="botones" style="margin:0;align-items:center"><button type="button" class="btn-sec btn-chico" id="prod-actualizar">Actualizar</button>${H.info('Actualizar', 'Lo que Sistema Fën lee de la base de Cocina (recetas, materias primas, configuración, bodega, días de Cocina) queda 10 minutos en memoria: así no gasta la cuota de las tablets de las jefas cada vez que abres Hoy, Producción o Finanzas.\nLo que cambias aquí se ve al tiro. Lo que cambian las jefas en Cocina puede tardar hasta 10 minutos en verse; "Actualizar" lo vuelve a leer ahora.')}</div></div>`;
 
 export async function pintar(el, sub, H) {
+  // v0.63.3: un solo escuchador para el botón Actualizar (la cabecera se vuelve a dibujar en cada pantalla)
+  if (!el.dataset.actualizar) { el.dataset.actualizar = '1'; el.addEventListener('click', ev => { if (ev.target.closest('#prod-actualizar')) { P.olvidarMemoria(); st.bodega.calc = null; st.merma.datos = null; pintar(el, '', H); } }); }
   el.innerHTML = cab(H) + '<section class="tarjeta"><div class="vacio" style="border:0">Conectando…</div></section>';
   let cx;
   try { cx = await P.conexion(); } catch (e) { el.innerHTML = cab(H) + `<section class="tarjeta"><p class="error">${H.esc(error(e, H))}</p></section>`; return; }
@@ -457,7 +460,8 @@ function conectarMerma(el, H) {
   sel.addEventListener('change', () => { st.merma.periodo = sel.value; });
   b.addEventListener('click', async () => {
     st.merma.periodo = sel.value; st.merma.cargando = true; st.merma.msg = ''; $('prod-merma').innerHTML = seccionMerma(H); conectarMerma(el, H);
-    try { st.merma.datos = await P.mermaDelPeriodo(P.periodoMerma(st.merma.periodo)); } catch (e) { st.merma.datos = null; st.merma.msg = error(e, H); }
+    // v0.63.3: lo pides tú: se lee de nuevo (fresco)
+    try { st.merma.datos = await P.mermaDelPeriodo({ ...P.periodoMerma(st.merma.periodo), fresco: true }); } catch (e) { st.merma.datos = null; st.merma.msg = error(e, H); }
     st.merma.cargando = false; $('prod-merma').innerHTML = seccionMerma(H); if ($('pl-res-merma')) $('pl-res-merma').innerHTML = resumenMerma(); conectarMerma(el, H);
   });
 }

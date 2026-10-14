@@ -1326,6 +1326,7 @@ a.btn-sec { display: inline-flex; align-items: center; justify-content: center; 
 body.cuota-gastos #v-gastos .btn, body.cuota-gastos #v-gastos button[type="submit"],
 body.cuota-gastos #v-finanzas .btn, body.cuota-gastos #v-finanzas button[type="submit"],
 body.cuota-gastos[data-sub="cargos"] #v-conciliacion .btn, body.cuota-gastos[data-sub="cargos"] #v-conciliacion button[type="submit"], body.cuota-gastos[data-sub="cargos"] #v-conciliacion [data-cc-ok],
+body.cuota-produccion #v-produccion .btn, body.cuota-produccion #v-produccion button[type="submit"], body.cuota-produccion #prod-actualizar,
 body.cuota-gastos #uso-releer { pointer-events: none; opacity: 0.45; filter: grayscale(1); }
 .uso-base-barras { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 24px; margin: 8px 0 12px; }
 .barra-uso { height: 8px; border-radius: 4px; background: var(--linea); margin-top: 6px; overflow: hidden; }

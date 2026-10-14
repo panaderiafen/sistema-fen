@@ -8,10 +8,11 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.63.2';
-import * as FB from './firebase-b2b.js?v=0.63.2';
-import * as Apps from './apps.js?v=0.63.2';
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.63.2';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.63.3';
+import * as FB from './firebase-b2b.js?v=0.63.3';
+import * as Apps from './apps.js?v=0.63.3';
+import * as Mem from './fs-memoria.js?v=0.63.3';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.63.3';
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -54,7 +55,22 @@ export async function guardarConfig(cfg) {
 
 // ── Sesión en fen-b2b ──────────────────────────────
 // estado: sin_config | sin_sesion | sin_admin | ok
-export async function conexion() {
+// v0.63.3: "conectada y eres administración" queda 10 minutos en memoria (Hoy preguntaba 5 veces por apertura: 1 lectura en
+// fen-b2b y 1 en la caja cada vez)
+let cxMem = null;
+export function conexion() {
+  const u = FB.conectado && FB.conectado() && FB.conectado().auth.currentUser;
+  if (cxMem && Date.now() - cxMem.t < Mem.TTL && Date.now() >= cxMem.t && (!cxMem.uid || (u && u.uid === cxMem.uid))) return cxMem.p;
+  const yo = { t: Date.now() };
+  yo.p = conexionLeer().then(r => { if (cxMem === yo) { if (r.estado === 'ok') yo.uid = r.uid; else cxMem = null; } return r; }, e => { if (cxMem === yo) cxMem = null; throw e; });
+  cxMem = yo;
+  return yo.p;
+}
+// config/b2b (¿está activa?): 2 minutos en memoria
+async function configB2b(db) {
+  return Mem.memo('b2b:config', async () => { const c = await FB.getDoc(FB.doc(db, 'config', 'b2b')); uso.lecturas++; return c.exists() ? c.data() : null; }, { ttl: 120000 });
+}
+async function conexionLeer() {
   const cfg = await leerConfig();
   if (!cfg) return { estado: 'sin_config' };
   const cx = await FB.conectar(cfg);
@@ -69,6 +85,7 @@ export async function conexion() {
   return { estado: 'ok', cfg, uid: u.uid, correo: u.email, db: cx.db };
 }
 export async function entrar(clave, soloSesion) {
+  cxMem = null; Mem.olvidar('b2b:');
   const cfg = await leerConfig();
   await FB.conectar(cfg);
   await FB.entrar(authSF.currentUser.email, clave, soloSesion);
@@ -76,6 +93,7 @@ export async function entrar(clave, soloSesion) {
 }
 // Cierra la sesión de fen-b2b (al salir de Sistema Fën o si se revoca el equipo)
 export async function salir() {
+  cxMem = null; Mem.olvidar('b2b:');
   try {
     if (!FB.conectado()) { const cfg = cfgLocal(); if (!cfg) return; await FB.conectar(cfg); }
     await FB.salir();
@@ -349,7 +367,7 @@ export async function cambiarABaseNueva(avance) {
     const b = FB.writeBatch(db);
     b.set(FB.doc(db, 'contadores', 'ordenes'), { siguiente: sig, desde: 'cambio', en: FB.serverTimestamp() });
     b.set(FB.doc(db, 'config', 'b2b'), { activa: true, scriptUrl: url, desde: FB.serverTimestamp(), por: authSF.currentUser.email });
-    await b.commit(); uso.escrituras += 2;
+    await b.commit(); uso.escrituras += 2; Mem.olvidar('b2b:');
     return { siguiente: sig, copiados: prep.porEscribir };
   } catch (e) {
     try { await scriptModo(url, false); } catch (e2) {}
@@ -367,7 +385,7 @@ export async function volverAPlanilla() {
     uso.lecturas += Math.max(1, sn.size); pend += sn.size;
   }
   if (pend) throw new Error(`Hay ${pend} cambios que todavía no pasan a la planilla. Presiona "Pasar ahora" (en Órdenes) y vuelve a intentar.`);
-  await FB.setDoc(FB.doc(db, 'config', 'b2b'), { activa: false, scriptUrl: url, hasta: FB.serverTimestamp(), por: authSF.currentUser.email }); uso.escrituras++;
+  await FB.setDoc(FB.doc(db, 'config', 'b2b'), { activa: false, scriptUrl: url, hasta: FB.serverTimestamp(), por: authSF.currentUser.email }); uso.escrituras++; Mem.olvidar('b2b:');
   await scriptModo(url, false);
 }
 
@@ -457,7 +475,7 @@ export async function registrarPago(folio, fechaPago, medio) {
   if (!os.length) throw new Error('Ese folio no tiene órdenes por pagar.');
   const b = FB.writeBatch(db);
   os.forEach(o => b.update(FB.doc(db, 'ordenes', o.id), marcaCambio({ estadoPago: 'PAGADO', fechaPago: fechaPago || hoyTxt(), medioPago: String(medio || '').trim().slice(0, 120) || null })));
-  await b.commit(); cacheAgendaB2b = null; uso.escrituras += os.length;
+  await b.commit(); olvidarAgendaB2b(); uso.escrituras += os.length;
   return os.length;
 }
 // Abono a un folio: queda en abonos; si con esto se completa el total, el folio queda PAGADO; si no, PARCIAL
@@ -475,7 +493,7 @@ export async function registrarAbono(folio, monto, fecha, referencia) {
   const b = FB.writeBatch(db);
   b.set(FB.doc(FB.collection(db, 'abonos')), { folio: String(folio), fecha: fecha || hoyTxt(), monto: m, referencia: String(referencia || '').trim(), extra: {}, quitadoEnPlanilla: false, planillaPendiente: true, por: authSF.currentUser.email, en: FB.serverTimestamp() });
   os.filter(o => !/PAGADO/.test(o.estadoPago || '')).forEach(o => b.update(FB.doc(db, 'ordenes', o.id), marcaCambio(pagado ? { estadoPago: 'PAGADO', fechaPago: fecha || hoyTxt() } : { estadoPago: 'PARCIAL' })));
-  await b.commit(); cacheAgendaB2b = null; uso.escrituras += os.length + 1;
+  await b.commit(); olvidarAgendaB2b(); uso.escrituras += os.length + 1;
   return { pagado, saldo: Math.max(0, total - abonado) };
 }
 // Anular: no se borra; queda "anulada" con quién, cuándo y por qué (en la planilla pasa a "Ordenes anuladas")
@@ -724,8 +742,8 @@ export async function solicitudesParaHoy() {
   let cx;
   try { cx = await conexion(); } catch (e) { return null; }
   if (cx.estado !== 'ok') return null;
-  const cfg = await FB.getDoc(FB.doc(cx.db, 'config', 'b2b')); uso.lecturas++;
-  if (!cfg.exists() || !cfg.data().activa) return null;
+  const cfg = await configB2b(cx.db);
+  if (!cfg || !cfg.activa) return null;
   const sn = await FB.getDocs(FB.query(FB.collection(cx.db, 'solicitudes'), FB.where('estado', '==', 'pendiente')));
   uso.lecturas += Math.max(1, sn.size);
   return sn.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -781,6 +799,8 @@ export async function datosAgenda(forzar) {
   try { cx = await conexion(); } catch (e) { return null; }
   if (cx.estado !== 'ok') return null;
   if (!forzar && cacheAgendaB2b && Date.now() - cacheAgendaB2b.t < 300000) return cacheAgendaB2b.d;
+  // v0.63.3: también guardado en este navegador (5 minutos): abrir la app de nuevo no vuelve a leer las órdenes por cobrar y los clientes
+  if (!forzar) { const v = Mem.ver('b2b:agenda', 300000); if (v) { cacheAgendaB2b = { t: Date.now(), d: v }; return v; } }
   const db = cx.db, vivas = sn => sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(o => !o.quitadoEnPlanilla && o.estado !== 'anulada');
   const [pc, sf, cl, cc, cb] = await Promise.all([
     FB.getDocs(FB.query(FB.collection(db, 'ordenes'), FB.where('estadoPago', 'in', ['PENDIENTE', 'PARCIAL']))),
@@ -798,9 +818,10 @@ export async function datosAgenda(forzar) {
   const cobranza = {}; if (cb) cb.docs.forEach(x => { cobranza[x.id] = x.data(); });
   const d = { porCobrar, sinFolio, clientes, abonos, conciliacion: cc.exists() ? cc.data() : null, cobranza };
   cacheAgendaB2b = { t: Date.now(), d };
+  Mem.memo('b2b:agenda', async () => d, { guardar: true, forzar: true, ttl: 300000 }).catch(() => {});
   return d;
 }
-export const olvidarAgendaB2b = () => { cacheAgendaB2b = null; };
+export function olvidarAgendaB2b() { cacheAgendaB2b = null; Mem.olvidar('b2b:'); }
 // Lo de B2B para la agenda entre desde y hasta. Cada elemento: { auto, cat, fecha, titulo, sub, url, vencido, hecho }
 export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
   if (!d) return [];
@@ -928,11 +949,12 @@ export async function dejoDeComprarParaHoy() {
   let cx;
   try { cx = await conexion(); } catch (e) { return null; }
   if (cx.estado !== 'ok') return null;
-  const cfg = await FB.getDoc(FB.doc(cx.db, 'config', 'b2b')); uso.lecturas++;
-  if (!cfg.exists() || !cfg.data().activa) return null;
-  const [an, cs] = await Promise.all([ordenesParaAnalisis(false), FB.getDocs(FB.collection(cx.db, 'clientes'))]);
-  uso.lecturas += Math.max(1, cs.size);
-  const clientes = cs.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => !c.quitadoEnPlanilla);
+  const cfg = await configB2b(cx.db);
+  if (!cfg || !cfg.activa) return null;
+  // v0.63.3: los clientes salen de los datos de la agenda (ya leídos para Hoy), no de otra lectura de toda la colección
+  const [an, ag] = await Promise.all([ordenesParaAnalisis(false), datosAgenda()]);
+  if (!ag) return null;
+  const clientes = ag.clientes;
   const r = analisisClientes(an.ordenes, [], clientes);
   return clientes.filter(c => dejoVigente(c, r.porCliente[c.id])).map(c => ({ id: c.id, nombre: c.nombre, diasSin: r.porCliente[c.id].diasSin, intervalo: r.porCliente[c.id].intervalo }))
     .sort((a, b) => b.diasSin - a.diasSin);
@@ -1456,7 +1478,7 @@ export async function cerrarPorRedondeo(folio) {
     tocar.forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio({ estadoPago: 'PAGADO', fechaPago: fecha, medioPago: 'Ajuste de redondeo de la factura' })));
     n = tocar.length;
   });
-  uso.escrituras += n; cacheAgendaB2b = null;
+  uso.escrituras += n; olvidarAgendaB2b();
   return n;
 }
 // v0.25.0 · Saldo a favor de $1 a $3 que vino del redondeo: se cierra (queda anotado en sus usos; no se borra)
@@ -1897,7 +1919,7 @@ export async function registrarGestion(cliente, gestion) {
     if (tipo === 'recordatorio' || tipo === 'quitarCompromiso') { cambio.compromiso = null; cambio.diceQuePago = null; }
     tx.set(ref, cambio, { merge: true }); uso.escrituras++;
   });
-  cacheAgendaB2b = null;   // Hoy y la Agenda lo ven al tiro
+  olvidarAgendaB2b();   // Hoy y la Agenda lo ven al tiro
   return g;
 }
 // Para Hoy y la Agenda (sin el escuchador): los documentos de cobranza
@@ -1911,8 +1933,8 @@ export async function leerCobranza() {
 export async function cobranzaParaHoy() {
   const d = await datosAgenda();
   if (!d) return null;
-  const cx = await conexion(); const cfg = await FB.getDoc(FB.doc(cx.db, 'config', 'b2b')); uso.lecturas++;
-  if (!cfg.exists() || !cfg.data().activa) return null;
+  const cx = await conexion(); const cfg = await configB2b(cx.db);
+  if (!cfg || !cfg.activa) return null;
   const hoy = hoyTxt(), c = armarCobranza(foliosPorCobrar(d.porCobrar, d.abonos, d.clientes), d.clientes, d.cobranza || {}, d.conciliacion, hoy);
   return { ...c, compromisosHoy: c.cobrar.filter(g => g.compromiso && g.compromiso.fecha === hoy) };
 }

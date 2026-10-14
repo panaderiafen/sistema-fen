@@ -32,14 +32,76 @@
 //    stockmp/CAF__{mpId} = Cafetería). "Pasar a Cafetería" copia la configuración (lo de antes queda). Bajo el mínimo:
 //    pendiente en Hoy y un correo por día, bodega y materia prima (script v2.9.0, op stock_alerta). Cafetería: shots
 //    de la calibración diaria en la configuración, días con venta para la calibración automática y su costo en Merma.
+//  · v0.63.3: CUOTA DE COCINA. fen-produccion es la base de las tablets de las jefas (su propia cuota gratis de 50.000 lecturas
+//    al día). Todo lo que Sistema Fën lee de aquí pasa por la memoria de fs-memoria.js (10 minutos, compartida por Hoy,
+//    Producción y Finanzas): recetas, materias primas y configuración (también guardadas en este navegador para la próxima
+//    apertura), stock de la bodega, días de Cocina (una lectura de 120 días responde también el mes de Merma o los conteos del
+//    cierre), planes, metas, ajustes, cuentas y lo vendido en la caja para Cafetería. Hoy guarda sus dos resúmenes (avisos de
+//    bodega y lo que espera de Cocina, con limit y count) y no vuelve a leer en cada apertura. Cada cambio hecho desde aquí
+//    olvida lo que toca; "Actualizar" (Hoy y Producción) olvida todo. Sin escuchas en vivo (onSnapshot) sobre fen-produccion.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.63.2';
-import * as FB from './firebase-produccion.js?v=0.63.2';
-import * as Apps from './apps.js?v=0.63.2';
-import { armar, AREAS } from './produccion-modelo.js?v=0.63.2';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.63.2';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.63.3';
+import * as FBr from './firebase-produccion.js?v=0.63.3';
+import * as Apps from './apps.js?v=0.63.3';
+import { armar, AREAS } from './produccion-modelo.js?v=0.63.3';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.63.3';
 import * as K from './cocina/consumo.js?v=0.16.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.11.0';
+import * as M from './fs-memoria.js?v=0.63.3';
+import { produccion as QP, esCuota } from './fs-cuota.js?v=0.63.3';
+
+// ── v0.63.3: todo pedido a fen-produccion pasa por aquí: se cuenta (Configuración → Uso de la base hoy) y, si Firestore dice
+// "cuota agotada" (resource-exhausted), se muestra el letrero de Producción/Cocina. Cada escritura de Sistema Fën en recetas,
+// mps, config o stockmp sube su marca de cambio (migracion/sf_cambios): los otros equipos saben que tienen que volver a leerla.
+const colDe = r => { try { return (r && (r.col || (r.parent && r.parent.id) || (r.type === 'collection' && r.id) || (r._query && r._query.path && r._query.path.segments && r._query.path.segments.slice(-1)[0]) || r.id)) || '?'; } catch (e) { return '?'; } };
+async function vigilar(col, escribe, fn) {
+  try { const x = await fn(); QP.marcarViva(escribe ? 'escritura' : 'lectura'); return x; }
+  catch (e) { if (esCuota(e)) { QP.marcarAgotada(escribe ? 'escritura' : 'lectura'); throw Object.assign(QP.errorCuota(), { original: e }); } throw e; }
+}
+const COLS_MARCA = ['recetas', 'mps', 'config', 'stockmp'];
+const FB = {
+  ...FBr,
+  getDoc: r => vigilar(colDe(r), 0, async () => { const x = await FBr.getDoc(r); QP.anotar(colDe(r), 1, 0); return x; }),
+  getDocs: q => vigilar(colDe(q), 0, async () => { const sn = await FBr.getDocs(q); QP.anotar(colDe(q), Math.max(1, sn.size), 0); return sn; }),
+  getAggregateFromServer: (q, c) => vigilar(colDe(q), 0, async () => { const x = await FBr.getAggregateFromServer(q, c); QP.anotar(colDe(q) + ' (conteo)', 1, 0); return x; }),
+  setDoc: (r, d, o) => vigilar(colDe(r), 1, async () => { const x = await (o ? FBr.setDoc(r, d, o) : FBr.setDoc(r, d)); QP.anotar(colDe(r), 0, 1, 0); marcar(colDe(r)); return x; }),
+  updateDoc: (r, d) => vigilar(colDe(r), 1, async () => { const x = await FBr.updateDoc(r, d); QP.anotar(colDe(r), 0, 1, 0); marcar(colDe(r)); return x; }),
+  writeBatch: db => {
+    const b = FBr.writeBatch(db), cols = new Set(); let n = 0;
+    const w = { set(r, ...a) { n++; cols.add(colDe(r)); b.set(r, ...a); return w; }, update(r, ...a) { n++; cols.add(colDe(r)); b.update(r, ...a); return w; },
+      commit: () => vigilar('lote', 1, async () => { await b.commit(); QP.anotar('lote', 0, n, 0); marcar(...cols); }) };
+    return w;
+  },
+  runTransaction: (db, fn) => vigilar('transaccion', 1, () => FBr.runTransaction(db, fn))
+};
+// Marcas de cambio: { recetas, mps, config, stockmp: texto único, en }. Lo que solo cambia desde Sistema Fën (Cocina no puede
+// escribirlo: reglas v1.7.0) queda guardado en este navegador con su marca; mientras la marca no cambie no se vuelve a leer
+// (1 lectura de la marca cada 10 minutos en vez de ≈ 300). Igual se relee una vez al día, por si acaso.
+const MARCAS = ['migracion', 'sf_cambios'], DIA = 24 * 3600e3;
+let porMarcar = new Set(), tMarcar = 0;
+function marcar(...cols) {
+  cols.filter(c => COLS_MARCA.includes(c)).forEach(c => porMarcar.add(c));
+  if (!porMarcar.size) return;
+  clearTimeout(tMarcar); tMarcar = setTimeout(escribirMarcas, 200);
+}
+async function escribirMarcas() {
+  const cols = [...porMarcar]; porMarcar = new Set(); if (!cols.length) return;
+  const v = Date.now().toString(36) + Math.random().toString(36).slice(2, 6), datos = Object.fromEntries(cols.map(c => [c, v]));
+  try {
+    const cx = await conexion(); if (cx.estado !== 'ok') return;
+    await FBr.setDoc(FBr.doc(cx.db, ...MARCAS), { ...datos, en: FBr.serverTimestamp() }, { merge: true }); QP.anotar('migracion', 0, 1, 0);
+    const ya = M.ver('prod:marca');
+    if (ya) await M.memo('prod:marca', async () => ({ ...ya, ...datos }), { guardar: true, forzar: true }); else M.olvidar('prod:marca');
+  } catch (e) { M.olvidar('prod:marca'); }
+}
+const marcas = (forzar = false) => M.memo('prod:marca', async () => { const db = await dbOk(); const x = await FB.getDoc(FB.doc(db, ...MARCAS)); return x.exists() ? x.data() : {}; }, { guardar: true, forzar });
+async function conMarca(col, fn, forzar = false) {
+  let mk = {}; try { mk = await marcas(forzar); } catch (e) { if (e && e.code === 'cuota-agotada') throw e; }
+  const clave = `prod:${col}@${(mk && mk[col]) || '0'}`;
+  if (forzar || M.ver(clave, DIA) === undefined) M.olvidar(`prod:${col}@`);   // lo de una marca vieja ya no sirve
+  // forzar (lo pides tú: Calcular, Actualizar): se vuelve a leer igual, por si algo cambió por fuera de Sistema Fën (la consola)
+  return M.memo(clave, fn, { guardar: true, ttl: DIA, forzar });
+}
 
 export { AREAS };
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
@@ -66,13 +128,36 @@ export async function leerConfig() {
   return cfg;
 }
 export async function guardarConfig(cfg) {
+  olvidarTodo();
   const ref = docSF(dbSF, 'config', 'sistemaFen');
   await runTransaction(dbSF, async tx => { const sn = await tx.get(ref); tx.set(ref, { ...(sn.exists() ? sn.data() : {}), produccionFirebase: cfg }); });
   try { localStorage.setItem(K_CFG, JSON.stringify(cfg)); } catch (e) {}
 }
 
 // estado: sin_config | sin_sesion | sin_admin | ok
-export async function conexion() {
+// v0.63.3: "conectada y eres administración" queda 10 minutos en memoria (antes: 1 lectura en fen-produccion y otra en la caja
+// cada vez que cualquier pantalla preguntaba; Hoy preguntaba 3 veces por apertura)
+let cxMem = null;   // { t, p, uid }
+export function conexion() {
+  const u = FB.conectado() && FB.conectado().auth.currentUser;
+  if (cxMem && Date.now() - cxMem.t < M.TTL && Date.now() >= cxMem.t && (!cxMem.uid || (u && u.uid === cxMem.uid))) return cxMem.p;
+  const yo = { t: Date.now() };
+  yo.p = conexionLeer().then(r => { if (cxMem === yo) { if (r.estado === 'ok') yo.uid = r.uid; else cxMem = null; } return r; },
+    e => { if (cxMem === yo) cxMem = null; throw e; });
+  cxMem = yo;
+  return yo.p;
+}
+// Olvida lo leído de fen-produccion (botón Actualizar, entrar o salir)
+// Sin nada: todo (y la conexión). Con claves ('dias:', 'stockmp'…): solo eso.
+// v0.63.3: "Actualizar" vuelve a leer todo, salvo los días de Cocina: de esos, solo los que cambiaron (por actualizado.en).
+// olvidarTodo(): también los días (entrar, salir, copiar la planilla).
+export function olvidarMemoria(...claves) {
+  if (claves.length) { M.olvidar(...claves.map(c => 'prod:' + c)); return; }
+  cxMem = null; M.olvidar('prod:', 'caja:cafe:');
+  if (diasInc) { diasInc.revisado = 0; guardarDiasInc(); }
+}
+export function olvidarTodo() { cxMem = null; diasInc = null; M.olvidar('prod:', 'caja:cafe:'); }
+async function conexionLeer() {
   const cfg = await leerConfig();
   if (!cfg) return { estado: 'sin_config' };
   const cx = await FB.conectar(cfg);
@@ -86,21 +171,68 @@ export async function conexion() {
   return { estado: 'ok', cfg, uid: u.uid, correo: u.email, db: cx.db };
 }
 export async function entrar(clave, soloSesion) {
+  olvidarTodo();
   const cfg = await leerConfig();
   await FB.conectar(cfg);
   await FB.entrar(authSF.currentUser.email, clave, soloSesion);
   return conexion();
 }
 export async function salir() {
+  olvidarTodo();
   try { if (!FB.conectado()) { const cfg = cfgLocal(); if (!cfg) return; await FB.conectar(cfg); } await FB.salir(); } catch (e) {}
 }
 async function dbOk() { const cx = await conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva de Producción.'); return cx.db; }
 
+// ── v0.63.3: lecturas de fen-produccion con memoria (fs-memoria.js) ──
+const lista = sn => sn.docs.map(d => ({ id: d.id, ...d.data() }));
+async function leerCol(col, ...partes) { const db = await dbOk(); return lista(await FB.getDocs(partes.length ? FB.query(FB.collection(db, col), ...partes) : FB.collection(db, col))); }
+// Recetas, materias primas y configuración: solo cambian desde Sistema Fën (Cocina no puede escribirlas); 10 minutos, también
+// guardadas en este navegador (la próxima apertura no las vuelve a leer dentro de esos 10 minutos)
+// (forzar: vuelve a leer y deja lo nuevo en la memoria para las otras pantallas)
+// v0.63.3 (2): con su marca de cambio (ver arriba): forzar vuelve a leer la marca, y la colección solo si cambió
+const recetasMem = (forzar = false) => conMarca('recetas', () => leerCol('recetas'), forzar);
+const mpsMem = (forzar = false) => conMarca('mps', () => leerCol('mps'), forzar);
+const configMem = (forzar = false) => conMarca('config', async () => { const r = {}; (await leerCol('config')).forEach(({ id, ...d }) => { r[id] = d; }); return r; }, forzar);
+// El stock de la bodega (críticas, mínimos y el último cálculo) solo lo escribe Sistema Fën (reglas: admin): también con marca
+const stockmpMem = (forzar = false) => conMarca('stockmp', () => leerCol('stockmp'), forzar);
+// Días de Cocina desde una fecha (la bodega: 120 días). Un período (Merma del mes, conteos del cierre) se responde con una
+// lectura ya hecha que lo cubra; si no hay, se lee solo ese período (por fecha).
+// v0.63.3 (2): los días de Cocina SÍ cambian desde las tablets, pero cada guardado de Cocina lleva actualizado.en (hora del
+// servidor; cocina/app.js guardarDia). Se leen una vez (los 120 días de la bodega), quedan en memoria y en este navegador, y
+// después se pregunta solo lo que cambió: where('actualizado.en', '>=', lo último visto) (un solo campo: índice simple, sin
+// índices compuestos). Se relee todo una vez al día. Las llegadas de Sistema Fën (ADM_) también llevan actualizado.en.
+const K_DIAS = 'prod:diasinc', REVISAR_DIAS = 2 * 60000;
+let diasInc = null;   // { desde, filas: { id: día }, ultimo (ms), t (lectura completa), revisado (ms) }
+const msEn = x => { const e = x && x.actualizado && x.actualizado.en; if (!e) return 0; if (typeof e.toMillis === 'function') return e.toMillis(); if (typeof e === 'number') return e; if (e.__ts) return e.__ts; if (e.seconds !== undefined) return e.seconds * 1000 + Math.floor((e.nanoseconds || 0) / 1e6); return 0; };
+const guardarDiasInc = () => { M.memo(K_DIAS, async () => diasInc, { guardar: true, forzar: true, ttl: DIA }).catch(() => {}); };
+async function diasDesde(desde, forzar = false) {
+  if (!diasInc) { const g = M.ver(K_DIAS, DIA); if (g && g.filas) diasInc = g; }
+  const ahora = Date.now();
+  if (!diasInc || diasInc.desde > desde || !(ahora - diasInc.t < DIA && ahora >= diasInc.t - 60000)) {
+    const l = await leerCol('dias', FB.where('fecha', '>=', desde));
+    diasInc = { desde, filas: Object.fromEntries(l.map(x => [x.id, x])), ultimo: l.reduce((m, x) => Math.max(m, msEn(x)), 0), t: ahora, revisado: ahora };
+    guardarDiasInc();
+  } else if (forzar || !(ahora - diasInc.revisado < REVISAR_DIAS)) {
+    const c = diasInc, cambiaron = await leerCol('dias', FB.where('actualizado.en', '>=', FB.Timestamp.fromMillis(c.ultimo)));
+    cambiaron.forEach(x => { if (x.fecha >= c.desde) c.filas[x.id] = x; c.ultimo = Math.max(c.ultimo, msEn(x)); });
+    c.revisado = ahora;
+    if (cambiaron.length > 1 || forzar) guardarDiasInc();
+  }
+  return Object.values(diasInc.filas).filter(x => x.fecha >= desde);
+}
+async function diasEntre(desde, hasta, forzar = false) {
+  if (!diasInc) { const g = M.ver(K_DIAS, DIA); if (g && g.filas) diasInc = g; }
+  if (diasInc && diasInc.desde <= desde) return (await diasDesde(diasInc.desde, forzar)).filter(x => x.fecha >= desde && x.fecha <= hasta);
+  const ya = !forzar && M.buscar('prod:dias:', k => { const [a, b] = k.split('~'); return !!b && a <= desde && b >= hasta; });
+  const l = ya || await M.memo(`prod:dias:${desde}~${hasta}`, () => leerCol('dias', FB.where('fecha', '>=', desde), FB.where('fecha', '<=', hasta)), { forzar });
+  return l.filter(x => x.fecha >= desde && x.fecha <= hasta);
+}
+// Después de un cambio hecho desde aquí: olvida lo que toca (y Finanzas vuelve a costear con lo nuevo)
+const cambio = (...claves) => { versionDatos++; M.olvidar(...claves.map(c => 'prod:' + c)); };
+
 // ── Cuentas de las áreas ──
 export async function cuentas() {
-  const db = await dbOk();
-  const sn = await FB.getDocs(FB.collection(db, 'cuentas'));
-  return sn.docs.map(d => ({ uid: d.id, ...d.data() }));
+  return (await M.memo('prod:cuentas', () => leerCol('cuentas'))).map(({ id, ...d }) => ({ uid: id, ...d }));
 }
 // v0.35.0: una cuenta puede entrar a varias áreas. "area" = la principal (con la que abre la tablet la primera vez);
 // "areas" = todas (la principal primero). Las reglas v1.4.0 y el script v2.6.0 leen las dos.
@@ -113,6 +245,7 @@ export async function asignarCuenta(uid, area, otras = []) {
   const db = await dbOk();
   const yo = await conexion();
   if (u === yo.uid) throw new Error('Ese UID es el de tu cuenta de administración: usa el de la cuenta del área.');
+  cambio('cuentas');
   await FB.setDoc(FB.doc(db, 'cuentas', u), { area, areas, asignadaPor: authSF.currentUser.email, en: FB.serverTimestamp() });
 }
 
@@ -160,6 +293,7 @@ export async function copiar(prep, avance) {
     hechos += Math.min(LOTE, ops.length - i);
     if (avance) avance(hechos, ops.length);
   }
+  olvidarTodo(); versionDatos++;
   await FB.setDoc(FB.doc(db, 'migracion', 'produccion'), {
     ultima: FB.serverTimestamp(), por: authSF.currentUser.email, resumen: prep.resumen,
     escritos: ops.length, planesRespetados: prep.planesRespetados.length, avisos: prep.avisos.slice(0, 200), totalAvisos: prep.avisos.length
@@ -191,15 +325,10 @@ export const CAMPOS_CONFIG = {
   ]
 };
 export const valorEn = (o, k) => k.split('.').reduce((x, p) => (x && typeof x === 'object' ? x[p] : undefined), o);
-export async function leerConfigs() {
-  const db = await dbOk();
-  const sn = await FB.getDocs(FB.collection(db, 'config'));
-  const r = {}; sn.docs.forEach(d => { r[d.id] = d.data(); });
-  return r;
-}
+export async function leerConfigs() { return configMem(); }
 // cambios: { 'pie_mm.reserva_pct': 25, 'amasadora_kg': 10, … } → se mezcla con lo que hay (merge)
 export async function guardarConfigArea(area, cambios) {
-  versionDatos++;   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
+  cambio('config', 'hoy:alertas');   // v0.63.2/v0.63.3: Finanzas y la bodega vuelven a leer la configuración
   if (!CAMPOS_CONFIG[area]) throw new Error('Área sin configuración.');
   const db = await dbOk(), datos = {};
   Object.entries(cambios).forEach(([k, v]) => {
@@ -213,12 +342,15 @@ export async function guardarConfigArea(area, cambios) {
 // Control: lo que hay en la base nueva comparado con la planilla
 export async function totales() {
   const db = await dbOk();
-  const [r, m, p, pe, ult] = await Promise.all([FB.getDocs(FB.collection(db, 'recetas')), FB.getDocs(FB.collection(db, 'mps')), FB.getDocs(FB.collection(db, 'planes')), FB.getDocs(FB.collection(db, 'personas')), FB.getDoc(FB.doc(db, 'migracion', 'produccion'))]);
+  // v0.63.3: recetas y MP de la memoria; personas con count() (1 lectura); planes y la última copia, 10 minutos en memoria
+  const [r, m, p, pe, ult] = await Promise.all([recetasMem(), mpsMem(), M.memo('prod:planes:planilla', () => leerCol('planes', FB.where('origen', '==', 'planilla'))),   // solo los copiados de la planilla (los de Cocina no cuentan aquí)
+    M.memo('prod:personas:n', async () => (await FB.getAggregateFromServer(FB.collection(db, 'personas'), { n: FB.count() })).data().n),
+    M.memo('prod:migracion', async () => { const x = await FB.getDoc(FB.doc(db, 'migracion', 'produccion')); return x.exists() ? x.data() : null; })]);
   const porArea = {}; Object.keys(AREAS).forEach(a => { porArea[a] = 0; });
-  r.docs.forEach(d => { const a = d.data().area; if (a in porArea) porArea[a]++; });
+  r.forEach(x => { const a = x.area; if (a in porArea) porArea[a]++; });
   const unidades = { PAN: 0, BOL: 0, PAS: 0 }, planillaUn = { PAN: 0, BOL: 0, PAS: 0 };
-  p.docs.forEach(d => { const x = d.data(); if (!(x.area in unidades)) return; Object.values(x.filas || {}).forEach(f => Object.values(f || {}).forEach(v => { unidades[x.area] += Number(v) || 0; if (x.origen === 'planilla' && !x.actualizado) planillaUn[x.area] += Number(v) || 0; })); });
-  return { recetas: r.size, recetasPorArea: porArea, mps: m.size, planes: p.size, unidades, unidadesSinCambiar: planillaUn, personas: pe.size, ultima: ult.exists() ? ult.data() : null };
+  p.forEach(x => { if (!(x.area in unidades)) return; Object.values(x.filas || {}).forEach(f => Object.values(f || {}).forEach(v => { unidades[x.area] += Number(v) || 0; if (x.origen === 'planilla' && !x.actualizado) planillaUn[x.area] += Number(v) || 0; })); });
+  return { recetas: r.length, recetasPorArea: porArea, mps: m.length, planes: p.length, unidades, unidadesSinCambiar: planillaUn, personas: pe, ultima: ult };
 }
 
 // ═══════════════ P3: recetas propuestas y materias primas pedidas ═══════════════
@@ -242,9 +374,8 @@ export async function mpCostos() { return (await script('mp_costos', {}, VERSION
 // lo que lee de aquí y con esto sabe que tiene que volver a leer)
 export let versionDatos = 0;
 export async function mpsYRecetas() {
-  const db = await dbOk();
-  const [m, r] = await Promise.all([FB.getDocs(FB.collection(db, 'mps')), FB.getDocs(FB.collection(db, 'recetas'))]);
-  return { mps: m.docs.map(d => ({ id: d.id, ...d.data() })), recetas: r.docs.map(d => ({ id: d.id, ...d.data() })) };
+  const [mps, recetas] = await Promise.all([mpsMem(), recetasMem()]);
+  return { mps, recetas };
 }
 // Lo que se costea de una receta de la base nueva (mismo formato que una propuesta)
 export function datosDeReceta(r) {
@@ -260,8 +391,8 @@ export async function propuestasEnRevision() {
   const db = await dbOk();
   const sn = await FB.getDocs(FB.query(FB.collection(db, 'propuestas'), FB.where('estado', 'in', ['en_revision', 'aprobando'])));
   const lista = sn.docs.map(d => ({ docId: d.id, ...d.data() }));
-  const ids = [...new Set(lista.map(p => p.recetaId).filter(Boolean))];
-  const vig = {}; await Promise.all(ids.map(async id => { const x = await FB.getDoc(FB.doc(db, 'recetas', id)); if (x.exists()) vig[id] = { id, ...x.data() }; }));
+  // v0.63.3: la versión vigente sale de las recetas en memoria (solo cambian desde Sistema Fën; aprobar la vuelve a leer)
+  const vig = {}; (await recetasMem()).forEach(r => { vig[r.id] = r; });
   return lista.map(p => ({ ...p, vigente: p.recetaId ? vig[p.recetaId] || null : null }))
     .sort((a, b) => String(((a.historial || []).slice(-1)[0] || {}).en || '').localeCompare(String(((b.historial || []).slice(-1)[0] || {}).en || '')));
 }
@@ -271,11 +402,21 @@ export async function solicitudesPendientes() {
   return sn.docs.map(d => ({ docId: d.id, ...d.data() })).sort((a, b) => String(a.en || '').localeCompare(String(b.en || '')));
 }
 // Para Hoy: cuántas recetas y materias primas esperan (null si la base nueva no está conectada)
-export async function pendientesCocina() {
+// v0.63.3: Hoy muestra cuántas y las 3 primeras: se leen 3 de cada una (limit) y, si hay más, se cuentan (count(): 1 lectura).
+// Queda 2 minutos en memoria y en este navegador (como los resúmenes de las otras apps en Hoy).
+export async function pendientesCocina({ forzar = false } = {}) {
   try {
     const cx = await conexion(); if (cx.estado !== 'ok') return null;
-    const [p, s] = await Promise.all([propuestasEnRevision(), solicitudesPendientes()]);
-    return { recetas: p.map(x => ({ nombre: (x.datos || {}).nombre, area: x.area })), mps: s.map(x => ({ nombre: x.nombre, area: x.area, tipo: x.tipo })) };
+    return await M.memo('prod:hoy:pend', async () => {
+      const db = cx.db, N = 3;
+      const uno = async (col, w) => {
+        const sn = await FB.getDocs(FB.query(FB.collection(db, col), w, FB.limit(N)));
+        const n = sn.size < N ? sn.size : (await FB.getAggregateFromServer(FB.query(FB.collection(db, col), w), { n: FB.count() })).data().n;
+        return { n, docs: sn.docs.map(d => d.data()) };
+      };
+      const [p, s] = await Promise.all([uno('propuestas', FB.where('estado', 'in', ['en_revision', 'aprobando'])), uno('solicitudes', FB.where('estado', '==', 'pendiente'))]);
+      return { nRecetas: p.n, nMps: s.n, recetas: p.docs.map(x => ({ nombre: (x.datos || {}).nombre || '', area: x.area })), mps: s.docs.map(x => ({ nombre: x.nombre || '', area: x.area, tipo: x.tipo || '' })) };
+    }, { ttl: 2 * 60000, guardar: true, forzar });
   } catch (e) { return null; }
 }
 // Costo por unidad de la propuesta y de la versión vigente (con los precios de la planilla)
@@ -302,7 +443,7 @@ async function pasar(db, docId, desde, estado, comentario, extra = {}) {
   });
 }
 export async function devolver(prop, comentario) {
-  versionDatos++;   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
+  cambio('hoy:pend');
   if (!String(comentario || '').trim()) throw new Error('Escribe qué hay que corregir: la jefa lo ve en Cocina.');
   const db = await dbOk();
   await pasar(db, prop.docId, ['en_revision'], 'devuelta', String(comentario).trim().slice(0, 500));
@@ -310,12 +451,12 @@ export async function devolver(prop, comentario) {
 // Una aprobación que quedó a medias (se cortó internet o se cerró la página): vuelve a revisión para reintentar.
 // Reintentar no duplica: la receta nueva usa el ID de la propuesta y el cambio a una vigente escribe la misma versión.
 export async function destrabar(prop) {
-  versionDatos++;   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
+  cambio('hoy:pend');
   const db = await dbOk();
   await pasar(db, prop.docId, ['aprobando'], 'en_revision', 'La aprobación quedó a medias: vuelve a revisión');
 }
 export async function aprobar(prop, comentario) {
-  versionDatos++;   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
+  cambio('recetas', 'mps', 'hoy:');   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
   const db = await dbOk();
   // 1) Se bloquea ("aprobando"): desde aquí la jefa no puede cambiarla ni retirarla (reglas v1.2.0)
   const p = { ...prop, ...(await pasar(db, prop.docId, ['en_revision'], 'aprobando', '')) };
@@ -339,13 +480,14 @@ export async function aprobar(prop, comentario) {
   b.set(FB.doc(db, 'recetas', r.id), { ...doc, propuesta: p.pid, copiadoEn: FB.serverTimestamp() });
   Object.entries(a.docs.mps).forEach(([id, m]) => b.set(FB.doc(db, 'mps', id), { ...m, copiadoEn: FB.serverTimestamp() }));
   await b.commit();
+  cambio('recetas', 'mps', 'hoy:');
   await pasar(db, p.docId, ['aprobando'], 'aprobada', comentario, { recetaId: r.id, versionAprobada: version });
   return { id: r.id, nueva: r.nueva, version, costo: r.costo };
 }
 // Materias primas pedidas: crear (con precio neto y unidad de compra) o habilitar una existente
 export const UNIDAD_COMPRA = /^(\d+([.,]\d+)?)?\s*(kg|g|lt|l|ml|un|unidad|unidades)$/i;
 export async function resolverSolicitud(sol, datos = {}) {
-  versionDatos++;   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
+  cambio('mps', 'hoy:');   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
   if (!(sol.tipo === 'habilitar' || datos.habilitarId) && !UNIDAD_COMPRA.test(String(datos.unidad || '').trim())) throw new Error(`"${datos.unidad || ''}" no es una unidad de compra válida. Usa por ejemplo: kg, 25kg, g, lt, 500ml, un, 10un.`);
   const db = await dbOk();
   const r = sol.tipo === 'habilitar' || datos.habilitarId
@@ -356,9 +498,11 @@ export async function resolverSolicitud(sol, datos = {}) {
   Object.entries(a.docs.mps).forEach(([id, m]) => b.set(FB.doc(db, 'mps', id), { ...m, copiadoEn: FB.serverTimestamp() }));
   b.set(FB.doc(db, 'solicitudes', sol.docId), { estado: 'resuelta', mpId: r.id, resueltaPor: authSF.currentUser.email, resueltaEn: new Date().toISOString() }, { merge: true });
   await b.commit();
+  cambio('mps', 'hoy:');
   return r.id;
 }
 export async function rechazarSolicitud(sol, motivo) {
+  cambio('hoy:pend');
   const db = await dbOk();
   await FB.setDoc(FB.doc(db, 'solicitudes', sol.docId), { estado: 'rechazada', motivo: String(motivo || '').slice(0, 300), resueltaPor: authSF.currentUser.email, resueltaEn: new Date().toISOString() }, { merge: true });
 }
@@ -368,13 +512,11 @@ export async function rechazarSolicitud(sol, motivo) {
 // de crema, ganache, glaseado… Un producto ("Croissant relleno") no se marca: es de Bollería. Tú eliges.
 const PARECE_PAS = /relleno|crema|ganache|glase|glaseado|alm[ií]bar|pastelera|frangipane|caramelo|mermelada|dulce de leche|manjar|cobertura|merengue|chantilly|curd|coulis|ba[ñn]o/i;
 export async function recetasDeArea(area) {
-  const db = await dbOk();
-  const sn = await FB.getDocs(FB.query(FB.collection(db, 'recetas'), FB.where('area', '==', area)));
-  return sn.docs.map(d => ({ id: d.id, ...d.data() })).map(r => ({ ...r, sugerida: r.tipo === 'sub_receta' && r.clasificacion !== 'masa_base' && (r.clasificacion === 'relleno' || PARECE_PAS.test(r.nombre || '')) }))
+  return (await recetasMem()).filter(r => r.area === area).map(r => ({ ...r, sugerida: r.tipo === 'sub_receta' && r.clasificacion !== 'masa_base' && (r.clasificacion === 'relleno' || PARECE_PAS.test(r.nombre || '')) }))
     .sort((a, b) => (b.sugerida - a.sugerida) || String(a.nombre).localeCompare(String(b.nombre), 'es'));
 }
 export async function moverRecetas(ids, desde = 'BOL', hacia = 'PAS') {
-  versionDatos++;   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
+  cambio('recetas', 'mps', 'hoy:alertas');   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
   const db = await dbOk();
   const r = await script('mover_area', { desde, hacia, ids }, VERSION_MOVER);
   const a = armar(r.hojas, null);
@@ -382,6 +524,7 @@ export async function moverRecetas(ids, desde = 'BOL', hacia = 'PAS') {
   Object.entries(a.docs.recetas).forEach(([id, d]) => b.set(FB.doc(db, 'recetas', id), { ...d, movidaDesde: desde, copiadoEn: FB.serverTimestamp() }));
   Object.entries(a.docs.mps).forEach(([id, m]) => b.set(FB.doc(db, 'mps', id), { ...m, copiadoEn: FB.serverTimestamp() }));
   await b.commit();
+  cambio('recetas', 'mps', 'hoy:alertas');
   return { movidas: r.movidas, saltadas: r.saltadas };
 }
 
@@ -404,20 +547,20 @@ export function periodoMerma(clave, hoy = txtF(new Date())) {
   const l = lunesDe(hoy); return { desde: l, hasta: masDias(l, 6) };
 }
 // Lo anotado en el período (sin anuladas) y su costo por unidad (script: Maestro_recetas y MP_maestro)
-export async function mermaDelPeriodo({ desde, hasta }) {
-  const db = await dbOk();
-  const sn = await FB.getDocs(FB.query(FB.collection(db, 'dias'), FB.where('fecha', '>=', desde), FB.where('fecha', '<=', hasta)));
+// v0.63.3: Finanzas usa los días en memoria (la bodega ya leyó 120 días) o lee solo ese período (por fecha); Producción → Merma
+// (fresco: true, lo pides tú) vuelve a leer el período
+export async function mermaDelPeriodo({ desde, hasta, fresco = false }) {
+  const sn = await diasEntre(desde, hasta, fresco);
   const merma = [], cafe = [];
-  sn.docs.forEach(d => {
-    const x = d.data();
+  sn.forEach(x => {
     Object.entries(x.merma || {}).forEach(([id, a]) => { if (a && !a.anulado) merma.push({ ...a, id, fecha: x.fecha, area: x.area }); });
     Object.entries(x.turno || {}).forEach(([id, a]) => { if (a && !a.anulado) cafe.push({ ...a, id, fecha: x.fecha, area: x.area }); });
   });
   // v0.54.0: la calibración diaria de Cafetería (automática los días con venta en la caja, o la editada en Cocina)
   let cfgCaf = {}, diasVentaCaf = null;
-  try { const c = await FB.getDoc(FB.doc(db, 'config', 'CAF')); cfgCaf = c.exists() ? c.data() : {}; } catch (e) {}
-  try { diasVentaCaf = (await ventasCafeteria(desde, [])).diasVenta; } catch (e) { diasVentaCaf = null; }
-  const diasCaf = {}; sn.docs.forEach(d => { const x = d.data(); if (x.area === 'CAF' && x.fecha) diasCaf[x.fecha] = x; });
+  try { cfgCaf = (await configMem()).CAF || {}; } catch (e) {}
+  try { diasVentaCaf = (await ventasCafeteria(desde, [], fresco)).diasVenta; } catch (e) { diasVentaCaf = null; }
+  const diasCaf = {}; sn.forEach(x => { if (x.area === 'CAF' && x.fecha) diasCaf[x.fecha] = x; });
   const calibraciones = K.calibracionesDiarias({ config: { CAF: cfgCaf }, dias: { CAF: diasCaf }, diasVentaCaf: diasVentaCaf || undefined, hoy: CM.hoyTxt(), desde }, desde, hasta);
   const mpCafe = cfgCaf.mp_cafe || '';
   // v0.58.0: primero con el motor de costeo de Finanzas (costos de fen-gastos); la planilla (op costos_merma) solo para lo que falte
@@ -425,7 +568,7 @@ export async function mermaDelPeriodo({ desde, hasta }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.63.2')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.63.3')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
   const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';
@@ -479,10 +622,9 @@ export function resumenMerma(datos) {
 // Solo lectura de dias/{AREA}_{fecha}.bodega (tipo 'conteo', sin anulados; la bodega como la calcula Cocina).
 // → { bodegas: ['PROD', 'CAF'], nombres: { PROD: 'Producción', … }, porBodega: { PROD: [fechas] } }
 export async function conteosEntre(desde, hasta) {
-  const db = await dbOk();
-  const [sn, cb] = await Promise.all([FB.getDocs(FB.query(FB.collection(db, 'dias'), FB.where('fecha', '>=', desde), FB.where('fecha', '<=', hasta))), FB.getDoc(FB.doc(db, 'config', 'bodegas')).catch(() => null)]);
-  const mapa = K.mapaBodegas(cb && cb.exists() ? cb.data() : undefined), bodegas = K.listaBodegas(mapa), dias = {};
-  sn.docs.forEach(d => { const x = d.data(); if (x.area && x.fecha && x.fecha >= desde && x.fecha <= hasta) (dias[x.area] || (dias[x.area] = {}))[x.fecha] = x; });
+  const [sn, cfg] = await Promise.all([diasEntre(desde, hasta), configMem().catch(() => ({}))]);
+  const mapa = K.mapaBodegas(cfg.bodegas || undefined), bodegas = K.listaBodegas(mapa), dias = {};
+  sn.forEach(x => { if (x.area && x.fecha && x.fecha >= desde && x.fecha <= hasta) (dias[x.area] || (dias[x.area] = {}))[x.fecha] = x; });
   const porBodega = {};
   K.movimientos(dias, mapa).filter(m => m.tipo === 'conteo').forEach(m => { (porBodega[m.bodega] || (porBodega[m.bodega] = [])).push(m.fecha); });
   return { bodegas, nombres: Object.fromEntries(bodegas.map(b => [b, K.nombreBodega(b, mapa)])), porBodega };
@@ -492,26 +634,28 @@ export async function conteosEntre(desde, hasta) {
 // Lee lo necesario de la base nueva (120 días de Cocina, planes, metas, ajustes, recetas, materias primas), calcula
 // con cocina/consumo.js (el mismo cálculo de Cocina) y deja en stockmp/{id}.estado lo que ven las jefas.
 export const DIAS_BODEGA = 120;
-export async function calcularBodega({ guardar = true, hoy = CM.hoyTxt() } = {}) {
+// v0.63.3: calcular (Hoy cuando el último cálculo tiene más de 6 horas, o "Calcular" en Producción → Bodega) siempre vuelve a leer
+// (fresco) y deja lo leído en la memoria compartida: Finanzas, Merma y los avisos de Hoy lo usan después sin leer de nuevo.
+export async function calcularBodega({ guardar = true, hoy = CM.hoyTxt(), fresco = true, desdeAlertas = false } = {}) {
   const db = await dbOk();
   const desde = CM.sumarDias(hoy, -DIAS_BODEGA), lunes = CM.lunesDe(hoy);
+  const sinIdDe = ({ id, ...d }) => d, forzar = !!fresco;
   const [rs, ms, cf, aj, sm, ds, pl, mt] = await Promise.all([
-    FB.getDocs(FB.collection(db, 'recetas')), FB.getDocs(FB.collection(db, 'mps')), FB.getDocs(FB.collection(db, 'config')),
-    FB.getDocs(FB.collection(db, 'ajustes')), FB.getDocs(FB.collection(db, 'stockmp')),
-    FB.getDocs(FB.query(FB.collection(db, 'dias'), FB.where('fecha', '>=', desde))),
-    FB.getDocs(FB.query(FB.collection(db, 'planes'), FB.where('lunes', '>=', CM.lunesDe(desde)))),   // Panadería toma del plan la cantidad de lo hecho
-    FB.getDocs(FB.query(FB.collection(db, 'metas'), FB.where('lunes', '>=', lunes)))
+    recetasMem(forzar), mpsMem(forzar), configMem(forzar),
+    M.memo('prod:ajustes', () => leerCol('ajustes'), { forzar }), stockmpMem(forzar),
+    diasDesde(desde, forzar),
+    M.memo('prod:planes:>=' + CM.lunesDe(desde), () => leerCol('planes', FB.where('lunes', '>=', CM.lunesDe(desde))), { forzar }),   // Panadería toma del plan la cantidad de lo hecho
+    M.memo('prod:metas:>=' + lunes, () => leerCol('metas', FB.where('lunes', '>=', lunes)), { forzar })
   ]);
-  const datos = { recetas: rs.docs.map(d => ({ id: d.id, ...d.data() })), mps: ms.docs.map(d => ({ id: d.id, ...d.data() })), config: {}, ajustes: {}, dias: {}, planes: {}, metas: {}, hoy };
-  cf.docs.forEach(d => { datos.config[d.id] = d.data(); });
-  aj.docs.forEach(d => { const a = d.data(); (datos.ajustes[a.area] || (datos.ajustes[a.area] = {}))[a.recetaId] = a; });
-  ds.docs.forEach(d => { const x = d.data(); if (x.area && x.fecha) (datos.dias[x.area] || (datos.dias[x.area] = {}))[x.fecha] = x; });
-  pl.docs.forEach(d => { datos.planes[d.id] = d.data(); });
-  mt.docs.forEach(d => { datos.metas[d.id] = d.data(); });
-  const control = {}; sm.docs.forEach(d => { control[d.id] = d.data(); });
+  const datos = { recetas: rs, mps: ms, config: { ...cf }, ajustes: {}, dias: {}, planes: {}, metas: {}, hoy };
+  aj.forEach(x => { const a = sinIdDe(x); (datos.ajustes[a.area] || (datos.ajustes[a.area] = {}))[a.recetaId] = a; });
+  ds.forEach(x => { if (x.area && x.fecha) (datos.dias[x.area] || (datos.dias[x.area] = {}))[x.fecha] = sinIdDe(x); });
+  pl.forEach(x => { datos.planes[x.id] = sinIdDe(x); });
+  mt.forEach(x => { datos.metas[x.id] = sinIdDe(x); });
+  const control = {}; sm.forEach(x => { control[x.id] = sinIdDe(x); });
   // Cafetería: lo vendido en la caja (fen-ventas) y los días con venta (calibración diaria automática)
   let cafe = { ventas: [], sinReceta: {}, diasVenta: [], error: '' };
-  try { cafe = await ventasCafeteria(desde, datos.recetas); } catch (e) { cafe.error = e.message || String(e); }
+  try { cafe = await ventasCafeteria(desde, datos.recetas, forzar); } catch (e) { cafe.error = e.message || String(e); }
   datos.ventas = cafe.ventas;
   if (!cafe.error) datos.diasVentaCaf = cafe.diasVenta;
   const { eventos, sinId } = K.consumo(datos);
@@ -537,6 +681,8 @@ export async function calcularBodega({ guardar = true, hoy = CM.hoyTxt() } = {})
       contado: e.st.contado, stock: e.st.contado ? Math.round(e.st.stock) : null, alcanza: e.alcanza === null ? null : Math.round(e.alcanza * 10) / 10,
       bajoAhora: !!e.bajoAhora, bajoDesde: e.bajoDesde || null, minimo: Math.round(e.cfg.seguridad), en } }, { merge: true }));
     await b.commit();
+    // v0.63.3: el estado recién guardado se lee de nuevo la próxima vez; los avisos de Hoy se vuelven a armar con él
+    M.olvidar('prod:stockmp', ...(desdeAlertas ? [] : ['prod:hoy:alertas']));
     // Bajo el mínimo ahora: correo (uno por día, bodega y materia prima; el script no repite)
     avisarBajos(criticas.filter(e => e.st.contado && e.bajoAhora).map(e => ({ bodega: e.bodega, mp: e.mp.id, nombre: e.mp.nombre, unidad: e.cfg.unidad, hay: e.st.stock, minimo: e.cfg.seguridad, bajoAhora: true })), mapa).catch(() => {});
   }
@@ -549,13 +695,24 @@ export async function calcularBodega({ guardar = true, hoy = CM.hoyTxt() } = {})
 // (con su hora). Cada línea va con la receta vinculada al producto en la caja (idRecetaFen); las de Cafetería
 // que no tienen receta se avisan (no descuentan).
 const esCafeteriaCaja = a => /^(caf|cafeter)/i.test(String(a || ''));
-export async function ventasCafeteria(desde, recetas) {
-  const [prods, res, abiertas] = await Promise.all([
-    getDocsSF(colSF(dbSF, 'productos')),
-    getDocsSF(querySF(colSF(dbSF, 'resumenes_caja'), whereSF('fecha', '>=', desde))),
-    getDocsSF(querySF(colSF(dbSF, 'cajas'), whereSF('estado', '==', 'abierta')))
-  ]);
-  const prod = {}; prods.docs.forEach(d => { prod[d.id] = d.data(); });
+// v0.63.3: lo leído de la caja (fen-ventas) queda 10 minutos en memoria; una lectura desde una fecha anterior sirve para otra posterior
+async function cajaDesde(desde, forzar = false) {
+  const ya = !forzar && M.buscar('caja:cafe:', d => d <= desde);
+  if (ya) return { ...ya, res: ya.res.filter(r => r.fecha >= desde) };
+  return M.memo('caja:cafe:' + desde, async () => {
+    const [prods, res, abiertas] = await Promise.all([
+      getDocsSF(colSF(dbSF, 'productos')),
+      getDocsSF(querySF(colSF(dbSF, 'resumenes_caja'), whereSF('fecha', '>=', desde))),
+      getDocsSF(querySF(colSF(dbSF, 'cajas'), whereSF('estado', '==', 'abierta')))
+    ]);
+    const ventas = {};
+    for (const c of abiertas.docs) ventas[c.id] = (await getDocsSF(querySF(colSF(dbSF, 'ventas'), whereSF('cajaId', '==', c.id)))).docs.map(x => x.data());
+    return { prods: prods.docs.map(d => ({ id: d.id, ...d.data() })), res: res.docs.map(d => ({ id: d.id, ...d.data() })), abiertas: abiertas.docs.map(d => d.id), ventas };
+  }, { forzar });
+}
+export async function ventasCafeteria(desde, recetas, fresco = false) {
+  const raw = await cajaDesde(desde, fresco);
+  const prod = {}; raw.prods.forEach(d => { prod[d.id] = d; });
   const deCaf = new Set((recetas || []).filter(r => r.area === 'CAF').map(r => r.id));
   const ventas = [], sinReceta = {}, conResumen = new Set(), diasVenta = new Set();
   // v0.54.0: días con venta de Cafetería (también de productos sin receta vinculada): la calibración diaria automática
@@ -566,8 +723,8 @@ export async function ventasCafeteria(desde, recetas) {
     if (rid) { if (deCaf.has(rid)) ventas.push({ fecha, en, receta: rid, cantidad }); return; }
     if (esCafeteriaCaja(area || (prod[pid] && prod[pid].area))) sinReceta[nombre || pid] = (sinReceta[nombre || pid] || 0) + cantidad;
   };
-  res.docs.forEach(d => {
-    const r = d.data(); if (!r.fecha) return;
+  raw.res.forEach(d => {
+    const r = d; if (!r.fecha) return;
     conResumen.add(r.cajaId || d.id);
     const en = new Date(r.fecha + 'T23:59:00').toISOString();   // un cierre cuenta al final de su día
     Object.entries(r.porProducto || {}).forEach(([pid, pp]) => {
@@ -577,11 +734,10 @@ export async function ventasCafeteria(desde, recetas) {
       else if (esCafeteriaCaja(pp.area)) sinReceta[pp.nombre || pid] = (sinReceta[pp.nombre || pid] || 0) + (Number(pp.cantidad) || 0);
     });
   });
-  for (const c of abiertas.docs) {
-    if (conResumen.has(c.id)) continue;
-    const vs = await getDocsSF(querySF(colSF(dbSF, 'ventas'), whereSF('cajaId', '==', c.id)));
-    vs.docs.forEach(x => {
-      const v = x.data(); if (v.anulada === true) return;
+  for (const id of raw.abiertas) {
+    if (conResumen.has(id)) continue;
+    (raw.ventas[id] || []).forEach(v => {
+      if (v.anulada === true) return;
       const t = v.fecha && v.fecha.toDate ? v.fecha.toDate() : null; if (!t) return;
       const fecha = CM.hoyTxt(t); if (fecha < desde) return;
       (v.lineas || []).forEach(l => linea(fecha, t.toISOString(), l.id, l.nombre, null, parseFloat(l.cantidad) || 0));
@@ -595,7 +751,8 @@ export async function guardarMpCafe(mpId) { await guardarConfigArea('CAF', { mp_
 async function pasarLlegadasAdm(db, lista) {
   const r = await script('bodega_adm', { movimientos: lista.map(b => ({ id: b.id, fecha: b.fecha, mp: b.mp, nombre: b.nombre, tipo: b.tipo, bodega: b.bodega || K.BODEGA_PRINCIPAL, cantidad: b.cantidad, unidad: b.unidad, nota: b.nota || '', por: b.por || '', anulado: !!b.anulado })) }, VERSION_BODEGA);
   const porDia = {}; lista.filter(b => (r.ids || []).includes(b.id)).forEach(b => { (porDia[b.fecha] || (porDia[b.fecha] = {}))[b.id] = { planilla: true }; });
-  await Promise.all(Object.entries(porDia).map(([fecha, bod]) => FB.setDoc(FB.doc(db, 'dias', 'ADM_' + fecha), { bodega: bod }, { merge: true })));
+  await Promise.all(Object.entries(porDia).map(([fecha, bod]) => FB.setDoc(FB.doc(db, 'dias', 'ADM_' + fecha), { bodega: bod, actualizado: { por: authSF.currentUser.email, en: FB.serverTimestamp() } }, { merge: true })));
+  if (Object.keys(porDia).length) { M.olvidar('prod:dias:'); if (diasInc) diasInc.revisado = 0; }
 }
 // Consumo de un período por materia prima y área (todas las materias primas, no solo las críticas)
 export function consumoPeriodo(calc, { desde, hasta }) {
@@ -617,6 +774,7 @@ export async function guardarControl(mpId, x, bodega = K.BODEGA_PRINCIPAL) {
   const db = await dbOk(), datos = datosControl(x);
   if (bodega !== K.BODEGA_PRINCIPAL) Object.assign(datos, { bodega, mp: mpId });
   await FB.setDoc(FB.doc(db, 'stockmp', K.idStock(bodega, mpId)), datos, { merge: true });
+  cambio('stockmp', 'hoy:alertas');
 }
 // "Pasar a Cafetería" (una vez, para las que hoy son críticas en Producción solo por Cafetería): copia crítica, mínimo y
 // envase a la bodega de Cafetería. quitar = true además las deja de seguir en Producción (critica: false). No se borra
@@ -635,29 +793,40 @@ export async function pasarABodega(mpIds, hacia = 'CAF', { quitar = false } = {}
     hechos.push(id);
   });
   if (hechos.length) await b.commit();
+  cambio('stockmp', 'hoy:alertas');
   return hechos;
 }
 // El mapa de bodegas (config/bodegas): qué área usa qué bodega. Vacío = lo de siempre.
 export async function guardarMapaBodegas(areas, nombres) {
   const db = await dbOk();
   await FB.setDoc(FB.doc(db, 'config', 'bodegas'), { areas, nombres, editado: { por: authSF.currentUser.email, en: FB.serverTimestamp() } }, { merge: true });
+  cambio('config', 'hoy:alertas');
 }
 // Llegada desde Sistema Fën (va al día de Administración: dias/ADM_{fecha}), a la bodega elegida
 export async function registrarLlegada(mp, cantidadBase, nota, bodega = K.BODEGA_PRINCIPAL) {
   const db = await dbOk(), hoy = CM.hoyTxt(), id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   if (!(Number(cantidadBase) > 0)) throw new Error('La cantidad tiene que ser mayor que 0.');
   const b = { tipo: 'llegada', mp: mp.id, nombre: mp.nombre, bodega, cantidad: Math.round(Number(cantidadBase) * 100) / 100, unidad: K.unidadMp(mp), nota: String(nota || '').slice(0, 120), por: authSF.currentUser.email, en: new Date().toISOString() };
-  await FB.setDoc(FB.doc(db, 'dias', 'ADM_' + hoy), { area: 'ADM', fecha: hoy, bodega: { [id]: b } }, { merge: true });
+  await FB.setDoc(FB.doc(db, 'dias', 'ADM_' + hoy), { area: 'ADM', fecha: hoy, bodega: { [id]: b }, actualizado: { por: authSF.currentUser.email, en: FB.serverTimestamp() } }, { merge: true });
+  cambio('dias:', 'hoy:alertas'); if (diasInc) diasInc.revisado = 0;
   try { await pasarLlegadasAdm(db, [{ ...b, id, fecha: hoy }]); } catch (e) {}   // si falla, se reintenta al calcular la bodega
 }
 // Para Hoy: lo que está o queda bajo el mínimo, por bodega. Usa el último cálculo si es de las últimas 6 horas; si no, calcula.
 // → { bajos: [{ bodega, nombreBodega, mp, nombre, unidad, hay, minimo, bajoAhora, bajoDesde }], sinContar } o null
-export async function alertasBodega() {
+// v0.63.3: el resultado queda 10 minutos en memoria y en este navegador (Hoy no lo vuelve a leer en cada apertura); lo leído
+// para calcularlo (stock, materias primas, configuración, días) queda en la memoria compartida con Producción y Finanzas.
+// Anotar una llegada, cambiar una crítica o la configuración lo olvida; "Actualizar" también.
+export async function alertasBodega({ forzar = false } = {}) {
   try {
     const cx = await conexion(); if (cx.estado !== 'ok') return null;
-    const [sn, ms, cb] = await Promise.all([FB.getDocs(FB.collection(cx.db, 'stockmp')), FB.getDocs(FB.collection(cx.db, 'mps')), FB.getDoc(FB.doc(cx.db, 'config', 'bodegas'))]);
-    const sm = {}; sn.docs.forEach(d => { sm[d.id] = d.data(); });
-    const mapa = K.mapaBodegas(cb.exists() ? cb.data() : null), mps = ms.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => (m.estado || 'activa') === 'activa' && m.tipo !== 'sub_receta');
+    return await M.memo('prod:hoy:alertas', alertasLeer, { guardar: true, forzar });
+  } catch (e) { return null; }
+}
+async function alertasLeer() {
+  {
+    const [sn, ms, cfg] = await Promise.all([stockmpMem(), mpsMem(), configMem()]);
+    const sm = {}; sn.forEach(({ id, ...d }) => { sm[id] = d; });
+    const mapa = K.mapaBodegas(cfg.bodegas || null), mps = ms.filter(m => (m.estado || 'activa') === 'activa' && m.tipo !== 'sub_receta');
     const ultimo = Object.values(sm).map(d => (d.estado || {}).en).filter(Boolean).sort().pop();
     let lista = null;
     if (ultimo && Date.now() - new Date(ultimo).getTime() < 6 * 3600000) {
@@ -667,14 +836,14 @@ export async function alertasBodega() {
         lista = crit.map(x => ({ bodega: x.b, mp: x.m.id, nombre: x.m.nombre, unidad: x.cfg.unidad, minimo: x.cfg.seguridad, ...x.d.estado }));
     }
     if (!lista) {
-      const c = await calcularBodega();
+      const c = await calcularBodega({ desdeAlertas: true });
       lista = c.criticas.map(e => ({ bodega: e.bodega, mp: e.mp.id, nombre: e.mp.nombre, unidad: e.cfg.unidad, minimo: e.cfg.seguridad, contado: e.st.contado, stock: e.st.contado ? e.st.stock : null, bajoAhora: e.bajoAhora, bajoDesde: e.bajoDesde }));
     }
     const bajos = lista.filter(x => x.contado && (x.bajoAhora || x.bajoDesde))
       .map(x => ({ bodega: x.bodega, nombreBodega: K.nombreBodega(x.bodega, mapa), mp: x.mp, nombre: x.nombre, unidad: x.unidad, hay: x.stock, minimo: x.minimo, bajoAhora: !!x.bajoAhora, bajoDesde: x.bajoDesde || null }));
     avisarBajos(bajos.filter(x => x.bajoAhora), mapa).catch(() => {});
     return { bajos, sinContar: lista.filter(x => !x.contado).length };
-  } catch (e) { return null; }
+  }
 }
 // Correo de "bajo el mínimo" (script v2.9.0, stock_alerta): el script manda uno por día, bodega y materia prima.
 // Aquí además se recuerda en el equipo lo ya pedido hoy, para no llamar al script cada vez que se abre Hoy.
