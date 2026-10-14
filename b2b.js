@@ -8,12 +8,12 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.63.4';
-import * as FB from './firebase-b2b.js?v=0.63.4';
-import * as Apps from './apps.js?v=0.63.4';
-import * as Mem from './fs-memoria.js?v=0.63.4';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.63.4';
-import { distanciaTef } from './feriados-cl.js?v=0.63.4';   // v0.63.4: días hábiles para cruzar transferencias
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.63.5';
+import * as FB from './firebase-b2b.js?v=0.63.5';
+import * as Apps from './apps.js?v=0.63.5';
+import * as Mem from './fs-memoria.js?v=0.63.5';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.63.5';
+import { distanciaTef } from './feriados-cl.js?v=0.63.5';   // v0.63.4: días hábiles para cruzar transferencias
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -313,6 +313,39 @@ export async function buscarOrdenes(q, clientes) {
   } else throw new Error('Escribe un N° de orden, un folio, un mes (AAAA-MM) o el nombre del cliente.');
   uso.lecturas += Math.max(1, docs.length);
   return docs.sort(porFechaDesc);
+}
+
+// ── v0.63.5 · Buscar por monto ─────────────────────
+// "$12.500", "$12500", "$ 12.500", "$12.500,5" (los decimales no cuentan) → ese monto exacto.
+// "$12.000-15.000" o "$12000 - 15000" → entre los dos (incluidos; da lo mismo el orden).
+// Sin "$" al inicio → null (la búsqueda de siempre). Con "$" pero sin un monto claro → { error }.
+const milesCL = n => '$' + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+export function parseBusquedaMonto(q) {
+  const t = String(q ?? '').trim();
+  if (!t.startsWith('$')) return null;
+  const uno = s => {
+    let x = String(s).replace(/\s+/g, '').replace(/^\$/, '').replace(/,\d*$/, '');
+    if (/^\d{1,3}(\.\d{3})+$/.test(x)) x = x.replace(/\./g, '');
+    return /^\d+$/.test(x) ? Number(x) : NaN;
+  };
+  const partes = t.slice(1).split('-'), error = 'Escribe el monto después de "$": $12.500, o un rango: $12.000-15.000.';
+  if (partes.length > 2) return { error };
+  const ns = partes.map(uno);
+  if (ns.some(n => !Number.isFinite(n))) return { error };
+  const min = Math.min(...ns), max = Math.max(...ns);
+  return { min, max, texto: min === max ? milesCL(min) : `${milesCL(min)} a ${milesCL(max)}` };
+}
+// ¿El valor (redondeado a pesos) está dentro de la búsqueda?
+export function calzaMonto(m, v) {
+  if (!m || m.error || v === '' || v == null) return false;
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= m.min && n <= m.max;
+}
+// Órdenes (ya leídas) cuyo total calza; sin repetir y más recientes primero
+export function ordenesPorMonto(ordenes, m) {
+  const vistas = new Map();
+  (ordenes || []).forEach(o => { if (o && calzaMonto(m, o.total) && !vistas.has(String(o.n))) vistas.set(String(o.n), o); });
+  return [...vistas.values()].sort(porFechaDesc);
 }
 
 // ═══════════════════════════════════════════════

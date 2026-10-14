@@ -577,6 +577,11 @@ details.grupo-b2b:not([open]) { padding-bottom: 2px; }
 .lupa:focus-visible { outline: 2px solid var(--acento); opacity: 1; }
 .buscar-b2b { margin: 4px 0 10px; }
 .buscar-b2b input { width: 100%; max-width: 360px; min-height: 40px; padding: 0 12px; border: 1px solid var(--borde); border-radius: 10px; font-size: 16px; background: var(--tarjeta); color: var(--texto); }
+/* v0.63.5 · Búsqueda por monto ("$12.500"): mensaje bajo la caja y filas que no calzan */
+.buscar-b2b .msg-monto { margin: 4px 0 0; }
+.buscar-b2b .msg-monto:empty { display: none; }
+.buscar-b2b .msg-monto.sin-res { color: var(--rojo-t); font-weight: 600; }
+.fila-orden-b2b[hidden], .grupo-cob[hidden] { display: none !important; }
 .fechas-cobro { display: block; margin-top: 2px; font-size: 12px; color: var(--suave); }
 .cobertura-conc { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--menu); font-size: 13px; }
 .cobertura-conc > div { display: flex; flex-direction: column; gap: 2px; }

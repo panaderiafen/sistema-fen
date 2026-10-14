@@ -1,9 +1,36 @@
-# Sistema Fën · v0.63.4
+# Sistema Fën · v0.63.5
 
-**App:** v0.63.4 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 13 de octubre de 2026
+**App:** v0.63.5 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 13 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.63.5: buscar por monto en Ventas B2B
+**Para qué:** encontrar una orden, un folio o un abono sabiendo solo cuánto era (por ejemplo, la transferencia de $35.700 que llegó sin nombre).
+
+**Cómo:** en las cajas de búsqueda de Ventas B2B, escribe **"$" al inicio** y el monto:
+- **Exacto:** `$12.500`, `$12500`, `$ 12.500`. Los decimales no cuentan: `$12.500,5` = $12.500.
+- **Rango (incluye ambos):** `$12.000-15.000` o `$12000 - 15000`.
+- Sin "$" todo sigue igual que antes. Con "$" pero sin un monto claro (`$abc`, `$12.5`) avisa cómo escribirlo.
+- Bajo la caja dice cuántos resultados hay, o "Sin resultados para $12.500.".
+
+**Dónde y qué monto compara** (el mismo que muestra esa lista; solo totales, no las líneas de productos):
+- **Órdenes → lupa de Facturación diaria / semanal / mensual:** el total de cada orden y el total del cliente (lo que suma sin folio). Si calza una orden, se ve su cliente solo con esa orden.
+- **Cobranza:** el saldo y el total de cada folio, y lo que debe el cliente (en cobranza o en total).
+- **Buscar:** el total de la orden. Busca en las órdenes **ya leídas** (por facturar, por cobrar, de los últimos 7 días y las que ya se mostraron en Buscar); no gasta lecturas. Para una más antigua: búscala primero por cliente o mes y después el monto. Explicado en su (i).
+- **Conciliación → Ya conciliados:** el monto del abono, lo asignado a cada folio y lo que quedó a favor.
+- Estado de cuenta no tiene caja de búsqueda: no cambia.
+
+No hay lecturas nuevas: todo se filtra en memoria. Archivos: cambian `b2b.js` (`parseBusquedaMonto`, `calzaMonto`, `ordenesPorMonto`), `app.js`, `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). La carpeta `cocina/` no cambia. No cambian las reglas ni los scripts. Prueba nueva: `pruebas/sistemafen/b2b-v0635.test.js`. Abajo a la izquierda: **v0.63.5**.
+
+### Lista de verificación v0.63.5
+- [ ] Abajo a la izquierda dice **v0.63.5**.
+- [ ] Ventas B2B → Órdenes → lupa de una tarjeta → `$` y el total de una orden: queda ese cliente con esa orden y dice "1 resultado de $…".
+- [ ] Con un rango (`$10.000-20.000`) aparecen todas las órdenes entre esos montos, ambos incluidos.
+- [ ] Un monto que no está: "Sin resultados para $…". Al borrar o escribir un nombre, la lista vuelve a como era.
+- [ ] Cobranza → `$` y el saldo de un folio: queda ese folio.
+- [ ] Buscar → `$` y el total de una orden reciente → aparece; la (i) explica en qué órdenes busca.
+- [ ] Conciliación → Ya conciliados → `$` y el monto de una transferencia: queda ese abono.
 
 ## Novedades de la v0.63.4: la transferencia del sábado calza con el abono del lunes
 **El problema:** una transferencia hecha el sábado 3 de octubre aparece en la cartola en línea el lunes 5. El cruce con el archivo de transferencias recibidas solo aceptaba el mismo día o ±1, así que ese abono quedaba sin "Transfirió: …" y sin reconocer al cliente por el RUT.

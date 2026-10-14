@@ -13,11 +13,11 @@
 //    lado, con las reglas de la v0.49.0 para sus vencimientos abiertos).
 //  · Arreglo "siniva": vista previa y aplicar (cada gasto con su historial "ajuste siniva" y la marca para la planilla).
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.63.4';
-import * as M from './gastos-g2.js?v=0.63.4';
-import * as G3 from './gastos-g3.js?v=0.63.4';
-import * as D from './gastos-g3d.js?v=0.63.4';
-import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.63.4';
+import * as FB from './fs-gastos.js?v=0.63.5';
+import * as M from './gastos-g2.js?v=0.63.5';
+import * as G3 from './gastos-g3.js?v=0.63.5';
+import * as D from './gastos-g3d.js?v=0.63.5';
+import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.63.5';
 
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const s = v => String(v == null ? '' : v);

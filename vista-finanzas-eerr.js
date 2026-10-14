@@ -6,10 +6,10 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.63.4';
-import * as FR from './finanzas-resultados.js?v=0.63.4';
-import * as FE from './finanzas-eerr.js?v=0.63.4';
-import * as FC from './finanzas-costos.js?v=0.63.4';
+import * as F from './finanzas.js?v=0.63.5';
+import * as FR from './finanzas-resultados.js?v=0.63.5';
+import * as FE from './finanzas-eerr.js?v=0.63.5';
+import * as FC from './finanzas-costos.js?v=0.63.5';
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
 const $ = id => document.getElementById(id);
