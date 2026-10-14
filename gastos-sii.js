@@ -12,8 +12,8 @@
 //    forman (últimos 2 años) y su posición en la planilla, para dar exactamente lo mismo que el script.
 //  Sin red: se prueba sola. Los documentos usan los mismos nombres que la copia G1 (gastos-modelo.armar).
 // ═══════════════════════════════════════════════
-import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.63.6';
-import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.63.6';
+import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.63.7';
+import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.63.7';
 
 export const RE_FOLIO_OBS = /(?:^|[^A-Za-z])(NC|F)\.(\d+)/;
 const s = v => String(v == null ? '' : v);

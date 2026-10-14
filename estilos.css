@@ -418,6 +418,28 @@ h1 .btn-info { width: 22px; height: 22px; font-size: 13px; }
   .doc-monto { font-size: 16px; }
 }
 .doc-sii > .btn-sec { align-self: flex-start; }
+/* v0.63.7 · Consulta de cargas: la carga abierta (debajo de la lista), sus conteos e "Importar compra" por documento */
+.carga-sii.abierta { border-color: var(--acento); box-shadow: inset 3px 0 0 var(--acento); background: var(--acento-suave); }
+.chips-carga { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.nombre-archivo { overflow-wrap: anywhere; }
+.cuenta-carga { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; font-size: 13px; color: var(--suave); }
+.cuenta-carga b { color: var(--texto); }
+.cuenta-carga .pend b { color: var(--amarillo-t); }
+.carga-abierta { border-top: 3px solid var(--acento); scroll-margin-top: 12px; }
+.carga-abierta > .titulo-fila { align-items: center; }
+.carga-abierta h2 { overflow-wrap: anywhere; min-width: 0; }
+.acciones-carga { display: flex; align-items: center; gap: 10px; flex: none; font-size: 13px; color: var(--suave); }
+.fila-importar { justify-content: flex-start; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.fila-importar .btn { white-space: normal; text-align: left; }
+.fila-importar .btn { max-width: calc(100% - 34px); }
+#sii-quedan { flex-basis: 100%; margin: 0; }
+#sii-quedan:empty { display: none; }
+.pie-importar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 10px; border-top: 1px solid var(--linea); }
+.pie-importar .ayuda { margin: 0; }
+.pie-importar .ayuda:empty { display: none; }
+.sii-res-doc { flex-basis: 100%; display: flex; flex-direction: column; gap: 4px; }
+.sii-res-doc p { margin: 0; }
+.doc-sii[aria-busy="true"] { opacity: .75; }
 /* ── v0.10.0 · Gastos completo ───────────────── */
 .btn-peligro-lleno { background: var(--rojo-t); }
 .titulo-fila .btn { min-height: 40px; font-size: 14px; padding: 0 14px; }

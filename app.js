@@ -9,39 +9,39 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.63.6';
-import * as Caja from './caja.js?v=0.63.6';
-import * as Stock from './stock.js?v=0.63.6';
-import * as Ajustes from './ajustes.js?v=0.63.6';
-import * as Apps from './apps.js?v=0.63.6';
-import * as Agenda from './agenda.js?v=0.63.6';
-import * as Gastos from './gastos.js?v=0.63.6';
-import * as G3 from './gastos-g3.js?v=0.63.6';
-import * as G3D from './gastos-g3d.js?v=0.63.6';
-import * as GBanco from './gastos-banco.js?v=0.63.6';
-import * as AB from './gastos-abono.js?v=0.63.6';
-import { resumenAnalisis } from './gastos-g2.js?v=0.63.6';
-import * as Sii from './sii.js?v=0.63.6';
-import * as GSii from './gastos-sii.js?v=0.63.6';
-import * as Previred from './previred.js?v=0.63.6';
-import * as B2b from './b2b.js?v=0.63.6';
-import * as Cartola from './cartola.js?v=0.63.6';
-import * as SiiFactura from './sii-factura.js?v=0.63.6';
-import * as PdfOrden from './pdf-orden.js?v=0.63.6';
-import * as Prod from './produccion.js?v=0.63.6';
-import * as Mem from './fs-memoria.js?v=0.63.6';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.63.6';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.63.7';
+import * as Caja from './caja.js?v=0.63.7';
+import * as Stock from './stock.js?v=0.63.7';
+import * as Ajustes from './ajustes.js?v=0.63.7';
+import * as Apps from './apps.js?v=0.63.7';
+import * as Agenda from './agenda.js?v=0.63.7';
+import * as Gastos from './gastos.js?v=0.63.7';
+import * as G3 from './gastos-g3.js?v=0.63.7';
+import * as G3D from './gastos-g3d.js?v=0.63.7';
+import * as GBanco from './gastos-banco.js?v=0.63.7';
+import * as AB from './gastos-abono.js?v=0.63.7';
+import { resumenAnalisis } from './gastos-g2.js?v=0.63.7';
+import * as Sii from './sii.js?v=0.63.7';
+import * as GSii from './gastos-sii.js?v=0.63.7';
+import * as Previred from './previred.js?v=0.63.7';
+import * as B2b from './b2b.js?v=0.63.7';
+import * as Cartola from './cartola.js?v=0.63.7';
+import * as SiiFactura from './sii-factura.js?v=0.63.7';
+import * as PdfOrden from './pdf-orden.js?v=0.63.7';
+import * as Prod from './produccion.js?v=0.63.7';
+import * as Mem from './fs-memoria.js?v=0.63.7';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.63.7';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.16.0';
-import * as VistaProd from './vista-produccion.js?v=0.63.6';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.63.6';
+import * as VistaProd from './vista-produccion.js?v=0.63.7';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.63.7';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.63.6');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.63.7');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.63.6');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.63.7');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.63.6')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.63.7')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -344,7 +344,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.63.6" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.63.7" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -609,14 +609,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.63.6').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.63.7').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.63.6').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.63.7').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -992,9 +992,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.63.6').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.63.7').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.63.6').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.63.7').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -1264,7 +1264,7 @@ function pintarRegistrarGasto(el, sub, d) {
 // ── Gastos · Cargas del SII ────────────────────────
 // Lo que está en pantalla (archivo abierto, clasificación) vive aquí mientras la página esté
 // abierta: cambiar de pestaña y volver no pierde lo clasificado.
-const sii = { facturas: [], formato: '', nombre: '', items: [], busqueda: '', aviso: '', hint: '', idem: null, firma: '',
+const sii = { facturas: [], formato: '', nombre: '', items: [], busqueda: '', aviso: '', hint: '', idems: {},
   cargas: null, errorCargas: '', histBusqueda: '', meses: new Set(), mesesInit: false, docs: new Set(), notaCarga: null };
 const FORMATO_SII = {
   xml: 'XML del SII: trae el detalle de productos y la fecha de vencimiento.',
@@ -1284,12 +1284,12 @@ async function pintarSII(el, sub, d) {
       <div class="campo"><label for="sii-archivo">Archivo (XML, XLS o CSV)</label><input id="sii-archivo" type="file" accept=".xml,.xls,.xlsx,.csv,.txt,.html,text/xml,application/xml,text/csv"></div>
       <div id="sii-msg" class="ayuda" role="status"></div>
     </section>
-    <div id="sii-trabajo"></div>
     <section class="tarjeta" aria-labelledby="t-sii-hist">
-      <div class="titulo-fila"><h2 id="t-sii-hist">Cargas anteriores ${info('Cargas anteriores', 'Cada archivo subido queda aquí, agrupado por el mes de sus documentos, con cuántos ya están en Gastos.\n"Reabrir" vuelve a abrir el archivo desde Drive para seguir clasificando donde quedaste.\nLa búsqueda revisa todos los documentos de todas las cargas (folio, RUT o proveedor).\n"Quitar del historial" no borra nada: los gastos quedan igual y el archivo sigue en Drive.')} ${infoDrive()}</h2><span id="sii-hist-resumen"></span></div>
+      <div class="titulo-fila"><h2 id="t-sii-hist">Consulta de cargas ${info('Consulta de cargas', 'Las cargas que subiste. Ábrela para seguir trabajando lo que quedó pendiente.\nSe abre aquí abajo, con su botón Cerrar; la carga abierta queda marcada en la lista.\nLa búsqueda revisa todos los documentos de todas las cargas (folio, RUT o proveedor).\n"Quitar del historial" no borra nada: los gastos quedan igual y el archivo sigue en Drive.\n\n' + TXT_DRIVE)}</h2><span id="sii-hist-resumen"></span></div>
       <div class="campo"><label class="sr" for="sii-hist-buscar">Buscar en las cargas</label><input id="sii-hist-buscar" type="search" placeholder="Buscar folio, RUT o proveedor en todas las cargas" value="${esc(sii.histBusqueda)}"></div>
       <div id="sii-hist"><div class="vacio" style="border:0">Cargando el historial…</div></div>
-    </section>`;
+    </section>
+    <div id="sii-trabajo"></div>`;
   $('sii-archivo').addEventListener('change', e => { const f = e.target.files[0]; if (f) leerArchivoSii(f); e.target.value = ''; });
   $('sii-hist-buscar').addEventListener('input', e => { sii.histBusqueda = e.target.value; pintarHistorialSii(); });
   eventosTrabajoSii($('sii-trabajo'));
@@ -1322,13 +1322,16 @@ async function leerArchivoSii(file) {
   await procesarSii(contenido, file.name, { guardar: true, tipo: file.type });
 }
 
-async function procesarSii(contenido, nombre, { guardar, tipo } = {}) {
+// v0.63.7: la carga abierta (recién subida o abierta desde la lista) se trabaja DEBAJO de "Consulta de cargas", con su botón Cerrar
+async function procesarSii(contenido, nombre, { guardar, tipo, cargaId } = {}) {
   const msg = $('sii-msg');
   const { formato, facturas } = Sii.leer(contenido);
   if (!facturas.length) { if (msg) msg.textContent = 'No se reconocieron documentos en el archivo. Revisa que sea el XML o los Documentos recibidos (.xls) o el Registro de Compras (.csv) del SII.'; return; }
-  Object.assign(sii, { facturas, formato, nombre, busqueda: '', aviso: '', hint: '', idem: null, firma: '', cargaId: '' });
+  Object.assign(sii, { facturas, formato, nombre, busqueda: '', aviso: '', hint: '', idems: {}, cargaId: cargaId ? String(cargaId) : '' });
   if (msg) msg.textContent = 'Revisando qué documentos ya están en Gastos…';
   pintarTrabajoSii(true);
+  marcarCargaAbiertaSii();
+  const tr = $('sii-trabajo'); if (tr && tr.scrollIntoView) tr.scrollIntoView({ behavior: 'smooth', block: 'start' });
   try {
     const r = await Sii.estado(facturas);
     const ya = new Set(r.importados || []);
@@ -1349,7 +1352,7 @@ async function procesarSii(contenido, nombre, { guardar, tipo } = {}) {
   if (!guardar) return;
   try {
     const r = await Sii.registrarCarga(facturas, nombre, tipo, contenido, 'carga-' + Gastos.nuevaClave());
-    if (sii.facturas === facturas && r && r.id) sii.cargaId = String(r.id);   // v0.63.1: la carga queda en el origen de cada gasto
+    if (sii.facturas === facturas && r && r.id) { sii.cargaId = String(r.id); }   // v0.63.1: la carga queda en el origen de cada gasto
     registrar('Subió un archivo del SII', `${nombre} · ${facturas.length} documentos`);
     if ($('sii-msg') && sii.facturas === facturas) $('sii-msg').textContent = r.conArchivo ? 'El archivo quedó guardado en el historial de cargas.' : 'La carga quedó en el historial, pero la copia en Drive no se pudo guardar.';
   } catch (e) {
@@ -1359,15 +1362,24 @@ async function procesarSii(contenido, nombre, { guardar, tipo } = {}) {
 }
 
 // ── Archivo abierto: resumen, acciones y documentos ──
-function pintarTrabajoSii(revisando) {
-  const cont = $('sii-trabajo'); if (!cont) return;
-  const F = sii.facturas;
-  if (!F.length) { cont.innerHTML = ''; return; }
-  if (revisando) { cont.innerHTML = `<section class="tarjeta"><div class="vacio" style="border:0">Revisando ${F.length} documentos…</div></section>`; return; }
-  const pend = F.filter(f => !f.yaImportada);
-  const nc = pend.filter(f => f.esNotaCredito).length, harina = pend.filter(f => f.esHarina).length;
-  cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-sii-arch">
-      <div class="titulo-fila"><h2 id="t-sii-arch">${esc(sii.nombre)}</h2><span>${F.length} ${F.length === 1 ? 'documento' : 'documentos'}</span></div>
+// v0.63.7: "clasificada" = lista para importar (tiene ítem, o va al vencimiento de su obligación); se importan una a una o todas juntas
+const clasificadaSii = f => !f.yaImportada && ((f.aVencimiento && !f.esNotaCredito && f.total > 0) || (f.lineas || []).some(ln => ln.item));
+function conteoSii() {
+  const pend = sii.facturas.filter(f => !f.yaImportada && !f.importando);
+  const clas = pend.filter(clasificadaSii).length;
+  return { clas, quedan: pend.length - clas };
+}
+const textoBotonImportar = n => `Importar todas las clasificadas (${n})`;
+const textoQuedanSii = q => (q ? `Quedan ${q} por clasificar` : '');
+function refrescarConteoSii() {
+  const { clas, quedan } = conteoSii(), b = document.querySelector('#sii-trabajo [data-importar]'), q = $('sii-quedan');
+  if (b && b.textContent !== "Importando…") b.textContent = textoBotonImportar(clas);
+  if (q) q.textContent = textoQuedanSii(quedan);
+}
+function cabTrabajoSii() {
+  const F = sii.facturas, pend = F.filter(f => !f.yaImportada);
+  const nc = pend.filter(f => f.esNotaCredito).length, harina = pend.filter(f => f.esHarina).length, { clas, quedan } = conteoSii();
+  return `<div class="titulo-fila"><h2 id="t-sii-arch">${esc(sii.nombre)}</h2><div class="acciones-carga"><span>${F.length} ${F.length === 1 ? 'documento' : 'documentos'}</span><button type="button" class="btn-sec btn-chico" data-cerrar-carga>Cerrar</button></div></div>
       <p class="ayuda">${FORMATO_SII[sii.formato] || ''}</p>
       ${sii.aviso ? `<div class="aviso">${esc(sii.aviso)}</div>` : ''}${sii.sinSugerencias ? `<p class="ayuda">${esc(sii.sinSugerencias)}</p>` : ''}
       <div class="desglose desglose-grande"><span>Por importar <b>${pend.length}</b></span><span>Total <b>${pesos(pend.reduce((s, f) => s + f.total, 0))}</b></span>${F.length - pend.length ? `<span>Ya en Gastos <b>${F.length - pend.length}</b></span>` : ''}${nc ? `<span>Notas de crédito <b>${nc}</b> (restan)</span>` : ''}${harina ? `<span>Con impuesto a la harina <b>${harina}</b></span>` : ''}</div>
@@ -1376,24 +1388,55 @@ function pintarTrabajoSii(revisando) {
           <div class="chips"><button type="button" class="chip-filtro" data-todas="pagada">Todas pagadas</button><button type="button" class="chip-filtro" data-todas="pendiente">Todas pendientes</button></div>
           <div class="fila-lote"><label for="sii-fecha-lote">Fecha a todas</label><input type="date" id="sii-fecha-lote"><button type="button" class="btn-sec" data-fecha-todas>Aplicar</button></div>
         </div>
-        <div class="botones" style="justify-content:flex-start;margin-top:14px"><button type="button" class="btn" data-importar>Importar las clasificadas</button>
-          ${info('Importar', 'Se importan solo las facturas que tienen ítem; las demás quedan para después (puedes reabrir el archivo desde el historial).\nCada factura crea sus líneas en Gastos (una por ítem y área), con el folio en la observación y el RUT del proveedor. Si el documento trae detalle, los productos quedan en la hoja "Detalle Compras".\nAntes de guardar, Gastos revisa de nuevo los repetidos: si alguna ya estaba, no guarda nada y te pregunta.')}</div>
+        <div class="botones fila-importar"><button type="button" class="btn" data-importar>${textoBotonImportar(clas)}</button>
+          ${info('Importar', 'Cada compra tiene su botón "Importar compra": se importa sola apenas está clasificada. Este botón importa de una vez todas las clasificadas que faltan; las que no tienen ítem quedan pendientes para después (puedes volver a abrir la carga desde Consulta de cargas).\nCada factura crea sus líneas en Gastos (una por ítem y área), con el folio en la observación y el RUT del proveedor. Si el documento trae detalle, los productos quedan en la hoja "Detalle Compras".\nLo que ya importaste no se vuelve a importar. Antes de guardar, Gastos revisa de nuevo los repetidos: si alguna ya estaba, no guarda nada y te pregunta.')}<span class="ayuda" id="sii-quedan">${textoQuedanSii(quedan)}</span></div>
         <div id="sii-import-hint" class="sii-hint">${sii.hint}</div>` : `<p class="ayuda">Todos los documentos de este archivo ya están en Gastos.</p>${sii.hint ? `<div class="sii-hint">${sii.hint}</div>` : ''}`}
-      <div class="campo" style="margin-top:14px"><label class="sr" for="sii-buscar">Buscar en este archivo</label><input id="sii-buscar" type="search" placeholder="Buscar folio, RUT o proveedor en este archivo" value="${esc(sii.busqueda)}"><span class="ayuda" id="sii-buscar-hint"></span></div>
-    </section>
+      <div class="campo" style="margin-top:14px"><label class="sr" for="sii-buscar">Buscar en este archivo</label><input id="sii-buscar" type="search" placeholder="Buscar folio, RUT o proveedor en este archivo" value="${esc(sii.busqueda)}"><span class="ayuda" id="sii-buscar-hint"></span></div>`;
+}
+function pintarTrabajoSii(revisando) {
+  const cont = $('sii-trabajo'); if (!cont) return;
+  const F = sii.facturas;
+  if (!F.length) { cont.innerHTML = ''; return; }
+  if (revisando) { cont.innerHTML = `<section class="tarjeta carga-abierta"><div class="vacio" style="border:0">Revisando ${F.length} documentos…</div></section>`; return; }
+  F.forEach(f => { if (!f.yaImportada && !(f.aVencimiento && f.total > 0)) Sii.prepararLineas(f, sii.items); });   // para contar las clasificadas aunque la búsqueda las oculte
+  cont.innerHTML = `<section class="tarjeta carga-abierta" id="sii-arch" aria-labelledby="t-sii-arch">${cabTrabajoSii()}</section>
     <div id="sii-docs"></div>`;
   pintarDocsSii();
+}
+// Solo la cabecera (conteos, botón de todas): no toca los documentos ni lo que se está escribiendo en ellos
+function repintarCabSii() { const c = $('sii-arch'); if (!c) return pintarTrabajoSii(); c.innerHTML = cabTrabajoSii(); hintBusquedaSii(); }
+// La carga abierta, marcada en la lista (y su mes desplegado)
+function marcarCargaAbiertaSii() {
+  const c = sii.cargaId && (sii.cargas || []).find(x => String(x.id) === sii.cargaId);
+  if (c) sii.meses.add(String(c.desde || c.fechaCarga || '').slice(0, 7) || 'sin-fecha');
+  pintarHistorialSii();
+}
+function cerrarCargaSii() {
+  const sinImportar = sii.facturas.filter(clasificadaSii).length;
+  if (sinImportar && !confirm(`${sinImportar === 1 ? 'Hay 1 compra clasificada que no has importado' : `Hay ${sinImportar} compras clasificadas que no has importado`}. Al cerrar, esa clasificación se pierde (la carga sigue en la lista para abrirla de nuevo).\n\n¿Cerrar igual?`)) return;
+  const id = sii.cargaId;
+  Object.assign(sii, { facturas: [], nombre: '', formato: '', busqueda: '', aviso: '', hint: '', idems: {}, cargaId: '' });
+  pintarTrabajoSii(); pintarHistorialSii();
+  const el = id && $('sii-carga-' + id), h = el || document.querySelector('[aria-labelledby="t-sii-hist"]');
+  if (h && h.scrollIntoView) h.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function pintarDocsSii() {
   const cont = $('sii-docs'); if (!cont) return;
-  const q = sii.busqueda.trim().toLowerCase();
-  const visibles = sii.facturas.map((f, i) => ({ f, i })).filter(({ f }) => !q || f.folio.toLowerCase().includes(q) || f.razonSocial.toLowerCase().includes(q) || f.rut.toLowerCase().includes(q));
-  const h = $('sii-buscar-hint');
-  if (h) h.textContent = q ? (visibles.length ? `${visibles.length} resultado(s) · ${visibles.filter(x => x.f.yaImportada).length} ya en Gastos` : `Sin resultados para "${sii.busqueda.trim()}"`) : '';
+  const visibles = visiblesSii();
+  hintBusquedaSii(visibles);
   cont.innerHTML = visibles.map(({ f, i }) => tarjetaSii(f, i)).join('');
 }
-function repintarDocSii(i) { const el = $('sii-doc-' + i); if (el) el.outerHTML = tarjetaSii(sii.facturas[i], i); }
+function visiblesSii() {
+  const q = sii.busqueda.trim().toLowerCase();
+  return sii.facturas.map((f, i) => ({ f, i })).filter(({ f }) => !q || f.folio.toLowerCase().includes(q) || f.razonSocial.toLowerCase().includes(q) || f.rut.toLowerCase().includes(q));
+}
+function hintBusquedaSii(visibles = visiblesSii()) {
+  const h = $('sii-buscar-hint'), q = sii.busqueda.trim();
+  if (h) h.textContent = q ? (visibles.length ? `${visibles.length} resultado(s) · ${visibles.filter(x => x.f.yaImportada).length} ya en Gastos` : `Sin resultados para "${q}"`) : '';
+}
+// v0.63.7: al cambiar la clasificación de una compra, también su botón "Importar compra" y el conteo de arriba
+function repintarDocSii(i) { const el = $('sii-doc-' + i); if (el) el.outerHTML = tarjetaSii(sii.facturas[i], i); refrescarConteoSii(); }
 
 function bloqueNotaSii(f, i) {
   if (f.editandoNota) return `<div class="bloque-sii nota-sii"><label class="etiqueta" for="sii-nota-txt-${i}">Nota de este documento</label>
@@ -1410,16 +1453,18 @@ function tarjetaSii(f, i) {
   if (f.yaImportada) {
     const det = f.detalleGuardado;
     return `<article class="tarjeta doc-sii importada" id="sii-doc-${i}" data-i="${i}">${cab}
-      <div class="chips-doc"><span class="chip c-verde chip-chico">Ya en Gastos</span></div>
+      <div class="chips-doc"><span class="chip c-verde chip-chico">${f.importadaAhora ? 'Importada · ya en Gastos' : 'Ya en Gastos'}</span></div>
+      ${f.resultado ? `<div class="sii-res-doc" id="sii-res-${i}" role="status">${f.resultado}</div>` : ''}
       ${bloqueNotaSii(f, i)}
       <button type="button" class="btn-link" data-ver-det aria-expanded="${!!f.detalleAbierto}">${f.detalleAbierto ? 'Ocultar el detalle' : 'Ver el detalle guardado'}</button>
       ${f.detalleAbierto ? (det === undefined ? '<p class="ayuda">Buscando el detalle…</p>' : listaDetalleSii(det)) : ''}
     </article>`;
   }
   // v0.50.0 (base nueva): la factura de una obligación "según documento" (internet, gas, teléfono) va a su vencimiento
-  if (f.aVencimiento && f.total > 0) return `<article class="tarjeta doc-sii" id="sii-doc-${i}" data-i="${i}">${cab}
+  const ocupada = f.importando ? ' inert aria-busy="true"' : '';   // v0.63.7: mientras se importa sola, no se puede cambiar
+  if (f.aVencimiento && f.total > 0) return `<article class="tarjeta doc-sii" id="sii-doc-${i}" data-i="${i}"${ocupada}>${cab}
     <div class="sii-a-venc"><b>${esc(f.aVencimiento.texto)}</b> ${info('Factura de una obligación', f.aVencimiento.bandeja ? 'El RUT de este proveedor es el de más de una obligación "según documento". Al importar, la factura queda en Vencimientos → "Documentos sin obligación" para que elijas a cuál va.' : 'El RUT de este proveedor es el identificador de una obligación "según documento". Al importar, la factura no crea un gasto: completa el vencimiento de ese período con el total de la factura y su fecha de vencimiento (o 30 días después de emitida).\nEl gasto se registra al pagarlo (con la cartola o con Pagar), con el ítem y las áreas de la obligación, y el RUT y el folio de la factura.')}</div>
-    ${bloqueNotaSii(f, i)}</article>`;
+    ${bloqueNotaSii(f, i)}${pieImportarSii(f, i)}</article>`;
   Sii.prepararLineas(f, sii.items);
   const emis = Sii.fechaDDMMYYYYaISO(f.fecha);
   const plazo = f.fechaVencISO && emis ? Math.round((new Date(f.fechaVencISO + 'T00:00:00') - new Date(emis + 'T00:00:00')) / 864e5) : 0;
@@ -1432,7 +1477,7 @@ function tarjetaSii(f, i) {
   if (f.tipoDoc === '34') chips.push('<span class="chip c-lila chip-chico">Exenta</span>');
   const tot = Sii.revisarTotal(f);
   const etFecha = f.esNotaCredito ? 'Fecha de la nota de crédito' : f.estado === 'pagada' ? 'Fecha de pago' : f.estado === 'pendiente' ? 'Fecha de vencimiento' : '';
-  return `<article class="tarjeta doc-sii" id="sii-doc-${i}" data-i="${i}">${cab}
+  return `<article class="tarjeta doc-sii" id="sii-doc-${i}" data-i="${i}"${ocupada}>${cab}
     <p class="ayuda">Neto ${pesos(f.neto)} · IVA ${pesos(f.iva)}${f.otroImpuesto ? ` · Otro impuesto ${pesos(f.otroImpuesto)}${f.tasaOtroImpuesto ? ` (${f.tasaOtroImpuesto}%)` : ''}` : ''}</p>
     ${chips.length ? `<div class="chips-doc">${chips.join('')}</div>` : ''}
     ${f.descuadre ? `<div class="aviso aviso-rojo">${esc(f.descuadre)}. Revisa este documento antes de importarlo.</div>` : ''}
@@ -1450,7 +1495,29 @@ function tarjetaSii(f, i) {
     ${f.esNotaCredito ? '<p class="ayuda">Una nota de crédito descuenta un cobro anterior: se registra como gasto negativo con la fecha del documento.</p>'
       : `<div class="chips" role="group" aria-label="Estado de pago"><button type="button" class="chip-filtro" data-estado="pagada" aria-pressed="${f.estado === 'pagada'}">Pagada</button><button type="button" class="chip-filtro" data-estado="pendiente" aria-pressed="${f.estado === 'pendiente'}">Pendiente</button></div>${f.estadoSugerido && f.estado === 'pendiente' ? '<span class="chip c-azul chip-chico" title="El documento anterior de este proveedor quedó pendiente en Gastos">Sugerido: la vez anterior lo postergaste · elige la fecha de pago</span>' : ''}`}
     ${etFecha ? `<div class="campo campo-fecha-sii"><label for="sii-fecha-${i}">${etFecha}</label><input id="sii-fecha-${i}" type="date" data-fecha value="${esc(f.fechaEstado || '')}"></div>` : ''}
+    ${pieImportarSii(f, i)}
   </article>`;
+}
+
+// v0.63.7 · "Importar compra": la misma revisión que el botón de todas (prepararParaImportar), solo con esta compra
+function revisarUnaSii(f) {
+  if (f.yaImportada) return { lista: null, problema: '' };
+  if (!clasificadaSii(f)) return { lista: null, problema: 'Clasifícala (elige el ítem) para importarla.' };
+  const { listas, problemas } = Sii.prepararParaImportar([f], sii.items), et = `${f.razonSocial} F.${f.folio}`;
+  const p = problemas[0] ? (problemas[0].startsWith(et) ? problemas[0].slice(et.length).replace(/^:\s*/, '').trim() : problemas[0]) : '';
+  return { lista: listas[0] || null, problema: p ? p.charAt(0).toUpperCase() + p.slice(1) : (listas[0] ? '' : 'Clasifícala (elige el ítem) para importarla.') };
+}
+function pieImportarSii(f, i) {
+  const { lista, problema } = revisarUnaSii(f);
+  return `<div class="pie-importar" id="sii-pie-${i}"><button type="button" class="btn btn-chico" data-importar-una ${lista && !f.importando ? '' : 'disabled'}>${f.importando ? 'Importando…' : 'Importar compra'}</button>
+    <span class="ayuda" id="sii-pie-txt-${i}">${f.importando ? '' : esc(problema)}</span>
+    ${f.resultado ? `<div class="sii-res-doc" id="sii-res-${i}" role="status">${f.resultado}</div>` : ''}</div>`;
+}
+function refrescarPieSii(i) {
+  const f = sii.facturas[i], b = document.querySelector(`#sii-pie-${i} [data-importar-una]`), t = $('sii-pie-txt-' + i);
+  if (!b || f.importando) return;
+  const { lista, problema } = revisarUnaSii(f);
+  b.disabled = !lista; if (t) t.textContent = problema;
 }
 
 const opcionesItems = sel => `<option value="">Elige un ítem</option>${sii.items.map(it => `<option value="${esc(it.item)}" ${it.item === sel ? 'selected' : ''}>${esc(it.item)}</option>`).join('')}`;
@@ -1511,6 +1578,7 @@ function hintsSii(i) {
   f.lineas.forEach((ln, li) => { const el = $(`sii-hint-${i}-${li}`); if (!el) return; const r = Sii.revisarAreas(f, li); el.textContent = r.texto; el.classList.toggle('dif-mal', !r.ok); });
   const t = $('sii-total-' + i), r = Sii.revisarTotal(f);
   if (t && r) { t.textContent = r.texto; t.classList.toggle('dif-mal', !r.ok); }
+  refrescarPieSii(i);
 }
 const par = v => String(v).split(':');
 
@@ -1536,12 +1604,13 @@ function eventosTrabajoSii(cont) {
       Sii.sincronizarLineasDesdeDetalle(f, sii.items); repintarDocSii(i);
     }
     else if (t.dataset.areaArea !== undefined) { const [li, ai] = par(t.dataset.areaArea); f.lineas[+li].areas[+ai].area = t.value; hintsSii(i); }
-    else if (t.dataset.fecha !== undefined) f.fechaEstado = t.value;
+    else if (t.dataset.fecha !== undefined) { f.fechaEstado = t.value; refrescarPieSii(i); }
   });
   cont.addEventListener('click', async e => {
     const b = e.target.closest('button'); if (!b || b.classList.contains('btn-info')) return;
-    if (b.dataset.todas) { sii.facturas.forEach(f => Sii.ponerEstado(f, b.dataset.todas)); pintarDocsSii(); return; }
-    if (b.hasAttribute('data-fecha-todas')) { const v = $('sii-fecha-lote').value; if (!v) { alert('Elige una fecha primero.'); return; } sii.facturas.forEach(f => { if (!f.yaImportada) f.fechaEstado = v; }); pintarDocsSii(); return; }
+    if (b.dataset.todas) { sii.facturas.forEach(f => { if (!f.importando) Sii.ponerEstado(f, b.dataset.todas); }); pintarDocsSii(); return; }
+    if (b.hasAttribute('data-fecha-todas')) { const v = $('sii-fecha-lote').value; if (!v) { alert('Elige una fecha primero.'); return; } sii.facturas.forEach(f => { if (!f.yaImportada && !f.importando) f.fechaEstado = v; }); pintarDocsSii(); return; }
+    if (b.hasAttribute('data-cerrar-carga')) { cerrarCargaSii(); return; }
     if (b.hasAttribute('data-importar')) { importarSii(false); return; }
     if (b.hasAttribute('data-importar-nuevas')) { importarSii(true); return; }
     if (b.hasAttribute('data-cancelar-dup')) { sii.hint = ''; $('sii-import-hint').innerHTML = ''; return; }
@@ -1553,6 +1622,8 @@ function eventosTrabajoSii(cont) {
     }
     const art = b.closest('.doc-sii'); if (!art) return;
     const i = +art.dataset.i, f = sii.facturas[i];
+    if (b.hasAttribute('data-importar-una')) { importarUnaSii(i); return; }
+    if (f.importando) return;   // mientras se importa, la compra no cambia
     if (b.dataset.estado) { Sii.ponerEstado(f, b.dataset.estado); repintarDocSii(i); }
     else if (b.hasAttribute('data-dividir')) { Sii.dividir(f); repintarDocSii(i); }
     else if (b.dataset.quitarLinea !== undefined) { f.lineas.splice(+b.dataset.quitarLinea, 1); repintarDocSii(i); }
@@ -1616,44 +1687,104 @@ async function sugerirSii(i, li, b) {
   repintarDocSii(i);
 }
 
+// v0.63.7 · Importar: todas las clasificadas (botón de arriba) o una compra (su botón). Misma revisión y misma importación.
+// Clave de reintento por envío exacto (sii.idems[firma]): repetir el mismo envío tras un corte no duplica.
+// Lo ya importado (una a una) queda yaImportada y prepararParaImportar lo salta: el botón de todas importa solo lo que falta.
+const origenSii = () => ({ formato: sii.formato, archivo: sii.nombre, cargaId: sii.cargaId || '' });
+function idemSii(listas, omitir) {
+  const firma = JSON.stringify([listas, !!omitir]);
+  if (!sii.idems) sii.idems = {};
+  return { firma, idem: sii.idems[firma] || (sii.idems[firma] = 'sii-' + Gastos.nuevaClave()) };
+}
+const textoImportadoSii = r => `Importado: ${r.facturas} ${r.facturas === 1 ? 'documento' : 'documentos'} · ${r.filas} ${r.filas === 1 ? 'línea' : 'líneas'} de gasto${r.vencimientos ? ` · ${r.vencimientos} ${r.vencimientos === 1 ? 'vencimiento' : 'vencimientos'}` : ''}${r.detalle ? ` · ${r.detalle} productos en Detalle Compras` : ''}${r.aVencimientos ? ` · ${r.aVencimientos} ${r.aVencimientos === 1 ? 'factura completó el vencimiento de su obligación' : 'facturas completaron el vencimiento de su obligación'}` : ''}${r.aBandeja ? ` · ${r.aBandeja} en "Documentos sin obligación"` : ''}`;
+// v0.57.0 · Finanzas: los precios de las materias primas desde estas facturas (llega después, sin frenar); poner(html) lo muestra
+function preciosTrasImportarSii(r, poner, id) {
+  if (!r || !r.precios || typeof r.precios.then !== 'function') return;
+  r.precios.then(x => {
+    if (!x) return;
+    const t = x.error ? `<p class="aviso sii-precios" id="${id}">No se pudieron revisar los precios de Finanzas (${esc(x.error)}). Hazlo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.</p>`
+      : (x.aplicadas.length || x.porConfirmar || x.sinAsociar) ? `<p class="ayuda sii-precios" id="${id}">Finanzas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'precio actualizado' : 'precios actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver Compras del SII</a></p>` : '';
+    if (t) poner(t);
+  });
+}
+// Lo recién importado cuenta en "Consulta de cargas" sin volver a leer la base (la misma clave puede estar en varias cargas)
+function contarImportadasSii(listas) {
+  // Algunas cargas guardan la nota de crédito sin "|61" (como el script): se compara también sin él
+  const sin61 = k => String(k || '').replace(/\|61$/, ''), ks = new Set(listas.flatMap(l => [Sii.clave(l), sin61(Sii.clave(l))]));
+  const es = d => { const k = d.clave || Sii.clave({ rut: d.rut, folio: d.folio, tipo: d.tipo }); return ks.has(k) || ks.has(sin61(k)); };
+  (sii.cargas || []).forEach(c => {
+    (c.documentos || []).forEach(d => { if (!d.importado && es(d)) { d.importado = true; c.importados = Math.min(+c.total || 0, (+c.importados || 0) + 1); } });
+    if (Array.isArray(c.pendientes)) c.pendientes = c.pendientes.filter(d => !es(d));
+  });
+  pintarHistorialSii(); repintarCobDos();
+}
+
 async function importarSii(omitir) {
-  const hint = $('sii-import-hint'), btn = document.querySelector('[data-importar]');
-  const { listas, problemas } = Sii.prepararParaImportar(sii.facturas, sii.items);
+  const hint = $('sii-import-hint'), btn = document.querySelector('#sii-trabajo [data-importar]');
+  // Las que se están importando solas en este momento no van (no se cruzan dos envíos de la misma compra)
+  const { listas, problemas } = Sii.prepararParaImportar(sii.facturas.filter(f => !f.importando), sii.items);
   if (problemas.length) { hint.innerHTML = `<div class="aviso aviso-rojo"><b>Revisa antes de importar:</b><ul>${problemas.slice(0, 8).map(p => `<li>${esc(p)}</li>`).join('')}</ul>${problemas.length > 8 ? `<span>…y ${problemas.length - 8} más</span>` : ''}</div>`; return; }
   if (!listas.length) { hint.innerHTML = '<p class="error">Ninguna factura tiene ítem todavía: clasifica al menos una.</p>'; return; }
   if (!omitir && !confirm(`¿Importar ${listas.length} ${listas.length === 1 ? 'documento' : 'documentos'} a Gastos?`)) return;
-  // Misma clave solo para el mismo envío exacto (un reintento tras cortarse internet no duplica)
-  const firma = JSON.stringify([listas, !!omitir]);
-  if (!sii.idem || sii.firma !== firma) { sii.idem = 'sii-' + Gastos.nuevaClave(); sii.firma = firma; }
+  const { firma, idem } = idemSii(listas, omitir), facturas = sii.facturas;
   if (btn) { btn.disabled = true; btn.textContent = 'Importando…'; }
   hint.innerHTML = '';
   try {
-    const r = await Sii.importar(listas, omitir, sii.idem, { formato: sii.formato, archivo: sii.nombre, cargaId: sii.cargaId || '' });
-    sii.idem = null;
-    listas.forEach(l => { const f = sii.facturas.find(x => Sii.clave(x) === Sii.clave(l)); if (f) f.yaImportada = true; });
-    sii.hint = `<p class="sii-ok">Importado: ${r.facturas} ${r.facturas === 1 ? 'documento' : 'documentos'} · ${r.filas} ${r.filas === 1 ? 'línea' : 'líneas'} de gasto${r.vencimientos ? ` · ${r.vencimientos} ${r.vencimientos === 1 ? 'vencimiento' : 'vencimientos'}` : ''}${r.detalle ? ` · ${r.detalle} productos en Detalle Compras` : ''}${r.aVencimientos ? ` · ${r.aVencimientos} ${r.aVencimientos === 1 ? 'factura completó el vencimiento de su obligación' : 'facturas completaron el vencimiento de su obligación'}` : ''}${r.aBandeja ? ` · ${r.aBandeja} en "Documentos sin obligación"` : ''}</p>`;
+    const r = await Sii.importar(listas, omitir, idem, origenSii());
+    delete sii.idems[firma];
     registrar('Importó documentos del SII', `${r.facturas} documento(s) · ${sii.nombre}`);
-    // v0.57.0 · Finanzas: los precios de las materias primas desde estas facturas (llega después, sin frenar)
-    if (r.precios && typeof r.precios.then === 'function') r.precios.then(x => {
-      if (!x) return;
-      const t = x.error ? `<p class="aviso">No se pudieron revisar los precios de Finanzas (${esc(x.error)}). Hazlo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.</p>`
-        : (x.aplicadas.length || x.porConfirmar || x.sinAsociar) ? `<p class="ayuda" id="sii-precios">Finanzas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'precio actualizado' : 'precios actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver Compras del SII</a></p>` : '';
-      if (t) { sii.hint = (sii.hint || '') + t; const h = $('sii-import-hint') || document.querySelector('#v-gastos .sii-hint'); if (h && !h.querySelector('#sii-precios')) h.insertAdjacentHTML('beforeend', t); }
-    });
     Sii.olvidarClasificacion();   // lo recién importado ya cuenta para las próximas sugerencias
-    pintarTrabajoSii(); cargarHistorialSii();
+    if (sii.facturas !== facturas) { contarImportadasSii(listas); return; }   // se cerró o se abrió otra carga mientras tanto
+    const hechas = [];
+    listas.forEach(l => { const f = sii.facturas.find(x => Sii.clave(x) === Sii.clave(l)); if (f && !f.yaImportada) { f.yaImportada = true; f.importadaAhora = true; hechas.push(l); } });
+    const { quedan } = conteoSii();
+    sii.hint = `<p class="sii-ok">${textoImportadoSii(r)}</p>${quedan ? `<p class="ayuda">${textoQuedanSii(quedan)}: siguen en la carga para después.</p>` : ''}`;
+    preciosTrasImportarSii(r, t => { sii.hint = (sii.hint || '') + t; const h = $('sii-import-hint') || document.querySelector('#sii-trabajo .sii-hint'); if (h && !h.querySelector('.sii-precios')) h.insertAdjacentHTML('beforeend', t); }, 'sii-precios');
+    pintarTrabajoSii(); contarImportadasSii(hechas);
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = 'Importar las clasificadas'; }
+    if (btn) { btn.disabled = false; btn.textContent = textoBotonImportar(conteoSii().clas); }
     if (e.code === 'duplicados') {
-      sii.idem = null;
+      delete sii.idems[firma];
       const d = e.datos || {}, dup = d.duplicados || [];
       hint.innerHTML = `<div class="aviso"><b>No se guardó nada todavía.</b> ${dup.length} ${dup.length === 1 ? 'documento ya estaba' : 'documentos ya estaban'} en Gastos:<ul>${dup.slice(0, 5).map(x => `<li>${esc(x.razonSocial)} F.${esc(x.folio)}</li>`).join('')}</ul>${dup.length > 5 ? `<span>…y ${dup.length - 5} más</span>` : ''}
         <div class="botones" style="justify-content:flex-start">${d.nuevas > 0 ? `<button type="button" class="btn-sec" data-importar-nuevas>Importar solo ${d.nuevas === 1 ? 'la nueva' : `las ${d.nuevas} nuevas`}</button>` : ''}<button type="button" class="btn-sec" data-cancelar-dup>Cancelar</button></div></div>`;
       return;
     }
     // Si se cortó a medias (o no hubo respuesta) se conserva la clave: repetir el mismo envío no duplica
-    if (e.code && e.code !== 'en_curso' && e.code !== 'a_medias') sii.idem = null;
+    if (e.code && e.code !== 'en_curso' && e.code !== 'a_medias') delete sii.idems[firma];
     hint.innerHTML = `<p class="error">${esc(e.message || mensajeError(e))}${e.code ? '' : ' Si vuelves a tocar Importar no se duplica.'}</p>`;
+  }
+}
+
+// v0.63.7 · Una sola compra, con su botón. El resultado queda en la misma tarjeta, que pasa a "Importada".
+async function importarUnaSii(i) {
+  const f = sii.facturas[i]; if (!f || f.yaImportada || f.importando) return;
+  const { lista, problema } = revisarUnaSii(f);
+  if (!lista) { f.resultado = `<p class="error">${esc(problema)}</p>`; repintarDocSii(i); return; }
+  const { firma, idem } = idemSii([lista], false), aqui = () => sii.facturas[i] === f;
+  f.importando = true; f.resultado = ''; repintarDocSii(i);
+  try {
+    const r = await Sii.importar([lista], false, idem, origenSii());
+    delete sii.idems[firma];
+    f.importando = false; f.yaImportada = true; f.importadaAhora = true;
+    f.resultado = `<p class="sii-ok">Importada: ${r.filas} ${r.filas === 1 ? 'línea' : 'líneas'} de gasto${r.vencimientos ? ` · ${r.vencimientos === 1 ? '1 vencimiento' : r.vencimientos + ' vencimientos'}` : ''}${r.detalle ? ` · ${r.detalle} productos en Detalle Compras` : ''}${r.aVencimientos ? ' · completó el vencimiento de su obligación' : ''}${r.aBandeja ? ' · quedó en "Documentos sin obligación"' : ''}</p>`;
+    registrar('Importó documentos del SII', `${f.razonSocial} F.${f.folio} · ${sii.nombre}`);
+    preciosTrasImportarSii(r, t => { f.resultado += t; const el = aqui() && $('sii-res-' + i); if (el && !el.querySelector('.sii-precios')) el.insertAdjacentHTML('beforeend', t); }, 'sii-precios-' + i);
+    Sii.olvidarClasificacion();
+    if (aqui()) { repintarDocSii(i); repintarCabSii(); }
+    contarImportadasSii([lista]);
+  } catch (e) {
+    f.importando = false;
+    if (e.code === 'duplicados') {
+      // Ya estaba en Gastos (importada desde otro lado): no se guardó de nuevo, y queda como importada
+      delete sii.idems[firma]; f.yaImportada = true;
+      f.resultado = '<p class="ayuda">Ya estaba en Gastos: no se guardó de nuevo.</p>';
+      contarImportadasSii([lista]);
+    } else {
+      if (e.code && e.code !== 'en_curso' && e.code !== 'a_medias') delete sii.idems[firma];
+      f.resultado = `<p class="error">${esc(e.message || mensajeError(e))}${e.code ? '' : ' Si vuelves a tocar Importar compra no se duplica.'}</p>`;
+    }
+    if (aqui()) { repintarDocSii(i); repintarCabSii(); }
   }
 }
 
@@ -1694,10 +1825,12 @@ function pintarHistorialSii() {
 function tarjetaCargaSii(c) {
   const total = +c.total || 0, faltan = Math.max(0, total - (+c.importados || 0)), completa = !faltan;
   const periodo = c.desde ? (c.desde === c.hasta || !c.hasta ? fechaSii(c.desde) : `${fechaSii(c.desde)} al ${fechaSii(c.hasta)}`) : 'Sin fecha';
-  const fmt = Sii.formatoDeArchivo(c.nombreArchivo);
-  return `<div class="carga-sii" id="sii-carga-${esc(c.id)}">
-    <div class="titulo-fila"><b>${esc(periodo)}</b><span class="chip ${completa ? 'c-verde' : 'c-amarillo'} chip-chico">${completa ? 'Completa' : `Faltan ${faltan}`}</span></div>
-    <p class="ayuda"><span class="chip ${fmt.color} chip-chico">${fmt.etiqueta}</span> ${fmt.nota ? esc(fmt.nota) + ' · ' : ''}${esc(c.nombreArchivo || '')}<br>${total} ${total === 1 ? 'documento' : 'documentos'} · ${+c.importados || 0} en Gastos${c.enDuda ? ` · ${c.enDuda} en duda` : ''} · subida el ${esc(fechaSii(c.fechaCarga))}</p>
+  const fmt = Sii.formatoDeArchivo(c.nombreArchivo), imp = Math.min(total, +c.importados || 0);
+  const abierta = !!sii.facturas.length && !!sii.cargaId && String(c.id) === sii.cargaId;   // v0.63.7: la que se está trabajando abajo
+  return `<div class="carga-sii${abierta ? ' abierta' : ''}" id="sii-carga-${esc(c.id)}"${abierta ? ' aria-current="true"' : ''}>
+    <div class="titulo-fila"><b>${esc(periodo)}</b><span class="chips-carga">${abierta ? '<span class="chip c-azul chip-chico">Abierta abajo</span>' : ''}<span class="chip ${completa ? 'c-verde' : 'c-amarillo'} chip-chico">${completa ? 'Completa' : `Faltan ${faltan}`}</span></span></div>
+    <p class="ayuda"><span class="chip ${fmt.color} chip-chico">${fmt.etiqueta}</span> ${fmt.nota ? esc(fmt.nota) + ' · ' : ''}<span class="nombre-archivo">${esc(c.nombreArchivo || '')}</span></p>
+    <p class="cuenta-carga"><span>Subida el <b>${esc(fechaSii(c.fechaCarga))}</b></span><span><b>${total}</b> ${total === 1 ? 'documento' : 'documentos'}</span><span><b>${imp}</b> ${imp === 1 ? 'importado' : 'importados'}</span><span${faltan ? ' class="pend"' : ''}><b>${faltan}</b> ${faltan === 1 ? 'pendiente' : 'pendientes'}</span>${c.enDuda ? `<span><b>${c.enDuda}</b> en duda</span>` : ''}</p>
     ${sii.notaCarga === c.id ? `<div class="bloque-sii"><label class="etiqueta" for="sii-nota-carga">Nota de la carga</label><textarea id="sii-nota-carga" rows="2" maxlength="1000" placeholder="Ej: alcancé hasta el folio 200, el resto queda para el lunes">${esc(c.nota || '')}</textarea>
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" data-guardar-nota-carga="${esc(c.id)}">Guardar nota</button><button type="button" class="btn-sec btn-chico" data-cancelar-nota-carga>Cancelar</button></div></div>`
       : c.nota ? `<p class="nota-carga">${esc(c.nota)}</p>` : ''}
@@ -1705,7 +1838,7 @@ function tarjetaCargaSii(c) {
       ${c.documentos.map(d => `<div class="fila-caja"><div class="txt"><b>${esc(d.razonSocial || 'Documento')}</b><span>N° ${esc(d.folio)}${d.importado ? ' · en Gastos' : ' · pendiente'}</span>${d.nota ? `<span class="nota">${esc(d.nota)}</span>` : ''}</div>
         ${d.tieneDetalle ? `<div class="acciones"><button type="button" class="btn-sec btn-chico" data-detalle="${esc(d.rut)}|${esc(d.folio)}|${esc(d.tipo || '')}">Detalle</button></div>` : ''}</div>`).join('')}</details>` : ''}
     <div class="botones" style="justify-content:flex-start">
-      ${c.url ? `<button type="button" class="btn-sec btn-chico" data-reabrir="${esc(c.id)}">${completa ? 'Revisar carga' : 'Reabrir carga'}</button><a class="btn-sec btn-chico btn-enlace" href="${esc(c.url)}" target="_blank" rel="noopener">Archivo en Drive</a>` : ''}
+      ${abierta ? '<button type="button" class="btn-sec btn-chico" data-cerrar-carga>Cerrar</button>' : ''}${c.url && !abierta ? `<button type="button" class="btn-sec btn-chico" data-reabrir="${esc(c.id)}">${completa ? 'Revisar carga' : 'Abrir carga'}</button>` : ''}${c.url ? `<a class="btn-sec btn-chico btn-enlace" href="${esc(c.url)}" target="_blank" rel="noopener">Archivo en Drive</a>` : ''}
       <button type="button" class="btn-sec btn-chico" data-nota-carga="${esc(c.id)}">${c.nota ? 'Editar nota' : 'Nota'}</button>
       <button type="button" class="btn-sec btn-chico btn-peligro" data-quitar-carga="${esc(c.id)}" data-periodo="${esc(periodo)}">Quitar del historial</button>
     </div></div>`;
@@ -1731,12 +1864,12 @@ function eventosHistorialSii(cont) {
       const msg = $('sii-msg'); b.disabled = true; b.textContent = 'Abriendo…';
       try {
         const r = await Sii.archivo(b.dataset.reabrir);
-        await procesarSii(r.contenido, r.nombre || 'archivo del SII');
-        sii.cargaId = String(b.dataset.reabrir);   // v0.63.1: lo importado desde aquí es de esa carga
-        const t = $('sii-trabajo'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // v0.63.1: lo importado desde aquí es de esa carga · v0.63.7: se abre debajo de la lista, marcada en ella
+        await procesarSii(r.contenido, r.nombre || 'archivo del SII', { cargaId: b.dataset.reabrir });
       } catch (er) { if (msg) msg.textContent = er.message || mensajeError(er); }
       pintarHistorialSii();
     }
+    else if (b.hasAttribute('data-cerrar-carga')) cerrarCargaSii();
     else if (b.dataset.notaCarga) { sii.notaCarga = b.dataset.notaCarga; pintarHistorialSii(); const t = $('sii-nota-carga'); if (t) t.focus(); }
     else if (b.hasAttribute('data-cancelar-nota-carga')) { sii.notaCarga = null; pintarHistorialSii(); }
     else if (b.dataset.guardarNotaCarga) {
@@ -2151,7 +2284,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.63.6')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.63.7')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -5333,7 +5466,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.63.6')).dbBase(); const FG = await import('./fs-gastos.js?v=0.63.6'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.63.7')).dbBase(); const FG = await import('./fs-gastos.js?v=0.63.7'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }

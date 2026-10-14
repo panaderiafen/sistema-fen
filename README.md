@@ -1,9 +1,44 @@
-# Sistema Fën · v0.63.6
+# Sistema Fën · v0.63.7
 
-**App:** v0.63.6 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 13 de octubre de 2026
+**App:** v0.63.7 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.7.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.10.0 (sin cambios; nuevo en la v0.56.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · 14 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.63.7: Cargas del SII — la carga abierta debajo de la lista e "Importar compra" una por una
+**Dónde:** Gastos → Cargas del SII.
+
+**El orden de las tarjetas:**
+1. **Subir un archivo del SII** (igual, arriba).
+2. **Consulta de cargas** (antes "Cargas anteriores"), con su (i): "Las cargas que subiste. Ábrela para seguir trabajando lo que quedó pendiente." Cada carga muestra la fecha (período y día en que se subió), el archivo, los documentos, cuántos **importados** y cuántos **pendientes**.
+3. **La carga abierta**, siempre **debajo** de Consulta de cargas (antes quedaba entre el botón de subir y la lista). Se abre así al tocar "Abrir carga" (o "Revisar carga") y también al subir un archivo nuevo; la pantalla baja sola hasta ella.
+
+**Abierta y Cerrar:** la carga abierta queda marcada en la lista ("Abierta abajo", borde verde) y tiene un botón **Cerrar** (en su tarjeta y en la lista) que la pliega. Si hay compras clasificadas sin importar, pregunta antes (esa clasificación se pierde; la carga sigue en la lista para abrirla de nuevo).
+
+**Importar compra:** cada documento tiene su botón **"Importar compra"**. Se activa cuando la compra está lista (con ítem y lo demás que pide el botón de todas: áreas, pagada/pendiente, fecha); si no, dice qué falta. Hace la misma revisión y la misma importación que el botón de todas, solo con esa compra. El resultado queda en la misma tarjeta, que pasa a **"Importada · ya en Gastos"**, y la lista de cargas se pone al día sin volver a leer la base.
+
+**Importar todas las clasificadas (N):** el botón de arriba ahora dice cuántas importa (clasificadas y no importadas todavía). Las que no tienen ítem quedan pendientes; debajo dice "Quedan M por clasificar".
+
+**Sin duplicados:** lo importado una a una no se vuelve a enviar con el botón de todas; si una compra ya estaba en Gastos (por ejemplo, importada desde otro equipo), dice "Ya estaba en Gastos: no se guardó de nuevo." y queda como importada. Los reintentos tras un corte usan la misma clave (no duplican), como antes.
+
+**Finanzas:** al importar una sola compra también se revisan los precios de las materias primas (v0.57), y el aviso ("Finanzas: … precios actualizados · … por confirmar") queda en su tarjeta.
+
+Archivos: cambian `app.js` (Cargas del SII), `estilos.css`, `config.js`, `README.md` y los demás `.js` e `index.html` (solo versión). La carpeta `cocina/` no cambia. No cambian las reglas ni los scripts. Pruebas: `e2e.test.js` (nueva: abrir debajo de la lista y cerrar, importar una, todas importa solo el resto, sin duplicados), `sf-pantallas.test.js` (carga abierta en 390/768/1280; capturas en `pruebas/capturas/sii-v0637/`), `finanzas-f1b.test.js` (la revisión de precios con "Importar compra") y `gastos-g3a.test.js`. Abajo a la izquierda: **v0.63.7**.
+
+**Dónde va:** GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.63.7.zip` (con la carpeta `cocina/`, que no cambia) → **Commit changes**. Espera 1 o 2 minutos y recarga Sistema Fën en todos los equipos (Ctrl+Shift+R en el PC). Nada en Apps Script, reglas ni Cocina.
+
+### Lista de verificación v0.63.7
+- [ ] Abajo a la izquierda dice **v0.63.7**.
+- [ ] Gastos → Cargas del SII: arriba "Subir un archivo del SII", después "Consulta de cargas" con su (i).
+- [ ] Cada carga de la lista muestra: subida el …, documentos, importados y pendientes.
+- [ ] "Abrir carga": la carga aparece **debajo** de la lista, la pantalla baja hasta ella y en la lista queda marcada "Abierta abajo".
+- [ ] Subir un archivo nuevo: se abre igual, debajo de la lista.
+- [ ] "Cerrar" (arriba de la carga o en la lista) la pliega y la lista deja de marcarla.
+- [ ] Una compra sin ítem: "Importar compra" está gris y dice qué falta.
+- [ ] Clasificar una compra y tocar "Importar compra": queda "Importada · ya en Gastos" con su resultado; el botón de arriba y "Quedan … por clasificar" bajan; la lista suma un importado.
+- [ ] "Importar todas las clasificadas (N)" importa solo las que faltaban (no repite la importada una a una) y dice "Quedan M por clasificar" si quedan.
+- [ ] Una compra con materias primas asociadas en Finanzas: al importarla sola aparece el aviso de Finanzas en su tarjeta.
+- [ ] En el celular nada se sale de lado.
 
 ## Novedades de la v0.63.6: al aprobar una receta, lo primero es el costo del lote (o de la unidad), no el del gramo
 **El problema:** en Producción → Desde Cocina → Recetas por aprobar, un espresso que pasaba de 14 g de café (rinde 28 g) a 17 g de café + 23 g de agua (rinde 40 g) mostraba "−14,6 %" por gramo. El gramo bajaba solo porque había más agua: cada taza subía de $353 a $431 (+22 %).
