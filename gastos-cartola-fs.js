@@ -19,18 +19,18 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.67.5';
-import * as M from './gastos-g2.js?v=0.67.5';
-import * as G3 from './gastos-g3.js?v=0.67.5';
-import * as G3D from './gastos-g3d.js?v=0.67.5';
-import * as C from './gastos-cartola.js?v=0.67.5';
-import * as B from './gastos-banco.js?v=0.67.5';
-import { huella } from './gastos-modelo.js?v=0.67.5';
-import * as FS from './gastos-fs.js?v=0.67.5';
-import * as GB from './gastos-base.js?v=0.67.5';
-import * as TE from './tef-enviadas.js?v=0.67.5';
-import * as P from './proveedores.js?v=0.67.5';
-import * as SP from './sii-pendientes.js?v=0.67.5';   // v0.66.0: documentos del SII por clasificar
+import * as FB from './fs-gastos.js?v=0.67.6';
+import * as M from './gastos-g2.js?v=0.67.6';
+import * as G3 from './gastos-g3.js?v=0.67.6';
+import * as G3D from './gastos-g3d.js?v=0.67.6';
+import * as C from './gastos-cartola.js?v=0.67.6';
+import * as B from './gastos-banco.js?v=0.67.6';
+import { huella } from './gastos-modelo.js?v=0.67.6';
+import * as FS from './gastos-fs.js?v=0.67.6';
+import * as GB from './gastos-base.js?v=0.67.6';
+import * as TE from './tef-enviadas.js?v=0.67.6';
+import * as P from './proveedores.js?v=0.67.6';
+import * as SP from './sii-pendientes.js?v=0.67.6';   // v0.66.0: documentos del SII por clasificar
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -64,13 +64,17 @@ export async function lista(diasP) {
   try { await FS.vencimientosAlDia(); } catch (e) {}
   const [cg, ct, reglas, ab, gastos, dAb, tefs, provs, dPl] = await Promise.all([todos('cartola_cargos'), todos('cartolas'), reglasTodas(), abiertos(), todos('gastos', FB.where('fecha', '>=', G3.sumarDias(hoy, -150))), FS.datosAbono().catch(() => ({ destinatarios: [], trabajadores: [] })),
     todos('tef_enviadas').catch(() => []), todos('proveedores').catch(() => []), datosPlanillas()]);
-  const cargos = cg.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCargo(x.id, x.d))
+  // v0.67.6 · El mismo movimiento en dos cartolas: lo ya subido se revisa contra todo (de la memoria, sin lecturas). Los pares
+  // claros se marcan "Repetido" una vez (con su registro); los dudosos quedan con la propuesta "Marcar como repetido".
+  const todosC = cg.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCargo(x.id, x.d));
+  const repetidos = await repetidosAlListar(todosC);
+  const cargos = todosC
     .filter(c => c.id && (c.estado === C.ESTADOS.revisar || c.fecha >= corte || s(c.resueltoEl).slice(0, 10) >= corte))
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.monto - a.monto);
   // v0.64.0 · Transferencias enviadas (a quién pagaste) y el proveedor de cada cargo: todo desde la memoria, nunca por cargo
   const enviadas = tefs.map(x => TE.vistaEnviada(x.id, x.d)).filter(x => x.fecha >= G3.sumarDias(hoy, -TE.DIAS_GUARDAR - 10));
   const fichas = provs.map(x => P.vistaFicha(x.id, x.d)).filter(f => !f.archivado);
-  const asig = TE.asignarEnviadas(cargos, enviadas);
+  const asig = TE.asignarEnviadas(cargos.filter(c => c.estado !== C.ESTADOS.repetido), enviadas);
   cargos.forEach(c => {
     const tf = asig.get(c.id) || null;
     if (tf) { c.tef = tf; if (!c.rut && tf.rut) { c.rut = tf.rut; c.rutDe = 'tef'; } }
@@ -88,12 +92,66 @@ export async function lista(diasP) {
   // v0.67.4 · Los gastos sin cargo y, aparte, las notas de crédito sin cargo (con su referencia): solo se suman con su factura
   const grupos = B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon))), { conNC: true });
   const rNC = refsNC(ab.siiDocs), ncs = grupos.filter(g => g.monto < 0).map(g => (rNC[g.siiDocId] ? { ...g, refs: rNC[g.siiDocId] } : g));
-  const SPF = await import('./sii-pendientes-fs.js?v=0.67.5');
+  const SPF = await import('./sii-pendientes-fs.js?v=0.67.6');
   const siiPendientes = await SPF.pendientes().catch(async () => SP.pendientesDe(await todos('sii_docs').catch(() => []))), siiRegistrados = await SPF.registrados().catch(() => []);
-  return { ok: true, fuente: 'base', planillas, siiPendientes, siiRegistrados, cargos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
+  return { ok: true, fuente: 'base', planillas, siiPendientes, siiRegistrados, cargos, repetidos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
     vencimientos: ab.lista, gastos: grupos.filter(g => g.monto > 0), notasCredito: ncs, sinFactura, siiSinImportar: {}, dias,
     abonoDest: dAb.destinatarios, trabajadores: dAb.trabajadores,   // v0.63.1: para "Área de este abono"
     enviadas: { n: enviadas.length, hasta: enviadas.map(x => x.fecha).sort().pop() || '', subidas: [...new Set(enviadas.map(x => x.subida.slice(0, 10)))].sort().slice(-3) } };
+}
+
+// ═══ v0.67.6 · Repetidos al listar ═══
+// todosC: todos los cargos (vistaCargo, se cambian aquí mismo). Marca los pares claros (1 lectura y 1 escritura por cada uno, una
+// sola vez), deja la propuesta en los dudosos y, en cada original, de qué otras cartolas llegó (fuentes y RUT, solo en memoria).
+// → { marcados, propuestos }
+async function repetidosAlListar(todosC) {
+  const r = C.repetidosAlListar(todosC), porId = new Map(todosC.map(c => [c.id, c])), autos = [], props = [];
+  r.forEach((x, id) => { const c = porId.get(id); if (!c) return; if (x.auto) autos.push({ c, x }); else props.push({ c, x }); });
+  let marcados = 0;
+  if (autos.length) {
+    try { marcados = await marcarRepetidos(autos.map(({ c, x }) => ({ c, original: x.original, por: x.por, como: 'lista' }))); }
+    catch (e) { autos.forEach(a => props.push(a)); }   // sin cuota o sin red: queda la propuesta (nada se pierde)
+  }
+  // La propuesta (los dudosos y, si no se pudo escribir, los claros)
+  props.forEach(({ c, x }) => { if (c.estado !== C.ESTADOS.revisar) return;
+    const l = x.auto ? [{ e: x.original, por: x.por, fuerte: true, dias: x.dias }] : x.candidatos;
+    c.repetidoProp = { ambiguo: !!x.ambiguo, candidatos: l.map(y => ({ id: y.e.id, fecha: y.e.fecha, monto: y.e.monto, descripcion: y.e.descripcion, cuenta: y.e.cuenta, cuentaN: y.e.cuentaN, estado: y.e.estado, accion: y.e.accion,
+      detalle: y.e.detalle, fuente: C.fuentesCargo(y.e)[0] || null, por: y.por, fuerte: !!y.fuerte, dias: y.dias })) }; });
+  // En cada original: de qué otra cartola llegó también (fuentes y RUT de la glosa, solo en memoria: la histórica trae más)
+  todosC.forEach(c => { if (c.estado !== C.ESTADOS.repetido || !c.repetidoDe) return; const o = porId.get(c.repetidoDe); if (!o) return;
+    (o.repetidos = o.repetidos || []).push({ id: c.id, descripcion: c.descripcion, fecha: c.fecha, fuente: C.fuentesCargo(c)[0] || null });
+    const fs = C.fuentesCargo(o), nf = C.fuentesCargo(c).filter(f => !fs.some(g => g.tipo === f.tipo)); if (nf.length) o.fuentes = fs.concat(nf);
+    if (!o.rut) { const r0 = C.rutDe(c.descripcion); if (r0) { o.rut = r0; o.rutDe = 'repetido'; } } });
+  return { marcados, propuestos: props.filter(({ c }) => c.estado === C.ESTADOS.revisar).length };
+}
+// Marca como repetidos (al listar o a mano): una transacción por cada 100. Cada cargo se revisa adentro: sigue por revisar, con la
+// misma huella y sin "no es repetido de" ese original. lista: [{ c (vistaCargo), original (vistaCargo), por, como, motivo }].
+// Cambia los cargos en memoria (c) y devuelve cuántos marcó.
+async function marcarRepetidos(lista) {
+  const d = await dbBase(), t = ahora(), por = quien();
+  let n = 0;
+  for (let i = 0; i < lista.length; i += 100) {
+    const parte = lista.slice(i, i + 100);
+    const hechos = await FB.runTransaction(d, async tx => {
+      const refs = parte.map(x => FB.doc(d, 'cartola_cargos', s(x.c.docId || x.c.id))), sns = [];
+      for (const r of refs) sns.push(await tx.get(r));
+      const ok = [];
+      parte.forEach((x, j) => {
+        const sn = sns[j]; if (!sn.exists()) return;
+        const a = sn.data(), c = C.vistaCargo(sn.id, a), oid = s(x.original.docId || x.original.id);
+        if (c.estado !== C.ESTADOS.revisar || c.huella !== x.c.huella || c.noRepetidoDe.includes(oid)) return;
+        const det = C.detalleRepetido(x.original, x.por, x.como, x.motivo ? { motivo: x.motivo } : null), resp = x.como === 'mano' ? por : C.POR_REPETIDO;
+        tx.update(refs[j], cambioCargo(a, x.como === 'mano' ? 'marcó repetido' : 'marcó repetido (al listar)', { estado: C.ESTADOS.repetido, accion: C.REPETIDO, repetidoDe: oid, detalle: JSON.stringify(det), resueltoEl: t, resueltoPor: resp },
+          { motivo: C.textoRepetido(det) + (x.motivo ? ': ' + x.motivo : '') }));
+        ok.push({ x, det, resp });
+      });
+      return ok;
+    });
+    hechos.forEach(({ x, det, resp }) => Object.assign(x.c, { estado: C.ESTADOS.repetido, accion: C.REPETIDO, repetidoDe: s(x.original.docId || x.original.id), detalle: det, resueltoEl: t.slice(0, 16), resueltoPor: resp }));
+    n += hechos.length;
+  }
+  if (n) await despues(n);
+  return n;
 }
 
 // ── v0.67.1 · Nota de un cargo: 1 escritura, 0 lecturas (el cargo sale de la memoria; la lista se refresca por _m) ──
@@ -225,6 +283,7 @@ export async function resolver(p) {
   const marca = C.marcaDe(c0), clave = marca.t + marca.r, accion = s(p.accion);
   if (c0.estado !== C.ESTADOS.revisar) {
     if (c0.detalle && c0.detalle.marca === clave) return { ok: true, repetido: true, id: c0.id, accion: c0.accion };
+    if (accion === C.REPETIDO && c0.estado === C.ESTADOS.repetido && c0.repetidoDe === s(p.repetidoDe)) return { ok: true, repetido: true, id: c0.id, accion };   // v0.67.6: dos clics
     throw error(`Ese cargo ya se había resuelto (${c0.accion}, ${c0.resueltoEl}). Recarga la lista.`, 'resuelto');
   }
   const tr = C.traza(c0), hora = M.ahoraChile().hora;
@@ -236,6 +295,7 @@ export async function resolver(p) {
   else if (accion === C.ABONO_PARCIAL) r = await resolverAbonoParcial(d, ref, c0, s(p.vencId), marca, tr);
   else if (accion === C.PREVIRED) return resolverPrevired(c0, p, marca, tr);
   else if (accion === C.PREVIRED_PLANILLA) return unirPlanilla(c0, p, marca);
+  else if (accion === C.REPETIDO) return marcarRepetidoAMano(c0, p);
   else if (accion === 'ignorar') {
     const motivo = C.texto(p.motivo, 80) || 'No es gasto', detalle = { motivo, siempre: !!p.siempre, marca: clave };
     r = await FB.runTransaction(d, async tx => {
@@ -274,6 +334,19 @@ export async function resolver(p) {
   return { ok: true, id: c0.id, accion, estado: r.estado || C.ESTADOS.conciliado, traza: tr, detalle: r.detalle };
 }
 
+// v0.67.6 · "Marcar como repetido" (la propuesta de la lista): el original sale de la memoria y se revisa que sea el mismo
+// movimiento (misma cuenta, monto, fecha ±1 y de otra subida). 1 lectura (el cargo, en la transacción) y 1 escritura.
+async function marcarRepetidoAMano(c0, p) {
+  const oid = s(p.repetidoDe), x = (await todos('cartola_cargos')).find(y => y.id === oid && !y.d.quitadoEnPlanilla);
+  if (!x) throw error('Ese movimiento ya no está. Recarga.', 'datos');
+  const o = C.vistaCargo(x.id, x.d);
+  if (o.estado === C.ESTADOS.repetido) throw error('Ese movimiento también es un repetido. Recarga.', 'cambio');
+  const m = C.mismoMovimiento(c0, o);
+  if (!m) throw error('No es el mismo movimiento: otra cuenta, otro monto, más de un día de diferencia o la misma cartola.', 'datos');
+  const n = await marcarRepetidos([{ c: c0, original: o, por: m.por, como: 'mano', motivo: C.texto(p.motivo, 120) }]);
+  if (!n) throw error('Ese cargo ya se había revisado o cambió. Recarga la lista.', 'resuelto');
+  return { ok: true, id: c0.id, accion: C.REPETIDO, estado: C.ESTADOS.repetido, detalle: c0.detalle };
+}
 async function resolverVencimientos(d, ref, c0, pagos, marca, tr, hora) {
   const ab = await abiertos(), porId = {}; ab.lista.forEach(v => { porId[v.id] = v; });
   const rp = C.revisarPagos(pagos, c0, porId);
@@ -642,6 +715,7 @@ export async function deshacer(id, motivoP) {
   if (motivo.length < 3) throw error('Escribe el motivo', 'datos');
   const { d, ref, c: c0 } = await leerCargo(id);
   if (c0.estado === C.ESTADOS.revisar) return { ok: true, yaEstaba: true };
+  if (c0.estado === C.ESTADOS.repetido) return deshacerRepetido(d, c0, motivo);
   if (c0.accion === C.PREVIRED) return deshacerPrevired(d, c0, motivo);
   if (c0.accion === C.PREVIRED_PLANILLA) return deshacerUnion(d, c0, motivo);
   const refTxt = '[' + c0.id + ']', det = c0.detalle || {};
@@ -711,6 +785,22 @@ export async function deshacer(id, motivoP) {
   return { ok: true, avisos };
 }
 
+// v0.67.6 · Deshacer un "Repetido": vuelve a "Para revisar" como un cargo normal y queda anotado que NO es repetido de ese
+// original (noRepetidoDe): no se vuelve a marcar solo ni a proponer con él. No había nada en Gastos. 1 lectura y 1 escritura.
+async function deshacerRepetido(d, c0, motivo) {
+  const ref = FB.doc(d, 'cartola_cargos', s(c0.docId || c0.id)), t = ahora(), por = quien();
+  const r = await FB.runTransaction(d, async tx => {
+    const sn = await tx.get(ref); if (!sn.exists()) throw error('Ese cargo ya no está', 'datos');
+    const a = sn.data(), c = C.vistaCargo(sn.id, a);
+    if (c.estado !== C.ESTADOS.repetido) return { yaEstaba: true };
+    const no = [...new Set(c.noRepetidoDe.concat(c.repetidoDe ? [c.repetidoDe] : []))].slice(-20);
+    tx.update(ref, cambioCargo(a, 'deshizo (no es repetido)', { estado: C.ESTADOS.revisar, accion: '', detalle: '', repetidoDe: '', noRepetidoDe: no, resueltoEl: '', resueltoPor: '', historial: C.conDeshecho(c, motivo, t, por) }, { motivo }));
+    return { n: 1 };
+  });
+  if (r.yaEstaba) return { ok: true, yaEstaba: true };
+  await despues(r.n);
+  return { ok: true, avisos: [] };
+}
 // v0.64.0 · Deshacer un pago de Previred: vuelven a revisar TODOS los cargos del grupo, el vencimiento queda por pagar y los gastos
 // por trabajador quedan anulados (no se borran)
 async function deshacerPrevired(d, c0, motivo) {
@@ -770,7 +860,7 @@ export async function proveedoresLista() {
     const q = P.loQueLeCompras(f, 5), pend = ab.lista.filter(v => !v.plantillaId && f.rut && v.rut === f.rut);
     const ligados = new Map();
     (gPorRut[f.rut] || []).forEach(({ d }) => { const k = s(d.cartolaCargo); if (k && porCargo[k] && !ligados.has(k)) ligados.set(k, porCargo[k]); });
-    cargos.forEach(c => { if (c.estado === C.ESTADOS.revisar || ligados.has(c.id)) return; const det = c.detalle || {};
+    cargos.forEach(c => { if (c.estado === C.ESTADOS.revisar || c.estado === C.ESTADOS.repetido || ligados.has(c.id)) return; const det = c.detalle || {};
       if ((f.rut && ((det.vencimientos || []).some(v => P.rutNorm(v.rut) === f.rut) || P.deGlosa(c.descripcion).rut === f.rut)) || f.glosas.includes(P.claveGlosa(c.descripcion))) ligados.set(c.id, c); });
     const pagos = [...ligados.values()].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 12).map(c => ({ id: c.id, fecha: c.fecha, monto: c.monto, descripcion: c.descripcion, accion: c.accion }));
     return { ...f, filas: undefined, prods: undefined, nFacturas: P.ultimasFacturas(f, 999).length, facturas: P.ultimasFacturas(f, 8), pendientes: pend.map(v => ({ id: v.id, nombre: v.nombre, fecha: v.fecha, monto: v.monto, saldo: v.saldo, estadoBase: v.estadoBase, folio: v.folio })),

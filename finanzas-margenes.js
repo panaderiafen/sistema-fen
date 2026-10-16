@@ -19,7 +19,7 @@
 //   { comision: { debito, credito, otros } (% o null = falta configurar), mixCaja: { debito, credito, otros } (% o null),
 //     despacho: { modo: 'pct'|'orden', valor }, margenObjetivo: { PAN, BOL, PAS, CAF } (% o null), redondeo: 10|50|100 }
 // ═══════════════════════════════════════════════
-import { AREAS, NOMBRE_AREA, SUCS, canalDeSuc, claveProducto, upv, mesDe, ultimoDia } from './finanzas-ventas.js?v=0.67.5';
+import { AREAS, NOMBRE_AREA, SUCS, canalDeSuc, claveProducto, upv, mesDe, ultimoDia } from './finanzas-ventas.js?v=0.67.6';
 
 export const IVA = 0.19;
 export const TOLERANCIA = 5;           // % de diferencia con el precio sugerido que todavía es "OK"

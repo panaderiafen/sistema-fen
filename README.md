@@ -1,9 +1,90 @@
-# Sistema Fën · v0.67.5
+# Sistema Fën · v0.67.6
 
-**App:** v0.67.5 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
+**App:** v0.67.6 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.67.6: el mismo movimiento en la cartola en línea y en la histórica ya no aparece dos veces, y Previred avisa si el cargo es de otro mes
+**Dónde:** Conciliación → Cartola → Cargos (al subir la cartola y en la lista) · el cargo de Previred ("Pago de Previred"). Solo con Gastos en la base nueva.
+
+### El caso (real)
+Conciliaste un cargo de la cartola en línea. Después subiste la histórica (N°53) y el mismo movimiento volvió a aparecer como cargo nuevo en "Para revisar": "$1.500.000 · TEF A RUT … · 13 oct · Chequera". "Ya está en Gastos" no ofrecía nada, porque el gasto ya estaba unido al cargo de la en línea.
+
+**Por qué pasaba:** cada cargo se identifica por su "huella": cuenta, fecha, **saldo**, monto y glosa. Si dos archivos traen la misma huella, es el mismo cargo; también si traen el mismo N° de operación **con la misma fecha y monto**. La histórica puede traer el movimiento con la fecha contable (un día después), con otro saldo o con otra glosa que la en línea: basta una diferencia para que la huella sea otra. Y el N° de operación solo se comparaba con la misma fecha (y la en línea a veces no lo trae). Así entraba como cargo nuevo.
+
+### Qué cambia en cómo trabajas
+1. **Al subir una cartola**, cada cargo se compara con lo que llegó en **otra** cartola de la misma cuenta. Es el mismo movimiento si tiene el mismo monto, la fecha a ±1 día y además:
+   - la misma glosa (sin tildes, mayúsculas ni signos), o
+   - el mismo RUT en la glosa, o
+   - el mismo N° de operación, si los dos lo traen.
+2. **Si el par es claro y el otro ya está revisado** (de cualquier forma), el nuevo queda **"Repetido"**: no aparece en "Para revisar", no crea nada en Gastos y no cuenta en ningún total. En "Ya revisados" lleva el chip **"Repetido de la cartola en línea del 13-10-2026"** (o "…de la cartola N°53").
+3. **Si el par es claro y el otro sigue por revisar**, el nuevo queda detrás del otro: revisas uno solo. Ese cargo muestra de dónde llegó ("Cartola en línea del … · Cartola histórica N°53") y, si la histórica trae el RUT, se usa para reconocer al proveedor.
+4. **Si no es claro** (solo coinciden la fecha y el monto, o hay dos posibles), el cargo queda en "Para revisar", **arriba**, con la propuesta: "Parece el mismo movimiento que <el otro> (ya revisado: <qué se hizo>). **Marcar como repetido**". Un clic. Con dos posibles, al abrirlo eliges cuál.
+5. **También con lo ya subido:** al abrir la lista, lo que ya está por revisar y es el mismo de otro ya revisado (como tu $1.500.000) se marca solo una vez, con su registro. Lo dudoso trae la propuesta.
+6. **Dos cargos iguales del mismo día en la MISMA cartola nunca son repetidos:** son pagos distintos. Sigue el aviso "Ojo: hay otro cargo del mismo día y monto".
+7. **Deshacer** (Ya revisados) lo devuelve a "Para revisar" como cargo normal, y queda anotado que **no** es repetido de ese movimiento: no se vuelve a marcar solo.
+8. **No cuentan nunca:** el número de la pestaña, "Para revisar" y su total, las cartolas subidas en "Qué está cubierto" ("6 nuevos de 8 · 2 repetidos"), los por revisar del cierre de mes y el flujo de caja (pagos de tarjeta y de Previred) no incluyen los repetidos.
+9. El mensaje al subir dice cuántos quedaron repetidos y cuántos parecen repetidos.
+
+### Previred: el cargo lejos de la fecha de pago
+- Al unir un cargo a una planilla (o pagar un vencimiento de Cotizaciones) cuya **fecha de pago** (del certificado, del comprobante o del CSV) está a **más de 10 días** del cargo, pregunta: "¿Seguro? Este cargo es del 12 oct 2026 y agosto 2026 se pagó el 12 sep 2026. Puede ser de otro mes."
+  - **Unir igual** (o "Pagar igual") sigue como siempre.
+  - **Elegir otra planilla** no une nada y te deja elegir en la lista.
+- Si la planilla **no tiene fecha de pago**, se compara con su vencimiento (13 del mes siguiente o el hábil que sigue), con **±15 días**.
+- **La planilla propuesta:** ya era la de fecha de pago más cercana a ±5 días. Ahora, fuera de esos 5 días, también es la más cercana (por fecha de pago o, si no tiene, por su vencimiento). Antes quedaba la del mes más reciente.
+
+### Dónde se guarda (fen-gastos; las reglas v0.1.0 ya lo cubren)
+- `cartola_cargos/{id}` del repetido:
+  - `estado: "REPETIDO"`, `accion: "repetido"`, `repetidoDe: <id del original>`;
+  - `detalle` (texto JSON): `{ repetidoDe, por: operacion|glosa|rut|fecha_monto, como: carga|lista|mano, original: { fecha, descripcion, cartola, nCartola, fuente, estado, accion } }`;
+  - `resueltoEl`, `resueltoPor` ("Sistema Fën (repetido)" o quien lo marcó) y su entrada en `registro`.
+- Al deshacer: vuelve a `POR_REVISAR`, con `noRepetidoDe: [<id del original>]` y el "Deshecho …" en `historial`.
+- `cartolas/{id}.repetidos`: cuántos quedaron repetidos en esa subida.
+- Nada se borra. La hoja "Cartola Cargos" recibe el estado "REPETIDO" en la columna Estado y el detalle en Detalle (columnas que ya existen).
+
+### Lecturas y escrituras
+- **Reconocer repetidos (al subir y al listar):** 0 lecturas nuevas. Los cargos ya están en la memoria.
+- **Al subir:** un repetido se guarda como cualquier cargo nuevo (1 escritura, la misma de antes): 0 escrituras extra.
+  - Medido con la N°53 de prueba (8 cargos, 2 repetidos): 19 lecturas y 10 escrituras.
+- **Al listar, lo ya subido:** 1 lectura y 1 escritura por cada cargo que se marca, **una sola vez**, más el contador.
+  - Volver a listar: medido 1 lectura y 0 escrituras.
+- **Marcar como repetido (la propuesta):** medido 4 lecturas y 2 escrituras (el cargo y el contador).
+- **Deshacer un repetido:** medido 4 lecturas y 2 escrituras.
+- **Aviso de Previred:** 0 lecturas (sale de lo que ya está en la pantalla).
+
+### Instalación v0.67.6 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.67.6.zip`, con la carpeta `cocina/` (no cambia).
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script, reglas ni Cocina.**
+
+### Lista de verificación v0.67.6
+- [ ] Abajo a la izquierda dice **v0.67.6**.
+- [ ] Abre Conciliación → Cartola → Cargos. El $1.500.000 de la N°53 ya no está en "Para revisar".
+- [ ] En "Ya revisados" ese cargo tiene el chip **"Repetido de la cartola en línea del …"**.
+- [ ] El número de la pestaña Cargos bajó en los repetidos.
+- [ ] Si algún cargo tiene arriba "Parece el mismo movimiento que…", revisa la glosa y toca **"Marcar como repetido"** si es el mismo.
+- [ ] La próxima histórica: el mensaje dice "N repetidos de otra cartola" y esos no aparecen para revisar.
+- [ ] En un cargo de Previred, elige una planilla de otro mes: aparece "¿Seguro? …". "Elegir otra planilla" no une nada.
+- [ ] En el celular nada se sale de lado: la propuesta queda debajo del cargo, con el botón a lo ancho.
+
+### Si algo sale mal
+Sube de nuevo la v0.67.5. Los cargos marcados "Repetido" siguen sin aparecer en "Para revisar" (no están por revisar) y salen en "Ya revisados" con un texto que no corresponde ("Conciliado"); su Deshacer funciona igual. Nada se borra.
+
+**Abonos de B2B:** los abonos viven en fen-b2b y se identifican de la misma forma (fecha, saldo, monto y glosa), así que pueden repetirse igual entre la en línea y la histórica. **No se cambió aquí.** Si pasa, en Conciliación → Abonos usa "Ya estaba registrado" (no registra ningún pago). Más detalle en la nota del proyecto.
+
+**Por dentro:**
+- `gastos-cartola.js`:
+  - `ESTADOS.repetido`, `REPETIDO`, `mismoMovimiento`, `buscarRepetidos` (fuertes, uno a uno, débiles y ambiguos), `repetidosAlListar`, `detalleRepetido`, `textoRepetido`, `textoCriterio`;
+  - `planCarga` deja los pares claros como "Repetido" y cuenta `repetidos` y `parecidos`; `vistaCargo` trae `repetidoDe` y `noRepetidoDe`;
+  - Previred: `fechaRefPrevired`, `lejosDePrevired` y `opcionPropuesta` (la más cercana fuera de ±5 días).
+- `gastos-cartola-fs.js`: `lista` marca lo ya subido (`marcarRepetidos`) y deja la propuesta; `resolver` con `accion: "repetido"`; `deshacer` de un repetido; Proveedores no cuenta repetidos.
+- `cartola.js` (cuenta `repetidos` y `parecidos`), `finanzas.js` (`cargosCartola` sin repetidos).
+- `app.js`: la propuesta en la fila y al abrir el cargo, el chip y el texto en Ya revisados, Deshacer, el mensaje al subir, "Qué está cubierto" y el aviso de Previred. `estilos.css`: la propuesta y el chip.
+- `config.js`, `index.html` y los demás: solo la versión.
 
 ## Novedades de la v0.67.5: reparto en % por trabajador en Previred (por ejemplo PAN 40 % y B2B 60 %), un solo reparto por persona con los abonos de sueldo y "Cambiar reparto" en los meses ya cargados
 **Dónde:** Conciliación → Previred (vista previa y Meses cargados) · el abono de sueldo (Agenda, Pagar o la cartola). Solo con Gastos en la base nueva.

@@ -1584,3 +1584,13 @@ details[open] > summary .cc-nota-txt, .fila-hist:hover .cc-nota-txt, .fila-hist:
 #cr-form .check-linea { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; line-height: 1.35; margin: 4px 0 10px; }
 #cr-form .check-linea input { margin-top: 3px; flex: none; }
 @media (max-width: 480px) { #prev-hist .fila-caja .acciones { width: 100%; justify-content: space-between; } }
+
+/* v0.67.6 · El mismo movimiento en dos cartolas: la propuesta "Marcar como repetido" y el chip de Ya revisados */
+.fila-orden-b2b .txt .cc-rep-prop { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 6px; padding: 6px 10px; border-radius: 8px; background: var(--azul); color: var(--azul-t); font-size: 13px; line-height: 1.35; max-width: 100%; }
+.cc-rep-prop > svg { flex: none; }
+.cc-rep-prop > span { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.cc-rep-prop .btn { flex: none; }
+.cc-rep-lista { margin: 4px 0 10px; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--borde); }
+.cc-rep-lista .fila-caja .txt { min-width: 0; overflow-wrap: anywhere; }
+.cc-rep-chip { display: inline-flex; align-items: center; gap: 4px; white-space: normal; text-align: left; max-width: 100%; }
+@media (max-width: 560px) { .cc-rep-prop .btn { width: 100%; } }

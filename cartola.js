@@ -8,13 +8,13 @@
 //  v0.50.0: con Gastos en la base nueva, todo va a gastos-cartola-fs.js (fen-gastos) y las propuestas siguen la forma de
 //  trabajar acordada (gastos-cartola.js: monto fijo, documento, abonos). Con la planilla, igual que en la v0.49.0.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.67.5';
-import * as CB from './gastos-cartola.js?v=0.67.5';
-export { resumenLote } from './gastos-cartola.js?v=0.67.5';
+import * as Gastos from './gastos.js?v=0.67.6';
+import * as CB from './gastos-cartola.js?v=0.67.6';
+export { resumenLote } from './gastos-cartola.js?v=0.67.6';
 
 export const VERSION_CARTOLA = '2.8.0';
 const op = (o, d, idem) => Gastos.llamar(o, d, idem, VERSION_CARTOLA);
-const fsC = () => import('./gastos-cartola-fs.js?v=0.67.5');
+const fsC = () => import('./gastos-cartola-fs.js?v=0.67.6');
 const enBase = () => Gastos.enBase();
 
 let cache = null;
@@ -31,11 +31,11 @@ const metaDe = cartola => ({ id: cartola.identificador, tipo: cartola.tipo, cuen
 export async function cargar(cartola, idemBase) {
   const cargos = cartola.filas.filter(f => f.cargos > 0).map(f => ({ fecha: f.fecha, descripcion: f.descripcion, monto: f.cargos, saldo: f.saldo, operacion: f.operacion || '' }));
   const meta = metaDe(cartola);
-  const r = { cargos: 0, nuevos: 0, yaVistos: 0, ignorados: 0 };
+  const r = { cargos: 0, nuevos: 0, yaVistos: 0, ignorados: 0, repetidos: 0, parecidos: 0 };   // v0.67.6: repetidos de otra cartola
   const base = await enBase(), F = base ? await fsC() : null;
   for (let i = 0; i < Math.max(1, cargos.length); i += 1500) {
     const x = base ? await F.cargar(meta, cargos.slice(i, i + 1500), i / 1500) : await op('cc_cargar', { cartola: meta, cargos: cargos.slice(i, i + 1500), parte: i / 1500 }, `${idemBase}-${i}`);
-    ['cargos', 'nuevos', 'yaVistos', 'ignorados'].forEach(k => { r[k] += x[k] || 0; });
+    ['cargos', 'nuevos', 'yaVistos', 'ignorados', 'repetidos', 'parecidos'].forEach(k => { r[k] += x[k] || 0; });
   }
   olvidar(); Gastos.olvidar();
   return r;

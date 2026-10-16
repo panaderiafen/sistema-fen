@@ -9,44 +9,44 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.67.5';
-import * as Caja from './caja.js?v=0.67.5';
-import * as Stock from './stock.js?v=0.67.5';
-import * as Ajustes from './ajustes.js?v=0.67.5';
-import * as Apps from './apps.js?v=0.67.5';
-import * as Agenda from './agenda.js?v=0.67.5';
-import * as Gastos from './gastos.js?v=0.67.5';
-import * as G3 from './gastos-g3.js?v=0.67.5';
-import * as G3D from './gastos-g3d.js?v=0.67.5';
-import * as GBanco from './gastos-banco.js?v=0.67.5';
-import * as TE from './tef-enviadas.js?v=0.67.5';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.67.5';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.67.5';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.67.5';
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.5';
-import * as Sii from './sii.js?v=0.67.5';
-import * as GSii from './gastos-sii.js?v=0.67.5';
-import * as SP from './sii-pendientes.js?v=0.67.5';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.67.5');
-import * as Previred from './previred.js?v=0.67.5';
-import * as B2b from './b2b.js?v=0.67.5';
-import * as Cartola from './cartola.js?v=0.67.5';
-import * as SiiFactura from './sii-factura.js?v=0.67.5';
-import * as PdfOrden from './pdf-orden.js?v=0.67.5';
-import * as Prod from './produccion.js?v=0.67.5';
-import * as Mem from './fs-memoria.js?v=0.67.5';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.67.5';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.67.6';
+import * as Caja from './caja.js?v=0.67.6';
+import * as Stock from './stock.js?v=0.67.6';
+import * as Ajustes from './ajustes.js?v=0.67.6';
+import * as Apps from './apps.js?v=0.67.6';
+import * as Agenda from './agenda.js?v=0.67.6';
+import * as Gastos from './gastos.js?v=0.67.6';
+import * as G3 from './gastos-g3.js?v=0.67.6';
+import * as G3D from './gastos-g3d.js?v=0.67.6';
+import * as GBanco from './gastos-banco.js?v=0.67.6';
+import * as TE from './tef-enviadas.js?v=0.67.6';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.67.6';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.67.6';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.67.6';
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.6';
+import * as Sii from './sii.js?v=0.67.6';
+import * as GSii from './gastos-sii.js?v=0.67.6';
+import * as SP from './sii-pendientes.js?v=0.67.6';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.67.6');
+import * as Previred from './previred.js?v=0.67.6';
+import * as B2b from './b2b.js?v=0.67.6';
+import * as Cartola from './cartola.js?v=0.67.6';
+import * as SiiFactura from './sii-factura.js?v=0.67.6';
+import * as PdfOrden from './pdf-orden.js?v=0.67.6';
+import * as Prod from './produccion.js?v=0.67.6';
+import * as Mem from './fs-memoria.js?v=0.67.6';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.67.6';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.0';
-import * as VistaProd from './vista-produccion.js?v=0.67.5';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.5';
+import * as VistaProd from './vista-produccion.js?v=0.67.6';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.6';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.5');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.6');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.5');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.6');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.5')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.6')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -151,7 +151,8 @@ const P = {
   arriba: '<path d="M6 15l6-6 6 6"/>', izq: '<path d="M15 6l-6 6 6 6"/>', mas: '<path d="M12 5v14M5 12h14"/>',
   finanzas: '<path d="M4 20h16"/><path d="M5 16l4.5-4.5 3 3L19 8"/><path d="M15 8h4v4"/>',
   calendario: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>', abajo: '<path d="M6 9l6 6 6-6"/>',
-  nota: '<path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4M8 12h8M8 16h5"/>'
+  nota: '<path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4M8 12h8M8 16h5"/>',
+  copias: '<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>'
 };
 const icono = (n, t = 20) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ''}</svg>`;
 
@@ -352,7 +353,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.5" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.6" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -620,14 +621,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.67.5').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.67.6').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.67.5').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.67.6').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -1016,9 +1017,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.67.5').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.67.6').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.5').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.6').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -2612,7 +2613,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.67.5')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.67.6')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -2739,7 +2740,7 @@ const ACC_CC = { vencimientos: 'Paga vencimientos', gasto: 'Ya está en Gastos',
 // v0.63.1 · y un traspaso entre cuentas propias (chequera ↔ cuenta corriente): tampoco es gasto
 // v0.64.0 · y el pago de Previred en varios cargos (AFP, IPS, Fonasa, isapre, caja, mutual)
 const ACC_CC_BASE = { vencimientos: 'Paga vencimientos', abono: 'Abono (sueldo)', previred: 'Pago de Previred (cotizaciones)', gasto: 'Ya está en Gastos', nuevo: 'Gasto nuevo', pago_tarjeta: 'Pago de tarjeta', traspaso: 'Traspaso entre cuentas propias', ignorar: 'No es gasto' };
-const NOMBRE_ACC = { ...ACC_CC_BASE, abono_parcial: 'Abono (pago parcial)', previred_planilla: 'Unido a la planilla de Previred' };
+const NOMBRE_ACC = { ...ACC_CC_BASE, abono_parcial: 'Abono (pago parcial)', previred_planilla: 'Unido a la planilla de Previred', repetido: 'Repetido de otra cartola' };
 const accCc = () => (cart.d && cart.d.fuente === 'base' ? ACC_CC_BASE : ACC_CC);
 const MOTIVOS_IGN0 = ['Traspaso entre mis cuentas', 'Retiro de socios', 'Devolución o reverso'];
 // v0.63.1: con la base nueva el traspaso tiene su propia opción
@@ -2863,7 +2864,9 @@ function editorCargo(c, p, dg) {
     const it = items.find(i => i.item === n.item);
     let pr = {}; if (it && it.area === 'PRORRATEADO') { try { pr = JSON.parse(n.area) || {}; } catch (e) { pr = {}; } }
     const selA = (k, v) => `<select data-cc-nuevo="${k}" data-cc="${esc(c.id)}" aria-label="Área"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === v ? 'selected' : ''}>${a}</option>`).join('')}</select>`;
-    const parecido = (D.cargos || []).find(x => x.id !== c.id && x.fecha === c.fecha && x.monto === c.monto && x.estado !== 'IGNORADO');
+    // v0.67.6: un repetido no cuenta, y si ya está la propuesta "Marcar como repetido" con ese mismo cargo, no se repite el aviso
+    const enProp = new Set(((c.repetidoProp && c.repetidoProp.candidatos) || []).map(x => x.id));
+    const parecido = (D.cargos || []).find(x => x.id !== c.id && x.fecha === c.fecha && x.monto === c.monto && x.estado !== 'IGNORADO' && x.estado !== 'REPETIDO' && !enProp.has(x.id));
     const sinSii = D.fuente === 'base' ? mesSinSii(c.fecha) : '';
     cuerpo = `${sinSii ? `<p class="aviso-cc cc-sin-sii">${esc(sinSii)} ${info('Factura que llega después', TXT_ESPERA_FACTURA)}</p>` : ''}${parecido ? `<p class="aviso-cc">Ojo: hay otro cargo del mismo día y monto (${esc(parecido.descripcion)}, ${esc(cuentaCc(parecido))}${parecido.estado === 'POR_REVISAR' ? ', por revisar' : ', ya revisado'}). Si es el mismo movimiento en otra cartola, márcalo "No es gasto".</p>` : ''}<div class="grilla-montos"><div class="campo"><label for="cc-item-${esc(c.id)}">Ítem</label><select id="cc-item-${esc(c.id)}" data-cc-nuevo="item" data-cc="${esc(c.id)}"><option value="">Elige un ítem</option>${items.map(i => `<option ${i.item === n.item ? 'selected' : ''}>${esc(i.item)}</option>`).join('')}</select></div>
       ${it ? (it.area === 'SELECCIONAR' ? `<div class="campo"><span class="etiqueta">Área</span>${selA('area', n.area)}</div>` : it.area === 'PRORRATEADO' ? `<div class="campo"><span class="etiqueta">Reparto (%)</span><div class="prorrateo">${[1, 2, 3].map(k => `<div class="fila-area">${selA('a' + k, pr['area' + k])}<input type="number" min="0" max="100" data-cc-nuevo="p${k}" data-cc="${esc(c.id)}" value="${esc(pr['pct' + k] || '')}" placeholder="%" aria-label="Porcentaje ${k}"></div>`).join('')}</div></div>` : `<div class="campo"><span class="etiqueta">Área</span><span>${esc(it.area)}</span></div>`) : ''}</div>
@@ -3220,7 +3223,7 @@ function editorPrevired(c, p) {
     const listo = elegidos.length && !q.error && !cart.ocupado && !op.conciliada;
     // v0.67.3 · Sin comprobante y los cargos se pasan de las cotizaciones (más de $10): registrar la diferencia como multas e intereses
     const dm = elegidos.length && !op.conciliada ? CB.difComoMultas(op, suma) : { puede: false };
-    return `<p class="ayuda">Elige la planilla y marca los cargos del pago: se unen a la planilla, <b>sin crear gastos</b> ${info('Planilla de Previred ya registrada', TXT_PREV_PLANILLA)}</p>${lista}
+    return `<p class="ayuda">Elige la planilla y marca los cargos del pago: se unen a la planilla, <b>sin crear gastos</b> ${info('Planilla de Previred ya registrada', TXT_PREV_PLANILLA)}</p>${st.elegir ? '<p class="aviso-cc cc-prev-elegir">Elige la planilla del mes de este cargo: la de fecha de pago más cercana aparece como "Por la fecha del cargo".</p>' : ''}${lista}
       ${op.pagos && op.pagos.length ? `<p class="ayuda cc-pl-ya">Ya unidos: ${op.pagos.map(x => `${pesos(x.monto)} ${esc(x.descripcion)} (${esc(diaTexto(x.fecha))})`).join(' · ')}</p>` : ''}
       ${cargosHtml}
       <p class="mov-suma ${q.error && !dm.puede ? 'error' : ''}" data-cc-prevsuma="${esc(c.id)}">${elegidos.length} ${elegidos.length === 1 ? 'cargo' : 'cargos'}: ${pesos(suma)} · ${esc(CB.textoAvance(av))}</p>
@@ -3231,11 +3234,29 @@ function editorPrevired(c, p) {
   const v = (D.vencimientos || []).find(x => x.id === op.vencId), q = CB.cuadraPrevired(suma, op.total);
   const listo = v && elegidos.length && (q.igual || (st.motivo || '').trim().length >= 3) && !cart.ocupado;
   return `<p class="ayuda">Marca todos los cargos del pago (los del mismo día que parecen de Previred ya vienen marcados) ${info('Pago de Previred', TXT_PREV_CARTOLA)}</p>
-    ${ops.length > 1 ? lista : `<p class="ayuda cc-prev-venc"><b>${esc(op.nombre)}</b> · ${op.recargos ? 'comprobante' : 'certificado'} de ${esc(CB.nombrePeriodo(op.periodo))} · ${op.n} ${op.n === 1 ? 'trabajador' : 'trabajadores'} · total ${pesos(op.total)}${conRec(op)}</p>`}
+    ${st.elegir && ops.length > 1 ? '<p class="aviso-cc cc-prev-elegir">Elige la planilla del mes de este cargo: la de fecha de pago más cercana aparece como "Por la fecha del cargo".</p>' : ''}${ops.length > 1 ? lista : `<p class="ayuda cc-prev-venc"><b>${esc(op.nombre)}</b> · ${op.recargos ? 'comprobante' : 'certificado'} de ${esc(CB.nombrePeriodo(op.periodo))} · ${op.n} ${op.n === 1 ? 'trabajador' : 'trabajadores'} · total ${pesos(op.total)}${conRec(op)}</p>`}
     ${cargosHtml}
     <p class="mov-suma ${q.igual ? '' : 'error'}" data-cc-prevsuma="${esc(c.id)}">${elegidos.length} ${elegidos.length === 1 ? 'cargo' : 'cargos'}: ${pesos(suma)} de ${pesos(op.total)} ${op.recargos ? 'del comprobante' : 'del certificado'} · ${q.igual ? (q.dif ? `calza (diferencia ${pesos(Math.abs(q.dif))})` : 'calza exacto') : `diferencia ${q.dif > 0 ? '+' : '−'}${pesos(Math.abs(q.dif))}`}</p>
     ${q.igual ? '' : `<div class="campo"><label for="cc-pvm-${esc(c.id)}">Motivo de la diferencia (para confirmar igual)</label><input id="cc-pvm-${esc(c.id)}" data-cc-prevmot="${esc(c.id)}" maxlength="200" value="${esc(st.motivo || '')}" placeholder="Por ejemplo: multa por pago atrasado"></div>`}
     <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="previred" data-cc="${esc(c.id)}" ${listo ? '' : 'disabled'}>${q.igual ? `Pagar Previred con ${elegidos.length} ${elegidos.length === 1 ? 'cargo' : 'cargos'}` : 'Confirmar con la diferencia'}</button>${q.igual ? '' : `<button type="button" class="btn-sec btn-chico" data-cc-prevcancel="${esc(c.id)}">Cancelar</button>`}</div>`;
+}
+// v0.67.6 · ¿Seguro? El cargo está lejos de la fecha de pago de la planilla (más de 10 días) o, si la planilla no tiene fecha de
+// pago, de su vencimiento (13 del mes siguiente o el hábil que sigue; más de 15 días). → 'igual' | 'otra' | null (cerró)
+const TXT_PREV_LEJOS = 'Cada planilla de Previred se paga una vez al mes, cerca de su fecha de pago (la del certificado, del comprobante o del CSV). Si el cargo está a más de 10 días de esa fecha, lo más probable es que sea el pago de otro mes.\nSi la planilla no tiene fecha de pago, se compara con su vencimiento (el 13 del mes siguiente o el hábil que sigue), con 15 días de margen.\nSi de verdad es de esta planilla (por ejemplo, se pagó atrasada), elige seguir igual.';
+const fechaAnio = f => (f ? `${diaTexto(f)} ${String(f).slice(0, 4)}` : '');
+function avisoLejosPrevired(c, op, lej) {
+  return new Promise(ok => {
+    const varias = opcionesPrev().filter(o => !o.conciliada).length > 1, mes = CB.nombrePeriodo(op.periodo), igual = op.tipo === 'planilla' ? 'Unir igual' : 'Pagar igual';
+    const txt = lej.tipo === 'pago' ? `¿Seguro? Este cargo es del ${fechaAnio(c.fecha)} y ${mes} se pagó el ${fechaAnio(lej.fecha)}. Puede ser de otro mes.`
+      : `¿Seguro? Este cargo es del ${fechaAnio(c.fecha)} y ${mes} vence el ${fechaAnio(lej.fecha)} (la planilla no tiene fecha de pago). Puede ser de otro mes.`;
+    const d = dialogo(`<form class="form-dialogo" novalidate><h2>Revisa el mes</h2><p class="cc-prev-lejos" id="pl-txt">${esc(txt)} ${info('Fecha del cargo y de la planilla', TXT_PREV_LEJOS)}</p>
+      <p class="ayuda">${pesos(c.monto)} · ${esc(c.descripcion)} · ${esc(op.nombre)}</p>
+      <div class="botones"><button type="button" class="btn-sec" id="pl-otra">${varias ? 'Elegir otra planilla' : 'Cancelar'}</button><button type="submit" class="btn" id="pl-igual">${igual}</button></div></form>`);
+    let r = null;
+    d.querySelector('#pl-otra').onclick = () => { r = varias ? 'otra' : null; d.close(); };
+    d.querySelector('form').addEventListener('submit', e => { e.preventDefault(); r = 'igual'; d.close(); });
+    d.addEventListener('close', () => ok(r));
+  });
 }
 // v0.67.3 · La diferencia del banco como multas e intereses: el ítem financiero (de la memoria, una vez) y el área ADMIN
 const TXT_PREV_DIF = 'Esta planilla no tiene comprobante de pago y los cargos del banco suman más que sus cotizaciones. Casi siempre la diferencia son las multas e intereses por pagar después del vencimiento.\nSi lo confirmas, se unen los cargos y se registra un gasto "Multas e intereses Previred <mes>" por la diferencia: sin IVA, al contado, área ADMIN, con el ítem financiero que elijas y la fecha del último cargo unido. La planilla queda con el total del banco ("pagada y conciliada").\nSi después subes el comprobante de pago, ese gasto se anula y manda el comprobante. También puedes quitar la diferencia en Conciliación → Previred → Meses cargados, o deshacer el cargo: nada se borra.';
@@ -3392,14 +3413,15 @@ function pintarCartola(el, sub, dg) {
     pedirClasifSp(() => { if (enConc('cargos') && cart.dg && !document.querySelector('dialog[open]')) pintarCartola(concEl(), 'cargos', cart.dg); });
     pend.forEach(c => { const p0 = props[c.id]; if (p0 && !p0.sinPropuesta && !p0.combo) return; const k = SP.candidatosCargo(c, D.siiPendientes)[0]; if (k && !k.parcial) props[c.id] = { tipo: 'sii_pend', seguro: false, conf: k.seguro ? 'seguro' : 'probable', docId: k.v.id, texto: `${SP.textoDoc(k.v)} · factura del ${diaTexto(k.v.fecha)}`, por: k.seguro ? 'rut' : 'monto' }; });
   }
-  const listos = pend.filter(c => props[c.id] && props[c.id].seguro && !cart.modo[c.id]), revisar = pend.filter(c => !listos.includes(c));
+  // v0.67.6 · Un cargo que parece repetido de otra cartola nunca va a "Listos para confirmar": primero se decide si es el mismo
+  const listos = pend.filter(c => props[c.id] && props[c.id].seguro && !cart.modo[c.id] && !c.repetidoProp), revisar = pend.filter(c => !listos.includes(c)).sort((a, b) => (!!b.repetidoProp - !!a.repetidoProp));
   // v0.50.0 · Base nueva: casillas para confirmar varios de una vez (los seguros vienen marcados; cualquiera con propuesta completa se puede marcar)
   const base = D.fuente === 'base', pedibles = {};
   if (base) pend.forEach(c => { const pd = pedidoDeProp(c, props[c.id], dg.items || []); if (pd) { pedibles[c.id] = pd; if (cart.sel[c.id] === undefined) cart.sel[c.id] = listos.includes(c); } else delete cart.sel[c.id]; });
   const elegidos = base ? pend.filter(c => pedibles[c.id] && cart.sel[c.id]) : [];
   const casilla = c => (base && pedibles[c.id] ? `<label class="cc-sel" title="Confirmar con los seleccionados"><input type="checkbox" data-cc-sel="${esc(c.id)}" ${cart.sel[c.id] ? 'checked' : ''} ${cart.ocupado ? 'disabled' : ''} aria-label="Elegir ${esc(pesos(c.monto) + ' ' + c.descripcion)}"></label>` : '');
-  const fila = c => { const p = props[c.id], auto = listos.includes(c); return `<details class="fila-orden-b2b mov${c.nota ? ' cc-con-nota' : ''}" data-ccd="${esc(c.id)}" ${cart.abierto === c.id ? 'open' : ''}><summary class="fila-caja">${casilla(c)}<div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))}</span>${base ? `<small class="cc-origen">${esc(origenCargoTxt(c))}</small>` : ''}${c.tef ? `<small class="cc-tef">${esc(TE.textoPagaste(c.tef))}</small>` : ''}${c.proveedor ? `<small class="cc-prov">Proveedor: ${esc(c.proveedor.nombre)}</small>` : ''}${p ? `<small class="prop-cc">${textoProp(p)}</small>` : ''}${notaCcHtml(c)}</div>
-      <div class="acciones">${base ? botonNotaCc(c) : ''}${auto ? `<button type="button" class="btn btn-chico" data-cc-auto="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${cart.abierto === c.id ? editorCargo(c, p, dg) : ''}</details>`; };
+  const fila = c => { const p = props[c.id], auto = listos.includes(c); return `<details class="fila-orden-b2b mov${c.nota ? ' cc-con-nota' : ''}" data-ccd="${esc(c.id)}" ${cart.abierto === c.id ? 'open' : ''}><summary class="fila-caja">${casilla(c)}<div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))}</span>${base ? `<small class="cc-origen">${esc(origenCargoTxt(c))}</small>` : ''}${c.tef ? `<small class="cc-tef">${esc(TE.textoPagaste(c.tef))}</small>` : ''}${c.proveedor ? `<small class="cc-prov">Proveedor: ${esc(c.proveedor.nombre)}</small>` : ''}${c.repetidoProp ? '' : p ? `<small class="prop-cc">${textoProp(p)}</small>` : ''}${notaCcHtml(c)}${filaRepetidoHtml(c)}</div>
+      <div class="acciones">${base ? botonNotaCc(c) : ''}${auto ? `<button type="button" class="btn btn-chico" data-cc-auto="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${cart.abierto === c.id ? propRepetidoHtml(c) + editorCargo(c, p, dg) : ''}</details>`; };
   // v0.67.1 · Filtro "Con nota" (solo si hay alguna)
   const nNota = D.cargos.filter(c => c.nota).length;
   if (!nNota) cart.conNota = false;
@@ -3482,7 +3504,7 @@ function coberturaCcHtml(D) {
   const fd = f => (f ? diaTexto(f) + ' ' + f.slice(0, 4) : '?');
   return ks.map(k => { const c = cob[k]; return `<div class="cobertura-conc"><div class="cuenta-conc"><b>${esc(B2b.NOMBRE_CUENTA[k] || k)}${c.cuentaN ? ' ···' + esc(c.cuentaN) : ''}</b></div><div><span>Cargos revisados</span><b>${c.desde ? `del ${esc(fd(c.desde))} al ${esc(fd(c.hasta))}` : '—'}</b></div>
     ${c.huecos.length ? `<div class="hueco"><span>Falta subir</span><b>${c.huecos.map(h => h[0] === h[1] ? esc(fd(h[0])) : `del ${esc(fd(h[0]))} al ${esc(fd(h[1]))}`).join(' · ')}</b></div>` : ''}</div>`; }).join('')
-    + `<details class="detalle-an"><summary>Cartolas subidas (${D.cartolas.length}) ${infoDrive()}</summary>${D.cartolas.slice().sort((a, b) => String(b.hasta).localeCompare(String(a.hasta))).map(c => `<div><span><b>${c.nCartola ? 'Histórica N° ' + esc(c.nCartola) : 'En línea'}</b> · ${esc(cuentaCc(c))} · ${c.desde ? `${esc(fd(c.desde))} al ${esc(fd(c.hasta))}` : 'sin fechas'} · subida ${esc(c.subidaEl)}${c.archivo ? ` · <a href="${esc(c.archivo)}" target="_blank" rel="noopener">Ver archivo</a>` : ''}</span><b>${c.nuevos} ${c.nuevos === 1 ? 'nuevo' : 'nuevos'} de ${c.cargos}</b></div>`).join('')}</details>`;
+    + `<details class="detalle-an"><summary>Cartolas subidas (${D.cartolas.length}) ${infoDrive()}</summary>${D.cartolas.slice().sort((a, b) => String(b.hasta).localeCompare(String(a.hasta))).map(c => `<div><span><b>${c.nCartola ? 'Histórica N° ' + esc(c.nCartola) : 'En línea'}</b> · ${esc(cuentaCc(c))} · ${c.desde ? `${esc(fd(c.desde))} al ${esc(fd(c.hasta))}` : 'sin fechas'} · subida ${esc(c.subidaEl)}${c.archivo ? ` · <a href="${esc(c.archivo)}" target="_blank" rel="noopener">Ver archivo</a>` : ''}</span><b>${c.nuevos} ${c.nuevos === 1 ? 'nuevo' : 'nuevos'} de ${c.cargos}${c.repetidos ? ` · ${c.repetidos} ${c.repetidos === 1 ? 'repetido' : 'repetidos'}` : ''}</b></div>`).join('')}</details>`;
 }
 function avisosCcHtml(D, props) {
   const cob = Cartola.coberturaPorCuenta(D.cartolas, B2b.coberturaCartolas), hs = Object.values(cob).map(c => c.hasta).filter(Boolean).sort();
@@ -3496,6 +3518,7 @@ function avisosCcHtml(D, props) {
 }
 function resumenHecho(c) {
   const d = c.detalle || {};
+  if (c.estado === 'REPETIDO') { const o = d.original || {}; return `Es el mismo movimiento que ${o.descripcion || 'otro cargo'}${o.fecha ? ' del ' + diaTexto(o.fecha) : ''}${d.por ? ' (' + CB.textoCriterio(d.por) + ')' : ''}: no se revisa ni cuenta`; }
   if (c.accion === 'vencimientos') return 'Pagó ' + (d.vencimientos || []).map(v => `${v.nombre} (${pesos(v.monto)})`).join(' + ');
   if (c.accion === 'gasto' && d.combinacion) return `Ya estaba en Gastos, combinación: ${(d.documentos || []).join(' · ')} (${(d.ids || []).length} ${(d.ids || []).length === 1 ? 'línea' : 'líneas'}${(d.notasCredito || []).length ? ', con nota de crédito' : ''})`;
   if (c.accion === 'gasto') return `Ya estaba en Gastos: ${(d.items || []).join(' + ')}${d.fecha ? ' del ' + diaTexto(d.fecha) : ''}`;
@@ -3529,11 +3552,30 @@ async function editarNotaCc(c) {
   } catch (e) { cart.err = 'La nota no se guardó: ' + (e.message || mensajeError(e)); }
   pintarCartola(concEl(), 'cargos', cart.dg);
 }
+// ═══ v0.67.6 · El mismo movimiento en dos cartolas (en línea e histórica) ═══
+const TXT_REPETIDO = 'La cartola en línea y la histórica pueden traer el mismo movimiento, a veces con un día de diferencia (la histórica usa la fecha contable) o con otro saldo.\nSe reconoce como el mismo cuando es de la misma cuenta, el mismo monto, la fecha a ±1 día y de otra cartola, y además tiene el mismo N° de operación, la misma glosa o el mismo RUT en la glosa.\nSi el par es claro, el que llegó después queda "Repetido": no aparece en Para revisar, no crea nada en Gastos y no cuenta en los totales. Si no es claro (solo coinciden fecha y monto, o hay dos posibles), se propone y tú decides.\nDos cargos iguales del mismo día en la MISMA cartola nunca se toman como repetidos: son pagos distintos.\nDeshacer (en Ya revisados) lo devuelve a Para revisar como un cargo normal, y no se vuelve a marcar solo.';
+const fuenteTxt = f => (f ? CB.textoFuente(f).replace(/^Cartola/, 'cartola') : 'otra cartola');
+// "$1.500.000 · TEF A RUT … del 13 oct (cartola en línea del 13-10-2026)"
+const origRepTxt = o => `${pesos(o.monto)} · ${o.descripcion} del ${diaTexto(o.fecha)} (${fuenteTxt(o.fuente)})`;
+const estadoRepTxt = o => (o.estado === 'POR_REVISAR' ? 'por revisar' : `ya revisado: ${resumenHecho(o)}`);
+// En la fila del cargo: la propuesta (el primer posible) con su botón
+function filaRepetidoHtml(c) {
+  const rp = c.repetidoProp; if (!rp || !rp.candidatos.length) return '';
+  const o = rp.candidatos[0], n = rp.candidatos.length;
+  return `<span class="cc-rep-prop" data-cc-repprop="${esc(c.id)}">${icono('copias', 14)}<span>Parece el mismo movimiento que <b>${esc(origRepTxt(o))}</b> (${esc(estadoRepTxt(o))}).${o.fuerte ? '' : ' Solo coinciden la fecha (±1 día) y el monto: mira la glosa.'}${n > 1 ? ` Hay ${n} posibles: ábrelo para elegir.` : ''} ${info('Repetido de otra cartola', TXT_REPETIDO)}</span>
+    ${n === 1 ? `<button type="button" class="btn btn-chico" data-cc-rep="${esc(c.id)}" data-orig="${esc(o.id)}" ${cart.ocupado ? 'disabled' : ''}>Marcar como repetido</button>` : ''}</span>`;
+}
+// Arriba del detalle: si hay más de un posible, cada uno con su botón
+function propRepetidoHtml(c) {
+  const rp = c.repetidoProp; if (!rp || rp.candidatos.length < 2) return '';
+  return `<div class="cc-rep-lista"><p class="ayuda">¿Es el mismo movimiento que alguno de estos de otra cartola? Elige cuál, o revísalo normal más abajo si es otro pago.</p>
+    ${rp.candidatos.map(o => `<div class="fila-caja"><div class="txt"><b>${esc(origRepTxt(o))}</b><span>${esc(estadoRepTxt(o))} · ${esc(CB.textoCriterio(o.por))}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico" data-cc-rep="${esc(c.id)}" data-orig="${esc(o.id)}" ${cart.ocupado ? 'disabled' : ''}>Marcar como repetido</button></div></div>`).join('')}</div>`;
+}
 function histCcHtml(hechos, base) {
   return `<details class="tarjeta plegable" data-plegar="cc-hist" ${plegadas()['cc-hist'] === false ? 'open' : ''}><summary class="titulo-fila"><h2>Ya revisados</h2><span>últimos ${cart.dias} días · ${hechos.length}</span></summary>
     <div class="buscar-b2b"><input type="search" data-cc-hbuscar value="${esc(cart.histBuscar)}" placeholder="Buscar por descripción, monto, gasto o nota" aria-label="Buscar en ya revisados"></div>
-    ${hechos.length ? hechos.map(c => `<div class="fila-hist fila-caja${c.nota ? ' cc-con-nota' : ''}" data-txt="${esc(normCc([c.descripcion, c.monto, resumenHecho(c), c.fecha, c.nota ? c.nota.texto : ''].join(' ')))}"><div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))} · ${esc(resumenHecho(c))}</span><span class="nota">${esc(c.resueltoEl)} · ${esc(c.resueltoPor)}</span>${notaCcHtml(c)}</div>
-      <div class="acciones">${base ? botonNotaCc(c) : ''}<span class="chip chip-chico ${c.estado === 'IGNORADO' || c.accion === 'pago_tarjeta' || c.accion === 'traspaso' ? 'c-gris' : c.estado === 'A_MEDIAS' ? 'c-rojo' : 'c-verde'}">${c.estado === 'IGNORADO' ? 'No es gasto' : c.estado === 'A_MEDIAS' ? 'A medias: deshacer' : c.accion === 'pago_tarjeta' ? 'Pago de tarjeta' : c.accion === 'traspaso' ? 'Traspaso' : 'Conciliado'}</span><button type="button" class="btn-sec btn-chico" data-cc-deshacer="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Deshacer</button></div></div>`).join('') : '<div class="vacio" style="border:0">Nada todavía.</div>'}
+    ${hechos.length ? hechos.map(c => `<div class="fila-hist fila-caja${c.nota ? ' cc-con-nota' : ''}" data-txt="${esc(normCc([c.descripcion, c.monto, resumenHecho(c), c.fecha, c.nota ? c.nota.texto : '', c.estado === 'REPETIDO' ? CB.textoRepetido(c.detalle) : ''].join(' ')))}"><div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))} · ${esc(resumenHecho(c))}</span><span class="nota">${esc(c.resueltoEl)} · ${esc(c.resueltoPor)}</span>${notaCcHtml(c)}</div>
+      <div class="acciones">${base ? botonNotaCc(c) : ''}${c.estado === 'REPETIDO' ? `<span class="chip chip-chico c-gris cc-rep-chip">${icono('copias', 12)} ${esc(CB.textoRepetido(c.detalle))}</span>` : `<span class="chip chip-chico ${c.estado === 'IGNORADO' || c.accion === 'pago_tarjeta' || c.accion === 'traspaso' ? 'c-gris' : c.estado === 'A_MEDIAS' ? 'c-rojo' : 'c-verde'}">${c.estado === 'IGNORADO' ? 'No es gasto' : c.estado === 'A_MEDIAS' ? 'A medias: deshacer' : c.accion === 'pago_tarjeta' ? 'Pago de tarjeta' : c.accion === 'traspaso' ? 'Traspaso' : 'Conciliado'}</span>`}<button type="button" class="btn-sec btn-chico" data-cc-deshacer="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Deshacer</button></div></div>`).join('') : '<div class="vacio" style="border:0">Nada todavía.</div>'}
     <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-link" id="cc-hist-mas">Ver más antiguos</button></div></details>`;
 }
 function reglasCcHtml(D) {
@@ -3578,6 +3620,8 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
     registrar('Concilió un cargo', `${pesos(c.monto)} · ${c.descripcion} · ${NOMBRE_ACC[pedido.accion] || accCc()[pedido.accion]}`);
     return r;
   };
+  // Enviar lo elegido y dejar el mensaje (también después del aviso de la fecha de Previred, v0.67.6)
+  const enviarConMsg = async (c, pd, a) => { const r = await enviar(c, pd); const pp = r && r.detalle && r.detalle.previredPlanilla; cart.msg = pp ? `Listo: ${pp.cargos.length} ${pp.cargos.length === 1 ? 'cargo unido' : 'cargos unidos'} a la ${esc(pp.nombre)}${pp.difMultas ? ` y la diferencia (${pesos(pp.difMultas.monto)}) quedó como gasto de multas e intereses` : ' (sin gastos)'} · ${esc(CB.textoAvance(CB.avancePlanilla(pp.total, pp.unido)))}.` : `Listo: ${pesos(c.monto)} · ${esc(c.descripcion)} · ${(NOMBRE_ACC[a] || accCc()[a]).toLowerCase()}.${a === 'previred' && r && r.detalle && r.detalle.previred ? ` Pagado ${esc(r.detalle.previred.nombre)} con ${r.detalle.previred.cargos.length} cargos${r.detalle.previred.diferencia && r.detalle.previred.motivo ? ` (diferencia ${pesos(r.detalle.previred.diferencia)}: ${esc(r.detalle.previred.motivo)})` : ''}.` : ''}`; };
   // v0.67.1 · Notas: el botón está en la fila (no abre ni cierra el cargo) y el filtro "Con nota"
   el.querySelectorAll('[data-cc-nota]').forEach(b => b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); const c = cargo(b.dataset.ccNota); if (c) editarNotaCc(c); }));
   if ($('cc-con-nota')) $('cc-con-nota').addEventListener('click', () => { cart.conNota = !cart.conNota; repintar(); });
@@ -3586,6 +3630,12 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
     const c = cargo(b.dataset.ccAuto), pd = pedidoDeProp(c, props[c.id], dg.items || []);
     if (!pd) { cart.abierto = c.id; cart.modo[c.id] = props[c.id].tipo; repintar(); return; }
     ocupado(c.id, async () => { await enviar(c, pd); cart.msg = `Listo: ${pesos(c.monto)} · ${esc(c.descripcion)}.`; });
+  }));
+  // v0.67.6 · "Marcar como repetido": el mismo movimiento que ya llegó en otra cartola (no crea nada; se deshace en Ya revisados)
+  el.querySelectorAll('[data-cc-rep]').forEach(b => b.addEventListener('click', ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    const c = cargo(b.dataset.ccRep); if (!c) return;
+    ocupado(c.id, async () => { await enviar(c, { accion: 'repetido', repetidoDe: b.dataset.orig }); cart.msg = `Listo: el cargo de ${pesos(c.monto)} quedó como repetido de otra cartola: no se revisa ni cuenta. Si no lo era, usa Deshacer en Ya revisados.`; });
   }));
   if ($('cc-todos')) $('cc-todos').addEventListener('click', () => ocupado('todos', async () => {
     let ok = 0; const errores = [];
@@ -3693,6 +3743,17 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
       const ids = (op.tipo === 'planilla' ? CB.juntablesPlanilla(c, D.cargos, D.reglas) : CB.juntablesPrevired(c, D.cargos, D.reglas)).filter(x => st.sel[x.id]);
       pd = op.tipo === 'planilla' ? { accion: 'previred_planilla', planillaId: op.planillaId, cargos: ids.map(x => ({ id: x.id, huella: x.huella })), ...(b.dataset.ccDif ? { difMultas: { item: st.difItem || '', area: st.difArea || 'ADMIN' } } : {}) }
         : { accion: a, vencId: op.vencId, cargos: ids.map(x => ({ id: x.id, huella: x.huella })), motivo: (st.motivo || '').trim() };
+      // v0.67.6 · El cargo lejos de la fecha de pago de la planilla (más de 10 días; sin fecha de pago, más de 15 del vencimiento): ¿seguro?
+      const lej = CB.lejosDePrevired(op, c.fecha);
+      if (lej && st.lejosOk !== op.id) {
+        const pdx = pd;
+        avisoLejosPrevired(c, op, lej).then(r => {
+          if (r === 'igual') { st.lejosOk = op.id; ocupado(c.id, async () => { await enviarConMsg(c, pdx, a); }); }
+          else if (r === 'otra') { st.elegir = true; repintar(); const l = document.querySelector(`details[data-ccd="${CSS.escape(c.id)}"] .cc-prev-ops`); if (l) { l.scrollIntoView({ block: 'center' }); const i = l.querySelector('input:checked') || l.querySelector('input:not([disabled])'); if (i) i.focus(); } }
+        });
+        return;
+      }
+      st.elegir = false;
     }
     else if (a === 'pago_tarjeta') pd = { accion: a, tarjeta: (cart.tarj[c.id] !== undefined ? cart.tarj[c.id] : (props[c.id] && props[c.id].tarjeta) || '').trim() };
     else if (a === 'traspaso') pd = { accion: a, nota: (cart.tras[c.id] !== undefined ? cart.tras[c.id] : (props[c.id] && props[c.id].nota) || '').trim() };
@@ -3718,7 +3779,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
       else x.montoTotal = c.monto;
       pd = { accion: a, gasto: { items: [x], tipoMonto: n.sinFactura ? 'siniva' : 'bruto', sinFactura: !!n.sinFactura, observacion: n.obs || '', ...(!n.sinFactura && D.fuente === 'base' && mesSinSii(c.fecha) ? { esperaFactura: true } : {}) }, proveedorId: c.proveedor ? c.proveedor.id : '' };
     } else { const g = cart.ign[c.id]; pd = { accion: 'ignorar', motivo: g.motivo && g.motivo !== 'Otro' ? g.motivo : 'No es gasto', siempre: !!g.siempre }; }
-    ocupado(c.id, async () => { const r = await enviar(c, pd); const pp = r && r.detalle && r.detalle.previredPlanilla; cart.msg = pp ? `Listo: ${pp.cargos.length} ${pp.cargos.length === 1 ? 'cargo unido' : 'cargos unidos'} a la ${esc(pp.nombre)}${pp.difMultas ? ` y la diferencia (${pesos(pp.difMultas.monto)}) quedó como gasto de multas e intereses` : ' (sin gastos)'} · ${esc(CB.textoAvance(CB.avancePlanilla(pp.total, pp.unido)))}.` : `Listo: ${pesos(c.monto)} · ${esc(c.descripcion)} · ${(NOMBRE_ACC[a] || accCc()[a]).toLowerCase()}.${a === 'previred' && r && r.detalle && r.detalle.previred ? ` Pagado ${esc(r.detalle.previred.nombre)} con ${r.detalle.previred.cargos.length} cargos${r.detalle.previred.diferencia && r.detalle.previred.motivo ? ` (diferencia ${pesos(r.detalle.previred.diferencia)}: ${esc(r.detalle.previred.motivo)})` : ''}.` : ''}`; });
+    ocupado(c.id, async () => { await enviarConMsg(c, pd, a); });
   }));
   // v0.66.0 · Factura por clasificar: elegir, ver detalle, clasificar y conciliar (o abono)
   el.querySelectorAll('[data-cc-sp]').forEach(i => i.addEventListener('change', () => { cart.spSel[i.dataset.ccSp] = i.value; repintar(); }));
@@ -3753,7 +3814,8 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   if ($('cc-hist-mas')) $('cc-hist-mas').addEventListener('click', () => { cart.dias += 90; cart.d = null; cargarCartolaGastos(true); repintar(); });
   el.querySelectorAll('[data-cc-deshacer]').forEach(b => b.addEventListener('click', async () => {
     const c = cargo(b.dataset.ccDeshacer); if (!c) return;
-    const que = c.accion === 'previred_planilla' ? '<p>Solo este cargo sale de la planilla de Previred (queda anotado en ella); los demás cargos unidos siguen. No había gastos: no cambia nada en Gastos.</p>'
+    const que = c.estado === 'REPETIDO' ? '<p>Vuelve a "Para revisar" como un cargo normal (no había nada en Gastos) y no se vuelve a marcar solo como repetido de ese movimiento.</p>'
+      : c.accion === 'previred_planilla' ? '<p>Solo este cargo sale de la planilla de Previred (queda anotado en ella); los demás cargos unidos siguen. No había gastos: no cambia nada en Gastos.</p>'
       : c.accion === 'previred' ? '<p>Se deshace el pago de Previred completo: todos sus cargos vuelven a "Para revisar", el vencimiento de Cotizaciones queda por pagar y los gastos por trabajador pasan a "Gastos anulados".</p>'
       : c.accion === 'abono_parcial' ? '<p>El abono sale del vencimiento (queda anotado). Si era el primero, el gasto del documento que se creó con él pasa a "Gastos anulados"; si era el último, el vencimiento vuelve a quedar con saldo.</p>'
       : c.accion === 'vencimientos' ? '<p>Los vencimientos vuelven a quedar por pagar. Si el pago creó un gasto (una obligación), ese gasto pasa a "Gastos anulados"; si era una compra a crédito o una factura del SII, su gasto queda sin fecha de pago.</p>'
@@ -6413,7 +6475,7 @@ function msgCartola(x, aqui) {
   const n = (k, s, p) => `${k} ${k === 1 ? s : p}`, a = x.abonos, g = x.cargos;
   if (x.tef) return `<b>Transferencias recibidas:</b> ${n(x.tef.leidas, 'transferencia', 'transferencias')} en el archivo · <b>${n(x.tef.nuevas, 'nueva', 'nuevas')}</b>. Los abonos de la cartola con el mismo monto y fecha ahora muestran el RUT y el nombre de quien transfirió, y si el RUT es de un cliente, se reconoce solo.`;
   const ab = a ? `${n(a.abonos, 'abono', 'abonos')} en la cartola · <b>${n(a.nuevos, 'nuevo', 'nuevos')}</b> · ${a.yaVistos} ya ${a.yaVistos === 1 ? 'visto' : 'vistos'} antes · ${n(a.ignorados, 'ignorado', 'ignorados')} (Transbank y otros)` : `los abonos no se pasaron a B2B: ${esc(x.errAbonos)}`;
-  const cg = g ? `${n(g.cargos, 'cargo', 'cargos')} · <b>${n(g.nuevos, 'nuevo', 'nuevos')}</b> · ${g.yaVistos} ya ${g.yaVistos === 1 ? 'visto' : 'vistos'} antes${g.ignorados ? ` · ${n(g.ignorados, 'ignorado', 'ignorados')} (lo que marcaste "siempre")` : ''}` : `los cargos no se pasaron a Gastos: ${esc(x.errCargos)}`;
+  const cg = g ? `${n(g.cargos, 'cargo', 'cargos')} · <b>${n(g.nuevos, 'nuevo', 'nuevos')}</b> · ${g.yaVistos} ya ${g.yaVistos === 1 ? 'visto' : 'vistos'} antes${g.ignorados ? ` · ${n(g.ignorados, 'ignorado', 'ignorados')} (lo que marcaste "siempre")` : ''}${g.repetidos ? ` · ${n(g.repetidos, 'repetido', 'repetidos')} de otra cartola (ya estaban: no aparecen en Para revisar)` : ''}${g.parecidos ? ` · ${g.parecidos} ${g.parecidos === 1 ? 'parece repetido' : 'parecen repetidos'}: revísalos arriba en Para revisar` : ''}` : `los cargos no se pasaron a Gastos: ${esc(x.errCargos)}`;
   const cuenta = x.c.cuenta && x.c.cuenta.tipo === 'cc' ? ` (${B2b.NOMBRE_CUENTA.cc}${x.c.cuenta.numero ? ' ' + B2b.ultimos4(x.c.cuenta.numero) : ''})` : '';
   const ar = x.archivo ? `<br>Archivo: ${x.archivo.ya ? 'ya estaba guardado' : 'guardado'} en Drive (privado).` : x.errArchivo ? `<br>Archivo: <b>no se pudo guardar en Drive</b> (${esc(String(x.errArchivo).replace(/\.$/, ''))}). Lo leído de la cartola sí quedó.` : '';
   return `<b>${esc(x.c.identificador)}</b>${cuenta}:<br>Abonos (<a href="#conciliacion">pagos de clientes</a>): ${ab}.<br>Cargos (<a href="#conciliacion/cargos">gastos</a>): ${cg}.${ar}`;
@@ -7068,7 +7130,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.67.5')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.5'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.67.6')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.6'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }

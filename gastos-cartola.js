@@ -16,10 +16,10 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.67.5';
-import * as B from './gastos-banco.js?v=0.67.5';
-import { habilesEntre } from './feriados-cl.js?v=0.67.5';
-import * as D3 from './gastos-g3d.js?v=0.67.5';   // v0.67.0: total del plan de Previred con multas e intereses
+import * as G3 from './gastos-g3.js?v=0.67.6';
+import * as B from './gastos-banco.js?v=0.67.6';
+import { habilesEntre } from './feriados-cl.js?v=0.67.6';
+import * as D3 from './gastos-g3d.js?v=0.67.6';   // v0.67.0: total del plan de Previred con multas e intereses
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
@@ -28,7 +28,9 @@ export const PAGO_TARJETA = 'pago_tarjeta';
 // v0.63.1 · "Traspaso entre cuentas propias" (chequera ↔ cuenta corriente): tampoco crea gasto; queda en el cargo como
 // movimiento de flujo (estado CONCILIADO, accion 'traspaso', detalle { movimiento: 'flujo', tipo: 'traspaso', nota }) y se aprende.
 export const TRASPASO = 'traspaso';
-export const ESTADOS = { revisar: 'POR_REVISAR', conciliado: 'CONCILIADO', ignorado: 'IGNORADO', aMedias: 'A_MEDIAS' };
+// v0.67.6 · REPETIDO: el mismo movimiento que ya llegó en otra cartola (en línea ↔ histórica). No se revisa ni crea nada; apunta al
+// original (repetidoDe). Nunca cuenta: ni por revisar, ni en totales, ni en el flujo (accion 'repetido').
+export const ESTADOS = { revisar: 'POR_REVISAR', conciliado: 'CONCILIADO', ignorado: 'IGNORADO', aMedias: 'A_MEDIAS', repetido: 'REPETIDO' };
 export const CUENTAS = { cc: 'Cta. Cte.', chequera: 'Chequera' };
 // Ventana de fechas para el monto fijo y el documento: el cargo puede llegar hasta 15 días antes del vencimiento y hasta 10 después
 export const VENTANA = { antes: 15, despues: 10 };
@@ -70,7 +72,8 @@ export function vistaCargo(id, d) {
     operacion: s(d.nOperacion), cartola: s(d.cartola), nCartola: s(d.nCartola), subidaEl: s(d.subidaEl).slice(0, 16), subidaPor: s(d.subidaPor), estado: s(d.estado),
     accion: s(d.accion), detalle: json(d.detalle), resueltoEl: s(d.resueltoEl).slice(0, 16), resueltoPor: s(d.resueltoPor), historial: s(d.historial), version: Number(d.version) || 0,
     fuentes: Array.isArray(d.fuentes) ? d.fuentes : [],   // v0.64.0: de qué archivos salió
-    nota: vistaNota(d.nota), notasAntes: Array.isArray(d.notaHistorial) ? d.notaHistorial.length : 0 };   // v0.67.1: la nota del cargo
+    nota: vistaNota(d.nota), notasAntes: Array.isArray(d.notaHistorial) ? d.notaHistorial.length : 0,   // v0.67.1: la nota del cargo
+    repetidoDe: s(d.repetidoDe), noRepetidoDe: Array.isArray(d.noRepetidoDe) ? d.noRepetidoDe.map(s) : [], ...(d.quitadoEnPlanilla ? { quitadoEnPlanilla: true } : {}) };   // v0.67.6
   c.rut = rutDe(c.descripcion); c.clave = claveDe(c.descripcion);
   return c;
 }
@@ -89,7 +92,7 @@ export function conNota(prev, texto, por, en) {
   return { cambio: true, quitada: !t, campos: { nota: { texto: t, por: s(por), en: s(en) }, notaHistorial: hist.slice(-MAX_HIST_NOTA) } };
 }
 export const vistaCartola = (id, d) => ({ docId: id, id: s(d.cartola), cuenta: s(d.cuenta), cuentaN: s(d.cuentaN), tipo: s(d.tipo), nCartola: s(d.nCartola), desde: dia(d.desde), hasta: dia(d.hasta),
-  cargos: num(d.cargos), nuevos: num(d.nuevos), yaVistos: num(d.yaVistos), ignorados: num(d.ignorados), subidaEl: s(d.subidaEl).slice(0, 16), archivo: s(d.archivo) });
+  cargos: num(d.cargos), nuevos: num(d.nuevos), yaVistos: num(d.yaVistos), ignorados: num(d.ignorados), repetidos: num(d.repetidos), subidaEl: s(d.subidaEl).slice(0, 16), archivo: s(d.archivo) });
 export const vistaRegla = (id, d) => ({ docId: id, clave: s(d.clave), accion: s(d.accion), item: s(d.item), area: s(d.area), vencimiento: s(d.vencimiento), sinFactura: s(d.sinFactura) === 'Sí' || d.sinFactura === true,
   ejemplo: s(d.ejemplo), veces: num(d.veces), monto: num(d.ultimoMonto), actualizado: s(d.actualizado).slice(0, 16), quitada: !!(d.quitada && s(d.quitada)) });
 // Reglas vivas por clave (una regla quitada no cuenta)
@@ -113,11 +116,14 @@ export function limpiarCarga(meta, lista) {
   return { cuenta, ident, cuentaN: s(c.numero).replace(/\D/g, '').slice(-4), nCartola: s(c.nCartola).replace(/[^0-9A-Za-z]/g, '').slice(0, 10), limpios };
 }
 // existentes: cargos vistaCargo; limpios con { id, huella } ya calculados; reglas: mapaReglas.
-// Devuelve { nuevos: [{ id, doc }], cuenta: { cargos, nuevos, yaVistos, ignorados } }
+// Devuelve { nuevos: [{ id, doc }], cuenta: { cargos, nuevos, yaVistos, ignorados, repetidos, parecidos }, masFuentes }
+// v0.67.6 · Un cargo nuevo que es el mismo movimiento que uno de OTRA subida de la misma cuenta (buscarRepetidos) y el par es
+// único y claro: nace REPETIDO (apunta al original; no aparece en "Para revisar" ni crea nada). Si el par es dudoso (débil o
+// con dos posibles), nace por revisar y la lista propone "Marcar como repetido". Dos iguales de la MISMA subida nunca.
 export function planCarga(L, existentes, reglas, ahora, quien) {
   const ya = new Set(), porOp = new Map(), porId = new Map();
   (existentes || []).forEach(c => { ya.add(c.id); porId.set(c.id, c); const k = claveOp(c.cuenta, c.fecha, c.monto, c.operacion); if (k) porOp.set(k, c); });
-  const r = { cargos: L.limpios.length, nuevos: 0, yaVistos: 0, ignorados: 0 }, nuevos = [], masFuentes = [];
+  const r = { cargos: L.limpios.length, nuevos: 0, yaVistos: 0, ignorados: 0, repetidos: 0, parecidos: 0 }, nuevos = [], masFuentes = [], llegan = [];
   L.limpios.forEach(x => {
     const ko = claveOp(L.cuenta, x.fecha, x.monto, x.operacion);
     if (ya.has(x.id) || (ko && porOp.has(ko))) {
@@ -128,19 +134,119 @@ export function planCarga(L, existentes, reglas, ahora, quien) {
       return;
     }
     ya.add(x.id); if (ko) porOp.set(ko, { id: x.id, fuentes: L.fuente ? [L.fuente] : [] }); porId.set(x.id, { id: x.id, fuentes: L.fuente ? [L.fuente] : [] });
-    const regla = reglas[claveDe(x.descripcion)], ign = regla && regla.accion === 'ignorar';
+    llegan.push(x);
+  });
+  // v0.67.6 · ¿Es el mismo movimiento que uno de otra subida (en línea ↔ histórica)?
+  const vivos = (existentes || []).filter(c => c.id && !c.quitadoEnPlanilla);
+  const vistas = llegan.map(x => ({ id: x.id, cuenta: L.cuenta, fecha: x.fecha, monto: x.monto, descripcion: x.descripcion, operacion: x.operacion, cartola: L.ident, nCartola: L.nCartola, subidaEl: ahora, fuentes: L.fuente ? [L.fuente] : [] }));
+  const rep = buscarRepetidos(vistas, vivos, { tomados: tomadosDe(vivos) });
+  llegan.forEach(x => {
+    const m = rep.get(x.id), auto = m && m.auto ? m : null;
+    const regla = reglas[claveDe(x.descripcion)], ign = !auto && regla && regla.accion === 'ignorar';
+    const est = auto ? { estado: ESTADOS.repetido, accion: REPETIDO, repetidoDe: auto.original.docId || auto.original.id, detalle: JSON.stringify(detalleRepetido(auto.original, auto.por, 'carga')), resueltoEl: ahora, resueltoPor: POR_REPETIDO }
+      : { estado: ign ? ESTADOS.ignorado : ESTADOS.revisar, accion: ign ? 'ignorar' : '', detalle: ign ? JSON.stringify({ motivo: regla.ejemplo || 'No es gasto', regla: true }) : '', resueltoEl: ign ? ahora : '', resueltoPor: ign ? 'regla (siempre)' : '' };
     nuevos.push({ id: x.id, doc: { id: x.id, huella: x.huella, cuenta: L.cuenta, cuentaN: L.cuentaN, fecha: x.fecha, descripcion: x.descripcion, monto: x.monto, saldo: x.saldo, nOperacion: x.operacion,
-      cartola: L.ident, nCartola: L.nCartola, subidaEl: ahora, subidaPor: quien, ...(L.fuente ? { fuentes: [L.fuente] } : {}), estado: ign ? ESTADOS.ignorado : ESTADOS.revisar, accion: ign ? 'ignorar' : '',
-      detalle: ign ? JSON.stringify({ motivo: regla.ejemplo || 'No es gasto', regla: true }) : '', resueltoEl: ign ? ahora : '', resueltoPor: ign ? 'regla (siempre)' : '', historial: '' } });
-    if (ign) r.ignorados++; else r.nuevos++;
+      cartola: L.ident, nCartola: L.nCartola, subidaEl: ahora, subidaPor: quien, ...(L.fuente ? { fuentes: [L.fuente] } : {}), ...est, historial: '' } });
+    if (auto) r.repetidos++; else if (ign) r.ignorados++; else { r.nuevos++; if (m) r.parecidos++; }
   });
   return { nuevos, cuenta: r, masFuentes };
+}
+
+// ═══ v0.67.6 · El mismo movimiento en dos cartolas (la en línea y la histórica) ═══
+// La huella del cargo lleva la fecha y el saldo: la cartola histórica puede traer el movimiento con la fecha contable (un día
+// después) o con otro saldo, y entonces su id es otro. Aquí se reconoce igual:
+//  · misma cuenta, mismo monto (todos son cargos: mismo signo), fecha ±1 día y de OTRA subida;
+//  · fuerte: el mismo N° de operación (si los dos lo traen), o la glosa igual (normalizada), o el mismo RUT en la glosa.
+//    Si los dos traen N° de operación y son distintos, nunca es fuerte (son dos operaciones): a lo más una propuesta;
+//  · débil: solo fecha ±1 y monto → propuesta, nunca automático.
+export const REPETIDO = 'repetido';
+export const POR_REPETIDO = 'Sistema Fën (repetido)';
+export const VENTANA_REPETIDO = 1;
+const opNorm = op => s(op).replace(/\D/g, '').replace(/^0+/, '');
+// a: el que llega (o el que se revisa), b: el posible original. → null | { fuerte, por: operacion|glosa|rut|fecha_monto, dias }
+export function mismoMovimiento(a, b) {
+  if (!a || !b || s(a.id) === s(b.id)) return null;
+  if (s(a.cuenta) !== s(b.cuenta) || !(Number(a.monto) > 0) || Math.round(a.monto) !== Math.round(b.monto)) return null;
+  if (!esIso(a.fecha) || !esIso(b.fecha)) return null;
+  const d = Math.abs(dias(a.fecha, b.fecha));
+  if (d > VENTANA_REPETIDO) return null;
+  if (s(a.cartola) && s(a.cartola) === s(b.cartola)) return null;   // la misma subida: son pagos distintos (el aviso "Ojo" los cubre)
+  const oa = opNorm(a.operacion), ob = opNorm(b.operacion);
+  if (oa && ob) return oa === ob ? { fuerte: true, por: 'operacion', dias: d } : { fuerte: false, por: 'fecha_monto', dias: d };
+  const ga = norm(a.descripcion);
+  if (ga && ga === norm(b.descripcion)) return { fuerte: true, por: 'glosa', dias: d };
+  const ra = rutDe(a.descripcion);
+  if (ra && ra === rutDe(b.descripcion)) return { fuerte: true, por: 'rut', dias: d };
+  return { fuerte: false, por: 'fecha_monto', dias: d };
+}
+// Los originales que ya tienen su repetido (un original se empareja una sola vez)
+export const tomadosDe = cargos => new Set((cargos || []).filter(c => c.estado === ESTADOS.repetido && c.repetidoDe).map(c => c.repetidoDe));
+// nuevos: los que se revisan (vistaCargo o lo que llega); originales: los posibles originales; puede(n, e): e puede ser original de n.
+// → Map(n.id → { auto: true, original, por } | { auto: false, candidatos: [{ e, por, fuerte, dias }], ambiguo })
+//  · fuerte y único → auto.
+//  · varios fuertes: si los del mismo día y la misma glosa son tantos como los iguales que llegan en esa subida (pagos repetidos de
+//    verdad, que vienen en las dos cartolas), se emparejan uno a uno → auto. Si no → propuesta (ambiguo).
+//  · solo débiles → propuesta. Un original ya emparejado no se vuelve a ofrecer.
+export function buscarRepetidos(nuevos, originales, { tomados, puede } = {}) {
+  const usados = new Set(tomados || []), out = new Map(), ok = puede || (() => true), marcados = new Set();
+  const orig = (originales || []).filter(e => e && e.id && e.estado !== ESTADOS.repetido);
+  const kG = n => [s(n.cartola), s(n.cuenta), s(n.fecha), Math.round(n.monto), norm(n.descripcion)].join('|');
+  const tam = {}; (nuevos || []).forEach(n => { const k = kG(n); tam[k] = (tam[k] || 0) + 1; });
+  const ord = (a, b) => a.dias - b.dias || (a.e.estado === ESTADOS.revisar) - (b.e.estado === ESTADOS.revisar) || s(a.e.subidaEl).localeCompare(s(b.e.subidaEl)) || s(a.e.id).localeCompare(s(b.e.id));
+  const lista = (nuevos || []).slice().sort((a, b) => s(a.subidaEl).localeCompare(s(b.subidaEl)) || s(a.fecha).localeCompare(s(b.fecha)) || s(a.id).localeCompare(s(b.id)));
+  const cands = n => { const no = new Set(n.noRepetidoDe || []);
+    return orig.filter(e => !no.has(s(e.docId || e.id)) && !no.has(s(e.id)) && !marcados.has(e.id) && ok(n, e)).map(e => { const m = mismoMovimiento(n, e); return m ? { e, ...m } : null; }).filter(Boolean).sort(ord); };
+  const grupos = {};
+  // 1) fuertes
+  lista.forEach(n => {
+    const f = cands(n).filter(x => x.fuerte && !usados.has(x.e.id));
+    if (!f.length) return;
+    let el = null;
+    if (f.length === 1) el = f[0];
+    else {
+      const k = kG(n);
+      if (!grupos[k]) { const g = f.filter(x => x.e.fecha === n.fecha && norm(x.e.descripcion) === norm(n.descripcion)); grupos[k] = { g, ok: g.length > 0 && g.length === tam[k] }; }
+      if (grupos[k].ok) el = grupos[k].g.find(x => !usados.has(x.e.id)) || null;
+    }
+    if (el) { usados.add(el.e.id); marcados.add(n.id); out.set(n.id, { auto: true, original: el.e, por: el.por, dias: el.dias }); }
+    else out.set(n.id, { auto: false, ambiguo: true, candidatos: f.slice(0, 3) });
+  });
+  // 2) débiles (y lo que quedó dudoso): propuesta con los posibles que quedan libres
+  lista.forEach(n => {
+    const x = out.get(n.id); if (x && x.auto) return;
+    const l = cands(n).filter(y => !usados.has(y.e.id)).sort((a, b) => (b.fuerte - a.fuerte) || ord(a, b));
+    if (l.length) out.set(n.id, { auto: false, ambiguo: l.filter(y => y.fuerte).length > 1 || (x && x.ambiguo) || false, candidatos: l.slice(0, 3) });
+    else out.delete(n.id);
+  });
+  return out;
+}
+// Lo que queda en el detalle del repetido (también para mostrar el chip sin buscar el original)
+export function detalleRepetido(e, por, como, extra) {
+  const f = fuentesCargo(e)[0] || null;
+  return { repetidoDe: s(e.docId || e.id), por: s(por), como: s(como), original: { fecha: s(e.fecha), descripcion: s(e.descripcion).slice(0, 120), cartola: s(e.cartola), nCartola: s(e.nCartola), fuente: f, estado: s(e.estado), accion: s(e.accion) }, ...(extra || {}) };
+}
+// "Repetido de la cartola en línea del 13-10-2026" / "Repetido de la cartola N°053"
+export function textoRepetido(det) {
+  const f = det && det.original && det.original.fuente;
+  if (!f) return 'Repetido de otra cartola';
+  if (f.tipo === 'historica') return `Repetido de la cartola N°${f.numero || (det.original.nCartola) || '?'}`;
+  return `Repetido de la cartola en línea del ${dma(f.generada || f.subida)}`;
+}
+export const textoCriterio = por => ({ operacion: 'mismo N° de operación', glosa: 'misma glosa', rut: 'mismo RUT en la glosa', fecha_monto: 'misma fecha (±1 día) y monto' }[por] || '');
+// Retroactivo (al listar): los por revisar contra todo lo subido. Un original es uno ya revisado, o uno por revisar subido antes
+// (el que llega después queda como repetido, como al subir). cargos: todos (vistaCargo).
+export function repetidosAlListar(cargos) {
+  const vivos = (cargos || []).filter(c => c.id && !c.quitadoEnPlanilla);
+  const antes = (a, b) => (s(a.subidaEl) + '|' + s(a.cartola) + '|' + s(a.id)) < (s(b.subidaEl) + '|' + s(b.cartola) + '|' + s(b.id));
+  const pend = vivos.filter(c => c.estado === ESTADOS.revisar);
+  return buscarRepetidos(pend, vivos, { tomados: tomadosDe(vivos), puede: (n, e) => e.estado !== ESTADOS.revisar || antes(e, n) });
 }
 // La fila de la cartola (una vez por cartola y cuenta; una cartola grande llega en partes: la parte 2 en adelante suma)
 export function filaCartola(previa, meta, L, r, parte, ahora, quien) {
   const f = { cartola: L.ident, cuenta: L.cuenta, cuentaN: L.cuentaN, tipo: meta.tipo === 'historica' ? 'histórica' : 'en línea', nCartola: L.nCartola,
     desde: esIso(meta.desde) ? meta.desde : '', hasta: esIso(meta.hasta) ? meta.hasta : '', cargos: r.cargos, nuevos: r.nuevos, yaVistos: r.yaVistos, ignorados: r.ignorados, subidaEl: ahora, subidaPor: quien };
-  if (previa && Number(parte) > 0) ['cargos', 'nuevos', 'yaVistos', 'ignorados'].forEach(k => { f[k] += num(previa[k]); });
+  if (r.repetidos) f.repetidos = r.repetidos;   // v0.67.6: el mismo movimiento que ya llegó en otra cartola
+  if (previa && Number(parte) > 0) ['cargos', 'nuevos', 'yaVistos', 'ignorados', 'repetidos'].forEach(k => { if (f[k] !== undefined || previa[k] !== undefined) f[k] = num(f[k]) + num(previa[k]); });
   return f;
 }
 
@@ -416,15 +522,39 @@ export function opcionesPrevired(vencs, planillas) {
 }
 // La propuesta: la de fecha de pago (certificado) a −5..+5 días del cargo (la más cercana); si no, el vencimiento abierto más
 // cercano (como en la v0.64.0); si no, el mes más reciente sin conciliar completo. null si no hay.
+// v0.67.6 · Fuera de los ±5 días manda la más cercana a su fecha de referencia (la fecha de pago o, si no la tiene, su vencimiento:
+// el 13 del mes siguiente o el hábil que sigue); a igual distancia, el vencimiento abierto y después el mes más reciente.
 export function opcionPropuesta(ops, fecha) {
   const abiertas = (ops || []).filter(o => !o.conciliada);
   if (!abiertas.length) return null;
   const cerca = abiertas.filter(o => esIso(o.fechaPago) && esIso(fecha) && Math.abs(dias(fecha, o.fechaPago)) <= VENTANA_PLANILLA)
     .sort((a, b) => Math.abs(dias(fecha, a.fechaPago)) - Math.abs(dias(fecha, b.fechaPago)) || b.periodo.localeCompare(a.periodo));
   if (cerca.length) return cerca[0];
+  if (esIso(fecha)) {
+    const d = o => { const r = fechaRefPrevired(o); return esIso(r.fecha) ? Math.abs(dias(fecha, r.fecha)) : 9999; };
+    const l = abiertas.slice().sort((a, b) => d(a) - d(b) || ((b.tipo === 'venc') - (a.tipo === 'venc')) || s(b.periodo).localeCompare(s(a.periodo)));
+    if (d(l[0]) < 9999) return l[0];
+  }
   const vs = abiertas.filter(o => o.tipo === 'venc');
   if (vs.length) return vs.slice().sort((a, b) => Math.abs(dias(a.fecha, fecha)) - Math.abs(dias(b.fecha, fecha)) || s(b.fecha).localeCompare(s(a.fecha)))[0];
   return abiertas.slice().sort((a, b) => b.periodo.localeCompare(a.periodo))[0];
+}
+// ═══ v0.67.6 · Un cargo lejos de la fecha de pago de la planilla: puede ser de otro mes ═══
+// La referencia es la fecha de pago (del certificado, el comprobante o el CSV) con ±10 días; sin fecha de pago, el vencimiento
+// esperado (13 del mes siguiente o el hábil que sigue) con ±15 días.
+export const LEJOS_PAGO_PREVIRED = 10, LEJOS_VENCE_PREVIRED = 15;
+export function fechaRefPrevired(o) {
+  const fp = dia(o && o.fechaPago);
+  if (esIso(fp)) return { fecha: fp, tipo: 'pago', ventana: LEJOS_PAGO_PREVIRED };
+  return { fecha: D3.venceDe(perNorm(o && o.periodo)), tipo: 'vence', ventana: LEJOS_VENCE_PREVIRED };
+}
+// → null (está cerca o no se sabe) | { tipo: 'pago'|'vence', fecha, dias, ventana }
+export function lejosDePrevired(o, fechaCargo) {
+  if (!o || !esIso(fechaCargo)) return null;
+  const r = fechaRefPrevired(o);
+  if (!esIso(r.fecha)) return null;
+  const d = Math.abs(dias(fechaCargo, r.fecha));
+  return d > r.ventana ? { ...r, dias: d } : null;
 }
 // Para una planilla registrada: los cargos por revisar de Previred (glosa o lo aprendido) a ±3 días hábiles vienen marcados
 export function hermanosPlanilla(c, cargos, reglas) {
