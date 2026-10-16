@@ -19,18 +19,18 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.67.0';
-import * as M from './gastos-g2.js?v=0.67.0';
-import * as G3 from './gastos-g3.js?v=0.67.0';
-import * as G3D from './gastos-g3d.js?v=0.67.0';
-import * as C from './gastos-cartola.js?v=0.67.0';
-import * as B from './gastos-banco.js?v=0.67.0';
-import { huella } from './gastos-modelo.js?v=0.67.0';
-import * as FS from './gastos-fs.js?v=0.67.0';
-import * as GB from './gastos-base.js?v=0.67.0';
-import * as TE from './tef-enviadas.js?v=0.67.0';
-import * as P from './proveedores.js?v=0.67.0';
-import * as SP from './sii-pendientes.js?v=0.67.0';   // v0.66.0: documentos del SII por clasificar
+import * as FB from './fs-gastos.js?v=0.67.1';
+import * as M from './gastos-g2.js?v=0.67.1';
+import * as G3 from './gastos-g3.js?v=0.67.1';
+import * as G3D from './gastos-g3d.js?v=0.67.1';
+import * as C from './gastos-cartola.js?v=0.67.1';
+import * as B from './gastos-banco.js?v=0.67.1';
+import { huella } from './gastos-modelo.js?v=0.67.1';
+import * as FS from './gastos-fs.js?v=0.67.1';
+import * as GB from './gastos-base.js?v=0.67.1';
+import * as TE from './tef-enviadas.js?v=0.67.1';
+import * as P from './proveedores.js?v=0.67.1';
+import * as SP from './sii-pendientes.js?v=0.67.1';   // v0.66.0: documentos del SII por clasificar
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -81,11 +81,27 @@ export async function lista(diasP) {
   // v0.65.1 · Planillas de Previred ya registradas (meses cargados) con sus pagos del banco unidos
   const planillas = armarPlanillas(dPl, ab, cg);
   // v0.66.0 · Documentos del SII por clasificar (de la memoria): un cargo del mismo monto los ofrece "Por clasificar"
-  const siiPendientes = SP.pendientesDe(await todos('sii_docs').catch(() => []));
-  return { ok: true, fuente: 'base', planillas, siiPendientes, cargos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
+  // v0.67.1 · sin lo que ya tiene su gasto registrado (se une solo al listar); lo registrado, para proponer su pago
+  const SPF = await import('./sii-pendientes-fs.js?v=0.67.1');
+  const siiPendientes = await SPF.pendientes().catch(async () => SP.pendientesDe(await todos('sii_docs').catch(() => []))), siiRegistrados = await SPF.registrados().catch(() => []);
+  return { ok: true, fuente: 'base', planillas, siiPendientes, siiRegistrados, cargos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
     vencimientos: ab.lista, gastos: B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon)))), sinFactura, siiSinImportar: {}, dias,
     abonoDest: dAb.destinatarios, trabajadores: dAb.trabajadores,   // v0.63.1: para "Área de este abono"
     enviadas: { n: enviadas.length, hasta: enviadas.map(x => x.fecha).sort().pop() || '', subidas: [...new Set(enviadas.map(x => x.subida.slice(0, 10)))].sort().slice(-3) } };
+}
+
+// ── v0.67.1 · Nota de un cargo: 1 escritura, 0 lecturas (el cargo sale de la memoria; la lista se refresca por _m) ──
+// Sin clasificar ni conciliar el cargo. La versión anterior queda en notaHistorial. No pasa a la planilla de Google (sin la marca
+// de copia: el script no tiene columna para la nota).
+export async function notaCargo(docId, texto) {
+  const id = s(docId), x = (await todos('cartola_cargos')).find(y => y.id === id && !y.d.quitadoEnPlanilla);
+  if (!x) throw error('Ese cargo ya no está. Recarga.', 'datos');
+  const por = quien(), en = ahora(), r = C.conNota(x.d, texto, por, en);
+  if (!r.cambio) return { ok: true, sinCambios: true, nota: C.vistaNota(x.d.nota) };
+  const d = await dbBase();
+  await FB.updateDoc(FB.doc(d, 'cartola_cargos', id), limpio({ ...r.campos, version: (Number(x.d.version) || 0) + 1,
+    registro: M.conHistorial(x.d.registro, { que: r.quitada ? 'quitó la nota' : (x.d.nota && C.textoNota(x.d.nota.texto) ? 'editó la nota' : 'agregó una nota'), por, en }) }));
+  return { ok: true, nota: C.vistaNota(r.campos.nota), quitada: r.quitada };
 }
 
 // v0.65.1 · Las planillas de Previred: meses cargados (cotizaciones, ya en memoria) y sus pagos unidos (previred_planillas,

@@ -12,8 +12,8 @@
 //    forman (últimos 2 años) y su posición en la planilla, para dar exactamente lo mismo que el script.
 //  Sin red: se prueba sola. Los documentos usan los mismos nombres que la copia G1 (gastos-modelo.armar).
 // ═══════════════════════════════════════════════
-import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.67.0';
-import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.67.0';
+import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.67.1';
+import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.67.1';
 
 export const RE_FOLIO_OBS = /(?:^|[^A-Za-z])(NC|F)\.(\d+)/;
 const s = v => String(v == null ? '' : v);
@@ -65,8 +65,13 @@ export function clavesImportadas(gastos, docs) {
   Object.keys(sinTipo).forEach(k => { claves[sinTipo[k] < 0 ? k + '|61' : k] = true; });
   // v0.50.0 · factura de un proveedor que es el RUT de una obligación "según documento": quedó en su vencimiento (o en la bandeja), sin gasto todavía
   (docs || []).forEach(x => { const im = x && x.d && x.d.importado; if (im && (im.aVencimiento || im.pendienteId) && im.clave) claves[im.clave] = true; });
+  // v0.67.1 · documento por clasificar que quedó unido a su gasto ya registrado (registrado.gastos): ya está en Gastos
+  (docs || []).forEach(x => { const rg = x && x.d && !x.d.quitadoEnPlanilla && x.d.registrado; if (rg && Array.isArray(rg.gastos) && rg.gastos.length && !rg.quitado) claves[claveDocumento(x.d.rut, x.d.folio, x.d.tipo)] = true; });
   return claves;
 }
+// v0.67.1 · La misma clave sin puntos ni guion en el RUT ("96.512.200-1|5" = "96512200-1|5"): el RUT puede venir escrito distinto
+// en la planilla antigua y en el archivo del SII
+export const claveNorm = k => { const p = s(k).split('|'); return [rutProv(p[0])].concat(p.slice(1)).join('|'); };
 export const claveImportada = (claves, k) => !!(claves[k] || (s(k).split('|').length === 2 && claves[k + '|61']));
 // Notas por clave (mapaNotasDocs): una nota vacía no cuenta (en la base no se borra: queda vacía)
 export function mapaNotas(docs) {
@@ -157,11 +162,11 @@ export function coincidencias(gastos, documentos) {
 
 // ── Al abrir un archivo (sfSiiEstado) ─────────────────
 export function estado(docs, gastos, siiDocs) {
-  const ya = clavesImportadas(gastos, siiDocs), notas = mapaNotas(siiDocs);
+  const ya = clavesImportadas(gastos, siiDocs), notas = mapaNotas(siiDocs), yaN = new Set(Object.keys(ya).map(claveNorm));
   const importados = [], notasOut = {}, pendientes = [];
   docs.forEach(d => {
     const k = d.clave;
-    if (ya[k]) importados.push(k); else if (d.fecha) pendientes.push(d);
+    if (ya[k] || yaN.has(claveNorm(k))) importados.push(k); else if (d.fecha) pendientes.push(d);
     const nota = notas[k] || (d.tipo === '61' ? notas[d.rut + '|' + d.folio] : '');
     if (nota) notasOut[k] = nota;
   });

@@ -6,11 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.67.0';
-import * as FR from './finanzas-resultados.js?v=0.67.0';
-import * as FE from './finanzas-eerr.js?v=0.67.0';
-import * as FC from './finanzas-costos.js?v=0.67.0';
-import * as SP from './sii-pendientes.js?v=0.67.0';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.67.1';
+import * as FR from './finanzas-resultados.js?v=0.67.1';
+import * as FE from './finanzas-eerr.js?v=0.67.1';
+import * as FC from './finanzas-costos.js?v=0.67.1';
+import * as SP from './sii-pendientes.js?v=0.67.1';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
 const $ = id => document.getElementById(id);
@@ -45,7 +45,7 @@ async function vivo(R, mes) {
   if (ES.vivo[mes]) return ES.vivo[mes];
   const dm = await F.datosMes(mes);
   const D = R.datos, mapa = mapaAreas(R);
-  const e = FE.armarEERR({ mes, margen: dm.margen, merma: dm.merma, gastos: D.gastos, fin: D.fin, mapa, creditosMes: FE.creditosDelMes(D.creditos, D.vencimientos, D.gastos, mes),
+  const e = FE.armarEERR({ mes, margen: dm.margen, merma: dm.merma, gastos: D.gastos, fin: D.fin, items: D.items, mapa, creditosMes: FE.creditosDelMes(D.creditos, D.vencimientos, D.gastos, mes),
     invs: FR.inversiones(D.gastos, D.fin, D.invGuardadas, mapa), pagosTarjeta: ES.cartola.pagosTarjeta });
   e.ventasInfo = dm.ventasInfo;
   // v0.66.0 · Documentos del SII de ese mes por clasificar: su gasto todavía no existe (no están en este estado de resultados)

@@ -10,7 +10,7 @@
 //    (c) el área o el reparto de la obligación.
 //  · validarAreas / vistaConAreas: el reparto elegido (en %, suma 100) y las líneas del gasto (montos que suman exacto).
 // ═══════════════════════════════════════════════
-import { claveDe, norm, rutNorm } from './gastos-cartola.js?v=0.67.0';
+import { claveDe, norm, rutNorm } from './gastos-cartola.js?v=0.67.1';
 
 const s = v => String(v == null ? '' : v);
 const num = v => { if (typeof v === 'number') return isFinite(v) ? v : 0; const x = Number(s(v).replace(',', '.').replace(/[^0-9.\-]/g, '')); return isFinite(x) ? x : 0; };

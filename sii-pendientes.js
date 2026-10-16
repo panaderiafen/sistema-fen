@@ -46,7 +46,9 @@ export function datosPendiente(f, origen = {}, ahora = '', por = '') {
     cargaId: s(origen.cargaId).slice(0, 80), formato: s(origen.formato).slice(0, 12), archivo: s(origen.archivo).slice(0, 120), subido: s(ahora), por: s(por), motivo: s(origen.motivo).slice(0, 200)
   };
 }
-export const esPendiente = d => !!(d && d.porClasificar && !d.importado && !d.quitadoEnPlanilla && !d.descartado);
+// v0.67.1: un documento unido a un gasto ya registrado (registrado.gastos) tampoco está por clasificar
+export const estaRegistrado = d => !!(d && d.registrado && Array.isArray(d.registrado.gastos) && d.registrado.gastos.length && !d.registrado.quitado);
+export const esPendiente = d => !!(d && d.porClasificar && !d.importado && !estaRegistrado(d) && !d.quitadoEnPlanilla && !d.descartado);
 const esCredito = p => !!(p && ((p.fechaVenc && p.fecha && p.fechaVenc > p.fecha) || s(p.formaPagoSII) === '2'));
 const esContado = p => !!(p && s(p.formaPagoSII) === '1');
 // La vista de un documento por clasificar
@@ -57,6 +59,113 @@ export function vistaPendiente(id, d) {
     detalle: Array.isArray(p.detalle) ? p.detalle : [], cargaId: s(p.cargaId), formato: s(p.formato), archivo: s(p.archivo), motivo: s(p.motivo), esNC: s(d.tipo) === '61' || num(p.total) < 0 };
 }
 export const pendientesDe = docs => (docs || []).filter(x => x && esPendiente(x.d)).map(x => vistaPendiente(x.id, x.d));
+
+// ═══ v0.67.1 · ¿El documento ya tiene su gasto registrado? (antes de v0.66 se registraba a mano o se importaba de otra forma) ═══
+// Se busca en los gastos vigentes (de la memoria), agrupados como una compra (misma fecha, hora, observación, foto, RUT y
+// vencimiento, o el mismo documento del SII):
+//  · Fuerte: el mismo RUT (sin puntos ni guion) y el mismo folio (folio del gasto, su documento del SII o "F.<folio>" en la
+//    observación). Se une sola.
+//  · Débil: el mismo RUT, total ±$10 y fecha de la factura ±3 días (y sin otro folio), o sin RUT pero con "F.<folio>" en la
+//    observación y total ±$10. Solo si es UNA compra; se une sola.
+//  · Ambiguo (más de una) o posible (sin RUT, mismo total ±$10 y fecha ±5 días, como "¿Ya lo registraste a mano?"): queda
+//    por clasificar con el aviso "Puede estar ya registrado" y "Unir a un gasto ya registrado" (eliges tú).
+// Nunca se crea un gasto: unir es anotar en el documento cuáles son sus gastos (registrado.gastos).
+export const TOL_TOTAL = 10, TOL_DIAS_DEBIL = 3, TOL_DIAS_POSIBLE = 5;
+const RE_F = /(?:^|[^A-Za-z])F\.\s*(\d+)/g;
+const foliosObs = o => { const out = []; let m; const re = new RegExp(RE_F.source, 'g'); while ((m = re.exec(s(o)))) out.push(m[1]); return out; };
+// Compras (registros) a partir de los gastos [{ id, d }]. tomados: ids de gastos ya unidos a otro documento
+export function comprasDe(gastos, tomados) {
+  const T = tomados instanceof Set ? tomados : new Set(tomados || []), por = {}, out = [];
+  (gastos || []).forEach(({ id, d }) => {
+    if (!d || d.estado !== 'vigente' || d.quitadoEnPlanilla || !(num(d.montoFinal) > 0) || T.has(id)) return;
+    const sd = d.siiDoc && d.siiDoc.id ? s(d.siiDoc.id) : '';
+    const k = sd ? 'sd|' + sd : ['g', dia(d.fecha), s(d.hora).slice(0, 5), s(d.observacion), s(d.urlFoto), rutNorm(d.rutProveedor), s(d.vencimientoId)].join('|');
+    let x = por[k];
+    if (!x) { x = por[k] = { clave: k, ids: [], total: 0, fecha: dia(d.fecha), rut: rutNorm(d.rutProveedor), razon: t(d.razonSocial), folios: [], items: [], obs: t(d.observacion), siiDocId: sd, vencimientoId: s(d.vencimientoId),
+      formaPago: s(d.formaPago), fechaPago: dia(d.fechaPago), cartolaCargo: s(d.cartolaCargo), esperaPago: d.esperaPago === true, esperaCargo: d.esperaCargo === true }; out.push(x); }
+    x.ids.push(id); x.total += num(d.montoFinal);
+    [s(d.folio), s(d.siiDoc && d.siiDoc.folio)].concat(foliosObs(d.observacion)).filter(Boolean).forEach(f => { if (!x.folios.includes(f)) x.folios.push(f); });
+    if (d.itemGasto && !x.items.includes(s(d.itemGasto))) x.items.push(s(d.itemGasto));
+    if (!x.fechaPago && dia(d.fechaPago)) x.fechaPago = dia(d.fechaPago);
+    if (!x.cartolaCargo && s(d.cartolaCargo)) x.cartolaCargo = s(d.cartolaCargo);
+  });
+  out.forEach(x => { x.total = Math.round(x.total); x.credito = !!(x.vencimientoId || ((x.formaPago === 'proveedor' || x.formaPago === 'tarjeta') && !x.fechaPago)); });
+  return out;
+}
+// v: vista del documento (vistaPendiente); compras: comprasDe(...). → { tipo: 'fuerte'|'debil'|'ambiguo'|'posible'|'', por, compras: [...], gastos: [ids], motivo }
+export function registroDe(v, compras) {
+  const vacio = { tipo: '', por: '', compras: [], gastos: [], motivo: '' };
+  if (!v || v.esNC || !(num(v.total) > 0)) return vacio;
+  const rut = rutNorm(v.rut), folio = t(v.folio), total = Math.round(num(v.total)), dd = c => Math.abs(diasEntre(c.fecha, v.fecha));
+  const otroFolio = c => c.folios.length > 0 && !c.folios.includes(folio);
+  const deOtroDoc = c => !!c.siiDocId && c.siiDocId !== s(v.id) && otroFolio(c);
+  const l = (compras || []).filter(c => !deOtroDoc(c));
+  const uno = (tipo, por, cs, motivo) => ({ tipo, por, compras: cs, gastos: cs.flatMap(c => c.ids), motivo });
+  // Fuerte: RUT + folio (todas las compras de ese documento)
+  const f1 = rut && folio ? l.filter(c => c.rut === rut && c.folios.includes(folio)) : [];
+  if (f1.length) return uno('fuerte', 'rut_folio', f1, 'Ya registrada: mismo RUT y folio');
+  // Débil: una sola compra
+  const cerca = c => Math.abs(c.total - total) <= TOL_TOTAL;
+  const d1 = l.filter(c => cerca(c) && ((rut && c.rut === rut && dd(c) <= TOL_DIAS_DEBIL && !otroFolio(c)) || (!c.rut && folio && c.folios.includes(folio))));
+  if (d1.length === 1) return uno('debil', d1[0].rut ? 'rut_total_fecha' : 'folio_total', d1, d1[0].rut ? 'Ya registrada: mismo RUT, total y fecha' : 'Ya registrada: mismo folio y total');
+  if (d1.length > 1) return { ...uno('ambiguo', '', d1, `Puede estar ya registrada: hay ${d1.length} gastos que calzan, elige cuál`), gastos: [] };
+  // Posible: sin RUT, mismo total y fecha cercana (lo que antes decía "¿Ya lo registraste a mano?")
+  const p1 = l.filter(c => !c.rut && cerca(c) && dd(c) <= TOL_DIAS_POSIBLE && !otroFolio(c));
+  if (p1.length) return { ...uno('posible', '', p1.slice(0, 4), 'Puede estar ya registrado a mano: revísalo (Unir a un gasto ya registrado)'), gastos: [] };
+  return vacio;
+}
+export const seUneSola = r => !!r && (r.tipo === 'fuerte' || r.tipo === 'debil') && r.gastos.length > 0;
+// Para elegir a mano ("Unir a un gasto ya registrado"): las compras de ese total (±$10) de 10 días antes a 45 después de la
+// factura, sin otro folio (primero las del mismo RUT y la fecha más cercana)
+export function comprasParaUnir(v, compras, max = 8) {
+  const rut = rutNorm(v.rut), folio = t(v.folio), total = Math.round(num(v.total));
+  return (compras || []).filter(c => Math.abs(c.total - total) <= TOL_TOTAL && !(c.folios.length && !c.folios.includes(folio)) && !(c.siiDocId && c.siiDocId !== s(v.id)) && (() => { const x = diasEntre(v.fecha, c.fecha); return x >= -10 && x <= 45; })())
+    .sort((a, b) => ((b.rut === rut) - (a.rut === rut)) || Math.abs(diasEntre(a.fecha, v.fecha)) - Math.abs(diasEntre(b.fecha, v.fecha))).slice(0, max);
+}
+// El vencimiento de la compra a crédito (si lo tiene): el del gasto (vencimientoId), el de una compra a crédito a mano (mismo ítem
+// y fecha de compra, como al pagarla) o el de la factura ("F.<folio>" en su nombre u observación). vencs: [{ id, d }]
+export function vencimientoDeCompras(compras, vencs, v) {
+  const folio = t(v && v.folio), cs = compras || [];
+  for (const c of cs) if (c.vencimientoId && (vencs || []).some(x => x.id === c.vencimientoId)) return c.vencimientoId;
+  const l = (vencs || []).filter(x => x && x.d && !x.d.quitadoEnPlanilla && !s(x.d.plantillaID) && !['PAGADO', 'ANULADO'].includes(s(x.d.estado).toUpperCase()));
+  const porCompra = l.find(x => cs.some(c => c.credito && c.items.some(i => i.toLowerCase() === s(x.d.item).toLowerCase()) && dia(x.d.fechaCompra) === c.fecha));
+  if (porCompra) return porCompra.id;
+  const porFolio = folio ? l.find(x => foliosObs(`${s(x.d.nombre)} ${s(x.d.obs)}`).includes(folio) && cs.some(c => c.credito)) : null;
+  return porFolio ? porFolio.id : '';
+}
+// Lo que se guarda en el documento al unirlo (sii_docs/{id}.registrado). Nunca crea un gasto.
+export function datosRegistrado(v, r, extra = {}) {
+  const cs = r.compras || [];
+  return { gastos: r.gastos.slice(0, 60), por: s(r.por) || 'manual', clave: `${t(v.rut)}|${t(v.folio)}`, total: Math.round(num(v.total)), fecha: dia(v.fecha), credito: cs.some(c => c.credito),
+    vencimiento: (cs.find(c => c.vencimientoId) || {}).vencimientoId || '', motivo: s(r.motivo).slice(0, 200), ...extra };
+}
+// La vista de un documento ya registrado (para la cartola: proponer el pago o "Ya está en Gastos")
+export function vistaRegistrado(id, d) {
+  const v = vistaPendiente(id, d), r = d.registrado || {};
+  return { ...v, registrado: { gastos: Array.isArray(r.gastos) ? r.gastos.map(s) : [], por: s(r.por), vencimiento: s(r.vencimiento), credito: !!r.credito, en: s(r.en) } };
+}
+export const registradosDe = docs => (docs || []).filter(x => x && x.d && x.d.porClasificar && estaRegistrado(x.d) && !x.d.quitadoEnPlanilla).map(x => vistaRegistrado(x.id, x.d));
+// ¿Qué hacer con un cargo que calza con un documento ya registrado? (monto ±$1, de 5 días antes a 45 después de la factura —o
+// hasta 45 días después de su vencimiento si es a crédito—). vencs: vencimientos abiertos de la cartola; grupos: candidatosGastos.
+// → { tipo: 'vencimientos', pagos, texto, seguro } (paga la compra a crédito con la fecha del banco) o { tipo: 'gasto', gasto, texto } o null
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const fCorta = f => (dia(f) ? `${Number(dia(f).slice(8, 10))} ${MESES_CORTOS[Number(dia(f).slice(5, 7)) - 1]}` : '');
+const normT = x => s(x).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+export function propuestaRegistrado(c, registrados, vencs, grupos) {
+  const rutC = rutNorm(c.rut || (c.proveedor && c.proveedor.rut) || '');
+  for (const v of registrados || []) {
+    if (Math.abs(Math.round(v.total) - Math.round(num(c.monto))) > 1) continue;
+    const dd = diasEntre(v.fecha, c.fecha), ddv = v.fechaVenc ? diasEntre(v.fechaVenc, c.fecha) : NaN;
+    if (!((dd >= VENTANA_CARGO[0] && dd <= VENTANA_CARGO[1]) || (ddv >= -5 && ddv <= 45))) continue;
+    const seguro = !!rutC && rutNorm(v.rut) === rutC, ids = new Set(v.registrado.gastos);
+    const ven = (vencs || []).find(x => !x.plantillaId && x.estadoBase !== 'con_abonos' && (x.id === v.registrado.vencimiento || (s(x.folio) === s(v.folio) && (x.rut ? x.rut === rutNorm(v.rut) : normT(x.razon) === normT(v.razonSocial)))));
+    if (ven) return { tipo: 'vencimientos', seguro, pagos: [{ id: ven.id, monto: Math.round(num(c.monto)) }], docId: v.id, registrado: true,
+      texto: `Paga la compra a crédito F.${v.folio}${ven.fecha ? ` (${ven.fecha < dia(c.fecha) ? 'vencía' : 'vence'} el ${fCorta(ven.fecha)})` : ''} · ${v.razonSocial}`, por: seguro ? 'rut' : 'sii' };
+    const g = (grupos || []).find(x => (x.filas || []).some(f => ids.has(s(f.id || f.fila))));
+    if (g) return { tipo: 'gasto', seguro, gasto: g, chip: g.chip, docId: v.id, registrado: true, texto: `Ya está en Gastos: ${v.razonSocial} F.${v.folio} · del ${fCorta(g.fecha)}`, por: seguro ? 'rut' : 'sii', otros: [] };
+  }
+  return null;
+}
 
 // El documento como lo trabaja la pantalla de Cargas del SII (sii.js), para sugerir y armar la importación
 export function aFactura(v) {
@@ -125,6 +234,12 @@ export function lineasPropuestas(f, ITEMS, ficha) {
   const suma = out.reduce((a, l) => a + l.monto, 0);
   if (suma !== total) out[out.length - 1].monto += total - suma;   // los redondeos, en la última
   return out;
+}
+// v0.67.1 · El ítem y el área elegidos para cada línea del documento (en su orden). Un ítem que ya no existe queda vacío; el área
+// solo se guarda en los ítems que se eligen por área.
+export function conDetalleClasificado(detalle, elegido, ITEMS) {
+  const activo = item => (ITEMS || []).find(x => x.item === item);
+  return (detalle || []).map((d, i) => { const e = (elegido || [])[i] || {}, it = activo(s(e.item)); return { ...d, item: it ? it.item : '', area: it && it.area === 'SELECCIONAR' ? s(e.area) : '' }; });
 }
 // '' si está bien; si no, qué falta
 export function revisarLineas(lineas, total, ITEMS, AREAS) {

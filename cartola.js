@@ -8,13 +8,13 @@
 //  v0.50.0: con Gastos en la base nueva, todo va a gastos-cartola-fs.js (fen-gastos) y las propuestas siguen la forma de
 //  trabajar acordada (gastos-cartola.js: monto fijo, documento, abonos). Con la planilla, igual que en la v0.49.0.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.67.0';
-import * as CB from './gastos-cartola.js?v=0.67.0';
-export { resumenLote } from './gastos-cartola.js?v=0.67.0';
+import * as Gastos from './gastos.js?v=0.67.1';
+import * as CB from './gastos-cartola.js?v=0.67.1';
+export { resumenLote } from './gastos-cartola.js?v=0.67.1';
 
 export const VERSION_CARTOLA = '2.8.0';
 const op = (o, d, idem) => Gastos.llamar(o, d, idem, VERSION_CARTOLA);
-const fsC = () => import('./gastos-cartola-fs.js?v=0.67.0');
+const fsC = () => import('./gastos-cartola-fs.js?v=0.67.1');
 const enBase = () => Gastos.enBase();
 
 let cache = null;
@@ -75,6 +75,8 @@ const soloBase = async () => { if (!(await enBase())) throw Object.assign(new Er
 export async function guardarEnviadas(L, nombre) { const r = await (await soloBase()).guardarEnviadas(L, nombre); olvidar(); return r; }
 export async function proveedores() { return (await soloBase()).proveedoresLista(); }
 export async function guardarFicha(p) { const r = await (await soloBase()).guardarFicha(p); olvidar(); return r; }
+// v0.67.1 · Nota de un cargo (sin clasificar ni conciliar): 1 escritura. docId: el id del documento del cargo
+export async function notaCargo(docId, texto) { const r = await (await soloBase()).notaCargo(docId, texto); olvidar(); return r; }
 
 // ── Propuestas ──
 const norm = s => String(s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();

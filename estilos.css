@@ -1500,3 +1500,29 @@ input.sinb-dias { width: 4.5em; display: inline-block; text-align: center; }
   #prev-filas .fila-caja .acciones { flex-wrap: wrap; width: 100%; }
   #prev-filas .fila-caja .acciones select { flex: 1 1 140px; min-width: 0; }
 }
+/* v0.67.1 · Notas de los cargos de la cartola, clasificar por línea lo por clasificar y documentos del SII ya registrados */
+.fila-orden-b2b .txt small.cc-nota, .fila-hist .txt small.cc-nota { display: flex; align-items: center; gap: 6px; max-width: 100%; margin-top: 4px; padding: 3px 8px; border-radius: 8px; background: var(--amarillo); color: var(--amarillo-t); font-size: 12.5px; }
+.cc-nota svg { flex: none; }
+.cc-nota-txt { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-nota-quien { flex: none; opacity: .8; font-size: 11.5px; }
+details[open] > summary .cc-nota-txt, .fila-hist:hover .cc-nota-txt, .fila-hist:focus-within .cc-nota-txt { white-space: normal; overflow-wrap: anywhere; }
+.cc-nota-btn { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.cc-nota-btn svg { vertical-align: -2px; }
+.cc-filtro-nota { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+.cc-filtro-nota .chip-filtro { display: inline-flex; align-items: center; gap: 6px; }
+#cc-nota-txt { width: 100%; min-height: 80px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--borde); font: inherit; font-size: 14px; resize: vertical; }
+.sp-clasif { max-width: 760px; }
+.sp-linea.sp-linea-varias { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 0.9fr) auto; align-items: end; }
+.sp-linea.sp-linea-varias .sp-quitar { align-self: center; justify-self: end; }
+.sp-por-linea .clasif-sii { gap: 8px; }
+.sp-por-linea .producto-sii:first-of-type { border-top: 0; }
+.sp-por-linea-tit { margin: 0 0 4px; }
+.sp-por-linea .sp-pie { margin-top: 8px; }
+.sdoc-ya { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: var(--verde); color: var(--verde-t); }
+.sdoc-unir { margin: 8px 0; }
+.sdoc-unir .opcion-cc { align-items: flex-start; }
+@media (max-width: 600px) {
+  .sp-linea.sp-linea-varias { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .sp-linea.sp-linea-varias .campo:first-child { grid-column: 1 / -1; }
+  .cc-nota-quien { display: none; }
+}

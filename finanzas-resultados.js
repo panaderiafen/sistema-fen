@@ -11,7 +11,7 @@
 //  Todo en neto. Nada de esto cambia los gastos: es una capa de Finanzas (fen-gastos: fin_items, fin_config,
 //  fin_creditos, fin_inversiones).
 // ═══════════════════════════════════════════════
-import { idLimpio } from './gastos-modelo.js?v=0.67.0';
+import { idLimpio } from './gastos-modelo.js?v=0.67.1';
 
 export const ANIO = 2026;
 export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
@@ -74,10 +74,35 @@ export function proponer(item, ref = null) {
       return { tipo, por: 'nombre', motivo: `el nombre dice "${m[0].toLowerCase()}" (${PALABRA[tipo]})` };
     }
   }
-  if (sub === 'FINANCIERO') return { tipo: 'fuera_capital_credito', por: 'subtipo', motivo: 'el ítem tiene subtipo FINANCIERO (deuda) en Gastos' };
+  // v0.67.1: subtipo FINANCIERO = gasto financiero (intereses, multas, banco). Si el nombre dice crédito, cuota o préstamo,
+  // la regla del nombre de arriba ya lo dejó como cuota de crédito (el capital no es gasto).
+  if (sub === 'FINANCIERO') return { tipo: 'financiero', por: 'subtipo', motivo: 'el ítem tiene subtipo FINANCIERO en Gastos' };
   if (sub === 'PASIVO') return { tipo: 'fuera_impuestos', por: 'subtipo', motivo: 'el ítem tiene subtipo PASIVO (impuestos por pagar) en Gastos' };
   if (cat === 'FIJO') return { tipo: 'fijo', por: 'categoria', motivo: 'el ítem tiene categoría FIJO en Gastos' };
   return { tipo: '', por: '', motivo: 'sin propuesta: elígelo tú' };
+}
+
+// ── v0.67.1 · El tipo que cuenta (una sola regla para Finanzas, el estado de resultados y Previred) ──
+// 1. Lo guardado en Finanzas → Resultados → Clasificación (fin_items) siempre manda.
+// 2. Sin clasificación: un ítem con subtipo FINANCIERO en Gastos (sin tildes ni mayúsculas) cuenta como financiero, salvo que
+//    su nombre diga crédito, cuota o préstamo (eso es capital: se clasifica a mano).
+// 3. Lo demás queda sin clasificar (INVERSIÓN y PASIVO solo se proponen: sacan el gasto del resultado, lo decides tú).
+// nombre: el ítem; fin: fin_items por clave; ref: el ítem de Gastos ({ subTipo }) o el gasto mismo (trae su subTipo).
+// → { tipo, por: 'clasificacion' | 'subtipo' | '' }
+export const subtipoFinanciero = ref => normalizar(ref && ref.subTipo) === 'FINANCIERO';
+export function tipoResultado(nombre, fin, ref) {
+  const g = (fin || {})[claveItem(nombre)];
+  if (g && TIPO[g.tipo]) return { tipo: g.tipo, por: 'clasificacion' };
+  if (subtipoFinanciero(ref) && proponer(nombre, ref).tipo === 'financiero') return { tipo: 'financiero', por: 'subtipo' };
+  return { tipo: '', por: '' };
+}
+export const esFinanciero = (nombre, fin, ref) => tipoResultado(nombre, fin, ref).tipo === 'financiero';
+// El aviso cuando un ítem no cuenta como financiero: dónde se arregla (las dos partes)
+export function avisoNoFinanciero(nombre, fin, ref) {
+  const r = tipoResultado(nombre, fin, ref);
+  if (r.tipo === 'financiero') return '';
+  if (r.por === 'clasificacion') return `Ese ítem no es de tipo financiero: en Finanzas → Resultados → Clasificación está como "${TIPO[r.tipo].corto}" (eso manda). Cámbialo ahí a "Financiero" para que entre en "Financieros" del estado de resultados.`;
+  return 'Ese ítem no es de tipo financiero: en el estado de resultados no quedaría en "Financieros". Arréglalo en Gastos → Ítems (subtipo FINANCIERO) o en Finanzas → Resultados → Clasificación (tipo Financiero; si está clasificado ahí, eso manda).';
 }
 
 // ── Gastos que cuentan ──
@@ -146,7 +171,9 @@ export function resumenItems(gastos, items, fin = {}, { anio = ANIO, mapa = {} }
   return Object.values(r).map(f => {
     const prop = proponer(f.item, f.ref), g = fin[f.clave] || null;
     const actual = g && TIPO[g.tipo] ? g : null;
-    return { ...f, propuesta: prop, guardado: actual, tipo: actual ? actual.tipo : '', clasificado: !!actual, archivado: !!(f.ref && f.ref.archivado),
+    // v0.67.1: sin clasificar, lo que igual cuenta (subtipo FINANCIERO → financiero) para decirlo en la fila
+    const cuenta = actual ? null : tipoResultado(f.item, fin, f.ref);
+    return { ...f, propuesta: prop, guardado: actual, tipo: actual ? actual.tipo : '', clasificado: !!actual, archivado: !!(f.ref && f.ref.archivado), cuentaComo: cuenta && cuenta.tipo ? cuenta.tipo : '',
       distinta: !!(actual && prop.tipo && actual.tipo !== prop.tipo) };
   }).sort((a, b) => b.neto - a.neto || a.item.localeCompare(b.item, 'es'));
 }

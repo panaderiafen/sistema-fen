@@ -16,10 +16,10 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.67.0';
-import * as B from './gastos-banco.js?v=0.67.0';
-import { habilesEntre } from './feriados-cl.js?v=0.67.0';
-import * as D3 from './gastos-g3d.js?v=0.67.0';   // v0.67.0: total del plan de Previred con multas e intereses
+import * as G3 from './gastos-g3.js?v=0.67.1';
+import * as B from './gastos-banco.js?v=0.67.1';
+import { habilesEntre } from './feriados-cl.js?v=0.67.1';
+import * as D3 from './gastos-g3d.js?v=0.67.1';   // v0.67.0: total del plan de Previred con multas e intereses
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
@@ -69,9 +69,24 @@ export function vistaCargo(id, d) {
   const c = { id: s(d.id) || id, docId: id, huella: s(d.huella), cuenta: s(d.cuenta), cuentaN: s(d.cuentaN), fecha: dia(d.fecha), descripcion: s(d.descripcion), monto: num(d.monto), saldo: num(d.saldo),
     operacion: s(d.nOperacion), cartola: s(d.cartola), nCartola: s(d.nCartola), subidaEl: s(d.subidaEl).slice(0, 16), subidaPor: s(d.subidaPor), estado: s(d.estado),
     accion: s(d.accion), detalle: json(d.detalle), resueltoEl: s(d.resueltoEl).slice(0, 16), resueltoPor: s(d.resueltoPor), historial: s(d.historial), version: Number(d.version) || 0,
-    fuentes: Array.isArray(d.fuentes) ? d.fuentes : [] };   // v0.64.0: de qué archivos salió
+    fuentes: Array.isArray(d.fuentes) ? d.fuentes : [],   // v0.64.0: de qué archivos salió
+    nota: vistaNota(d.nota), notasAntes: Array.isArray(d.notaHistorial) ? d.notaHistorial.length : 0 };   // v0.67.1: la nota del cargo
   c.rut = rutDe(c.descripcion); c.clave = claveDe(c.descripcion);
   return c;
+}
+// ── v0.67.1 · Nota de un cargo ("Compra del 30 sep, aún sin factura: pedirla el 17-oct") ──
+// cartola_cargos/{id}.nota = { texto, por, en }; las versiones anteriores (también la quitada) quedan en notaHistorial (nunca se pisan).
+// Se guarda sin clasificar ni conciliar el cargo. No pasa a la planilla de Google.
+export const MAX_NOTA = 300, MAX_HIST_NOTA = 50;
+export const textoNota = v => s(v).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_NOTA);
+export function vistaNota(n) { const t = n && typeof n === 'object' ? textoNota(n.texto) : ''; return t ? { texto: t, por: s(n.por), en: s(n.en).slice(0, 16) } : null; }
+// prev: el cargo (datos de la base). → { cambio: false } o { cambio: true, campos: { nota, notaHistorial }, quitada }
+export function conNota(prev, texto, por, en) {
+  const t = textoNota(texto), antes = prev && prev.nota && typeof prev.nota === 'object' ? prev.nota : null, tAntes = antes ? textoNota(antes.texto) : '';
+  if (t === tAntes) return { cambio: false };
+  const hist = (Array.isArray(prev && prev.notaHistorial) ? prev.notaHistorial : []).slice();
+  if (antes && (tAntes || antes.en)) hist.push({ texto: tAntes, por: s(antes.por), en: s(antes.en) });
+  return { cambio: true, quitada: !t, campos: { nota: { texto: t, por: s(por), en: s(en) }, notaHistorial: hist.slice(-MAX_HIST_NOTA) } };
 }
 export const vistaCartola = (id, d) => ({ docId: id, id: s(d.cartola), cuenta: s(d.cuenta), cuentaN: s(d.cuentaN), tipo: s(d.tipo), nCartola: s(d.nCartola), desde: dia(d.desde), hasta: dia(d.hasta),
   cargos: num(d.cargos), nuevos: num(d.nuevos), yaVistos: num(d.yaVistos), ignorados: num(d.ignorados), subidaEl: s(d.subidaEl).slice(0, 16), archivo: s(d.archivo) });

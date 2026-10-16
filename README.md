@@ -1,9 +1,52 @@
-# Sistema Fën · v0.67.0
+# Sistema Fën · v0.67.1
 
-**App:** v0.67.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
+**App:** v0.67.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.67.1: notas en los cargos, facturas ya registradas que no vuelven a "por clasificar", clasificar por línea al conciliar y una sola regla de "financiero"
+**Dónde:** Conciliación → Cartola (Cargos) · Conciliación → Cargas del SII → Documentos del SII · Pagos sin banco · Previred (multas e intereses) · Finanzas → Resultados → Clasificación y Estado de resultados. Solo con Gastos en la base nueva.
+
+### Qué cambia en cómo trabajas
+1. **Notas en los cargos de la cartola.** Cada cargo (Para revisar, Listos para confirmar y Ya revisados) tiene **"Agregar nota" / "Editar nota"**. La nota (hasta 300 letras) se ve en la tarjeta, plegada, con su ícono; se guarda **sin clasificar ni conciliar** el cargo. Ejemplo: "Compra del 30 sep, aún sin factura: pedirla el 17-oct". Si la cambias o la vacías (quitar), la anterior queda guardada. Arriba aparece el filtro **"Con nota · N"**. Los abonos de B2B tienen su propia pantalla y base (fen-b2b): no llevan nota todavía.
+2. **Una factura del SII que ya está en Gastos ya no queda "por clasificar".** Al subir el SII, y también con lo que ya estaba por clasificar (por ejemplo, lo que dejó la migración de la v0.66), se busca su gasto:
+   - **Se une sola** si el RUT (escrito con o sin puntos) y el folio calzan, o si el RUT, el total (±$10) y la fecha (±3 días) calzan con **una sola** compra (o, sin RUT, el folio en la observación y el total). Queda **"Ya registrada · unida a su gasto"**: sale de Por clasificar, del cierre y de Hoy, y nunca se ofrece como "Factura por clasificar". **No se crea ningún gasto.**
+   - Si hay dudas (dos compras que calzan, o un gasto a mano sin RUT del mismo monto) queda por clasificar con el aviso **"Puede estar ya registrado"** y el botón **"Unir a un gasto ya registrado"**: eliges tú la compra (también en el cargo de la cartola).
+   - Un proveedor conocido ya no se clasifica solo si su factura ya estaba registrada (así no se duplica).
+3. **El cargo de una factura ya registrada propone su pago.** Si era a crédito con su vencimiento por pagar: **"Paga la compra a crédito F.<folio> (vencía el 18 sep)"**, igual que "Paga vencimientos" (con la fecha del banco; el gasto sigue con la fecha de la factura). Si era al contado: **"Ya está en Gastos"** con ese gasto elegido.
+4. **Clasificar por línea al conciliar.** "Factura por clasificar" en el cargo (y también Documentos del SII → Por clasificar y Pagos sin banco) usa **el mismo clasificador de Cargas del SII**: cada línea de la factura con su ítem y su área, sobre su neto; el IVA y los otros impuestos (harina 12 %) se reparten en la misma proporción y las líneas con el mismo ítem y área quedan en un solo gasto. Sigue la sugerencia de lo aprendido y el gasto con la fecha de la factura. Si la factura no trae detalle (Registro de Compras .csv), queda el reparto del total de antes, ahora sin la fila vacía "Ítem 2 · Monto 0" y con las columnas juntas en el PC.
+5. **"Financiero" es uno solo.** Un ítem con **subtipo FINANCIERO** en Gastos → Ítems (sin importar tildes o mayúsculas) ya cuenta como financiero en Previred (multas e intereses) y en el estado de resultados, mientras no lo clasifiques distinto en Finanzas → Resultados → Clasificación (**eso manda**). Si su nombre dice crédito, cuota o préstamo no cuenta solo (es capital): se clasifica a mano. En Clasificación ese ítem viene propuesto "Financiero" y dice "ya cuenta como Financiero". El aviso de Previred dice dónde arreglarlo (las dos partes). INVERSIÓN y PASIVO siguen solo como propuesta (Inversión, Impuestos): no cambian el resultado sin que lo apliques.
+
+### Dónde se guarda (fen-gastos; las reglas v0.1.0 ya lo cubren)
+- `cartola_cargos/{id}.nota = { texto, por, en }` y `notaHistorial: [ … versiones anteriores ]` (máximo 50). No pasa a la planilla de Google.
+- `sii_docs/{id}.registrado = { gastos: [ids], por (rut_folio | rut_total_fecha | folio_total | manual), clave, total, fecha, credito, vencimiento, motivo, en, quien }`. El documento conserva `porClasificar` (lo que vino del archivo) y su historial. Cuenta como "ya en Gastos" al volver a subir el archivo.
+- Lo clasificado por línea: los productos quedan con su ítem y área en Detalle Compras, como en Cargas del SII.
+- **Script de Gastos: sin cambios (v2.18.0). Reglas de fen-gastos: sin cambios (v0.1.0).**
+
+### Lecturas y escrituras
+Todo desde la memoria de fs-gastos.js (`sii_docs`, `gastos`, `vencimientos`, `cartola_cargos` en los paquetes): **0 lecturas nuevas**. Nota de un cargo: **1 escritura**, 0 lecturas (la lista se refresca por `_m`). Unir una factura ya registrada: **1 escritura por documento, una sola vez** (al subir va en la misma escritura que guarda el documento). Clasificar por línea: lo mismo que antes. `cuota-v0632` y `cuota-v0633` pasan con los mismos presupuestos.
+
+### Instalación v0.67.1 (unos 2 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.67.1.zip` (con la carpeta `cocina/`, que no cambia) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC). **Nada en Apps Script, reglas ni Cocina.**
+
+### Lista de verificación v0.67.1
+- [ ] Abajo a la izquierda dice **v0.67.1**.
+- [ ] Conciliación → Cartola: en un cargo "Para revisar" toco **Agregar nota**, escribo y guardo: la nota se ve en la tarjeta con su ícono y el cargo sigue en Para revisar.
+- [ ] **Editar nota** la cambia; aparece **"Con nota · N"** y filtra.
+- [ ] Conciliación → Cargas del SII: la factura que ya estaba registrada (por ejemplo, la F.803170) ya no está en Por clasificar (Hoy y el cierre del mes la dejan de contar).
+- [ ] Su cargo del banco dice **"Paga la compra a crédito F.… (vencía el …)"** o **"Ya está en Gastos"**, nunca "Factura por clasificar". Al confirmar no aparece un gasto nuevo.
+- [ ] Una factura con aviso "Puede estar ya registrado": **Unir a un gasto ya registrado** → elijo la compra → sale de Por clasificar.
+- [ ] "Factura por clasificar" en un cargo muestra **cada línea** de la factura con ítem y área (como Cargas del SII) y cuadra con el total.
+- [ ] Previred → comprobante: el ítem con subtipo FINANCIERO ya no dice "no es de tipo financiero".
+- [ ] En el celular nada se sale de lado.
+
+### Si algo sale mal
+Sube de nuevo la v0.67.0. Lo guardado (`nota`, `notaHistorial`, `registrado`) queda en fen-gastos sin estorbar: con la v0.67.0 las facturas unidas vuelven a verse "por clasificar" (no se clasifican solas) y las notas no se muestran.
+
+Por dentro: `gastos-cartola.js` (`textoNota`, `conNota`, `vistaNota`), `gastos-cartola-fs.js` (`notaCargo`; la lista trae lo registrado), `cartola.js`, `sii-pendientes.js` (`comprasDe`, `registroDe`, `vencimientoDeCompras`, `datosRegistrado`, `propuestaRegistrado`, `conDetalleClasificado`), `sii-pendientes-fs.js` (`pendientes` une lo registrado una vez, `registrosAlSubir`, `paraUnir`, `unir`, `registrados`; `clasificar` con el detalle por línea), `gastos-sii.js` (lo unido cuenta como importado; RUT con o sin puntos), `finanzas-resultados.js` (`tipoResultado`, `esFinanciero`, `avisoNoFinanciero`; FINANCIERO propone financiero), `finanzas-eerr.js`, `gastos-g3d.js` y `gastos-g3d-fs.js` (Previred con la misma regla), `finanzas.js`, `vista-finanzas-eerr.js`, `vista-finanzas-resultados.js`, `app.js` (notas, clasificador por línea compartido con Cargas del SII, "Unir", propuestas), `estilos.css`, `config.js`, `index.html` y los demás (solo versión). La carpeta `cocina/` no cambia.
+
+Pruebas: nueva `pruebas/sistemafen/conciliacion-notas-sii-v0671.test.js` (14, con datos ficticios: unión fuerte, débil y única, ambigua y posible; propuesta del cargo; notas; financiero; retroactivo de lo migrado en la v0.66; subir sin gasto repetido; unir a mano; por línea en Documentos del SII y en el cargo con harina 12 %; pagar la compra a crédito; notas con historial y filtro; 390/768/1024/1280). Ajustadas a lo nuevo: `sii-v066` (el cargo y Pagos sin banco se clasifican por línea), `finanzas-f3a` (FINANCIERO propone financiero) y `gastos-g3d` (la prueba 4 ya no depende del día). Siguen pasando `e2e`, `sii-v066`, `conciliacion-v064`, `conciliacion-v0652`, `previred-v0651`, `previred-comprobante-v067`, `cuota-v0632`, `cuota-v0633`, `sf-pantallas`, `finanzas-f1b/f3a/f3b`, `gastos-g3a/b/c/d/e`. Capturas en `pruebas/capturas/v0671/`.
 
 ## Novedades de la v0.67.0: el comprobante de pago de Previred (con multas e intereses) y el aviso de vencimiento
 **Dónde:** Conciliación → Subir archivo (PDF de Previred) · Conciliación → Previred · Conciliación → Cartola ("Pago de Previred") · Hoy · Agenda · Finanzas → Estado de resultados. Solo con Gastos en la base nueva.

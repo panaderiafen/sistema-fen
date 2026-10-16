@@ -14,11 +14,12 @@
 //    (día 13 del mes siguiente o el hábil que sigue).
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as B from './gastos-banco.js?v=0.67.0';
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.67.0';
-import * as M from './gastos-g2.js?v=0.67.0';
-import * as G3 from './gastos-g3.js?v=0.67.0';
-import { FERIADOS } from './feriados-cl.js?v=0.67.0';
+import * as B from './gastos-banco.js?v=0.67.1';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.67.1';
+import * as M from './gastos-g2.js?v=0.67.1';
+import * as G3 from './gastos-g3.js?v=0.67.1';
+import { FERIADOS } from './feriados-cl.js?v=0.67.1';
+import * as FR from './finanzas-resultados.js?v=0.67.1';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -228,16 +229,23 @@ export function planillaConComprobante(a, comp, periodo, nTrab, fechaPagoCert, u
   return { periodo, total, fechaPago: s(fechaPagoCert) || s(a && a.fechaPago) || comp.fechaPago, trabajadores: Number(a && a.trabajadores) || nTrab, comprobante: comp, unido, falta,
     estado: completa ? 'pagada_conciliada' : unido ? 'parcial' : 'sin_pagos', ...(completa ? {} : { conciliadaEl: '', conciliadaPor: '' }) };
 }
-// Ítems para las multas e intereses: los vigentes, primero los de tipo financiero (Finanzas → Clasificación) cuyo nombre dice
-// multa o interés, después los demás financieros y al final el resto. fin: fin_items por clave.
-const claveItemFin = nombre => (idLimpio(s(nombre).trim()) || 'sin-item').toLowerCase();
+// Ítems para las multas e intereses: los vigentes, primero los de tipo financiero cuyo nombre dice multa o interés, después los
+// demás financieros y al final el resto. fin: fin_items por clave.
+// v0.67.1: "financiero" es lo mismo que en Finanzas (FR.tipoResultado): lo guardado en Finanzas → Resultados → Clasificación
+// manda; sin clasificar, el subtipo FINANCIERO del ítem en Gastos. Cada ítem trae el aviso de dónde se arregla (aviso).
 export function itemsRecargos(items, fin) {
-  const F = fin || {}, esFin = i => s((F[claveItemFin(i.item)] || {}).tipo) === 'financiero', dice = i => /multa|inter[eé]s/i.test(s(i.item));
-  const l = (items || []).filter(i => i && i.item && !i.archivado).map(i => ({ item: i.item, financiero: esFin(i), dice: dice(i) }));
+  const F = fin || {}, dice = i => /multa|inter[eé]s/i.test(s(i.item));
+  const l = (items || []).filter(i => i && i.item && !i.archivado).map(i => ({ item: i.item, financiero: FR.esFinanciero(i.item, F, i), dice: dice(i) }));
   const orden = x => (x.financiero ? (x.dice ? 0 : 1) : 2);
   const ord = l.slice().sort((a, b) => orden(a) - orden(b));
   const f = ord.filter(x => x.financiero);
   return { lista: ord, propuesto: f.length ? f[0].item : '', hayFinanciero: f.length > 0 };
+}
+// v0.67.1 · Para cada ítem que no es financiero, dónde se arregla: { item: texto }
+export function avisosRecargos(items, fin) {
+  const out = {};
+  (items || []).filter(i => i && i.item && !i.archivado).forEach(i => { const t = FR.avisoNoFinanciero(i.item, fin || {}, i); if (t) out[i.item] = t; });
+  return out;
 }
 // El área de las multas e intereses: ADMIN (común) si existe
 export const areaRecargos = () => (M.AREAS.includes('ADMIN') ? 'ADMIN' : M.AREAS[0]);

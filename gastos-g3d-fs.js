@@ -19,12 +19,12 @@
 //    (cot_quitar_comprobante) anula el gasto de multas e intereses y deja el comprobante en comprobantesQuitados.
 //    El aviso de vencimiento (Hoy y Agenda) sale de la memoria: cotizaciones (paquete) y previred_planillas (pocos documentos).
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.67.0';
-import * as M from './gastos-g2.js?v=0.67.0';
-import * as G3 from './gastos-g3.js?v=0.67.0';
-import * as D from './gastos-g3d.js?v=0.67.0';
-import * as C from './gastos-cartola.js?v=0.67.0';
-import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.67.0';
+import * as FB from './fs-gastos.js?v=0.67.1';
+import * as M from './gastos-g2.js?v=0.67.1';
+import * as G3 from './gastos-g3.js?v=0.67.1';
+import * as D from './gastos-g3d.js?v=0.67.1';
+import * as C from './gastos-cartola.js?v=0.67.1';
+import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.67.1';
 
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const s = v => String(v == null ? '' : v);
@@ -48,7 +48,8 @@ export async function cotEstado(p) {
     r.mes = { cargado: del.length > 0, lineas: del.length, total: del.reduce((t, x) => t + M.n(x.d.monto), 0), porComprobante: del.some(x => s(x.d.deComprobante)),
       cotizaciones: del.map(x => ({ rut: s(x.d.rut), nombre: s(x.d.nombre), monto: M.n(x.d.monto) })), vencimientoId: vid, vencAbierto: !!(v && G3.abierto(v.d) && G3.esPrevired(v.d)), vencNombre: v ? s(v.d.nombre) : '',
       comprobante: comp ? { clave: s(comp.clave), totalPagado: M.n(comp.totalPagado), totalRecargos: M.n(comp.totalRecargos), fechaPago: s(comp.fechaPago), cargadoEl: s(comp.cargadoEl) } : null };
-    r.recargos = { ...D.itemsRecargos(cat.lista, Object.fromEntries(fin.map(x => [x.id, x.d]))), area: D.areaRecargos() };
+    const finM = Object.fromEntries(fin.map(x => [x.id, x.d]));
+    r.recargos = { ...D.itemsRecargos(cat.lista, finM), area: D.areaRecargos(), avisos: D.avisosRecargos(cat.lista, finM) };   // v0.67.1: dónde arreglar el tipo
   }
   return r;
 }

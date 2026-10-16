@@ -21,7 +21,7 @@
 //  no se toca: lo que cambie después aparece como "Ajustes de meses cerrados" en el primer mes abierto siguiente
 //  (= cálculo de hoy del mes cerrado − su snapshot − lo ya informado como ajuste en otros meses cerrados).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.67.0';
+import * as FR from './finanzas-resultados.js?v=0.67.1';
 
 export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
 export const COLS = ['PAN', 'BOL', 'PAS', 'CAF', 'comun'];
@@ -66,10 +66,13 @@ const sumarDias = (f, k) => { const d = new Date(Date.UTC(+f.slice(0, 4), +f.sli
 
 // ── Gastos del mes: cada línea (por área, con los prorrateos) con su tipo para resultados ──
 // → [{ id, fecha, item, clave, tipo ('' = sin clasificar), grupo, area (código), col (PAN…CAF|comun), neto, proveedor, obs }]
-export function lineasGastosMes(gastos, mes, fin = {}, mapa = {}) {
-  const out = [];
+// v0.67.1: el tipo sale de FR.tipoResultado (Clasificación manda; sin ella, subtipo FINANCIERO = financiero). items: los de Gastos
+// (para su subtipo); sin la lista, el subtipo guardado en el gasto.
+export function lineasGastosMes(gastos, mes, fin = {}, mapa = {}, items = null) {
+  const out = [], porClave = {};
+  (items || []).forEach(i => { if (i && i.item) porClave[FR.claveItem(i.item)] = i; });
   (gastos || []).filter(FR.vigente).filter(g => FR.fechaGasto(g).slice(0, 7) === mes).forEach(g => {
-    const clave = FR.claveItem(g.itemGasto), t = (fin[clave] || {}).tipo, tipo = FR.TIPO[t] ? t : '';
+    const clave = FR.claveItem(g.itemGasto), tipo = FR.tipoResultado(g.itemGasto, fin, porClave[clave] || g).tipo;
     FR.lineasArea(g).forEach(l => out.push({ id: s(g.id), fecha: FR.fechaGasto(g), item: s(g.itemGasto).trim() || '(sin ítem)', clave, tipo, grupo: tipo ? FR.TIPO[tipo].grupo : 'sin', area: l.area,
       col: FR.destinoArea(l.area, mapa), neto: num(l.neto), proveedor: s(g.razonSocial), obs: s(g.observacion).slice(0, 120) }));
   });
@@ -133,7 +136,7 @@ export function armarEERR(E) {
   if (M.disponible === false) avisos.push({ k: 'merma', texto: 'No se pudo leer la merma de Producción: la merma va en $0.' });
   if (num(M.sinCosto)) avisos.push({ k: 'merma_sin_costo', texto: `${M.sinCosto} ${M.sinCosto === 1 ? 'anotación' : 'anotaciones'} de merma sin costo (no suman).` });
   // Gastos del mes
-  const lineas = lineasGastosMes(E.gastos, mes, E.fin, E.mapa);
+  const lineas = lineasGastosMes(E.gastos, mes, E.fin, E.mapa, E.items);
   const info = { compras: { mp: 0, reventa: 0, total: 0 }, enMargen: 0, fuera: { cuotas: 0, capital: 0, impuestos: 0, inversion: 0, retiro: 0, otro: 0, total: 0 }, interes: 0, pagosTarjeta: { n: 0, monto: 0 }, sinClasificar: { n: 0, neto: 0 } };
   const refG = l => ({ tipo: 'gasto', id: l.id, fecha: l.fecha, item: l.item, clave: l.clave, tipoRes: l.tipo, area: l.area, neto: r0(l.neto), proveedor: l.proveedor, obs: l.obs });
   const sinClas = {};

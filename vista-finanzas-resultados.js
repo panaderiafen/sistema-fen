@@ -8,10 +8,10 @@
 //  Reglas puras en finanzas-resultados.js; datos en finanzas.js (fen-gastos). No cambia ningún gasto.
 //  ctx = { cab, error, conexion, sinBase } de vista-finanzas.js; H = ayudas de app.js.
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.67.0';
-import * as FR from './finanzas-resultados.js?v=0.67.0';
-import * as FC from './finanzas-costos.js?v=0.67.0';
-import * as VE from './vista-finanzas-eerr.js?v=0.67.0';
+import * as F from './finanzas.js?v=0.67.1';
+import * as FR from './finanzas-resultados.js?v=0.67.1';
+import * as FC from './finanzas-costos.js?v=0.67.1';
+import * as VE from './vista-finanzas-eerr.js?v=0.67.1';
 
 const RS = { datos: null, filtro: 'todos', q: '', msg: '', err: '', sel: null, anioDep: '' };
 const $ = id => document.getElementById(id);
@@ -84,7 +84,7 @@ const avisoMsg = (txt) => { RS.msg = txt; RS.err = ''; };
 // ═══════════════ Clasificación ═══════════════
 const TXT_AREAS = 'Cada gasto tiene un código de área (el que se eligió al registrarlo). Aquí dices a qué parte del estado de resultados va:\n· Área propia (Panadería, Bollería, Pastelería o Cafetería): sus fijos y sueldos son "fijos propios" de esa área.\n· Común: Administración, Ventas y lo demás. Va al resultado del negocio sin repartir.\nLos gastos prorrateados ya se guardan en una línea por área (con su %), así que cada parte va a su área. Si una línea antigua dice "PRORRATEADO" con sus %, se reparte con esos %.\nPor defecto, las cuatro de producción son propias y el resto común.';
 const TXT_CANAL = 'B2B es el código de los costos del canal B2B (atención de clientes, órdenes y despacho). Su lugar en el estado de resultados es una fila "costo de canal" del canal B2B, que todavía no existe: llega con F3. Mientras tanto va a Común (sin repartir), igual que Administración y Ventas.';
-const TXT_TIPOS = 'Un tipo para cada ítem de gasto, para armar el estado de resultados (todo en neto):\n· Compras de materias primas o de reventa: no son una línea de gasto (su costo ya está en el costo directo); se usan para la desviación.\n· Remuneraciones y gastos fijos: van al área del gasto (propio) o a común, según el mapa de áreas.\n· Ya en el margen: comisiones de tarjeta y despacho B2B (no se cuentan dos veces).\n· Financiero: intereses, multas (por ejemplo, las de Previred) y banco.\n· Fuera del resultado: capital de las cuotas (el interés va a financiero con la tabla del crédito), F29/IVA/PPM, inversiones (entran como depreciación), retiros y otros con motivo.\nLa propuesta sale de palabras del nombre del ítem y de su subtipo en Gastos (INVERSIÓN, FINANCIERO, PASIVO). Nada se guarda solo: tú aplicas o eliges.';
+const TXT_TIPOS = 'Un tipo para cada ítem de gasto, para armar el estado de resultados (todo en neto):\n· Compras de materias primas o de reventa: no son una línea de gasto (su costo ya está en el costo directo); se usan para la desviación.\n· Remuneraciones y gastos fijos: van al área del gasto (propio) o a común, según el mapa de áreas.\n· Ya en el margen: comisiones de tarjeta y despacho B2B (no se cuentan dos veces).\n· Financiero: intereses, multas (por ejemplo, las de Previred) y banco.\n· Fuera del resultado: capital de las cuotas (el interés va a financiero con la tabla del crédito), F29/IVA/PPM, inversiones (entran como depreciación), retiros y otros con motivo.\nLa propuesta sale de palabras del nombre del ítem y de su subtipo en Gastos (INVERSIÓN, FINANCIERO, PASIVO). Nada se guarda solo: tú aplicas o eliges.\nUn ítem con subtipo FINANCIERO en Gastos (Gastos → Ítems) que no clasificaste aquí ya cuenta como Financiero en el estado de resultados y en Previred (salvo que su nombre diga crédito, cuota o préstamo). Lo que eliges aquí siempre manda.';
 function htmlClasificacion(H) {
   const areas = FR.areasDeGastos(RS.datos.gastos, FR.ANIO, mapaAreas());
   const res = resumen(), av = FR.avance(res);
@@ -137,7 +137,7 @@ function filaItem(f, H) {
     <div class="fin-rnom">${puedeAplicar(f) ? `<label class="check fin-rsel"><input type="checkbox" data-r-sel="${H.esc(f.clave)}" ${RS.sel.has(f.clave) ? 'checked' : ''}><span class="sr">Aplicar la propuesta a ${H.esc(f.item)}</span></label>` : '<span class="fin-rsel fin-rsel-vacio" aria-hidden="true"></span>'}
       <span><b>${H.esc(f.item)}</b><span class="ayuda">${H.esc(ref)}</span></span></div>
     <div><span>${f.n ? `<b>${pesos(f.neto)}</b> neto · ${nf(f.n)} ${f.n === 1 ? 'gasto' : 'gastos'}` : `Sin gastos en ${FR.ANIO}`}</span>${dest ? `<span class="ayuda">${H.esc(dest)}</span>` : ''}</div>
-    <div>${f.propuesta.tipo ? `<span>Propuesta: <b>${H.esc(FR.TIPO[f.propuesta.tipo].corto)}</b></span>` : '<span class="ayuda">Sin propuesta</span>'}<span class="ayuda">${H.esc(f.propuesta.tipo ? f.propuesta.motivo : 'elígelo tú')}</span></div>
+    <div>${f.propuesta.tipo ? `<span>Propuesta: <b>${H.esc(FR.TIPO[f.propuesta.tipo].corto)}</b></span>` : '<span class="ayuda">Sin propuesta</span>'}<span class="ayuda">${H.esc(f.propuesta.tipo ? f.propuesta.motivo : 'elígelo tú')}</span>${f.cuentaComo ? `<span class="ayuda fin-rcuenta" data-r-cuenta="${H.esc(f.clave)}">Mientras no lo clasifiques, ya cuenta como ${H.esc(FR.TIPO[f.cuentaComo].corto)} (subtipo FINANCIERO en Gastos)</span>` : ''}</div>
     <div class="fin-rtipo"><div class="campo">${sel}</div>
       <div class="fin-rmot ${t === 'otro_fuera' ? '' : 'oculto'}" data-r-mot-caja="${H.esc(f.clave)}"><label class="sr" for="r-m-${H.esc(f.clave)}">Motivo</label><input type="text" id="r-m-${H.esc(f.clave)}" maxlength="200" placeholder="Motivo (obligatorio)" value="${H.esc((f.guardado && f.guardado.motivo) || '')}">
         <button type="button" class="btn-sec btn-chico" data-r-mot="${H.esc(f.clave)}">Guardar</button></div>
