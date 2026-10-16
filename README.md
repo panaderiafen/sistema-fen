@@ -1,9 +1,39 @@
-# Sistema Fën · v0.65.2
+# Sistema Fën · v0.65.3
 
-**App:** v0.65.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.0 (sin cambios) · 14 de octubre de 2026
+**App:** v0.65.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (va con esta) · 15 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.65.3: fermentación en bloque (Panadería)
+**Dónde:** Producción → Configuración de Producción → **Fermentación en bloque · Panadería** (debajo de la configuración de Panadería), con su (i): *"Tiempo a temperatura ambiente después de terminar la masa. Ajústalo según la temporada: en invierno más, en verano menos."*
+
+- La lista son las recetas que aparecen en **Recetas del día** en Cocina: las **recetas aprobadas** de Panadería y las **masas** (sub recetas) que las jefas eligieron en "Ordenar Hoy" (si no se puede leer, las "Masa …", sin masa madre, poolish ni pie). Las masas van primero.
+- Cada una con una casilla **h:mm** (2:00, 1:30; "2" = 2 horas). **Vacío = sin f.b.** Si algo no es una hora válida (máximo 48:00), avisa cuál y no guarda nada.
+- Con más de 8 recetas aparece **"Buscar receta"** (sin tildes ni mayúsculas, varias palabras; Escape la limpia).
+- **Guardar fermentación en bloque** → `config/PAN.fermentacionBloque = { recetaId | SR…: minutos }` con la marca **editado** (como el resto de la configuración): **la copia desde la planilla no lo pisa**. Las tablets lo ven al instante.
+- En Cocina v0.17.1, al marcar terminada: **"✓ Hecho · Camila 11:00 · f.b. hasta 13:00"**, y al llegar la hora **"f.b. lista desde las 13:00"** destacada.
+
+### Lecturas
+La lista se lee **solo con "Configuración de Producción" abierta**: las recetas (las mismas de siempre, con su marca: normalmente ya están en memoria) y **un documento** (`ajustes/PAN__hoy`), guardado 10 minutos en este navegador. Abrir Producción con la sección cerrada no lee nada nuevo. `cuota-v0632` y `cuota-v0633` pasan con los mismos presupuestos.
+
+### Instalación v0.65.3 (unos 3 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.65.3.zip` (con la carpeta `cocina/`, que no cambia; `fermentacion.js` es nuevo) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+2. **Cocina v0.17.1** (`fen-cocina-v0.17.1.zip`, repo `fen-cocina`) y recargar las tablets.
+Nada en Apps Script ni en las reglas (las de fen-produccion v1.8.0 ya dejan a la administración escribir `config/PAN` y a las tablets leerlo).
+
+### Lista de verificación v0.65.3
+- [ ] Abajo a la izquierda dice **v0.65.3**.
+- [ ] Producción → Configuración de Producción: aparece **Fermentación en bloque · Panadería** con su (i) y la lista (Masa ciabatta, Masa baguette primero; sin masa madre ni poolish).
+- [ ] Escribo 2:00 en Masa ciabatta → Guardar → dice "Guardado"; al recargar sigue 2:00 y Panadería dice "editada aquí".
+- [ ] Escribo "2:75" → avisa y no guarda.
+- [ ] Copio desde la planilla de nuevo → la f.b. sigue.
+- [ ] En la tablet: marcar terminada la Masa ciabatta → "f.b. hasta" 2 horas después.
+- [ ] Celular, tablet y PC: la lista se lee bien (en el celular, una receta por línea).
+
+**Si algo sale mal:** vuelve a subir la v0.65.2 (la f.b. guardada queda en la configuración y no molesta).
+
+**Pruebas:** `pruebas/sistemafen/fb-v0171.test.js` y `pruebas/cocina/fermentacion.test.mjs`; capturas en `pruebas/capturas/fb-v0171/`.
 
 ## Novedades de la v0.65.2: con la cartola en línea, solo montos exactos (adiós a las "cabezas de pescado")
 **Dónde:** Conciliación → Cartola (Abonos (B2B) y Cargos (Gastos)).

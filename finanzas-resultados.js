@@ -11,7 +11,7 @@
 //  Todo en neto. Nada de esto cambia los gastos: es una capa de Finanzas (fen-gastos: fin_items, fin_config,
 //  fin_creditos, fin_inversiones).
 // ═══════════════════════════════════════════════
-import { idLimpio } from './gastos-modelo.js?v=0.65.2';
+import { idLimpio } from './gastos-modelo.js?v=0.65.3';
 
 export const ANIO = 2026;
 export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];

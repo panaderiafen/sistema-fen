@@ -1445,3 +1445,14 @@ p.volver a { display: inline-flex; gap: 4px; align-items: center; }
 .mov-sin-exactas, .cc-sin-exactas { overflow-wrap: anywhere; }
 .aviso-enlinea { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 8px 0 4px; }
 .aviso-enlinea > span { flex: 1 1 240px; min-width: 0; }
+
+/* v0.65.3 · Fermentación en bloque (Producción → Configuración de Producción → Panadería) */
+.fb-buscar { max-width: 360px; margin-bottom: 8px; }
+.fb-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 18px; margin: 4px 0 6px; }
+.fb-fila { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--linea, #ECE6DE); min-width: 0; }
+.fb-fila[hidden] { display: none; }
+.fb-fila label { display: flex; flex-direction: column; min-width: 0; font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+.fb-fila label small { font-weight: 400; font-size: 12px; color: var(--suave, #6B625A); }
+.fb-fila input { width: 96px; flex: none; text-align: center; min-height: 44px; }
+.fb-fila input[aria-invalid="true"] { border-color: #B23A2E; outline: 2px solid #B23A2E; outline-offset: 1px; }
+@media (max-width: 420px) { .fb-lista { grid-template-columns: 1fr; } }

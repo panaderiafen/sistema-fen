@@ -45,15 +45,15 @@
 //    { modo: 'responsable', areas, responsables, confirmado, historial }. Sin confirmar: como la v0.54.0. Correo de bajo el
 //    mínimo solo a las jefas del área responsable (script v2.11.0). Las mismas lecturas que antes (config ya se leía).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.65.2';
-import * as FBr from './firebase-produccion.js?v=0.65.2';
-import * as Apps from './apps.js?v=0.65.2';
-import { armar, AREAS } from './produccion-modelo.js?v=0.65.2';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.65.2';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.65.3';
+import * as FBr from './firebase-produccion.js?v=0.65.3';
+import * as Apps from './apps.js?v=0.65.3';
+import { armar, AREAS } from './produccion-modelo.js?v=0.65.3';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.65.3';
 import * as K from './cocina/consumo.js?v=0.17.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.11.0';
-import * as M from './fs-memoria.js?v=0.65.2';
-import { produccion as QP, esCuota } from './fs-cuota.js?v=0.65.2';
+import * as M from './fs-memoria.js?v=0.65.3';
+import { produccion as QP, esCuota } from './fs-cuota.js?v=0.65.3';
 
 // ── v0.63.3: todo pedido a fen-produccion pasa por aquí: se cuenta (Configuración → Uso de la base hoy) y, si Firestore dice
 // "cuota agotada" (resource-exhausted), se muestra el letrero de Producción/Cocina. Cada escritura de Sistema Fën en recetas,
@@ -109,7 +109,7 @@ async function conMarca(col, fn, forzar = false) {
 }
 
 export { AREAS };
-export { resumenPropuesta } from './finanzas-motor.js?v=0.65.2';
+export { resumenPropuesta } from './finanzas-motor.js?v=0.65.3';
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
@@ -346,6 +346,32 @@ export async function guardarConfigArea(area, cambios) {
   await FB.setDoc(FB.doc(db, 'config', area), { ...datos, editado: { por: authSF.currentUser.email, en: FB.serverTimestamp() } }, { merge: true });
 }
 
+// ── v0.65.3 · Fermentación en bloque (config/PAN.fermentacionBloque = { recetaId | subId: minutos }); Cocina la muestra ──
+// Las recetas que aparecen en "Recetas del día" de Cocina: las aprobadas (no sub recetas) y las sub recetas elegidas en
+// "Ordenar Hoy" (ajustes/{AREA}__hoy, un documento; si no se puede leer o no está: las "Masa …", menos masa madre, poolish
+// y pie, como Cocina). Lecturas: recetas con su marca (como siempre) + ese documento, guardado 10 minutos en este navegador.
+const normFB = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+export const masaPorDefecto = nombre => { const n = normFB(nombre); return /^masa /.test(n) && !/masa madre|poolish|\bpie\b/.test(n); };
+export function listaFB(recetas, hoyDoc, area = 'PAN') {
+  const elegidas = (hoyDoc && hoyDoc.hoy && hoyDoc.hoy.recetasDia) || {};
+  const deArea = (recetas || []).filter(r => r.area === area && !/anulad/.test(normFB(r.estado)));
+  const prods = deArea.filter(r => r.tipo !== 'sub_receta' && /consolidad|aprobad/.test(normFB(r.estado))).map(r => ({ id: r.id, nombre: r.nombre || r.id, tipo: 'receta' }));
+  const subs = deArea.filter(r => r.tipo === 'sub_receta' && r.mpId).filter(r => { const v = elegidas[r.mpId]; return typeof v === 'boolean' ? v : masaPorDefecto(r.nombre); })
+    .map(r => ({ id: r.mpId, nombre: r.nombre || r.mpId, tipo: 'sub' }));
+  const orden = (x, y) => String(x.nombre).localeCompare(String(y.nombre), 'es');
+  return [...subs.sort(orden), ...prods.sort(orden)];
+}
+export async function recetasFB(area = 'PAN') {
+  const rs = await recetasMem();
+  let hoy = null;
+  try {
+    hoy = await M.memo(`prod:fbhoy:${area}`, async () => { const db = await dbOk(); const sn = await FB.getDoc(FB.doc(db, 'ajustes', `${area}__hoy`)); return sn.exists() ? sn.data() : {}; }, { guardar: true, ttl: 10 * 60000 });
+  } catch (e) { if (e && e.code === 'cuota-agotada') throw e; hoy = null; }
+  return { lista: listaFB(rs, hoy, area), leyoHoy: hoy !== null };
+}
+// valores: { id: minutos | null } (solo los de la lista: null = sin f.b.; los demás que hubiera quedan como estaban)
+export async function guardarFB(area, valores) { await guardarConfigArea(area, { fermentacionBloque: valores }); }
+
 // Control: lo que hay en la base nueva comparado con la planilla
 export async function totales() {
   const db = await dbOk();
@@ -431,7 +457,7 @@ export async function pendientesCocina({ forzar = false } = {}) {
 // (precios de la planilla), como antes. Siempre se sabe si se vende por unidad (Cafetería o vinculada en Finanzas).
 export async function costear(prop) {
   let fin = null;
-  try { fin = await (await import('./finanzas.js?v=0.65.2')).costosPropuesta(prop); } catch (e) { console.warn('Recetas por aprobar: sin el motor de Finanzas', e); fin = null; }
+  try { fin = await (await import('./finanzas.js?v=0.65.3')).costosPropuesta(prop); } catch (e) { console.warn('Recetas por aprobar: sin el motor de Finanzas', e); fin = null; }
   const okFin = fin && fin.propuesta && !(fin.propuesta.sinPrecio || []).length && (!prop.vigente || (fin.vigente && !(fin.vigente.sinPrecio || []).length));
   if (okFin) return fin;
   const recetas = [{ clave: 'propuesta', datos: prop.datos }];
@@ -585,7 +611,7 @@ export async function mermaDelPeriodo({ desde, hasta, fresco = false }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.65.2')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.65.3')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
   const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';

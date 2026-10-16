@@ -5,11 +5,12 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.65.2';
+import * as P from './produccion.js?v=0.65.3';
 import * as K from './cocina/consumo.js?v=0.17.0';
-import { conBuscador } from './buscador.js?v=0.65.2';
+import { conBuscador, coincide } from './buscador.js?v=0.65.3';
+import * as FBQ from './fermentacion.js?v=0.65.3';
 
-const st = { prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
+const st = { fb: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
 const n = v => Number(v || 0).toLocaleString('es-CL');
 
@@ -161,6 +162,36 @@ async function pintarBase(el, H, cx) {
       ${t ? pliegue('control', 'Control de totales', resControl, control) : ''}
     </section>`;
   conectarPliegues(el);
+  // v0.65.3: la lista de la fermentación en bloque se lee solo con "Configuración de Producción" abierta
+  const plCfg = el.querySelector('details.pliegue[data-pliegue="config"]');
+  if (plCfg) { if (plCfg.open) cargarFB(el, H, cfgs); else plCfg.addEventListener('toggle', () => { if (plCfg.open) cargarFB(el, H, cfgs); }); }
+  if (st.fb) conectarFB();
+  st.fbMsg = '';
+  const fFB = $('prod-fb');
+  if (fFB) fFB.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const err = $('prod-fb-err'), btn = $('prod-fb-guardar'); err.textContent = '';
+    const valores = {};
+    for (const inp of fFB.querySelectorAll('[data-fb-id]')) {
+      const r = FBQ.leerHHMM(inp.value);
+      inp.removeAttribute('aria-invalid');
+      if (!r.ok) {
+        inp.setAttribute('aria-invalid', 'true');
+        const fila = inp.closest('.fb-fila'); if (fila) fila.hidden = false;
+        err.textContent = `${inp.closest('.fb-fila').dataset.fbNombre}: escribe horas y minutos, por ejemplo 2:00 (máximo 48:00), o déjalo vacío.`;
+        inp.focus(); return;
+      }
+      valores[inp.dataset.fbId] = r.min;
+    }
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try {
+      await P.guardarFB('PAN', valores);
+      const con = Object.values(valores).filter(v => v > 0).length;
+      H.registrar('Cambió la fermentación en bloque (Producción)', `Panadería · ${con} ${con === 1 ? 'receta' : 'recetas'} con f.b.`);
+      st.fbMsg = 'Guardado. Las tablets lo ven al instante.';
+      pintarBase(el, H, cx);
+    } catch (e) { err.textContent = error(e, H); btn.disabled = false; btn.textContent = 'Guardar fermentación en bloque'; }
+  });
 
   pintarCocina(el, H, true);
   conectarMerma(el, H); conectarBodega(H);
@@ -272,7 +303,53 @@ function seccionConfig(cfgs, H) {
     </form>`;
   };
   return `<p class="ayuda">Cómo calcula Cocina en cada área ${H.info('Configuración de Producción', 'Lo que define cómo calcula Cocina en cada área: amasadora, tandas por día, merma, congeladores, días del pie de masa madre.\nLa cambias tú; las jefas la ven en Cocina sin poder cambiarla. Una configuración que guardas aquí no se pisa al volver a copiar desde la planilla.')}</p>
-    ${bloque('PAN')}${bloque('BOL')}${bloque('CAF')}`;
+    ${bloque('PAN')}${bloqueFB(cfgs.PAN || {}, H)}${bloque('BOL')}${bloque('CAF')}`;
+}
+
+// ── v0.65.3 · Fermentación en bloque (Panadería): config/PAN.fermentacionBloque = { recetaId | subId: minutos } ──
+// Se carga al abrir "Configuración de Producción" (recetas con su marca, como siempre, + ajustes/PAN__hoy: un documento).
+const INFO_FB = 'Tiempo a temperatura ambiente después de terminar la masa. Ajústalo según la temporada: en invierno más, en verano menos.';
+function bloqueFB(c, H) {
+  return `<form class="cfg-area" id="prod-fb" style="margin-top:14px" novalidate>
+      <h3 style="margin:0 0 6px">Fermentación en bloque · Panadería ${H.info('Fermentación en bloque', INFO_FB)}</h3>
+      <p class="ayuda">Las recetas de "Recetas del día" en Cocina. Escribe horas y minutos (2:00, 1:30); vacío = sin fermentación en bloque. Al marcar terminada, Cocina muestra "f.b. hasta 13:00".</p>
+      <div id="prod-fb-lista">${listaFBHtml(c, H)}</div>
+      <div class="error" role="alert" id="prod-fb-err"></div>
+      ${st.fbMsg ? `<p class="ok-texto" role="status">${H.esc(st.fbMsg)}</p>` : ''}
+      <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn-sec" id="prod-fb-guardar" ${st.fb && st.fb.lista ? '' : 'disabled'}>Guardar fermentación en bloque</button></div>
+    </form>`;
+}
+function listaFBHtml(c, H) {
+  if (!st.fb) return '<p class="ayuda">Cargando las recetas…</p>';
+  if (st.fb.error) return `<p class="error">${H.esc(st.fb.error)}</p>`;
+  const L = st.fb.lista || [], fb = (c && c.fermentacionBloque) || {};
+  if (!L.length) return '<p class="ayuda">No hay recetas aprobadas de Panadería en la base nueva (copia la planilla primero).</p>';
+  const buscar = L.length > 8 ? `<div class="campo fb-buscar"><label for="prod-fb-q">Buscar receta</label><input id="prod-fb-q" type="search" placeholder="Escribe para buscar…" autocomplete="off" spellcheck="false"></div>` : '';
+  return `${buscar}${st.fb.leyoHoy ? '' : '<p class="ayuda">No se pudo leer "Ordenar Hoy" de Cocina: se muestran las masas por defecto ("Masa …").</p>'}
+    <div class="fb-lista">${L.map((r, i) => `<div class="fb-fila" data-fb-nombre="${H.esc(r.nombre)}">
+        <label for="prod-fb-${i}"><span>${H.esc(r.nombre)}</span><small>${r.tipo === 'sub' ? 'Masa · sub receta' : 'Receta'}</small></label>
+        <input id="prod-fb-${i}" data-fb-id="${H.esc(r.id)}" inputmode="numeric" maxlength="5" placeholder="sin f.b." value="${H.esc(FBQ.aHHMM(fb[r.id]))}" aria-describedby="prod-fb-formato">
+      </div>`).join('')}</div>
+    <p class="ayuda" id="prod-fb-nada" hidden>Sin resultados</p>
+    <small class="ayuda" id="prod-fb-formato">Formato h:mm (por ejemplo 2:00). Vacío = sin f.b.</small>`;
+}
+async function cargarFB(el, H, cfgs) {
+  if (st.fb && !st.fb.error) return;
+  st.fb = null;
+  try { st.fb = await P.recetasFB('PAN'); } catch (e) { st.fb = { error: error(e, H) }; }
+  const caja = $('prod-fb-lista'); if (!caja) return;
+  caja.innerHTML = listaFBHtml(cfgs.PAN || {}, H);
+  const b = $('prod-fb-guardar'); if (b) b.disabled = !(st.fb && st.fb.lista && st.fb.lista.length);
+  conectarFB();
+}
+function conectarFB() {
+  const q = $('prod-fb-q');
+  if (q) q.addEventListener('input', () => {
+    let vis = 0;
+    document.querySelectorAll('#prod-fb .fb-fila').forEach(f => { const ok = coincide(f.dataset.fbNombre, q.value); f.hidden = !ok; if (ok) vis++; });
+    $('prod-fb-nada').hidden = vis > 0;
+  });
+  if (q) q.addEventListener('keydown', e => { if (e.key === 'Escape' && q.value) { e.preventDefault(); q.value = ''; q.dispatchEvent(new Event('input')); } });
 }
 
 // ═══════════════ Bodega (P5): stock de las críticas por bodega, consumo por área y llegadas ═══════════════
