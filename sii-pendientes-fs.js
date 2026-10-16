@@ -12,19 +12,21 @@
 //  · config/sii_pagos = { dias }: desde cuántos días después de la factura se pregunta (10 si no se cambia).
 //  · Revisar automáticas: los gastos clasificados solos al subir, hasta que se revisan (autoRevisada), se corrigen o se anulan.
 //  Lecturas: sii_docs y gastos salen de la memoria de fs-gastos.js (paquetes): ninguna lectura por documento.
+//  · v0.67.2: un documento cuyos gastos fueron todos anulados vuelve a por clasificar (contexto, una escritura por documento, una
+//    vez) y "Volver a clasificar" (infoVolver, volverAClasificar).
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.67.1';
-import * as M from './gastos-g2.js?v=0.67.1';
-import * as S from './gastos-sii.js?v=0.67.1';
-import * as SP from './sii-pendientes.js?v=0.67.1';
-import * as G3 from './gastos-g3.js?v=0.67.1';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo } from './gastos-fs.js?v=0.67.1';
+import * as FB from './fs-gastos.js?v=0.67.2';
+import * as M from './gastos-g2.js?v=0.67.2';
+import * as S from './gastos-sii.js?v=0.67.2';
+import * as SP from './sii-pendientes.js?v=0.67.2';
+import * as G3 from './gastos-g3.js?v=0.67.2';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo } from './gastos-fs.js?v=0.67.2';
 
 const s = v => String(v == null ? '' : v);
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const ahora = () => M.ahoraChile().texto;
 const hoy = () => M.ahoraChile().dia;
-const SIIF = () => import('./gastos-sii-fs.js?v=0.67.1');
+const SIIF = () => import('./gastos-sii-fs.js?v=0.67.2');
 export const COL_PAGOS = 'sii_pagos';
 
 // ── Configuración (días) ──
@@ -49,9 +51,49 @@ export async function guardarConfig(dias) {
 // sii_docs y gastos van en los paquetes, 0 lecturas) y lo que calza fuerte o débil y único se une solo, una vez (1 escritura por
 // documento, registrado { gastos, por, … }). Lo ambiguo o posible queda por clasificar con su aviso (registro) y "Unir".
 const tomadosDe = docs => new Set(docs.flatMap(x => (SP.estaRegistrado(x.d) ? x.d.registrado.gastos.map(s) : [])));
+// v0.67.2 · Antes de todo: los documentos cuyos gastos fueron TODOS anulados vuelven a por clasificar (también lo de antes: lo
+// importado antes de la v0.66, lo clasificado en la v0.66 y lo unido en la v0.67.1). Se revisa de la memoria (0 lecturas) cada vez
+// que se lista y se guarda UNA vez (1 escritura por documento + la ficha del proveedor si tenía lo anulado), con su historial.
 async function contexto() {
-  const [docs, gastos, vencs] = await Promise.all([todos('sii_docs'), todos('gastos').catch(() => []), todos('vencimientos').catch(() => [])]);
-  return { docs, gastos, vencs, compras: SP.comprasDe(gastos, tomadosDe(docs)) };
+  const [docs0, gastos, vencs] = await Promise.all([todos('sii_docs'), todos('gastos').catch(() => []), todos('vencimientos').catch(() => [])]);
+  const idx = SP.indiceGastos(gastos), vueltas = [];
+  const docs = docs0.map(x => {
+    const r = SP.revisarVuelta(x.id, x.d, idx);
+    if (!r.vuelve) return x;
+    const c = SP.camposVuelta(x.d, r, { en: ahora(), por: correo() });
+    vueltas.push({ x, r, c });
+    return { id: x.id, d: { ...x.d, ...docVuelta(x.d, c, SP.MOTIVO_VUELTA, { gastos: r.gastos.length }) } };
+  });
+  const nuevas = vueltas.filter(v => !yaVueltos.has(v.x.id));
+  if (nuevas.length) { nuevas.forEach(v => yaVueltos.add(v.x.id)); volviendo = volviendo.then(() => guardarVueltas(nuevas)).catch(() => { nuevas.forEach(v => yaVueltos.delete(v.x.id)); }); await volviendo; }
+  return { docs, gastos, vencs, idx, vueltas, compras: SP.comprasDe(gastos, tomadosDe(docs)) };
+}
+const yaVueltos = new Set();
+let volviendo = Promise.resolve();
+// La ficha del proveedor sin lo anulado (de la memoria): { ref, campos } o null
+async function fichaSin(d0, rut, gastoIds, docId) {
+  const r = SP.rutNorm(rut); if (!r) return null;
+  const fs0 = (await todos('proveedores').catch(() => [])).find(x => x.id === r);
+  const f = fs0 && SP.fichaSinDoc(fs0.d, gastoIds, docId);
+  return f ? { ref: FB.doc(d0, 'proveedores', r), campos: limpio({ ...f, actualizado: { en: FB.serverTimestamp(), por: correo(), que: 'documento por clasificar de nuevo' } }) } : null;
+}
+// Escribe la vuelta: el documento con cambio() (historial; las listas largas de líneas van aparte, sin copiarse al historial)
+const docVuelta = (a, c, que, extra) => ({ ...cambio(a, que, c.chicos, extra), ...c.listas });
+async function guardarVueltas(lista) {
+  const d = await dbBase();
+  let n = 0;
+  for (let i = 0; i < lista.length; i += 150) {
+    const b = FB.writeBatch(d);
+    for (const { x, r, c } of lista.slice(i, i + 150)) {
+      b.update(FB.doc(d, 'sii_docs', x.id), docVuelta(x.d, c, SP.MOTIVO_VUELTA, { gastos: r.gastos.length }));
+      n++;
+      const fi = await fichaSin(d, x.d.rut, r.gastos.map(g => g.id), x.id);
+      if (fi) { b.set(fi.ref, fi.campos, { merge: true }); n++; }
+    }
+    await b.commit();
+  }
+  await despues(n);
+  return n;
 }
 const yaUnidos = new Set();
 let uniendo = Promise.resolve();
@@ -93,10 +135,14 @@ async function guardarUniones(lista) {
 // facturas: documentos leídos del archivo (sii.js). → { clave: registroDe }
 export async function registrosAlSubir(facturas) {
   const { compras, vencs } = await contexto(), out = {};
+  const { docs } = await contexto(), porId = new Map(docs.map(x => [x.id, x.d]));
   (facturas || []).forEach(f => {
     if (!f || f.esNotaCredito) return;
     const v = SP.vistaPendiente('', { rut: f.rut, folio: f.folio, razonSocial: f.razonSocial, porClasificar: SP.datosPendiente(f) });
     v.id = S.idDoc(f.rut, f.folio, false);
+    // v0.67.2 · ya estaba y volvió a por clasificar (sus gastos se anularon): queda por clasificar, nunca se clasifica solo
+    const prev = porId.get(v.id);
+    if (prev && prev.vueltaPorClasificar && SP.esPendiente(prev)) { out[`${f.rut}|${f.folio}`] = { tipo: 'devuelto', por: '', compras: [], gastos: [], motivo: 'Sus gastos fueron anulados: vuelve a por clasificar' }; return; }
     const r = SP.registroDe(v, compras);
     if (SP.seUneSola(r)) r.vencimiento = SP.vencimientoDeCompras(r.compras, vencs, v);
     if (r.tipo) out[`${f.rut}|${f.folio}`] = r;
@@ -121,6 +167,66 @@ export async function unir(docId, gastoIds) {
   await FB.updateDoc(FB.doc(d, 'sii_docs', x.id), cambio(x.d, 'unido a un gasto ya registrado (a mano)', { registrado: SP.datosRegistrado(v, r, { en: ahora(), quien: correo(), ...(venc ? { vencimiento: venc } : {}) }) }));
   await despues(1);
   return { ok: true, gastos: r.gastos };
+}
+// ── v0.67.2 · "Volver a clasificar" (Cargas del SII y Gastos → Registrados) ──
+// El documento de un gasto: su siiDoc o el RUT + folio. → id del documento o ''
+export async function docDeGasto(g) {
+  const sd = s(g && (g.siiDocId || (g.siiDoc && g.siiDoc.id)));
+  if (sd) return sd;
+  const rut = s(g && (g.rut || g.rutProveedor)).trim(), folio = s(g && g.folio).trim();
+  return rut && folio && S.rutOk(rut) && S.folioOk(folio) ? S.idDoc(rut, folio, false) : '';
+}
+// Cómo está un documento (de la memoria): { pendiente, vuelta, texto }
+export async function estadoDoc(docId) {
+  const { docs } = await contexto(), x = docs.find(y => y.id === s(docId));
+  if (!x) return null;
+  return { pendiente: SP.esPendiente(x.d), vuelta: SP.esPendiente(x.d) && !!x.d.vueltaPorClasificar, texto: SP.textoDoc({ razonSocial: s(x.d.razonSocial), folio: s(x.d.folio) }) };
+}
+// Lo que se va a anular y lo que bloquea (de la memoria: 0 lecturas)
+// → { ok, doc: { id, razonSocial, folio, total, fecha }, gastos: [{ id, item, area, monto, fecha }], bloqueos: [texto], motivoNo }
+export async function infoVolver(docId) {
+  const { docs, idx, vencs } = await contexto(), x = docs.find(y => y.id === s(docId));
+  if (!x || x.d.quitadoEnPlanilla) return { ok: false, motivoNo: 'Esta factura no está en los documentos del SII de la base nueva: súbela en Conciliación → Subir archivo. Si quieres sacar su gasto, anúlalo.', gastos: [], bloqueos: [] };
+  if (s(x.d.tipo) === '61') return { ok: false, motivoNo: 'Las notas de crédito se corrigen desde su carga.', gastos: [], bloqueos: [] };
+  if (x.d.importado && (x.d.importado.aVencimiento || x.d.importado.pendienteId)) return { ok: false, motivoNo: 'Esta factura fue al vencimiento de su obligación (según documento): se corrige en Gastos → Vencimientos.', gastos: [], bloqueos: [] };
+  const doc = { id: x.id, razonSocial: s(x.d.razonSocial), folio: s(x.d.folio), total: Number((x.d.importado || {}).total || (x.d.porClasificar || {}).total) || 0, fecha: s((x.d.porClasificar || {}).fecha || (x.d.importado || {}).fechaDocto || x.d.fecha) };
+  if (SP.esPendiente(x.d)) return { ok: false, yaPendiente: true, doc, motivoNo: 'Ya está por clasificar.', gastos: [], bloqueos: [] };
+  const r = SP.revisarVuelta(x.id, x.d, idx), vig = r.vigentes;
+  if (!vig.length) return { ok: false, doc, motivoNo: 'No se encontró ningún gasto vigente de esta factura.', gastos: [], bloqueos: [] };
+  let cargos = [];
+  if (vig.some(g => s(g.d.cartolaCargo)) || (vencs || []).some(v => s(v.d.cartolaCargo))) cargos = await todos('cartola_cargos').catch(() => []);
+  const bloqueos = SP.bloqueosVolver(r, vencs, cargos, x.d);
+  return { ok: !bloqueos.length, doc, rut: s(x.d.rut), bloqueos, gastos: vig.map(({ id, d: g }) => ({ id, item: s(g.itemGasto), area: s(g.area), monto: Math.round(Number(g.montoFinal) || 0), fecha: s(g.fecha).slice(0, 10), version: Number(g.version) || 0 })) };
+}
+// Anula todos los gastos vigentes del documento en UNA transacción y lo deja por clasificar (con su historial). Lee en la
+// transacción el documento y cada gasto (para no pisar un cambio de otro equipo): n + 1 lecturas, n + 1 escrituras (+1 la ficha).
+export async function volverAClasificar(docId, motivoP) {
+  const motivo = M.texto(motivoP, 300);
+  if (motivo.length < 3) throw error('Escribe el motivo', 'datos');
+  const info = await infoVolver(docId);
+  if (!info.ok) throw error(info.bloqueos && info.bloqueos.length ? info.bloqueos.join(' ') : info.motivoNo || 'No se puede volver a clasificar', info.bloqueos && info.bloqueos.length ? 'bloqueado' : 'datos');
+  const d = await dbBase(), por = correo() || 'Sistema Fën', en = ahora(), refD = FB.doc(d, 'sii_docs', s(docId)), refs = info.gastos.map(g => FB.doc(d, 'gastos', g.id));
+  const fi = await fichaSin(d, info.rut, info.gastos.map(g => g.id), s(docId)), gastos0 = await todos('gastos');
+  const mot = `Volver a clasificar: ${motivo}`;
+  await FB.runTransaction(d, async tx => {
+    const sd = await tx.get(refD), sns = [];
+    for (const r of refs) sns.push(await tx.get(r));
+    if (!sd.exists()) throw error('Ese documento ya no está. Recarga.', 'cambio');
+    sns.forEach((sn, i) => { if (!sn.exists() || sn.data().estado !== 'vigente' || (Number(sn.data().version) || 0) !== info.gastos[i].version || s(sn.data().cartolaCargo)) throw error('Un gasto de esta factura cambió en otro lado. Recarga.', 'cambio'); });
+    const a = sd.data();
+    // con los gastos ya anulados (en memoria) el documento vuelve: los mismos campos que la vuelta automática
+    const anulados = sns.map((sn, i) => ({ id: refs[i].id, d: { ...sn.data(), estado: 'anulado' } }));
+    const gastosMem = gastos0.filter(x => !anulados.some(y => y.id === x.id)).concat(anulados);
+    const r = SP.revisarVuelta(sd.id || s(docId), a, SP.indiceGastos(gastosMem));
+    if (!r.vuelve) throw error('Esta factura tiene otros gastos vigentes. Recarga.', 'cambio');
+    sns.forEach((sn, i) => tx.update(refs[i], cambio(sn.data(), 'anuló', { estado: 'anulado', anulado: { el: en, en, por, motivo: mot, filaOriginal: '' } }, { motivo: mot })));
+    const c = SP.camposVuelta(a, r, { en, por, motivo: `volver a clasificar: ${motivo}` });
+    tx.update(refD, docVuelta(a, c, `volver a clasificar: ${motivo}`, { gastos: refs.length }));
+    if (fi) tx.set(fi.ref, fi.campos, { merge: true });
+  });
+  yaVueltos.add(s(docId));
+  await despues(refs.length + 1 + (fi ? 1 : 0));
+  return { ok: true, gastos: info.gastos.map(g => g.id), doc: info.doc };
 }
 async function pagos() { try { return (await todos(COL_PAGOS)).filter(x => !x.d.quitado).map(x => ({ id: x.id, ...x.d })); } catch (e) { return []; } }
 // Lo que muestra la pestaña "Pagos sin banco"
@@ -168,14 +274,17 @@ export async function fichasManuales() {
 // ── Al subir: guardar los documentos que quedan por clasificar ──
 // lista: [{ f (documento leído del archivo), motivo }]; origen: { cargaId, formato, archivo }
 export async function guardarPendientes(lista, origen = {}) {
-  const docs = await todos('sii_docs'), porId = new Map(docs.map(x => [x.id, x.d])), d = await dbBase(), por = correo(), en = ahora();
+  // v0.67.2 · con la vuelta a por clasificar ya hecha (contexto): un documento devuelto se encuentra y se actualiza, nunca se repite
+  const { docs } = await contexto(), porId = new Map(docs.map(x => [x.id, x.d])), d = await dbBase(), por = correo(), en = ahora();
   const escribir = [];
   // v0.67.1 · registro (registrosAlSubir): si ya tiene su gasto registrado (fuerte o débil y único), queda unido de una vez
   (lista || []).forEach(({ f, motivo, registro }) => {
     if (!f || !S.rutOk(f.rut) || !S.folioOk(f.folio)) return;
     const es61 = s(f.tipoDoc) === '61', id = S.idDoc(f.rut, f.folio, es61), prev = porId.get(id);
-    if (prev && (prev.importado || prev.porClasificar) && !prev.quitadoEnPlanilla) return;   // ya está (importado o por clasificar)
     const pc = SP.datosPendiente(f, { ...origen, motivo }, en, por);
+    // v0.67.2 · devuelto con lo reconstruido de sus gastos: queda con lo del archivo (montos y detalle exactos)
+    if (prev && SP.esPendiente(prev) && prev.porClasificar && prev.porClasificar.reconstruido && pc.fecha) { escribir.push({ id, prev, campos: { porClasificar: pc }, que: 'volvió a subirse: queda con lo del archivo' }); return; }
+    if (prev && (prev.importado || prev.porClasificar) && !prev.quitadoEnPlanilla) return;   // ya está (importado o por clasificar)
     if (!pc.fecha) return;
     const campos = { porClasificar: pc };
     if (!es61 && SP.seUneSola(registro)) campos.registrado = SP.datosRegistrado(SP.vistaPendiente(id, { rut: f.rut, folio: f.folio, razonSocial: f.razonSocial, porClasificar: pc }), registro, { en, quien: por, ...(registro.vencimiento ? { vencimiento: registro.vencimiento } : {}) });
@@ -185,7 +294,7 @@ export async function guardarPendientes(lista, origen = {}) {
     const b = FB.writeBatch(d);
     escribir.slice(i, i + 200).forEach(x => {
       const ref = FB.doc(d, 'sii_docs', x.id), f0 = (lista.find(y => y.f && S.idDoc(y.f.rut, y.f.folio, s(y.f.tipoDoc) === '61') === x.id) || {}).f;
-      if (x.prev) b.update(ref, cambio(x.prev, 'quedó por clasificar', x.campos));
+      if (x.prev) b.update(ref, cambio(x.prev, x.que || 'quedó por clasificar', x.campos));
       else b.set(ref, nuevo({ ...S.docSiiVacio(f0.rut, f0.folio, s(f0.tipoDoc) === '61', f0.razonSocial), ...x.campos, posPlanilla: 'p' + Date.now() }, 'sii'));
     });
     await b.commit();
@@ -215,7 +324,7 @@ export async function clasificar(docId, lineas, pago, opc = {}) {
   const SF = await SIIF();
   await SF.importar([f], false, opc.marca || M.marcaNueva(), { formato: v.formato, archivo: v.archivo, cargaId: v.cargaId });
   const sn2 = await FB.getDoc(ref), im = (sn2.exists() && sn2.data().importado) || {};
-  try { import('./finanzas.js?v=0.67.1').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
+  try { import('./finanzas.js?v=0.67.2').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
   return { ok: true, gastos: im.gastos || [], vencimiento: im.vencimiento || '' };
 }
 

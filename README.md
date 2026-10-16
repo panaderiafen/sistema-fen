@@ -1,9 +1,67 @@
-# Sistema Fën · v0.67.1
+# Sistema Fën · v0.67.2
 
-**App:** v0.67.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
+**App:** v0.67.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.67.2: una factura del SII con todos sus gastos anulados vuelve a "Por clasificar", y "Volver a clasificar"
+**Dónde:** Conciliación → Cargas del SII → Documentos del SII (Por clasificar · Revisar automáticas) y la carga abierta · Conciliación → Cartola (Cargos) · Gastos → Registrados. Solo con Gastos en la base nueva.
+
+### El caso (real)
+Una factura del SII ya estaba en Gastos (importada antes de la v0.66 o registrada a mano). Su cargo del banco no ofrecía conciliarla, así que anulaste su gasto para subir el XML otra vez. No servía: la factura seguía contando como importada por sus líneas de Detalle Compras y por las marcas "importado" y "registrado", aunque sus gastos estuvieran anulados.
+
+### Qué cambia en cómo trabajas
+1. **Si todos los gastos de una factura están anulados, la factura vuelve sola a "Por clasificar".** También lo de antes (como tu factura): se revisa al listar y se guarda una vez, con su historial ("sus gastos fueron anulados: vuelve a por clasificar"). Lleva el chip **"Sus gastos se anularon"**. Si queda un gasto vigente, sigue importada.
+2. **Sus productos de antes dejan de contar** (Compras del SII, precios y lo aprendido del proveedor). No se borran: quedan en el documento como líneas anuladas. Al clasificarla de nuevo entran una sola vez, en las mismas filas de Detalle Compras de la planilla.
+3. **Volver a subir el XML** encuentra el mismo documento: no lo repite, no dice "ya importado" y no se clasifica solo aunque el proveedor sea conocido. Si era una factura de antes de la v0.66 (sin lo del archivo guardado), queda con los montos y productos del XML.
+4. **El cargo del banco vuelve a ofrecer "Factura por clasificar"**, con la clasificación por línea. También en Cargas del SII → Por clasificar y en Pagos sin banco.
+5. **"Volver a clasificar"** (en Revisar automáticas, en la carga abierta y en Gastos → Registrados, junto a Anular): pide un motivo, anula todos los gastos de la factura en una sola operación y la deja en "Por clasificar". **No se puede** si un gasto ya está conciliado con un cargo, tiene un pago (efectivo o tarjeta en Pagos sin banco, o es el pago de un vencimiento) o tiene un vencimiento que no está anulado. En ese caso te dice qué deshacer primero, por ejemplo: "Primero deshaz la conciliación del cargo del 30 sep ($23.800): Conciliación → Cartola → Ya revisados → Deshacer".
+6. **Anular** en Registrados ya no dice "el documento sigue contando como importado". Ahora dice: si anulas todos los gastos de una factura del SII, la factura vuelve a "Por clasificar". Al anular el último, arriba aparece "… volvió a Por clasificar".
+
+### Cómo se encuentran los gastos de una factura
+- `registrado.gastos` (unida en la v0.67.1), si no está quitado.
+- `importado.gastos` (clasificada en la v0.66, o importada antes en la base nueva).
+- El gasto con `siiDoc.id` = el documento.
+- RUT (con o sin puntos) + folio: el folio del gasto, el de su `siiDoc` o "F.<folio>" en la observación (la planilla antigua y lo importado por el script).
+- Las líneas de Detalle Compras no dicen cuáles son sus gastos. Una factura que solo tiene líneas se decide por los gastos que se encuentren con lo anterior. **Si no se encuentra ningún gasto, queda como estaba.** Las notas de crédito y las facturas que fueron al vencimiento de su obligación ("según documento") no cambian.
+
+### Dónde se guarda (fen-gastos; las reglas v0.1.0 ya lo cubren)
+- `sii_docs/{id}.vueltaPorClasificar = { en, por, motivo, gastos, via }`.
+- `importado: null` y `importadosAnulados: [ … lo importado + anulado { en, por, motivo } ]`.
+- `registrado.quitado = { en, por, motivo }`.
+- `lineas: []` y `lineasAnuladas: [ … cada línea con anulada { en, por, motivo, k } ]`. Al reimportar, la línea nueva k toma la fila de la planilla de la anulada k.
+- Si no tenía `porClasificar`, se arma uno con `reconstruido: true` a partir de lo importado y sus gastos; el XML lo reemplaza.
+- La ficha del proveedor (`proveedores/{rut}`) queda sin las filas de los gastos anulados ni los productos de ese documento.
+- "Volver a clasificar": los gastos quedan `estado: 'anulado'` con `anulado.motivo = "Volver a clasificar: …"`.
+- **Script de Gastos: sin cambios (v2.18.0). Reglas de fen-gastos: sin cambios (v0.1.0).** En la planilla, Detalle Compras conserva las filas de antes hasta que la factura se clasifica de nuevo; entonces se escriben en esas mismas filas. Los gastos anulados pasan a "Gastos anulados", como siempre.
+
+### Lecturas y escrituras
+- **Revisar al listar:** desde la memoria de fs-gastos.js (`sii_docs`, `gastos`, `vencimientos` y `proveedores` en los paquetes), **0 lecturas**.
+- **Guardar la vuelta:** una sola vez, 1 escritura por factura, más 1 si la ficha del proveedor tenía lo anulado.
+- **Volver a clasificar:** lee en la transacción la factura y sus n gastos (n + 1 lecturas, más el refresco de lo que cambió) y escribe n + 1 (+1 la ficha).
+- **Volver a subir el XML:** 1 escritura si la factura se había reconstruido; si no, 0.
+- `cuota-v0632` y `cuota-v0633` pasan con los mismos presupuestos.
+
+### Instalación v0.67.2 (unos 2 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.67.2.zip` (con la carpeta `cocina/`, que no cambia) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC). **Nada en Apps Script, reglas ni Cocina.**
+
+### Lista de verificación v0.67.2
+- [ ] Abajo a la izquierda dice **v0.67.2**.
+- [ ] Conciliación → Cargas del SII → Por clasificar: tu factura con el gasto anulado aparece con **"Sus gastos se anularon"**.
+- [ ] Subo otra vez su XML: dice "queda por clasificar". No dice "ya importado" y no aparece una factura repetida.
+- [ ] Su cargo en Conciliación → Cartola dice **"Factura por clasificar: … F.…"**. Al abrirlo, cada línea tiene su ítem y su área. Al confirmar, quedan sus gastos con la fecha de la factura y el cargo conciliado.
+- [ ] Gastos → Registrados → **Volver a clasificar** en un gasto de factura del SII sin conciliar: pide el motivo y la factura aparece en Por clasificar.
+- [ ] En un gasto ya conciliado: dice **"Primero deshaz la conciliación del cargo del …"** y no cambia nada.
+- [ ] Anular en Registrados dice que la factura vuelve a "Por clasificar" si anulas todos sus gastos.
+- [ ] En el celular nada se sale de lado.
+
+### Si algo sale mal
+Sube de nuevo la v0.67.1. Lo guardado (`vueltaPorClasificar`, `importadosAnulados`, `lineasAnuladas`, `registrado.quitado`) queda en fen-gastos sin estorbar: con la v0.67.1 esas facturas se ven "por clasificar" (no tienen `importado` ni líneas vigentes). Nada se borra.
+
+Por dentro: `sii-pendientes.js` (`indiceGastos`, `gastosDelDoc`, `revisarVuelta`, `camposVuelta`, `porClasificarReconstruido`, `fichaSinDoc`, `bloqueosVolver`; la vista lleva `vuelta`), `sii-pendientes-fs.js` (`contexto` revisa y guarda la vuelta una vez; `registrosAlSubir` no clasifica solo lo devuelto; `guardarPendientes` reemplaza lo reconstruido por el XML; `docDeGasto`, `estadoDoc`, `infoVolver`, `volverAClasificar`), `gastos-sii.js` (`devueltos`: lo devuelto no cuenta como importado; `docSiiImportado` sin duplicar líneas y con su fila), `gastos-g2.js` (`siiDocId` en la vista del gasto), `app.js` ("Volver a clasificar", texto de Anular, chip y aviso), `estilos.css`, `config.js`, `index.html` y los demás (solo versión). La carpeta `cocina/` no cambia.
+
+Pruebas: nueva `pruebas/sistemafen/sii-reclasificar-v0672.test.js` (13, con datos ficticios). Cubre: los vínculos y el parcial; lo que se escribe; bloqueos; retroactivo de la importación antigua, la clasificación de la v0.66 y lo unido en la v0.67.1, una sola vez; subir el XML otra vez sin repetir ni clasificar solo; clasificar por línea sin duplicar Detalle Compras; el cargo que vuelve a ofrecerla; Volver a clasificar desde Registrados y desde Revisar automáticas; bloqueado por conciliación; texto de Anular; costo; pantallas en 390, 768, 1024 y 1280. Siguen pasando `e2e`, `sii-v066`, `conciliacion-v064`, `conciliacion-v0652`, `conciliacion-notas-sii-v0671`, `previred-v0651`, `previred-comprobante-v067`, `cuota-v0632`, `cuota-v0633`, `sf-pantallas`, `finanzas-f1b/f3a/f3b`, `gastos-g3a/b/c/d/e`. Capturas en `pruebas/capturas/v0672/`.
 
 ## Novedades de la v0.67.1: notas en los cargos, facturas ya registradas que no vuelven a "por clasificar", clasificar por línea al conciliar y una sola regla de "financiero"
 **Dónde:** Conciliación → Cartola (Cargos) · Conciliación → Cargas del SII → Documentos del SII · Pagos sin banco · Previred (multas e intereses) · Finanzas → Resultados → Clasificación y Estado de resultados. Solo con Gastos en la base nueva.

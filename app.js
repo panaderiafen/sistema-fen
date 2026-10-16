@@ -9,44 +9,44 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.67.1';
-import * as Caja from './caja.js?v=0.67.1';
-import * as Stock from './stock.js?v=0.67.1';
-import * as Ajustes from './ajustes.js?v=0.67.1';
-import * as Apps from './apps.js?v=0.67.1';
-import * as Agenda from './agenda.js?v=0.67.1';
-import * as Gastos from './gastos.js?v=0.67.1';
-import * as G3 from './gastos-g3.js?v=0.67.1';
-import * as G3D from './gastos-g3d.js?v=0.67.1';
-import * as GBanco from './gastos-banco.js?v=0.67.1';
-import * as TE from './tef-enviadas.js?v=0.67.1';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.67.1';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.67.1';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.67.1';
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.1';
-import * as Sii from './sii.js?v=0.67.1';
-import * as GSii from './gastos-sii.js?v=0.67.1';
-import * as SP from './sii-pendientes.js?v=0.67.1';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.67.1');
-import * as Previred from './previred.js?v=0.67.1';
-import * as B2b from './b2b.js?v=0.67.1';
-import * as Cartola from './cartola.js?v=0.67.1';
-import * as SiiFactura from './sii-factura.js?v=0.67.1';
-import * as PdfOrden from './pdf-orden.js?v=0.67.1';
-import * as Prod from './produccion.js?v=0.67.1';
-import * as Mem from './fs-memoria.js?v=0.67.1';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.67.1';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.67.2';
+import * as Caja from './caja.js?v=0.67.2';
+import * as Stock from './stock.js?v=0.67.2';
+import * as Ajustes from './ajustes.js?v=0.67.2';
+import * as Apps from './apps.js?v=0.67.2';
+import * as Agenda from './agenda.js?v=0.67.2';
+import * as Gastos from './gastos.js?v=0.67.2';
+import * as G3 from './gastos-g3.js?v=0.67.2';
+import * as G3D from './gastos-g3d.js?v=0.67.2';
+import * as GBanco from './gastos-banco.js?v=0.67.2';
+import * as TE from './tef-enviadas.js?v=0.67.2';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.67.2';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.67.2';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.67.2';
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.2';
+import * as Sii from './sii.js?v=0.67.2';
+import * as GSii from './gastos-sii.js?v=0.67.2';
+import * as SP from './sii-pendientes.js?v=0.67.2';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.67.2');
+import * as Previred from './previred.js?v=0.67.2';
+import * as B2b from './b2b.js?v=0.67.2';
+import * as Cartola from './cartola.js?v=0.67.2';
+import * as SiiFactura from './sii-factura.js?v=0.67.2';
+import * as PdfOrden from './pdf-orden.js?v=0.67.2';
+import * as Prod from './produccion.js?v=0.67.2';
+import * as Mem from './fs-memoria.js?v=0.67.2';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.67.2';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.0';
-import * as VistaProd from './vista-produccion.js?v=0.67.1';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.1';
+import * as VistaProd from './vista-produccion.js?v=0.67.2';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.2';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.1');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.2');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.1');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.2');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.1')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.2')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -351,7 +351,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.1" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.2" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -619,14 +619,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.67.1').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.67.2').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.67.1').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.67.2').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -1015,9 +1015,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.67.1').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.67.2').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.1').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.2').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -1405,8 +1405,8 @@ function filaPendSiiHtml(v) {
   if (ab && !v.esNC) prepararSp(key, v, null);
   const err = ab && !v.esNC ? errorSp(key, v.total) : '';
   return `<details class="fila-orden-b2b sdoc-fila" data-sdoc="${k}" ${ab ? 'open' : ''}><summary class="fila-caja"><div class="txt"><b>${pesos(v.total)} · ${esc(SP.textoDoc(v))}</b><span>factura del ${esc(diaTexto(v.fecha))}${v.credito ? ` · a crédito${v.fechaVenc ? ', vence ' + esc(diaTexto(v.fechaVenc)) : ''}` : ''}</span>
-      <small><span class="chip c-amarillo chip-chico">Por clasificar</span>${v.esNC ? ' <span class="chip c-rojo chip-chico">Nota de crédito</span>' : ''}${v.registro ? ' <span class="chip c-azul chip-chico">Puede estar ya registrado</span>' : v.motivo ? ' ' + esc(v.motivo) : ''}</small></div></summary>
-    ${ab ? `<div class="mov-edit">${v.esNC ? '<p class="ayuda">Las notas de crédito se importan desde su carga (Consulta de cargas → Abrir).</p>' : `${detalleSpHtml(v)}
+      <small><span class="chip c-amarillo chip-chico">Por clasificar</span>${v.vuelta ? ' <span class="chip c-gris chip-chico">Sus gastos se anularon</span>' : ''}${v.esNC ? ' <span class="chip c-rojo chip-chico">Nota de crédito</span>' : ''}${v.registro ? ' <span class="chip c-azul chip-chico">Puede estar ya registrado</span>' : v.motivo ? ' ' + esc(v.motivo) : ''}</small></div></summary>
+    ${ab ? `<div class="mov-edit">${v.esNC ? '<p class="ayuda">Las notas de crédito se importan desde su carga (Consulta de cargas → Abrir).</p>' : `${v.vuelta ? `<p class="ayuda">Volvió a por clasificar porque sus gastos se anularon (quedan en "Gastos anulados").${v.reconstruido ? ' Los montos y productos vienen de lo que estaba importado: si vuelves a subir el XML, quedan los del archivo.' : ''} ${info('Volvió a por clasificar', TXT_VOLVER)}</p>` : ''}${detalleSpHtml(v)}
       ${bloqueUnirSp(v, 'sdoc')}
       ${htmlClasifSp(key, v.total)}
       <p class="ayuda">El gasto queda con la fecha de la factura (${esc(diaTexto(v.fecha))}: ${esc(SP.nombreMes(v.fecha))}) ${v.credito ? 'y su vencimiento' : 'esperando su pago (la cartola o Pagos sin banco)'}.</p>
@@ -1424,6 +1424,7 @@ function filaAutoSiiHtml(x) {
         : '<p class="ayuda">Tiene varias líneas: para cambiar una, corrígela en Gastos → Registrados.</p>'}
       <div class="botones" style="justify-content:flex-start">
         ${cambia ? `<button type="button" class="btn btn-chico" data-sdoc-cambiar="${k}" ${!okEd || sdoc.ocupado ? 'disabled' : ''}>Guardar el cambio</button>` : `<button type="button" class="btn btn-chico" data-sdoc-ok="${k}" ${sdoc.ocupado ? 'disabled' : ''}>Está bien</button>`}
+        <button type="button" class="btn-sec btn-chico" data-sdoc-volver="${k}" ${sdoc.ocupado ? 'disabled' : ''}>Volver a clasificar</button> ${info('Volver a clasificar', TXT_VOLVER)}
         <button type="button" class="btn-sec btn-chico" data-sdoc-anular="${k}" ${sdoc.ocupado ? 'disabled' : ''}>Anular</button></div>
       ${sdoc.anular === x.docId ? `<div class="campo"><label for="sdoc-mot-${k}">Motivo para anular</label><input id="sdoc-mot-${k}" data-sdoc-mot="${k}" maxlength="300" placeholder="Por ejemplo: ya estaba registrado a mano"></div>
         <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-peligro btn-chico" data-sdoc-anularok="${k}">Anular el gasto</button></div>` : ''}
@@ -1466,6 +1467,7 @@ function conectarDocsSii(el) {
       registrar('Corrigió una clasificación automática', `${SP.textoDoc(x)} · ${g0.item} ${g0.area} → ${ed.item} ${ed.area}`);
       sdoc.msg = `Listo: ${esc(SP.textoDoc(x))} queda en ${esc(ed.item)}${ed.area ? ' · ' + esc(ed.area) : ''} (el cambio queda en su historial).`;
     }); }));
+  el.querySelectorAll('[data-sdoc-volver]').forEach(b => b.addEventListener('click', () => volverAClasificarUI(b.dataset.sdocVolver, msg => { sdoc.msg = msg; sdoc.d = null; sdoc.abierto = ''; cargarDocsSii(); })));
   el.querySelectorAll('[data-sdoc-anular]').forEach(b => b.addEventListener('click', () => { sdoc.anular = sdoc.anular === b.dataset.sdocAnular ? '' : b.dataset.sdocAnular; repintar(); const t = el.querySelector(`[data-sdoc-mot="${CSS.escape(b.dataset.sdocAnular)}"]`); if (t) t.focus(); }));
   el.querySelectorAll('[data-sdoc-anularok]').forEach(b => b.addEventListener('click', () => { const x = aut(b.dataset.sdocAnularok); if (!x) return;
     const mot = ((el.querySelector(`[data-sdoc-mot="${CSS.escape(x.docId)}"]`) || {}).value || '').trim();
@@ -1689,6 +1691,7 @@ function tarjetaSii(f, i) {
       ${f.resultado ? `<div class="sii-res-doc" id="sii-res-${i}" role="status">${f.resultado}</div>` : ''}
       ${bloqueNotaSii(f, i)}
       <button type="button" class="btn-link" data-ver-det aria-expanded="${!!f.detalleAbierto}">${f.detalleAbierto ? 'Ocultar el detalle' : 'Ver el detalle guardado'}</button>
+      ${sdoc.base && !f.esNotaCredito && !(f.aVencimiento && f.total > 0) ? `<div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" data-sii-volver="${esc(Sii.clave(f))}">Volver a clasificar</button> ${info('Volver a clasificar', TXT_VOLVER)}</div>` : ''}
       ${f.detalleAbierto ? (det === undefined ? '<p class="ayuda">Buscando el detalle…</p>' : listaDetalleSii(det)) : ''}
     </article>`;
   }
@@ -1877,6 +1880,11 @@ function eventosTrabajoSii(cont) {
   });
   cont.addEventListener('click', async e => {
     const b = e.target.closest('button'); if (!b || b.classList.contains('btn-info')) return;
+    if (b.dataset.siiVolver) {
+      const f = sii.facturas.find(x => Sii.clave(x) === b.dataset.siiVolver); if (!f) return;
+      volverAClasificarUI(GSii.idDoc(f.rut, f.folio, false), msg => { f.yaImportada = false; f.registrada = false; f.importadaAhora = false; f.automatico = false; f.porClasificar = true; f.resultado = msg; Sii.prepararLineas(f, sii.items); pintarTrabajoSii(); sdoc.d = null; cargarDocsSii(); });
+      return;
+    }
     if (b.dataset.todas) { sii.facturas.forEach(f => { if (!f.importando) Sii.ponerEstado(f, b.dataset.todas); }); pintarDocsSii(); return; }
     if (b.hasAttribute('data-fecha-todas')) { const v = $('sii-fecha-lote').value; if (!v) { alert('Elige una fecha primero.'); return; } sii.facturas.forEach(f => { if (!f.yaImportada && !f.importando) f.fechaEstado = v; }); pintarDocsSii(); return; }
     if (b.hasAttribute('data-cerrar-carga')) { cerrarCargaSii(); return; }
@@ -2596,7 +2604,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.67.1')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.67.2')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -2698,7 +2706,7 @@ function abrirObligacion(p, d, pre) {
 }
 
 // ── Gastos registrados ──
-const reg = { busqueda: '', mes: '', forma: 'todos' };
+const reg = { busqueda: '', mes: '', forma: 'todos', msg: '' };
 const mesDe = g => (g.fecha || '').slice(0, 7);
 const estadoPagoG = g => {
   if (g.formaPago !== 'tarjeta' && g.formaPago !== 'proveedor') return { t: 'Pagado', c: 'c-verde' };
@@ -3669,11 +3677,13 @@ async function pintarRegistrados(el, sub, d) {
   L = L.slice().sort((a, b) => b.fecha.localeCompare(a.fecha) || (b.hora || '').localeCompare(a.hora || '') || a.fila - b.fila);
   const meses = [...new Set(L.map(mesDe))].sort().reverse();
   el.innerHTML = cabGastos(sub) + `
-    <section class="tarjeta" aria-labelledby="t-reg"><div class="titulo-fila"><h2 id="t-reg">Gastos registrados ${info('Gastos registrados', 'Cada fila de la planilla Registro Gasto: una por ítem y área. Corregir cambia fecha, ítem, área, monto u observación (el neto se recalcula).\nAnular no borra: la fila pasa a la pestaña "Gastos anulados" de la planilla, con fecha, quién y motivo, y deja de sumar en todos lados (análisis, Looker, prorrateo).\nSi la compra tiene varias líneas (áreas o ítems), puedes anular toda la compra de una vez.\nVer origen: el gasto completo y de dónde salió (registro a mano, pago de un vencimiento, carga del SII, Previred, planilla antigua o cartola).\n"Espera cartola": se pagó por banco y se registró a mano; cuando llegue su cargo, en Conciliación elige "Ya está en Gastos".\nSe muestran desde el 1 de enero del año pasado.')} ${infoDrive()}</h2><span id="reg-cuenta"></span></div>
+    <section class="tarjeta" aria-labelledby="t-reg"><div class="titulo-fila"><h2 id="t-reg">Gastos registrados ${info('Gastos registrados', 'Cada fila de la planilla Registro Gasto: una por ítem y área. Corregir cambia fecha, ítem, área, monto u observación (el neto se recalcula).\nAnular no borra: la fila pasa a la pestaña "Gastos anulados" de la planilla, con fecha, quién y motivo, y deja de sumar en todos lados (análisis, Looker, prorrateo).\nSi la compra tiene varias líneas (áreas o ítems), puedes anular toda la compra de una vez.\nVer origen: el gasto completo y de dónde salió (registro a mano, pago de un vencimiento, carga del SII, Previred, planilla antigua o cartola).\nVolver a clasificar (facturas del SII): anula todos los gastos de esa factura y la deja otra vez en "Por clasificar", para clasificarla línea por línea. No se puede si ya está conciliada con un cargo, tiene un pago o un vencimiento.\n"Espera cartola": se pagó por banco y se registró a mano; cuando llegue su cargo, en Conciliación elige "Ya está en Gastos".\nSe muestran desde el 1 de enero del año pasado.')} ${infoDrive()}</h2><span id="reg-cuenta"></span></div>
       <div class="filtros"><input id="reg-buscar" type="search" placeholder="Buscar ítem, área, monto, proveedor, folio u observación" value="${esc(reg.busqueda)}" aria-label="Buscar">
         <select id="reg-mes" aria-label="Mes"><option value="">Todos los meses</option>${meses.map(m => `<option value="${m}" ${reg.mes === m ? 'selected' : ''}>${MESES_LARGOS[+m.slice(5) - 1].replace(/^./, c => c.toUpperCase())} ${m.slice(0, 4)}</option>`).join('')}</select>
         <div class="chips chips-chicos" role="group" aria-label="Forma de pago">${[['todos', 'Todos'], ['credito', 'A crédito'], ['por_pagar', 'Por pagar']].map(([k, t]) => `<button type="button" class="chip-filtro" data-forma="${k}" aria-pressed="${reg.forma === k}">${t}</button>`).join('')}</div></div>
+      ${reg.msg ? `<p class="ok-texto" id="reg-msg" role="status">${reg.msg}</p>` : ''}
       <div id="reg-lista"></div></section>`;
+  reg.msg = '';
   const pintarLista = () => {
     const q = reg.busqueda.trim().toLowerCase(), qn = q.replace(/[^0-9]/g, '');
     const F = L.filter(g => (!reg.mes || mesDe(g) === reg.mes)
@@ -3689,7 +3699,7 @@ async function pintarRegistrados(el, sub, d) {
           ${g.urlFoto ? `<a class="btn-sec btn-chico btn-enlace" href="${esc(g.urlFoto)}" target="_blank" rel="noopener">Boleta</a>` : ''}
           ${g.rut && g.folio ? `<button type="button" class="btn-sec btn-chico" data-det-g="${g.fila}">Detalle</button>` : ''}
           ${d.fuente === 'base' ? `<button type="button" class="btn-sec btn-chico" data-origen-g="${g.fila}">Ver origen</button>` : ''}
-          <button type="button" class="btn-sec btn-chico" data-corregir="${g.fila}">Corregir</button><button type="button" class="btn-sec btn-chico btn-peligro" data-anular-g="${g.fila}">Anular</button></div></div>`; }).join('')}</div>`
+          <button type="button" class="btn-sec btn-chico" data-corregir="${g.fila}">Corregir</button>${d.fuente === 'base' && !g.esNC && (g.siiDocId || (g.rut && g.folio)) ? `<button type="button" class="btn-sec btn-chico" data-volver-g="${g.fila}">Volver a clasificar</button>` : ''}<button type="button" class="btn-sec btn-chico btn-peligro" data-anular-g="${g.fila}">Anular</button></div></div>`; }).join('')}</div>`
       : '<div class="vacio">No hay gastos con esos filtros.</div>';
     colapsar(cont);
   };
@@ -3699,7 +3709,8 @@ async function pintarRegistrados(el, sub, d) {
   el.querySelectorAll('[data-forma]').forEach(b => b.onclick = () => { reg.forma = b.dataset.forma; el.querySelectorAll('[data-forma]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); pintarLista(); });
   $('reg-lista').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    const g = L.find(x => x.fila === +(b.dataset.corregir || b.dataset.anularG || b.dataset.detG || b.dataset.origenG)); if (!g) return;
+    const g = L.find(x => x.fila === +(b.dataset.corregir || b.dataset.anularG || b.dataset.detG || b.dataset.origenG || b.dataset.volverG)); if (!g) return;
+    if (b.dataset.volverG) { (async () => { const id = await (await SPF()).docDeGasto(g); volverAClasificarUI(id, msg => { reg.msg = msg; pintarGastos('registrados'); }); })(); return; }
     // v0.63.1: el detalle con su origen (las líneas de la misma compra o del mismo pago van juntas)
     if (b.dataset.origenG) abrirDetalleGasto([g, ...L.filter(x => x !== g && (mismaCompra(x, g) || (g.vencimientoId && x.vencimientoId === g.vencimientoId && x.fecha === g.fecha)))].map(x => x.id));
     else if (b.dataset.corregir) corregirGasto(g, d);
@@ -3755,6 +3766,33 @@ function corregirGasto(g, d) {
   });
 }
 
+// ═══ v0.67.2 · "Volver a clasificar" una factura del SII (Cargas del SII y Gastos → Registrados) ═══
+const TXT_VOLVER = 'Anula todos los gastos de esta factura (no se borran: pasan a "Gastos anulados" con el motivo) y la deja otra vez en "Por clasificar", con sus líneas.\nDespués la clasificas línea por línea: en Conciliación → Cargas del SII → Por clasificar, o en el cargo de la cartola que la paga ("Factura por clasificar").\nSus productos de antes dejan de contar en Compras del SII, en los precios y en lo aprendido del proveedor; al clasificarla de nuevo entran una sola vez.\nNo se puede si un gasto ya está conciliado con un cargo, tiene un pago (efectivo o tarjeta) o un vencimiento: primero deshaz eso.\nSi anulas a mano todos los gastos de una factura, también vuelve sola a "Por clasificar".';
+async function volverAClasificarUI(docId, alTerminar) {
+  if (!docId) { alert('Este gasto no tiene su factura del SII (RUT y folio).'); return; }
+  let F, inf;
+  try { F = await SPF(); inf = await F.infoVolver(docId); } catch (e) { alert(e.message || mensajeError(e)); return; }
+  const titulo = inf.doc ? SP.textoDoc(inf.doc) : 'Factura';
+  if (!inf.ok) {
+    const bl = inf.bloqueos || [];
+    const d = dialogo(`<div class="form-dialogo"><h2>${bl.length ? 'Todavía no se puede volver a clasificar' : 'Volver a clasificar'}</h2><p class="ayuda"><b>${esc(titulo)}</b>${inf.doc && inf.doc.total ? ' · ' + esc(pesos(inf.doc.total)) : ''}</p>
+      ${bl.length ? `<ul class="lista-bloqueos">${bl.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="nota-i">(i) Así no queda un pago o una conciliación apuntando a un gasto anulado. Cuando lo deshagas, vuelve a tocar "Volver a clasificar".</p>` : `<p>${esc(inf.motivoNo || '')}</p>`}
+      <div class="botones"><button type="button" class="btn" data-cerrar>Entendido</button></div></div>`);
+    d.querySelector('[data-cerrar]').onclick = () => d.close();
+    return;
+  }
+  const motivo = await pedirMotivo('Volver a clasificar', `<p class="ayuda"><b>${esc(titulo)}</b> · ${esc(pesos(inf.doc.total))}${inf.doc.fecha ? ' · factura del ' + esc(diaTexto(String(inf.doc.fecha).slice(0, 10))) : ''}</p>
+    <div class="lista-detalle">${inf.gastos.map(x => `<div class="fila-reparto"><span>${esc(x.item)}<small>${esc(fechaIso(x.fecha))} · ${esc(x.area)}</small></span><b>${esc(pesos(x.monto))}</b></div>`).join('')}</div>
+    <p class="nota-i">(i) ${inf.gastos.length === 1 ? 'Este gasto se anula (no se borra: pasa' : `Estos ${inf.gastos.length} gastos se anulan (no se borran: pasan`} a "Gastos anulados" con el motivo) y la factura vuelve a "Por clasificar", con sus líneas. Clasifícala después línea por línea en Cargas del SII o en el cargo de la cartola que la paga.</p>`, 'Volver a clasificar');
+  if (!motivo) return;
+  try {
+    await F.volverAClasificar(docId, motivo);
+    registrar('Volvió a clasificar una factura del SII', `${titulo} · ${inf.gastos.length} gastos anulados · ${motivo}`);
+    Gastos.olvidarTodo(); refrescarCuentasConc(true);
+    if (alTerminar) alTerminar(`Listo: ${esc(titulo)} volvió a "Por clasificar" (${inf.gastos.length === 1 ? 'su gasto quedó anulado' : `sus ${inf.gastos.length} gastos quedaron anulados`}). Clasifícala en Conciliación → Cargas del SII o en su cargo de la cartola.`);
+  } catch (e) { alert(e.message || mensajeError(e)); }
+}
+
 // Clave del envío: se mantiene si no hubo respuesta (reintentar no anula otra fila igual)
 let idemAnular = null;
 async function anularGastoUI(g, L) {
@@ -3774,7 +3812,7 @@ async function anularGastoUI(g, L) {
   const filas = todas ? lineas : [g];
   const motivo = await pedirMotivo(filas.length > 1 ? `Anular ${filas.length} líneas` : 'Anular gasto',
     `<div class="lista-detalle">${filas.map(x => `<div class="fila-reparto"><span>${esc(x.item)}<small>${esc(fechaIso(x.fecha))} · ${esc(x.area)}</small></span><b>${esc(pesos(x.monto))}</b></div>`).join('')}</div>
-    <p class="ayuda">No se borra: pasa a la pestaña "Gastos anulados" de la planilla con la fecha, tu cuenta y el motivo, y deja de sumar.${g.folio ? ' Ojo: si era una factura del SII, el documento sigue contando como importado.' : ''}</p>`, 'Anular');
+    <p class="ayuda">No se borra: pasa a la pestaña "Gastos anulados" de la planilla con la fecha, tu cuenta y el motivo, y deja de sumar.${g.folio || g.siiDocId ? ' Si anulas todos los gastos de una factura del SII, la factura vuelve a "Por clasificar" (con sus líneas) para clasificarla de nuevo.' : ''}</p>`, 'Anular');
   if (!motivo) return;
   // Solo se repite la clave para exactamente las mismas filas (un reintento); otra anulación lleva clave nueva
   const firma = filas.map(x => x.fila + ':' + x.huella).join(',');
@@ -3783,6 +3821,8 @@ async function anularGastoUI(g, L) {
     const r = await Gastos.anular(filas, motivo, idemAnular.idem);
     idemAnular = null;
     registrar('Anuló un gasto', `${filas.map(x => `${x.item} ${x.area} ${pesos(x.monto)}`).join(' + ')} · ${fechaIso(g.fecha)} · ${motivo}`);
+    // v0.67.2 · si eran todos los gastos de una factura del SII, la factura vuelve a "Por clasificar" (se guarda una vez, al listar)
+    if (g.folio || g.siiDocId) { try { const F = await SPF(), id = await F.docDeGasto(g); if (id) { await F.pendientes(); const e = await F.estadoDoc(id); if (e && e.vuelta) reg.msg = `${esc(e.texto)} volvió a "Por clasificar": clasifícala en Conciliación → Cargas del SII o en su cargo de la cartola.`; refrescarCuentasConc(true); } } catch (e2) {} }
     for (const v of r.pagados || []) {
       if (confirm(`Este gasto era el pago de "${v.nombre}" (vencía el ${fechaIso(v.fecha)}, pagado el ${fechaIso(v.fechaPago)}).\n\n¿Dejar ese vencimiento por pagar de nuevo? Lo que decía el pago queda anotado.`)) {
         try { await Gastos.reabrirVencimiento(v.id, motivo); registrar('Dejó un vencimiento por pagar de nuevo', `${v.nombre} · ${motivo}`); } catch (e) { alert(e.message || mensajeError(e)); }
@@ -6666,7 +6706,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.67.1')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.1'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.67.2')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.2'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }

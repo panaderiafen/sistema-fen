@@ -13,8 +13,8 @@
 //  institución (cotización, intereses y multas) y si se pagó fuera de plazo. Las páginas giradas (apaisadas) se leen
 //  derechas: lineasDelPdf usa la posición en la página como se ve (con su giro), igual que antes en las no giradas.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.67.1';
-import { venceDe } from './gastos-g3d.js?v=0.67.1';
+import * as Gastos from './gastos.js?v=0.67.2';
+import { venceDe } from './gastos-g3d.js?v=0.67.2';
 
 export const VERSION_MINIMA = '2.5.0';
 // v0.51.0: con la base nueva, a fen-gastos (las escrituras antiguas de Previred en la planilla las rechaza el script v2.17.0)

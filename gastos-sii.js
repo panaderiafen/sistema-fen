@@ -11,9 +11,11 @@
 //  · Proveedores: la clasificación aprendida (sfSiiClasif) guardada por proveedor (proveedores/{rut}) con las filas que la
 //    forman (últimos 2 años) y su posición en la planilla, para dar exactamente lo mismo que el script.
 //  Sin red: se prueba sola. Los documentos usan los mismos nombres que la copia G1 (gastos-modelo.armar).
+//  v0.67.2: un documento con todos sus gastos anulados ya no cuenta como importado (devueltos).
 // ═══════════════════════════════════════════════
-import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.67.1';
-import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.67.1';
+import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.67.2';
+import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.67.2';
+import { indiceGastos, revisarVuelta } from './sii-pendientes.js?v=0.67.2';
 
 export const RE_FOLIO_OBS = /(?:^|[^A-Za-z])(NC|F)\.(\d+)/;
 const s = v => String(v == null ? '' : v);
@@ -45,8 +47,16 @@ export const enRegistro = gastos => (gastos || []).filter(x => vivo(x) && x.d.es
 export const lineasDetalle = docs => (docs || []).filter(vivo).flatMap(x => (Array.isArray(x.d.lineas) ? x.d.lineas : []));
 
 // ── Ya importados (clavesDesdeFilas + claveImportada) ──
+// v0.67.2 · Un documento cuyos gastos fueron TODOS anulados ya no cuenta como importado (ni por sus líneas de Detalle Compras, ni
+// por estar unido a su gasto): vuelve a por clasificar (sii-pendientes.js: revisarVuelta), también lo de antes, sin esperar a guardarlo
+export function devueltos(gastos, docs) {
+  const idx = indiceGastos(gastos), out = new Set();
+  (docs || []).forEach(x => { if (x && x.d && revisarVuelta(x.id, x.d, idx).vuelve) out.add(x.id); });
+  return out;
+}
 export function clavesImportadas(gastos, docs) {
-  const claves = {};
+  const claves = {}, dev = devueltos(gastos, docs);
+  docs = (docs || []).filter(x => !(x && dev.has(x.id)));
   enRegistro(gastos).forEach(({ d }) => {
     const rut = t(d.rutProveedor); if (!rut) return;
     const m = s(d.observacion).match(RE_FOLIO_OBS); if (!m) return;
@@ -328,7 +338,12 @@ export function repetidas(limpias, claves) {
 export function docSiiImportado(prev, p, extra) {
   const f = p.f, a = prev || { rut: f.rut, folio: f.folio, tipo: p.esNC ? '61' : '', clave: claveDocumento(f.rut, f.folio, p.esNC ? '61' : ''), razonSocial: f.razonSocial,
     fecha: '', totalNeto: 0, tiposDoc: [], lineas: [], notas: [] };
-  const lineas = (Array.isArray(a.lineas) ? a.lineas : []).concat(p.detalle);
+  // v0.67.2 · Si el documento volvió a por clasificar, sus líneas de antes están en lineasAnuladas: las nuevas ocupan su lugar (la
+  // misma fila de Detalle Compras en la planilla, "<documento>#<n>"), sin duplicarse
+  const anuladas = Array.isArray(a.lineasAnuladas) ? a.lineasAnuladas : [], base0 = Array.isArray(a.lineas) ? a.lineas.length : 0;
+  const filaDe = j => { for (let i = anuladas.length - 1; i >= 0; i--) { const l = anuladas[i]; if (l && l.anulada && Number(l.anulada.k) === j) return Number(l.fila) >= 2 ? Number(l.fila) : 0; } return 0; };
+  const nuevas = anuladas.length ? p.detalle.map((l, j) => { const f = filaDe(base0 + j); return f ? { ...l, fila: f } : l; }) : p.detalle;
+  const lineas = (Array.isArray(a.lineas) ? a.lineas : []).concat(nuevas);
   const tipos = (Array.isArray(a.tiposDoc) ? a.tiposDoc : []).slice();
   p.detalle.forEach(l => { if (l.tipoDoc && !tipos.includes(l.tipoDoc)) tipos.push(l.tipoDoc); });
   let fecha = a.fecha || ''; p.detalle.forEach(l => { if (l.fecha && (!fecha || l.fecha < fecha)) fecha = l.fecha; });

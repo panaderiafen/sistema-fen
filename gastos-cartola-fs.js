@@ -19,18 +19,18 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.67.1';
-import * as M from './gastos-g2.js?v=0.67.1';
-import * as G3 from './gastos-g3.js?v=0.67.1';
-import * as G3D from './gastos-g3d.js?v=0.67.1';
-import * as C from './gastos-cartola.js?v=0.67.1';
-import * as B from './gastos-banco.js?v=0.67.1';
-import { huella } from './gastos-modelo.js?v=0.67.1';
-import * as FS from './gastos-fs.js?v=0.67.1';
-import * as GB from './gastos-base.js?v=0.67.1';
-import * as TE from './tef-enviadas.js?v=0.67.1';
-import * as P from './proveedores.js?v=0.67.1';
-import * as SP from './sii-pendientes.js?v=0.67.1';   // v0.66.0: documentos del SII por clasificar
+import * as FB from './fs-gastos.js?v=0.67.2';
+import * as M from './gastos-g2.js?v=0.67.2';
+import * as G3 from './gastos-g3.js?v=0.67.2';
+import * as G3D from './gastos-g3d.js?v=0.67.2';
+import * as C from './gastos-cartola.js?v=0.67.2';
+import * as B from './gastos-banco.js?v=0.67.2';
+import { huella } from './gastos-modelo.js?v=0.67.2';
+import * as FS from './gastos-fs.js?v=0.67.2';
+import * as GB from './gastos-base.js?v=0.67.2';
+import * as TE from './tef-enviadas.js?v=0.67.2';
+import * as P from './proveedores.js?v=0.67.2';
+import * as SP from './sii-pendientes.js?v=0.67.2';   // v0.66.0: documentos del SII por clasificar
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -82,7 +82,7 @@ export async function lista(diasP) {
   const planillas = armarPlanillas(dPl, ab, cg);
   // v0.66.0 · Documentos del SII por clasificar (de la memoria): un cargo del mismo monto los ofrece "Por clasificar"
   // v0.67.1 · sin lo que ya tiene su gasto registrado (se une solo al listar); lo registrado, para proponer su pago
-  const SPF = await import('./sii-pendientes-fs.js?v=0.67.1');
+  const SPF = await import('./sii-pendientes-fs.js?v=0.67.2');
   const siiPendientes = await SPF.pendientes().catch(async () => SP.pendientesDe(await todos('sii_docs').catch(() => []))), siiRegistrados = await SPF.registrados().catch(() => []);
   return { ok: true, fuente: 'base', planillas, siiPendientes, siiRegistrados, cargos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
     vencimientos: ab.lista, gastos: B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon)))), sinFactura, siiSinImportar: {}, dias,

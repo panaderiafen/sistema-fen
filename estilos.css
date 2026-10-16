@@ -1526,3 +1526,7 @@ details[open] > summary .cc-nota-txt, .fila-hist:hover .cc-nota-txt, .fila-hist:
   .sp-linea.sp-linea-varias .campo:first-child { grid-column: 1 / -1; }
   .cc-nota-quien { display: none; }
 }
+
+/* v0.67.2 · "Volver a clasificar": lo que hay que deshacer primero */
+.lista-bloqueos { margin: 8px 0 4px; padding-left: 20px; }
+.lista-bloqueos li { margin: 6px 0; line-height: 1.45; overflow-wrap: anywhere; }

@@ -14,6 +14,8 @@
 //    todavía por pagar (a crédito con su vencimiento). Nunca se da por pagada en efectivo sola.
 //  · Efectivo disponible: lo cobrado en efectivo a clientes B2B en el mes menos lo pagado con ese efectivo.
 //  Fechas aaaa-mm-dd (hora de Chile). Montos en pesos, brutos.
+//  v0.67.2: un documento cuyos gastos fueron todos anulados vuelve a "Por clasificar" (revisarVuelta, camposVuelta) y
+//  "Volver a clasificar" (bloqueosVolver).
 // ═══════════════════════════════════════════════
 
 export const DIAS_SIN_PAGO = 10;      // días desde la factura para preguntar cómo se pagó
@@ -56,7 +58,8 @@ export function vistaPendiente(id, d) {
   const p = d.porClasificar || {};
   return { id: s(id), rut: t(d.rut), folio: t(d.folio), tipo: s(d.tipo) === '61' ? '61' : '', tipoDoc: s(p.tipoDoc) || '33', razonSocial: t(d.razonSocial), fecha: dia(p.fecha), total: num(p.total), neto: num(p.neto), iva: num(p.iva),
     exento: num(p.exento), otroImpuesto: num(p.otroImpuesto), esHarina: !!p.esHarina, fechaVenc: dia(p.fechaVenc), formaPagoSII: s(p.formaPagoSII), credito: esCredito(p), contado: esContado(p),
-    detalle: Array.isArray(p.detalle) ? p.detalle : [], cargaId: s(p.cargaId), formato: s(p.formato), archivo: s(p.archivo), motivo: s(p.motivo), esNC: s(d.tipo) === '61' || num(p.total) < 0 };
+    detalle: Array.isArray(p.detalle) ? p.detalle : [], cargaId: s(p.cargaId), formato: s(p.formato), archivo: s(p.archivo), motivo: s(p.motivo), esNC: s(d.tipo) === '61' || num(p.total) < 0,
+    vuelta: !!d.vueltaPorClasificar, reconstruido: !!p.reconstruido };   // v0.67.2: volvió a por clasificar (sus gastos se anularon)
 }
 export const pendientesDe = docs => (docs || []).filter(x => x && esPendiente(x.d)).map(x => vistaPendiente(x.id, x.d));
 
@@ -397,3 +400,136 @@ export function conteosHoy(pendientes, sinPago) {
 }
 export const fmt = m => '$' + Math.round(num(m)).toLocaleString('es-CL');
 export const textoDoc = x => `${x.razonSocial || 'Proveedor'} F.${x.folio}`;
+
+// ═══ v0.67.2 · Un documento cuyos gastos fueron TODOS anulados vuelve a "Por clasificar" ═══
+// Los gastos de un documento se buscan por todos los vínculos que existen (de la memoria, sin lecturas):
+//  · registrado.gastos (v0.67.1: unido a un gasto ya registrado), si no está quitado;
+//  · importado.gastos (v0.66 al clasificar, o la importación de antes en la base nueva);
+//  · siiDoc.id del gasto = id del documento (lo pone cada importación y "vincular");
+//  · RUT (sin puntos ni guion) + folio: el folio del gasto, el de su siiDoc o "F.<folio>" en la observación (la planilla antigua y
+//    lo importado por el script antes de la base nueva; también un gasto a mano con RUT y "F.<folio>").
+// Las líneas de Detalle Compras no dicen nada de los gastos: un documento que solo tiene líneas (copiado de la planilla) se decide
+// por los gastos que se encuentren con lo de arriba. Si no se encuentra ningún gasto, queda como estaba.
+// Vuelve a por clasificar solo si se encontró al menos uno y TODOS están anulados (con uno vigente, sigue importado). Las notas de
+// crédito y las facturas que fueron al vencimiento de una obligación "según documento" no cambian.
+export const MOTIVO_VUELTA = 'sus gastos fueron anulados: vuelve a por clasificar';
+const foliosGasto = d => [s(d.folio), s(d.siiDoc && d.siiDoc.folio)].concat(foliosObs(d.observacion)).map(t).filter(Boolean);
+const esNCGasto = d => d.esNC === true || num(d.montoFinal) < 0 || /(?:^|[^A-Za-z])NC\./.test(s(d.observacion)) || s(d.siiDoc && d.siiDoc.tipo) === '61';
+// Índice de los gastos (una pasada): por id, por documento del SII y por RUT|folio. gastos: [{ id, d }]
+export function indiceGastos(gastos) {
+  const porId = new Map(), porDoc = new Map(), porRutFolio = new Map();
+  const add = (m, k, x) => { const l = m.get(k); if (l) l.push(x); else m.set(k, [x]); };
+  (gastos || []).forEach(x => {
+    if (!x || !x.d || x.d.quitadoEnPlanilla) return;
+    porId.set(s(x.id), x);
+    const sd = x.d.siiDoc && x.d.siiDoc.id ? s(x.d.siiDoc.id) : '';
+    if (sd) add(porDoc, sd, x);
+    const r = rutNorm(x.d.rutProveedor);
+    if (r && !esNCGasto(x.d)) [...new Set(foliosGasto(x.d))].forEach(f => add(porRutFolio, r + '|' + f, x));
+  });
+  return { porId, porDoc, porRutFolio };
+}
+// ¿El documento está tomado por gastos? (importado con gastos, unido, o con líneas de Detalle Compras). Sin pendiente.
+const conLineas = d => Array.isArray(d.lineas) && d.lineas.length > 0;
+const importadoConGastos = d => !!(d.importado && !d.importado.aVencimiento && !d.importado.pendienteId);
+export const tomadoPorGastos = d => !!(d && !d.quitadoEnPlanilla && (importadoConGastos(d) || estaRegistrado(d) || conLineas(d)));
+// Los gastos de un documento: [{ id, d, por: ['registrado', 'importado', 'siiDoc', 'rut_folio'] }]
+export function gastosDelDoc(id, d, idx) {
+  const out = new Map(), I = idx || indiceGastos([]);
+  const add = (x, por) => { if (!x) return; const k = s(x.id), y = out.get(k) || { id: k, d: x.d, por: [] }; if (!y.por.includes(por)) y.por.push(por); out.set(k, y); };
+  if (!d || s(d.tipo) === '61') return [];
+  if (estaRegistrado(d)) d.registrado.gastos.forEach(g => add(I.porId.get(s(g)), 'registrado'));
+  if (d.importado && Array.isArray(d.importado.gastos)) d.importado.gastos.forEach(g => add(I.porId.get(s(g)), 'importado'));
+  (I.porDoc.get(s(id)) || []).forEach(x => add(x, 'siiDoc'));
+  const r = rutNorm(d.rut), f = t(d.folio);
+  if (r && f) (I.porRutFolio.get(r + '|' + f) || []).forEach(x => { if (!(x.d.siiDoc && x.d.siiDoc.id && s(x.d.siiDoc.id) !== s(id))) add(x, 'rut_folio'); });
+  return [...out.values()];
+}
+const anulado = g => s(g && g.d && g.d.estado) === 'anulado';
+// ¿Vuelve a por clasificar? → { vuelve, gastos, anulados, vigentes, por }
+export function revisarVuelta(id, d, idx) {
+  const no = { vuelve: false, gastos: [], anulados: [], vigentes: [], por: [] };
+  if (!d || s(d.tipo) === '61' || !tomadoPorGastos(d) || esPendiente(d)) return no;
+  if (d.importado && (d.importado.aVencimiento || d.importado.pendienteId)) return no;
+  const gs = gastosDelDoc(id, d, idx);
+  if (!gs.length) return no;
+  const an = gs.filter(anulado), vi = gs.filter(g => !anulado(g));
+  return { vuelve: !vi.length, gastos: gs, anulados: an, vigentes: vi, por: [...new Set(gs.flatMap(g => g.por))] };
+}
+// Lo que tenía el documento, reconstruido de su importación y sus gastos, cuando no tiene "porClasificar" (lo de antes de la v0.66
+// o copiado de la planilla). Al volver a subir el XML se reemplaza por lo del archivo.
+export function porClasificarReconstruido(d, gastos, en, por) {
+  const im = d.importado || {}, gs = (gastos || []).map(g => g.d || g), ls = Array.isArray(d.lineas) ? d.lineas : [];
+  const total = Math.round(num(im.total) || gs.reduce((a, g) => a + num(g.montoFinal), 0));
+  const neto = Math.round(num(im.neto) || gs.reduce((a, g) => a + num(g.montoNeto), 0) || ls.reduce((a, l) => a + num(l.montoNeto), 0));
+  const esHarina = gs.some(g => s(g.esHarina) === 'Sí' || g.esHarina === true);
+  const iva = Math.round(num(im.iva) || (neto ? neto * 0.19 : 0)), otro = Math.max(0, total - neto - iva);
+  const fecha = dia(im.fechaDocto) || gs.map(g => dia(g.fecha)).filter(Boolean).sort()[0] || dia(d.fecha) || ls.map(l => dia(l.fecha)).filter(Boolean).sort()[0] || '';
+  const credito = s(im.estado) === 'pendiente' || gs.some(g => s(g.formaPago) === 'proveedor');
+  return { tipoDoc: '33', fecha, total, neto, iva, exento: 0, otroImpuesto: otro > 2 ? otro : 0, esHarina, fechaVenc: credito ? dia(im.fechaEstado) : '', formaPagoSII: credito ? '2' : '',
+    termPago: '', descuadre: '',
+    detalle: ls.slice(0, 300).map(l => ({ descripcion: s(l.descripcion).slice(0, 300), codigo: s(l.codigo).slice(0, 60), unidad: s(l.unidad).slice(0, 20), cantidad: num(l.cantidad) || '', precioUnitario: num(l.precioUnitario) || '',
+      precioLista: num(l.precioLista) || '', descuento: num(l.descuento) || '', monto: Math.round(num(l.montoNeto)) })),
+    cargaId: '', formato: 'reconstruido', archivo: '', subido: s(en), por: s(por), motivo: 'Vuelve a por clasificar (sus gastos fueron anulados). Si subes otra vez el XML, queda con lo del archivo.', reconstruido: true };
+}
+// Lo que se escribe en el documento al volver a por clasificar. Nada se borra:
+//  · importado → importadosAnulados (con quién, cuándo y por qué) e importado: null;
+//  · registrado → queda con quitado { en, por, motivo };
+//  · las líneas de Detalle Compras pasan a lineasAnuladas (cada una con anulada { en, por, motivo, k }) y lineas queda vacía: ya no
+//    cuentan en Compras del SII, precios ni productos aprendidos; al clasificar de nuevo entran las del documento, una sola vez.
+//  · porClasificar: el que tenía, o reconstruido.
+// → { chicos (van al historial con cambio()), listas (lineas, lineasAnuladas, importadosAnulados, porClasificar: fuera del
+//    historial, son largas) }
+export function camposVuelta(d, r, { en = '', por = '', motivo = MOTIVO_VUELTA, porClasificar = null } = {}) {
+  const marca = { en: s(en), por: s(por), motivo: s(motivo).slice(0, 300) };
+  const chicos = { vueltaPorClasificar: { ...marca, gastos: r.gastos.map(g => g.id).slice(0, 60), via: r.por } }, listas = {};
+  if (d.importado) { chicos.importado = null; listas.importadosAnulados = (Array.isArray(d.importadosAnulados) ? d.importadosAnulados : []).slice(-9).concat([{ ...d.importado, anulado: marca }]); }
+  if (d.registrado) chicos.registrado = { ...d.registrado, quitado: marca };
+  const pc = porClasificar || (d.porClasificar && !d.porClasificar.reconstruido ? d.porClasificar : null) || porClasificarReconstruido(d, r.gastos, en, por);
+  if (pc !== d.porClasificar) listas.porClasificar = pc;
+  if (conLineas(d)) {
+    listas.lineas = [];
+    listas.lineasAnuladas = (Array.isArray(d.lineasAnuladas) ? d.lineasAnuladas : []).concat(d.lineas.map((l, k) => ({ ...l, anulada: { ...marca, k } })));
+    chicos.totalNeto = 0;
+  }
+  return { chicos, listas };
+}
+// El documento como queda (para trabajar en memoria antes de que se guarde)
+export const conVuelta = (d, c) => ({ ...d, ...c.chicos, ...c.listas });
+// Ficha del proveedor sin lo del documento devuelto (gastos anulados y sus productos): no enseña a clasificar con lo anulado.
+// → { filas, prods, documentos, productos } o null si no cambia
+export function fichaSinDoc(ficha, gastoIds, docId) {
+  if (!ficha) return null;
+  const G = new Set((gastoIds || []).map(s)), pre = s(docId) + '#';
+  const F = (ficha.filas || []).filter(x => !G.has(s(x.g))), P = (ficha.prods || []).filter(x => !s(x.l).startsWith(pre));
+  if (F.length === (ficha.filas || []).length && P.length === (ficha.prods || []).length) return null;
+  return { filas: F, prods: P, documentos: new Set(F.map(x => x.fo || x.f)).size, productos: new Set(P.map(x => x.d)).size };
+}
+
+// ── v0.67.2 · "Volver a clasificar": anula todos los gastos del documento y lo deja por clasificar ──
+// Se bloquea si un gasto del documento ya está conciliado con un cargo, tiene un pago (efectivo o tarjeta en Pagos sin banco, o es
+// el pago de un vencimiento) o tiene un vencimiento que no está anulado. Dice qué deshacer primero.
+// vencs: [{ id, d }]; cargos: [{ id, d }] (cartola_cargos)
+export function bloqueosVolver(r, vencs, cargos, d) {
+  const out = [], vistos = new Set(), V = new Map((vencs || []).map(x => [s(x.id), x.d])), C = new Map((cargos || []).map(x => [s(x.id), x.d]));
+  const estadoV = v => { const e = s(v && v.estado), u = e.toUpperCase(); return u === 'PAGADO' ? 'pagado' : u === 'ANULADO' ? 'anulado' : e === 'con_abonos' || (Array.isArray(v && v.abonos) && v.abonos.length) ? 'con_abonos' : 'por_pagar'; };
+  const una = (k, txt) => { if (vistos.has(k)) return; vistos.add(k); out.push(txt); };
+  const ccTxt = (id, fb) => { const c = C.get(s(id)); return `Primero deshaz la conciliación del cargo del ${fCorta((c && c.fecha) || fb) || 'banco'}${c && c.monto ? ` (${fmt(c.monto)})` : ''}: Conciliación → Cartola → Ya revisados → Deshacer.`; };
+  (r.vigentes || []).forEach(({ id, d: g }) => {
+    if (s(g.cartolaCargo)) una('cc|' + g.cartolaCargo, ccTxt(g.cartolaCargo, g.fechaPago));
+    if (g.pagoSinBanco && g.pagoSinBanco.medio) una('sb|' + id, `Tiene su pago ${g.pagoSinBanco.medio === 'tarjeta' ? 'con tarjeta' : 'en efectivo'} del ${fCorta(g.pagoSinBanco.fecha) || fCorta(g.fechaPago)} (Pagos sin banco): anula sus gastos en Gastos → Registrados; la factura vuelve sola a Por clasificar.`);
+    if (/^gp-/.test(s(id)) || s(g.origen) === 'obligacion') una('gp|' + id, `Es el pago de un vencimiento: deshazlo primero (el cargo en la cartola o el pago en Gastos → Vencimientos).`);
+  });
+  const vids = new Set((r.vigentes || []).map(x => s(x.d.vencimientoId)).filter(Boolean));
+  if (d && d.importado && s(d.importado.vencimiento)) vids.add(s(d.importado.vencimiento));
+  if (d && estaRegistrado(d) && s(d.registrado.vencimiento)) vids.add(s(d.registrado.vencimiento));
+  vids.forEach(vid => {
+    const v = V.get(vid); if (!v || v.quitadoEnPlanilla) return;
+    const e = estadoV(v), nom = s(v.nombre).replace(/^\S*📋\s*/u, '').trim() || 'de la compra';
+    if (e === 'anulado') return;
+    if (e === 'pagado') una('v|' + vid, s(v.cartolaCargo) ? ccTxt(v.cartolaCargo, v.fechaPago) : `Primero deshaz el pago del vencimiento ${nom} (pagado el ${fCorta(v.fechaPago) || '—'}) en Gastos → Vencimientos.`);
+    else if (e === 'con_abonos') una('v|' + vid, `Primero deshaz los abonos del vencimiento ${nom} en Gastos → Vencimientos.`);
+    else una('v|' + vid, `Primero anula su vencimiento ${nom} (vence el ${fCorta(v.fechaVencimiento) || '—'}) en Gastos → Vencimientos.`);
+  });
+  return out;
+}

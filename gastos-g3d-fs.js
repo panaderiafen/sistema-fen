@@ -19,12 +19,12 @@
 //    (cot_quitar_comprobante) anula el gasto de multas e intereses y deja el comprobante en comprobantesQuitados.
 //    El aviso de vencimiento (Hoy y Agenda) sale de la memoria: cotizaciones (paquete) y previred_planillas (pocos documentos).
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.67.1';
-import * as M from './gastos-g2.js?v=0.67.1';
-import * as G3 from './gastos-g3.js?v=0.67.1';
-import * as D from './gastos-g3d.js?v=0.67.1';
-import * as C from './gastos-cartola.js?v=0.67.1';
-import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.67.1';
+import * as FB from './fs-gastos.js?v=0.67.2';
+import * as M from './gastos-g2.js?v=0.67.2';
+import * as G3 from './gastos-g3.js?v=0.67.2';
+import * as D from './gastos-g3d.js?v=0.67.2';
+import * as C from './gastos-cartola.js?v=0.67.2';
+import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.67.2';
 
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const s = v => String(v == null ? '' : v);

@@ -16,8 +16,8 @@
 //  generarVencimientos acepta la antelación por obligación (tipo documento: antes, para esperar la boleta).
 //  Sin red: se prueba sola. Fechas y horas en hora de Chile (America/Santiago).
 // ═══════════════════════════════════════════════
-import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.67.1';
-import * as G3 from './gastos-g3.js?v=0.67.1';
+import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.67.2';
+import * as G3 from './gastos-g3.js?v=0.67.2';
 
 // v0.63.1: B2B (costos del canal B2B: atención de clientes, órdenes y despacho)
 export const AREAS = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS', 'B2B'];
@@ -321,7 +321,8 @@ export function vistaGasto(id, d, k, creditos) {
     subTipo: s(d.subTipo), area: s(d.area), tipoMonto: s(d.tipoMonto), neto: n(d.montoNeto), monto, esHarina: s(d.esHarina) === 'Sí', formaPago: s(d.formaPago), fechaPago: dia(d.fechaPago),
     obs, urlFoto: s(d.urlFoto), rut: s(d.rutProveedor).trim(), razonSocial: s(d.razonSocial), folio: m ? m[2] : '', esNC: m ? (m[1] === 'NC' || monto < 0) : false, vencimientoId: s(d.vencimientoId),
     // v0.63.1: pagado por banco a mano y todavía sin su cargo de la cartola; efectivo o banco; si ya tiene su cargo
-    esperaCargo: d.esperaCargo === true, medioPago: s(d.medioPago), conCartola: !!(s(d.cartolaCargo) || /\[cc[0-9a-f]{10}\]/.test(s(d.cartola))) };
+    esperaCargo: d.esperaCargo === true, medioPago: s(d.medioPago), conCartola: !!(s(d.cartolaCargo) || /\[cc[0-9a-f]{10}\]/.test(s(d.cartola))),
+    siiDocId: s(d.siiDoc && d.siiDoc.id) };   // v0.67.2: su documento del SII (para "Volver a clasificar")
   if ((g.formaPago === 'tarjeta' || g.formaPago === 'proveedor') && creditos) {
     const v = (g.vencimientoId && creditos.porId[g.vencimientoId]) || creditos.porClave[g.item.trim().toUpperCase() + '|' + g.fecha] || creditos.porClave['|' + g.fecha];
     if (v) { g.vencimiento = v.fecha; g.estadoVencimiento = v.estado; }
