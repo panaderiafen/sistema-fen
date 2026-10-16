@@ -13,18 +13,18 @@
 //  · Revisar automáticas: los gastos clasificados solos al subir, hasta que se revisan (autoRevisada), se corrigen o se anulan.
 //  Lecturas: sii_docs y gastos salen de la memoria de fs-gastos.js (paquetes): ninguna lectura por documento.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.66.0';
-import * as M from './gastos-g2.js?v=0.66.0';
-import * as S from './gastos-sii.js?v=0.66.0';
-import * as SP from './sii-pendientes.js?v=0.66.0';
-import * as G3 from './gastos-g3.js?v=0.66.0';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo } from './gastos-fs.js?v=0.66.0';
+import * as FB from './fs-gastos.js?v=0.67.0';
+import * as M from './gastos-g2.js?v=0.67.0';
+import * as S from './gastos-sii.js?v=0.67.0';
+import * as SP from './sii-pendientes.js?v=0.67.0';
+import * as G3 from './gastos-g3.js?v=0.67.0';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo } from './gastos-fs.js?v=0.67.0';
 
 const s = v => String(v == null ? '' : v);
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const ahora = () => M.ahoraChile().texto;
 const hoy = () => M.ahoraChile().dia;
-const SIIF = () => import('./gastos-sii-fs.js?v=0.66.0');
+const SIIF = () => import('./gastos-sii-fs.js?v=0.67.0');
 export const COL_PAGOS = 'sii_pagos';
 
 // ── Configuración (días) ──
@@ -133,7 +133,7 @@ export async function clasificar(docId, lineas, pago, opc = {}) {
   const SF = await SIIF();
   await SF.importar([f], false, opc.marca || M.marcaNueva(), { formato: v.formato, archivo: v.archivo, cargaId: v.cargaId });
   const sn2 = await FB.getDoc(ref), im = (sn2.exists() && sn2.data().importado) || {};
-  try { import('./finanzas.js?v=0.66.0').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
+  try { import('./finanzas.js?v=0.67.0').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
   return { ok: true, gastos: im.gastos || [], vencimiento: im.vencimiento || '' };
 }
 

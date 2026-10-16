@@ -16,8 +16,8 @@
 //  generarVencimientos acepta la antelación por obligación (tipo documento: antes, para esperar la boleta).
 //  Sin red: se prueba sola. Fechas y horas en hora de Chile (America/Santiago).
 // ═══════════════════════════════════════════════
-import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.66.0';
-import * as G3 from './gastos-g3.js?v=0.66.0';
+import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.67.0';
+import * as G3 from './gastos-g3.js?v=0.67.0';
 
 // v0.63.1: B2B (costos del canal B2B: atención de clientes, órdenes y despacho)
 export const AREAS = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS', 'B2B'];

@@ -11,7 +11,7 @@
 //  Todo en neto. Nada de esto cambia los gastos: es una capa de Finanzas (fen-gastos: fin_items, fin_config,
 //  fin_creditos, fin_inversiones).
 // ═══════════════════════════════════════════════
-import { idLimpio } from './gastos-modelo.js?v=0.66.0';
+import { idLimpio } from './gastos-modelo.js?v=0.67.0';
 
 export const ANIO = 2026;
 export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
@@ -26,7 +26,7 @@ export const TIPOS = [
   { k: 'remuneraciones', t: 'Remuneraciones', corto: 'Remuneraciones', grupo: 'costo', ayuda: 'Sueldos, cotizaciones (Previred), finiquitos y bonos. Van al área del gasto: fijo propio si es Panadería, Bollería, Pastelería o Cafetería; común si es Administración o Ventas. El sueldo empresarial va como común.' },
   { k: 'fijo', t: 'Gasto fijo', corto: 'Fijo', grupo: 'costo', ayuda: 'Arriendo, luz, agua, gas, internet, teléfono, contabilidad, seguros, mantención. Fijo propio si el área del gasto es una de producción (según el mapa de áreas); común si es Administración, Ventas u otra.' },
   { k: 'en_margen', t: 'Ya incluido en el margen', corto: 'En el margen', grupo: 'margen', ayuda: 'Comisiones de tarjeta y despacho B2B: ya se restan en el margen de contribución (Márgenes → Ajustes). No se cuentan dos veces.' },
-  { k: 'financiero', t: 'Gasto financiero', corto: 'Financiero', grupo: 'costo', ayuda: 'Intereses, comisiones y mantención de la cuenta del banco. Entran al resultado como gasto común (debajo de los tres pisos).' },
+  { k: 'financiero', t: 'Gasto financiero', corto: 'Financiero', grupo: 'costo', ayuda: 'Intereses, multas (como las de Previred por pagar atrasado), comisiones y mantención de la cuenta del banco. Entran al resultado como gasto común (debajo de los tres pisos).' },
   { k: 'fuera_capital_credito', t: 'Cuota de crédito', corto: 'Cuota de crédito', grupo: 'fuera', ayuda: 'El capital de la cuota no es gasto: es devolver el préstamo (va al flujo de caja). El interés sí es gasto financiero: se separa con la tabla del crédito (pestaña Créditos).' },
   { k: 'fuera_impuestos', t: 'Impuestos (F29, IVA, PPM)', corto: 'Impuestos', grupo: 'fuera', ayuda: 'El pago del F29 (IVA y PPM) no es gasto del mes: todo se mide en neto y el IVA va al flujo de caja. El PPM es un anticipo del impuesto a la renta.' },
   { k: 'inversion', t: 'Inversión', corto: 'Inversión', grupo: 'fuera', ayuda: 'Equipos, maquinaria, muebles, computadores o remodelaciones que duran años. No entran enteros al mes en que se compran: entran como depreciación mensual según su vida útil (pestaña Inversiones).' },
@@ -49,7 +49,7 @@ const REGLAS = [
   ['retiro', /\bRETIROS?\b/],
   ['fuera_impuestos', /\b(IVA|F ?29|PPM|IMPUESTOS?|TESORERIA)\b/],
   ['en_margen', /\bCOMISION(ES)? (TRANSBANK|TARJETAS?|GETNET|SUMUP|MERCADO ?PAGO|POS)\b|\bTRANSBANK\b|\bGETNET\b|\bSUMUP\b|\bDESPACHO B2B\b/],
-  ['financiero', /\bINTERES(ES)?\b|\bCOMISION(ES)? (BANCARIAS?|BANCO|CUENTA)\b|\bGASTOS? BANCARIOS?\b|\bMANTENCION\b/],
+  ['financiero', /\bINTERES(ES)?\b|\bMULTAS?\b|\bCOMISION(ES)? (BANCARIAS?|BANCO|CUENTA)\b|\bGASTOS? BANCARIOS?\b|\bMANTENCION\b/],
   ['fuera_capital_credito', /\b(PRESTAMOS?|CREDITOS?|CUOTAS?|LEASING|FONDO ESPERANZA)\b/],
   ['inversion', /\b(INVERSION(ES)?|EQUIPOS?|EQUIPAMIENTO|MAQUINARIAS?|MAQUINAS?|HORNOS?|AMASADORA|LAMINADORA|REFRIGERADOR|VITRINAS?|MOBILIARIO|MUEBLES?|COMPUTADOR(ES)?|NOTEBOOK|REMODELACION|HABILITACION)\b/],
   ['remuneraciones', /\b(REMUNERACION(ES)?|SUELDOS?|SALARIOS?|COTIZACION(ES)?|PREVIRED|FINIQUITOS?|GRATIFICACION(ES)?|BONOS?|AGUINALDOS?|HONORARIOS?|MUTUAL)\b/],

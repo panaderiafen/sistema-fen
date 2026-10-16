@@ -19,18 +19,18 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.66.0';
-import * as M from './gastos-g2.js?v=0.66.0';
-import * as G3 from './gastos-g3.js?v=0.66.0';
-import * as G3D from './gastos-g3d.js?v=0.66.0';
-import * as C from './gastos-cartola.js?v=0.66.0';
-import * as B from './gastos-banco.js?v=0.66.0';
-import { huella } from './gastos-modelo.js?v=0.66.0';
-import * as FS from './gastos-fs.js?v=0.66.0';
-import * as GB from './gastos-base.js?v=0.66.0';
-import * as TE from './tef-enviadas.js?v=0.66.0';
-import * as P from './proveedores.js?v=0.66.0';
-import * as SP from './sii-pendientes.js?v=0.66.0';   // v0.66.0: documentos del SII por clasificar
+import * as FB from './fs-gastos.js?v=0.67.0';
+import * as M from './gastos-g2.js?v=0.67.0';
+import * as G3 from './gastos-g3.js?v=0.67.0';
+import * as G3D from './gastos-g3d.js?v=0.67.0';
+import * as C from './gastos-cartola.js?v=0.67.0';
+import * as B from './gastos-banco.js?v=0.67.0';
+import { huella } from './gastos-modelo.js?v=0.67.0';
+import * as FS from './gastos-fs.js?v=0.67.0';
+import * as GB from './gastos-base.js?v=0.67.0';
+import * as TE from './tef-enviadas.js?v=0.67.0';
+import * as P from './proveedores.js?v=0.67.0';
+import * as SP from './sii-pendientes.js?v=0.67.0';   // v0.66.0: documentos del SII por clasificar
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -441,7 +441,7 @@ async function resolverPrevired(c0, p, marca, tr) {
     if (!G3.esPrevired(a)) throw error('Ese vencimiento no tiene el certificado de Previred: súbelo primero (Conciliación → Previred).', 'datos');
     const Rs = [], leidas = {};
     for (const c of cs) { if (!leidas[c.clave]) leidas[c.clave] = await leerRegla(tx, d, c.clave); Rs.push(leidas[c.clave]); }
-    const total = (a.documento.previred.trabajadores || []).reduce((x, t) => x + (Number(t.total) || 0), 0), suma = cs.reduce((x, c) => x + c.monto, 0);
+    const total = G3D.totalPlan(a.documento.previred), suma = cs.reduce((x, c) => x + c.monto, 0);   // v0.67.0: con las multas e intereses del comprobante
     const q = C.cuadraPrevired(suma, total);
     if (!q.igual && motivo.length < 3) throw error(`Los cargos suman ${suma} y el certificado ${total} (diferencia ${q.dif}): escribe el motivo para confirmar igual.`, 'diferencia');
     const fecha = cs.map(c => c.fecha).sort().pop();

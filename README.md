@@ -1,9 +1,59 @@
-# Sistema Fën · v0.66.0
+# Sistema Fën · v0.67.0
 
-**App:** v0.66.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 15 de octubre de 2026
+**App:** v0.67.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.67.0: el comprobante de pago de Previred (con multas e intereses) y el aviso de vencimiento
+**Dónde:** Conciliación → Subir archivo (PDF de Previred) · Conciliación → Previred · Conciliación → Cartola ("Pago de Previred") · Hoy · Agenda · Finanzas → Estado de resultados. Solo con Gastos en la base nueva.
+
+### Por qué
+El "Certificado de Pagos de Cotizaciones Previsionales" es la mirada del trabajador: no trae las multas ni los intereses por pagar atrasado. El "Comprobante de pago" que descargas al pagar en Previred es la mirada de la empresa: todo lo que pagaste, institución por institución (ISL, FONASA, cada AFP con su fondo de pensiones y su seguro de cesantía, Seguro Social), con reajustes, intereses, recargos, costas y multas, y dice si se pagó fuera de plazo. Con el certificado, la planilla del mes nunca calzaba con los cargos del banco cuando había multas.
+
+### Qué cambia en cómo trabajas
+1. **Sube el comprobante** (recomendado) en Conciliación → Subir archivo o en Previred. Se reconoce solo (certificado o comprobante). Las páginas apaisadas se leen bien.
+2. **Vista previa:** una tabla por institución (cotización · intereses · multas · total) con su fila de totales, la marca **"Pagado fuera de plazo"**, los trabajadores con su área y el **ítem de las multas e intereses** (viene elegido un ítem de tipo financiero que diga multa o interés; si no hay ninguno financiero, te avisa y eliges cualquiera; no se crea ningún ítem solo). Si el PDF no cuadra (el detalle por trabajador no suma la cotización, cotización + intereses + multas no da el total, más de un período, una fila que no se lee), **no se puede guardar** y dice por qué.
+3. **Mes sin cotizaciones:** se registra como el certificado (un gasto por trabajador con su área e ítem recordados, al vencimiento de Cotizaciones si existe) **y un gasto "Multas e intereses Previred <mes>"**: sin IVA, al contado, con la **fecha de pago** (la multa nace al pagar), área ADMIN y el comprobante como archivo. Si va al vencimiento de Cotizaciones, el monto a pagar incluye las multas e intereses y los dos gastos se crean al pagarlo.
+4. **Mes que ya tiene el certificado:** dice **"Este mes ya tiene el certificado cargado: solo se agregan multas e intereses ($Y)"**. No se repite ningún trabajador; muestra la diferencia por trabajador entre el comprobante y lo cargado (si la hay) y agrega solo el gasto de multas e intereses.
+5. **Subir el mismo comprobante otra vez** no repite nada (clave: período + folios).
+6. **La planilla del mes** pasa a tener como total **lo pagado**: Previred → Meses cargados dice **"Cotizaciones $X + multas e intereses $Y = pagado $Z"** (y "Pagado fuera de plazo"). En la cartola, "Pago de Previred" une los cargos del banco hasta ese total → **"pagada y conciliada"** (sin crear gastos, como en la v0.65.1).
+7. **Quitar comprobante** (Meses cargados, con motivo): queda anotado en la planilla y el gasto de multas e intereses pasa a "Gastos anulados". No se borra nada; los trabajadores y los cargos unidos no cambian. También puedes anular solo el gasto en Gastos registrados.
+8. **Aviso de vencimiento:** Previred del mes M vence el **13 del mes siguiente** (si cae sábado, domingo o feriado, el hábil que sigue). Desde el día 10 y hasta que el mes queda registrado, Hoy y la Agenda dicen **"Previred de <mes> vence el <día>"**; el día del vencimiento en rojo, y después **"atrasado, se cobran multas"**.
+9. **Finanzas:** la fila del estado de resultados se llama **"Financieros (intereses, multas y banco)"**. El gasto de multas e intereses entra ahí por el tipo de su ítem (Finanzas → Resultados → Clasificación: financiero). Los cargos del banco unidos a la planilla no son gasto (no hay doble conteo).
+10. **El líquido no sale de Previred:** el sueldo líquido se paga aparte (abonos de sueldo).
+
+### Dónde se guarda (fen-gastos; las reglas v0.1.0 ya lo cubren)
+- `previred_planillas/{AAAA-MM}.comprobante = { clave, instituciones [{ nombre, tipo, folio, cotizacion, intereses, multas, compensacion, total }], totalCotizaciones, totalRecargos, totalPagado, fueraDePlazo, fechaPago, horaPago, vence, folios, archivo, nombreArchivo, cargadoEl, cargadoPor, gastoRecargosId, recargosEnVencimiento? }`; el `total` de la planilla pasa a ser `totalPagado`. Al quitarlo: `comprobante: null` y `comprobantesQuitados: [… + quitado { por, en, motivo }]`. No pasa a la planilla de Google.
+- Gasto de multas e intereses: un gasto normal con `previred: { periodo, recargos: true, clave }` y `origenDetalle.tipo = 'previred'` (pasa a la planilla de Google como todo gasto).
+- Líneas de `cotizaciones` registradas con el comprobante: `deComprobante: <clave>` (así un certificado de ese mes no duplica a los trabajadores).
+- Vencimiento de Cotizaciones con el comprobante: `documento.previred.recargos` y `montoDocumento` con las multas e intereses.
+- **Script de Gastos: sin cambios (v2.18.0). Reglas de fen-gastos: sin cambios (v0.1.0):** la regla general (`/{coleccion}/{id}` para administración) ya permite los campos nuevos.
+
+### Lecturas y escrituras
+Todo desde la memoria de fs-gastos.js: `cotizaciones`, `cotiz_trabajadores`, `items`, `fin_items`, `obligaciones` y `vencimientos` van en los paquetes; `previred_planillas` es un documento por mes (≈12 al año: se lee una vez por sesión y después solo lo que cambia). El aviso de Hoy y Agenda no agrega lecturas por mes. Guardar un mes nuevo: lo de siempre + 2 escrituras (planilla y gasto de multas). Mes ya cargado: 2 escrituras (planilla + gasto, o planilla + vencimiento) y 2 o 3 lecturas en la transacción. Quitar: 2 o 3 escrituras. Unir cargos: igual que en la v0.65.1.
+
+### Instalación v0.67.0 (unos 2 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.67.0.zip` (con la carpeta `cocina/`, que no cambia) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC). **Nada en Apps Script, reglas ni Cocina.**
+
+### Lista de verificación v0.67.0
+- [ ] Abajo a la izquierda dice **v0.67.0**.
+- [ ] Conciliación → Subir archivo → el comprobante de pago de un mes (CtrlPdf): abre Previred con la tabla por institución, sus totales (cotizaciones + multas e intereses = pagado, iguales a los del PDF) y, si corresponde, **"Pagado fuera de plazo"**.
+- [ ] Con un mes que ya tenía el certificado: dice **"Este mes ya tiene el certificado cargado: solo se agregan multas e intereses ($…)"** y muestra la diferencia por trabajador con lo cargado (si la hay).
+- [ ] El ítem de multas e intereses viene elegido (uno financiero) o avisa que no hay; elijo el ítem y el área (ADMIN) → **Agregar multas e intereses**. En Gastos aparece un solo gasto nuevo "Multas e intereses Previred <mes>" con la fecha de pago del comprobante.
+- [ ] Subo el mismo PDF otra vez: "Este comprobante ya estaba guardado", sin nada nuevo.
+- [ ] Previred → Meses cargados → ese mes: "Cotizaciones $X + multas e intereses $Y = pagado $Z" y "Pagos del banco unidos: … de $Z".
+- [ ] Conciliación → Cartola: los cargos de Previred de ese pago se unen a la planilla del mes hasta **"pagada y conciliada"**, sin gastos nuevos.
+- [ ] Finanzas → Estado de resultados del mes de pago: el gasto está en **"Financieros (intereses, multas y banco)"** (si su ítem es financiero en Clasificación).
+- [ ] Hoy (desde el día 10): "Previred de septiembre vence el …" o "atrasado: se cobran multas" hasta que lo registre; también en la Agenda.
+- [ ] En el celular nada se sale de lado.
+
+### Si algo sale mal
+Sube de nuevo la v0.66.0. Lo guardado (`comprobante` en la planilla del mes, el gasto de multas e intereses, `deComprobante`) queda en fen-gastos sin estorbar: con la v0.66.0 el total de la planilla vuelve a ser el del certificado y el gasto de multas sigue siendo un gasto normal (se anula en Gastos registrados si hace falta).
+
+Por dentro: `previred.js` (lector del comprobante `leerComprobante`, `leerPdf`, `claveComprobante`; `lineasDelPdf` lee las páginas giradas), `gastos-g3d.js` (total del plan con multas, gasto de multas e intereses, revisión del comprobante, planilla con comprobante, ítems para las multas, comparación por RUT, vencimiento y avisos de Previred), `gastos-g3d-fs.js` (cot_estado con lo del mes, cot_registrar con el comprobante, `cotComprobante`, `cotQuitarComprobante`, `avisosPreviredHoy`), `gastos.js`, `gastos-cartola.js` y `gastos-cartola-fs.js` (total de la planilla = lo pagado; pago con el vencimiento incluye las multas), `app.js` (Previred, Subir archivo, Pago de Previred, Hoy, Agenda), `finanzas-eerr.js` y `finanzas-resultados.js` (nombre de la fila; "multa" propone financiero), `vista-finanzas-resultados.js`, `estilos.css`, `config.js`, `index.html` y los demás (solo versión). La carpeta `cocina/` no cambia.
+
+Pruebas: nueva `pruebas/sistemafen/previred-comprobante-v067.test.js` (14, con datos ficticios: lector y totales, cruces que bloquean, páginas giradas, el certificado igual que antes; mes nuevo con trabajadores + multas; mes con el certificado solo multas y sin duplicar; subir dos veces; envío repetido; Meses cargados; unión hasta "pagada y conciliada"; quitar comprobante; certificado después del comprobante; Financieros; vencimiento con fin de semana y feriado; Hoy y Agenda; 390/768/1024/1280). Siguen pasando `e2e`, `sii-v066`, `conciliacion-v064`, `conciliacion-v0652`, `previred-v0651`, `cuota-v0632`, `cuota-v0633`, `sf-pantallas`, `gastos-g3a/b/c/e`, `gastos-v063`, `finanzas-f1b/f3a/f3b`, `hoy-v055`, `feriados-v0634`. Capturas en `pruebas/capturas/previred-v067/`.
 
 ## Novedades de la v0.66.0: el SII se sube, se clasifica al conciliar y el gasto es del mes de la factura; Pagos sin banco
 **Dónde:** Conciliación → Subir archivo (SII) · Cargas del SII → **Documentos del SII** (Por clasificar · Revisar automáticas) · Cartola → Cargos · **Pagos sin banco** (pestaña nueva) · Hoy · Finanzas → Cierre de mes y Cómo trabajamos. Solo con Gastos en la base nueva.

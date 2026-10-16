@@ -1481,3 +1481,22 @@ input.sinb-dias { width: 4.5em; display: inline-block; text-align: center; }
 .sdoc-mes select { width: 100%; }
 #sii-docs-sec .pastillas { flex-wrap: wrap; }
 @media (max-width: 600px) { .sp-linea { grid-template-columns: minmax(0, 1fr); } }
+/* v0.67.0 · Comprobante de pago de Previred: tabla por institución, caso, ítem de multas e intereses, y el aviso de vencimiento */
+.prev-inst .num { text-align: right; white-space: nowrap; }
+.prev-inst td small { display: inline; overflow-wrap: anywhere; }
+.prev-inst .prev-inst-tot td { border-top: 2px solid var(--linea); }
+.prev-caso { margin: 12px 0; }
+.prev-rec { margin-top: 12px; padding-top: 4px; border-top: 1px solid var(--linea); }
+.prev-rec select { width: 100%; max-width: 100%; }
+.prev-comp { margin: 4px 0 8px; padding: 10px 12px; border-radius: 10px; background: var(--fondo); }
+.prev-comp-suma { margin: 0 0 4px; overflow-wrap: anywhere; }
+#prev-filas .fila-caja .txt span { overflow-wrap: anywhere; }
+#prev-cmp ul { margin: 6px 0 0; }
+.pendiente.pend-urgente b { color: var(--rojo-t); }
+@media (max-width: 560px) {
+  .prev-inst.tabla-cel-tarjetas td.num { text-align: left; }
+  .prev-inst.tabla-cel-tarjetas td:last-child { flex: 0 1 auto; }
+  #prev-filas .fila-caja { flex-wrap: wrap; }
+  #prev-filas .fila-caja .acciones { flex-wrap: wrap; width: 100%; }
+  #prev-filas .fila-caja .acciones select { flex: 1 1 140px; min-width: 0; }
+}

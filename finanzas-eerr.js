@@ -21,7 +21,7 @@
 //  no se toca: lo que cambie después aparece como "Ajustes de meses cerrados" en el primer mes abierto siguiente
 //  (= cálculo de hoy del mes cerrado − su snapshot − lo ya informado como ajuste en otros meses cerrados).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.66.0';
+import * as FR from './finanzas-resultados.js?v=0.67.0';
 
 export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
 export const COLS = ['PAN', 'BOL', 'PAS', 'CAF', 'comun'];
@@ -47,7 +47,7 @@ export const FILAS = [
   { k: 'fijosComun', t: 'Fijos comunes', piso: 3, signo: '−', cols: 'comun' },
   { k: 'depComun', t: 'Depreciación común', piso: 3, signo: '−', cols: 'comun' },
   { k: 'resOp', t: 'Resultado operacional', piso: 3, signo: '=', cols: 'total', resultado: true, pct: true },
-  { k: 'financieros', t: 'Financieros (intereses y banco)', piso: 3, signo: '−', cols: 'comun' },
+  { k: 'financieros', t: 'Financieros (intereses, multas y banco)', piso: 3, signo: '−', cols: 'comun' },
   { k: 'resultado', t: 'Resultado del mes', piso: 3, signo: '=', cols: 'total', resultado: true, pct: true }
 ];
 export const FILA = Object.fromEntries(FILAS.map(f => [f.k, f]));

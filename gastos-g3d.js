@@ -8,12 +8,17 @@
 //  · Clasificar obligaciones (el fin de semana del cambio): una propuesta de tipo e identificador para cada obligación.
 //  · Arreglo "siniva" (opcional, una vez): gastos de 2026 nacidos de pagar una obligación "Sin IVA" que quedaron como
 //    bruto (neto = final / 1,19) → neto = final.
+//  · v0.67.0: el "Comprobante de pago" de Previred (lo que pagó la empresa, con intereses y multas): un gasto "Multas e
+//    intereses Previred <mes>" (sin IVA, contado, con la fecha de pago y un ítem financiero), el comprobante guardado en
+//    previred_planillas/{AAAA-MM}.comprobante (el total de la planilla pasa a ser lo pagado) y el aviso de vencimiento
+//    (día 13 del mes siguiente o el hábil que sigue).
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as B from './gastos-banco.js?v=0.66.0';
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.66.0';
-import * as M from './gastos-g2.js?v=0.66.0';
-import * as G3 from './gastos-g3.js?v=0.66.0';
+import * as B from './gastos-banco.js?v=0.67.0';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.67.0';
+import * as M from './gastos-g2.js?v=0.67.0';
+import * as G3 from './gastos-g3.js?v=0.67.0';
+import { FERIADOS } from './feriados-cl.js?v=0.67.0';
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -45,6 +50,7 @@ const rutClave = r => s(r).trim().toUpperCase().replace(/[^0-9K-]/g, '');
 export const idTrabajador = rut => idLimpio(rutClave(rut));
 const rutOk = r => /^\d{1,2}\.?\d{3}\.?\d{3}-[\dK]$/.test(s(r).trim().toUpperCase());
 const periodoDe = v => { const t = s(v).trim(); if (/^\d{4}-\d{2}$/.test(t)) return t; const d = dia(t); return d ? d.slice(0, 7) : ''; };
+export const periodoCot = periodoDe;   // v0.67.0
 
 // cot_estado: áreas e ítems recordados (por RUT) y qué claves pedidas ya estaban cargadas
 export function estadoCot(cotizaciones, trabajadores, claves) {
@@ -100,10 +106,13 @@ export const docTrabajador = (t, hoy) => ({ id: idTrabajador(t.rut), d: { rut: t
 // El plan de gastos por trabajador que guarda el vencimiento (se usan al pagarlo)
 export const planTrabajadores = (p, limpios) => limpios.map(t => ({ rut: t.rut, nombre: t.nombre, area: t.area, item: t.ref.item, categoria: s(t.ref.categoria), tipo: s(t.ref.tipo), subTipo: s(t.ref.subTipo), total: t.total, obs: obsTrabajador(p.periodo, t) }));
 // Un gasto por trabajador (sin IVA, contado). plan = documento.previred = { periodo, fecha, trabajadores }
+// v0.67.0: con el comprobante, además el gasto de multas e intereses (plan.recargos), con la fecha de pago de Previred
 export function lineasPrevired(plan, fechaPago, url, hora, extra = {}) {
-  return (plan.trabajadores || []).map(t => M.docGasto({ fecha: plan.fecha, hora, itemGasto: t.item, categoria: t.categoria, tipo: t.tipo, subTipo: t.subTipo, area: t.area,
+  const l = (plan.trabajadores || []).map(t => M.docGasto({ fecha: plan.fecha, hora, itemGasto: t.item, categoria: t.categoria, tipo: t.tipo, subTipo: t.subTipo, area: t.area,
     tipoMonto: 'siniva', montoNeto: n(t.total), montoFinal: n(t.total), esHarina: 'No', formaPago: 'contado', fechaPago, archivo: '', observacion: t.obs, urlFoto: s(url) },
   { ...extra, previred: { periodo: s(plan.periodo), rut: s(t.rut) } }));
+  if (plan.recargos && n(plan.recargos.monto) > 0) l.push(lineaRecargos(plan.recargos, plan.recargos.url || url, hora, extra));
+  return l;
 }
 
 // La obligación "Cotizaciones": activa, de tipo documento, con identificador "previred" (primero) o con cotizaciones en el
@@ -129,16 +138,17 @@ export function destinoCertificado(plantillas, vencs, fechaPago) {
   return { obl: o.obl, venc: v };
 }
 // Lo que el certificado deja en el vencimiento (completarDocumento con tipo "previred")
-export function documentoPrevired(p, limpios, url, nombreArchivo, clave) {
-  return { tipo: 'previred', monto: limpios.reduce((x, t) => x + t.total, 0), fechaVencimiento: p.fechaPago, url: s(url), nombreArchivo: s(nombreArchivo), numero: nombreMes(p.periodo), clave: s(clave) };
+// v0.67.0: con el comprobante, el monto incluye las multas e intereses (rec)
+export function documentoPrevired(p, limpios, url, nombreArchivo, clave, rec) {
+  return { tipo: 'previred', monto: limpios.reduce((x, t) => x + t.total, 0) + Math.round(n(rec && rec.monto)), fechaVencimiento: p.fechaPago, url: s(url), nombreArchivo: s(nombreArchivo), numero: nombreMes(p.periodo), clave: s(clave) };
 }
 // Al pagar: las líneas de un vencimiento. Con el certificado de Previred, un gasto por trabajador (el total debe ser el del
 // certificado); si no, las de siempre (con la factura del SII, si la tiene). v: vistaVencimiento; a: el documento de la base.
 export function lineasDelPago(v, a, monto, fechaPago, obs, url, tipoMonto, hora) {
   const doc = a && a.documento;
   if (doc && doc.tipo === 'previred' && doc.previred && Array.isArray(doc.previred.trabajadores)) {
-    const total = doc.previred.trabajadores.reduce((x, t) => x + n(t.total), 0);
-    if (Math.round(n(monto)) !== total) return { error: `El pago de Previred debe ser el total del certificado ($${total.toLocaleString('es-CL')}).` };
+    const total = totalPlan(doc.previred);   // v0.67.0: con las multas e intereses del comprobante
+    if (Math.round(n(monto)) !== total) return { error: `El pago de Previred debe ser el total ${doc.previred.recargos ? 'del comprobante' : 'del certificado'} ($${total.toLocaleString('es-CL')}).` };
     return { lineas: lineasPrevired(doc.previred, fechaPago, url, hora, { vencimientoId: v.id }) };
   }
   // v0.53.0: con la factura del SII y sus montos, el pago va como bruto y el neto sale de la factura
@@ -160,6 +170,118 @@ export function listaCot(cotizaciones) {
     if (tipo === 'AFP') T.afp += m; else if (tipo === 'Salud') T.salud += m; else if (tipo === 'AFC') T.afc += m; else if (cargo === 'Empleador') T.empleador += m; else T.otro += m;
   });
   return { ok: true, periodos: Object.keys(per).sort().reverse().slice(0, 24).map(k => ({ ...per[k], trabajadores: Object.values(per[k].trabajadores) })) };
+}
+
+// ═══ v0.67.0 · Comprobante de pago de Previred ═══
+// Lo que se paga con el plan de un vencimiento: los trabajadores + las multas e intereses (si vienen del comprobante)
+export const totalPlan = plan => (plan && Array.isArray(plan.trabajadores) ? plan.trabajadores.reduce((x, t) => x + n(t.total), 0) : 0) + Math.round(n(plan && plan.recargos && plan.recargos.monto));
+const r0 = v => Math.round(n(v));
+const fmt = v => '$' + r0(v).toLocaleString('es-CL');
+const fechaDmy = f => s(f).split('-').reverse().join('-');
+// El gasto de multas e intereses: sin IVA, al contado, con la fecha de pago de Previred (la multa nace al pagar)
+export function lineaRecargos(rec, url, hora, extra = {}) {
+  return M.docGasto({ fecha: rec.fecha, hora, itemGasto: rec.item, categoria: rec.categoria, tipo: rec.tipo, subTipo: rec.subTipo, area: rec.area, tipoMonto: 'siniva',
+    montoNeto: r0(rec.monto), montoFinal: r0(rec.monto), esHarina: 'No', formaPago: 'contado', fechaPago: rec.fecha, archivo: s(rec.nombreArchivo).slice(0, 120), observacion: s(rec.obs).slice(0, 500), urlFoto: s(url) },
+  { ...extra, previred: { periodo: s(rec.periodo), recargos: true, clave: s(rec.clave) } });
+}
+export const nombreRecargos = periodo => 'Multas e intereses Previred ' + nombreMes(periodo);
+export function obsRecargos(periodo, inst, c) {
+  const det = (inst || []).filter(i => i.intereses + i.multas > 0).map(i => `${i.nombre} ${fmt(i.intereses + i.multas)}`).join(' · ');
+  return `${nombreRecargos(periodo)} · pagado el ${fechaDmy(c.fechaPago)}${c.fueraDePlazo ? ' (fuera de plazo)' : ''} · ${det}`.slice(0, 500);
+}
+// El comprobante que llega de la pantalla, revisado. items: los vigentes. → { error, code } o { limpio, rec }
+// limpio: lo que se guarda en previred_planillas/{mes}.comprobante; rec: el plan del gasto de multas e intereses (null si son $0)
+export function revisarComprobante(c, items, periodo) {
+  if (!c || typeof c !== 'object') return { error: 'Falta el comprobante', code: 'datos' };
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(s(periodo))) return { error: 'Falta el período', code: 'datos' };
+  const lista = Array.isArray(c.instituciones) ? c.instituciones.slice(0, 40) : [];
+  if (!lista.length) return { error: 'El comprobante no trae instituciones', code: 'datos' };
+  const I = lista.map(i => ({ nombre: M.texto(i && i.nombre, 80), tipo: M.texto(i && i.tipo, 30), folio: s(i && i.folio).replace(/\D/g, '').slice(0, 20), cotizacion: r0(i && i.cotizacion), intereses: r0(i && i.intereses),
+    multas: r0(i && i.multas), compensacion: r0(i && i.compensacion), total: r0(i && i.total) }));
+  if (I.some(i => !i.nombre || [i.cotizacion, i.intereses, i.multas, i.total].some(v => !(v >= 0)) || i.cotizacion + i.intereses + i.multas - i.compensacion !== i.total))
+    return { error: 'Una institución del comprobante no cuadra (cotización + intereses + multas = total). No se guardó nada.', code: 'datos' };
+  const totalCotizaciones = I.reduce((t, i) => t + i.cotizacion, 0), totalRecargos = I.reduce((t, i) => t + i.intereses + i.multas, 0), totalPagado = I.reduce((t, i) => t + i.total, 0);
+  if (r0(c.totalCotizaciones) !== totalCotizaciones || r0(c.totalRecargos) !== totalRecargos || r0(c.totalPagado) !== totalPagado) return { error: 'Los totales del comprobante no cuadran con sus instituciones. No se guardó nada.', code: 'datos' };
+  if (!M.esIso(c.fechaPago)) return { error: 'Falta la fecha de pago del comprobante', code: 'datos' };
+  const clave = s(c.clave);
+  if (!/^pc-[0-9a-f]{32}$/.test(clave)) return { error: 'Falta la clave del comprobante', code: 'datos' };
+  const limpio = { clave, instituciones: I, totalCotizaciones, totalRecargos, totalPagado, fueraDePlazo: !!c.fueraDePlazo, fechaPago: s(c.fechaPago), horaPago: M.texto(c.horaPago, 10), vence: M.esIso(c.vence) ? s(c.vence) : '',
+    folios: [...new Set(I.map(i => i.folio).filter(Boolean))].sort() };
+  let rec = null;
+  if (totalRecargos > 0) {
+    const ref = (items || []).find(i => i.item === s(c.recargos && c.recargos.item));
+    if (!ref) return { error: 'Multas e intereses: elige el ítem (uno de tipo financiero).', code: 'datos' };
+    const area = s(c.recargos && c.recargos.area);
+    if (!M.AREAS.includes(area)) return { error: 'Multas e intereses: elige el área.', code: 'datos' };
+    rec = { periodo, clave, monto: totalRecargos, fecha: limpio.fechaPago, item: ref.item, categoria: s(ref.categoria), tipo: s(ref.tipo), subTipo: s(ref.subTipo), area, obs: obsRecargos(periodo, I, limpio) };
+  }
+  return { limpio, rec };
+}
+// El comprobante como queda en la planilla del mes
+export const docComprobante = (limpio, url, nombreArchivo, en, por, gastoRecargosId, extra = {}) => ({ ...limpio, archivo: s(url), nombreArchivo: s(nombreArchivo).slice(0, 120), cargadoEl: s(en), cargadoPor: s(por) || 'Sistema Fën',
+  gastoRecargosId: s(gastoRecargosId), ...extra });
+// Los campos de la planilla del mes (previred_planillas/{AAAA-MM}) con su comprobante: el total pasa a ser lo pagado
+// a: la planilla (o null); unidoVenc: lo pagado con la cartola por su vencimiento (no está en a.pagos)
+export function planillaConComprobante(a, comp, periodo, nTrab, fechaPagoCert, unidoVenc = 0) {
+  const pagos = Array.isArray(a && a.pagos) ? a.pagos : [], unido = pagos.reduce((t, x) => t + r0(x.monto), 0) + r0(unidoVenc), total = r0(comp.totalPagado), falta = total - unido;
+  const completa = unido > 0 && Math.abs(falta) <= 10;
+  return { periodo, total, fechaPago: s(fechaPagoCert) || s(a && a.fechaPago) || comp.fechaPago, trabajadores: Number(a && a.trabajadores) || nTrab, comprobante: comp, unido, falta,
+    estado: completa ? 'pagada_conciliada' : unido ? 'parcial' : 'sin_pagos', ...(completa ? {} : { conciliadaEl: '', conciliadaPor: '' }) };
+}
+// Ítems para las multas e intereses: los vigentes, primero los de tipo financiero (Finanzas → Clasificación) cuyo nombre dice
+// multa o interés, después los demás financieros y al final el resto. fin: fin_items por clave.
+const claveItemFin = nombre => (idLimpio(s(nombre).trim()) || 'sin-item').toLowerCase();
+export function itemsRecargos(items, fin) {
+  const F = fin || {}, esFin = i => s((F[claveItemFin(i.item)] || {}).tipo) === 'financiero', dice = i => /multa|inter[eé]s/i.test(s(i.item));
+  const l = (items || []).filter(i => i && i.item && !i.archivado).map(i => ({ item: i.item, financiero: esFin(i), dice: dice(i) }));
+  const orden = x => (x.financiero ? (x.dice ? 0 : 1) : 2);
+  const ord = l.slice().sort((a, b) => orden(a) - orden(b));
+  const f = ord.filter(x => x.financiero);
+  return { lista: ord, propuesto: f.length ? f[0].item : '', hayFinanciero: f.length > 0 };
+}
+// El área de las multas e intereses: ADMIN (común) si existe
+export const areaRecargos = () => (M.AREAS.includes('ADMIN') ? 'ADMIN' : M.AREAS[0]);
+// Comprobante contra lo ya cargado (certificado) por RUT. cot: líneas de cotizaciones del mes (vigentes)
+const rutN = r => s(r).toUpperCase().replace(/[^0-9K]/g, '');
+export function compararPorRut(trabajadores, cot) {
+  const cargado = {}, nombres = {};
+  (cot || []).forEach(x => { const d = x.d || x; const k = rutN(d.rut); cargado[k] = (cargado[k] || 0) + r0(d.monto); nombres[k] = nombres[k] || s(d.nombre); });
+  const filas = [], vistos = new Set();
+  (trabajadores || []).forEach(t => { const k = rutN(t.rut); vistos.add(k); const c = r0(t.total); filas.push({ rut: t.rut, nombre: t.nombre, comprobante: c, cargado: cargado[k] || 0, dif: c - (cargado[k] || 0) }); });
+  Object.keys(cargado).filter(k => !vistos.has(k)).forEach(k => filas.push({ rut: k, nombre: nombres[k], comprobante: 0, cargado: cargado[k], dif: -cargado[k] }));
+  const tc = filas.reduce((t, f) => t + f.comprobante, 0), tg = filas.reduce((t, f) => t + f.cargado, 0);
+  return { filas, totalComprobante: tc, totalCargado: tg, dif: tc - tg, iguales: filas.every(f => f.dif === 0) };
+}
+
+// ═══ v0.67.0 · Vencimiento de Previred: el día 13 del mes siguiente al de las remuneraciones; si cae sábado, domingo o
+// feriado (feriados-cl.js), el hábil que sigue. El aviso sale desde el día 10 hasta que el mes queda registrado. ═══
+export const DIA_VENCE_PREVIRED = 13, DIA_AVISO_PREVIRED = 10;
+const mesMas = (per, k) => { let [y, m] = s(per).split('-').map(Number); m += k; while (m > 12) { m -= 12; y++; } while (m < 1) { m += 12; y--; } return `${y}-${String(m).padStart(2, '0')}`; };
+const esHabilCon = (f, feriados) => { const w = new Date(f + 'T12:00:00Z').getUTCDay(); return w !== 0 && w !== 6 && !feriados.has(f); };
+export function venceDe(periodo, feriados = FERIADOS) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(s(periodo))) return '';
+  let f = mesMas(periodo, 1) + '-' + String(DIA_VENCE_PREVIRED).padStart(2, '0');
+  for (let i = 0; i < 15 && !esHabilCon(f, feriados); i++) f = G3.sumarDias(f, 1);
+  return f;
+}
+const DIAS_SEM = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+export const fechaLarga = f => { const [y, m, d] = s(f).split('-').map(Number); return `${DIAS_SEM[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d} de ${MESES[m - 1]}`; };
+// registrados: los meses (AAAA-MM) con cotizaciones o comprobante cargados. → [{ periodo, vence, estado: pronto|hoy|atrasado, titulo, detalle }]
+// Se miran el mes anterior y el de antes (este último solo si ya hay meses registrados antes: la app ya se usaba).
+export function avisosPrevired(hoy, registrados, feriados = FERIADOS) {
+  if (!M.esIso(hoy)) return [];
+  const reg = new Set(registrados || []), out = [];
+  [2, 1].forEach(k => {
+    const per = mesMas(hoy.slice(0, 7), -k), desde = mesMas(per, 1) + '-' + String(DIA_AVISO_PREVIRED).padStart(2, '0');
+    if (reg.has(per) || hoy < desde) return;
+    if (k === 2 && ![...reg].some(x => x < per)) return;
+    const vence = venceDe(per, feriados), estado = hoy < vence ? 'pronto' : hoy === vence ? 'hoy' : 'atrasado', mes = MESES[+per.slice(5) - 1];
+    const titulo = estado === 'pronto' ? `Previred de ${mes} vence el ${fechaLarga(vence)}` : estado === 'hoy' ? `Previred de ${mes} vence hoy, ${fechaLarga(vence)}` : `Previred de ${mes} venció el ${fechaLarga(vence)}: atrasado, se cobran multas`;
+    const detalle = estado === 'atrasado' ? `Págalo cuanto antes y sube el comprobante de pago (Conciliación → Previred): las multas e intereses quedan como gasto.`
+      : `Pagar en Previred y subir el comprobante de pago en Conciliación → Previred${estado === 'hoy' ? ' (después de hoy se cobran multas)' : ''}.`;
+    out.push({ periodo: per, vence, estado, dias: diasEntre(hoy, vence), titulo, detalle });
+  });
+  return out;
 }
 
 // ═══ Clasificar obligaciones ═══
