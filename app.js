@@ -9,44 +9,44 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.67.4';
-import * as Caja from './caja.js?v=0.67.4';
-import * as Stock from './stock.js?v=0.67.4';
-import * as Ajustes from './ajustes.js?v=0.67.4';
-import * as Apps from './apps.js?v=0.67.4';
-import * as Agenda from './agenda.js?v=0.67.4';
-import * as Gastos from './gastos.js?v=0.67.4';
-import * as G3 from './gastos-g3.js?v=0.67.4';
-import * as G3D from './gastos-g3d.js?v=0.67.4';
-import * as GBanco from './gastos-banco.js?v=0.67.4';
-import * as TE from './tef-enviadas.js?v=0.67.4';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.67.4';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.67.4';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.67.4';
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.4';
-import * as Sii from './sii.js?v=0.67.4';
-import * as GSii from './gastos-sii.js?v=0.67.4';
-import * as SP from './sii-pendientes.js?v=0.67.4';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.67.4');
-import * as Previred from './previred.js?v=0.67.4';
-import * as B2b from './b2b.js?v=0.67.4';
-import * as Cartola from './cartola.js?v=0.67.4';
-import * as SiiFactura from './sii-factura.js?v=0.67.4';
-import * as PdfOrden from './pdf-orden.js?v=0.67.4';
-import * as Prod from './produccion.js?v=0.67.4';
-import * as Mem from './fs-memoria.js?v=0.67.4';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.67.4';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.67.5';
+import * as Caja from './caja.js?v=0.67.5';
+import * as Stock from './stock.js?v=0.67.5';
+import * as Ajustes from './ajustes.js?v=0.67.5';
+import * as Apps from './apps.js?v=0.67.5';
+import * as Agenda from './agenda.js?v=0.67.5';
+import * as Gastos from './gastos.js?v=0.67.5';
+import * as G3 from './gastos-g3.js?v=0.67.5';
+import * as G3D from './gastos-g3d.js?v=0.67.5';
+import * as GBanco from './gastos-banco.js?v=0.67.5';
+import * as TE from './tef-enviadas.js?v=0.67.5';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.67.5';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.67.5';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.67.5';
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.5';
+import * as Sii from './sii.js?v=0.67.5';
+import * as GSii from './gastos-sii.js?v=0.67.5';
+import * as SP from './sii-pendientes.js?v=0.67.5';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.67.5');
+import * as Previred from './previred.js?v=0.67.5';
+import * as B2b from './b2b.js?v=0.67.5';
+import * as Cartola from './cartola.js?v=0.67.5';
+import * as SiiFactura from './sii-factura.js?v=0.67.5';
+import * as PdfOrden from './pdf-orden.js?v=0.67.5';
+import * as Prod from './produccion.js?v=0.67.5';
+import * as Mem from './fs-memoria.js?v=0.67.5';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.67.5';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.0';
-import * as VistaProd from './vista-produccion.js?v=0.67.4';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.4';
+import * as VistaProd from './vista-produccion.js?v=0.67.5';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.5';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.4');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.5');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.4');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.5');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.4')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.5')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -125,6 +125,7 @@ function registrar(accion, detalle) {
 
 // ── Íconos lineales ────────────────────────────────
 const P = {
+  reparto: '<circle cx="12" cy="12" r="8"/><path d="M12 4v8l6.2 5"/>',   // v0.67.5: Cambiar reparto (Previred)
   subir: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>',
   banco: '<path d="M3 10 12 4l9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8"/><path d="M3 20h18"/>',
   hoy: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
@@ -351,7 +352,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.4" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.5" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -619,14 +620,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.67.4').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.67.5').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.67.4').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.67.5').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -1015,9 +1016,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.67.4').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.67.5').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.4').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.5').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -2396,15 +2397,20 @@ function propuestaAbono(v, x, datos) {
   const trab = AB.trabajadorDe(dt.trabajadores || [], x.nombre || x.descripcion || '', x.rut);
   return { ...AB.areasPorDefecto({ recordado: rec, trabajador: trab, v, areas: AREAS_GASTO }), nombre: (rec && rec.nombre) || (trab && trab.nombre) || '' };
 }
+// v0.67.5 · La misma caja sirve para Previred (cada trabajador y "Cambiar reparto"): st puede traer etiqueta, infoTit/infoTxt,
+// sinArea (el texto cuando no hay propuesta), nombre (para los rótulos), idSel (data-area del select cuando es una sola área,
+// como antes) y alCambiar(st). Los montos de cada parte salen de la misma regla que los gastos (AB.montosPorAreas).
+const montosAreas = (l, monto) => { const suma = l.reduce((t, a) => t + (Number(a.pct) || 0), 0), m = monto > 0 && suma === 100 ? AB.montosPorAreas(monto, l) : null;
+  return l.map((a, i) => (monto > 0 && a.pct > 0 ? pesos(m ? m[i].monto : Math.round(monto * a.pct / 100)) : '')); };
 function htmlAreasAbono(k, monto) {
   const st = abAreas[k]; if (!st) return '';
   const l = st.areas.length ? st.areas : [{ area: '', pct: 100 }];
-  const suma = l.reduce((t, a) => t + (Number(a.pct) || 0), 0), uno = l.length === 1;
-  const montoDe = a => (monto > 0 && a.pct > 0 ? pesos(Math.round(monto * a.pct / 100)) : '');
-  return `<div class="campo ab-areas-caja"><span class="etiqueta">Área de este abono ${info('Área de este abono', TXT_AREA_ABONO)}</span>
-    <p class="ayuda ab-fuente">${st.fuente === 'elegido' ? 'Elegido por ti' : 'Propuesta: ' + esc(st.texto || '')}${st.fuente !== 'elegido' && !st.areas.length ? ' (la obligación no tiene área: elige una)' : ''}</p>
-    ${l.map((a, i) => `<div class="fila-area"><select data-ab-area="${i}" aria-label="Área ${i + 1} del abono"><option value="">Área</option>${AREAS_GASTO.map(x => `<option ${x === a.area ? 'selected' : ''}>${x}</option>`).join('')}</select>
-      ${uno ? '' : `<input type="number" inputmode="numeric" min="1" max="100" step="1" data-ab-pct="${i}" value="${esc(a.pct || '')}" aria-label="Porcentaje del área ${i + 1}" placeholder="%"><span class="ab-pct-monto">${montoDe(a)}</span>
+  const suma = l.reduce((t, a) => t + (Number(a.pct) || 0), 0), uno = l.length === 1, mt = montosAreas(l, monto);
+  const etq = st.etiqueta || 'Área de este abono', quien = st.nombre ? ' de ' + st.nombre : ' del abono';
+  return `<div class="campo ab-areas-caja${uno ? ' ab-uno' : ''}"><span class="etiqueta">${esc(etq)} ${info(st.infoTit || 'Área de este abono', st.infoTxt || TXT_AREA_ABONO)}</span>
+    <p class="ayuda ab-fuente">${st.fuente === 'elegido' ? 'Elegido por ti' : 'Propuesta: ' + esc(st.texto || '')}${st.fuente !== 'elegido' && !st.areas.length ? ' ' + esc(st.sinArea || '(la obligación no tiene área: elige una)') : ''}</p>
+    ${l.map((a, i) => `<div class="fila-area"><select data-ab-area="${i}"${uno && st.idSel !== undefined ? ` data-area="${esc(st.idSel)}"` : ''} aria-label="${uno && st.nombre ? 'Área de ' + esc(st.nombre) : `Área ${i + 1}${esc(quien)}`}"><option value="">Área</option>${AREAS_GASTO.map(x => `<option ${x === a.area ? 'selected' : ''}>${x}</option>`).join('')}</select>
+      ${uno ? '' : `<input type="number" inputmode="numeric" min="1" max="100" step="1" data-ab-pct="${i}" value="${esc(a.pct || '')}" aria-label="Porcentaje del área ${i + 1}" placeholder="%"><span class="ab-pct-monto">${mt[i]}</span>
       <button type="button" class="btn-sec btn-chico" data-ab-quitar="${i}" aria-label="Quitar el área ${i + 1}">Quitar</button>`}</div>`).join('')}
     <div class="ab-pie">${l.length < AB.MAX_AREAS ? `<button type="button" class="btn-sec btn-chico" data-ab-mas>${uno ? 'Repartir en %' : 'Agregar área'}</button>` : ''}
       ${uno ? '' : `<span class="ab-suma ${suma === 100 ? '' : 'error'}">Suma ${suma}%${suma === 100 ? '' : ' (debe sumar 100)'}</span>`}</div></div>`;
@@ -2415,7 +2421,8 @@ function activarAreasAbono(root) {
     cx.dataset.abListo = '1';
     // El estado se lee cada vez (la propuesta puede cambiar); el monto, del atributo data-ab-monto
     const monto = () => Number(cx.dataset.abMonto) || 0;
-    const pintar = () => { cx.innerHTML = htmlAreasAbono(k, monto()); };
+    const avisar = () => { const st = abAreas[k]; if (st && typeof st.alCambiar === 'function') st.alCambiar(st); };
+    const pintar = () => { cx.innerHTML = htmlAreasAbono(k, monto()); avisar(); };
     const elegido = st => { st.fuente = 'elegido'; st.texto = 'Elegido'; };
     cx.addEventListener('change', e => {
       const st = abAreas[k], i = e.target.dataset.abArea; if (!st || i === undefined) return;
@@ -2427,8 +2434,9 @@ function activarAreasAbono(root) {
       st.areas[+i].pct = Math.round(Number(e.target.value) || 0); elegido(st);
       const suma = st.areas.reduce((t, a) => t + (Number(a.pct) || 0), 0), sp = cx.querySelector('.ab-suma');
       if (sp) { sp.textContent = `Suma ${suma}%${suma === 100 ? '' : ' (debe sumar 100)'}`; sp.classList.toggle('error', suma !== 100); }
-      const m = cx.querySelectorAll('.ab-pct-monto')[+i]; if (m) m.textContent = monto() > 0 && st.areas[+i].pct > 0 ? pesos(Math.round(monto() * st.areas[+i].pct / 100)) : '';
+      const mt = montosAreas(st.areas, monto()); cx.querySelectorAll('.ab-pct-monto').forEach((m, j) => { m.textContent = mt[j] || ''; });
       const f = cx.querySelector('.ab-fuente'); if (f) f.textContent = 'Elegido por ti';
+      avisar();
     });
     cx.addEventListener('click', e => {
       const st = abAreas[k], b = e.target.closest('button'); if (!st || !b || b.classList.contains('btn-info')) return;
@@ -2604,7 +2612,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.67.4')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.67.5')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -4077,6 +4085,54 @@ async function pintarPrevired(el, sub, d) {
   catch (e) { errorGastos($('prev-hist'), e); }
 }
 
+// ═══ v0.67.5 · Reparto en % por trabajador: la misma caja de "Área de este abono" en cada fila de la vista previa ═══
+// La propuesta es la más nueva (por fecha) entre lo recordado en Previred (por RUT) y lo elegido en un abono de sueldo de esa
+// persona (por RUT o por nombre). Al guardar, el reparto queda en Previred (cotiz_trabajadores), no en los abonos.
+const TXT_PREV_REPARTO = 'El gasto de este trabajador va a un área o se reparte en % si trabaja en dos (por ejemplo, PAN 40 % y B2B 60 %): quedan dos líneas de gasto que suman exacto su total (el peso que sobra de redondear va al % más grande).\nLa propuesta es lo más nuevo entre:\n1. el área o reparto recordado en Previred para este RUT,\n2. el reparto elegido en un abono de sueldo para esta persona (por RUT o por nombre).\nLo que elijas aquí queda recordado en Previred para el mes siguiente. Los abonos de sueldo lo leen si es más nuevo que lo suyo.\nPara un mes ya cargado: Meses cargados → Cambiar reparto.';
+function propuestaPrevired(e, t) {
+  const cfg = cfgRut(e, t.rut), trabs = Object.entries((e && e.config) || {}).map(([rut, c]) => ({ rut, nombre: c.nombre, area: c.area }));
+  const dest = AB.destinatarioDeTrabajador((e && e.destinatarios) || [], { rut: t.rut, nombre: t.nombre }, trabs);
+  const x = AB.elegirReparto({ trabajador: cfg.area || cfg.areas ? cfg : null, abono: dest, areas: AREAS_GASTO, preferir: 'previred' });
+  const base = { etiqueta: 'Área', infoTit: 'Área o reparto del trabajador', infoTxt: TXT_PREV_REPARTO, sinArea: '(sin área recordada: elige una)', nombre: t.nombre };
+  if (!x) return { ...base, areas: [], fuente: 'sin', texto: 'trabajador nuevo' };
+  return { ...base, areas: x.areas.map(a => ({ ...a })), fuente: x.fuente, texto: x.fuente === 'abono' ? `del abono de sueldo${dest && dest.nombre ? ' (' + dest.nombre + ')' : ''}, el más reciente` : x.areas.length > 1 ? 'reparto recordado en Previred' : 'área recordada en Previred' };
+}
+// Cada trabajador con su propuesta (t.rep es el estado de su caja); el área principal y el ítem por defecto salen de ahí
+function prepararRepartos(e, r, items) {
+  r.trabajadores.forEach(t => {
+    const c = cfgRut(e, t.rut);
+    t.rep = propuestaPrevired(e, t); t.area = AB.principal(t.rep.areas) || '';
+    t.item = c.item && items.some(i => i.item === c.item) ? c.item : itemPorDefecto(t.area, items);
+  });
+}
+const repPedido = t => { const st = t.rep; if (!st) return t.area ? { areas: [{ area: t.area, pct: 100 }] } : { error: 'Elige el área' };
+  return AB.validarAreas(st.areas.length === 1 ? [{ area: st.areas[0].area, pct: 100 }] : st.areas, AREAS_GASTO); };
+const nGastosPrev = r => r.trabajadores.reduce((x, t) => x + (t.rep && t.rep.areas.length > 1 ? t.rep.areas.length : 1), 0);
+const cajaRepPrev = (t, i) => `<div class="prev-reparto" data-ab-areas="pv-${i}" data-ab-monto="${Math.round(t.total || 0)}"></div>`;
+function montarRepartos(cont, r, items) {
+  r.trabajadores.forEach((t, i) => {
+    if (!t.rep) return;
+    Object.assign(t.rep, { idSel: String(i), alCambiar: st => {
+      const antes = itemPorDefecto(t.area, items);
+      t.area = AB.principal(st.areas.filter(a => a.area)) || '';
+      if (!t.item || t.item === antes) { t.item = itemPorDefecto(t.area, items); const s = cont.querySelector(`[data-item="${i}"]`); if (s) s.value = t.item; }
+      const b = $('prev-guardar'), n = nGastosPrev(r); if (b) b.textContent = b.textContent.replace(/Registrar \d+ gastos?/, `Registrar ${n} ${n === 1 ? 'gasto' : 'gastos'}`);
+    } });
+    abAreas['pv-' + i] = t.rep;
+    const cx = cont.querySelector(`[data-ab-areas="pv-${i}"]`); if (cx) { delete cx.dataset.abListo; cx.innerHTML = htmlAreasAbono('pv-' + i, Number(cx.dataset.abMonto)); }
+  });
+  activarAreasAbono(cont);
+}
+// Antes de guardar: cada trabajador con su área (o un reparto que suma 100) y su ítem
+function faltaEnPrev(r) {
+  for (const t of r.trabajadores) {
+    const x = repPedido(t);
+    if (x.error) return `${t.nombre}: ${/Elige el área/.test(x.error) ? 'elige el área y el ítem' : x.error}.`;
+    if (!t.item) return `${t.nombre}: elige el área y el ítem.`;
+  }
+  return '';
+}
+
 // v0.67.3 · ¿Es un CSV (por el nombre o el tipo)? El contenido se revisa al leerlo
 const esIsoF = f => /^\d{4}-\d{2}-\d{2}$/.test(String(f || ''));
 const esArchivoCsv = f => /\.(csv|txt)$/i.test(String(f && f.name || '')) || /text\/(csv|plain)/i.test(String(f && f.type || ''));
@@ -4099,11 +4155,7 @@ async function leerPrevired(file, items, d) {
     r.porComprobante = !!(e.mes && e.mes.porComprobante);   // v0.67.0: el mes ya se registró con el comprobante de pago
     r.porCsv = !!(e.mes && e.mes.porCsv && !e.mes.porComprobante); if (r.porCsv) r.porComprobante = true;   // v0.67.3: o con el CSV de la nómina
     r.trabajadores = r.trabajadores.filter(t => t.lineas.length);
-    r.trabajadores.forEach(t => {
-      const c = (e.config || {})[t.rut.toUpperCase()] || {};
-      t.area = c.area || '';
-      t.item = c.item && items.some(i => i.item === c.item) ? c.item : itemPorDefecto(t.area, items);
-    });
+    prepararRepartos(e, r, items);   // v0.67.5: área o reparto (lo más nuevo entre Previred y los abonos)
     // v0.51.0 (base nueva): a dónde va el certificado (el vencimiento de Cotizaciones, o como siempre con una nota)
     Object.assign(prev, { tipoDoc: 'certificado', datos: r, archivo: file, yaCargadas: e.yaCargadas || [], idem: await Previred.claveDeEnvio(r.periodo, r.trabajadores), destino: e.destino || null });
     prev.fecha = ultimoDia(r.periodo);
@@ -4121,11 +4173,7 @@ async function leerComprobantePrev(r, file, items, d) {
   msg.textContent = 'Revisando si ese mes ya estaba cargado…';
   const e = await Previred.estado(r.periodo, r.trabajadores, r.fechaPago);
   if (!e.mes) throw new Error('El comprobante de pago se guarda con Gastos en la base nueva (Gastos → Base nueva).');
-  r.trabajadores.forEach(t => {
-    const c = (e.config || {})[t.rut.toUpperCase()] || {};
-    t.area = c.area || '';
-    t.item = c.item && items.some(i => i.item === c.item) ? c.item : itemPorDefecto(t.area, items);
-  });
+  prepararRepartos(e, r, items);   // v0.67.5
   const clave = await Previred.claveComprobante(r), rc = e.recargos || { lista: items.map(i => ({ item: i.item, financiero: false })), propuesto: '', hayFinanciero: false, area: 'ADMIN' };
   Object.assign(prev, { tipoDoc: 'comprobante', datos: r, archivo: file, clave, idem: clave, mes: e.mes, destino: e.destino || null, recargos: rc, recItem: rc.propuesto, recArea: rc.area || 'ADMIN', yaCargadas: [] });
   prev.fecha = ultimoDia(r.periodo);
@@ -4145,7 +4193,8 @@ async function leerCsvPrev(file, items, d) {
   const e = await Previred.estado(r.periodo, [], '');
   if (!e.mes) throw new Error('El CSV de la nómina se guarda con Gastos en la base nueva (Gastos → Base nueva).');
   Previred.conAfps(r, e.afps || {});
-  r.trabajadores.forEach(t => { const c = cfgRut(e, t.rut); t.area = c.area || ''; t.item = c.item && items.some(i => i.item === c.item) ? c.item : itemPorDefecto(t.area, items); t.afpDe = t.afpCsv ? 'csv' : t.afp ? 'historial' : ''; });
+  prepararRepartos(e, r, items);   // v0.67.5
+  r.trabajadores.forEach(t => { t.afpDe = t.afpCsv ? 'csv' : t.afp ? 'historial' : ''; });
   Object.assign(prev, { tipoDoc: 'csv', datos: r, archivo: file, mes: e.mes, destino: null, yaCargadas: [], idem: null, fpago: '' });
   prev.fecha = ultimoDia(r.periodo);
   prev.vencimientoId = '';
@@ -4180,10 +4229,9 @@ function pintarPrevCsv(items, d) {
       <span>Imponible ${pesos(t.imponible)} · AFP ${pesos(t.c.afp)} · SIS ${pesos(t.c.sis)} · Salud ${pesos(t.c.salud)} · Seguro social ${pesos(t.c.ss)} · Accidentes ${pesos(t.c.isl)} · AFC ${pesos(t.c.afc)}</span>
       ${t.necesitaAfp ? `<span>${t.afp && !t.faltaAfp ? `${esc(t.afp)}${t.afpDe === 'historial' ? ' (del último mes cargado)' : t.afpDe === 'csv' ? ' (del CSV)' : ''}` : '<b class="prev-falta-afp">Trabajador nuevo: elige su AFP</b>'}</span>` : ''}${cargado ? `<span>Área ${esc(t.area || 'sin área recordada')}</span>` : ''}</div>
       <div class="acciones">${cargado ? '' : `${t.necesitaAfp && (t.faltaAfp || t.afpDe === 'elegida') ? `<select data-afp="${i}" aria-label="AFP de ${esc(t.nombre)}"><option value="">AFP</option>${Previred.AFPS.map(a => `<option ${a === t.afp ? 'selected' : ''}>${a}</option>`).join('')}</select>` : ''}
-        <select data-area="${i}" aria-label="Área de ${esc(t.nombre)}"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === t.area ? 'selected' : ''}>${a}</option>`).join('')}</select>
         <select data-item="${i}" aria-label="Ítem de ${esc(t.nombre)}">${opcItems(t.item)}</select>`}
-        <span class="chip c-gris">${pesos(t.total)}</span></div></div>`).join('')}</div>`;
-  const total = T.total, listo = !cargado && !r.bloquea && !faltanAfp.length;
+        <span class="chip c-gris">${pesos(t.total)}</span></div>${cargado ? '' : cajaRepPrev(t, i)}</div>`).join('')}</div>`;
+  const total = T.total, listo = !cargado && !r.bloquea && !faltanAfp.length, nG = nGastosPrev(r);
   cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prev-mes">
     <div class="titulo-fila"><h2 id="t-prev-mes">${esc(Previred.nombreMes(r.periodo).replace(/^./, c => c.toUpperCase()))}</h2><span>${r.trabajadores.length} ${r.trabajadores.length === 1 ? 'trabajador' : 'trabajadores'} · <span class="chip c-azul chip-chico">CSV de la nómina</span></span></div>
     <p class="nota-i">(i) El CSV trae el detalle exacto por trabajador, pero no las multas ni los intereses. Si pagaste fuera de plazo, sube también el comprobante de pago. ${info('Archivo CSV de la nómina', TXT_PREV_CSV)}</p>
@@ -4202,8 +4250,9 @@ function pintarPrevCsv(items, d) {
       <div class="campo"><label for="prev-fecha">Fecha del gasto ${info('Fecha del gasto', 'El mes al que corresponde el costo. Por defecto, el último día del mes de las remuneraciones (así queda junto a los sueldos de ese mes en el análisis).')}</label><input id="prev-fecha" type="date" value="${esc(prev.fecha)}"></div>
       <div class="campo ${aVenc ? 'oculto' : ''}"><label for="prev-venc">Vencimiento que paga (opcional)</label><select id="prev-venc"><option value="">Ninguno</option>${pend.map(v => `<option value="${esc(v.id)}" ${v.id === prev.vencimientoId ? 'selected' : ''}>${esc(v.nombre)} · ${esc(fechaIso(v.fecha))}</option>`).join('')}</select></div></div>
     <div class="error" id="prev-error" role="alert"></div>
-    <div class="botones" style="justify-content:flex-start">${cargado ? '' : `<button type="button" class="btn" id="prev-guardar" ${listo ? '' : 'disabled'}>${aVenc ? `Guardar en el vencimiento · ${pesos(total)}` : `Registrar ${r.trabajadores.length} ${r.trabajadores.length === 1 ? 'gasto' : 'gastos'} · ${pesos(total)}`}</button>`}<button type="button" class="btn-sec" id="prev-descartar">${cargado ? 'Cerrar' : 'Descartar'}</button></div></section>`;
+    <div class="botones" style="justify-content:flex-start">${cargado ? '' : `<button type="button" class="btn" id="prev-guardar" ${listo ? '' : 'disabled'}>${aVenc ? `Guardar en el vencimiento · ${pesos(total)}` : `Registrar ${nG} ${nG === 1 ? 'gasto' : 'gastos'} · ${pesos(total)}`}</button>`}<button type="button" class="btn-sec" id="prev-descartar">${cargado ? 'Cerrar' : 'Descartar'}</button></div></section>`;
   escucharPrevTrab(cont, items);
+  if (!cargado) montarRepartos(cont, r, items);
   if (!cont.dataset.escuchaCsv) {
     cont.dataset.escuchaCsv = '1';
     cont.addEventListener('change', e => {
@@ -4218,7 +4267,7 @@ function pintarPrevCsv(items, d) {
   b0.onclick = async () => {
     const err = $('prev-error'); err.textContent = '';
     const fa = r.trabajadores.find(t => t.faltaAfp); if (fa) { err.textContent = `${fa.nombre}: elige su AFP.`; return; }
-    const falta = r.trabajadores.find(t => !t.area || !t.item); if (falta) { err.textContent = `${falta.nombre}: elige el área y el ítem.`; return; }
+    const falta = faltaEnPrev(r); if (falta) { err.textContent = falta; return; }
     if (!esIsoF(prev.fpago)) { err.textContent = 'Escribe la fecha de pago en Previred.'; return; }
     if (!prev.fecha) { err.textContent = 'Elige la fecha del gasto.'; return; }
     Previred.conAfps(r, {}, prev.fpago);
@@ -4231,9 +4280,10 @@ function pintarPrevCsv(items, d) {
       const x = await Previred.registrar(payload, prev.archivo, idem);
       registrar('Cargó el CSV de la nómina de Previred', `${Previred.nombreMes(r.periodo)} · ${x.trabajadores} trabajadores · ${pesos(x.total)}${x.aVencimiento ? ' · al vencimiento ' + (x.aVencimiento.nombre || '') : ''}`);
       prev.datos = null; prev.destino = null; prev.tipoDoc = '';
+      const nG = x.gastos || x.trabajadores;   // v0.67.5: con reparto, más de una línea por trabajador
       prev.mensaje = x.repetido ? 'Ese CSV ya estaba guardado: no se repitió nada.' : x.aVencimiento
-        ? `Listo: el CSV completó el vencimiento de ${x.aVencimiento.nombre || 'Cotizaciones'} (${pesos(x.total)}). Los ${x.trabajadores} gastos por trabajador se crean al pagarlo.`
-        : `Listo: ${x.trabajadores} gastos por ${pesos(x.total)} (del CSV de la nómina)${x.vencimiento ? '; el vencimiento quedó pagado' : ''}.${x.conArchivo ? '' : ' (El CSV no se pudo guardar en Drive.)'}`;
+        ? `Listo: el CSV completó el vencimiento de ${x.aVencimiento.nombre || 'Cotizaciones'} (${pesos(x.total)}). Los ${nG} gastos ${nG === x.trabajadores ? 'por trabajador' : 'de los trabajadores'} se crean al pagarlo.`
+        : `Listo: ${nG} gastos por ${pesos(x.total)} (del CSV de la nómina)${x.vencimiento ? '; el vencimiento quedó pagado' : ''}.${x.conArchivo ? '' : ' (El CSV no se pudo guardar en Drive.)'}`;
       pintarConciliacion('previred');
     } catch (er) {
       err.textContent = (er.message || mensajeError(er)) + (er.code ? '' : ' Si vuelves a tocar Registrar no se duplica.');
@@ -4248,9 +4298,8 @@ function filasPrevTrab(r, items, editable) {
   return `<div id="prev-filas">${r.trabajadores.map((t, i) => { const s = Previred.resumen(t);
     return `<div class="fila-caja" data-t="${i}"><div class="txt"><b>${esc(t.nombre)}</b>
       <span>Imponible ${pesos(s.imponible)} · AFP ${pesos(s.afp)} · Salud ${pesos(s.salud)} · AFC ${pesos(s.afc)} · Empresa ${pesos(s.empleador)}${s.otro ? ' · Otros ' + pesos(s.otro) : ''}</span>${editable ? '' : `<span>Área ${esc(t.area || 'sin área recordada')}</span>`}</div>
-      <div class="acciones">${editable ? `<select data-area="${i}" aria-label="Área de ${esc(t.nombre)}"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === t.area ? 'selected' : ''}>${a}</option>`).join('')}</select>
-        <select data-item="${i}" aria-label="Ítem de ${esc(t.nombre)}">${opcItems(t.item)}</select>` : ''}
-        <span class="chip c-gris">${pesos(t.total)}</span></div></div>`; }).join('')}</div>`;
+      <div class="acciones">${editable ? `<select data-item="${i}" aria-label="Ítem de ${esc(t.nombre)}">${opcItems(t.item)}</select>` : ''}
+        <span class="chip c-gris">${pesos(t.total)}</span></div>${editable ? cajaRepPrev(t, i) : ''}</div>`; }).join('')}</div>`;
 }
 
 function pintarPrevTrabajo(items, d) {
@@ -4258,7 +4307,7 @@ function pintarPrevTrabajo(items, d) {
   if (prev.tipoDoc === 'csv') return pintarPrevCsv(items, d);   // v0.67.3
   const cont = $('prev-trabajo'), r = prev.datos;
   if (!cont || !r) return;
-  const total = r.trabajadores.reduce((s, t) => s + t.total, 0);
+  const total = r.trabajadores.reduce((s, t) => s + t.total, 0), nG = nGastosPrev(r);
   const pend = (d.vencimientos || []).filter(v => v.estado === 'PENDIENTE' || v.estado === 'VENCIDA');
   const cargado = !r.trabajadores.length || r.porComprobante, parcial = !cargado && r.yaCargadasN > 0;
   const dest = prev.destino || {}, aVenc = !cargado && dest.vencimientoId ? dest : null, notaVenc = !cargado && dest.nota ? dest.nota : '';
@@ -4279,13 +4328,14 @@ function pintarPrevTrabajo(items, d) {
     <div class="grilla-montos ${cargado ? 'oculto' : ''}"><div class="campo"><label for="prev-fecha">Fecha del gasto ${info('Fecha del gasto', 'El mes al que corresponde el costo. Por defecto, el último día del mes de las remuneraciones (así queda junto a los sueldos de ese mes en el análisis). La fecha de pago es la de Previred.')}</label><input id="prev-fecha" type="date" value="${esc(prev.fecha)}"></div>
       <div class="campo ${aVenc ? 'oculto' : ''}"><label for="prev-venc">Vencimiento que paga (opcional)</label><select id="prev-venc"><option value="">Ninguno</option>${pend.map(v => `<option value="${esc(v.id)}" ${v.id === prev.vencimientoId ? 'selected' : ''}>${esc(v.nombre)} · ${esc(fechaIso(v.fecha))}</option>`).join('')}</select></div></div>
     <div class="error" id="prev-error" role="alert"></div>
-    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="prev-guardar" ${cargado || r.bloquea ? 'disabled' : ''}>${aVenc ? `Guardar en el vencimiento · ${pesos(total)}` : `Registrar ${r.trabajadores.length} ${r.trabajadores.length === 1 ? 'gasto' : 'gastos'} · ${pesos(total)}`}</button><button type="button" class="btn-sec" id="prev-descartar">Descartar</button></div></section>`;
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="prev-guardar" ${cargado || r.bloquea ? 'disabled' : ''}>${aVenc ? `Guardar en el vencimiento · ${pesos(total)}` : `Registrar ${nG} ${nG === 1 ? 'gasto' : 'gastos'} · ${pesos(total)}`}</button><button type="button" class="btn-sec" id="prev-descartar">Descartar</button></div></section>`;
   escucharPrevTrab(cont, items);
+  if (!cargado) montarRepartos(cont, r, items);
   $('prev-descartar').onclick = () => { prev.datos = null; prev.destino = null; cont.innerHTML = ''; };
   $('prev-guardar').onclick = async () => {
     const err = $('prev-error'); err.textContent = '';
-    const falta = r.trabajadores.find(t => !t.area || !t.item);
-    if (falta) { err.textContent = `${falta.nombre}: elige el área y el ítem.`; return; }
+    const falta = faltaEnPrev(r);
+    if (falta) { err.textContent = falta; return; }
     if (!prev.fecha) { err.textContent = 'Elige la fecha del gasto.'; return; }
     const payload = payloadTrab(r, aVenc);
     const b = $('prev-guardar'); b.disabled = true; b.textContent = 'Guardando…';
@@ -4293,9 +4343,10 @@ function pintarPrevTrabajo(items, d) {
       const x = await Previred.registrar(payload, prev.archivo, prev.idem);
       registrar('Cargó cotizaciones de Previred', `${Previred.nombreMes(r.periodo)} · ${x.trabajadores} trabajadores · ${pesos(x.total)}${x.aVencimiento ? ' · al vencimiento ' + (x.aVencimiento.nombre || '') : ''}`);
       prev.datos = null; prev.destino = null;
+      const nG = x.gastos || x.trabajadores;   // v0.67.5
       prev.mensaje = x.aVencimiento
-        ? `Listo: el certificado completó el vencimiento de ${x.aVencimiento.nombre || 'Cotizaciones'} (${pesos(x.total)}). Los ${x.trabajadores} gastos por trabajador se crean al pagarlo (con la cartola o con Pagar).${x.conArchivo ? '' : ' (El PDF no se pudo guardar en Drive.)'}`
-        : `Listo: ${x.trabajadores} gastos por ${pesos(x.total)}${x.vencimiento ? ' y el vencimiento quedó pagado' : ''}.${x.conArchivo ? '' : ' (El PDF no se pudo guardar en Drive.)'}`;
+        ? `Listo: el certificado completó el vencimiento de ${x.aVencimiento.nombre || 'Cotizaciones'} (${pesos(x.total)}). Los ${nG} gastos ${nG === x.trabajadores ? 'por trabajador' : 'de los trabajadores'} se crean al pagarlo (con la cartola o con Pagar).${x.conArchivo ? '' : ' (El PDF no se pudo guardar en Drive.)'}`
+        : `Listo: ${nG} gastos por ${pesos(x.total)}${x.vencimiento ? ' y el vencimiento quedó pagado' : ''}.${x.conArchivo ? '' : ' (El PDF no se pudo guardar en Drive.)'}`;
       pintarConciliacion('previred');
     } catch (er) {
       err.textContent = (er.message || mensajeError(er)) + (er.code ? '' : ' Si vuelves a tocar Registrar no se duplica.');
@@ -4310,8 +4361,9 @@ function escucharPrevTrab(cont, items) {
   cont.addEventListener('change', e => {
     const r = prev.datos; if (!r) return;
     const t = e.target;
-    if (t.dataset.area !== undefined) { const w = r.trabajadores[+t.dataset.area]; const antes = itemPorDefecto(w.area, items); w.area = t.value; if (!w.item || w.item === antes) { w.item = itemPorDefecto(w.area, items); const s = cont.querySelector(`[data-item="${t.dataset.area}"]`); if (s) s.value = w.item; } }
-    else if (t.dataset.item !== undefined) r.trabajadores[+t.dataset.item].item = t.value;
+    // v0.67.5: el área (o el reparto) la lleva la caja de cada trabajador (montarRepartos → alCambiar)
+    if (t.dataset.abArea !== undefined || t.dataset.abPct !== undefined) return;
+    if (t.dataset.item !== undefined) r.trabajadores[+t.dataset.item].item = t.value;
     else if (t.id === 'prev-fecha') prev.fecha = t.value;
     else if (t.id === 'prev-venc') prev.vencimientoId = t.value;
     else if (t.id === 'prev-rec-item') { prev.recItem = t.value; pintarNotaRecItem(); }
@@ -4319,7 +4371,7 @@ function escucharPrevTrab(cont, items) {
   });
 }
 const payloadTrab = (r, aVenc) => ({ periodo: r.periodo, fechaPago: r.fechaPago, fecha: prev.fecha, vencimientoId: aVenc ? '' : prev.vencimientoId || '',
-  trabajadores: r.trabajadores.map(t => ({ rut: t.rut, nombre: t.nombre, area: t.area, item: t.item, lineas: t.lineas.map(l => ({ institucion: l.institucion, tipoPago: l.tipoPago, imponible: l.imponible, monto: l.monto, folio: l.folio })) })) });
+  trabajadores: r.trabajadores.map(t => { const x = repPedido(t); return { rut: t.rut, nombre: t.nombre, area: t.area, ...(x.areas && x.areas.length > 1 ? { areas: x.areas } : {}), item: t.item, lineas: t.lineas.map(l => ({ institucion: l.institucion, tipoPago: l.tipoPago, imponible: l.imponible, monto: l.monto, folio: l.folio })) }; }) });
 const payloadComp = r => ({ clave: prev.clave, instituciones: r.instituciones.map(i => ({ nombre: i.nombre, tipo: i.tipo, folio: i.folio, cotizacion: i.cotizacion, intereses: i.intereses, multas: i.multas, compensacion: i.compensacion || 0, total: i.total })),
   totalCotizaciones: r.totalCotizaciones, totalRecargos: r.totalRecargos, totalPagado: r.totalPagado, fueraDePlazo: r.fueraDePlazo, fechaPago: r.fechaPago, horaPago: r.horaPago, vence: r.vence, recargos: { item: prev.recItem || '', area: prev.recArea || 'ADMIN' } });
 // La nota del ítem de multas e intereses (si no es financiero)
@@ -4366,7 +4418,7 @@ function pintarPrevComprobante(items, d) {
       <p class="ayuda">Un gasto "${esc(G3D.nombreRecargos(r.periodo))}": sin IVA, al contado, con fecha ${esc(fechaIso(r.fechaPago))} (la de pago) y el comprobante como archivo.</p></div>` : '';
   const listo = !bloqueado && !(cargado ? false : r.trabajadores.some(t => !t.area || !t.item));
   const boton = cargado ? (conRec ? `Agregar multas e intereses · ${pesos(r.totalRecargos)}` : 'Guardar el comprobante en la planilla del mes')
-    : aVenc ? `Guardar en el vencimiento · ${pesos(r.totalPagado)}` : `Registrar ${r.trabajadores.length} ${r.trabajadores.length === 1 ? 'gasto' : 'gastos'}${conRec ? ' + multas e intereses' : ''} · ${pesos(r.totalPagado)}`;
+    : aVenc ? `Guardar en el vencimiento · ${pesos(r.totalPagado)}` : `Registrar ${nGastosPrev(r)} ${nGastosPrev(r) === 1 ? 'gasto' : 'gastos'}${conRec ? ' + multas e intereses' : ''} · ${pesos(r.totalPagado)}`;
   cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prev-mes">
     <div class="titulo-fila"><h2 id="t-prev-mes">${esc(Previred.nombreMes(r.periodo).replace(/^./, c => c.toUpperCase()))}</h2><span>${r.trabajadores.length} ${r.trabajadores.length === 1 ? 'trabajador' : 'trabajadores'} · <span class="chip c-verde chip-chico">Comprobante de pago</span>${r.fueraDePlazo ? ' <span class="chip c-rojo chip-chico" id="prev-fuera">Pagado fuera de plazo</span>' : ''}</span></div>
     <p class="nota-i">(i) El comprobante es la mirada de la empresa: todo lo que pagaste, con multas e intereses. Es el documento recomendado. ${info('Certificado o comprobante', TXT_PREV_DOCS)}</p>
@@ -4389,6 +4441,7 @@ function pintarPrevComprobante(items, d) {
     <div class="error" id="prev-error" role="alert"></div>
     <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="prev-guardar" ${bloqueado ? 'disabled' : ''} data-listo="${listo ? '1' : ''}">${boton}</button><button type="button" class="btn-sec" id="prev-descartar">Descartar</button></div></section>`;
   escucharPrevTrab(cont, items);
+  if (!cargado) montarRepartos(cont, r, items);   // v0.67.5
   pintarNotaRecItem();
   const sel = $('prev-rec-item'); if (sel) sel.addEventListener('change', () => { const b = $('prev-guardar'); if (b && !r.bloquea && !mismo && !otro) b.disabled = !sel.value; });
   $('prev-descartar').onclick = () => { prev.datos = null; prev.destino = null; prev.tipoDoc = ''; cont.innerHTML = ''; };
@@ -4396,8 +4449,8 @@ function pintarPrevComprobante(items, d) {
     const err = $('prev-error'); err.textContent = '';
     if (conRec && !prev.recItem) { err.textContent = 'Elige el ítem de las multas e intereses.'; return; }
     if (!cargado) {
-      const falta = r.trabajadores.find(t => !t.area || !t.item);
-      if (falta) { err.textContent = `${falta.nombre}: elige el área y el ítem.`; return; }
+      const falta = faltaEnPrev(r);
+      if (falta) { err.textContent = falta; return; }
       if (!prev.fecha) { err.textContent = 'Elige la fecha del gasto.'; return; }
     }
     const b = $('prev-guardar'); b.disabled = true; b.textContent = 'Guardando…';
@@ -4412,8 +4465,8 @@ function pintarPrevComprobante(items, d) {
         const x = await Previred.registrar({ ...payloadTrab(r, aVenc), comprobante: payloadComp(r) }, prev.archivo, prev.idem);
         registrar('Cargó el comprobante de Previred', `${nm} · ${x.trabajadores} trabajadores · ${pesos(x.total)} + multas e intereses ${pesos(x.recargos || 0)}${x.aVencimiento ? ' · al vencimiento ' + (x.aVencimiento.nombre || '') : ''}`);
         prev.mensaje = x.repetido ? 'Ese comprobante ya estaba guardado: no se repitió nada.' : x.aVencimiento
-          ? `Listo: el comprobante completó el vencimiento de ${x.aVencimiento.nombre || 'Cotizaciones'} (${pesos(x.totalPagado)}). Los ${x.trabajadores} gastos por trabajador${x.recargos ? ' y el de multas e intereses' : ''} se crean al pagarlo.${x.conArchivo ? '' : ' (El PDF no se pudo guardar en Drive.)'}`
-          : `Listo: ${x.trabajadores} gastos por ${pesos(x.total)}${x.recargos ? ` y el de multas e intereses (${pesos(x.recargos)})` : ''}${x.vencimiento ? '; el vencimiento quedó pagado' : ''}.${x.conArchivo ? '' : ' (El PDF no se pudo guardar en Drive.)'}`;
+          ? `Listo: el comprobante completó el vencimiento de ${x.aVencimiento.nombre || 'Cotizaciones'} (${pesos(x.totalPagado)}). Los ${x.gastos || x.trabajadores} gastos ${(x.gastos || x.trabajadores) === x.trabajadores ? 'por trabajador' : 'de los trabajadores'}${x.recargos ? ' y el de multas e intereses' : ''} se crean al pagarlo.${x.conArchivo ? '' : ' (El PDF no se pudo guardar en Drive.)'}`
+          : `Listo: ${x.gastos || x.trabajadores} gastos por ${pesos(x.total)}${x.recargos ? ` y el de multas e intereses (${pesos(x.recargos)})` : ''}${x.vencimiento ? '; el vencimiento quedó pagado' : ''}.${x.conArchivo ? '' : ' (El PDF no se pudo guardar en Drive.)'}`;
       }
       prev.datos = null; prev.destino = null; prev.tipoDoc = '';
       pintarConciliacion('previred');
@@ -4424,13 +4477,23 @@ function pintarPrevComprobante(items, d) {
   };
 }
 
+// v0.67.5 · El reparto de cada trabajador en cada mes (de sus gastos) y "Cambiar reparto"
+let prevHistP = [];
+const textoReparto = l => (l || []).map(a => (l.length === 1 ? a.area : `${a.area} ${a.pct}%`)).join(' · ');
+function repartoFilaPrev(p, t) {
+  const l = t.reparto && t.reparto.length ? t.reparto : t.area ? [{ area: t.area, pct: 100 }] : [];
+  const puede = (t.gastos && t.gastos.length) || t.enPlan;
+  const btn = puede ? `<button type="button" class="btn-sec btn-chico" data-prev-reparto="${esc(p.periodo)}" data-rut="${esc(t.rut)}">${icono('reparto', 14)} Cambiar reparto</button>` : '';
+  return { txt: `<span class="prev-rep-txt" data-prev-rep-txt="${esc(p.periodo + '|' + t.rut)}">${esc(textoReparto(l) || 'sin área')}${t.enPlan ? ' (al pagar el vencimiento)' : ''}</span>`, btn };
+}
 function pintarPrevHist(P) {
   const cont = $('prev-hist'); if (!cont) return;
+  prevHistP = P;
   cont.innerHTML = P.length ? P.map((p, k) => `<details class="mes-sii" ${k === 0 ? 'open' : ''} data-prev-mes="${esc(p.periodo)}"><summary><b>${esc(Previred.nombreMes(p.periodo).replace(/^./, c => c.toUpperCase()))}</b><span>${p.trabajadores.length} trabajadores · ${pesos(p.total)} · pagado el ${esc(fechaIso(p.comprobante ? p.comprobante.fechaPago : p.fechaPago))}${p.porCsv ? ' <span class="chip c-azul chip-chico">CSV</span>' : ''}${p.comprobante && p.comprobante.fueraDePlazo ? ' <span class="chip c-rojo chip-chico">Pagado fuera de plazo</span>' : ''}</span></summary>
     ${prevCompHtml(p)}
-    ${p.trabajadores.sort((a, b) => b.total - a.total).map(t => `<div class="fila-caja"><div class="txt"><b>${esc(t.nombre)}</b><span>${esc(t.area)} · imponible ${pesos(t.imponible)}</span>
+    ${p.trabajadores.sort((a, b) => b.total - a.total).map(t => { const rp = repartoFilaPrev(p, t); return `<div class="fila-caja"><div class="txt"><b>${esc(t.nombre)}</b><span>${rp.txt} · imponible ${pesos(t.imponible)}</span>
       <span>AFP ${pesos(t.afp)} · Salud ${pesos(t.salud)} · AFC ${pesos(t.afc)} · Empresa ${pesos(t.empleador)}${t.otro ? ' · Otros ' + pesos(t.otro) : ''}</span></div>
-      <div class="acciones"><span class="chip c-gris">${pesos(t.total)}</span></div></div>`).join('')}
+      <div class="acciones">${rp.btn}<span class="chip c-gris">${pesos(t.total)}</span></div></div>`; }).join('')}
     ${prevUnidosHtml(p)}
     ${p.archivo ? `<p class="ayuda"><a href="${esc(p.archivo)}" target="_blank" rel="noopener">PDF en Drive</a></p>` : ''}</details>`).join('')
     : '<div class="vacio">Aún no hay meses cargados.</div>';
@@ -4442,6 +4505,8 @@ function pintarPrevHist(P) {
     try { await Cartola.deshacer(b.dataset.prevDeshacer, motivo, 'pd-' + b.dataset.prevDeshacer + '-' + Gastos.nuevaClave()); registrar('Quitó un cargo de la planilla de Previred', b.dataset.txt || ''); cart.d = null; pintarPrevHist((await Previred.lista()).periodos || []); }
     catch (e) { b.disabled = false; alert(e.message || mensajeError(e)); }
   }));
+  // v0.67.5 · Cambiar el reparto de un trabajador en un mes (y, si se marca, en sus otros meses cargados)
+  cont.querySelectorAll('[data-prev-reparto]').forEach(b => b.addEventListener('click', () => abrirCambiarReparto(b.dataset.prevReparto, b.dataset.rut)));
   // v0.67.3 · Quitar la diferencia del banco registrada como multas e intereses: anula su gasto, nada se borra
   cont.querySelectorAll('[data-prev-quitar-dif]').forEach(b => b.addEventListener('click', async () => {
     const per = b.dataset.prevQuitarDif;
@@ -4460,6 +4525,52 @@ function pintarPrevHist(P) {
     try { await Previred.quitarComprobante(per, motivo, 'qc-' + per + '-' + Gastos.nuevaClave()); registrar('Quitó el comprobante de Previred', Previred.nombreMes(per)); cart.d = null; pintarPrevHist((await Previred.lista()).periodos || []); }
     catch (e) { b.disabled = false; alert(e.message || mensajeError(e)); }
   }));
+}
+const TXT_CAMBIAR_REPARTO = 'Cambia el área de los gastos de Previred de este trabajador en este mes: por ejemplo, de PAN 100 % a PAN 40 % y B2B 60 %. El total del mes no cambia: solo cómo se reparte entre áreas.\nSe usa la corrección de siempre: cada gasto queda con su historial (quién, cuándo, antes y después, y el motivo). Si el reparto tiene más áreas que gastos, se crean las líneas que faltan; si tiene menos, las que sobran se anulan (pasan a "Gastos anulados"). Nada se borra.\nEl reparto nuevo queda recordado en Previred para los meses siguientes.\nUn mes cerrado en Finanzas no se cambia aquí: primero hay que reabrirlo en Finanzas → Resultados → Cierre de mes.';
+function abrirCambiarReparto(per, rut) {
+  const rN = x => String(x || '').toUpperCase().replace(/[^0-9K]/g, '');
+  const p = prevHistP.find(x => x.periodo === per), t = p && p.trabajadores.find(x => rN(x.rut) === rN(rut));
+  if (!t) return;
+  const otros = prevHistP.filter(x => x.periodo !== per && x.trabajadores.some(y => rN(y.rut) === rN(rut) && y.gastos && y.gastos.length)).map(x => x.periodo);
+  const total = t.gastosTotal || t.total, actual = t.reparto && t.reparto.length ? t.reparto : [{ area: t.area, pct: 100, monto: total }];
+  const nm = Previred.nombreMes(per);
+  const dlg = dialogo(`<form class="form-dialogo" id="cr-form" novalidate><h2>Cambiar reparto</h2>
+    <p class="ayuda"><b>${esc(t.nombre)}</b> · Previred ${esc(nm)} · ${pesos(total)}${t.enPlan ? ' · los gastos se crean al pagar el vencimiento' : ` · ${t.gastos.length} ${t.gastos.length === 1 ? 'línea' : 'líneas'} de gasto`}</p>
+    <p class="ayuda" id="cr-actual">Ahora: ${esc(actual.map(a => (actual.length === 1 ? a.area : `${a.area} ${a.pct}%`) + (a.monto !== undefined ? ' (' + pesos(a.monto) + ')' : '')).join(' · '))}</p>
+    <div data-ab-areas="cr" data-ab-monto="${Math.round(total)}"></div>
+    ${otros.length ? `<label class="check-linea" id="cr-otros-l"><input type="checkbox" id="cr-otros"> Aplicar también a los otros meses cargados de este trabajador (${otros.length}: ${esc(otros.map(x => Previred.nombreMes(x)).join(', '))})</label>` : ''}
+    <div class="campo"><label for="cr-motivo">Motivo</label><input id="cr-motivo" type="text" maxlength="300" placeholder="Ej: trabaja 40 % en panadería y 60 % en B2B"></div>
+    <p class="nota-i">(i) El total del mes no cambia. Cada gasto queda con su historial y nada se borra. ${info('Cambiar reparto', TXT_CAMBIAR_REPARTO)}</p>
+    <div class="error" id="cr-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="cr-cancelar">Cancelar</button><button type="submit" class="btn" id="cr-guardar">Cambiar reparto</button></div></form>`);
+  const q = s => dlg.querySelector(s);
+  abAreas.cr = { areas: actual.map(a => ({ area: a.area, pct: a.pct })), fuente: 'actual', texto: 'el reparto de este mes', etiqueta: 'Reparto nuevo', infoTit: 'Cambiar reparto', infoTxt: TXT_CAMBIAR_REPARTO, nombre: t.nombre };
+  const cx = q('[data-ab-areas="cr"]'); cx.innerHTML = htmlAreasAbono('cr', Math.round(total)); activarAreasAbono(dlg);
+  q('#cr-cancelar').onclick = () => dlg.close();
+  let idem = 'cr-' + per + '-' + Gastos.nuevaClave();
+  q('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = q('#cr-error'); err.textContent = '';
+    const st = abAreas.cr, x = AB.validarAreas(st.areas.length === 1 ? [{ area: st.areas[0].area, pct: 100 }] : st.areas, AREAS_GASTO);
+    if (x.error) { err.textContent = x.error + '.'; return; }
+    const motivo = q('#cr-motivo').value.trim();
+    if (motivo.length < 3) { err.textContent = 'Escribe el motivo (queda en el historial de cada gasto).'; return; }
+    const otrosM = !!(q('#cr-otros') && q('#cr-otros').checked);
+    const b = q('#cr-guardar'); b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      const r = await Previred.cambiarReparto({ periodo: per, rut: t.rut, nombre: t.nombre, areas: x.areas, motivo, otrosMeses: otrosM, vistos: t.enPlan ? null : t.gastos.map(g => ({ id: g.id, version: g.version })) }, idem);
+      registrar('Cambió el reparto de Previred', `${t.nombre} · ${nm}${otrosM ? ' y otros meses' : ''} · ${AB.textoAreas(x.areas)}`);
+      dlg.close();
+      prev.mensaje = r.repetido ? 'Ese cambio ya estaba hecho: no se repitió nada.' : r.sinCambios ? `El reparto de ${t.nombre} ya era ese: no cambió ningún gasto (queda recordado para los meses siguientes).`
+        : `Listo: ${t.nombre} queda con ${AB.textoAreas(x.areas)}${r.meses && r.meses.length > 1 ? ` en ${r.meses.length} meses` : ''}. ${[r.corregidas ? `${r.corregidas} ${r.corregidas === 1 ? 'gasto corregido' : 'gastos corregidos'}` : '', r.creadas ? `${r.creadas} ${r.creadas === 1 ? 'línea nueva' : 'líneas nuevas'}` : '', r.anuladas ? `${r.anuladas} ${r.anuladas === 1 ? 'anulada' : 'anuladas'}` : '', r.enPlan ? 'el vencimiento por pagar quedó con el reparto' : ''].filter(Boolean).join(', ')}.`;
+      const m = $('prev-msg'); if (m) m.textContent = prev.mensaje;
+      cart.d = null; pintarPrevHist((await Previred.lista()).periodos || []);
+    } catch (er) {
+      if (er.code && er.code !== 'en_curso') idem = 'cr-' + per + '-' + Gastos.nuevaClave();
+      err.textContent = (er.message || mensajeError(er)) + (er.code ? '' : ' Si vuelves a tocar Cambiar reparto no se duplica.');
+      b.disabled = false; b.textContent = 'Cambiar reparto';
+    }
+  });
 }
 // v0.67.0 · "Cotizaciones $X + multas e intereses $Y = pagado $Z" (con el comprobante de pago)
 function prevCompHtml(p) {
@@ -6957,7 +7068,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.67.4')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.4'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.67.5')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.5'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }

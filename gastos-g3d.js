@@ -12,14 +12,19 @@
 //    intereses Previred <mes>" (sin IVA, contado, con la fecha de pago y un ítem financiero), el comprobante guardado en
 //    previred_planillas/{AAAA-MM}.comprobante (el total de la planilla pasa a ser lo pagado) y el aviso de vencimiento
 //    (día 13 del mes siguiente o el hábil que sigue).
+//  · v0.67.5: reparto en % por trabajador (por ejemplo PAN 40 % y B2B 60 %): su gasto se parte en una línea por área (montos que
+//    suman exacto, el resto al % más grande: gastos-abono.js montosPorAreas), todas con el mismo previred { periodo, rut } y la
+//    misma observación. El reparto se recuerda por RUT (cotiz_trabajadores.areas; "area" sigue siendo la principal). El plan del
+//    vencimiento lo lleva (los gastos nacen partidos al pagarlo). "Cambiar reparto" de un mes ya cargado: planCambioReparto.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as B from './gastos-banco.js?v=0.67.4';
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.67.4';
-import * as M from './gastos-g2.js?v=0.67.4';
-import * as G3 from './gastos-g3.js?v=0.67.4';
-import { FERIADOS } from './feriados-cl.js?v=0.67.4';
-import * as FR from './finanzas-resultados.js?v=0.67.4';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
+import * as B from './gastos-banco.js?v=0.67.5';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.67.5';
+import * as M from './gastos-g2.js?v=0.67.5';
+import * as G3 from './gastos-g3.js?v=0.67.5';
+import { FERIADOS } from './feriados-cl.js?v=0.67.5';
+import * as FR from './finanzas-resultados.js?v=0.67.5';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
+import * as AB from './gastos-abono.js?v=0.67.5';   // v0.67.5: el reparto en % (el mismo de los abonos)
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -49,6 +54,7 @@ export const claveLinea = (periodo, rut, inst, tipoPago, folio) => [periodo, s(r
 export const idCotizacion = clave => 'c-' + huella(s(clave));
 const rutClave = r => s(r).trim().toUpperCase().replace(/[^0-9K-]/g, '');
 const rutN = r => s(r).toUpperCase().replace(/[^0-9K]/g, '');
+export const rutCot = rutN;   // v0.67.5: el RUT sin puntos ni guion (para comparar)
 export const idTrabajador = rut => idLimpio(rutClave(rut));
 const rutOk = r => /^\d{1,2}\.?\d{3}\.?\d{3}-[\dK]$/.test(s(r).trim().toUpperCase());
 const periodoDe = v => { const t = s(v).trim(); if (/^\d{4}-\d{2}$/.test(t)) return t; const d = dia(t); return d ? d.slice(0, 7) : ''; };
@@ -57,7 +63,9 @@ export const periodoCot = periodoDe;   // v0.67.0
 // cot_estado: áreas e ítems recordados (por RUT) y qué claves pedidas ya estaban cargadas
 export function estadoCot(cotizaciones, trabajadores, claves) {
   const config = {};
-  (trabajadores || []).filter(x => x.d && !x.d.quitadoEnPlanilla && s(x.d.rut)).forEach(({ d }) => { config[s(d.rut).toUpperCase()] = { nombre: s(d.nombre), area: s(d.area), item: s(d.item), ...(s(d.afp) ? { afp: s(d.afp) } : {}) }; });
+  (trabajadores || []).filter(x => x.d && !x.d.quitadoEnPlanilla && s(x.d.rut)).forEach(({ d }) => { config[s(d.rut).toUpperCase()] = { nombre: s(d.nombre), area: s(d.area), item: s(d.item), ...(s(d.afp) ? { afp: s(d.afp) } : {}),
+    // v0.67.5: el reparto recordado y su fecha (para comparar con el de los abonos)
+    ...(AB.repartoTrabajador(d, M.AREAS).length > 1 ? { areas: AB.repartoTrabajador(d, M.AREAS) } : {}), repartoEn: s(d.repartoEn), actualizado: s(d.actualizado) }; });
   const ya = new Set((cotizaciones || []).filter(x => x.d && !x.d.quitadoEnPlanilla && s(x.d.clave)).map(x => s(x.d.clave)));
   return { ok: true, config, afps: afpsPorRut(cotizaciones, trabajadores), yaCargadas: (Array.isArray(claves) ? claves.slice(0, 2000).map(String) : []).filter(k => ya.has(k)) };
 }
@@ -90,7 +98,11 @@ export function revisarRegistro(p, items, cotizaciones) {
   for (const t of T) {
     const rut = s(t && t.rut).trim().toUpperCase(), nombre = M.texto(t && t.nombre, 80);
     if (!rutOk(rut) || !nombre) return { error: 'Trabajador no válido', code: 'datos' };
-    if (!M.AREAS.includes(s(t.area))) return { error: nombre + ': elige el área', code: 'datos' };
+    // v0.67.5: un área, o un reparto en % (areas: [{ area, pct }], suman 100): el área principal es la de mayor %
+    let areas = [{ area: s(t.area), pct: 100 }];
+    if (Array.isArray(t.areas) && t.areas.length > 1) { const x = AB.validarAreas(t.areas, M.AREAS); if (x.error) return { error: nombre + ': ' + x.error, code: 'datos' }; areas = x.areas; }
+    else if (Array.isArray(t.areas) && t.areas.length === 1) areas = [{ area: s(t.areas[0] && t.areas[0].area).toUpperCase(), pct: 100 }];
+    if (!areas.every(a => M.AREAS.includes(a.area))) return { error: nombre + ': elige el área', code: 'datos' };
     const ref = lista[s(t.item)];
     if (!ref) return { error: nombre + ': el ítem no está en la lista de ítems', code: 'datos' };
     const L = Array.isArray(t.lineas) ? t.lineas : [];
@@ -106,7 +118,7 @@ export function revisarRegistro(p, items, cotizaciones) {
       lineas.push({ institucion: inst, tipoPago: tp, folio, monto, imponible: imp, clave, ...tipoLinea(inst) });
     }
     const afp = AFPS.includes(s(t.afp)) ? s(t.afp) : '';   // v0.67.3: la AFP elegida (CSV) se recuerda por RUT
-    limpios.push({ rut, nombre, area: s(t.area), ref, lineas, total: lineas.reduce((x, l) => x + l.monto, 0), ...(afp ? { afp } : {}) });
+    limpios.push({ rut, nombre, area: AB.principal(areas), areas, ref, lineas, total: lineas.reduce((x, l) => x + l.monto, 0), ...(afp ? { afp } : {}) });
   }
   if (repetidos.length) return { error: 'Ese período ya estaba cargado para: ' + repetidos.join(', ') + '. No se guardó nada.', code: 'duplicado' };
   return { limpios, total: limpios.reduce((x, t) => x + t.total, 0), lineas: limpios.reduce((x, t) => x + t.lineas.length, 0) };
@@ -121,15 +133,23 @@ export function obsTrabajador(periodo, t) {
 export const docsCotizacion = (p, limpios, url, en, por, extra = {}) => limpios.flatMap(t => t.lineas.map(l => ({ id: idCotizacion(l.clave), d: {
   periodo: p.periodo, fechaPago: p.fechaPago, rut: t.rut, nombre: t.nombre, institucion: l.institucion, tipo: l.tipo, cargo: l.cargo, tipoPago: l.tipoPago,
   imponible: l.imponible, monto: l.monto, folioPlanilla: l.folio, area: t.area, item: t.ref.item, archivo: s(url), cargadoEl: s(en), cargadoPor: s(por) || 'Sistema Fën', clave: l.clave, ...extra } })));
-export const docTrabajador = (t, hoy) => ({ id: idTrabajador(t.rut), d: { rut: t.rut, nombre: t.nombre, area: t.area, item: t.ref.item, ...(t.afp ? { afp: t.afp } : {}), actualizado: s(hoy) } });
+// v0.67.5: con su reparto (areas; "area" es la principal). La fecha del reparto (repartoEn) la pone la transacción si cambió.
+export const docTrabajador = (t, hoy) => ({ id: idTrabajador(t.rut), d: { rut: t.rut, nombre: t.nombre, area: t.area, areas: repartoDe(t), item: t.ref.item, ...(t.afp ? { afp: t.afp } : {}), actualizado: s(hoy) } });
+const repartoDe = t => (Array.isArray(t.areas) && t.areas.length ? t.areas.map(a => ({ area: s(a.area), pct: Number(a.pct) })) : [{ area: s(t.area), pct: 100 }]);
+// ¿Cambió el reparto recordado? (lo guardado: areas, o su área sola)
+export const repartoCambio = (antes, despues) => !AB.iguales(AB.repartoTrabajador(antes), repartoDe(despues));
 // El plan de gastos por trabajador que guarda el vencimiento (se usan al pagarlo)
-export const planTrabajadores = (p, limpios) => limpios.map(t => ({ rut: t.rut, nombre: t.nombre, area: t.area, item: t.ref.item, categoria: s(t.ref.categoria), tipo: s(t.ref.tipo), subTipo: s(t.ref.subTipo), total: t.total, obs: obsTrabajador(p.periodo, t) }));
+// v0.67.5: con el reparto (areas) si son dos o más áreas: los gastos nacen partidos al pagar el vencimiento
+export const planTrabajadores = (p, limpios) => limpios.map(t => ({ rut: t.rut, nombre: t.nombre, area: t.area, ...(repartoDe(t).length > 1 ? { areas: repartoDe(t) } : {}), item: t.ref.item, categoria: s(t.ref.categoria), tipo: s(t.ref.tipo), subTipo: s(t.ref.subTipo), total: t.total, obs: obsTrabajador(p.periodo, t) }));
 // Un gasto por trabajador (sin IVA, contado). plan = documento.previred = { periodo, fecha, trabajadores }
 // v0.67.0: con el comprobante, además el gasto de multas e intereses (plan.recargos), con la fecha de pago de Previred
+// v0.67.5: un trabajador con reparto en % da una línea por área (montos que suman su total exacto, el resto al % más grande), con
+// la misma observación y el mismo previred { periodo, rut }: lo que busca por RUT o por mes sigue igual.
+export const partesTrabajador = t => (Array.isArray(t.areas) && t.areas.length > 1 ? AB.montosPorAreas(n(t.total), t.areas) : [{ area: s(t.area), pct: 100, monto: n(t.total) }]);
 export function lineasPrevired(plan, fechaPago, url, hora, extra = {}) {
-  const l = (plan.trabajadores || []).map(t => M.docGasto({ fecha: plan.fecha, hora, itemGasto: t.item, categoria: t.categoria, tipo: t.tipo, subTipo: t.subTipo, area: t.area,
-    tipoMonto: 'siniva', montoNeto: n(t.total), montoFinal: n(t.total), esHarina: 'No', formaPago: 'contado', fechaPago, archivo: '', observacion: t.obs, urlFoto: s(url) },
-  { ...extra, previred: { periodo: s(plan.periodo), rut: s(t.rut) } }));
+  const l = (plan.trabajadores || []).flatMap(t => partesTrabajador(t).map(a => M.docGasto({ fecha: plan.fecha, hora, itemGasto: t.item, categoria: t.categoria, tipo: t.tipo, subTipo: t.subTipo, area: a.area,
+    tipoMonto: 'siniva', montoNeto: a.monto, montoFinal: a.monto, esHarina: 'No', formaPago: 'contado', fechaPago, archivo: '', observacion: t.obs, urlFoto: s(url) },
+  { ...extra, previred: { periodo: s(plan.periodo), rut: s(t.rut) } })));
   if (plan.recargos && n(plan.recargos.monto) > 0) l.push(lineaRecargos(plan.recargos, plan.recargos.url || url, hora, extra));
   return l;
 }
@@ -191,6 +211,53 @@ export function listaCot(cotizaciones) {
   });
   return { ok: true, periodos: Object.keys(per).sort().reverse().slice(0, 24).map(k => ({ ...per[k], trabajadores: Object.values(per[k].trabajadores) })) };
 }
+
+// ═══ v0.67.5 · Reparto de los gastos ya cargados ═══
+// El período de un gasto de Previred (aaaa-mm; lo copiado de la planilla puede venir como aaaamm)
+export const perGasto = g => { const p = s(g && g.previred && g.previred.periodo); return /^\d{6}$/.test(p) ? p.slice(0, 4) + '-' + p.slice(4) : p.slice(0, 7); };
+// ¿Es una línea de trabajador de Previred (no las multas e intereses) vigente?
+export const esLineaTrabajador = g => !!(g && g.previred && !g.previred.recargos && s(g.previred.rut) && g.estado === 'vigente' && !g.quitadoEnPlanilla);
+// Las líneas vigentes de cada trabajador por mes: { 'aaaa-mm|RUTN': [{ id, d }] } (ordenadas por id)
+export function gastosPorTrabajador(gastos) {
+  const out = {};
+  (gastos || []).filter(x => esLineaTrabajador(x.d)).forEach(x => { const k = perGasto(x.d) + '|' + rutN(x.d.previred.rut); (out[k] = out[k] || []).push(x); });
+  Object.values(out).forEach(l => l.sort((a, b) => a.id.localeCompare(b.id)));
+  return out;
+}
+// El reparto que muestran las líneas de un trabajador en un mes: [{ area, pct, monto }] (los % redondeados, que suman 100)
+export function repartoDeLineas(lineas) {
+  const por = {}; let tot = 0;
+  (lineas || []).forEach(x => { const a = s(x.d.area), m = r0(x.d.montoFinal); por[a] = (por[a] || 0) + m; tot += m; });
+  const l = Object.entries(por).map(([area, monto]) => ({ area, monto })).sort((a, b) => b.monto - a.monto);
+  let resto = 100;
+  l.forEach((a, i) => { a.pct = i === l.length - 1 ? resto : tot ? Math.round(a.monto * 100 / tot) : 0; resto -= a.pct; });
+  return { areas: l, total: tot };
+}
+// Lo que hay que hacer en las líneas de un trabajador en un mes para que queden con el reparto nuevo. Se usa el camino de siempre:
+// corregir (área y monto) las que sirven, anular las que sobran y crear las que faltan (copias de la primera). Nada se borra.
+// lineas: [{ id, d }] vigentes; areas: el reparto validado. → { total, corregir: [{ id, area, monto }], anular: [ids], crear: [{ area, monto }], igual }
+export function planCambioReparto(lineas, areas) {
+  const L = (lineas || []).slice(), total = L.reduce((t, x) => t + r0(x.d.montoFinal), 0), nuevas = AB.montosPorAreas(total, areas);
+  const libres = new Set(L.map(x => x.id)), asignar = {};
+  // 1) cada área nueva toma una línea que ya es de esa área (así cambia lo menos posible)
+  nuevas.forEach((a, i) => { const x = L.find(y => libres.has(y.id) && s(y.d.area) === a.area); if (x) { asignar[i] = x; libres.delete(x.id); } });
+  // 2) las áreas sin línea toman las que sobran (cambian de área); 3) lo que sobra se anula y lo que falta se crea
+  nuevas.forEach((a, i) => { if (asignar[i]) return; const x = L.find(y => libres.has(y.id)); if (x) { asignar[i] = x; libres.delete(x.id); } });
+  const corregir = [], crear = [];
+  nuevas.forEach((a, i) => { const x = asignar[i]; if (!x) crear.push({ area: a.area, monto: a.monto }); else if (s(x.d.area) !== a.area || r0(x.d.montoFinal) !== a.monto) corregir.push({ id: x.id, area: a.area, monto: a.monto }); });
+  const anular = [...libres];
+  return { total, nuevas, corregir, anular, crear, igual: !corregir.length && !anular.length && !crear.length };
+}
+// Un gasto nuevo del reparto: copia de la línea base (misma fecha, ítem, observación, fecha de pago, previred, vencimiento y
+// cartola), con su área y su monto. El origen y el historial los pone nuevo().
+const SIN_COPIAR = ['historial', 'version', 'creado', '_m', 'planillaPendiente', 'planillaEn', 'hechoEnBase', 'anulado', 'filaOriginal', 'idPlanilla', 'fila', 'origen', 'origenDetalle'];
+export function lineaReparto(base, area, monto, detalle) {
+  const d = {}; Object.keys(base || {}).filter(k => !SIN_COPIAR.includes(k)).forEach(k => { d[k] = base[k]; });
+  const neto = s(base.tipoMonto) === 'siniva' || !n(base.montoFinal) ? monto : Math.round(n(base.montoNeto) * monto / n(base.montoFinal));
+  return { ...d, area, montoFinal: monto, montoNeto: neto, estado: 'vigente', origenDetalle: { tipo: 'previred', reparto: true, ...detalle } };
+}
+// El mes de Finanzas está cerrado (fin_cierres/{aaaa-mm} con estado "cerrado"; reabierto no cuenta)
+export const mesCerrado = c => !!(c && s(c.estado || 'cerrado') === 'cerrado');
 
 // ═══ v0.67.0 · Comprobante de pago de Previred ═══
 // Lo que se paga con el plan de un vencimiento: los trabajadores + las multas e intereses (si vienen del comprobante)

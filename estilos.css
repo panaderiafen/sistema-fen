@@ -1566,3 +1566,21 @@ details[open] > summary .cc-nota-txt, .fila-hist:hover .cc-nota-txt, .fila-hist:
 .cc-varios-barra { position: sticky; bottom: 0; z-index: 3; background: var(--tarjeta); border-top: 1px solid var(--linea); padding: 4px 0 6px; margin-top: 6px; }
 .cc-varios-barra .botones { margin: 0; flex-wrap: wrap; }
 @media (max-width: 760px) { .cc-varios-barra { bottom: calc(72px + env(safe-area-inset-bottom)); } }
+
+/* v0.67.5 · Reparto en % por trabajador en la vista previa de Previred y "Cambiar reparto" (la caja de los abonos) */
+#prev-filas .prev-reparto { flex: 1 1 100%; min-width: 0; }
+#prev-filas .prev-reparto .ab-areas-caja { margin: 0; max-width: 640px; }
+#prev-filas .prev-reparto .ab-areas-caja { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+#prev-filas .prev-reparto .etiqueta { margin: 0; }
+#prev-filas .prev-reparto .fila-area select { flex: 1 1 auto; }
+#prev-filas .prev-reparto .etiqueta { font-size: 13px; color: var(--suave); display: inline-flex; align-items: center; gap: 4px; }
+#prev-filas .prev-reparto .ab-fuente { font-size: 12px; margin: 0; flex: 0 1 auto; }
+#prev-filas .prev-reparto .fila-area { flex: 1 1 100%; margin-bottom: 0; }
+#prev-filas .prev-reparto .ab-uno .fila-area { flex: 1 1 180px; max-width: 280px; }
+#prev-filas .prev-reparto .ab-pie { flex: 0 0 auto; }
+.prev-rep-txt { font-weight: 600; color: var(--texto); }
+#prev-hist .fila-caja .acciones .btn-chico { white-space: nowrap; }
+#cr-form .ab-areas-caja { margin-top: 4px; }
+#cr-form .check-linea { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; line-height: 1.35; margin: 4px 0 10px; }
+#cr-form .check-linea input { margin-top: 3px; flex: none; }
+@media (max-width: 480px) { #prev-hist .fila-caja .acciones { width: 100%; justify-content: space-between; } }

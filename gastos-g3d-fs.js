@@ -18,13 +18,19 @@
 //    comprobante queda en previred_planillas/{AAAA-MM}.comprobante y el total de la planilla pasa a ser lo pagado. Quitarlo
 //    (cot_quitar_comprobante) anula el gasto de multas e intereses y deja el comprobante en comprobantesQuitados.
 //    El aviso de vencimiento (Hoy y Agenda) sale de la memoria: cotizaciones (paquete) y previred_planillas (pocos documentos).
+//  · v0.67.5 · Reparto en % por trabajador: cot_estado trae los destinatarios de abonos (de la memoria) para proponer el reparto
+//    más nuevo; cot_registrar guarda areas y repartoEn en cotiz_trabajadores (solo si cambió) y parte el gasto en una línea por
+//    área; cot_lista dice el reparto de cada trabajador en cada mes (de los gastos en memoria); cot_reparto lo cambia en un mes
+//    ya cargado (y, si se pide, en los otros meses del trabajador) por el camino de siempre: corregir con historial y versión,
+//    anular lo que sobra y crear lo que falta. Un mes cerrado en Finanzas (fin_cierres) bloquea.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.67.4';
-import * as M from './gastos-g2.js?v=0.67.4';
-import * as G3 from './gastos-g3.js?v=0.67.4';
-import * as D from './gastos-g3d.js?v=0.67.4';
-import * as C from './gastos-cartola.js?v=0.67.4';
-import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.67.4';
+import * as FB from './fs-gastos.js?v=0.67.5';
+import * as M from './gastos-g2.js?v=0.67.5';
+import * as G3 from './gastos-g3.js?v=0.67.5';
+import * as D from './gastos-g3d.js?v=0.67.5';
+import * as C from './gastos-cartola.js?v=0.67.5';
+import * as AB from './gastos-abono.js?v=0.67.5';
+import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.67.5';
 
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const s = v => String(v == null ? '' : v);
@@ -33,8 +39,10 @@ const MAX_ESCRITURAS = 450;   // una transacción de Firestore acepta hasta 500
 // ── Previred ──
 // p = { claves, periodo?, fechaPago? }: además de lo del script, a dónde va el certificado (destino)
 export async function cotEstado(p) {
-  const [cot, trab, ps, vencs] = await Promise.all([todos('cotizaciones'), todos('cotiz_trabajadores'), todos('obligaciones'), todos('vencimientos')]);
+  const [cot, trab, ps, vencs, ds] = await Promise.all([todos('cotizaciones'), todos('cotiz_trabajadores'), todos('obligaciones'), todos('vencimientos'), todos('abono_destinatarios').catch(() => [])]);
   const r = D.estadoCot(cot, trab, p && p.claves);
+  // v0.67.5 · Lo recordado en los abonos (paquete en memoria): la vista previa propone el reparto más nuevo de cada persona
+  r.destinatarios = ds.filter(x => x.d && Array.isArray(x.d.areas) && x.d.areas.length).map(x => ({ clave: s(x.d.clave), nombre: s(x.d.nombre), areas: x.d.areas, repartoEn: s(x.d.repartoEn), ultimoEn: s(x.d.ultimo && x.d.ultimo.en) }));
   if (p && M.esIso(p.fechaPago)) {
     const x = D.destinoCertificado(ps, vencs, p.fechaPago);
     r.destino = x.venc ? { vencimientoId: x.venc.id, nombre: s(x.venc.d.nombre), fecha: G3.fechaReal(x.venc.d), obligacion: s(x.obl.d.nombre) } : { nota: x.motivo };
@@ -69,8 +77,20 @@ const subirPdf = async (subir, p) => {
 };
 // v0.65.1: cada mes con sus pagos del banco unidos (previred_planillas y, si su vencimiento se pagó con la cartola, esos cargos)
 export async function cotLista() {
-  const [cot, pl, vencs, cg] = await Promise.all([todos('cotizaciones'), todos('previred_planillas').catch(() => []), todos('vencimientos'), todos('cartola_cargos').catch(() => [])]);
+  const [cot, pl, vencs, cg, gs] = await Promise.all([todos('cotizaciones'), todos('previred_planillas').catch(() => []), todos('vencimientos'), todos('cartola_cargos').catch(() => []), todos('gastos').catch(() => [])]);
   const r = D.listaCot(cot);
+  // v0.67.5 · El reparto de cada trabajador en cada mes, de sus gastos (paquete en memoria: sin lecturas nuevas) o, si todavía no
+  // tiene gastos (vencimiento de Cotizaciones por pagar), del plan del vencimiento
+  const porT = D.gastosPorTrabajador(gs), vPorId = Object.fromEntries(vencs.map(x => [x.id, x.d]));
+  r.periodos.forEach(P => {
+    const v = P.vencimientoId ? vPorId[P.vencimientoId] : null, plan = v && G3.abierto(v) && v.documento && v.documento.previred ? v.documento.previred : null;
+    P.trabajadores.forEach(T => {
+      const L = porT[P.periodo + '|' + D.rutCot(T.rut)] || [];
+      if (L.length) { const x = D.repartoDeLineas(L); Object.assign(T, { reparto: x.areas, gastosTotal: x.total, gastos: L.map(g => ({ id: g.id, version: Number(g.d.version) || 0, fecha: s(g.d.fecha) })) }); return; }
+      const pt = plan && (plan.trabajadores || []).find(y => D.rutCot(y.rut) === D.rutCot(T.rut));
+      if (pt) Object.assign(T, { reparto: D.partesTrabajador(pt), gastosTotal: M.n(pt.total), enPlan: true, gastos: [] });
+    });
+  });
   const abiertos = new Set(vencs.filter(x => x.d && !x.d.quitadoEnPlanilla && G3.abierto(x.d)).map(x => x.id));
   const pls = C.planillasPrevired(r.periodos, Object.fromEntries(pl.map(x => [x.id, x.d])), abiertos, cg.filter(x => !x.d.quitadoEnPlanilla && x.d.accion === C.PREVIRED).map(x => C.vistaCargo(x.id, x.d)));
   const porPer = Object.fromEntries(pls.map(x => [x.periodo, x]));
@@ -152,7 +172,8 @@ export async function cotRegistrar(p, marca, subir) {
     if (!vElegido) throw error('Ese vencimiento ya no existe', 'datos');
     if (!['esperando_documento', 'por_pagar'].includes(G3.estadoBase(vElegido.d))) throw error('Ese vencimiento ya está ' + (G3.NOMBRE_ESTADO[G3.estadoBase(vElegido.d)] || '').toLowerCase(), 'datos');
   }
-  const escrituras = r.lineas + r.limpios.length * 2 + 2 + (comp ? 2 : 0);
+  const nGastos = r.limpios.reduce((x, t) => x + t.areas.length, 0);   // v0.67.5: una línea por área de cada trabajador
+  const escrituras = r.lineas + r.limpios.length + nGastos + 2 + (comp ? 2 : 0);
   if (escrituras > MAX_ESCRITURAS) throw error('El certificado trae demasiadas líneas para guardarlo de una vez: súbelo por partes (un PDF por trabajador).', 'datos');
   // El PDF a Drive ("Fën · Gastos / Previred / <año del período>", privado)
   const url = await subirPdf(subir, p);
@@ -203,13 +224,14 @@ export async function cotRegistrar(p, marca, subir) {
       if (idR) { tx.set(FB.doc(d, 'gastos', idR), nuevo({ ...D.lineaRecargos(rec, url, hora, vElegido ? { vencimientoId: vElegido.id } : {}), origenDetalle: { tipo: 'previred', recargos: true, periodo: p.periodo, por: quien, en } }, 'previred', quien)); k++; }
     }
     lineasCot.forEach((x, i) => { tx.set(refsC[i], nuevo(x.d, 'previred', quien)); k++; });
-    trab.forEach((x, i) => { const a = snT[i].exists() ? snT[i].data() : null; if (a) tx.update(refsT[i], cambio(a, 'Previred', x.d)); else tx.set(refsT[i], nuevo(x.d, 'previred', quien)); k++; });
+    // v0.67.5 · repartoEn: cuándo se eligió el reparto (solo si cambió), para que los abonos lean el más nuevo
+    trab.forEach((x, i) => { const a = snT[i].exists() ? snT[i].data() : null, dd = D.repartoCambio(a, x.d) ? { ...x.d, repartoEn: en } : x.d; if (a) tx.update(refsT[i], cambio(a, 'Previred', dd)); else tx.set(refsT[i], nuevo(dd, 'previred', quien)); k++; });
     gastosAhora.forEach((l, i) => { tx.set(FB.doc(d, 'gastos', idsG[i]), nuevo(l, 'previred', quien)); k++; });
     return k;
   });
-  if (n === -1) return { ok: true, repetido: true, trabajadores: r.limpios.length, total: r.total, lineas: r.lineas, conArchivo: !!url, vencimiento: false, aVencimiento: aVenc ? { id: dest.venc.id, nombre: s(dest.venc.d.nombre) } : null };
+  if (n === -1) return { ok: true, repetido: true, trabajadores: r.limpios.length, gastos: nGastos, total: r.total, lineas: r.lineas, conArchivo: !!url, vencimiento: false, aVencimiento: aVenc ? { id: dest.venc.id, nombre: s(dest.venc.d.nombre) } : null };
   await despues(n);
-  return { ok: true, trabajadores: r.limpios.length, total: r.total, lineas: r.lineas, conArchivo: !!url, vencimiento: !!vElegido,
+  return { ok: true, trabajadores: r.limpios.length, gastos: nGastos, total: r.total, lineas: r.lineas, conArchivo: !!url, vencimiento: !!vElegido,
     aVencimiento: aVenc ? { id: dest.venc.id, nombre: s(dest.venc.d.nombre), fecha: G3.fechaReal(dest.venc.d) } : null, nota: aVenc ? '' : dest.motivo || '',
     recargos: rec ? rec.monto : 0, gastoRecargosId: idR, totalPagado: comp ? comp.limpio.totalPagado : r.total };
 }
@@ -239,7 +261,7 @@ export async function cotComprobante(p, marca, subir) {
   // v0.67.3 · Mes cargado con el CSV de la nómina: el comprobante trae la fecha de pago de verdad. La planilla toma la del
   // comprobante y los gastos por trabajador (vigentes, de la memoria) que tenían la fecha puesta a mano, también.
   const porCsv = del.some(x => !!x.d.deCsv), fpComp = comp.limpio.fechaPago, fpPl = porCsv ? fpComp : fpCert;
-  const gFecha = porCsv && fpCert && fpCert !== fpComp ? (await todos('gastos', FB.where('fechaPago', '==', fpCert))).filter(x => x.d.estado === 'vigente' && x.d.previred && !x.d.previred.recargos && s(x.d.previred.periodo) === per).map(x => x.id).slice(0, 80) : [];
+  const gFecha = porCsv && fpCert && fpCert !== fpComp ? (await todos('gastos', FB.where('fechaPago', '==', fpCert))).filter(x => x.d.estado === 'vigente' && x.d.previred && !x.d.previred.recargos && s(x.d.previred.periodo) === per).map(x => x.id).slice(0, 320) : [];   // v0.67.5: hasta 4 líneas por trabajador (reparto)
   const refsF = gFecha.map(id => FB.doc(d, 'gastos', id));
   // v0.67.3 · Si la diferencia del banco ya se había registrado como multas e intereses, la reemplaza el comprobante (se anula)
   const dif0 = D.difVigente((pl.find(x => x.id === per) || {}).d), refD = dif0 && s(dif0.gastoId) ? FB.doc(d, 'gastos', s(dif0.gastoId)) : null;
@@ -319,6 +341,99 @@ export async function avisosPreviredHoy() {
   pl.forEach(x => { if (compVigente(x.d)) reg.add(x.id); });
   return D.avisosPrevired(M.ahoraChile().dia, [...reg]);
 }
+
+// ═══ v0.67.5 · Cambiar el reparto de un trabajador en un mes ya cargado ═══
+// p = { periodo, rut, areas: [{ area, pct }], motivo, otrosMeses: bool, vistos: [{ id, version }] (las líneas que viste) }
+// Por cada mes: las líneas vigentes del trabajador (de la memoria) se corrigen (área y monto, con su historial y la versión
+// revisada en la transacción), las que sobran se anulan y las que faltan se crean (copias de la primera, con su origen). El total
+// del mes no cambia. Si el mes todavía no tiene gastos y su vencimiento de Cotizaciones sigue por pagar, se cambia el plan.
+// El reparto queda recordado en cotiz_trabajadores (areas, area principal y repartoEn). Un mes cerrado en Finanzas bloquea todo.
+const MESES_TXT = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const mesTxt = m => `${MESES_TXT[+s(m).slice(5, 7) - 1] || ''} ${s(m).slice(0, 4)}`;
+export async function cotCambiarReparto(p, marca) {
+  const d = await dbBase(), per = s(p && p.periodo), rut = s(p && p.rut), motivo = M.texto(p && p.motivo, 300);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(per) || !rut) throw error('Falta el mes o el trabajador', 'datos');
+  if (motivo.length < 3) throw error('Escribe el motivo', 'datos');
+  const v = AB.validarAreas(p && p.areas, M.AREAS); if (v.error) throw error(v.error, 'datos');
+  const areas = v.areas, clave = marca.t + marca.r;
+  const [gs, cat, trab, vencs, cot] = await Promise.all([todos('gastos'), catalogo(), todos('cotiz_trabajadores'), todos('vencimientos'), todos('cotizaciones')]);
+  const porT = D.gastosPorTrabajador(gs), k = D.rutCot(rut);
+  // ¿Ya quedó (un reintento del mismo envío)?
+  if (gs.some(x => x.d.origenDetalle && x.d.origenDetalle.reparto && s(x.d.origenDetalle.marca) === clave) || trab.some(x => x.d.repartoMarca === clave)) return { ok: true, repetido: true };
+  const meses = [per].concat(p && p.otrosMeses ? Object.keys(porT).filter(x => x.endsWith('|' + k)).map(x => x.split('|')[0]).filter(m => m !== per).sort() : []);
+  // El mes elegido sin gastos: el plan de su vencimiento de Cotizaciones (si sigue por pagar)
+  const delMesV = delMes(cot, per), vid = s((delMesV.find(x => x.d.vencimientoId) || { d: {} }).d.vencimientoId), v0 = vid ? vencs.find(x => x.id === vid) : null;
+  const planAbierto = !(porT[per + '|' + k] || []).length && v0 && G3.abierto(v0.d) && v0.d.documento && v0.d.documento.previred && (v0.d.documento.previred.trabajadores || []).some(t => D.rutCot(t.rut) === k);
+  if (!(porT[per + '|' + k] || []).length && !planAbierto) throw error('Este trabajador no tiene gastos de Previred en ' + mesTxt(per) + ' que se puedan cambiar (lo copiado de la planilla antigua no trae el trabajador). No se cambió nada.', 'datos');
+  // Lo que viste: si cambió desde que abriste Meses cargados, no se toca
+  const vistos = Array.isArray(p && p.vistos) ? p.vistos : null;
+  if (vistos && !planAbierto) {
+    const L = porT[per + '|' + k] || [];
+    if (L.length !== vistos.length || L.some(x => { const y = vistos.find(z => s(z.id) === x.id); return !y || Number(y.version) !== (Number(x.d.version) || 0); })) throw error('Los gastos de este trabajador cambiaron en otro lado. Vuelve a abrir Meses cargados. No se cambió nada.', 'cambio');
+  }
+  const planes = meses.map(m => ({ mes: m, lineas: porT[m + '|' + k] || [] })).filter(x => x.lineas.length).map(x => ({ ...x, ...D.planCambioReparto(x.lineas, areas) }));
+  const cambian = planes.filter(x => !x.igual);
+  // Los meses de Finanzas de esas líneas (por su fecha): un mes cerrado bloquea
+  const mesesFin = [...new Set(cambian.flatMap(x => x.lineas.map(g => s(g.d.fecha).slice(0, 7))).filter(Boolean))].sort();
+  const nNuevas = cambian.reduce((t, x) => t + x.crear.length, 0), ids = M.idsLineas('gx', marca, nNuevas);
+  const escr = cambian.reduce((t, x) => t + x.corregir.length + x.anular.length + x.crear.length, 0) + 2;
+  if (escr > MAX_ESCRITURAS) throw error('Son demasiados cambios para hacerlos de una vez: desmarca "Aplicar también a los otros meses" y hazlo mes por mes.', 'datos');
+  const lista = cat.lista.filter(i => !i.archivado), quien = correo() || 'Sistema Fën', en = M.ahoraChile().texto;
+  const t0 = trab.find(x => D.rutCot(x.d.rut) === k), refT = FB.doc(d, 'cotiz_trabajadores', t0 ? t0.id : D.idTrabajador(rut));
+  const refV = planAbierto ? FB.doc(d, 'vencimientos', vid) : null;
+  const res = await FB.runTransaction(d, async tx => {
+    const snF = []; for (const m of mesesFin) snF.push(await tx.get(FB.doc(d, 'fin_cierres', m)));
+    const cerr = mesesFin.filter((m, i) => snF[i].exists() && D.mesCerrado(snF[i].data()));
+    if (cerr.length) throw error(`No se cambió nada: ${cerr.map(mesTxt).join(', ')} ${cerr.length === 1 ? 'está cerrado' : 'están cerrados'} en Finanzas. Un mes cerrado no se cambia aquí: reábrelo en Finanzas → Resultados → Cierre de mes (con el motivo), cambia el reparto y vuelve a cerrarlo${p && p.otrosMeses ? ', o desmarca "Aplicar también a los otros meses cargados" si el cerrado es otro mes' : ''}.`, 'cerrado');
+    const refsG = cambian.flatMap(x => x.lineas.map(g => FB.doc(d, 'gastos', g.id))), snG = [];
+    for (const rf of refsG) snG.push(await tx.get(rf));
+    const refsN = ids.map(id => FB.doc(d, 'gastos', id)), snN = []; for (const rf of refsN) snN.push(await tx.get(rf));
+    const snT = await tx.get(refT), snV = refV ? await tx.get(refV) : null;
+    if (snN.some(x => x.exists())) return { repetido: true };
+    // Versión: cada línea sigue vigente y como estaba al abrir (si no, nada)
+    const porId = {}; snG.forEach((sn, i) => { porId[refsG[i].id] = sn; });
+    for (const x of cambian) for (const g of x.lineas) {
+      const sn = porId[g.id];
+      if (!sn || !sn.exists() || sn.data().estado !== 'vigente' || (Number(sn.data().version) || 0) !== (Number(g.d.version) || 0)) throw error(`Un gasto de ${mesTxt(x.mes)} cambió en otro lado. Vuelve a abrir Meses cargados. No se cambió nada.`, 'cambio');
+    }
+    let w = 0, j = 0, corregidas = 0, anuladas = 0, creadas = 0;
+    const det = { periodo: '', marca: clave, motivo, por: quien, en };
+    for (const x of cambian) {
+      for (const c of x.corregir) {
+        const a = porId[c.id].data(), cx = M.corregirGasto(a, { item: s(a.itemGasto), area: c.area, fecha: s(a.fecha), monto: c.monto, obs: s(a.observacion) }, lista);
+        if (cx.error) throw error(`${mesTxt(x.mes)}: ${cx.error}. No se cambió nada.`, 'datos');
+        tx.update(FB.doc(d, 'gastos', c.id), cambio(a, 'cambió el reparto de Previred', cx.campos, { motivo })); w++; corregidas++;
+      }
+      for (const id of x.anular) { tx.update(FB.doc(d, 'gastos', id), cambio(porId[id].data(), 'anuló', { estado: 'anulado', anulado: { el: en, en, por: quien, motivo: 'Reparto de Previred cambiado: ' + motivo, filaOriginal: '' } }, { motivo })); w++; anuladas++; }
+      const base = porId[x.lineas[0].id].data();
+      for (const c of x.crear) {
+        // Una área nueva que no es la del ítem fijo: la misma revisión del camino de corregir
+        const cx = M.corregirGasto(base, { item: s(base.itemGasto), area: c.area, fecha: s(base.fecha), monto: Math.max(1, c.monto), obs: s(base.observacion) }, lista);
+        if (cx.error) throw error(`${mesTxt(x.mes)}: ${cx.error}. No se cambió nada.`, 'datos');
+        const nv = nuevo(D.lineaReparto(base, c.area, c.monto, { ...det, periodo: x.mes, desde: x.lineas[0].id }), s(base.origen) || 'previred', quien);
+        nv.historial = [{ que: 'creó por el cambio de reparto de Previred', por: quien, en, motivo, cambios: { area: { antes: null, despues: c.area }, montoFinal: { antes: null, despues: c.monto } }, desde: x.lineas[0].id }];
+        tx.set(refsN[j], nv); j++; w++; creadas++;
+      }
+    }
+    // El mes sin gastos todavía: el plan del vencimiento por pagar (los gastos nacen partidos al pagarlo)
+    let enPlan = false;
+    if (refV) {
+      if (!snV.exists() || !G3.abierto(snV.data()) || !(snV.data().documento && snV.data().documento.previred)) throw error('El vencimiento de Cotizaciones cambió. Vuelve a abrir Meses cargados. No se cambió nada.', 'cambio');
+      const va = snV.data(), plan = { ...va.documento.previred, trabajadores: va.documento.previred.trabajadores.map(t => (D.rutCot(t.rut) === k ? { ...t, area: AB.principal(areas), areas } : t)) };
+      if (areas.length === 1) plan.trabajadores = plan.trabajadores.map(t => { if (D.rutCot(t.rut) !== k) return t; const y = { ...t }; delete y.areas; return y; });
+      tx.update(refV, cambio(va, 'cambió el reparto de Previred', { documento: { ...va.documento, previred: plan } }, { motivo })); w++; enPlan = true;
+    }
+    // Recordado por RUT (Previred): el reparto, el área principal y cuándo se eligió
+    const ta = snT.exists() ? snT.data() : null, campos = { areas, area: AB.principal(areas), repartoEn: en, repartoMarca: clave };
+    if (ta) tx.update(refT, cambio(ta, 'cambió el reparto', campos, { motivo })); else tx.set(refT, nuevo({ rut, nombre: s(p && p.nombre), item: s(base0(cambian)), ...campos, actualizado: M.ahoraChile().dia }, 'previred', quien));
+    w++;
+    return { w, corregidas, anuladas, creadas, enPlan, meses: cambian.map(x => x.mes) };
+  });
+  if (res.repetido) return { ok: true, repetido: true };
+  await despues(res.w);
+  return { ok: true, ...res, sinCambios: !cambian.length && !res.enPlan };
+}
+const base0 = l => (l[0] && l[0].lineas[0] ? s(l[0].lineas[0].d.itemGasto) : '');
 
 // ── Clasificar obligaciones ──
 export async function datosClasificar() {

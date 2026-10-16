@@ -9,8 +9,12 @@
 //  · areasPorDefecto: (a) lo recordado para ese destinatario, (b) el área de Previred del trabajador,
 //    (c) el área o el reparto de la obligación.
 //  · validarAreas / vistaConAreas: el reparto elegido (en %, suma 100) y las líneas del gasto (montos que suman exacto).
+//  · v0.67.5 · Un solo reparto por persona, compartido con Previred: montosPorAreas (una sola regla para partir un monto: suma
+//    exacta, el resto de los redondeos al % más grande), repartoTrabajador (cotiz_trabajadores.areas, o su área sola),
+//    destinatarioDeTrabajador (el abono de la misma persona: por RUT o por nombre) y elegirReparto (lo más nuevo por fecha
+//    entre lo guardado en Previred y en abonos; cada lado guarda solo en lo suyo).
 // ═══════════════════════════════════════════════
-import { claveDe, norm, rutNorm } from './gastos-cartola.js?v=0.67.4';
+import { claveDe, norm, rutNorm } from './gastos-cartola.js?v=0.67.5';
 
 const s = v => String(v == null ? '' : v);
 const num = v => { if (typeof v === 'number') return isFinite(v) ? v : 0; const x = Number(s(v).replace(',', '.').replace(/[^0-9.\-]/g, '')); return isFinite(x) ? x : 0; };
@@ -44,8 +48,8 @@ export function recordadoDe(lista, dest, nombre) {
 // ── Trabajador de Previred ──
 // trabajadores: [{ rut, nombre, area }] (cotiz_trabajadores). texto: glosa del cargo o "Para quién".
 const palabras = t => norm(t).split(' ').filter(w => w.length >= 3);
-export function trabajadorDe(trabajadores, texto, rut) {
-  const L = (trabajadores || []).filter(t => t && s(t.area));
+export function trabajadorDe(trabajadores, texto, rut) { return buscarPersona((trabajadores || []).filter(t => t && s(t.area)), texto, rut); }
+function buscarPersona(L, texto, rut) {
   const r = rutNorm(rut);
   if (r) { const t = L.find(x => rutNorm(x.rut) === r); if (t) return t; }
   const w = new Set(palabras(texto));
@@ -82,13 +86,65 @@ export function areasDeObligacion(v) {
 
 // ── Orden por defecto: recordado → Previred → obligación ──
 // recordado: el documento de abono_destinatarios (o null); trabajador: el de trabajadorDe (o null); v: el vencimiento
+// v0.67.5 · Entre lo recordado para el destinatario y el reparto de Previred del trabajador, manda el más nuevo (por fecha); si
+// tienen la misma fecha (o ninguna), lo recordado, como antes.
 export function areasPorDefecto({ recordado, trabajador, v, areas }) {
-  const ok = l => (areas ? l.every(a => areas.includes(a.area)) : true);
-  const rec = recordado && Array.isArray(recordado.areas) ? recordado.areas.map(a => ({ area: s(a.area), pct: Math.round(num(a.pct)) })) : [];
-  if (rec.length && !validarAreas(rec, areas).error && ok(rec)) return { areas: rec, fuente: 'recordado', texto: FUENTES.recordado + (recordado.nombre ? ` (${recordado.nombre})` : '') };
-  if (trabajador && s(trabajador.area) && (!areas || areas.includes(s(trabajador.area)))) return { areas: [{ area: s(trabajador.area), pct: 100 }], fuente: 'previred', texto: `${FUENTES.previred}: ${s(trabajador.nombre)}` };
+  const x = elegirReparto({ abono: recordado, trabajador, areas, preferir: 'abono' });
+  if (x) return x.fuente === 'abono' ? { areas: x.areas, fuente: 'recordado', texto: FUENTES.recordado + (recordado.nombre ? ` (${recordado.nombre})` : '') }
+    : { areas: x.areas, fuente: 'previred', texto: `${x.areas.length > 1 ? 'Reparto de Previred' : FUENTES.previred}: ${s(trabajador.nombre)}` };
   const ob = areasDeObligacion(v);
   return { areas: ob, fuente: 'obligacion', texto: FUENTES.obligacion };
+}
+
+// ═══ v0.67.5 · Un solo reparto por persona (Previred y abonos) ═══
+const repartoOk = (l, areas) => { const x = validarAreas(l, areas); return x.error ? [] : x.areas; };
+// El reparto guardado en Previred (cotiz_trabajadores): areas [{ area, pct }] si es válido; si no, su área sola (100 %)
+export function repartoTrabajador(t, areas) {
+  if (!t) return [];
+  const l = Array.isArray(t.areas) && t.areas.length ? repartoOk(t.areas.map(a => ({ area: s(a && a.area), pct: Math.round(num(a && a.pct)) })), areas) : [];
+  if (l.length) return l;
+  return s(t.area) && (!areas || areas.includes(s(t.area))) ? [{ area: s(t.area), pct: 100 }] : [];
+}
+// El área principal de un reparto (la de mayor %; si empatan, la primera): es la que queda en "area" (compatibilidad)
+export const principal = l => (Array.isArray(l) && l.length ? l.reduce((m, a) => (num(a.pct) > num(m.pct) ? a : m), l[0]).area : '');
+// Fecha (texto que se ordena: "aaaa-mm-dd hh:mm") en que se eligió el reparto. Trabajador: repartoEn; si no, actualizado (el último
+// mes cargado de Previred). Destinatario del abono: repartoEn; si no, el último abono.
+export const fechaRepTrabajador = t => s(t && (t.repartoEn || t.actualizado));
+export const fechaRepDestinatario = d => s(d && (d.repartoEn || (d.ultimo && d.ultimo.en) || d.ultimoEn));
+// Lo más nuevo entre Previred (trabajador) y el abono (destinatario). preferir: quién gana si tienen la misma fecha.
+// → { areas, fuente: 'previred' | 'abono', en } o null si ninguno tiene un reparto válido
+export function elegirReparto({ trabajador, abono, areas, preferir = 'previred' }) {
+  const tr = repartoTrabajador(trabajador, areas);
+  const ab = abono && Array.isArray(abono.areas) ? repartoOk(abono.areas.map(a => ({ area: s(a && a.area), pct: Math.round(num(a && a.pct)) })), areas) : [];
+  if (!tr.length && !ab.length) return null;
+  const fT = fechaRepTrabajador(trabajador), fA = fechaRepDestinatario(abono);
+  const ganaAbono = ab.length && (!tr.length || fA > fT || (fA === fT && preferir === 'abono'));
+  return ganaAbono ? { areas: ab, fuente: 'abono', en: fA } : { areas: tr, fuente: 'previred', en: fT };
+}
+// El destinatario de abonos que es este trabajador: por RUT (la clave del destinatario); si no, por su nombre (o la glosa
+// recordada), con la misma regla de trabajadorDe (2 palabras del nombre, uno solo entre los trabajadores). Si hay varios, el más nuevo.
+// destinatarios: [{ clave, nombre, areas, repartoEn, ultimo }]; t: { rut, nombre }; trabajadores: todos (para no confundir a dos)
+export function destinatarioDeTrabajador(destinatarios, t, trabajadores) {
+  if (!t) return null;
+  const r = rutNorm(t.rut), L = (destinatarios || []).filter(d => d && Array.isArray(d.areas) && d.areas.length);
+  const porRut = r ? L.filter(d => s(d.clave) === 'rut:' + r) : [];
+  const todosT = (trabajadores || []).concat(r && !(trabajadores || []).some(x => rutNorm(x.rut) === r) ? [t] : []);
+  const cand = porRut.length ? porRut : L.filter(d => !/^rut:/.test(s(d.clave))).filter(d => {
+    const x = buscarPersona(todosT, s(d.nombre) || s(d.clave).replace(/^[a-z]+:/, ''), '');
+    return x && rutNorm(x.rut) === r;
+  });
+  return cand.sort((a, b) => fechaRepDestinatario(b).localeCompare(fechaRepDestinatario(a)))[0] || null;
+}
+// ── Una sola regla para partir un monto en áreas: montos proporcionales que suman exacto; el resto de los redondeos va al área
+// con el % más grande (si empatan, la primera). → [{ area, pct, monto }]
+export function montosPorAreas(monto, areas) {
+  const m = Math.round(num(monto)), l = (areas || []).map(a => ({ area: s(a.area), pct: num(a.pct) }));
+  if (!l.length) return [];
+  let k = 0; l.forEach((a, i) => { if (a.pct > l[k].pct) k = i; });
+  let resto = m;
+  const out = l.map((a, i) => { if (i === k) return null; const x = Math.trunc(m * a.pct / 100); resto -= x; return { ...a, monto: x }; });
+  out[k] = { ...l[k], monto: resto };
+  return out;
 }
 
 // ── Reparto elegido: áreas distintas, % enteros mayores que 0 que suman 100 ──
@@ -108,8 +164,7 @@ export function validarAreas(lista, areas) {
 export function vistaConAreas(v, areas, monto) {
   const m = Math.round(num(monto));
   if (areas.length === 1) return { ...v, area: areas[0].area, multiArea: [], pArea1: '', pPct1: '', pArea2: '', pPct2: '', pArea3: '', pPct3: '' };
-  let resto = m;
-  const ma = areas.map((a, i) => { const x = i === areas.length - 1 ? resto : Math.round(m * a.pct / 100); resto -= x; return { area: a.area, monto: x }; });
+  const ma = montosPorAreas(m, areas).map(a => ({ area: a.area, monto: a.monto }));   // v0.67.5: la misma regla que Previred
   return { ...v, area: 'MULTI', multiArea: ma, pArea1: '', pPct1: '', pArea2: '', pPct2: '', pArea3: '', pPct3: '' };
 }
 export const textoAreas = l => (Array.isArray(l) ? l : []).map(a => (l.length === 1 ? a.area : `${a.area} ${a.pct}%`)).join(' · ');

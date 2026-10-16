@@ -1,9 +1,117 @@
-# Sistema Fën · v0.67.4
+# Sistema Fën · v0.67.5
 
-**App:** v0.67.4 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
+**App:** v0.67.5 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.67.5: reparto en % por trabajador en Previred (por ejemplo PAN 40 % y B2B 60 %), un solo reparto por persona con los abonos de sueldo y "Cambiar reparto" en los meses ya cargados
+**Dónde:** Conciliación → Previred (vista previa y Meses cargados) · el abono de sueldo (Agenda, Pagar o la cartola). Solo con Gastos en la base nueva.
+
+### El caso (real)
+Una trabajadora reparte su tiempo: 40 % en PAN y 60 % en Ventas B2B. Previred guardaba **una sola área** por RUT, así que todo su costo previsional quedaba en un área. Los abonos de sueldo ya se podían repartir en %, pero Previred no lo sabía (y al revés).
+
+### Qué cambia en cómo trabajas
+1. **"Repartir en %" en cada trabajador de la vista previa** (certificado, comprobante de pago o CSV). Es la misma caja del abono de sueldo: una área, o varias áreas con su % (suman 100). Debajo de cada parte se ve el monto.
+   - El gasto del trabajador queda en **una línea por área**. Los montos suman exacto su total; el peso que sobra de redondear va al **% más grande**.
+   - Cada línea lleva la misma observación y la misma marca de Previred (mes y RUT): lo que busca por RUT o por mes (repetidos, totales de la conciliación, Meses cargados, comparación del comprobante o del CSV) sigue igual.
+   - El botón dice cuántos gastos se crean (por ejemplo "Registrar 5 gastos" con 3 trabajadores, dos de ellos repartidos).
+2. **Se recuerda por RUT** para el mes siguiente: aparece "Propuesta: reparto recordado en Previred".
+3. **Un solo reparto por persona, con los abonos de sueldo:**
+   - Si la persona del abono es un trabajador de Previred (por RUT o por su nombre), el abono propone su reparto de Previred.
+   - Si en Previred no hay nada, o lo del abono es más nuevo, la vista previa propone el del abono: "Propuesta: del abono de sueldo (<nombre>), el más reciente".
+   - Cada lado guarda en lo suyo. El otro lado lee **el más nuevo por fecha**.
+4. **"Cambiar reparto" en Meses cargados**, en cada trabajador de cada mes. Abre la misma caja, con el reparto actual.
+   - Corrige los gastos de ese mes por el camino de siempre: historial (quién, cuándo, antes y después, y el **motivo**) y revisión de versión.
+   - Si el reparto nuevo tiene más áreas, se crean las líneas que faltan. Si tiene menos, las que sobran se **anulan**. **Nada se borra.**
+   - El total del mes no cambia, ni las cotizaciones, ni la planilla del mes.
+   - **"Aplicar también a los otros meses cargados de este trabajador"**: casilla aparte, **sin marcar**.
+   - **Mes cerrado en Finanzas:** no se cambia nada. El aviso dice qué mes y qué hacer: reabrirlo en Finanzas → Resultados → Cierre de mes (con el motivo), cambiar el reparto y volver a cerrarlo, o desmarcar "Aplicar también…" si el cerrado es otro mes.
+   - Si el mes todavía no tiene gastos (el vencimiento de Cotizaciones sigue por pagar), cambia su plan: los gastos nacen con el reparto nuevo al pagarlo.
+5. **Vencimiento de Cotizaciones:** el plan guardado en el vencimiento lleva el reparto. Al pagarlo (Pagar o la cartola), los gastos nacen partidos.
+6. En Meses cargados, cada trabajador muestra su reparto del mes (por ejemplo "B2B 60% · PAN 40%"), sacado de sus gastos.
+
+### Dónde se guarda (fen-gastos; las reglas v0.1.0 ya lo cubren)
+- `cotiz_trabajadores/{rut}`:
+  - `areas: [{ area, pct }]`;
+  - `area`: sigue, y es la principal (la de mayor %);
+  - `repartoEn`: cuándo se eligió (solo cambia si el reparto cambia);
+  - `repartoMarca`: el último "Cambiar reparto".
+- `abono_destinatarios/{id}.repartoEn`: lo mismo, del lado de los abonos.
+- `vencimientos/{id}.documento.previred.trabajadores[].areas`: el plan del vencimiento, cuando el trabajador tiene dos áreas o más.
+- `gastos/*`: una línea por área, con `previred { periodo, rut }`.
+  - Las líneas creadas por "Cambiar reparto" llevan `origenDetalle { tipo: 'previred', reparto: true, desde, motivo, marca, periodo, por, en }`, con su historial.
+  - Las anuladas quedan con `anulado.motivo = "Reparto de Previred cambiado: <motivo>"`.
+- Nada nuevo en la planilla de Google: la hoja "Cotizaciones Trabajadores" tiene columnas fijas y no copia `areas`. Los gastos nuevos, corregidos o anulados pasan a "Registro Gasto" como siempre.
+
+### Lecturas y escrituras
+- **Vista previa:** 0 lecturas nuevas. Lo recordado en los abonos sale del paquete de `abono_destinatarios`, ya en memoria.
+- **Registrar:** como siempre, más **1 escritura por cada línea extra** de un trabajador repartido.
+  - Medido con el CSV de 3 trabajadores (2 repartidos, 5 gastos): 45 lecturas, contando la lista que se refresca, y 27 escrituras.
+- **Meses cargados:** 0 lecturas nuevas. El reparto sale de los gastos, ya en memoria.
+- **Cambiar reparto, un mes:** lee, dentro de la transacción, el cierre del mes en Finanzas, cada línea, cada id nuevo y el trabajador. Escribe cada línea que cambia, se crea o se anula, el trabajador y el contador.
+  - Medido (1 línea corregida y 1 nueva): 12 lecturas, contando la lista que se refresca, y 4 escrituras.
+- **Cambiar reparto en 3 meses:** medido 16 a 22 lecturas y 8 escrituras.
+
+### Instalación v0.67.5 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.67.5.zip`, con la carpeta `cocina/` (no cambia).
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script, reglas ni Cocina.**
+
+### Lista de verificación v0.67.5
+- [ ] Abajo a la izquierda dice **v0.67.5**.
+- [ ] Sube el Previred del mes. En la trabajadora que reparte, toca **"Repartir en %"**: elige PAN 40 y B2B 60. Debajo se ven los dos montos y "Suma 100%".
+- [ ] El botón dice un gasto más que trabajadores. Al guardar, en Gastos → Registrados ella tiene dos líneas (PAN y B2B) que suman su total.
+- [ ] En Meses cargados su fila dice "B2B 60% · PAN 40%".
+- [ ] El mes siguiente, la vista previa ya trae "Propuesta: reparto recordado en Previred" con PAN 40 y B2B 60.
+- [ ] En un abono de sueldo para ella (por su nombre o RUT), el área propuesta es "Reparto de Previred" con PAN 40 y B2B 60.
+- [ ] En un mes ya cargado, **"Cambiar reparto"**: la casilla "Aplicar también…" viene sin marcar. Pide el motivo. Después, el total del mes es el mismo y el gasto tiene el cambio en su historial.
+- [ ] En un mes cerrado en Finanzas, "Cambiar reparto" no cambia nada y dice cómo reabrirlo.
+- [ ] En el celular nada se sale de lado: la caja del reparto queda debajo de cada trabajador.
+
+### Si algo sale mal
+Sube de nuevo la v0.67.4. Los gastos ya partidos siguen siendo gastos normales (uno por área) y la v0.67.4 los muestra igual. `cotiz_trabajadores` sigue teniendo `area` (la principal), así que la v0.67.4 propone esa sola área. Nada se borra.
+
+**Por dentro:**
+- `gastos-abono.js`, la única regla del reparto:
+  - `montosPorAreas` (suma exacta; el resto al % más grande), que también usa `vistaConAreas`;
+  - `repartoTrabajador`, `principal`, `elegirReparto` (lo más nuevo por fecha) y `destinatarioDeTrabajador`;
+  - `areasPorDefecto` elige entre lo recordado y Previred por fecha.
+- `gastos-g3d.js`:
+  - `revisarRegistro` acepta `areas`; `docTrabajador`, `repartoCambio`, `planTrabajadores`, `partesTrabajador` y `lineasPrevired` (una línea por área);
+  - para "Cambiar reparto": `gastosPorTrabajador`, `repartoDeLineas`, `planCambioReparto`, `lineaReparto` y `mesCerrado`.
+- `gastos-g3d-fs.js`:
+  - `cotEstado` trae los destinatarios de abonos;
+  - `cotRegistrar` guarda `repartoEn` solo si el reparto cambió y cuenta las escrituras por línea;
+  - `cotLista` trae el reparto por trabajador y mes;
+  - `cotCambiarReparto` (nuevo, `cot_reparto`);
+  - `cotComprobante`: corrige la fecha de pago de hasta 320 líneas (antes 80).
+- `gastos-fs.js` (`agregarAbono` guarda `repartoEn`; `datosAbono` trae `areas` y las fechas), `gastos.js` (`cot_reparto`) y `previred.js` (`cambiarReparto`).
+- `app.js`:
+  - la caja "Área de este abono" sirve también para Previred (etiqueta, texto (i), `data-area` con una sola área, `alCambiar`);
+  - vista previa del certificado, del comprobante y del CSV;
+  - Meses cargados con "Cambiar reparto".
+- `estilos.css`, `config.js`, `index.html` y los demás: solo la versión. La carpeta `cocina/` no cambia.
+
+**Pruebas:**
+- Nueva `pruebas/sistemafen/previred-reparto-v0675.test.js` (12, solo con datos ficticios). Cubre:
+  - 40/60 en dos líneas que suman exacto;
+  - el resto al % más grande;
+  - recordado por RUT el mes siguiente;
+  - el abono propone el reparto de Previred, y al revés;
+  - "Cambiar reparto" con historial, versión y anulación;
+  - "Aplicar también a los otros meses";
+  - el bloqueo por mes cerrado;
+  - el camino del vencimiento (plan, cambio antes de pagar y pago);
+  - la comparación del CSV por RUT con líneas partidas;
+  - los totales de la conciliación sin cambio;
+  - un envío repetido o viejo;
+  - las 4 anchuras.
+- Siguen pasando: e2e, sii-v066, sii-reclasificar-v0672, conciliacion-v064, conciliacion-v0652, conciliacion-notas-sii-v0671, conciliacion-combinaciones-v0674, previred-v0651, previred-comprobante-v067, previred-formatos-v0673, cuota-v0632, cuota-v0633, sf-pantallas, finanzas-f1b/f3a/f3b, gastos-g3a/b/c/d/e y gastos-v0631.
+- Capturas en `pruebas/capturas/v0675/`.
 
 ## Novedades de la v0.67.4: "Ya está en Gastos" con combinaciones (factura menos nota de crédito, varias facturas en una transferencia), elegir varios y "De este proveedor"
 **Dónde:** Conciliación → Cartola (Cargos) → "Ya está en Gastos". Solo con Gastos en la base nueva.

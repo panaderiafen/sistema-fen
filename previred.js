@@ -13,8 +13,8 @@
 //  institución (cotización, intereses y multas) y si se pagó fuera de plazo. Las páginas giradas (apaisadas) se leen
 //  derechas: lineasDelPdf usa la posición en la página como se ve (con su giro), igual que antes en las no giradas.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.67.4';
-import { venceDe } from './gastos-g3d.js?v=0.67.4';
+import * as Gastos from './gastos.js?v=0.67.5';
+import { venceDe } from './gastos-g3d.js?v=0.67.5';
 
 export const VERSION_MINIMA = '2.5.0';
 // v0.51.0: con la base nueva, a fen-gastos (las escrituras antiguas de Previred en la planilla las rechaza el script v2.17.0)
@@ -492,4 +492,6 @@ export async function registrarComprobante(datos, file, idem) {
 }
 export async function quitarComprobante(periodo, motivo, idem) { const r = await Gastos.cotBase('cot_quitar_comprobante', { periodo, motivo }, idem); Gastos.olvidarTodo(); return r; }
 // v0.67.3 · Quitar la diferencia del banco registrada como multas e intereses (anula el gasto; la planilla vuelve a sus cotizaciones)
+// v0.67.5 · Cambiar el reparto de un trabajador en un mes ya cargado (y, si se pide, en sus otros meses). Solo con la base nueva.
+export async function cambiarReparto(datos, idem) { const r = await Gastos.cotBase('cot_reparto', datos, idem); Gastos.olvidarTodo(); return r; }
 export async function quitarDifMultas(periodo, motivo, idem) { const r = await Gastos.cotBase('cot_quitar_dif', { periodo, motivo }, idem); Gastos.olvidarTodo(); return r; }

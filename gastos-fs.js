@@ -25,16 +25,16 @@
 //    salió: tipo, quién, cuándo y lo propio de cada origen); "origen" sigue siendo el texto de siempre (el script lo usa).
 //    Hoy: "Esperan cartola". detalleGasto(ids): las líneas y su origen, para el detalle del gasto.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.67.4';
-import * as FB from './fs-gastos.js?v=0.67.4';
-import * as GB from './gastos-base.js?v=0.67.4';
-import * as GP from './gastos-planilla.js?v=0.67.4';
-import * as M from './gastos-g2.js?v=0.67.4';
-import * as G3 from './gastos-g3.js?v=0.67.4';
-import * as G3D from './gastos-g3d.js?v=0.67.4';
-import * as B from './gastos-banco.js?v=0.67.4';
-import { dia } from './gastos-modelo.js?v=0.67.4';
-import * as AB from './gastos-abono.js?v=0.67.4';
+import { auth as authSF } from './firebase.js?v=0.67.5';
+import * as FB from './fs-gastos.js?v=0.67.5';
+import * as GB from './gastos-base.js?v=0.67.5';
+import * as GP from './gastos-planilla.js?v=0.67.5';
+import * as M from './gastos-g2.js?v=0.67.5';
+import * as G3 from './gastos-g3.js?v=0.67.5';
+import * as G3D from './gastos-g3d.js?v=0.67.5';
+import * as B from './gastos-banco.js?v=0.67.5';
+import { dia } from './gastos-modelo.js?v=0.67.5';
+import * as AB from './gastos-abono.js?v=0.67.5';
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';
@@ -640,7 +640,9 @@ export async function agregarAbono(vencId, a, marca, subir) {
     // (si quedó el área de la obligación sin tocarla, no se recuerda: así Previred puede proponer después)
     if (refD && areas.length && fuenteArea !== 'obligacion') {
       const prev = snD && snD.exists() ? snD.data() : null, en = M.ahoraChile().texto;
-      const campos = { clave: dest.clave, nombre: dest.nombre || s(prev && prev.nombre), areas, fuente: fuenteArea, veces: (Number(prev && prev.veces) || 0) + 1,
+      // v0.67.5 · repartoEn: cuándo se eligió este reparto (solo si cambió): Previred lee el más nuevo de los dos lados
+      const repartoEn = prev && AB.iguales(prev.areas, areas) ? s(prev.repartoEn || (prev.ultimo && prev.ultimo.en)) : en;
+      const campos = { clave: dest.clave, nombre: dest.nombre || s(prev && prev.nombre), areas, fuente: fuenteArea, repartoEn, veces: (Number(prev && prev.veces) || 0) + 1,
         ultimo: { vencimientoId: ref.id, obligacion: s(v.nombre), monto: x.abono.monto, fecha: a.fecha, origen: x.abono.origen, cargoId: s(a.cargoId), por: quien, en } };
       const h = M.conHistorial(prev && prev.historial, { que: prev ? 'abono' : 'recordó', por: quien, en, cambios: M.diferencias(prev, { areas: campos.areas, nombre: campos.nombre }) });
       if (prev) tx.update(refD, limpio({ ...campos, version: (Number(prev.version) || 0) + 1, historial: h }));
@@ -724,8 +726,9 @@ export async function reagendarSaldo(vencId, fecha, nota) {
 // v0.63.1 · Para "Área de este abono": lo recordado por destinatario y los trabajadores de Previred (con su área)
 export async function datosAbono() {
   const [ds, trab] = await Promise.all([todos('abono_destinatarios'), todos('cotiz_trabajadores')]);
-  return { ok: true, destinatarios: ds.map(x => ({ id: x.id, clave: s(x.d.clave), nombre: s(x.d.nombre), areas: Array.isArray(x.d.areas) ? x.d.areas : [], veces: Number(x.d.veces) || 0 })),
-    trabajadores: vivos(trab).map(x => ({ rut: s(x.d.rut), nombre: s(x.d.nombre), area: s(x.d.area) })).filter(x => x.nombre && x.area) };
+  // v0.67.5 · con el reparto de Previred (areas) y las fechas de cada lado: se propone el más nuevo
+  return { ok: true, destinatarios: ds.map(x => ({ id: x.id, clave: s(x.d.clave), nombre: s(x.d.nombre), areas: Array.isArray(x.d.areas) ? x.d.areas : [], veces: Number(x.d.veces) || 0, repartoEn: s(x.d.repartoEn), ultimoEn: s(x.d.ultimo && x.d.ultimo.en) })),
+    trabajadores: vivos(trab).map(x => ({ rut: s(x.d.rut), nombre: s(x.d.nombre), area: s(x.d.area), ...(Array.isArray(x.d.areas) && x.d.areas.length ? { areas: x.d.areas } : {}), repartoEn: s(x.d.repartoEn), actualizado: s(x.d.actualizado) })).filter(x => x.nombre && x.area) };
 }
 export async function cerrarVencimiento(id) {
   const d = await db(), ref = FB.doc(d, 'vencimientos', String(id || ''));
