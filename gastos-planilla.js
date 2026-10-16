@@ -6,9 +6,9 @@
 //  Igual que Cocina (programarPlanilla / pasarPlanilla / revisarPlanilla): si falla, se reintenta solo
 //  (al minuto y después cada 2 minutos). Los pasos 3 y 4 de G2 llaman programar() después de cada escritura.
 // ═══════════════════════════════════════════════
-import * as GB from './gastos-base.js?v=0.67.3';
-import * as Gastos from './gastos.js?v=0.67.3';
-import * as FB from './fs-gastos.js?v=0.67.3';
+import * as GB from './gastos-base.js?v=0.67.4';
+import * as Gastos from './gastos.js?v=0.67.4';
+import * as FB from './fs-gastos.js?v=0.67.4';
 
 const E = { t: 0, corriendo: false, error: '', fallos: 0, pendientes: null, ultima: null, oyentes: new Set() };
 const avisar = () => E.oyentes.forEach(fn => { try { fn(estado()); } catch (e) {} });

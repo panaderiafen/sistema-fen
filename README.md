@@ -1,9 +1,118 @@
-# Sistema Fën · v0.67.3
+# Sistema Fën · v0.67.4
 
-**App:** v0.67.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
+**App:** v0.67.4 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.67.4: "Ya está en Gastos" con combinaciones (factura menos nota de crédito, varias facturas en una transferencia), elegir varios y "De este proveedor"
+**Dónde:** Conciliación → Cartola (Cargos) → "Ya está en Gastos". Solo con Gastos en la base nueva.
+
+### El caso (real)
+- Una transferencia pagó una factura **menos su nota de crédito**: un producto no llegó y el proveedor emitió la nota.
+- La factura y la nota ya estaban en Gastos (la nota como gasto negativo), pero ningún gasto era del monto del cargo.
+- "Ya está en Gastos" dejaba elegir uno solo y no mostraba las notas de crédito.
+- La glosa del banco venía cortada ("TEF A <nombre del proveedor a medias>").
+
+No se podía conciliar.
+
+### Qué cambia en cómo trabajas
+1. **Combinaciones.** Cuando varios gastos del MISMO proveedor suman el cargo (±$1), aparecen como una sola opción, por ejemplo "F.5501 $96.390 − NC 880 $4.760 = $91.630".
+   - Sirve para una factura menos su nota de crédito y para varias facturas pagadas juntas.
+   - **Seguro** si el RUT está confirmado (transferencia enviada o RUT en la glosa); si no, **Probable**.
+   - Al confirmar ("Son estos N gastos"), **todos** quedan con el cargo. **Deshacer** los suelta todos.
+   - Si el proveedor se reconoce, la combinación aparece también en la fila del cargo ("Ya en Gastos, combinación: …").
+   - **Nunca se confirma sola:** no entra en "Listos para confirmar" ni en la confirmación en lote.
+2. **Las fechas son las de siempre:**
+   - facturas del SII: de 5 días antes a 45 después del cargo;
+   - cada nota de crédito: después de su factura, hasta 45 días.
+
+   Si la nota de crédito dice qué factura corrige (su referencia en el XML), esa pareja va primero. Después va la combinación más chica y luego las fechas más cercanas.
+3. **"Elegir varios y sumarlos".** Cambia los radios por casillas, también para notas de crédito, que restan. Abajo se ve en vivo:
+   - "Suma $X · cuadra con el cargo";
+   - "faltan $Y" o "sobran $Y".
+
+   Solo se confirma si cuadra (±$1). En el celular, la suma queda a la vista mientras marcas. "Elegir uno solo" vuelve a lo de siempre: un clic elige un gasto exacto.
+4. **Una nota de crédito nunca va sola.** En "De este proveedor" se ve sin botón propio ("Resta: solo se concilia junto con su factura"). Marcada sola en "Elegir varios", no deja confirmar.
+5. **El proveedor del cargo.** Arriba dice "Proveedor: <nombre> · reconocido por <RUT / glosa aprendida / nombre en la glosa>". Se reconoce por:
+   - el RUT (de la transferencia enviada o de la glosa);
+   - la glosa aprendida;
+   - el nombre de la glosa: sin "TEF A", "TRANSF A", "TRASPASO A", tildes ni sufijos (LTDA, SPA, S.A.), sus palabras deben ser el comienzo de la razón social de un solo proveedor (al menos 10 letras o 2 palabras; la última puede venir cortada).
+
+   Si la glosa calza con varios proveedores, lo dice y no reconoce ninguno.
+6. **"De este proveedor (N)".** Muestra todos sus gastos sin cargo (facturas y notas de crédito), de cualquier monto, el más nuevo primero. El resto sigue plegado en "Ver parecidos".
+7. **Factura y nota de crédito por clasificar** (sin gasto todavía) que suman el cargo: el cargo avisa "clasifica primero la factura y la nota de crédito en Cargas del SII", con un enlace a Por clasificar. Después aparecen como combinación.
+8. **"Factura por clasificar" (v0.66) y "Paga la compra a crédito" (v0.67.1) siguen mandando** sobre una combinación.
+
+### Dónde se guarda (fen-gastos; las reglas v0.1.0 ya lo cubren)
+- Cada gasto de la combinación queda con `cartola` y `cartolaCargo`, como un gasto solo. El historial dice "conciliado con la cartola (junto con N líneas más)".
+- `cartola_cargos/{id}.detalle` agrega `combinacion: true`, `documentos` (por ejemplo ["F.5501", "NC 880"]), `notasCredito` y `rut`. En "Ya revisados" dice "Ya estaba en Gastos, combinación: F.5501 · NC 880 (2 líneas, con nota de crédito)".
+- `sii_docs/{id}.porClasificar.referencias = [{ tipo, folio, fecha }]`: la referencia del XML, solo en los documentos subidos desde ahora.
+
+### Lecturas y escrituras
+- **Listar la cartola:** 0 lecturas nuevas.
+  - Las notas de crédito salen de la misma consulta de gastos.
+  - Las referencias salen de `sii_docs`, que ya está en memoria.
+  - Las combinaciones y el proveedor se calculan en tu equipo.
+- **Confirmar una combinación de N gastos:** lee 2N + 2 y escribe N + 1 (más el contador de siempre).
+  - Medido con 2 gastos: 10 lecturas, contando la lista que se refresca, y 4 escrituras.
+  - Más 1 escritura si se aprende la glosa en la ficha del proveedor.
+- **Deshacer:** como siempre. Medido con 2 gastos: 8 lecturas y 4 escrituras.
+
+### Instalación v0.67.4 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.67.4.zip`, con la carpeta `cocina/` (no cambia).
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script, reglas ni Cocina.**
+
+### Lista de verificación v0.67.4
+- [ ] Abajo a la izquierda dice **v0.67.4**.
+- [ ] El cargo de la factura menos la nota de crédito (glosa cortada) dice en su fila "Ya en Gastos, combinación: F.… − NC … = $…" con **Probable**.
+- [ ] Al abrirlo: arriba "Proveedor: … · reconocido por nombre en la glosa"; la combinación viene elegida y el botón dice **"Son estos 2 gastos"**.
+- [ ] "De este proveedor" muestra sus facturas y la nota de crédito, que no tiene botón propio.
+- [ ] Al confirmar, en Gastos → Registrados la factura y la nota de crédito quedan con la cartola. En "Ya revisados" dice "Ya estaba en Gastos, combinación: …".
+- [ ] **Deshacer** ese cargo: los dos gastos quedan sin cartola, nada se anula, y la combinación se vuelve a proponer.
+- [ ] En otro cargo, **"Elegir varios y sumarlos"**: la suma dice "faltan" o "sobran" hasta que cuadra, y solo entonces deja confirmar.
+- [ ] En el celular nada se sale de lado y la suma queda a la vista mientras marcas.
+
+### Si algo sale mal
+Sube de nuevo la v0.67.3. Los gastos ya unidos siguen con su cartola, y Deshacer funciona igual en la v0.67.3, porque busca los gastos por el cargo. Nada se borra.
+
+**Por dentro:**
+- `gastos-banco.js`:
+  - `candidatosGastos(…, { conNC })` y `rankear` sin montos negativos;
+  - `nombreBase`, `nombreGlosa`, `proveedorDelCargo` y `esDelProveedor`;
+  - `combinacionesCargo` (acotada: `COMB`) y `combinacionPorClasificar`;
+  - `analisisCargo` (con memoria por lista), `propuestaCombinacion`, `revisarSeleccion` y `textoCombinacion`.
+- `gastos-cartola.js`: `proponer` paso 6b (combinación, solo con la base nueva).
+- `gastos-cartola-fs.js`:
+  - `lista` con `notasCredito` y sus referencias (`refsNC`);
+  - `resolverGasto` con `combinacion` (±$1, hasta 120 líneas, nunca solo notas de crédito, `documentos` y `rut` en el detalle).
+- `sii.js` (`Referencia` del XML) y `sii-pendientes.js` (`referencias` en `datosPendiente`).
+- `app.js`:
+  - `editorYaEnGastos`, `filaCandCc` y `filaCombCc`;
+  - Elegir varios y "De este proveedor";
+  - prioridad de "Factura por clasificar" y "Paga la compra a crédito";
+  - "Ya revisados" y Deshacer.
+- `estilos.css`, `config.js`, `index.html` y los demás (solo la versión). La carpeta `cocina/` no cambia.
+
+**Pruebas:**
+- Nueva `pruebas/sistemafen/conciliacion-combinaciones-v0674.test.js` (15, solo con datos ficticios). Cubre:
+  - el proveedor por RUT, por la transferencia, por la glosa aprendida, por el nombre cortado, corto y ambiguo;
+  - factura − nota de crédito (±$1, fechas, referencia);
+  - dos facturas, con las fechas más cercanas primero;
+  - una nota de crédito sola nunca;
+  - Elegir varios: cuadra, no cuadra y nota sola;
+  - Deshacer suelta todos;
+  - "De este proveedor";
+  - "Factura por clasificar" manda;
+  - el aviso de por clasificar;
+  - la búsqueda acotada con 40 documentos;
+  - las 4 anchuras.
+- Siguen pasando: e2e, sii-v066, sii-reclasificar-v0672, conciliacion-v064, conciliacion-v0652, conciliacion-notas-sii-v0671, previred-v0651, previred-comprobante-v067, previred-formatos-v0673, cuota-v0632, cuota-v0633, sf-pantallas, finanzas-f1b/f3a/f3b y gastos-g3a/b/c/d/e.
+- Capturas en `pruebas/capturas/v0674/`.
 
 ## Novedades de la v0.67.3: Previred lee todos los formatos del comprobante, el CSV de la nómina, la diferencia del banco como multas e instrucciones dentro de Previred
 **Dónde:** Conciliación → Previred · Conciliación → Subir archivo · Conciliación → Cartola (Cargos) → "Pago de Previred" · Hoy. Solo con Gastos en la base nueva.

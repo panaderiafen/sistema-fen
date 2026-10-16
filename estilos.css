@@ -1550,3 +1550,19 @@ details[open] > summary .cc-nota-txt, .fila-hist:hover .cc-nota-txt, .fila-hist:
   #prev-filas .acciones { flex-wrap: wrap; width: 100%; }
 }
 .cc-prev-dif .btn { white-space: normal; text-align: left; max-width: 100%; height: auto; line-height: 1.35; }
+/* v0.67.4 · "Ya está en Gastos": combinaciones, De este proveedor, notas de crédito y Elegir varios */
+.opcion-cc-sin { cursor: default; border-style: dashed; padding-left: 12px; }
+.opcion-cc-nc .opcion-cc > span > b:first-child { color: var(--rojo-t); }
+.cc-comb .cc-comb-docs { flex: 1 1 100%; list-style: none; margin: 0 0 4px; padding: 0 0 0 30px; display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--suave); }
+.cc-comb-docs li { display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; min-width: 0; }
+.cc-comb-docs li > span { min-width: 0; overflow-wrap: anywhere; }
+.cc-comb-txt { overflow-wrap: anywhere; }
+.cc-delprov { border-left: 3px solid var(--acento); padding-left: 8px; margin: 8px 0; }
+.cc-prov-rec, .cc-prov-amb { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.cc-prov-rec svg { flex: none; }
+.cc-msuma { margin: 6px 0 2px; font-weight: 600; }
+.cc-comb-pc a { white-space: nowrap; }
+/* Elegir varios: la suma y el botón quedan a la vista mientras se marcan los gastos (en el celular, sobre la barra de abajo) */
+.cc-varios-barra { position: sticky; bottom: 0; z-index: 3; background: var(--tarjeta); border-top: 1px solid var(--linea); padding: 4px 0 6px; margin-top: 6px; }
+.cc-varios-barra .botones { margin: 0; flex-wrap: wrap; }
+@media (max-width: 760px) { .cc-varios-barra { bottom: calc(72px + env(safe-area-inset-bottom)); } }

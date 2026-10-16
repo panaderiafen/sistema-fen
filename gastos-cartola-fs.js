@@ -19,18 +19,18 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.67.3';
-import * as M from './gastos-g2.js?v=0.67.3';
-import * as G3 from './gastos-g3.js?v=0.67.3';
-import * as G3D from './gastos-g3d.js?v=0.67.3';
-import * as C from './gastos-cartola.js?v=0.67.3';
-import * as B from './gastos-banco.js?v=0.67.3';
-import { huella } from './gastos-modelo.js?v=0.67.3';
-import * as FS from './gastos-fs.js?v=0.67.3';
-import * as GB from './gastos-base.js?v=0.67.3';
-import * as TE from './tef-enviadas.js?v=0.67.3';
-import * as P from './proveedores.js?v=0.67.3';
-import * as SP from './sii-pendientes.js?v=0.67.3';   // v0.66.0: documentos del SII por clasificar
+import * as FB from './fs-gastos.js?v=0.67.4';
+import * as M from './gastos-g2.js?v=0.67.4';
+import * as G3 from './gastos-g3.js?v=0.67.4';
+import * as G3D from './gastos-g3d.js?v=0.67.4';
+import * as C from './gastos-cartola.js?v=0.67.4';
+import * as B from './gastos-banco.js?v=0.67.4';
+import { huella } from './gastos-modelo.js?v=0.67.4';
+import * as FS from './gastos-fs.js?v=0.67.4';
+import * as GB from './gastos-base.js?v=0.67.4';
+import * as TE from './tef-enviadas.js?v=0.67.4';
+import * as P from './proveedores.js?v=0.67.4';
+import * as SP from './sii-pendientes.js?v=0.67.4';   // v0.66.0: documentos del SII por clasificar
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -52,8 +52,11 @@ const reglasTodas = async () => (await todos('cartola_reglas')).map(x => C.vista
 const rutsSii = docs => { const m = {}; (docs || []).forEach(x => { const im = x.d && x.d.importado; if (im && im.vencimiento) m[im.vencimiento] = C.rutNorm(x.d.rut); }); return m; };
 async function abiertos() {
   const [vencs, ps, siiDocs] = await Promise.all([todos('vencimientos'), todos('obligaciones'), todos('sii_docs')]);
-  return { vencs, ps, lista: C.vencimientosAbiertos(vencs, ps, rutsSii(siiDocs), M.ahoraChile().dia) };
+  return { vencs, ps, siiDocs, lista: C.vencimientosAbiertos(vencs, ps, rutsSii(siiDocs), M.ahoraChile().dia) };
 }
+// v0.67.4 · Folios de las facturas que cita cada nota de crédito (su referencia en el XML, si se guardó), de sii_docs ya en memoria
+const refsNC = docs => { const m = {}; (docs || []).forEach(x => { const d = x.d || {}, r = (d.porClasificar && d.porClasificar.referencias) || d.referencias;
+  if (Array.isArray(r) && r.length) m[x.id] = r.map(y => s(y && (y.folio || y))).filter(Boolean).slice(0, 5); }); return m; };
 
 // cc_lista: cargos (por revisar y lo de los últimos N días), cartolas, reglas, vencimientos abiertos y gastos sin cartola
 export async function lista(diasP) {
@@ -82,10 +85,13 @@ export async function lista(diasP) {
   const planillas = armarPlanillas(dPl, ab, cg);
   // v0.66.0 · Documentos del SII por clasificar (de la memoria): un cargo del mismo monto los ofrece "Por clasificar"
   // v0.67.1 · sin lo que ya tiene su gasto registrado (se une solo al listar); lo registrado, para proponer su pago
-  const SPF = await import('./sii-pendientes-fs.js?v=0.67.3');
+  // v0.67.4 · Los gastos sin cargo y, aparte, las notas de crédito sin cargo (con su referencia): solo se suman con su factura
+  const grupos = B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon))), { conNC: true });
+  const rNC = refsNC(ab.siiDocs), ncs = grupos.filter(g => g.monto < 0).map(g => (rNC[g.siiDocId] ? { ...g, refs: rNC[g.siiDocId] } : g));
+  const SPF = await import('./sii-pendientes-fs.js?v=0.67.4');
   const siiPendientes = await SPF.pendientes().catch(async () => SP.pendientesDe(await todos('sii_docs').catch(() => []))), siiRegistrados = await SPF.registrados().catch(() => []);
   return { ok: true, fuente: 'base', planillas, siiPendientes, siiRegistrados, cargos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
-    vencimientos: ab.lista, gastos: B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon)))), sinFactura, siiSinImportar: {}, dias,
+    vencimientos: ab.lista, gastos: grupos.filter(g => g.monto > 0), notasCredito: ncs, sinFactura, siiSinImportar: {}, dias,
     abonoDest: dAb.destinatarios, trabajadores: dAb.trabajadores,   // v0.63.1: para "Área de este abono"
     enviadas: { n: enviadas.length, hasta: enviadas.map(x => x.fecha).sort().pop() || '', subidas: [...new Set(enviadas.map(x => x.subida.slice(0, 10)))].sort().slice(-3) } };
 }
@@ -224,7 +230,7 @@ export async function resolver(p) {
   const tr = C.traza(c0), hora = M.ahoraChile().hora;
   let r;
   if (accion === 'vencimientos') r = await resolverVencimientos(d, ref, c0, p.pagos, marca, tr, hora);
-  else if (accion === 'gasto') r = await resolverGasto(d, ref, c0, p.filas, marca, tr);
+  else if (accion === 'gasto') r = await resolverGasto(d, ref, c0, p.filas, marca, tr, p.combinacion === true);
   else if (accion === 'nuevo') r = await resolverNuevo(d, ref, c0, p.gasto || {}, marca, tr, hora);
   else if (accion === 'abono') r = await resolverAbono(d, ref, c0, s(p.vencId), marca, tr, p);
   else if (accion === C.ABONO_PARCIAL) r = await resolverAbonoParcial(d, ref, c0, s(p.vencId), marca, tr);
@@ -327,9 +333,10 @@ async function resolverVencimientos(d, ref, c0, pagos, marca, tr, hora) {
   });
 }
 
-async function resolverGasto(d, ref, c0, filas, marca, tr) {
-  const ids = Array.isArray(filas) ? filas.map(f => s(f && (f.id || f.fila))).filter(Boolean) : [];
-  if (!ids.length || ids.length > 40) throw error('Elige el gasto', 'datos');
+// v0.67.4 · combinacion: varios gastos (facturas y notas de crédito) que juntos suman el cargo (±$1). Todos quedan con la cartola.
+async function resolverGasto(d, ref, c0, filas, marca, tr, combinacion) {
+  const ids = [...new Set(Array.isArray(filas) ? filas.map(f => s(f && (f.id || f.fila))).filter(Boolean) : [])];
+  if (!ids.length || ids.length > (combinacion ? 120 : 40)) throw error('Elige el gasto', 'datos');
   const clave = marca.t + marca.r;
   // v0.63.1: el vencimiento pagado a mano de esos gastos (si lo hay) también queda con la cartola
   const pre = await Promise.all(ids.map(id => FB.getDoc(FB.doc(d, 'gastos', id))));
@@ -340,13 +347,17 @@ async function resolverGasto(d, ref, c0, filas, marca, tr) {
     for (const r of refs) sns.push(await tx.get(r));
     const refsV = vIds.map(id => FB.doc(d, 'vencimientos', id)), snV = [];
     for (const r of refsV) snV.push(await tx.get(r));
-    let suma = 0;
-    sns.forEach(g => {
+    let suma = 0, positivos = 0;
+    const ncs = [];
+    sns.forEach((g, i) => {
       if (!g.exists() || g.data().estado !== 'vigente') throw error('Ese gasto cambió en otro lado: recarga la lista.', 'cambio');
       if (g.data().cartolaCargo || /\[cc[0-9a-f]{10}\]/.test(s(g.data().cartola))) throw error('Ese gasto ya está conciliado con otro cargo.', 'datos');
-      suma += M.n(g.data().montoFinal);
+      const m = M.n(g.data().montoFinal); suma += m;
+      if (m > 0) positivos++; else if (m < 0) ncs.push(refs[i].id);
     });
-    if (Math.abs(suma - c0.monto) > ids.length) throw error(`El gasto suma ${suma} y el cargo es de ${c0.monto}`, 'datos');
+    // Una nota de crédito (monto negativo) solo va junto con su factura, y el total debe ser el cargo
+    if (!positivos) throw error('Una nota de crédito solo se concilia junto con su factura.', 'datos');
+    if (Math.abs(suma - c0.monto) > (combinacion ? 1 : ids.length)) throw error(`${combinacion ? 'Los gastos suman' : 'El gasto suma'} ${suma} y el cargo es de ${c0.monto}`, 'datos');
     const esperaban = [], conFecha = [], vLigados = [];
     sns.forEach((g, i) => {
       const a = g.data(), campos = { cartola: tr, cartolaCargo: c0.id };
@@ -355,7 +366,7 @@ async function resolverGasto(d, ref, c0, filas, marca, tr) {
       if (['proveedor', 'tarjeta'].includes(s(a.formaPago)) && !s(a.fechaPago)) { campos.fechaPago = c0.fecha; conFecha.push(refs[i].id); }
       // v0.66.0 · Factura del SII clasificada sola (o al conciliar) que esperaba su pago: la fecha de pago es la del banco
       else if (a.esperaPago === true) { campos.fechaPago = c0.fecha; campos.esperaPago = false; campos.medioPago = 'banco'; conFecha.push(refs[i].id); }
-      tx.update(refs[i], cambio(a, 'conciliado con la cartola', campos));
+      tx.update(refs[i], cambio(a, combinacion ? `conciliado con la cartola (junto con ${ids.length - 1} ${ids.length === 2 ? 'línea más' : 'líneas más'})` : 'conciliado con la cartola', campos));
     });
     snV.forEach((v, i) => {
       if (!v.exists()) return; const a = v.data();
@@ -365,12 +376,23 @@ async function resolverGasto(d, ref, c0, filas, marca, tr) {
     });
     const g0 = sns[0].data();
     const detalle = { filas: ids.length, ids, items: [...new Set(sns.map(g => s(g.data().itemGasto)))], fecha: s(g0.fecha), monto: suma, marca: clave,
-      ...(esperaban.length ? { esperaban } : {}), ...(conFecha.length ? { conFechaPago: conFecha } : {}), ...(vLigados.length ? { vencimientosLigados: vLigados } : {}) };
+      ...(esperaban.length ? { esperaban } : {}), ...(conFecha.length ? { conFechaPago: conFecha } : {}), ...(vLigados.length ? { vencimientosLigados: vLigados } : {}),
+      ...(combinacion || ncs.length ? { combinacion: true, documentos: docsDe(sns.map(g => g.data())), ...(ncs.length ? { notasCredito: ncs } : {}) } : {}) };
+    // v0.67.4 · Todos del mismo RUT: se anota para aprender la glosa en la ficha de ese proveedor (si existe)
+    const rutsG = [...new Set(sns.map(g => P.rutNorm(g.data().rutProveedor)).filter(Boolean))];
+    if (combinacion && rutsG.length === 1) detalle.rut = rutsG[0];
     tx.update(ref, aCargo(c0, sn.data(), { estado: C.ESTADOS.conciliado, accion: 'gasto', detalle: JSON.stringify(detalle) }));
     return { n: ids.length + 1 + vLigados.length, detalle };
   });
 }
 
+// v0.67.4 · Los documentos de una combinación, para "Ya revisados": "F.30990149", "NC 4068722" (sin repetir), o los ítems y la fecha
+function docsDe(gs) {
+  const out = [];
+  gs.forEach(g => { const m = /^(F|NC)\.\s*(\d+)/.exec(s(g.observacion)), folio = s(g.folio) || (m ? m[2] : '') || s(g.siiDoc && g.siiDoc.folio), nc = M.n(g.montoFinal) < 0;
+    const t = folio ? (nc ? 'NC ' : 'F.') + folio : `${s(g.itemGasto)} ${s(g.fecha)}`; if (!out.includes(t)) out.push(t); });
+  return out.slice(0, 12);
+}
 async function resolverNuevo(d, ref, c0, gq, marca, tr, hora) {
   const cat = await catalogo(), li = M.limpiarItems(Array.isArray(gq.items) ? gq.items.slice(0, 10) : [], cat.lista.filter(i => !i.archivado));
   if (li.error) throw error(li.error, 'datos');

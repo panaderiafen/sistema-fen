@@ -122,14 +122,16 @@ export function claseCandidato(d) {
 export const CHIP_CLASE = { sii: 'Carga del SII', espera: 'Pagado por banco a mano', vencimiento: 'Pago de vencimiento', efectivo: 'Efectivo', contado: 'Al contado' };
 // Gastos de los últimos 5 meses sin cargo, agrupados por registro (una compra, una factura o un pago), con su origen.
 // facturasAbiertas: Set de "folio|RAZÓN" de facturas del SII con su vencimiento por pagar (esas se pagan con "Paga vencimientos")
-export function candidatosGastos(gastos, hoy, facturasAbiertas) {
+// v0.67.4 · opc.conNC: también las notas de crédito (gastos con monto negativo), para sumarlas con su factura. Salen como grupos
+// con monto < 0 y nc = true; quien llama las separa (una nota de crédito nunca es candidata sola).
+export function candidatosGastos(gastos, hoy, facturasAbiertas, opc = {}) {
   const corte = sumar(hoy, -150), porRegistro = {}, out = [];
   (gastos || []).forEach(({ id, d }) => {
     if (!d || d.estado !== 'vigente' || d.quitadoEnPlanilla || ligado(d)) return;
     const clase = claseCandidato(d); if (!clase) return;
     // Fecha de referencia: la del pago para lo pagado (vencimientos, pagos a mano por banco); la del documento para el SII y lo demás
     const f = (clase === 'espera' || clase === 'vencimiento') ? (dia(d.fechaPago) || dia(d.fecha)) : dia(d.fecha), monto = n(d.montoFinal);
-    if (!f || f < corte || !(monto > 0)) return;
+    if (!f || f < corte || !(monto > 0 || (opc.conNC && monto < 0))) return;
     const m = /^(F|NC)\.\s*(\d+)/.exec(s(d.observacion)), folio = s(d.folio) || (m ? m[2] : '') || s(d.siiDoc && d.siiDoc.folio);
     if (clase === 'sii' && s(d.formaPago) === 'proveedor' && facturasAbiertas && facturasAbiertas.has(folio + '|' + normTxt(d.razonSocial))) return;
     const k = [f, s(d.hora), s(d.observacion), s(d.urlFoto), s(d.rutProveedor), s(d.vencimientoId)].join('|');
@@ -144,8 +146,10 @@ export function candidatosGastos(gastos, hoy, facturasAbiertas) {
     if (x.filas.length >= 40) return;
     x.filas.push({ fila: id, id, version: Number(d.version) || 0, item: s(d.itemGasto), area: s(d.area), monto }); x.monto += monto;
     if (!x.items.includes(s(d.itemGasto))) x.items.push(s(d.itemGasto));
+    if (monto < 0 || d.esNC === true || /^NC\./.test(s(d.observacion)) || s(d.siiDoc && d.siiDoc.tipo) === '61') x.esNC = true;
   });
-  return out.sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 800);
+  out.forEach(x => { x.nc = x.monto < 0; });
+  return out.filter(x => x.monto !== 0).sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 800);
 }
 const normTxt = t => s(t).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 const rutNorm = r => s(r).toUpperCase().replace(/[^0-9K]/g, '');
@@ -165,7 +169,7 @@ export function chipDe(d, clase) {
 // espera su cargo primero), después el monto más parecido y la fecha más cercana.
 // Solo los que caen en la ventana de su clase. c = { fecha, monto, rut }
 export function rankear(c, grupos, ventanas = VENTANAS) {
-  return (grupos || []).map(g => {
+  return (grupos || []).filter(g => g && g.monto > 0).map(g => {
     const dist = diasEntre(g.fecha, c.fecha), v = ventanas[g.clase] || ventanas.contado;
     if (!(dist >= v[0] && dist <= v[1])) return null;
     const dif = Math.abs(g.monto - c.monto);
@@ -227,6 +231,183 @@ export function textoDias(dist) {
   if (dist === 0) return 'mismo día';
   if (dist < 0) return `cargo ${-dist} ${dist === -1 ? 'día' : 'días'} antes`;
   return `cargo ${dist} ${dist === 1 ? 'día' : 'días'} después` + (dist >= DIAS_AVISO_CARGO.rojo ? ' · puede no ser la compra de este cargo' : '');
+}
+
+// ═══ v0.67.4 · Combinaciones en "Ya está en Gastos" y el proveedor del cargo ═══
+// El caso: una transferencia paga una factura menos su nota de crédito (o varias facturas juntas). Ningún gasto es del monto del
+// cargo, pero una combinación de gastos del MISMO proveedor sí (±$1). La combinación se propone como una opción más; al
+// confirmarla todos sus gastos quedan con la cartola (deshacer los suelta todos). Una nota de crédito nunca va sola.
+// · El proveedor del cargo: por el RUT (transferencia enviada o RUT en la glosa), por la glosa aprendida (ficha del proveedor) o
+//   por el nombre de la glosa: sin "TEF A", "TRANSF A", "TRASPASO A", tildes, puntuación ni sufijos legales, sus palabras deben ser
+//   el comienzo de la razón social de UN solo proveedor (al menos 10 letras o 2 palabras; la última puede venir cortada).
+// · Búsqueda acotada: con el proveedor reconocido, hasta 15 documentos (los de fecha más cercana) y combinaciones de hasta 6;
+//   sin proveedor, por RUT, hasta 10 documentos y combinaciones de hasta 3 (solo Probable). Primero la nota de crédito con la
+//   factura que dice su referencia, después la combinación más chica y las fechas más cercanas.
+export const COMB = { maxCand: 15, maxSub: 6, maxCandSin: 10, maxSubSin: 3, presupuesto: 40000, max: 5, tol: 1, ncDias: 45 };
+const PREFIJO_GLOSA = /^(?:TEF|TRANSF(?:ERENCIA)?|TRASPASO|PAGO)(?: (?:ELECTRONICA|EN LINEA|BANCOESTADO|INTERNET))?(?: (?:A TERCEROS|DE PAGO A|A|DE))? /;
+const SUFIJO_LEGAL = / (?:LTDA|LIMITADA|SPA|S P A|SA|S A|EIRL|E I R L|CIA|Y CIA|CIA LTDA)$/;
+// Nombre para comparar: mayúsculas, sin tildes ni puntuación, sin sufijos legales al final
+export function nombreBase(t) {
+  let x = normTxt(t), y;
+  do { y = x; x = x.replace(SUFIJO_LEGAL, '').trim(); } while (x !== y && x);
+  return x;
+}
+// Lo que queda de la glosa para buscar por nombre: sin el prefijo de la transferencia ni palabras con números
+export function nombreGlosa(desc) {
+  let x = normTxt(desc), y;
+  do { y = x; x = x.replace(PREFIJO_GLOSA, '').trim(); } while (x !== y && x);
+  return nombreBase(x.split(' ').filter(w => w && !/\d/.test(w)).join(' '));
+}
+const glosaSirve = w => !!w && (w.replace(/ /g, '').length >= 10 || w.split(' ').filter(p => p.length >= 2).length >= 2);
+// Proveedores distintos de una lista de grupos: clave = RUT (o el nombre base si no hay RUT)
+const claveProv = g => (g.rut ? 'r:' + g.rut : g.razon ? 'n:' + nombreBase(g.razon) : '');
+// El proveedor del cargo. grupos: los gastos sin cargo (positivos y notas de crédito). Devuelve
+// { rut, nombre, por: 'rut'|'glosa'|'nombre', como } o { ambiguo: [nombres] } o null.
+export function proveedorDelCargo(c, grupos) {
+  const L = (grupos || []).filter(g => g && (g.rut || g.razon));
+  const nombreDeRut = r => { const g = L.find(x => x.rut === r); return (g && g.razon) || (c.proveedor && rutNorm(c.proveedor.rut) === r ? c.proveedor.nombre : '') || (c.tef && c.tef.nombre) || ''; };
+  const rutC = rutNorm(c && c.rut);
+  if (rutC) return { rut: rutC, nombre: nombreDeRut(rutC), por: 'rut', como: c.rutDe === 'tef' ? 'RUT de la transferencia enviada' : 'RUT en la glosa' };
+  const pf = c && c.proveedor;
+  if (pf && pf.por === 'rut' && rutNorm(pf.rut)) return { rut: rutNorm(pf.rut), nombre: pf.nombre || nombreDeRut(rutNorm(pf.rut)), por: 'rut', como: 'RUT' };
+  if (pf && pf.por === 'glosa') return { rut: rutNorm(pf.rut), nombre: pf.nombre, por: 'glosa', como: 'glosa aprendida' };
+  const w = nombreGlosa(c && c.descripcion);
+  if (glosaSirve(w)) {
+    const vistos = new Map();
+    L.forEach(g => { const nb = nombreBase(g.razon); if (nb && nb.startsWith(w)) { const k = claveProv(g); if (k && !vistos.has(k)) vistos.set(k, g); } });
+    // Un mismo proveedor puede venir con y sin RUT: se juntan por el nombre base
+    const porNombre = new Map(); vistos.forEach(g => { const nb = nombreBase(g.razon); const y = porNombre.get(nb); if (!y || (!y.rut && g.rut)) porNombre.set(nb, g); });
+    const ruts = new Set([...porNombre.values()].map(g => g.rut || 'n:' + nombreBase(g.razon)));
+    if (ruts.size === 1) { const g = [...porNombre.values()][0]; return { rut: g.rut, nombre: g.razon, por: 'nombre', como: 'nombre en la glosa' }; }
+    if (ruts.size > 1) return { ambiguo: [...porNombre.values()].map(g => g.razon).slice(0, 4) };
+  }
+  if (pf && pf.por === 'nombre') return { rut: rutNorm(pf.rut), nombre: pf.nombre, por: 'nombre', como: 'nombre en la glosa' };
+  return null;
+}
+// ¿El grupo es de ese proveedor? (el RUT, o el nombre base si alguno no tiene RUT)
+export function esDelProveedor(prov, g) {
+  if (!prov || prov.ambiguo || !g) return false;
+  if (prov.rut && g.rut) return prov.rut === g.rut;
+  const a = nombreBase(prov.nombre), b = nombreBase(g.razon);
+  return a.length >= 6 && b.length >= 6 && (a.startsWith(b) || b.startsWith(a));
+}
+// Texto corto de un documento: "F.30990149", "NC 4068722", o los ítems y la fecha si no tiene folio
+export const textoDocGrupo = g => (g.folio ? (g.nc || g.esNC ? 'NC ' : 'F.') + g.folio : `${(g.items || []).join(' + ') || 'Gasto'} ${dma(g.fecha)}`);
+// "F.30990149 $135.768 − NC 4068722 $7.152 = $128.616"
+export function textoCombinacion(gs) {
+  const pos = gs.filter(g => g.monto > 0), neg = gs.filter(g => g.monto < 0), total = gs.reduce((t, g) => t + g.monto, 0);
+  return pos.map((g, i) => (i ? '+ ' : '') + `${textoDocGrupo(g)} ${fmt(g.monto)}`).concat(neg.map(g => `− ${textoDocGrupo(g)} ${fmt(-g.monto)}`)).join(' ') + ` = ${fmt(total)}`;
+}
+export const claveGrupo = g => [g.fecha, g.hora, g.monto, g.filas[0].fila].join('|');
+// Las combinaciones exactas (±$1) del cargo. grupos: positivos (candidatosGastos); ncs: notas de crédito (monto < 0, con refs:
+// folios de las facturas que dice su referencia, si se conocen); prov: proveedorDelCargo. → [{ grupos, total, confianza, ref, texto, clave, filas }]
+export function combinacionesCargo(c, grupos, ncs, prov, opc = {}) {
+  const P = { ...COMB, ...opc }, monto = Math.round(n(c.monto)), conProv = !!(prov && !prov.ambiguo);
+  const enVent = g => { const d = diasEntre(g.fecha, c.fecha); return isFinite(d) && enVentanaExacta(d, g); };
+  const todos = (grupos || []).filter(g => g && g.monto > 0 && g.clase !== 'efectivo').concat((ncs || []).filter(g => g && g.monto < 0)).filter(enVent);
+  const cubetas = new Map();
+  if (conProv) cubetas.set('prov', todos.filter(g => esDelProveedor(prov, g)));
+  else todos.forEach(g => { if (!g.rut) return; const k = 'r:' + g.rut; if (!cubetas.has(k)) cubetas.set(k, []); cubetas.get(k).push(g); });
+  const maxC = conProv ? P.maxCand : P.maxCandSin, maxS = conProv ? P.maxSub : P.maxSubSin;
+  let presupuesto = P.presupuesto, cortado = false;
+  const out = [];
+  cubetas.forEach(lista0 => {
+    if (lista0.length < 2) return;
+    const lista = lista0.slice().sort((a, b) => Math.abs(diasEntre(a.fecha, c.fecha)) - Math.abs(diasEntre(b.fecha, c.fecha)) || claveGrupo(a).localeCompare(claveGrupo(b))).slice(0, maxC);
+    if (!lista.some(g => g.monto > 0)) return;
+    // Para podar: lo máximo que todavía se puede sumar o restar con lo que queda
+    const k = lista.length, posRest = new Array(k + 1).fill(0), negRest = new Array(k + 1).fill(0);
+    for (let i = k - 1; i >= 0; i--) { posRest[i] = posRest[i + 1] + Math.max(0, lista[i].monto); negRest[i] = negRest[i + 1] + Math.min(0, lista[i].monto); }
+    const el = [];
+    const dfs = (i, suma) => {
+      if (presupuesto-- <= 0) { cortado = true; return; }
+      if (el.length >= 2 && Math.abs(suma - monto) <= P.tol) revisar(el.map(j => lista[j]));
+      if (el.length >= maxS || i >= k) return;
+      if (suma + posRest[i] < monto - P.tol || suma + negRest[i] > monto + P.tol) return;
+      for (let j = i; j < k; j++) { el.push(j); dfs(j + 1, suma + lista[j].monto); el.pop(); if (presupuesto <= 0) { cortado = true; return; } }
+    };
+    const revisar = gs => {
+      const pos = gs.filter(g => g.monto > 0), neg = gs.filter(g => g.monto < 0);
+      if (!pos.length) return;
+      // Cada nota de crédito: después de una de sus facturas (hasta 45 días). Si dice su referencia, mejor con esa factura.
+      let ref = neg.length > 0;
+      for (const x of neg) {
+        if (!pos.some(f => { const d = diasEntre(f.fecha, x.fecha); return d >= 0 && d <= P.ncDias; })) return;
+        const refs = Array.isArray(x.refs) ? x.refs.map(s) : [];
+        if (!refs.length || !pos.some(f => f.folio && refs.includes(s(f.folio)))) ref = false;
+      }
+      const dist = gs.reduce((t, g) => t + Math.abs(diasEntre(g.fecha, c.fecha)), 0);
+      const ord = pos.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)).concat(neg.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)));
+      const seguro = !!(conProv && prov.por === 'rut' && prov.rut && gs.every(g => g.rut === prov.rut));
+      out.push({ grupos: ord, total: gs.reduce((t, g) => t + g.monto, 0), nNC: neg.length, ref, dist, confianza: seguro ? 'seguro' : 'probable',
+        texto: textoCombinacion(ord), clave: ord.map(claveGrupo).join('~~'), filas: ord.reduce((a, g) => a.concat(g.filas), []) });
+    };
+    dfs(0, 0);
+  });
+  out.sort((a, b) => (b.ref - a.ref) || (a.grupos.length - b.grupos.length) || (a.dist - b.dist) || a.clave.localeCompare(b.clave));
+  const r = out.slice(0, P.max);
+  Object.defineProperty(r, 'cortado', { value: cortado, enumerable: false });   // se acabó el presupuesto de la búsqueda
+  return r;
+}
+// Documentos del SII por clasificar (aún sin gasto) que, con lo ya registrado del mismo RUT, suman el cargo: no se concilian
+// aquí (primero se clasifican en Cargas del SII). pend: vistaPendiente[] (sii-pendientes.js). → { docs: [...], texto } o null
+export function combinacionPorClasificar(c, pend, grupos, ncs, prov) {
+  const monto = Math.round(n(c.monto)), conProv = !!(prov && !prov.ambiguo);
+  const enV = f => { const d = diasEntre(f, c.fecha); return d >= VENTANAS_EXACTAS.sii[0] && d <= VENTANAS_EXACTAS.sii[1]; };
+  const P0 = (pend || []).filter(v => v && Math.round(n(v.total)) !== 0 && enV(v.fecha)).map(v => ({ pc: true, rut: rutNorm(v.rut), razon: s(v.razonSocial), folio: s(v.folio), fecha: dia(v.fecha), monto: Math.round(n(v.total)), nc: !!v.esNC || n(v.total) < 0, id: v.id }));
+  if (!P0.length) return null;
+  const G0 = (grupos || []).filter(g => g.monto > 0).concat(ncs || []).filter(g => g.rut && enV(g.fecha) && g.clase !== 'efectivo');
+  const ruts = [...new Set(P0.map(v => v.rut))].filter(r => r && (!conProv || !prov.rut || prov.rut === r)).slice(0, 6);
+  for (const r of ruts) {
+    const L = P0.filter(v => v.rut === r).concat(G0.filter(g => g.rut === r)).slice(0, 10);
+    if (L.length < 2) continue;
+    let mejor = null;
+    const k = L.length;
+    for (let m = 1; m < (1 << k); m++) {
+      let suma = 0, cnt = 0, pc = 0, pos = 0;
+      for (let i = 0; i < k; i++) if (m & (1 << i)) { suma += L[i].monto; cnt++; if (L[i].pc) pc++; if (L[i].monto > 0) pos++; }
+      if (cnt < 2 || cnt > 4 || !pc || !pos || Math.abs(suma - monto) > COMB.tol) continue;
+      if (!mejor || cnt < mejor.cnt) mejor = { cnt, docs: L.filter((_, i) => m & (1 << i)) };
+    }
+    if (mejor) {
+      const docs = mejor.docs.slice().sort((a, b) => (b.monto > 0) - (a.monto > 0) || a.fecha.localeCompare(b.fecha));
+      return { docs, porClasificar: docs.filter(x => x.pc).map(x => (x.nc ? 'NC ' : 'F.') + x.folio), texto: textoCombinacion(docs.map(x => ({ ...x, esNC: x.nc, items: [] }))) };
+    }
+  }
+  return null;
+}
+// Todo lo de "Ya está en Gastos" para un cargo, de una vez (con memoria por lista: se calcula una sola vez por cargo).
+// D: { gastos, notasCredito, siiPendientes }. → { prov, ambiguo, combos, delProv, porClasificar }
+const memoAnalisis = new WeakMap();
+export function analisisCargo(c, D) {
+  if (!D || !c) return { prov: null, ambiguo: null, combos: [], delProv: [], porClasificar: null };
+  let m = memoAnalisis.get(D); if (!m) { m = new Map(); memoAnalisis.set(D, m); }
+  const k = c.id + '|' + c.monto + '|' + c.fecha + '|' + (c.rut || '') + '|' + ((c.proveedor && c.proveedor.id) || '');
+  if (m.has(k)) return m.get(k);
+  const G = D.gastos || [], N = D.notasCredito || [];
+  const p0 = proveedorDelCargo(c, G.concat(N));
+  const prov = p0 && !p0.ambiguo ? p0 : null, ambiguo = p0 && p0.ambiguo ? p0.ambiguo : null;
+  const combos = combinacionesCargo(c, G, N, prov);
+  const delProv = prov ? G.concat(N).filter(g => esDelProveedor(prov, g)).sort((a, b) => b.fecha.localeCompare(a.fecha) || b.monto - a.monto) : [];
+  const porClasificar = combos.length ? null : combinacionPorClasificar(c, D.siiPendientes || [], G, N, prov);
+  const r = { prov, ambiguo, combos, delProv, porClasificar, cortado: !!combos.cortado };
+  m.set(k, r);
+  return r;
+}
+// La propuesta de un cargo con una combinación: solo con el proveedor reconocido (sin él, solo se muestra al abrir el cargo).
+// Nunca se confirma sola (seguro: false); conf dice Seguro (RUT confirmado) o Probable.
+export function propuestaCombinacion(c, D) {
+  const A = analisisCargo(c, D), k = A.combos[0];
+  if (!A.prov || !k) return null;
+  return { tipo: 'gasto', combo: true, seguro: false, conf: k.confianza, clave: k.clave, gasto: { fecha: k.grupos[0].fecha, hora: k.grupos[0].hora, monto: k.total, filas: k.filas }, grupos: k.grupos,
+    texto: k.texto + (A.combos.length > 1 ? ` (hay ${A.combos.length - 1} ${A.combos.length === 2 ? 'combinación más' : 'combinaciones más'})` : ''), por: 'combinacion', chip: 'Combinación' };
+}
+// Revisa una selección de varios grupos (manual o combinación): cuadra con el cargo (±$1), al menos un gasto positivo
+export function revisarSeleccion(gs, monto) {
+  const L = (gs || []).filter(Boolean), suma = L.reduce((t, g) => t + g.monto, 0), dif = Math.round(n(monto) - suma);
+  const tol = L.length === 1 ? Math.max(1, L[0].filas.length) : COMB.tol;
+  const pos = L.some(g => g.monto > 0);
+  return { suma, dif, cuadra: L.length > 0 && pos && Math.abs(dif) <= tol, soloNC: L.length > 0 && !pos, n: L.length };
 }
 
 // ── Origen de un gasto ──

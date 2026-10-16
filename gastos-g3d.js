@@ -14,12 +14,12 @@
 //    (día 13 del mes siguiente o el hábil que sigue).
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as B from './gastos-banco.js?v=0.67.3';
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.67.3';
-import * as M from './gastos-g2.js?v=0.67.3';
-import * as G3 from './gastos-g3.js?v=0.67.3';
-import { FERIADOS } from './feriados-cl.js?v=0.67.3';
-import * as FR from './finanzas-resultados.js?v=0.67.3';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
+import * as B from './gastos-banco.js?v=0.67.4';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.67.4';
+import * as M from './gastos-g2.js?v=0.67.4';
+import * as G3 from './gastos-g3.js?v=0.67.4';
+import { FERIADOS } from './feriados-cl.js?v=0.67.4';
+import * as FR from './finanzas-resultados.js?v=0.67.4';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');

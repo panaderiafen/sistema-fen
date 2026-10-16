@@ -16,10 +16,10 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.67.3';
-import * as B from './gastos-banco.js?v=0.67.3';
-import { habilesEntre } from './feriados-cl.js?v=0.67.3';
-import * as D3 from './gastos-g3d.js?v=0.67.3';   // v0.67.0: total del plan de Previred con multas e intereses
+import * as G3 from './gastos-g3.js?v=0.67.4';
+import * as B from './gastos-banco.js?v=0.67.4';
+import { habilesEntre } from './feriados-cl.js?v=0.67.4';
+import * as D3 from './gastos-g3d.js?v=0.67.4';   // v0.67.0: total del plan de Previred con multas e intereses
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
@@ -305,6 +305,9 @@ export function proponer(c, D) {
     const g = pg.a.g;
     return { tipo: 'gasto', seguro: pg.seguro, gasto: g, chip: g.chip, texto: `${g.razon ? g.razon + ' · ' : ''}del ${dma(g.fecha)}` + (pg.otros.length ? ` (hay ${pg.otros.length} más del mismo monto)` : ''), por: pg.por, otros: pg.otros.map(x => x.g) };
   }
+  // 6b) v0.67.4 · Una combinación de gastos del proveedor reconocido (factura − nota de crédito, varias facturas): nunca se confirma sola
+  const pcb = D.fuente === 'base' ? B.propuestaCombinacion(c, D) : null;   // solo con la base nueva
+  if (pcb) return pcb;
   // 7) Gasto nuevo aprendido (seguro con 2 o más veces y el monto parecido al último, ±50%)
   if (regla && regla.accion === 'gasto') return { tipo: 'nuevo', seguro: regla.veces >= 2 && (!regla.monto || Math.abs(c.monto - regla.monto) <= regla.monto * 0.5), item: regla.item, area: regla.area, sinFactura: !!regla.sinFactura, texto: regla.item, por: 'aprendido' };
   // 8) Un vencimiento sin clasificar con el monto exacto: a revisar (el tipo "monto fijo" lo deja seguro)

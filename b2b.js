@@ -8,12 +8,12 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.67.3';
-import * as FB from './firebase-b2b.js?v=0.67.3';
-import * as Apps from './apps.js?v=0.67.3';
-import * as Mem from './fs-memoria.js?v=0.67.3';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.67.3';
-import { distanciaTef } from './feriados-cl.js?v=0.67.3';   // v0.63.4: días hábiles para cruzar transferencias
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.67.4';
+import * as FB from './firebase-b2b.js?v=0.67.4';
+import * as Apps from './apps.js?v=0.67.4';
+import * as Mem from './fs-memoria.js?v=0.67.4';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.67.4';
+import { distanciaTef } from './feriados-cl.js?v=0.67.4';   // v0.63.4: días hábiles para cruzar transferencias
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)

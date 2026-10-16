@@ -9,44 +9,44 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.67.3';
-import * as Caja from './caja.js?v=0.67.3';
-import * as Stock from './stock.js?v=0.67.3';
-import * as Ajustes from './ajustes.js?v=0.67.3';
-import * as Apps from './apps.js?v=0.67.3';
-import * as Agenda from './agenda.js?v=0.67.3';
-import * as Gastos from './gastos.js?v=0.67.3';
-import * as G3 from './gastos-g3.js?v=0.67.3';
-import * as G3D from './gastos-g3d.js?v=0.67.3';
-import * as GBanco from './gastos-banco.js?v=0.67.3';
-import * as TE from './tef-enviadas.js?v=0.67.3';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.67.3';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.67.3';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.67.3';
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.3';
-import * as Sii from './sii.js?v=0.67.3';
-import * as GSii from './gastos-sii.js?v=0.67.3';
-import * as SP from './sii-pendientes.js?v=0.67.3';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.67.3');
-import * as Previred from './previred.js?v=0.67.3';
-import * as B2b from './b2b.js?v=0.67.3';
-import * as Cartola from './cartola.js?v=0.67.3';
-import * as SiiFactura from './sii-factura.js?v=0.67.3';
-import * as PdfOrden from './pdf-orden.js?v=0.67.3';
-import * as Prod from './produccion.js?v=0.67.3';
-import * as Mem from './fs-memoria.js?v=0.67.3';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.67.3';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.67.4';
+import * as Caja from './caja.js?v=0.67.4';
+import * as Stock from './stock.js?v=0.67.4';
+import * as Ajustes from './ajustes.js?v=0.67.4';
+import * as Apps from './apps.js?v=0.67.4';
+import * as Agenda from './agenda.js?v=0.67.4';
+import * as Gastos from './gastos.js?v=0.67.4';
+import * as G3 from './gastos-g3.js?v=0.67.4';
+import * as G3D from './gastos-g3d.js?v=0.67.4';
+import * as GBanco from './gastos-banco.js?v=0.67.4';
+import * as TE from './tef-enviadas.js?v=0.67.4';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.67.4';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.67.4';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.67.4';
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.4';
+import * as Sii from './sii.js?v=0.67.4';
+import * as GSii from './gastos-sii.js?v=0.67.4';
+import * as SP from './sii-pendientes.js?v=0.67.4';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.67.4');
+import * as Previred from './previred.js?v=0.67.4';
+import * as B2b from './b2b.js?v=0.67.4';
+import * as Cartola from './cartola.js?v=0.67.4';
+import * as SiiFactura from './sii-factura.js?v=0.67.4';
+import * as PdfOrden from './pdf-orden.js?v=0.67.4';
+import * as Prod from './produccion.js?v=0.67.4';
+import * as Mem from './fs-memoria.js?v=0.67.4';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.67.4';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.0';
-import * as VistaProd from './vista-produccion.js?v=0.67.3';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.3';
+import * as VistaProd from './vista-produccion.js?v=0.67.4';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.4';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.3');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.4');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.3');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.4');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.3')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.4')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -351,7 +351,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.3" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.4" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -619,14 +619,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.67.3').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.67.4').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.67.3').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.67.4').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -1015,9 +1015,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.67.3').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.67.4').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.3').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.4').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -2604,7 +2604,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.67.3')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.67.4')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -2723,8 +2723,8 @@ const mismaCompra = (a, b) => a.fecha === b.fecha && a.formaPago === b.formaPago
 
 // ── v0.18.0 · Gastos · Cartola: los cargos del banco ───────────
 // La misma cartola de B2B → Conciliación: aquí se dice qué es cada cargo.
-const cart = { d: null, cargando: false, err: '', msg: '', subiendo: false, ocupado: '', abierto: '', modo: {}, montos: {}, gasto: {}, nuevo: {}, ign: {}, buscarV: {}, histBuscar: '', dias: 60, sel: {}, abonoV: {}, tarj: {}, tras: {}, abNom: {}, prev: {}, forig: {}, parecidos: {}, spSel: {}, spDet: {} };
-const ESTADO_CC = ['modo', 'montos', 'gasto', 'nuevo', 'ign', 'buscarV', 'sel', 'abonoV', 'tarj', 'tras', 'abNom', 'prev', 'forig', 'spSel', 'spDet'];
+const cart = { d: null, cargando: false, err: '', msg: '', subiendo: false, ocupado: '', abierto: '', modo: {}, montos: {}, gasto: {}, nuevo: {}, ign: {}, buscarV: {}, histBuscar: '', dias: 60, sel: {}, abonoV: {}, tarj: {}, tras: {}, abNom: {}, prev: {}, forig: {}, parecidos: {}, spSel: {}, spDet: {}, varios: {}, multi: {} };
+const ESTADO_CC = ['modo', 'montos', 'gasto', 'nuevo', 'ign', 'buscarV', 'sel', 'abonoV', 'tarj', 'tras', 'abNom', 'prev', 'forig', 'spSel', 'spDet', 'varios', 'multi'];
 const ACC_CC = { vencimientos: 'Paga vencimientos', gasto: 'Ya está en Gastos', nuevo: 'Gasto nuevo', ignorar: 'No es gasto' };
 // v0.50.0 · Con la base nueva, un cargo también puede ser un abono a un vencimiento de tipo libre (sueldo líquido)
 // v0.62.0 · y un pago de la tarjeta de crédito (no es gasto: movimiento de flujo; las compras con tarjeta ya entraron por el SII)
@@ -2749,6 +2749,8 @@ function textoProp(p) {
   if (p.sinPropuesta) return `<span class="prop-duda">${esc(p.duda || 'Elige cuál paga')}</span> <small>(${esc((p.opciones || []).map(o => `${o.nombre}${o.conDocumento ? ' ' + pesos(o.monto) : ' · sin documento'}`).join(' · '))})</small>`;
   // v0.67.1 · El documento del SII ya está registrado (unido a su gasto): pagar su compra a crédito o "Ya está en Gastos"
   if (p.registrado) return `${esc(p.texto)} <span class="chip c-verde chip-chico">Ya registrada</span> <span class="chip ${p.seguro ? 'c-verde' : 'c-amarillo'} chip-chico chip-conf">${p.seguro ? 'Seguro' : 'Probable'}</span>`;
+  // v0.67.4 · Una combinación (factura − nota de crédito, varias facturas): se confirma abriendo el cargo
+  if (p.combo) return `Ya en Gastos, combinación: ${esc(p.texto)} <span class="chip c-lila chip-chico chip-origen">Combinación</span> <span class="chip ${p.conf === 'seguro' ? 'c-verde' : 'c-amarillo'} chip-chico chip-conf">${p.conf === 'seguro' ? 'Seguro' : 'Probable'}</span>`;
   if (p.tipo === 'sii_pend') return `Factura por clasificar: ${esc(p.texto)} <span class="chip c-amarillo chip-chico">Por clasificar</span> <span class="chip ${p.conf === 'seguro' ? 'c-verde' : 'c-amarillo'} chip-chico chip-conf">${p.conf === 'seguro' ? 'Seguro' : 'Probable'}</span>`;
   const t = p.tipo === 'vencimientos' ? `Paga: ${p.texto}` : p.tipo === 'abono' ? `Abono a ${p.texto}` : p.tipo === 'previred' ? `Pago de Previred: ${p.texto}` : p.tipo === 'abono_parcial' ? `Abono al ${p.texto}` : p.tipo === 'gasto' ? `Ya en Gastos: ${p.texto}` : p.tipo === 'nuevo' ? `Gasto nuevo: ${p.texto}` : p.tipo === 'pago_tarjeta' ? `Pago de tarjeta: ${p.texto}` : p.tipo === 'traspaso' ? `Traspaso entre cuentas propias${p.nota ? ': ' + p.nota : ''}` : `No es gasto: ${p.motivo}`;
   return `${esc(t)}${p.tipo === 'gasto' && p.chip ? ` <span class="chip c-lila chip-chico chip-origen">${esc(p.chip)}</span>` : ''}${por ? ` <small>(${por})</small>` : ''}${p.tipo === 'gasto' ? ` <span class="chip ${p.seguro ? 'c-verde' : 'c-amarillo'} chip-chico chip-conf">${p.seguro ? 'Seguro' : 'Probable'}</span>` : ''}${p.duda ? ` <small class="prop-duda">${esc(p.duda)}</small>` : ''}`;
@@ -2760,6 +2762,7 @@ function pedidoDeProp(c, p, items) {
   if (p.tipo === 'abono_parcial') return p.vencId ? { accion: 'abono_parcial', vencId: p.vencId } : null;
   if (p.tipo === 'previred') return null;   // v0.64.0: se juntan los cargos en el detalle
   if (p.tipo === 'sii_pend') return null;   // v0.66.0: se clasifica en el detalle
+  if (p.combo) return null;                 // v0.67.4: una combinación se revisa y confirma en el detalle
   if (p.tipo === 'vencimientos') return { accion: 'vencimientos', pagos: p.pagos };
   if (p.tipo === 'gasto') return { accion: 'gasto', filas: p.gasto.filas };
   if (p.tipo === 'ignorar') return { accion: 'ignorar', motivo: p.motivo, siempre: false };
@@ -3265,27 +3268,69 @@ const CHIP_COLOR = { sii: 'c-lila', espera: 'c-azul', vencimiento: 'c-azul', efe
 // v0.65.2 · Por defecto solo los EXACTOS (±$1) en su ventana de fechas, con Seguro (RUT o proveedor) / Probable (monto y fecha);
 // la lista ancha de antes (monto más parecido, días en amarillo y rojo) queda plegada en "Ver parecidos".
 const TXT_EXACTOS_CARGO = 'Arriba solo los gastos sin cargo del MISMO monto (±$1) y de fechas que calzan con el cargo:\n• facturas del SII: de 5 días antes de la factura hasta 45 días después;\n• registrados a mano, pagos de vencimientos y lo que espera su cargo: ±10 días;\n• planilla antigua: ±5 días.\nSeguro: además es del mismo RUT o proveedor (por la transferencia enviada, el RUT de la glosa o la glosa aprendida). Probable: solo calzan el monto y la fecha: revisa que sea ese.\n"Ver parecidos" muestra la lista completa de antes (el monto más parecido, con los días en amarillo desde 10 y en rojo desde 20), por si el gasto se registró con otro monto o mucho antes.';
-const filaCandCc = (c, elegido, { g: x, exacto, dist, dif, confianza }) => { const k = claveG(x); return `<div class="opcion-cc-fila"><label class="opcion-cc"><input type="radio" name="cc-g-${esc(c.id)}" data-cc-gasto="${esc(c.id)}" value="${esc(k)}" ${k === elegido ? 'checked' : ''}><span><b>${pesos(x.monto)}</b> · ${esc(x.items.join(' + '))} · ${esc(diaTexto(x.fecha))}${x.razon ? ' · ' + esc(x.razon) : ''}${x.folio ? ' · F.' + esc(x.folio) : ''}
-        ${confianza ? `<span class="chip ${confianza === 'seguro' ? 'c-verde' : 'c-amarillo'} chip-chico chip-conf">${confianza === 'seguro' ? 'Seguro' : 'Probable'}</span>` : ''}<span class="chip ${CHIP_COLOR[x.clase] || 'c-gris'} chip-chico chip-origen">${esc(x.chip)}</span>
-        <small>${exacto ? 'Monto exacto' : 'Diferencia ' + pesos(dif)} · <span class="cc-dias${GBanco.colorDias(dist) ? ' dias-' + GBanco.colorDias(dist) : ''}">${esc(GBanco.textoDias(dist))}</span></small>${x.obs ? `<small>${esc(x.obs)}</small>` : ''}</span></label>
-        <button type="button" class="btn-link btn-chico" data-cc-det="${esc(x.filas.map(f => f.id).join(','))}" data-cc="${esc(c.id)}" data-cc-k="${esc(k)}">Ver detalle</button></div>`; };
+// v0.67.4 · Una fila de gasto: radio (uno), casilla (Elegir varios) o, si es nota de crédito, sin radio (solo se suma con su factura)
+const montoCc = m => (m < 0 ? '−' + pesos(-m) : pesos(m));
+const filaCandCc = (c, elegido, { g: x, exacto, dist, dif, confianza }, opc = {}) => { const k = claveG(x), nc = x.monto < 0;
+  const ctrl = opc.multi ? `<input type="checkbox" data-cc-multi="${esc(c.id)}" value="${esc(k)}" ${opc.marcados && opc.marcados[k] ? 'checked' : ''} aria-label="Sumar ${esc(montoCc(x.monto))}">`
+    : nc ? '' : `<input type="radio" name="cc-g-${esc(c.id)}" data-cc-gasto="${esc(c.id)}" value="${esc(k)}" ${k === elegido ? 'checked' : ''}>`;
+  return `<div class="opcion-cc-fila${nc ? ' opcion-cc-nc' : ''}"><label class="opcion-cc${!ctrl ? ' opcion-cc-sin' : ''}">${ctrl}<span><b>${montoCc(x.monto)}</b> · ${esc(x.items.join(' + '))} · ${esc(diaTexto(x.fecha))}${x.razon ? ' · ' + esc(x.razon) : ''}${x.folio ? (nc ? ' · NC ' : ' · F.') + esc(x.folio) : ''}
+        ${nc ? '<span class="chip c-rojo chip-chico">Nota de crédito</span>' : ''}${confianza ? `<span class="chip ${confianza === 'seguro' ? 'c-verde' : 'c-amarillo'} chip-chico chip-conf">${confianza === 'seguro' ? 'Seguro' : 'Probable'}</span>` : ''}<span class="chip ${CHIP_COLOR[x.clase] || 'c-gris'} chip-chico chip-origen">${esc(x.chip)}</span>
+        <small>${nc ? (opc.multi ? 'Resta del total' : 'Resta: solo se concilia junto con su factura (en una combinación o con "Elegir varios")') : exacto ? 'Monto exacto' : 'Diferencia ' + pesos(dif)} · <span class="cc-dias${GBanco.colorDias(dist) ? ' dias-' + GBanco.colorDias(dist) : ''}">${esc(GBanco.textoDias(dist))}</span></small>${x.obs ? `<small>${esc(x.obs)}</small>` : ''}</span></label>
+        <button type="button" class="btn-link btn-chico" data-cc-det="${esc(x.filas.map(f => f.id).join(','))}" data-cc="${esc(c.id)}" data-cc-k="${esc(nc ? '' : k)}">Ver detalle</button></div>`; };
+const TXT_COMB_CARGO = 'Ningún gasto es del monto del cargo, pero varios del MISMO proveedor juntos sí (±$1):\n• una factura menos su nota de crédito (por ejemplo, un producto que no llegó);\n• varias facturas pagadas en una sola transferencia.\nSe buscan entre los gastos sin cargo de ese proveedor, con las fechas de siempre (facturas del SII: de 5 días antes a 45 después) y cada nota de crédito después de su factura (hasta 45 días). Si la nota de crédito dice qué factura corrige, esa pareja va primero; después la combinación más chica y las fechas más cercanas.\nSeguro: el RUT del proveedor está confirmado (transferencia enviada o RUT en la glosa). Probable: revisa que sean esos.\nAl confirmar, todos los gastos de la combinación quedan con este cargo. Deshacer los suelta todos.\nUna nota de crédito nunca se concilia sola.';
+const TXT_PROV_CARGO = 'El proveedor del cargo se reconoce por:\n• el RUT: de la transferencia enviada o escrito en la glosa;\n• la glosa aprendida: quedó en la ficha del proveedor al conciliar antes;\n• el nombre en la glosa: sin "TEF A", "TRANSF A", tildes ni sufijos (LTDA, SPA, S.A.), las palabras de la glosa son el comienzo de la razón social de un solo proveedor (al menos 10 letras o 2 palabras).\n"De este proveedor" muestra todos sus gastos sin cargo (facturas y notas de crédito), de cualquier monto, el más nuevo primero. El resto queda en "Ver parecidos".';
+const TXT_VARIOS_CARGO = 'Marca los gastos que paga este cargo, también notas de crédito (restan). Abajo ves la suma.\nSolo se puede conciliar cuando cuadra con el cargo (±$1) y hay al menos un gasto: una nota de crédito sola no.\nTodos quedan con este cargo; Deshacer los suelta todos.';
+// La fila de una combinación: una opción (radio) con sus documentos y "Ver detalle" de cada uno
+const filaCombCc = (c, elegido, k) => { const v = 'cmb:' + k.clave;
+  return `<div class="opcion-cc-fila cc-comb"><label class="opcion-cc"><input type="radio" name="cc-g-${esc(c.id)}" data-cc-gasto="${esc(c.id)}" value="${esc(v)}" ${v === elegido ? 'checked' : ''}><span><b class="cc-comb-txt">${esc(k.texto)}</b>
+      <span class="chip ${k.confianza === 'seguro' ? 'c-verde' : 'c-amarillo'} chip-chico chip-conf">${k.confianza === 'seguro' ? 'Seguro' : 'Probable'}</span>${k.nNC ? '<span class="chip c-rojo chip-chico">Con nota de crédito</span>' : ''}
+      <small>${k.grupos.length} documentos de ${esc(k.grupos[0].razon || 'este proveedor')}${k.ref ? ' · la nota de crédito cita esta factura' : ''}</small></span></label>
+    <ul class="cc-comb-docs">${k.grupos.map(g => `<li><span>${esc(GBanco.textoDocGrupo(g))} · ${esc(diaTexto(g.fecha))} · ${esc(g.items.join(' + '))} · <b>${montoCc(g.monto)}</b></span><button type="button" class="btn-link btn-chico" data-cc-det="${esc(g.filas.map(f => f.id).join(','))}" data-cc="${esc(c.id)}" data-cc-k="${esc(v)}">Ver detalle</button></li>`).join('')}</ul></div>`; };
+// Los grupos (gastos y notas de crédito) por su clave
+const grupoCc = k => ((cart.d && cart.d.gastos) || []).concat((cart.d && cart.d.notasCredito) || []).find(x => claveG(x) === k);
+const filaR = (c, g) => { const dist = GBanco.diasEntre(g.fecha, c.fecha), dif = Math.abs(g.monto - c.monto); return { g, dist, dif, exacto: g.monto > 0 && dif <= g.filas.length }; };
 function editorYaEnGastos(c, p) {
-  const D = cart.d, CA = GBanco.candidatosCargo(c, D.gastos || []), E = CA.exactos, R0 = CA.parecidos, fo = cart.forig[c.id] || 'todos', R = GBanco.filtrarOrigen(R0, fo).slice(0, 10);
-  const elegido = cart.gasto[c.id] || (p && p.tipo === 'gasto' ? claveG(p.gasto) : '');
-  const g = E.concat(R0).map(r => r.g).find(x => claveG(x) === elegido);
+  const D = cart.d, CA = GBanco.candidatosCargo(c, D.gastos || []), A = GBanco.analisisCargo(c, D), E = CA.exactos, fo = cart.forig[c.id] || 'todos';
+  // v0.67.4 · Con el proveedor reconocido, sus gastos van en "De este proveedor"; el resto en "Ver parecidos"
+  const enProv = new Set(A.delProv.map(claveG)), R0 = CA.parecidos.filter(r => !enProv.has(claveG(r.g))), R = GBanco.filtrarOrigen(R0, fo).slice(0, 10);
+  const multi = !!cart.varios[c.id], marc = cart.multi[c.id] || (cart.multi[c.id] = {});
+  const elegido = cart.gasto[c.id] || (p && p.tipo === 'gasto' ? (p.combo ? 'cmb:' + p.clave : claveG(p.gasto)) : '');
+  const comb = elegido.startsWith('cmb:') ? A.combos.find(k => 'cmb:' + k.clave === elegido) : null;
+  const g = comb ? null : E.map(r => r.g).concat(CA.parecidos.map(r => r.g), A.delProv.filter(x => x.monto > 0)).find(x => claveG(x) === elegido);
   // v0.64.0 · Filtros por origen (con cuántos hay de cada uno) y el aviso si el SII de ese mes no está cargado
   const cuantos = {}; R0.forEach(r => { const k = GBanco.grupoOrigen(r.g); cuantos[k] = (cuantos[k] || 0) + 1; });
   const filtros = `<div class="chips chips-chicos cc-filtros" role="group" aria-label="Filtrar por origen">${GBanco.FILTROS_ORIGEN.map(([k, tx]) => `<button type="button" class="chip-filtro" data-cc-forig="${esc(k)}" data-cc="${esc(c.id)}" aria-pressed="${k === fo}">${tx}${k === 'todos' ? ` (${R0.length})` : cuantos[k] ? ` (${cuantos[k]})` : ''}</button>`).join('')}</div>`;
   const sinSii = pareceSegunPrevired(c) ? '' : mesSinSii(c.fecha), avSii = sinSii ? `<p class="aviso-cc cc-sin-sii">${esc(sinSii)} ${info('Factura que llega después', TXT_ESPERA_FACTURA)}</p>` : '';
   const gPrev = grupoPlanillasHtml(c);   // v0.65.1: las planillas de Previred primero
-  if (!E.length && !R0.length) return `${gPrev}${avSii}<p class="ayuda">No hay gastos sin cargo cerca de esa fecha (registrados por banco a mano, facturas del SII ya cargadas, pagos de vencimientos o al contado).</p>`;
-  const exactos = E.length ? `<p class="ayuda cc-exactos-tit">Del mismo monto y de fechas que calzan (${E.length}) ${info('Ya está en Gastos', TXT_EXACTOS_CARGO)}</p><div class="lista-gastos-cc cc-exactos">${E.map(r => filaCandCc(c, elegido, r)).join('')}</div>`
-    : `<p class="ayuda cc-sin-exactas"><b>Sin coincidencias exactas:</b> ningún gasto sin cargo de ${pesos(c.monto)} en su ventana de fechas (facturas del SII: 5 días antes a 45 después; a mano y vencimientos: ±10 días; planilla antigua: ±5 días). Si ya lo registraste con otro monto o en otra fecha, míralo en "Ver parecidos"; si no, es un gasto nuevo. ${info('Ya está en Gastos', TXT_EXACTOS_CARGO)}</p>`;
+  // v0.67.4 · El proveedor reconocido (y cómo), o el aviso si la glosa calza con varios
+  const provHtml = A.prov ? `<p class="ayuda cc-prov-rec">${icono('camion', 14)} Proveedor: <b>${esc(A.prov.nombre || A.prov.rut)}</b> · reconocido por ${esc(A.prov.como)} ${info('Proveedor del cargo', TXT_PROV_CARGO)}</p>`
+    : A.ambiguo ? `<p class="ayuda cc-prov-amb">La glosa calza con más de un proveedor (${esc(A.ambiguo.join(', '))}): no se reconoce ninguno. ${info('Proveedor del cargo', TXT_PROV_CARGO)}</p>` : '';
+  const pcHtml = A.porClasificar ? `<p class="aviso-cc cc-comb-pc">${icono('alerta', 14)} Este cargo calza con ${esc(A.porClasificar.texto)}, pero ${A.porClasificar.porClasificar.length === 1 ? `${esc(A.porClasificar.porClasificar[0])} está` : `${esc(A.porClasificar.porClasificar.join(' y '))} están`} por clasificar: clasifica primero la factura y la nota de crédito en Cargas del SII. Después aparecen aquí para conciliarlas juntas. <a href="#conciliacion/sii/porclasificar">Ir a Por clasificar</a></p>` : '';
+  if (!E.length && !R0.length && !A.combos.length && !A.delProv.length) return `${gPrev}${avSii}${provHtml}${pcHtml}<p class="ayuda">No hay gastos sin cargo cerca de esa fecha (registrados por banco a mano, facturas del SII ya cargadas, pagos de vencimientos o al contado).</p>`;
+  const op = { multi, marcados: marc };
+  const exactos = E.length ? `<p class="ayuda cc-exactos-tit">Del mismo monto y de fechas que calzan (${E.length}) ${info('Ya está en Gastos', TXT_EXACTOS_CARGO)}</p><div class="lista-gastos-cc cc-exactos">${E.map(r => filaCandCc(c, elegido, r, op)).join('')}</div>`
+    : A.combos.length ? '' : `<p class="ayuda cc-sin-exactas"><b>Sin coincidencias exactas:</b> ningún gasto sin cargo de ${pesos(c.monto)} en su ventana de fechas (facturas del SII: 5 días antes a 45 después; a mano y vencimientos: ±10 días; planilla antigua: ±5 días). Si ya lo registraste con otro monto o en otra fecha, míralo en "Ver parecidos"; si no, es un gasto nuevo. ${info('Ya está en Gastos', TXT_EXACTOS_CARGO)}</p>`;
+  const combos = A.combos.length && !multi ? `<p class="ayuda cc-comb-tit">${E.length ? 'También suman' : 'Ningún gasto es de este monto, pero suman'} el cargo juntos (${A.combos.length}) ${info('Combinaciones', TXT_COMB_CARGO)}</p><div class="lista-gastos-cc cc-combos">${A.combos.map(k => filaCombCc(c, elegido, k)).join('')}</div>` : '';
+  const enE = new Set(E.map(r => claveG(r.g))), dpTodos = A.delProv.filter(x => !enE.has(claveG(x))), MAXP = 25, dp = dpTodos.slice(0, MAXP);
+  const delProv = A.prov && dpTodos.length ? `<div class="cc-delprov"><p class="ayuda cc-delprov-tit"><b>De este proveedor (${dpTodos.length})</b> · sus gastos sin cargo${E.length ? ' (fuera del de arriba)' : ''}, de cualquier monto, el más nuevo primero</p><div class="lista-gastos-cc">${dp.map(x => filaCandCc(c, elegido, filaR(c, x), op)).join('')}</div>${dpTodos.length > MAXP ? `<p class="ayuda">Y ${dpTodos.length - MAXP} más antiguos.</p>` : ''}</div>` : '';
+  // Elegir varios: también las notas de crédito sin cargo de esas fechas que no son del proveedor reconocido
+  const ncsV = multi ? (D.notasCredito || []).filter(x => !enProv.has(claveG(x)) && (d => d >= -5 && d <= 45)(GBanco.diasEntre(x.fecha, c.fecha))).slice(0, 10) : [];
+  const ncsHtml = ncsV.length ? `<p class="ayuda cc-ncs-tit">Notas de crédito sin cargo de esas fechas (${ncsV.length})</p><div class="lista-gastos-cc">${ncsV.map(x => filaCandCc(c, elegido, filaR(c, x), op)).join('')}</div>` : '';
   const abierto = cart.parecidos[c.id] === true;
   const parecidos = R0.length ? `<details class="cc-parecidos" data-cc-parecidos="${esc(c.id)}" ${abierto ? 'open' : ''}><summary>Ver parecidos (${R0.length})</summary>${filtros}${R.length ? '' : '<p class="ayuda">Ninguno de ese origen.</p>'}<p class="ayuda">Gastos ya registrados que esperan su cargo, del monto más parecido al más lejano: no calzan exacto o están fuera de la ventana de fechas.</p>
-    <div class="lista-gastos-cc">${R.map(r => filaCandCc(c, elegido, r)).join('')}</div></details>` : '';
-  return `${gPrev}${avSii}${exactos}${parecidos}
-    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="gasto" data-cc="${esc(c.id)}" ${g && Math.abs(g.monto - c.monto) <= g.filas.length && !cart.ocupado ? '' : 'disabled'}>Es este gasto</button>${g && Math.abs(g.monto - c.monto) > g.filas.length ? `<span class="ayuda">El gasto es de ${pesos(g.monto)}: debe ser igual al cargo. Corrígelo en <a href="#gastos/registrados">Registrados</a> si corresponde.</span>` : ''}</div>`;
+    <div class="lista-gastos-cc">${R.map(r => filaCandCc(c, elegido, r, op)).join('')}</div></details>` : '';
+  let botones;
+  if (multi) {
+    const sel = Object.keys(marc).map(grupoCc).filter(Boolean), rv = GBanco.revisarSeleccion(sel, c.monto);
+    const txt = !sel.length ? 'Marca los gastos que paga este cargo' : `Suma ${montoCc(rv.suma)} · ${rv.soloNC ? 'una nota de crédito sola no se concilia: marca también su factura' : rv.cuadra ? 'cuadra con el cargo' : rv.dif > 0 ? 'faltan ' + pesos(rv.dif) : 'sobran ' + pesos(-rv.dif)}`;
+    botones = `<div class="cc-varios-barra"><p class="mov-suma cc-msuma${sel.length && !rv.cuadra ? ' error' : ''}" data-cc-msuma="${esc(c.id)}" role="status">${esc(txt)}</p>
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="gasto" data-cc="${esc(c.id)}" ${rv.cuadra && !cart.ocupado ? '' : 'disabled'}>${sel.length > 1 ? `Son estos ${sel.length} gastos` : 'Es este gasto'}</button><button type="button" class="btn-link btn-chico" data-cc-varios="${esc(c.id)}" aria-pressed="true">Elegir uno solo</button></div></div>`;
+  } else {
+    const okG = g && Math.abs(g.monto - c.monto) <= g.filas.length;
+    botones = `<div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="gasto" data-cc="${esc(c.id)}" ${(okG || comb) && !cart.ocupado ? '' : 'disabled'}>${comb ? `Son estos ${comb.grupos.length} gastos` : 'Es este gasto'}</button><button type="button" class="btn-link btn-chico" data-cc-varios="${esc(c.id)}" aria-pressed="false">Elegir varios y sumarlos</button> ${info('Elegir varios', TXT_VARIOS_CARGO)}${g && !okG ? `<span class="ayuda">El gasto es de ${pesos(g.monto)}: debe ser igual al cargo. Corrígelo en <a href="#gastos/registrados">Registrados</a> si corresponde, o usa "Elegir varios".</span>` : ''}</div>`;
+  }
+  return `${gPrev}${avSii}${provHtml}${pcHtml}${multi ? `<p class="ayuda cc-varios-tit"><b>Elegir varios:</b> marca los gastos que paga este cargo. ${info('Elegir varios', TXT_VARIOS_CARGO)}</p>` : ''}${exactos}${combos}${delProv}${ncsHtml}${parecidos}
+    ${botones}`;
 }
 // v0.63.1 · Detalle de un gasto con su origen (Conciliación y Registrados). opc = { cargo, elegir }
 async function abrirDetalleGasto(ids, opc = {}) {
@@ -3333,11 +3378,11 @@ function pintarCartola(el, sub, dg) {
   // vencimientos", con la fecha del banco) o es "Ya está en Gastos" con ese gasto. Nunca un segundo gasto.
   // Manda sobre una propuesta solo por el monto o sin propuesta, o si es lo mismo (el mismo vencimiento o el mismo gasto): así dice de qué factura es
   const mismoDestino = (a, b) => !!a && a.tipo === b.tipo && (a.tipo === 'vencimientos' ? (a.pagos || []).some(x => b.pagos.some(y => y.id === x.id)) : a.tipo === 'gasto' && a.gasto && (a.gasto.filas || []).some(f => b.gasto.filas.some(g => (g.id || g.fila) === (f.id || f.fila))));
-  if (D.fuente === 'base' && (D.siiRegistrados || []).length) pend.forEach(c => { const p0 = props[c.id], pr = SP.propuestaRegistrado(c, D.siiRegistrados, D.vencimientos, D.gastos); if (!pr) return; if (!p0 || p0.sinPropuesta || p0.por === 'monto' || mismoDestino(p0, pr)) props[c.id] = { ...pr, seguro: pr.seguro || !!(p0 && p0.seguro && mismoDestino(p0, pr)) }; });
+  if (D.fuente === 'base' && (D.siiRegistrados || []).length) pend.forEach(c => { const p0 = props[c.id], pr = SP.propuestaRegistrado(c, D.siiRegistrados, D.vencimientos, D.gastos); if (!pr) return; if (!p0 || p0.sinPropuesta || p0.combo || p0.por === 'monto' || mismoDestino(p0, pr)) props[c.id] = { ...pr, seguro: pr.seguro || !!(p0 && p0.seguro && mismoDestino(p0, pr)) }; });
   // v0.66.0 · Sin otra propuesta: una factura del SII por clasificar del mismo monto ("Por clasificar", nunca se confirma sola)
   if (D.fuente === 'base' && (D.siiPendientes || []).length) {
     pedirClasifSp(() => { if (enConc('cargos') && cart.dg && !document.querySelector('dialog[open]')) pintarCartola(concEl(), 'cargos', cart.dg); });
-    pend.forEach(c => { const p0 = props[c.id]; if (p0 && !p0.sinPropuesta) return; const k = SP.candidatosCargo(c, D.siiPendientes)[0]; if (k && !k.parcial) props[c.id] = { tipo: 'sii_pend', seguro: false, conf: k.seguro ? 'seguro' : 'probable', docId: k.v.id, texto: `${SP.textoDoc(k.v)} · factura del ${diaTexto(k.v.fecha)}`, por: k.seguro ? 'rut' : 'monto' }; });
+    pend.forEach(c => { const p0 = props[c.id]; if (p0 && !p0.sinPropuesta && !p0.combo) return; const k = SP.candidatosCargo(c, D.siiPendientes)[0]; if (k && !k.parcial) props[c.id] = { tipo: 'sii_pend', seguro: false, conf: k.seguro ? 'seguro' : 'probable', docId: k.v.id, texto: `${SP.textoDoc(k.v)} · factura del ${diaTexto(k.v.fecha)}`, por: k.seguro ? 'rut' : 'monto' }; });
   }
   const listos = pend.filter(c => props[c.id] && props[c.id].seguro && !cart.modo[c.id]), revisar = pend.filter(c => !listos.includes(c));
   // v0.50.0 · Base nueva: casillas para confirmar varios de una vez (los seguros vienen marcados; cualquiera con propuesta completa se puede marcar)
@@ -3444,6 +3489,7 @@ function avisosCcHtml(D, props) {
 function resumenHecho(c) {
   const d = c.detalle || {};
   if (c.accion === 'vencimientos') return 'Pagó ' + (d.vencimientos || []).map(v => `${v.nombre} (${pesos(v.monto)})`).join(' + ');
+  if (c.accion === 'gasto' && d.combinacion) return `Ya estaba en Gastos, combinación: ${(d.documentos || []).join(' · ')} (${(d.ids || []).length} ${(d.ids || []).length === 1 ? 'línea' : 'líneas'}${(d.notasCredito || []).length ? ', con nota de crédito' : ''})`;
   if (c.accion === 'gasto') return `Ya estaba en Gastos: ${(d.items || []).join(' + ')}${d.fecha ? ' del ' + diaTexto(d.fecha) : ''}`;
   if (c.accion === 'nuevo') return `Gasto nuevo: ${(d.items || []).join(' + ')}${d.sinFactura ? ' (sin factura)' : ''}`;
   if (c.accion === 'abono') return `Abono ${d.abono ? d.abono.n : ''} a ${d.abono ? d.abono.nombre : ''}`;
@@ -3593,6 +3639,18 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   });
   el.querySelectorAll('[data-cc-buscar]').forEach(i => i.addEventListener('change', () => { cart.buscarV[i.dataset.ccBuscar] = i.value; repintar(); }));
   el.querySelectorAll('[data-cc-gasto]').forEach(i => i.addEventListener('change', () => { cart.gasto[i.dataset.ccGasto] = i.value; repintar(); }));
+  // v0.67.4 · Elegir varios (casillas con la suma) o volver a uno; al pasar a varios queda marcado lo que estaba elegido
+  el.querySelectorAll('[data-cc-varios]').forEach(b => b.addEventListener('click', () => {
+    const c = cargo(b.dataset.ccVarios), on = !cart.varios[c.id];
+    cart.varios[c.id] = on;
+    if (on) {
+      const p0 = props[c.id], v = cart.gasto[c.id] || (p0 && p0.tipo === 'gasto' ? (p0.combo ? 'cmb:' + p0.clave : claveG(p0.gasto)) : ''), m = {};
+      if (v.startsWith('cmb:')) v.slice(4).split('~~').forEach(k => { m[k] = true; }); else if (v && grupoCc(v)) m[v] = true;
+      cart.multi[c.id] = m;
+    }
+    repintar();
+  }));
+  el.querySelectorAll('[data-cc-multi]').forEach(i => i.addEventListener('change', () => { const m = cart.multi[i.dataset.ccMulti] || (cart.multi[i.dataset.ccMulti] = {}); if (i.checked) m[i.value] = true; else delete m[i.value]; repintar(); }));
   el.querySelectorAll('[data-cc-nuevo]').forEach(i => i.addEventListener(i.type === 'text' || i.type === 'number' ? 'change' : 'change', () => {
     const c = cargo(i.dataset.cc), n = cart.nuevo[c.id], k = i.dataset.ccNuevo;
     if (k === 'item') { n.item = i.value; n.area = ''; }
@@ -3610,7 +3668,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   el.querySelectorAll('[data-cc-det]').forEach(b => b.addEventListener('click', ev => {
     ev.preventDefault(); ev.stopPropagation();
     const c = cargo(b.dataset.cc), k = b.dataset.ccK;
-    abrirDetalleGasto(b.dataset.ccDet.split(','), { cargo: c, elegir: () => { cart.gasto[c.id] = k; repintar(); } });
+    abrirDetalleGasto(b.dataset.ccDet.split(','), { cargo: c, elegir: k && !cart.varios[c.id] ? () => { cart.gasto[c.id] = k; repintar(); } : null });   // v0.67.4: una NC sola no se elige
   }));
   el.querySelectorAll('[data-cc-siempre]').forEach(i => i.addEventListener('change', () => { cart.ign[i.dataset.ccSiempre].siempre = i.checked; }));
   el.querySelectorAll('[data-cc-ok]').forEach(b => b.addEventListener('click', () => {
@@ -3631,6 +3689,16 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
     else if (a === 'pago_tarjeta') pd = { accion: a, tarjeta: (cart.tarj[c.id] !== undefined ? cart.tarj[c.id] : (props[c.id] && props[c.id].tarjeta) || '').trim() };
     else if (a === 'traspaso') pd = { accion: a, nota: (cart.tras[c.id] !== undefined ? cart.tras[c.id] : (props[c.id] && props[c.id].nota) || '').trim() };
     else if (a === 'vencimientos') pd = { accion: a, pagos: Object.entries(cart.montos[c.id] || {}).filter(([, m]) => m > 0).map(([id, monto]) => ({ id, monto })), proveedorId: c.proveedor ? c.proveedor.id : '' };
+    else if (a === 'gasto' && D.fuente === 'base' && (cart.varios[c.id] || String(cart.gasto[c.id] || '').startsWith('cmb:') || (!cart.gasto[c.id] && props[c.id] && props[c.id].combo))) {
+      // v0.67.4 · Varios gastos juntos (una combinación o los marcados): todos quedan con este cargo
+      const A = GBanco.analisisCargo(c, D), provId = c.proveedor ? c.proveedor.id : (A.prov && A.prov.rut) || '';
+      let gs;
+      if (cart.varios[c.id]) gs = Object.keys(cart.multi[c.id] || {}).map(grupoCc).filter(Boolean);
+      else { const v = cart.gasto[c.id] || 'cmb:' + props[c.id].clave, k = A.combos.find(x => 'cmb:' + x.clave === v); gs = k ? k.grupos : []; }
+      const rv = GBanco.revisarSeleccion(gs, c.monto);
+      if (!rv.cuadra) { cart.err = rv.soloNC ? 'Una nota de crédito solo se concilia junto con su factura.' : `Los gastos marcados suman ${montoCc(rv.suma)} y el cargo es de ${pesos(c.monto)}.`; repintar(); return; }
+      pd = { accion: a, filas: gs.reduce((l, x) => l.concat(x.filas), []), ...(gs.length > 1 ? { combinacion: true } : {}), proveedorId: provId };
+    }
     else if (a === 'gasto') { const g = (D.gastos || []).find(x => [x.fecha, x.hora, x.monto, x.filas[0].fila].join('|') === cart.gasto[c.id] || (props[c.id] && props[c.id].tipo === 'gasto' && !cart.gasto[c.id] && [x.fecha, x.hora, x.monto, x.filas[0].fila].join('|') === [props[c.id].gasto.fecha, props[c.id].gasto.hora, props[c.id].gasto.monto, props[c.id].gasto.filas[0].fila].join('|'))); if (!g) return; pd = { accion: a, filas: g.filas }; }
     else if (a === 'nuevo') {
       const n = cart.nuevo[c.id], it = (dg.items || []).find(i => i.item === n.item); if (!it) return;
@@ -3681,7 +3749,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
       : c.accion === 'previred' ? '<p>Se deshace el pago de Previred completo: todos sus cargos vuelven a "Para revisar", el vencimiento de Cotizaciones queda por pagar y los gastos por trabajador pasan a "Gastos anulados".</p>'
       : c.accion === 'abono_parcial' ? '<p>El abono sale del vencimiento (queda anotado). Si era el primero, el gasto del documento que se creó con él pasa a "Gastos anulados"; si era el último, el vencimiento vuelve a quedar con saldo.</p>'
       : c.accion === 'vencimientos' ? '<p>Los vencimientos vuelven a quedar por pagar. Si el pago creó un gasto (una obligación), ese gasto pasa a "Gastos anulados"; si era una compra a crédito o una factura del SII, su gasto queda sin fecha de pago.</p>'
-      : c.accion === 'nuevo' ? '<p>El gasto que se creó pasa a "Gastos anulados" (no se borra).</p>' : c.accion === 'abono' ? '<p>El abono sale del vencimiento (queda anotado) y su gasto pasa a "Gastos anulados".</p>' : c.accion === 'gasto' ? '<p>El gasto queda igual; solo se le quita la cartola (si esperaba su cargo, vuelve a esperarlo).</p>' : c.accion === 'pago_tarjeta' ? '<p>Deja de contar como pago de tarjeta (no había gasto: no cambia nada en Gastos).</p>' : c.accion === 'traspaso' ? '<p>Deja de contar como traspaso (no había gasto: no cambia nada en Gastos).</p>' : '<p>No cambia nada en Gastos.</p>';
+      : c.accion === 'nuevo' ? '<p>El gasto que se creó pasa a "Gastos anulados" (no se borra).</p>' : c.accion === 'abono' ? '<p>El abono sale del vencimiento (queda anotado) y su gasto pasa a "Gastos anulados".</p>' : c.accion === 'gasto' ? (c.detalle && c.detalle.combinacion ? '<p>Los gastos de la combinación quedan igual; a todos se les quita la cartola (si esperaban su cargo, vuelven a esperarlo).</p>' : '<p>El gasto queda igual; solo se le quita la cartola (si esperaba su cargo, vuelve a esperarlo).</p>') : c.accion === 'pago_tarjeta' ? '<p>Deja de contar como pago de tarjeta (no había gasto: no cambia nada en Gastos).</p>' : c.accion === 'traspaso' ? '<p>Deja de contar como traspaso (no había gasto: no cambia nada en Gastos).</p>' : '<p>No cambia nada en Gastos.</p>';
     const motivo = await pedirMotivo('Deshacer', `<p class="ayuda">${pesos(c.monto)} · ${esc(c.descripcion)} (${esc(diaTexto(c.fecha))}) · ${esc(resumenHecho(c))}</p>${que}<p class="ayuda">El cargo vuelve a "Para revisar" y lo aprendido de él se olvida.</p>`, 'Deshacer');
     if (!motivo) return;
     ocupado('deshacer', async () => { const r = await Cartola.deshacer(c.id, motivo, 'ccd-' + Gastos.nuevaClave()); cart.msg = `Listo: el cargo de ${pesos(c.monto)} volvió a "Para revisar".${(r.avisos || []).length ? ' ' + r.avisos.map(esc).join(' ') : ''}`; registrar('Deshizo un cargo conciliado', `${pesos(c.monto)} · ${c.descripcion} · ${motivo}`); });
@@ -6889,7 +6957,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.67.3')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.3'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.67.4')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.4'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }

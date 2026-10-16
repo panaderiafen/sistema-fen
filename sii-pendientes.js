@@ -45,7 +45,9 @@ export function datosPendiente(f, origen = {}, ahora = '', por = '') {
     termPago: s(f.termPago).slice(0, 80), descuadre: s(f.descuadre).slice(0, 200),
     detalle: det.map(d => ({ descripcion: s(d.descripcion).slice(0, 300), codigo: s(d.codigo).slice(0, 60), unidad: s(d.unidad).slice(0, 20), cantidad: num(d.cantidad) || '', precioUnitario: num(d.precioUnitario) || '',
       precioLista: num(d.precioLista) || '', descuento: num(d.descuento) || '', monto: Math.round(num(d.monto)) })),
-    cargaId: s(origen.cargaId).slice(0, 80), formato: s(origen.formato).slice(0, 12), archivo: s(origen.archivo).slice(0, 120), subido: s(ahora), por: s(por), motivo: s(origen.motivo).slice(0, 200)
+    cargaId: s(origen.cargaId).slice(0, 80), formato: s(origen.formato).slice(0, 12), archivo: s(origen.archivo).slice(0, 120), subido: s(ahora), por: s(por), motivo: s(origen.motivo).slice(0, 200),
+    // v0.67.4 · Lo que cita el documento (una nota de crédito: su factura), para proponerlas juntas en la cartola
+    ...(Array.isArray(f.referencias) && f.referencias.length ? { referencias: f.referencias.slice(0, 5).map(r => ({ tipo: s(r.tipo).slice(0, 3), folio: s(r.folio).slice(0, 20), fecha: dia(r.fecha) })) } : {})
   };
 }
 // v0.67.1: un documento unido a un gasto ya registrado (registrado.gastos) tampoco está por clasificar
