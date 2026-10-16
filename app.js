@@ -9,44 +9,44 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.67.2';
-import * as Caja from './caja.js?v=0.67.2';
-import * as Stock from './stock.js?v=0.67.2';
-import * as Ajustes from './ajustes.js?v=0.67.2';
-import * as Apps from './apps.js?v=0.67.2';
-import * as Agenda from './agenda.js?v=0.67.2';
-import * as Gastos from './gastos.js?v=0.67.2';
-import * as G3 from './gastos-g3.js?v=0.67.2';
-import * as G3D from './gastos-g3d.js?v=0.67.2';
-import * as GBanco from './gastos-banco.js?v=0.67.2';
-import * as TE from './tef-enviadas.js?v=0.67.2';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.67.2';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.67.2';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.67.2';
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.2';
-import * as Sii from './sii.js?v=0.67.2';
-import * as GSii from './gastos-sii.js?v=0.67.2';
-import * as SP from './sii-pendientes.js?v=0.67.2';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.67.2');
-import * as Previred from './previred.js?v=0.67.2';
-import * as B2b from './b2b.js?v=0.67.2';
-import * as Cartola from './cartola.js?v=0.67.2';
-import * as SiiFactura from './sii-factura.js?v=0.67.2';
-import * as PdfOrden from './pdf-orden.js?v=0.67.2';
-import * as Prod from './produccion.js?v=0.67.2';
-import * as Mem from './fs-memoria.js?v=0.67.2';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.67.2';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.67.3';
+import * as Caja from './caja.js?v=0.67.3';
+import * as Stock from './stock.js?v=0.67.3';
+import * as Ajustes from './ajustes.js?v=0.67.3';
+import * as Apps from './apps.js?v=0.67.3';
+import * as Agenda from './agenda.js?v=0.67.3';
+import * as Gastos from './gastos.js?v=0.67.3';
+import * as G3 from './gastos-g3.js?v=0.67.3';
+import * as G3D from './gastos-g3d.js?v=0.67.3';
+import * as GBanco from './gastos-banco.js?v=0.67.3';
+import * as TE from './tef-enviadas.js?v=0.67.3';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.67.3';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.67.3';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.67.3';
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.3';
+import * as Sii from './sii.js?v=0.67.3';
+import * as GSii from './gastos-sii.js?v=0.67.3';
+import * as SP from './sii-pendientes.js?v=0.67.3';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.67.3');
+import * as Previred from './previred.js?v=0.67.3';
+import * as B2b from './b2b.js?v=0.67.3';
+import * as Cartola from './cartola.js?v=0.67.3';
+import * as SiiFactura from './sii-factura.js?v=0.67.3';
+import * as PdfOrden from './pdf-orden.js?v=0.67.3';
+import * as Prod from './produccion.js?v=0.67.3';
+import * as Mem from './fs-memoria.js?v=0.67.3';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.67.3';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.0';
-import * as VistaProd from './vista-produccion.js?v=0.67.2';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.2';
+import * as VistaProd from './vista-produccion.js?v=0.67.3';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.3';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.2');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.3');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.2');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.3');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.2')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.3')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -351,7 +351,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.2" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.3" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -619,14 +619,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.67.2').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.67.3').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.67.2').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.67.3').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -1015,9 +1015,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.67.2').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.67.3').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.2').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.3').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -2604,7 +2604,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.67.2')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.67.3')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -3207,12 +3207,15 @@ function editorPrevired(c, p) {
   if (esPl) {
     const av = CB.avancePlanilla(op.total, op.unido + suma), q = CB.revisarUnion({ ...op, vencAbierto: false }, suma);
     const listo = elegidos.length && !q.error && !cart.ocupado && !op.conciliada;
+    // v0.67.3 · Sin comprobante y los cargos se pasan de las cotizaciones (más de $10): registrar la diferencia como multas e intereses
+    const dm = elegidos.length && !op.conciliada ? CB.difComoMultas(op, suma) : { puede: false };
     return `<p class="ayuda">Elige la planilla y marca los cargos del pago: se unen a la planilla, <b>sin crear gastos</b> ${info('Planilla de Previred ya registrada', TXT_PREV_PLANILLA)}</p>${lista}
       ${op.pagos && op.pagos.length ? `<p class="ayuda cc-pl-ya">Ya unidos: ${op.pagos.map(x => `${pesos(x.monto)} ${esc(x.descripcion)} (${esc(diaTexto(x.fecha))})`).join(' · ')}</p>` : ''}
       ${cargosHtml}
-      <p class="mov-suma ${q.error ? 'error' : ''}" data-cc-prevsuma="${esc(c.id)}">${elegidos.length} ${elegidos.length === 1 ? 'cargo' : 'cargos'}: ${pesos(suma)} · ${esc(CB.textoAvance(av))}</p>
-      ${q.error && elegidos.length ? `<p class="aviso-cc">${esc(q.error)}</p>` : ''}
-      <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="previred" data-cc="${esc(c.id)}" ${listo ? '' : 'disabled'}>Unir ${elegidos.length} ${elegidos.length === 1 ? 'cargo' : 'cargos'} a la planilla (sin gastos)</button></div>`;
+      <p class="mov-suma ${q.error && !dm.puede ? 'error' : ''}" data-cc-prevsuma="${esc(c.id)}">${elegidos.length} ${elegidos.length === 1 ? 'cargo' : 'cargos'}: ${pesos(suma)} · ${esc(CB.textoAvance(av))}</p>
+      ${q.error && elegidos.length && !dm.puede ? `<p class="aviso-cc">${esc(q.error)}</p>` : ''}
+      ${dm.puede ? difMultasHtml(c, op, dm, st) : ''}
+      ${dm.puede ? '' : `<div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="previred" data-cc="${esc(c.id)}" ${listo ? '' : 'disabled'}>Unir ${elegidos.length} ${elegidos.length === 1 ? 'cargo' : 'cargos'} a la planilla (sin gastos)</button></div>`}`;
   }
   const v = (D.vencimientos || []).find(x => x.id === op.vencId), q = CB.cuadraPrevired(suma, op.total);
   const listo = v && elegidos.length && (q.igual || (st.motivo || '').trim().length >= 3) && !cart.ocupado;
@@ -3222,6 +3225,24 @@ function editorPrevired(c, p) {
     <p class="mov-suma ${q.igual ? '' : 'error'}" data-cc-prevsuma="${esc(c.id)}">${elegidos.length} ${elegidos.length === 1 ? 'cargo' : 'cargos'}: ${pesos(suma)} de ${pesos(op.total)} ${op.recargos ? 'del comprobante' : 'del certificado'} · ${q.igual ? (q.dif ? `calza (diferencia ${pesos(Math.abs(q.dif))})` : 'calza exacto') : `diferencia ${q.dif > 0 ? '+' : '−'}${pesos(Math.abs(q.dif))}`}</p>
     ${q.igual ? '' : `<div class="campo"><label for="cc-pvm-${esc(c.id)}">Motivo de la diferencia (para confirmar igual)</label><input id="cc-pvm-${esc(c.id)}" data-cc-prevmot="${esc(c.id)}" maxlength="200" value="${esc(st.motivo || '')}" placeholder="Por ejemplo: multa por pago atrasado"></div>`}
     <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="previred" data-cc="${esc(c.id)}" ${listo ? '' : 'disabled'}>${q.igual ? `Pagar Previred con ${elegidos.length} ${elegidos.length === 1 ? 'cargo' : 'cargos'}` : 'Confirmar con la diferencia'}</button>${q.igual ? '' : `<button type="button" class="btn-sec btn-chico" data-cc-prevcancel="${esc(c.id)}">Cancelar</button>`}</div>`;
+}
+// v0.67.3 · La diferencia del banco como multas e intereses: el ítem financiero (de la memoria, una vez) y el área ADMIN
+const TXT_PREV_DIF = 'Esta planilla no tiene comprobante de pago y los cargos del banco suman más que sus cotizaciones. Casi siempre la diferencia son las multas e intereses por pagar después del vencimiento.\nSi lo confirmas, se unen los cargos y se registra un gasto "Multas e intereses Previred <mes>" por la diferencia: sin IVA, al contado, área ADMIN, con el ítem financiero que elijas y la fecha del último cargo unido. La planilla queda con el total del banco ("pagada y conciliada").\nSi después subes el comprobante de pago, ese gasto se anula y manda el comprobante. También puedes quitar la diferencia en Conciliación → Previred → Meses cargados, o deshacer el cargo: nada se borra.';
+function difMultasHtml(c, op, dm, st) {
+  const rc = cart.recPrev;
+  if (!rc || rc === 'cargando') {
+    if (!rc) { cart.recPrev = 'cargando'; Previred.estado(op.periodo, [], '').then(e => { cart.recPrev = e.recargos || { lista: [], propuesto: '' }; }).catch(() => { cart.recPrev = { lista: [], propuesto: '' }; }).then(() => { if (enConc('cargos')) pintarCartola(concEl(), 'cargos', cart.dg); }); }
+    return `<p class="ayuda" data-cc-prevdif="${esc(c.id)}">Revisando los ítems para las multas e intereses…</p>`;
+  }
+  if (st.difItem === undefined) st.difItem = rc.propuesto || '';
+  if (!st.difArea) st.difArea = rc.area || 'ADMIN';
+  const fin = (rc.lista || []).filter(i => i.financiero), otros = (rc.lista || []).filter(i => !i.financiero);
+  const opc = l => l.map(i => `<option value="${esc(i.item)}" ${i.item === st.difItem ? 'selected' : ''}>${esc(i.item)}</option>`).join('');
+  return `<div class="prev-rec cc-prev-dif" data-cc-prevdif="${esc(c.id)}"><p class="aviso-cc">Los cargos marcados suman ${pesos(dm.monto)} más que las cotizaciones de la planilla (${pesos(op.cotizaciones || op.total)}) y no hay comprobante de pago. ${info('Diferencia como multas e intereses', TXT_PREV_DIF)}</p>
+    <div class="grilla-montos"><div class="campo"><label for="cc-dif-item-${esc(c.id)}">Ítem de las multas e intereses</label><select id="cc-dif-item-${esc(c.id)}" data-cc-difitem="${esc(c.id)}"><option value="">Elige el ítem</option>${fin.length ? `<optgroup label="Financieros">${opc(fin)}</optgroup><optgroup label="Otros ítems">${opc(otros)}</optgroup>` : opc(otros)}</select></div>
+      <div class="campo"><label for="cc-dif-area-${esc(c.id)}">Área</label><select id="cc-dif-area-${esc(c.id)}" data-cc-difarea="${esc(c.id)}">${AREAS_GASTO.map(a => `<option ${a === st.difArea ? 'selected' : ''}>${a}</option>`).join('')}</select></div></div>
+    ${fin.length ? '' : '<p class="ayuda">No hay ítems de tipo financiero: elige uno (lo ideal, "Intereses y multas" con subtipo FINANCIERO en Gastos → Ítems).</p>'}
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="previred" data-cc-dif="1" data-cc="${esc(c.id)}" ${st.difItem && !cart.ocupado ? '' : 'disabled'}>Registrar la diferencia como multas e intereses (${pesos(dm.monto)})</button></div></div>`;
 }
 // v0.65.1 · ¿El cargo parece de Previred? (la glosa o lo aprendido)
 const pareceSegunPrevired = c => CB.esGlosaPrevired(c.descripcion) || ((cart.d && cart.d.reglas) || []).some(r => !r.quitada && r.accion === 'previred' && r.clave === (c.clave || CB.claveDe(c.descripcion)));
@@ -3542,6 +3563,8 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   // v0.65.1 · Desde "Ya está en Gastos": unir (o pagar) con esa planilla de Previred
   el.querySelectorAll('[data-cc-aprev]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.cc; cart.modo[id] = 'previred'; const st = cart.prev[id]; if (st) st.opcion = b.dataset.ccAprev; else cart.prev[id] = { opcion: b.dataset.ccAprev, sel: {}, motivo: '', selDe: '' }; repintar(); }));
   el.querySelectorAll('[data-cc-prevsel]').forEach(i => i.addEventListener('change', () => { const st = cart.prev[i.dataset.ccPrevsel]; if (st) st.sel[i.value] = i.checked; repintar(); }));
+  el.querySelectorAll('[data-cc-difitem]').forEach(i => i.addEventListener('change', () => { const st = cart.prev[i.dataset.ccDifitem]; if (!st) return; st.difItem = i.value; const b = el.querySelector(`[data-cc-dif][data-cc="${CSS.escape(i.dataset.ccDifitem)}"]`); if (b) b.disabled = !i.value || !!cart.ocupado; }));
+  el.querySelectorAll('[data-cc-difarea]').forEach(i => i.addEventListener('change', () => { const st = cart.prev[i.dataset.ccDifarea]; if (st) st.difArea = i.value; }));
   el.querySelectorAll('[data-cc-prevmot]').forEach(i => i.addEventListener('input', () => { const id = i.dataset.ccPrevmot, st = cart.prev[id]; if (!st) return; st.motivo = i.value; const b = el.querySelector(`[data-cc-ok="previred"][data-cc="${CSS.escape(id)}"]`); if (b) b.disabled = i.value.trim().length < 3 || !!cart.ocupado; }));
   el.querySelectorAll('[data-cc-prevcancel]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.ccPrevcancel; delete cart.prev[id]; delete cart.modo[id]; repintar(); }));
   // v0.64.0 · "Ya está en Gastos": filtro por origen
@@ -3602,7 +3625,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
       const op = opcionesPrev().find(o => o.id === st.opcion); if (!op) return;
       // v0.65.1: una planilla ya registrada se UNE (sin gastos); un vencimiento abierto se paga (v0.64.0)
       const ids = (op.tipo === 'planilla' ? CB.juntablesPlanilla(c, D.cargos, D.reglas) : CB.juntablesPrevired(c, D.cargos, D.reglas)).filter(x => st.sel[x.id]);
-      pd = op.tipo === 'planilla' ? { accion: 'previred_planilla', planillaId: op.planillaId, cargos: ids.map(x => ({ id: x.id, huella: x.huella })) }
+      pd = op.tipo === 'planilla' ? { accion: 'previred_planilla', planillaId: op.planillaId, cargos: ids.map(x => ({ id: x.id, huella: x.huella })), ...(b.dataset.ccDif ? { difMultas: { item: st.difItem || '', area: st.difArea || 'ADMIN' } } : {}) }
         : { accion: a, vencId: op.vencId, cargos: ids.map(x => ({ id: x.id, huella: x.huella })), motivo: (st.motivo || '').trim() };
     }
     else if (a === 'pago_tarjeta') pd = { accion: a, tarjeta: (cart.tarj[c.id] !== undefined ? cart.tarj[c.id] : (props[c.id] && props[c.id].tarjeta) || '').trim() };
@@ -3619,7 +3642,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
       else x.montoTotal = c.monto;
       pd = { accion: a, gasto: { items: [x], tipoMonto: n.sinFactura ? 'siniva' : 'bruto', sinFactura: !!n.sinFactura, observacion: n.obs || '', ...(!n.sinFactura && D.fuente === 'base' && mesSinSii(c.fecha) ? { esperaFactura: true } : {}) }, proveedorId: c.proveedor ? c.proveedor.id : '' };
     } else { const g = cart.ign[c.id]; pd = { accion: 'ignorar', motivo: g.motivo && g.motivo !== 'Otro' ? g.motivo : 'No es gasto', siempre: !!g.siempre }; }
-    ocupado(c.id, async () => { const r = await enviar(c, pd); const pp = r && r.detalle && r.detalle.previredPlanilla; cart.msg = pp ? `Listo: ${pp.cargos.length} ${pp.cargos.length === 1 ? 'cargo unido' : 'cargos unidos'} a la ${esc(pp.nombre)} (sin gastos) · ${esc(CB.textoAvance(CB.avancePlanilla(pp.total, pp.unido)))}.` : `Listo: ${pesos(c.monto)} · ${esc(c.descripcion)} · ${(NOMBRE_ACC[a] || accCc()[a]).toLowerCase()}.${a === 'previred' && r && r.detalle && r.detalle.previred ? ` Pagado ${esc(r.detalle.previred.nombre)} con ${r.detalle.previred.cargos.length} cargos${r.detalle.previred.diferencia && r.detalle.previred.motivo ? ` (diferencia ${pesos(r.detalle.previred.diferencia)}: ${esc(r.detalle.previred.motivo)})` : ''}.` : ''}`; });
+    ocupado(c.id, async () => { const r = await enviar(c, pd); const pp = r && r.detalle && r.detalle.previredPlanilla; cart.msg = pp ? `Listo: ${pp.cargos.length} ${pp.cargos.length === 1 ? 'cargo unido' : 'cargos unidos'} a la ${esc(pp.nombre)}${pp.difMultas ? ` y la diferencia (${pesos(pp.difMultas.monto)}) quedó como gasto de multas e intereses` : ' (sin gastos)'} · ${esc(CB.textoAvance(CB.avancePlanilla(pp.total, pp.unido)))}.` : `Listo: ${pesos(c.monto)} · ${esc(c.descripcion)} · ${(NOMBRE_ACC[a] || accCc()[a]).toLowerCase()}.${a === 'previred' && r && r.detalle && r.detalle.previred ? ` Pagado ${esc(r.detalle.previred.nombre)} con ${r.detalle.previred.cargos.length} cargos${r.detalle.previred.diferencia && r.detalle.previred.motivo ? ` (diferencia ${pesos(r.detalle.previred.diferencia)}: ${esc(r.detalle.previred.motivo)})` : ''}.` : ''}`; });
   }));
   // v0.66.0 · Factura por clasificar: elegir, ver detalle, clasificar y conciliar (o abono)
   el.querySelectorAll('[data-cc-sp]').forEach(i => i.addEventListener('change', () => { cart.spSel[i.dataset.ccSp] = i.value; repintar(); }));
@@ -3945,25 +3968,54 @@ function itemPorDefecto(area, items) {
 const TXT_PREV_DOCS = 'Previred entrega dos PDF distintos:\n• El "Certificado de Pagos de Cotizaciones Previsionales" es la mirada del trabajador: lo que se pagó a cada uno, por institución. No trae las multas ni los intereses por pagar atrasado.\n• El "Comprobante de pago" (lo descargas al pagar en Previred) es la mirada de la empresa: todo lo que pagaste, institución por institución, con reajustes, intereses y multas, y dice si se pagó fuera de plazo.\nSube el comprobante: es el recomendado. Si el mes no estaba cargado, registra los trabajadores (como el certificado) y un gasto de multas e intereses. Si el mes ya tenía su certificado, no repite los trabajadores: solo agrega las multas e intereses.\nLa planilla del mes queda con lo pagado de verdad (cotizaciones + multas e intereses), para unirla completa con los cargos del banco.\nEl líquido del sueldo no sale de Previred: se paga aparte (abonos de sueldo).';
 const TXT_PREV_RECARGOS = 'Los intereses, reajustes, recargos, costas y multas que cobra Previred por pagar después del vencimiento (el 13 del mes siguiente, o el hábil que sigue).\nQuedan en un solo gasto, "Multas e intereses Previred <mes>": sin IVA, al contado, con la fecha de pago de Previred (la multa nace al pagar) y el comprobante como archivo. Área: Administración (común).\nEl ítem debe ser de tipo financiero: con subtipo FINANCIERO en Gastos → Ítems, o clasificado como Financiero en Finanzas → Resultados → Clasificación (si está clasificado ahí, eso manda). Así entra en "Financieros (intereses, multas y banco)" del estado de resultados y no en remuneraciones.\nSi te equivocas, anúlalo en Gastos registrados o quita el comprobante en "Meses cargados" (no se borra nada).';
 
+// v0.67.3 · Instrucciones dentro de Previred (las pidió Emmanuel). La ruta exacta del CSV en Previred va en una sola constante,
+// para cambiarla fácil cuando se confirme.
+const TXT_PREVIRED_RUTA_CSV = 'Descárgalo desde Previred como archivo de la nómina del mes (CSV).';
+const TXT_PREV_CSV = 'El archivo CSV de la nómina trae, por trabajador, exactamente lo que se declaró: AFP, SIS, salud, seguro social, accidentes (ISL) y seguro de cesantía.\nNo trae las multas ni los intereses, ni la fecha de pago (se pregunta), y casi nunca dice la AFP de cada trabajador: se toma la del último mes cargado de ese RUT y, si es un trabajador nuevo, se pregunta una vez (queda recordada).\nSi el mes ya tiene sus cotizaciones (del comprobante, del certificado o de otro CSV), el CSV solo se compara y no crea nada.\nSi después subes el comprobante de pago del mismo mes, agrega las multas e intereses, la fecha de pago y los folios, y muestra la diferencia por trabajador. Nunca repite los gastos de los trabajadores.';
+const K_PREV_GUIA = 'fen_prev_guia';
+function guiaPreviredHtml() {
+  let abierta = true; try { abierta = localStorage.getItem(K_PREV_GUIA) !== 'cerrada'; } catch (e) {}
+  return `<details class="tarjeta prev-guia" id="prev-guia" ${abierta ? 'open' : ''}><summary><span class="prev-guia-tit">${icono('nota', 16)} Cómo cargar Previred cada mes</span></summary>
+    <ol class="prev-pasos">
+      <li><b>Pagar antes del vencimiento:</b> el 13 del mes siguiente, o el hábil que sigue. Después se cobran intereses y multas.</li>
+      <li><b>Descargar el comprobante de pago en PDF.</b> En Previred: Empresas → elige la empresa → Remuneraciones → Imprimir documentos → Planillas Pagadas → período, nómina e institución "todas" → Emitir. Es el documento recomendado: trae todo lo pagado, con las multas e intereses si los hubo.</li>
+      <li><b>Alternativa o complemento: el archivo CSV de la nómina del mes.</b> <span id="prev-ruta-csv">${esc(TXT_PREVIRED_RUTA_CSV)}</span> Trae el detalle exacto por trabajador, sin multas. ${info('Archivo CSV de la nómina', TXT_PREV_CSV)}</li>
+      <li><b>Subirlo aquí o con "Subir archivo"</b> (arriba): Sistema Fën reconoce cuál es.</li>
+      <li><b>Revisar la vista previa:</b> el área de cada trabajador, la AFP de los trabajadores nuevos (con el CSV) y el ítem financiero si hay multas.</li>
+      <li><b>Unir los cargos del banco</b> en Conciliación → Cartola → "Pago de Previred".</li>
+      <li><b>Qué hacer si no carga:</b> lee el aviso, que dice qué sección y qué cruce falló. Como respaldo, sube el CSV de la nómina.</li>
+    </ol>
+    <h3 class="sub-cc">Qué documento usar</h3>
+    <div class="tabla-b2b"><table class="tabla-tiempos tabla-cel-tarjetas prev-docs" id="prev-docs"><thead><tr><th scope="col">Documento</th><th scope="col">Qué trae</th><th scope="col">Uso</th></tr></thead><tbody>
+      <tr><td><b>Comprobante de pago (PDF)</b></td><td data-et="Qué trae">Todo lo pagado, multas incluidas</td><td data-et="Uso"><span class="chip c-verde chip-chico">Recomendado</span></td></tr>
+      <tr><td><b>CSV de la nómina</b></td><td data-et="Qué trae">Detalle exacto por trabajador, sin multas</td><td data-et="Uso"><span class="chip c-azul chip-chico">Respaldo o complemento</span></td></tr>
+      <tr><td><b>Certificado de cotizaciones (PDF)</b></td><td data-et="Qué trae">La mirada del trabajador</td><td data-et="Uso"><span class="chip c-gris chip-chico">No recomendado</span></td></tr>
+    </tbody></table></div></details>`;
+}
 async function pintarPrevired(el, sub, d) {
   const items = d.itemsSii || d.items || [];
-  el.innerHTML = cabConc('previred') + `
+  el.innerHTML = cabConc('previred') + guiaPreviredHtml() + `
     <section class="tarjeta" aria-labelledby="t-prev"><div class="titulo-fila"><h2 id="t-prev">Cotizaciones de Previred ${info('Cotizaciones de Previred', 'Sube el PDF de Previred: el "Comprobante de pago" (recomendado) o el "Certificado de Pagos de Cotizaciones Previsionales" (de un trabajador o el lote con todos). Se lee aquí mismo, en tu equipo, y se reconoce solo.\nSe registra un gasto por trabajador (sin IVA, pagado al contado en la fecha de pago de Previred), con el área y el ítem que elijas: se recuerdan para el mes siguiente. Con el comprobante, además un gasto de multas e intereses (si los hay).\nEl detalle (AFP, salud, AFC y lo que paga la empresa) queda en la hoja "Cotizaciones" de la planilla, y el PDF en Drive.\nEl mismo mes no se puede cargar dos veces.\nCon la base nueva: si existe la obligación de Cotizaciones (según documento, con identificador Previred), el PDF completa su vencimiento y los gastos se crean al pagarlo (con Pagar o con la cartola).')}</h2></div>
-      <div class="campo"><label for="prev-archivo">PDF de Previred (comprobante de pago o certificado)</label><input id="prev-archivo" type="file" accept="application/pdf,.pdf"></div>
+      <div class="campo"><label for="prev-archivo">Archivo de Previred (comprobante de pago en PDF, CSV de la nómina o certificado)</label><input id="prev-archivo" type="file" accept="application/pdf,.pdf,.csv,text/csv,.txt"></div>
       <p class="nota-i" id="prev-nota-docs">(i) Recomendado: el comprobante de pago. Trae todo lo que pagó la empresa, con multas e intereses; el certificado es la mirada del trabajador y no los trae. ${info('Certificado o comprobante', TXT_PREV_DOCS)}</p>
       <div id="prev-msg" class="ayuda" role="status">${esc(prev.mensaje || '')}</div></section>
     <div id="prev-trabajo"></div>
     <section class="tarjeta" aria-labelledby="t-prev-hist"><div class="titulo-fila"><h2 id="t-prev-hist">Meses cargados ${info('Costo de cada sueldo', 'AFP y salud se descuentan del sueldo del trabajador. SIS, seguros sociales y accidentes (ISL o mutual) los paga la empresa. La AFC mezcla las dos partes.\nEl costo real de un sueldo es el líquido que le transfieres más el total de su fila aquí. Las multas e intereses son un gasto financiero aparte.')} ${infoDrive()}</h2></div>
       <div id="prev-hist"><div class="vacio" style="border:0">Cargando…</div></div></section>`;
   $('prev-archivo').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) leerPrevired(f, items, d); });
+  $('prev-guia').addEventListener('toggle', e => { try { localStorage.setItem(K_PREV_GUIA, e.target.open ? 'abierta' : 'cerrada'); } catch (er) {} });
   if (prev.datos) pintarPrevTrabajo(items, d);
   try { pintarPrevHist((await Previred.lista()).periodos || []); }
   catch (e) { errorGastos($('prev-hist'), e); }
 }
 
+// v0.67.3 · ¿Es un CSV (por el nombre o el tipo)? El contenido se revisa al leerlo
+const esIsoF = f => /^\d{4}-\d{2}-\d{2}$/.test(String(f || ''));
+const esArchivoCsv = f => /\.(csv|txt)$/i.test(String(f && f.name || '')) || /text\/(csv|plain)/i.test(String(f && f.type || ''));
 async function leerPrevired(file, items, d) {
   const msg = $('prev-msg'); prev.mensaje = '';
-  if (file.size > 8 * 1024 * 1024) { msg.textContent = 'El PDF pesa más de 8 MB: no parece un PDF de Previred.'; return; }
+  if (file.size > 8 * 1024 * 1024) { msg.textContent = 'El archivo pesa más de 8 MB: no parece un archivo de Previred.'; return; }
+  if (esArchivoCsv(file)) { msg.textContent = 'Leyendo el CSV…'; try { await leerCsvPrev(file, items, d); } catch (er) { msg.textContent = er.message || mensajeError(er); } return; }
   msg.textContent = 'Leyendo el PDF…';
   try {
     // v0.67.0: certificado o comprobante de pago, según el PDF
@@ -3977,6 +4029,7 @@ async function leerPrevired(file, items, d) {
     r.trabajadores.forEach(t => { const n = t.lineas.length; t.lineas = t.lineas.filter(l => !ya.has(Previred.clave(r.periodo, t, l))); fuera += n - t.lineas.length; t.total = t.lineas.reduce((x, l) => x + l.monto, 0); });
     r.yaCargadasN = fuera;
     r.porComprobante = !!(e.mes && e.mes.porComprobante);   // v0.67.0: el mes ya se registró con el comprobante de pago
+    r.porCsv = !!(e.mes && e.mes.porCsv && !e.mes.porComprobante); if (r.porCsv) r.porComprobante = true;   // v0.67.3: o con el CSV de la nómina
     r.trabajadores = r.trabajadores.filter(t => t.lineas.length);
     r.trabajadores.forEach(t => {
       const c = (e.config || {})[t.rut.toUpperCase()] || {};
@@ -4015,6 +4068,112 @@ async function leerComprobantePrev(r, file, items, d) {
   pintarPrevTrabajo(items, d);
 }
 
+// ═══ v0.67.3 · CSV de la nómina: lectura, AFP por RUT (del último mes o elegida), vista previa y registro ═══
+const cfgRut = (e, rut) => { const c = e.config || {}, k = Previred.rutN(rut); return c[String(rut).toUpperCase()] || Object.entries(c).find(([r]) => Previred.rutN(r) === k)?.[1] || {}; };
+async function leerCsvPrev(file, items, d) {
+  const msg = $('prev-msg');
+  const r = Previred.leerCsv(Previred.textoDeArchivo(await file.arrayBuffer()));
+  msg.textContent = 'Revisando si ese mes ya estaba cargado…';
+  const e = await Previred.estado(r.periodo, [], '');
+  if (!e.mes) throw new Error('El CSV de la nómina se guarda con Gastos en la base nueva (Gastos → Base nueva).');
+  Previred.conAfps(r, e.afps || {});
+  r.trabajadores.forEach(t => { const c = cfgRut(e, t.rut); t.area = c.area || ''; t.item = c.item && items.some(i => i.item === c.item) ? c.item : itemPorDefecto(t.area, items); t.afpDe = t.afpCsv ? 'csv' : t.afp ? 'historial' : ''; });
+  Object.assign(prev, { tipoDoc: 'csv', datos: r, archivo: file, mes: e.mes, destino: null, yaCargadas: [], idem: null, fpago: '' });
+  prev.fecha = ultimoDia(r.periodo);
+  prev.vencimientoId = '';
+  msg.textContent = '';
+  pintarPrevTrabajo(items, d);
+}
+// La fecha de pago (la pide el CSV): con ella se sabe si va al vencimiento de Cotizaciones (de la memoria)
+async function fechaPagoCsv(items, d, f) {
+  const r = prev.datos; prev.fpago = f; prev.destino = null;
+  if (esIsoF(f)) { try { const e = await Previred.estado(r.periodo, [], f); prev.destino = e.destino || null; } catch (er) { prev.destino = null; } }
+  Previred.conAfps(r, {}, f);
+  pintarPrevTrabajo(items, d);
+}
+function pintarPrevCsv(items, d) {
+  const cont = $('prev-trabajo'), r = prev.datos;
+  if (!cont || !r) return;
+  const mes = prev.mes || {}, cargado = !!mes.cargado, T = r.totales;
+  const cmp = cargado ? G3D.compararPorRut(r.trabajadores.map(t => ({ rut: t.rut, nombre: t.nombre, total: t.total })), mes.cotizaciones || []) : null;
+  const dest = prev.destino || {}, aVenc = !cargado && dest.vencimientoId ? dest : null, notaVenc = !cargado && prev.fpago && dest.nota ? dest.nota : '';
+  const pend = (d.vencimientos || []).filter(v => v.estado === 'PENDIENTE' || v.estado === 'VENCIDA');
+  const faltanAfp = r.trabajadores.filter(t => t.faltaAfp);
+  const origen = mes.porComprobante ? 'del comprobante de pago' : mes.porCsv ? 'de un CSV de la nómina' : 'del certificado';
+  const caso = cargado
+    ? (cmp.iguales && mes.porCsv ? `<div class="aviso aviso-rojo prev-caso" id="prev-caso">Este CSV ya estaba cargado: no hay nada nuevo que guardar. Míralo en "Meses cargados".</div>`
+      : `<div class="prev-a-venc prev-caso" id="prev-caso"><b>Este mes ya tiene sus cotizaciones (${origen}): el CSV solo se compara, no crea nada.</b> ${info('CSV de un mes ya cargado', 'Los gastos por trabajador ya existen: el CSV no los repite ni los cambia. Solo se muestra la diferencia por trabajador para que la revises.')}</div>`)
+    : `<div class="prev-a-venc prev-caso" id="prev-caso"><b>Registro normal: un gasto por trabajador (${pesos(T.total)}), sin multas ni intereses</b> ${info('Archivo CSV de la nómina', TXT_PREV_CSV)}</div>`;
+  const comparacion = cmp ? (cmp.iguales ? `<p class="ayuda" id="prev-cmp">Los totales por trabajador del CSV calzan con lo ya cargado (${pesos(cmp.totalCargado)}).</p>`
+    : `<div class="aviso" id="prev-cmp"><b>Diferencia con lo ya cargado: ${cmp.dif > 0 ? '+' : '−'}${pesos(Math.abs(cmp.dif))}</b> (CSV ${pesos(cmp.totalComprobante)}, cargado ${pesos(cmp.totalCargado)})
+      <ul>${cmp.filas.filter(f => f.dif).map(f => `<li>${esc(f.nombre || f.rut)}: CSV ${pesos(f.comprobante)} · cargado ${pesos(f.cargado)} · ${f.dif > 0 ? '+' : '−'}${pesos(Math.abs(f.dif))}</li>`).join('')}</ul></div>`) : '';
+  const opcItems = sel => `<option value="">Ítem</option>${items.map(i => `<option value="${esc(i.item)}" ${i.item === sel ? 'selected' : ''}>${esc(i.item)}</option>`).join('')}`;
+  const filas = `<div id="prev-filas">${r.trabajadores.map((t, i) => `<div class="fila-caja" data-t="${i}"><div class="txt"><b>${esc(t.nombre)}</b>
+      <span>Imponible ${pesos(t.imponible)} · AFP ${pesos(t.c.afp)} · SIS ${pesos(t.c.sis)} · Salud ${pesos(t.c.salud)} · Seguro social ${pesos(t.c.ss)} · Accidentes ${pesos(t.c.isl)} · AFC ${pesos(t.c.afc)}</span>
+      ${t.necesitaAfp ? `<span>${t.afp && !t.faltaAfp ? `${esc(t.afp)}${t.afpDe === 'historial' ? ' (del último mes cargado)' : t.afpDe === 'csv' ? ' (del CSV)' : ''}` : '<b class="prev-falta-afp">Trabajador nuevo: elige su AFP</b>'}</span>` : ''}${cargado ? `<span>Área ${esc(t.area || 'sin área recordada')}</span>` : ''}</div>
+      <div class="acciones">${cargado ? '' : `${t.necesitaAfp && (t.faltaAfp || t.afpDe === 'elegida') ? `<select data-afp="${i}" aria-label="AFP de ${esc(t.nombre)}"><option value="">AFP</option>${Previred.AFPS.map(a => `<option ${a === t.afp ? 'selected' : ''}>${a}</option>`).join('')}</select>` : ''}
+        <select data-area="${i}" aria-label="Área de ${esc(t.nombre)}"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === t.area ? 'selected' : ''}>${a}</option>`).join('')}</select>
+        <select data-item="${i}" aria-label="Ítem de ${esc(t.nombre)}">${opcItems(t.item)}</select>`}
+        <span class="chip c-gris">${pesos(t.total)}</span></div></div>`).join('')}</div>`;
+  const total = T.total, listo = !cargado && !r.bloquea && !faltanAfp.length;
+  cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prev-mes">
+    <div class="titulo-fila"><h2 id="t-prev-mes">${esc(Previred.nombreMes(r.periodo).replace(/^./, c => c.toUpperCase()))}</h2><span>${r.trabajadores.length} ${r.trabajadores.length === 1 ? 'trabajador' : 'trabajadores'} · <span class="chip c-azul chip-chico">CSV de la nómina</span></span></div>
+    <p class="nota-i">(i) El CSV trae el detalle exacto por trabajador, pero no las multas ni los intereses. Si pagaste fuera de plazo, sube también el comprobante de pago. ${info('Archivo CSV de la nómina', TXT_PREV_CSV)}</p>
+    <div class="desglose desglose-grande" id="prev-totales"><span>Total <b>${pesos(total)}</b></span><span>AFP <b>${pesos(T.afp)}</b></span><span>SIS <b>${pesos(T.sis)}</b></span><span>Salud <b>${pesos(T.salud)}</b></span>
+      <span>Seguro social <b>${pesos(T.ss)}</b></span><span>Accidentes <b>${pesos(T.isl)}</b></span><span>AFC <b>${pesos(T.afc)}</b></span><span>Imponible <b>${pesos(T.imponible)}</b></span></div>
+    ${r.avisos.map(a => `<div class="aviso ${r.bloquea && !/sin montos/.test(a) ? 'aviso-rojo' : ''}">${esc(a)}</div>`).join('')}
+    ${r.bloquea ? '<div class="aviso aviso-rojo" id="prev-bloquea">El CSV tiene filas que no se pudieron leer (ver arriba): no se puede guardar, porque los totales quedarían mal. Descárgalo de nuevo desde Previred o usa el comprobante de pago.</div>' : ''}
+    ${caso}
+    ${comparacion}
+    ${faltanAfp.length && !cargado ? `<div class="aviso" id="prev-afp-falta">${faltanAfp.length === 1 ? 'Un trabajador no tiene' : `${faltanAfp.length} trabajadores no tienen`} AFP en meses anteriores (el CSV no la dice): elígela una vez y queda recordada.</div>` : ''}
+    ${aVenc ? `<div class="prev-a-venc" id="prev-a-venc"><b>Va al vencimiento de ${esc(aVenc.nombre)} (${esc(fechaIso(aVenc.fecha))})</b> ${info('El CSV completa un vencimiento', 'Existe la obligación de Cotizaciones (según documento). Al guardar, el CSV completa su vencimiento con el total del CSV. Los gastos por trabajador se crean al pagarlo (con la cartola o con Pagar).')}</div>` : ''}
+    ${notaVenc ? `<div class="aviso" id="prev-nota">${esc(notaVenc)}: se registran los gastos por trabajador ahora, como siempre.</div>` : ''}
+    <h3 class="sub-cc">Trabajadores</h3>
+    ${filas}
+    <div class="grilla-montos ${cargado ? 'oculto' : ''}"><div class="campo"><label for="prev-fpago">Fecha de pago en Previred ${info('Fecha de pago', 'El CSV no trae la fecha en que se pagó: escríbela (la del pago en Previred). Si después subes el comprobante de pago, se corrige sola con la del comprobante.')}</label><input id="prev-fpago" type="date" value="${esc(prev.fpago || '')}"></div>
+      <div class="campo"><label for="prev-fecha">Fecha del gasto ${info('Fecha del gasto', 'El mes al que corresponde el costo. Por defecto, el último día del mes de las remuneraciones (así queda junto a los sueldos de ese mes en el análisis).')}</label><input id="prev-fecha" type="date" value="${esc(prev.fecha)}"></div>
+      <div class="campo ${aVenc ? 'oculto' : ''}"><label for="prev-venc">Vencimiento que paga (opcional)</label><select id="prev-venc"><option value="">Ninguno</option>${pend.map(v => `<option value="${esc(v.id)}" ${v.id === prev.vencimientoId ? 'selected' : ''}>${esc(v.nombre)} · ${esc(fechaIso(v.fecha))}</option>`).join('')}</select></div></div>
+    <div class="error" id="prev-error" role="alert"></div>
+    <div class="botones" style="justify-content:flex-start">${cargado ? '' : `<button type="button" class="btn" id="prev-guardar" ${listo ? '' : 'disabled'}>${aVenc ? `Guardar en el vencimiento · ${pesos(total)}` : `Registrar ${r.trabajadores.length} ${r.trabajadores.length === 1 ? 'gasto' : 'gastos'} · ${pesos(total)}`}</button>`}<button type="button" class="btn-sec" id="prev-descartar">${cargado ? 'Cerrar' : 'Descartar'}</button></div></section>`;
+  escucharPrevTrab(cont, items);
+  if (!cont.dataset.escuchaCsv) {
+    cont.dataset.escuchaCsv = '1';
+    cont.addEventListener('change', e => {
+      if (prev.tipoDoc !== 'csv' || !prev.datos) return;
+      const t = e.target;
+      if (t.dataset.afp !== undefined) { const w = prev.datos.trabajadores[+t.dataset.afp]; w.afp = t.value; w.afpDe = 'elegida'; Previred.conAfps(prev.datos, {}, prev.fpago); pintarPrevCsv(items, d); }
+      else if (t.id === 'prev-fpago') fechaPagoCsv(items, d, t.value);
+    });
+  }
+  $('prev-descartar').onclick = () => { prev.datos = null; prev.destino = null; prev.tipoDoc = ''; cont.innerHTML = ''; };
+  const b0 = $('prev-guardar'); if (!b0) return;
+  b0.onclick = async () => {
+    const err = $('prev-error'); err.textContent = '';
+    const fa = r.trabajadores.find(t => t.faltaAfp); if (fa) { err.textContent = `${fa.nombre}: elige su AFP.`; return; }
+    const falta = r.trabajadores.find(t => !t.area || !t.item); if (falta) { err.textContent = `${falta.nombre}: elige el área y el ítem.`; return; }
+    if (!esIsoF(prev.fpago)) { err.textContent = 'Escribe la fecha de pago en Previred.'; return; }
+    if (!prev.fecha) { err.textContent = 'Elige la fecha del gasto.'; return; }
+    Previred.conAfps(r, {}, prev.fpago);
+    const rr = { ...r, fechaPago: prev.fpago };
+    const payload = { ...payloadTrab(rr, aVenc), csv: true };
+    payload.trabajadores.forEach((x, i) => { if (r.trabajadores[i].afp) x.afp = r.trabajadores[i].afp; });
+    const b = $('prev-guardar'); b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      const idem = await Previred.claveDeEnvio(r.periodo, r.trabajadores);
+      const x = await Previred.registrar(payload, prev.archivo, idem);
+      registrar('Cargó el CSV de la nómina de Previred', `${Previred.nombreMes(r.periodo)} · ${x.trabajadores} trabajadores · ${pesos(x.total)}${x.aVencimiento ? ' · al vencimiento ' + (x.aVencimiento.nombre || '') : ''}`);
+      prev.datos = null; prev.destino = null; prev.tipoDoc = '';
+      prev.mensaje = x.repetido ? 'Ese CSV ya estaba guardado: no se repitió nada.' : x.aVencimiento
+        ? `Listo: el CSV completó el vencimiento de ${x.aVencimiento.nombre || 'Cotizaciones'} (${pesos(x.total)}). Los ${x.trabajadores} gastos por trabajador se crean al pagarlo.`
+        : `Listo: ${x.trabajadores} gastos por ${pesos(x.total)} (del CSV de la nómina)${x.vencimiento ? '; el vencimiento quedó pagado' : ''}.${x.conArchivo ? '' : ' (El CSV no se pudo guardar en Drive.)'}`;
+      pintarConciliacion('previred');
+    } catch (er) {
+      err.textContent = (er.message || mensajeError(er)) + (er.code ? '' : ' Si vuelves a tocar Registrar no se duplica.');
+      b.disabled = er.code === 'duplicado'; b.textContent = 'Registrar';
+    }
+  };
+}
+
 // Las filas de los trabajadores: con área e ítem para elegir (editable) o solo el área recordada (el mes ya cargado)
 function filasPrevTrab(r, items, editable) {
   const opcItems = sel => `<option value="">Ítem</option>${items.map(i => `<option value="${esc(i.item)}" ${i.item === sel ? 'selected' : ''}>${esc(i.item)}</option>`).join('')}`;
@@ -4028,6 +4187,7 @@ function filasPrevTrab(r, items, editable) {
 
 function pintarPrevTrabajo(items, d) {
   if (prev.tipoDoc === 'comprobante') return pintarPrevComprobante(items, d);
+  if (prev.tipoDoc === 'csv') return pintarPrevCsv(items, d);   // v0.67.3
   const cont = $('prev-trabajo'), r = prev.datos;
   if (!cont || !r) return;
   const total = r.trabajadores.reduce((s, t) => s + t.total, 0);
@@ -4041,7 +4201,7 @@ function pintarPrevTrabajo(items, d) {
       <span>AFP <b>${pesos(r.trabajadores.reduce((s, t) => s + Previred.resumen(t).afp, 0))}</b></span><span>Salud <b>${pesos(r.trabajadores.reduce((s, t) => s + Previred.resumen(t).salud, 0))}</b></span>
       <span>AFC <b>${pesos(r.trabajadores.reduce((s, t) => s + Previred.resumen(t).afc, 0))}</b></span><span>Empresa <b>${pesos(r.trabajadores.reduce((s, t) => s + Previred.resumen(t).empleador, 0))}</b></span></div>
     ${r.avisos.map(a => `<div class="aviso">${esc(a)}</div>`).join('')}
-    ${r.porComprobante ? `<div class="aviso aviso-rojo" id="prev-por-comp">Este mes ya se registró con el comprobante de pago (que trae todo lo pagado): el certificado no agrega nada. Míralo en "Meses cargados".</div>`
+    ${r.porComprobante ? `<div class="aviso aviso-rojo" id="prev-por-comp">${r.porCsv ? 'Este mes ya se registró con el CSV de la nómina (el detalle exacto por trabajador): el certificado no agrega nada. Para las multas e intereses, sube el comprobante de pago.' : 'Este mes ya se registró con el comprobante de pago (que trae todo lo pagado): el certificado no agrega nada.'} Míralo en "Meses cargados".</div>`
       : cargado ? `<div class="aviso aviso-rojo">Este mes ya estaba cargado completo: no hay nada nuevo que guardar. Míralo en "Meses cargados".</div>` : ''}
     ${parcial ? `<div class="aviso">${r.yaCargadasN} ${r.yaCargadasN === 1 ? 'línea ya estaba cargada' : 'líneas ya estaban cargadas'} de este mes: se dejan fuera y se registra solo lo nuevo (lo que ves abajo).</div>` : ''}
     ${aVenc ? `<div class="prev-a-venc" id="prev-a-venc"><b>Va al vencimiento de ${esc(aVenc.nombre)} (${esc(fechaIso(aVenc.fecha))})</b> ${info('El certificado completa un vencimiento', 'Existe la obligación de Cotizaciones (según documento). Al guardar, el certificado completa su vencimiento: monto = total del certificado y el PDF queda como su documento. Todavía no se registra ningún gasto.\nAl pagar ese vencimiento (con la cartola o con Pagar) se crea un gasto por trabajador, sin IVA, con el área y el ítem que elijas aquí y la fecha del gasto de abajo.')}</div>` : ''}
@@ -4116,11 +4276,15 @@ function pintarPrevComprobante(items, d) {
   const bloqueado = r.bloquea || mismo || otro || (conRec && !prev.recItem);
   const caso = mismo ? `<div class="aviso aviso-rojo prev-caso" id="prev-caso">Este comprobante ya estaba guardado (${esc(fechaIso(ya.fechaPago))}): no hay nada nuevo que guardar. Míralo en "Meses cargados".</div>`
     : otro ? `<div class="aviso aviso-rojo prev-caso" id="prev-caso">Este mes ya tiene otro comprobante de pago guardado. Para cambiarlo, quítalo en "Meses cargados" y vuelve a subir este.</div>`
-    : cargado ? `<div class="prev-a-venc prev-caso" id="prev-caso"><b>Este mes ya tiene el certificado cargado: solo se agregan multas e intereses (${pesos(r.totalRecargos)})</b> ${info('Mes con el certificado ya cargado', 'Los gastos por trabajador ya existen (del certificado): no se crean de nuevo ni se duplica nada.\nSe agrega el gasto de multas e intereses y el comprobante queda en la planilla del mes: desde ahora su total es lo pagado, para unirla completa con los cargos del banco.')}${mes.vencAbierto && conRec ? `<br>El vencimiento ${esc(mes.vencNombre || 'de Cotizaciones')} sigue por pagar: las multas e intereses se suman a su monto (queda en ${pesos(r.totalPagado)}) y su gasto se crea al pagarlo.` : ''}</div>`
+    : cargado && mes.porCsv ? `<div class="prev-a-venc prev-caso" id="prev-caso"><b>Este mes ya tiene sus cotizaciones del CSV de la nómina: se agregan ${conRec ? `multas e intereses (${pesos(r.totalRecargos)}), ` : ''}la fecha de pago y los folios del comprobante</b> ${info('Mes cargado con el CSV', 'Los gastos por trabajador ya existen (del CSV): no se crean de nuevo ni se duplica nada.\nEl comprobante queda en la planilla del mes: desde ahora su total es lo pagado. Su fecha de pago reemplaza la que escribiste con el CSV (en la planilla y en los gastos por trabajador), y se muestra la diferencia por trabajador si la hay.')}</div>`
+        : cargado ? `<div class="prev-a-venc prev-caso" id="prev-caso"><b>Este mes ya tiene el certificado cargado: solo se agregan multas e intereses (${pesos(r.totalRecargos)})</b> ${info('Mes con el certificado ya cargado', 'Los gastos por trabajador ya existen (del certificado): no se crean de nuevo ni se duplica nada.\nSe agrega el gasto de multas e intereses y el comprobante queda en la planilla del mes: desde ahora su total es lo pagado, para unirla completa con los cargos del banco.')}${mes.vencAbierto && conRec ? `<br>El vencimiento ${esc(mes.vencNombre || 'de Cotizaciones')} sigue por pagar: las multas e intereses se suman a su monto (queda en ${pesos(r.totalPagado)}) y su gasto se crea al pagarlo.` : ''}</div>`
     : `<div class="prev-a-venc prev-caso" id="prev-caso"><b>Registro normal: un gasto por trabajador (${pesos(r.totalCotizaciones)})${conRec ? ` y uno de multas e intereses (${pesos(r.totalRecargos)})` : ''}</b></div>`;
   const tabla = `<div class="tabla-b2b"><table class="tabla-tiempos tabla-cel-tarjetas prev-inst" id="prev-inst"><thead><tr><th scope="col">Institución</th><th scope="col" class="num">Cotización</th><th scope="col" class="num">Intereses</th><th scope="col" class="num">Multas</th><th scope="col" class="num">Total</th></tr></thead><tbody>
     ${r.instituciones.map(i => `<tr><td>${esc(i.nombre)}${i.folio ? ` <small class="ayuda">folio ${esc(i.folio)}</small>` : ''}</td><td data-et="Cotización" class="num">${pesos(i.cotizacion)}</td><td data-et="Intereses" class="num">${pesos(i.intereses)}</td><td data-et="Multas" class="num">${pesos(i.multas)}</td><td data-et="Total" class="num"><b>${pesos(i.total)}</b></td></tr>`).join('')}
     <tr class="prev-inst-tot"><td><b>Total</b></td><td data-et="Cotización" class="num"><b>${pesos(r.totalCotizaciones)}</b></td><td data-et="Intereses" class="num"><b>${pesos(sum('intereses'))}</b></td><td data-et="Multas" class="num"><b>${pesos(sum('multas'))}</b></td><td data-et="Total" class="num"><b>${pesos(r.totalPagado)}</b></td></tr></tbody></table></div>`;
+  // v0.67.3 · Mes del CSV: la fecha de pago escrita a mano se corrige; una diferencia del banco ya registrada como multas se anula
+  const notaCsv = cargado && !mismo && !otro && mes.porCsv && mes.fechaPago && mes.fechaPago !== r.fechaPago ? `<p class="ayuda" id="prev-csv-fecha">La fecha de pago escrita con el CSV (${esc(fechaIso(mes.fechaPago))}) pasa a ser la del comprobante (${esc(fechaIso(r.fechaPago))}), en la planilla y en los gastos por trabajador.</p>` : '';
+  const notaDif = cargado && !mismo && !otro && mes.difMultas ? `<div class="aviso" id="prev-dif-reemplazo">La diferencia del banco registrada como multas e intereses (${pesos(mes.difMultas.monto)}) se anula al guardar: manda el comprobante.</div>` : '';
   const comparacion = cmp && !mismo && !otro ? (cmp.iguales ? `<p class="ayuda" id="prev-cmp">Los totales por trabajador del comprobante calzan con lo ya cargado (${pesos(cmp.totalCargado)}).</p>`
     : `<div class="aviso" id="prev-cmp"><b>Diferencia con lo ya cargado: ${cmp.dif > 0 ? '+' : '−'}${pesos(Math.abs(cmp.dif))}</b> (comprobante ${pesos(cmp.totalComprobante)}, cargado ${pesos(cmp.totalCargado)}) ${info('Diferencia por trabajador', 'Las cotizaciones del comprobante (lo que pagó la empresa) no suman lo mismo que las líneas ya cargadas del certificado para estos trabajadores.\nNo se cambia ningún gasto: solo se muestra para que lo revises (por ejemplo, un aporte de la empresa que el certificado no trae). Si hay que corregir, anula y vuelve a cargar, o avísame.')}
       <ul>${cmp.filas.filter(f => f.dif).map(f => `<li>${esc(f.nombre || f.rut)}: comprobante ${pesos(f.comprobante)} · cargado ${pesos(f.cargado)} · ${f.dif > 0 ? '+' : '−'}${pesos(Math.abs(f.dif))}</li>`).join('')}</ul></div>`) : '';
@@ -4144,6 +4308,7 @@ function pintarPrevComprobante(items, d) {
     ${r.avisos.map(a => `<div class="aviso ${r.bloquea && !/varias fechas de pago/.test(a) ? 'aviso-rojo' : ''}">${esc(a)}</div>`).join('')}
     ${r.bloquea ? '<div class="aviso aviso-rojo" id="prev-bloquea">El comprobante no cuadra (ver arriba): no se puede guardar, porque los totales quedarían mal. Descárgalo de nuevo desde Previred o avísame.</div>' : ''}
     ${caso}
+    ${notaCsv}${notaDif}
     ${tabla}
     ${comparacion}
     ${aVenc ? `<div class="prev-a-venc" id="prev-a-venc"><b>Va al vencimiento de ${esc(aVenc.nombre)} (${esc(fechaIso(aVenc.fecha))})</b> ${info('El comprobante completa un vencimiento', 'Existe la obligación de Cotizaciones (según documento). Al guardar, el comprobante completa su vencimiento: monto = lo pagado (cotizaciones + multas e intereses). Todavía no se registra ningún gasto.\nAl pagar ese vencimiento (con la cartola o con Pagar) se crean los gastos por trabajador y el de multas e intereses, al mismo tiempo.')}</div>` : ''}
@@ -4174,7 +4339,7 @@ function pintarPrevComprobante(items, d) {
         const x = await Previred.registrarComprobante({ periodo: r.periodo, fechaPago: r.fechaPago, comprobante: payloadComp(r) }, prev.archivo, prev.idem);
         registrar('Cargó el comprobante de Previred', `${nm} · multas e intereses ${pesos(x.recargos)} · pagado ${pesos(x.totalPagado)}`);
         prev.mensaje = x.repetido ? `Ese comprobante ya estaba guardado: no se repitió nada.`
-          : `Listo: el comprobante de ${nm} quedó en su planilla (pagado ${pesos(x.totalPagado)}).${x.recargos ? x.aVencimiento ? ` Las multas e intereses (${pesos(x.recargos)}) se sumaron al vencimiento de ${x.aVencimiento.nombre}: su gasto se crea al pagarlo.` : ` Se registró el gasto de multas e intereses (${pesos(x.recargos)}).` : ''}${x.conArchivo ? '' : ' (El PDF no se pudo guardar en Drive.)'}`;
+          : `Listo: el comprobante de ${nm} quedó en su planilla (pagado ${pesos(x.totalPagado)}).${x.recargos ? x.aVencimiento ? ` Las multas e intereses (${pesos(x.recargos)}) se sumaron al vencimiento de ${x.aVencimiento.nombre}: su gasto se crea al pagarlo.` : ` Se registró el gasto de multas e intereses (${pesos(x.recargos)}).` : ''}${x.fechasCorregidas ? ` ${x.fechasCorregidas} ${x.fechasCorregidas === 1 ? 'gasto tomó' : 'gastos tomaron'} la fecha de pago del comprobante.` : ''}${x.difAnulada ? ` La diferencia registrada como multas (${pesos(x.difAnulada)}) se anuló.` : ''}${x.conArchivo ? '' : ' (El PDF no se pudo guardar en Drive.)'}`;
       } else {
         const x = await Previred.registrar({ ...payloadTrab(r, aVenc), comprobante: payloadComp(r) }, prev.archivo, prev.idem);
         registrar('Cargó el comprobante de Previred', `${nm} · ${x.trabajadores} trabajadores · ${pesos(x.total)} + multas e intereses ${pesos(x.recargos || 0)}${x.aVencimiento ? ' · al vencimiento ' + (x.aVencimiento.nombre || '') : ''}`);
@@ -4193,7 +4358,7 @@ function pintarPrevComprobante(items, d) {
 
 function pintarPrevHist(P) {
   const cont = $('prev-hist'); if (!cont) return;
-  cont.innerHTML = P.length ? P.map((p, k) => `<details class="mes-sii" ${k === 0 ? 'open' : ''} data-prev-mes="${esc(p.periodo)}"><summary><b>${esc(Previred.nombreMes(p.periodo).replace(/^./, c => c.toUpperCase()))}</b><span>${p.trabajadores.length} trabajadores · ${pesos(p.total)} · pagado el ${esc(fechaIso(p.comprobante ? p.comprobante.fechaPago : p.fechaPago))}${p.comprobante && p.comprobante.fueraDePlazo ? ' <span class="chip c-rojo chip-chico">Pagado fuera de plazo</span>' : ''}</span></summary>
+  cont.innerHTML = P.length ? P.map((p, k) => `<details class="mes-sii" ${k === 0 ? 'open' : ''} data-prev-mes="${esc(p.periodo)}"><summary><b>${esc(Previred.nombreMes(p.periodo).replace(/^./, c => c.toUpperCase()))}</b><span>${p.trabajadores.length} trabajadores · ${pesos(p.total)} · pagado el ${esc(fechaIso(p.comprobante ? p.comprobante.fechaPago : p.fechaPago))}${p.porCsv ? ' <span class="chip c-azul chip-chico">CSV</span>' : ''}${p.comprobante && p.comprobante.fueraDePlazo ? ' <span class="chip c-rojo chip-chico">Pagado fuera de plazo</span>' : ''}</span></summary>
     ${prevCompHtml(p)}
     ${p.trabajadores.sort((a, b) => b.total - a.total).map(t => `<div class="fila-caja"><div class="txt"><b>${esc(t.nombre)}</b><span>${esc(t.area)} · imponible ${pesos(t.imponible)}</span>
       <span>AFP ${pesos(t.afp)} · Salud ${pesos(t.salud)} · AFC ${pesos(t.afc)} · Empresa ${pesos(t.empleador)}${t.otro ? ' · Otros ' + pesos(t.otro) : ''}</span></div>
@@ -4209,6 +4374,15 @@ function pintarPrevHist(P) {
     try { await Cartola.deshacer(b.dataset.prevDeshacer, motivo, 'pd-' + b.dataset.prevDeshacer + '-' + Gastos.nuevaClave()); registrar('Quitó un cargo de la planilla de Previred', b.dataset.txt || ''); cart.d = null; pintarPrevHist((await Previred.lista()).periodos || []); }
     catch (e) { b.disabled = false; alert(e.message || mensajeError(e)); }
   }));
+  // v0.67.3 · Quitar la diferencia del banco registrada como multas e intereses: anula su gasto, nada se borra
+  cont.querySelectorAll('[data-prev-quitar-dif]').forEach(b => b.addEventListener('click', async () => {
+    const per = b.dataset.prevQuitarDif;
+    const motivo = await pedirMotivo('Quitar la diferencia', `<p class="ayuda">${esc(Previred.nombreMes(per))}</p><p>El gasto de multas e intereses de la diferencia pasa a "Gastos anulados" y la planilla vuelve a sus cotizaciones (queda anotado, con el motivo). Los cargos del banco unidos no cambian.</p>`, 'Quitar');
+    if (!motivo) return;
+    b.disabled = true;
+    try { await Previred.quitarDifMultas(per, motivo, 'qd-' + per + '-' + Gastos.nuevaClave()); registrar('Quitó la diferencia de Previred registrada como multas', Previred.nombreMes(per)); cart.d = null; pintarPrevHist((await Previred.lista()).periodos || []); }
+    catch (e) { b.disabled = false; alert(e.message || mensajeError(e)); }
+  }));
   // v0.67.0 · Quitar el comprobante del mes (para cambiarlo): anula el gasto de multas e intereses, nada se borra
   cont.querySelectorAll('[data-prev-quitar-comp]').forEach(b => b.addEventListener('click', async () => {
     const per = b.dataset.prevQuitarComp;
@@ -4222,7 +4396,11 @@ function pintarPrevHist(P) {
 // v0.67.0 · "Cotizaciones $X + multas e intereses $Y = pagado $Z" (con el comprobante de pago)
 function prevCompHtml(p) {
   const c = p.comprobante;
-  if (!c) return p.comprobantesQuitados ? '<p class="ayuda">Sin comprobante de pago (se quitó). Súbelo de nuevo para agregar las multas e intereses.</p>' : '<p class="ayuda prev-sin-comp">Solo el certificado (sin multas ni intereses). Si pagaste fuera de plazo, sube el comprobante de pago.</p>';
+  // v0.67.3 · Sin comprobante: la diferencia del banco registrada como multas e intereses (con su Quitar)
+  if (!c && p.difMultas) return `<div class="prev-comp prev-dif" data-prev-dif="${esc(p.periodo)}"><p class="prev-comp-suma"><b>Cotizaciones ${pesos(p.cotizaciones)} + multas e intereses ${pesos(p.difMultas.monto)} = pagado en el banco ${pesos(p.total)}</b> <span class="chip c-amarillo chip-chico">Diferencia del banco</span> ${info('Diferencia del banco como multas e intereses', 'Los cargos del banco sumaron más que las cotizaciones de este mes y no había comprobante de pago: confirmaste que la diferencia son multas e intereses. Quedó un gasto "Multas e intereses Previred <mes>" (sin IVA, área ADMIN, ítem financiero) con la fecha del último cargo.\nSi después subes el comprobante de pago, este gasto se anula y manda el comprobante.\nQuitar la diferencia anula el gasto (no se borra) y la planilla vuelve a sus cotizaciones.')}</p>
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" data-prev-quitar-dif="${esc(p.periodo)}">Quitar la diferencia</button></div></div>`;
+  const solo = p.porCsv ? 'Solo el CSV de la nómina (sin multas ni intereses)' : 'Solo el certificado (sin multas ni intereses)';
+  if (!c) return p.comprobantesQuitados ? '<p class="ayuda">Sin comprobante de pago (se quitó). Súbelo de nuevo para agregar las multas e intereses.</p>' : `<p class="ayuda prev-sin-comp">${solo}. Si pagaste fuera de plazo, sube el comprobante de pago.</p>`;
   return `<div class="prev-comp" data-prev-comp="${esc(p.periodo)}"><p class="prev-comp-suma"><b>Cotizaciones ${pesos(c.totalCotizaciones)} + multas e intereses ${pesos(c.totalRecargos)} = pagado ${pesos(c.totalPagado)}</b>${c.fueraDePlazo ? ' <span class="chip c-rojo chip-chico">Pagado fuera de plazo</span>' : ''} ${info('Comprobante de pago', 'El comprobante de Previred de este mes: lo que pagó la empresa, institución por institución. Desde que se subió, el total de la planilla es lo pagado (para unirla con los cargos del banco).\nLas multas e intereses son un gasto financiero aparte ("Multas e intereses Previred <mes>").\nQuitar el comprobante lo deja anotado y anula ese gasto (no se borra nada); los gastos por trabajador no cambian.')}</p>
     ${(c.instituciones || []).filter(i => i.intereses + i.multas > 0).length ? `<p class="ayuda">${(c.instituciones || []).filter(i => i.intereses + i.multas > 0).map(i => `${esc(i.nombre)} ${pesos(i.intereses + i.multas)}`).join(' · ')}</p>` : ''}
     <div class="botones" style="justify-content:flex-start">${c.archivo ? `<a class="btn-sec btn-chico" href="${esc(c.archivo)}" target="_blank" rel="noopener">Comprobante en Drive</a>` : ''}<button type="button" class="btn-sec btn-chico" data-prev-quitar-comp="${esc(p.periodo)}">Quitar comprobante</button></div></div>`;
@@ -5541,7 +5719,7 @@ const tabConc = sub => (['sii', 'sinbanco', 'previred', 'proveedores'].includes(
 const concEl = () => $('v-conciliacion');
 const enConc = t => vistaDesdeHash() === 'conciliacion' && (t === 'cargos' ? subVista() === 'cargos' : t === 'abonos' ? !subVista() : subVista() === t);
 const conc = { subiendo: false, msg: '', err: '', pendiente: null, ultimaSubida: null, avisosVistos: [] };
-const TXT_SUBIR_CONC = 'Un solo botón para todos los archivos. Se reconoce solo:\n• Cartola de BancoEstado (.xlsx), histórica o en línea: los abonos van a B2B y los cargos a Gastos.\n• Transferencias recibidas (.xlsx): el RUT y el nombre de quien te pagó.\n• Transferencias enviadas (.xlsx, "TefSimpleConsultaEnviadas…"): a quién pagaste (nombre, RUT, banco, concepto), para reconocer cada cargo y su proveedor.\n• Archivo del SII (XML, XLS o CSV): se abre en Cargas del SII.\n• PDF de Previred: el comprobante de pago (recomendado: trae las multas e intereses) o el certificado de cotizaciones. Se abre en Previred.\nCada archivo va a su pestaña y ahí sigues el trabajo.';
+const TXT_SUBIR_CONC = 'Un solo botón para todos los archivos. Se reconoce solo:\n• Cartola de BancoEstado (.xlsx), histórica o en línea: los abonos van a B2B y los cargos a Gastos.\n• Transferencias recibidas (.xlsx): el RUT y el nombre de quien te pagó.\n• Transferencias enviadas (.xlsx, "TefSimpleConsultaEnviadas…"): a quién pagaste (nombre, RUT, banco, concepto), para reconocer cada cargo y su proveedor.\n• Archivo del SII (XML, XLS o CSV): se abre en Cargas del SII.\n• PDF de Previred: el comprobante de pago (recomendado: trae las multas e intereses) o el certificado de cotizaciones. Se abre en Previred.\n• CSV de la nómina de Previred (filas con ";" y unos 105 campos por trabajador): se abre en Previred.\nCada archivo va a su pestaña y ahí sigues el trabajo.';
 // v0.66.0 · Los números de las pestañas: cargos por revisar (Cartola), documentos por clasificar y automáticas por revisar (Cargas
 // del SII) y facturas sin pago del banco (Pagos sin banco). Lo del SII sale de la memoria de fs-gastos (sin lecturas nuevas).
 function tabsConcHtml(tab, nCart) {
@@ -5606,8 +5784,13 @@ async function subirArchivoConc(f) {
   conc.msg = ''; conc.err = '';
   const ir = (sub, tipo) => { conc.pendiente = { tipo, f }; if (subVista() === sub && vistaDesdeHash() === 'conciliacion') pintarConciliacion(sub); else location.hash = '#conciliacion/' + sub; };
   if (ext === 'pdf' || f.type === 'application/pdf') { conc.msg = `PDF de Previred: ${esc(f.name)}`; return ir('previred', 'previred'); }
+  // v0.67.3 · El CSV de la nómina de Previred (filas con ";" y unos 105 campos, con RUT y período) va a Previred; los demás CSV, al SII
+  if (['csv', 'txt'].includes(ext) && f.size <= 8 * 1024 * 1024) {
+    let esNom = false; try { esNom = Previred.esCsvNomina(Previred.textoDeArchivo(await f.arrayBuffer())); } catch (e) { esNom = false; }
+    if (esNom) { conc.msg = `CSV de la nómina de Previred: ${esc(f.name)}`; return ir('previred', 'previred'); }
+  }
   if (['xml', 'csv', 'txt', 'html'].includes(ext)) { conc.msg = `Archivo del SII: ${esc(f.name)}`; return ir('sii', 'sii'); }
-  if (!['xlsx', 'xls'].includes(ext)) { conc.err = 'No se reconoce ese archivo. Sirven: la cartola o las transferencias de BancoEstado (.xlsx), el archivo del SII (XML, XLS o CSV) o el PDF de Previred (comprobante de pago o certificado).'; repintarConc(); return; }
+  if (!['xlsx', 'xls'].includes(ext)) { conc.err = 'No se reconoce ese archivo. Sirven: la cartola o las transferencias de BancoEstado (.xlsx), el archivo del SII (XML, XLS o CSV), el PDF de Previred (comprobante de pago o certificado) o el CSV de la nómina de Previred.'; repintarConc(); return; }
   conc.subiendo = true; repintarConc();
   try {
     await cargarScriptExterno('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', () => window.XLSX);
@@ -6706,7 +6889,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.67.2')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.2'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.67.3')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.3'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }

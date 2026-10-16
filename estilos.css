@@ -1530,3 +1530,23 @@ details[open] > summary .cc-nota-txt, .fila-hist:hover .cc-nota-txt, .fila-hist:
 /* v0.67.2 · "Volver a clasificar": lo que hay que deshacer primero */
 .lista-bloqueos { margin: 8px 0 4px; padding-left: 20px; }
 .lista-bloqueos li { margin: 6px 0; line-height: 1.45; overflow-wrap: anywhere; }
+
+/* v0.67.3 · Previred: instrucciones "Cómo cargar Previred cada mes", tabla "Qué documento usar", CSV de la nómina y la diferencia
+   del banco como multas e intereses */
+.prev-guia > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; font-weight: 700; font-size: 16px; }
+.prev-guia > summary::-webkit-details-marker { display: none; }
+.prev-guia > summary::after { content: '▸'; margin-left: auto; color: var(--suave); }
+.prev-guia[open] > summary::after { content: '▾'; }
+.prev-guia-tit { display: inline-flex; align-items: center; gap: 8px; }
+.prev-pasos { margin: 12px 0 4px; padding-left: 22px; line-height: 1.55; }
+.prev-pasos li { margin: 0 0 8px; overflow-wrap: anywhere; }
+.prev-docs td { vertical-align: top; }
+.prev-falta-afp { color: var(--rojo-t); }
+.cc-prev-dif select { width: 100%; max-width: 100%; }
+#prev-filas .acciones select { max-width: 100%; }
+@media (max-width: 640px) {
+  .prev-docs.tabla-cel-tarjetas td:last-child { flex: 1 1 100%; }
+  #prev-filas .fila-caja { flex-wrap: wrap; }
+  #prev-filas .acciones { flex-wrap: wrap; width: 100%; }
+}
+.cc-prev-dif .btn { white-space: normal; text-align: left; max-width: 100%; height: auto; line-height: 1.35; }

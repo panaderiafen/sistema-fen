@@ -14,12 +14,12 @@
 //    (día 13 del mes siguiente o el hábil que sigue).
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as B from './gastos-banco.js?v=0.67.2';
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.67.2';
-import * as M from './gastos-g2.js?v=0.67.2';
-import * as G3 from './gastos-g3.js?v=0.67.2';
-import { FERIADOS } from './feriados-cl.js?v=0.67.2';
-import * as FR from './finanzas-resultados.js?v=0.67.2';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
+import * as B from './gastos-banco.js?v=0.67.3';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.67.3';
+import * as M from './gastos-g2.js?v=0.67.3';
+import * as G3 from './gastos-g3.js?v=0.67.3';
+import { FERIADOS } from './feriados-cl.js?v=0.67.3';
+import * as FR from './finanzas-resultados.js?v=0.67.3';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -48,6 +48,7 @@ export const claveLinea = (periodo, rut, inst, tipoPago, folio) => [periodo, s(r
 // Ids como la copia G1 (gastos-modelo.js): así lo copiado de la planilla y lo nuevo se reconocen igual
 export const idCotizacion = clave => 'c-' + huella(s(clave));
 const rutClave = r => s(r).trim().toUpperCase().replace(/[^0-9K-]/g, '');
+const rutN = r => s(r).toUpperCase().replace(/[^0-9K]/g, '');
 export const idTrabajador = rut => idLimpio(rutClave(rut));
 const rutOk = r => /^\d{1,2}\.?\d{3}\.?\d{3}-[\dK]$/.test(s(r).trim().toUpperCase());
 const periodoDe = v => { const t = s(v).trim(); if (/^\d{4}-\d{2}$/.test(t)) return t; const d = dia(t); return d ? d.slice(0, 7) : ''; };
@@ -56,9 +57,25 @@ export const periodoCot = periodoDe;   // v0.67.0
 // cot_estado: áreas e ítems recordados (por RUT) y qué claves pedidas ya estaban cargadas
 export function estadoCot(cotizaciones, trabajadores, claves) {
   const config = {};
-  (trabajadores || []).filter(x => x.d && !x.d.quitadoEnPlanilla && s(x.d.rut)).forEach(({ d }) => { config[s(d.rut).toUpperCase()] = { nombre: s(d.nombre), area: s(d.area), item: s(d.item) }; });
+  (trabajadores || []).filter(x => x.d && !x.d.quitadoEnPlanilla && s(x.d.rut)).forEach(({ d }) => { config[s(d.rut).toUpperCase()] = { nombre: s(d.nombre), area: s(d.area), item: s(d.item), ...(s(d.afp) ? { afp: s(d.afp) } : {}) }; });
   const ya = new Set((cotizaciones || []).filter(x => x.d && !x.d.quitadoEnPlanilla && s(x.d.clave)).map(x => s(x.d.clave)));
-  return { ok: true, config, yaCargadas: (Array.isArray(claves) ? claves.slice(0, 2000).map(String) : []).filter(k => ya.has(k)) };
+  return { ok: true, config, afps: afpsPorRut(cotizaciones, trabajadores), yaCargadas: (Array.isArray(claves) ? claves.slice(0, 2000).map(String) : []).filter(k => ya.has(k)) };
+}
+// v0.67.3 · La AFP de cada RUT: la del mes cargado más reciente (de sus líneas de cotizaciones, en memoria); si no hay, la elegida
+// antes y guardada en cotiz_trabajadores (afp). → { rutN: 'AFP …' }
+export const AFPS = ['AFP CAPITAL', 'AFP CUPRUM', 'AFP HABITAT', 'AFP MODELO', 'AFP PLANVITAL', 'AFP PROVIDA', 'AFP UNO'];
+export function afpDeInstitucion(inst) {
+  const t = mayus(inst).replace(/A\.F\.P\.?/g, 'AFP');
+  return (/\bAFP\b/.test(t) && AFPS.find(a => new RegExp('\\b' + a.slice(4) + '\\b').test(t))) || '';
+}
+export function afpsPorRut(cotizaciones, trabajadores) {
+  const out = {}, per = {};
+  (cotizaciones || []).filter(x => x.d && !x.d.quitadoEnPlanilla).forEach(({ d }) => {
+    const a = afpDeInstitucion(d.institucion), k = rutN(d.rut), p = periodoDe(d.periodo);
+    if (a && k && (!per[k] || p > per[k])) { per[k] = p; out[k] = a; }
+  });
+  (trabajadores || []).filter(x => x.d && !x.d.quitadoEnPlanilla && s(x.d.afp)).forEach(({ d }) => { const k = rutN(d.rut); if (k && !out[k] && AFPS.includes(s(d.afp))) out[k] = s(d.afp); });
+  return out;
 }
 
 // cot_registrar: revisa como sfCotRegistrar. items: ítems vigentes (lista). Devuelve { error, code } o { limpios, total, lineas }
@@ -88,7 +105,8 @@ export function revisarRegistro(p, items, cotizaciones) {
       if (ya.has(clave) && !repetidos.includes(nombre)) repetidos.push(nombre);
       lineas.push({ institucion: inst, tipoPago: tp, folio, monto, imponible: imp, clave, ...tipoLinea(inst) });
     }
-    limpios.push({ rut, nombre, area: s(t.area), ref, lineas, total: lineas.reduce((x, l) => x + l.monto, 0) });
+    const afp = AFPS.includes(s(t.afp)) ? s(t.afp) : '';   // v0.67.3: la AFP elegida (CSV) se recuerda por RUT
+    limpios.push({ rut, nombre, area: s(t.area), ref, lineas, total: lineas.reduce((x, l) => x + l.monto, 0), ...(afp ? { afp } : {}) });
   }
   if (repetidos.length) return { error: 'Ese período ya estaba cargado para: ' + repetidos.join(', ') + '. No se guardó nada.', code: 'duplicado' };
   return { limpios, total: limpios.reduce((x, t) => x + t.total, 0), lineas: limpios.reduce((x, t) => x + t.lineas.length, 0) };
@@ -103,7 +121,7 @@ export function obsTrabajador(periodo, t) {
 export const docsCotizacion = (p, limpios, url, en, por, extra = {}) => limpios.flatMap(t => t.lineas.map(l => ({ id: idCotizacion(l.clave), d: {
   periodo: p.periodo, fechaPago: p.fechaPago, rut: t.rut, nombre: t.nombre, institucion: l.institucion, tipo: l.tipo, cargo: l.cargo, tipoPago: l.tipoPago,
   imponible: l.imponible, monto: l.monto, folioPlanilla: l.folio, area: t.area, item: t.ref.item, archivo: s(url), cargadoEl: s(en), cargadoPor: s(por) || 'Sistema Fën', clave: l.clave, ...extra } })));
-export const docTrabajador = (t, hoy) => ({ id: idTrabajador(t.rut), d: { rut: t.rut, nombre: t.nombre, area: t.area, item: t.ref.item, actualizado: s(hoy) } });
+export const docTrabajador = (t, hoy) => ({ id: idTrabajador(t.rut), d: { rut: t.rut, nombre: t.nombre, area: t.area, item: t.ref.item, ...(t.afp ? { afp: t.afp } : {}), actualizado: s(hoy) } });
 // El plan de gastos por trabajador que guarda el vencimiento (se usan al pagarlo)
 export const planTrabajadores = (p, limpios) => limpios.map(t => ({ rut: t.rut, nombre: t.nombre, area: t.area, item: t.ref.item, categoria: s(t.ref.categoria), tipo: s(t.ref.tipo), subTipo: s(t.ref.subTipo), total: t.total, obs: obsTrabajador(p.periodo, t) }));
 // Un gasto por trabajador (sin IVA, contado). plan = documento.previred = { periodo, fecha, trabajadores }
@@ -165,6 +183,7 @@ export function listaCot(cotizaciones) {
     const P = per[pk] || (per[pk] = { periodo: pk, fechaPago: dia(d.fechaPago) || s(d.fechaPago), archivo: s(d.archivo), total: 0, trabajadores: {}, vencimientoId: '' });
     if (!P.archivo && d.archivo) P.archivo = s(d.archivo);
     if (d.vencimientoId) P.vencimientoId = s(d.vencimientoId);
+    if (d.deCsv) P.porCsv = true;   // v0.67.3: el mes se cargó con el CSV de la nómina
     const rut = s(d.rut), T = P.trabajadores[rut] || (P.trabajadores[rut] = { rut, nombre: s(d.nombre), area: s(d.area), imponible: 0, afp: 0, salud: 0, afc: 0, empleador: 0, otro: 0, total: 0 });
     const m = n(d.monto), tipo = s(d.tipo), cargo = s(d.cargo);
     T.total += m; P.total += m; T.imponible = Math.max(T.imponible, n(d.imponible));
@@ -250,7 +269,6 @@ export function avisosRecargos(items, fin) {
 // El área de las multas e intereses: ADMIN (común) si existe
 export const areaRecargos = () => (M.AREAS.includes('ADMIN') ? 'ADMIN' : M.AREAS[0]);
 // Comprobante contra lo ya cargado (certificado) por RUT. cot: líneas de cotizaciones del mes (vigentes)
-const rutN = r => s(r).toUpperCase().replace(/[^0-9K]/g, '');
 export function compararPorRut(trabajadores, cot) {
   const cargado = {}, nombres = {};
   (cot || []).forEach(x => { const d = x.d || x; const k = rutN(d.rut); cargado[k] = (cargado[k] || 0) + r0(d.monto); nombres[k] = nombres[k] || s(d.nombre); });
@@ -259,6 +277,17 @@ export function compararPorRut(trabajadores, cot) {
   Object.keys(cargado).filter(k => !vistos.has(k)).forEach(k => filas.push({ rut: k, nombre: nombres[k], comprobante: 0, cargado: cargado[k], dif: -cargado[k] }));
   const tc = filas.reduce((t, f) => t + f.comprobante, 0), tg = filas.reduce((t, f) => t + f.cargado, 0);
   return { filas, totalComprobante: tc, totalCargado: tg, dif: tc - tg, iguales: filas.every(f => f.dif === 0) };
+}
+
+// ═══ v0.67.3 · La diferencia del banco como multas e intereses (planilla sin comprobante de pago) ═══
+// Al unir los cargos del banco a una planilla sin comprobante, si suman más que sus cotizaciones (más de $10), la diferencia se
+// registra (con el visto bueno de Emmanuel) como el mismo gasto "Multas e intereses Previred <mes>" del comprobante: sin IVA, al
+// contado, área ADMIN, un ítem financiero, con la fecha del último cargo unido. La planilla queda en previred_planillas/{mes}.difMultas
+// y su total pasa a ser lo del banco. Quitarla anula el gasto (no se borra) y la deja en difMultasQuitadas.
+export const difVigente = doc => (doc && doc.difMultas && !doc.difMultas.quitado ? doc.difMultas : null);
+export function recDiferencia(periodo, cotizaciones, banco, fecha, ref, area, clave) {
+  return { periodo: s(periodo), clave: s(clave), monto: r0(banco) - r0(cotizaciones), fecha: s(fecha), item: ref.item, categoria: s(ref.categoria), tipo: s(ref.tipo), subTipo: s(ref.subTipo), area: s(area),
+    obs: `${nombreRecargos(periodo)} · diferencia entre lo pagado en el banco (${fmt(banco)}) y las cotizaciones de la planilla (${fmt(cotizaciones)}), sin comprobante de pago`.slice(0, 500) };
 }
 
 // ═══ v0.67.0 · Vencimiento de Previred: el día 13 del mes siguiente al de las remuneraciones; si cae sábado, domingo o

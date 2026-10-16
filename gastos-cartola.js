@@ -16,10 +16,10 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.67.2';
-import * as B from './gastos-banco.js?v=0.67.2';
-import { habilesEntre } from './feriados-cl.js?v=0.67.2';
-import * as D3 from './gastos-g3d.js?v=0.67.2';   // v0.67.0: total del plan de Previred con multas e intereses
+import * as G3 from './gastos-g3.js?v=0.67.3';
+import * as B from './gastos-banco.js?v=0.67.3';
+import { habilesEntre } from './feriados-cl.js?v=0.67.3';
+import * as D3 from './gastos-g3d.js?v=0.67.3';   // v0.67.0: total del plan de Previred con multas e intereses
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
@@ -390,10 +390,12 @@ export function textoAvance(a) {
 export function planillasPrevired(periodos, docs, abiertosIds, cargos) {
   return (periodos || []).map(P => {
     const per = perNorm(P.periodo), doc = (docs || {})[per] || null, vid = s(P.vencimientoId), comp = doc && doc.comprobante && !doc.comprobante.quitado ? doc.comprobante : null;
-    const cotiz = num(P.cotizaciones !== undefined ? P.cotizaciones : P.total), total = comp ? num(comp.totalPagado) : cotiz;
+    // v0.67.3: sin comprobante, la diferencia del banco registrada como multas e intereses (difMultas) se suma al total
+    const dif = !comp && doc && doc.difMultas && !doc.difMultas.quitado ? doc.difMultas : null;
+    const cotiz = num(P.cotizaciones !== undefined ? P.cotizaciones : P.total), total = comp ? num(comp.totalPagado) : cotiz + (dif ? num(dif.monto) : 0);
     const pagos = pagosDePlanilla(doc, cargos, vid), av = avancePlanilla(total, pagos.reduce((t, x) => t + x.monto, 0));
-    return { id: per, periodo: per, nombre: 'Planilla de ' + nombrePeriodo(per), total, cotizaciones: comp ? num(comp.totalCotizaciones) : cotiz, recargos: comp ? num(comp.totalRecargos) : 0, conComprobante: !!comp, fueraDePlazo: !!(comp && comp.fueraDePlazo),
-      fechaPago: dia(P.fechaPago), n: (P.trabajadores || []).length, vencimientoId: vid,
+    return { id: per, periodo: per, nombre: 'Planilla de ' + nombrePeriodo(per), total, cotizaciones: comp ? num(comp.totalCotizaciones) : cotiz, recargos: comp ? num(comp.totalRecargos) : dif ? num(dif.monto) : 0, conComprobante: !!comp, conDif: !!dif, fueraDePlazo: !!(comp && comp.fueraDePlazo),
+      fechaPago: (comp && dia(comp.fechaPago)) || dia(P.fechaPago), n: (P.trabajadores || []).length, vencimientoId: vid, porCsv: !!P.porCsv,
       vencAbierto: !!(vid && abiertosIds && abiertosIds.has(vid)), pagos, unido: av.unido, falta: av.falta, conciliada: av.completa,
       quitados: (Array.isArray(doc && doc.pagosQuitados) ? doc.pagosQuitados : []).length };
   }).filter(x => x.periodo).sort((a, b) => b.periodo.localeCompare(a.periodo));
@@ -405,7 +407,7 @@ export function opcionesPrevired(vencs, planillas) {
   const porVenc = {}; (planillas || []).forEach(p => { if (p.vencimientoId) porVenc[p.vencimientoId] = p; });
   const out = vs.map(v => { const pl = porVenc[v.id]; return { tipo: 'venc', id: v.id, vencId: v.id, nombre: v.nombre, periodo: perNorm(v.previred.periodo), total: v.previred.total, recargos: num(v.previred.recargos), n: v.previred.n,
     fechaPago: dia(v.previred.fechaPago) || (pl ? pl.fechaPago : ''), fecha: v.fecha, unido: 0, falta: v.previred.total, conciliada: false }; });
-  (planillas || []).filter(p => !p.vencAbierto).forEach(p => out.push({ tipo: 'planilla', id: 'pl:' + p.periodo, planillaId: p.periodo, nombre: p.nombre, periodo: p.periodo, total: p.total, recargos: num(p.recargos), conComprobante: !!p.conComprobante, fueraDePlazo: !!p.fueraDePlazo, n: p.n, fechaPago: p.fechaPago, fecha: p.fechaPago,
+  (planillas || []).filter(p => !p.vencAbierto).forEach(p => out.push({ tipo: 'planilla', id: 'pl:' + p.periodo, planillaId: p.periodo, nombre: p.nombre, periodo: p.periodo, total: p.total, recargos: num(p.recargos), conComprobante: !!p.conComprobante, conDif: !!p.conDif, cotizaciones: num(p.cotizaciones), fueraDePlazo: !!p.fueraDePlazo, n: p.n, fechaPago: p.fechaPago, fecha: p.fechaPago,
     unido: p.unido, falta: p.falta, conciliada: p.conciliada, pagos: p.pagos }));
   return out;
 }
@@ -430,13 +432,29 @@ export function hermanosPlanilla(c, cargos, reglas) {
 export const juntablesPlanilla = (c, cargos, reglas) => { const h = hermanosPlanilla(c, cargos, reglas), ids = new Set(h.map(x => x.id));
   return h.concat((cargos || []).filter(x => !ids.has(x.id) && x.estado === ESTADOS.revisar && Math.abs(dias(x.fecha, c.fecha)) <= 1)).sort((a, b) => (ids.has(b.id) - ids.has(a.id)) || a.fecha.localeCompare(b.fecha) || b.monto - a.monto); };
 // ¿Se puede unir? suma de lo marcado contra lo que falta (no se pasa del total más la tolerancia)
-export function revisarUnion(planilla, suma) {
+// v0.67.3 · conDif: se registra la diferencia como multas e intereses (planilla sin comprobante): el total pasa a ser lo del banco
+export function revisarUnion(planilla, suma, conDif) {
   if (!planilla) return { error: 'Esa planilla de Previred ya no está' };
   if (planilla.vencAbierto) return { error: 'Esa planilla tiene su vencimiento de Cotizaciones por pagar: págalo (Pago de Previred) en vez de unir.' };
   if (!(suma > 0)) return { error: 'Marca los cargos del pago' };
+  if (conDif) {
+    const d = difComoMultas(planilla, suma);
+    if (!d.puede) return { error: d.motivo };
+    return { avance: avancePlanilla(planilla.unido + suma, planilla.unido + suma), diferencia: d.monto };
+  }
   const av = avancePlanilla(planilla.total, planilla.unido + suma);
   if (av.falta < -TOLERANCIA_PREVIRED) return { error: `Con estos cargos se pasa del total de la planilla (${fmt(planilla.total)}) en ${fmt(-av.falta)}: revisa los marcados.` };
   return { avance: av };
+}
+// v0.67.3 · ¿Se puede registrar la diferencia del banco como multas e intereses? Solo en una planilla SIN comprobante de pago (el
+// comprobante trae sus multas) ni diferencia ya registrada, y cuando los cargos se pasan de las cotizaciones en más de $10.
+export function difComoMultas(planilla, suma) {
+  if (!planilla) return { puede: false, motivo: 'Esa planilla de Previred ya no está' };
+  const monto = Math.round((Number(planilla.unido) || 0) + (Number(suma) || 0) - (Number(planilla.total) || 0));
+  if (planilla.conComprobante) return { puede: false, monto, motivo: 'Esa planilla tiene su comprobante de pago: las multas e intereses salen de ahí.' };
+  if (planilla.conDif) return { puede: false, monto, motivo: 'Esa planilla ya tiene su diferencia registrada como multas e intereses.' };
+  if (monto <= TOLERANCIA_PREVIRED) return { puede: false, monto, motivo: 'Los cargos no se pasan de las cotizaciones: no hay diferencia que registrar.' };
+  return { puede: true, monto };
 }
 // ── Origen del cargo: de qué archivo salió ──
 // fuentes (v0.64.0, al subir): [{ tipo: historica|enlinea|tef, numero, generada, subida }]; lo de antes se deduce de la cartola

@@ -19,12 +19,12 @@
 //    (cot_quitar_comprobante) anula el gasto de multas e intereses y deja el comprobante en comprobantesQuitados.
 //    El aviso de vencimiento (Hoy y Agenda) sale de la memoria: cotizaciones (paquete) y previred_planillas (pocos documentos).
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.67.2';
-import * as M from './gastos-g2.js?v=0.67.2';
-import * as G3 from './gastos-g3.js?v=0.67.2';
-import * as D from './gastos-g3d.js?v=0.67.2';
-import * as C from './gastos-cartola.js?v=0.67.2';
-import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.67.2';
+import * as FB from './fs-gastos.js?v=0.67.3';
+import * as M from './gastos-g2.js?v=0.67.3';
+import * as G3 from './gastos-g3.js?v=0.67.3';
+import * as D from './gastos-g3d.js?v=0.67.3';
+import * as C from './gastos-cartola.js?v=0.67.3';
+import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.67.3';
 
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const s = v => String(v == null ? '' : v);
@@ -45,7 +45,10 @@ export async function cotEstado(p) {
     const [pl, fin, cat] = await Promise.all([todos(COL_PL).catch(() => []), todos('fin_items').catch(() => []), catalogo()]);
     const del = delMes(cot, p.periodo), doc = (pl.find(x => x.id === p.periodo) || {}).d || null, comp = compVigente(doc);
     const vid = s((del.find(x => x.d.vencimientoId) || { d: {} }).d.vencimientoId), v = vid ? vencs.find(x => x.id === vid) : null;
+    const dif = D.difVigente(doc);
     r.mes = { cargado: del.length > 0, lineas: del.length, total: del.reduce((t, x) => t + M.n(x.d.monto), 0), porComprobante: del.some(x => s(x.d.deComprobante)),
+      porCsv: del.some(x => !!x.d.deCsv), fechaPago: del.length ? s(del[0].d.fechaPago) : '', trabajadores: new Set(del.map(x => s(x.d.rut).toUpperCase())).size,
+      difMultas: dif ? { monto: M.n(dif.monto), fecha: s(dif.fecha), gastoId: s(dif.gastoId) } : null,
       cotizaciones: del.map(x => ({ rut: s(x.d.rut), nombre: s(x.d.nombre), monto: M.n(x.d.monto) })), vencimientoId: vid, vencAbierto: !!(v && G3.abierto(v.d) && G3.esPrevired(v.d)), vencNombre: v ? s(v.d.nombre) : '',
       comprobante: comp ? { clave: s(comp.clave), totalPagado: M.n(comp.totalPagado), totalRecargos: M.n(comp.totalRecargos), fechaPago: s(comp.fechaPago), cargadoEl: s(comp.cargadoEl) } : null };
     const finM = Object.fromEntries(fin.map(x => [x.id, x.d]));
@@ -61,7 +64,8 @@ const sinPlanilla = o => { const x = { ...o }; delete x.planillaPendiente; delet
 const subirPdf = async (subir, p) => {
   const b64 = s(p.archivoBase64);
   if (!b64) return '';
-  try { return (await subir({ tipo: 'previred', fecha: '01-' + p.periodo.slice(5, 7) + '-' + p.periodo.slice(0, 4), imageData: b64, mimeType: 'application/pdf', fileName: s(p.nombreArchivo || 'previred.pdf').replace(/[\/\\]/g, '_').slice(0, 120) || 'previred.pdf' })).url || ''; } catch (e) { return ''; }
+  // v0.67.3: también el CSV de la nómina (text/csv; el script v2.18.0 lo guarda en la misma carpeta, con su nombre)
+  try { return (await subir({ tipo: 'previred', fecha: '01-' + p.periodo.slice(5, 7) + '-' + p.periodo.slice(0, 4), imageData: b64, mimeType: p.csv ? 'text/csv' : 'application/pdf', fileName: s(p.nombreArchivo || 'previred.pdf').replace(/[\/\\]/g, '_').slice(0, 120) || 'previred.pdf' })).url || ''; } catch (e) { return ''; }
 };
 // v0.65.1: cada mes con sus pagos del banco unidos (previred_planillas y, si su vencimiento se pagó con la cartola, esos cargos)
 export async function cotLista() {
@@ -79,8 +83,39 @@ export async function cotLista() {
     if (c) Object.assign(P, { comprobante: { totalCotizaciones: M.n(c.totalCotizaciones), totalRecargos: M.n(c.totalRecargos), totalPagado: M.n(c.totalPagado), fueraDePlazo: !!c.fueraDePlazo, fechaPago: s(c.fechaPago),
       archivo: s(c.archivo), instituciones: c.instituciones || [], gastoRecargosId: s(c.gastoRecargosId), cargadoEl: s(c.cargadoEl), folios: c.folios || [] }, total: M.n(c.totalPagado) });
     if (Array.isArray(q) && q.length) P.comprobantesQuitados = q.length;
+    // v0.67.3 · Sin comprobante: la diferencia del banco registrada como multas e intereses (el total es lo del banco)
+    const dif = !c ? D.difVigente(docs[P.periodo]) : null;
+    if (dif) Object.assign(P, { difMultas: { monto: M.n(dif.monto), fecha: s(dif.fecha), gastoId: s(dif.gastoId), item: s(dif.item), banco: M.n(dif.banco) }, total: P.cotizaciones + M.n(dif.monto) });
+    if (P.porCsv) P.origenDoc = 'csv';
   });
   return r;
+}
+// v0.67.3 · Quitar la diferencia del banco registrada como multas e intereses: el gasto se anula (no se borra), la planilla la
+// deja en difMultasQuitadas (con quién, cuándo y por qué) y su total vuelve a ser el de las cotizaciones. Los cargos unidos siguen.
+// p = { periodo, motivo }
+export async function cotQuitarDifMultas(p) {
+  const d = await dbBase(), per = s(p && p.periodo), motivo = M.texto(p && p.motivo, 300);
+  if (motivo.length < 3) throw error('Escribe el motivo', 'datos');
+  const [cot, pl] = await Promise.all([todos('cotizaciones'), todos(COL_PL).catch(() => [])]);
+  const d0 = D.difVigente((pl.find(x => x.id === per) || {}).d);
+  if (!d0) throw error('Ese mes no tiene una diferencia registrada como multas e intereses', 'datos');
+  const refP = FB.doc(d, COL_PL, per), refG = s(d0.gastoId) ? FB.doc(d, 'gastos', s(d0.gastoId)) : null;
+  const quien = correo() || 'Sistema Fën', en = M.ahoraChile().texto, cotTotal = delMes(cot, per).reduce((t, x) => t + M.n(x.d.monto), 0);
+  const r = await FB.runTransaction(d, async tx => {
+    const snP = await tx.get(refP), snG = refG ? await tx.get(refG) : null;
+    const a = snP.exists() ? snP.data() : null, dif = D.difVigente(a);
+    if (!dif || s(dif.gastoId) !== s(d0.gastoId)) return { yaEstaba: true };
+    let k = 0;
+    if (snG && snG.exists() && snG.data().estado === 'vigente') { tx.update(refG, cambio(snG.data(), 'anuló', { estado: 'anulado', anulado: { el: en, en, por: quien, motivo: 'Diferencia de Previred quitada: ' + motivo, filaOriginal: '' } }, { motivo })); k++; }
+    const pagos = Array.isArray(a.pagos) ? a.pagos : [], unido = pagos.reduce((t, x) => t + M.n(x.monto), 0), falta = Math.round(cotTotal - unido), completa = unido > 0 && Math.abs(falta) <= 10;
+    tx.update(refP, sinPlanilla(cambio(a, 'quitó la diferencia registrada como multas e intereses', { difMultas: null, difMultasQuitadas: (Array.isArray(a.difMultasQuitadas) ? a.difMultasQuitadas : []).concat([{ ...dif, quitado: { por: quien, en, motivo } }]),
+      total: cotTotal, unido, falta, estado: completa ? 'pagada_conciliada' : unido ? 'parcial' : 'sin_pagos', ...(completa ? {} : { conciliadaEl: '', conciliadaPor: '' }) }, { motivo })));
+    k++;
+    return { k };
+  });
+  if (r.yaEstaba) return { ok: true, yaEstaba: true };
+  await despues(r.k);
+  return { ok: true };
 }
 
 // p = { periodo, fechaPago, fecha, vencimientoId, trabajadores, archivoBase64, nombreArchivo }; marca fija por envío
@@ -104,7 +139,11 @@ export async function cotRegistrar(p, marca, subir) {
     if (comp.error) throw error(comp.error, comp.code);
     if (comp.limpio.totalCotizaciones !== r.total) throw error('El detalle por trabajador no suma las cotizaciones del comprobante. No se guardó nada.', 'datos');
     if (del.length) throw error('Ese mes ya tiene cotizaciones cargadas: vuelve a subir el comprobante para agregar solo las multas e intereses. No se guardó nada.', 'duplicado');
+  } else if (p.csv) {
+    // v0.67.3 · El CSV de la nómina solo registra un mes sin cotizaciones (si ya tiene, solo se compara en la pantalla)
+    if (del.length) throw error('Ese mes ya tiene sus cotizaciones cargadas: el CSV solo se compara, no agrega nada. No se guardó nada.', 'duplicado');
   } else if (del.some(x => s(x.d.deComprobante))) throw error('Ese mes ya se registró con el comprobante de pago (que trae todo lo pagado): el certificado no agrega nada. No se guardó nada.', 'duplicado');
+  else if (del.some(x => !!x.d.deCsv)) throw error('Ese mes ya se registró con el CSV de la nómina (el detalle exacto por trabajador): el certificado no agrega nada. Para las multas e intereses, sube el comprobante de pago. No se guardó nada.', 'duplicado');
   const dest = D.destinoCertificado(ps, vencs, p.fechaPago);
   const aVenc = !!dest.venc;
   // Vencimiento elegido a mano (solo sin la obligación Cotizaciones): debe seguir por pagar, como en el script
@@ -118,7 +157,7 @@ export async function cotRegistrar(p, marca, subir) {
   // El PDF a Drive ("Fën · Gastos / Previred / <año del período>", privado)
   const url = await subirPdf(subir, p);
   const quien = correo() || 'Sistema Fën', en = M.ahoraChile().texto, hoy = M.ahoraChile().dia, hora = M.ahoraChile().hora;
-  const lineasCot = D.docsCotizacion(p, r.limpios, url, en, quien, { cargadoClave: clave, ...(aVenc ? { vencimientoId: dest.venc.id } : vElegido ? { vencimientoId: vElegido.id } : {}), ...(comp ? { deComprobante: comp.limpio.clave } : {}) });
+  const lineasCot = D.docsCotizacion(p, r.limpios, url, en, quien, { cargadoClave: clave, ...(aVenc ? { vencimientoId: dest.venc.id } : vElegido ? { vencimientoId: vElegido.id } : {}), ...(comp ? { deComprobante: comp.limpio.clave } : {}), ...(p.csv && !comp ? { deCsv: true } : {}) });
   const trab = r.limpios.map(t => D.docTrabajador(t, hoy));
   const refV = aVenc ? FB.doc(d, 'vencimientos', dest.venc.id) : vElegido ? FB.doc(d, 'vencimientos', vElegido.id) : null;
   const rec = comp && comp.rec ? { ...comp.rec, url, nombreArchivo: s(p.nombreArchivo) } : null;
@@ -197,12 +236,24 @@ export async function cotComprobante(p, marca, subir) {
   const idR = rec && !aVenc ? M.idsLineas('gr', marca, 1)[0] : '';
   const refP = FB.doc(d, COL_PL, per), refV = aVenc ? FB.doc(d, 'vencimientos', vid) : null, refG = idR ? FB.doc(d, 'gastos', idR) : null;
   const nTrab = new Set(del.map(x => s(x.d.rut).toUpperCase())).size, fpCert = s(del[0].d.fechaPago);
+  // v0.67.3 · Mes cargado con el CSV de la nómina: el comprobante trae la fecha de pago de verdad. La planilla toma la del
+  // comprobante y los gastos por trabajador (vigentes, de la memoria) que tenían la fecha puesta a mano, también.
+  const porCsv = del.some(x => !!x.d.deCsv), fpComp = comp.limpio.fechaPago, fpPl = porCsv ? fpComp : fpCert;
+  const gFecha = porCsv && fpCert && fpCert !== fpComp ? (await todos('gastos', FB.where('fechaPago', '==', fpCert))).filter(x => x.d.estado === 'vigente' && x.d.previred && !x.d.previred.recargos && s(x.d.previred.periodo) === per).map(x => x.id).slice(0, 80) : [];
+  const refsF = gFecha.map(id => FB.doc(d, 'gastos', id));
+  // v0.67.3 · Si la diferencia del banco ya se había registrado como multas e intereses, la reemplaza el comprobante (se anula)
+  const dif0 = D.difVigente((pl.find(x => x.id === per) || {}).d), refD = dif0 && s(dif0.gastoId) ? FB.doc(d, 'gastos', s(dif0.gastoId)) : null;
   const r = await FB.runTransaction(d, async tx => {
     const snP = await tx.get(refP), snV = refV ? await tx.get(refV) : null, snG = refG ? await tx.get(refG) : null;
+    const snF = []; for (const rf of refsF) snF.push(await tx.get(rf));
+    const snD = refD ? await tx.get(refD) : null;
     const a = snP.exists() ? snP.data() : null, ya = compVigente(a);
     if (ya) { if (s(ya.clave) === comp.limpio.clave) return { repetido: ya }; throw error('Ese mes ya tiene su comprobante de pago guardado. Para cambiarlo, quítalo primero.', 'duplicado'); }
     if (snG && snG.exists()) return { repetido: { ...comp.limpio, gastoRecargosId: idR, archivo: url } };
-    let k = 0;
+    let k = 0, fechas = 0, difAnulada = 0;
+    snF.forEach((sn, i) => { if (!sn.exists() || sn.data().estado !== 'vigente' || s(sn.data().fechaPago) !== fpCert) return; tx.update(refsF[i], cambio(sn.data(), 'tomó la fecha de pago del comprobante de Previred', { fechaPago: fpComp })); k++; fechas++; });
+    const dif = D.difVigente(a);
+    if (dif && snD && snD.exists() && snD.data().estado === 'vigente') { tx.update(refD, cambio(snD.data(), 'anuló', { estado: 'anulado', anulado: { el: en, en, por: quien, motivo: 'Reemplazado por el comprobante de pago de Previred', filaOriginal: '' } }, { motivo: 'Reemplazado por el comprobante de pago' })); k++; difAnulada = M.n(dif.monto); }
     if (refV) {
       if (!snV.exists()) throw error('El vencimiento de Cotizaciones ya no existe. Recarga y vuelve a subir el comprobante.', 'datos');
       const v = snV.data();
@@ -211,15 +262,18 @@ export async function cotComprobante(p, marca, subir) {
       tx.update(refV, cambio(v, 'recibió el comprobante de Previred (multas e intereses)', { montoDocumento: monto, documento: { ...v.documento, monto, previred: plan } }));
       k++;
     }
-    const campos = D.planillaConComprobante(a, D.docComprobante(comp.limpio, url, p.nombreArchivo, en, quien, idR, aVenc ? { recargosEnVencimiento: vid } : {}), per, nTrab, fpCert);
+    const campos = D.planillaConComprobante(a, D.docComprobante(comp.limpio, url, p.nombreArchivo, en, quien, idR, aVenc ? { recargosEnVencimiento: vid } : {}), per, nTrab, fpPl);
+    if (porCsv) campos.fechaPago = fpComp;
+    if (dif) Object.assign(campos, { difMultas: null, difMultasQuitadas: (Array.isArray(a.difMultasQuitadas) ? a.difMultasQuitadas : []).concat([{ ...dif, quitado: { por: quien, en, motivo: 'Reemplazado por el comprobante de pago' } }]) });
     if (a) tx.update(refP, sinPlanilla(cambio(a, 'recibió el comprobante de Previred', campos))); else tx.set(refP, sinPlanilla(nuevo({ ...campos, pagos: [], pagosQuitados: [] }, 'previred', quien)));
     k++;
     if (refG) { tx.set(refG, nuevo({ ...D.lineaRecargos(rec, url, hora), origenDetalle: { tipo: 'previred', recargos: true, periodo: per, por: quien, en } }, 'previred', quien)); k++; }
-    return { k };
+    return { k, fechas, difAnulada };
   });
   if (r.repetido) return repetido(r.repetido);
   await despues(r.k);
-  return { ok: true, recargos: rec ? rec.monto : 0, gastoRecargosId: idR, aVencimiento: aVenc ? { id: vid, nombre: s(v0.d.nombre) } : null, totalPagado: comp.limpio.totalPagado, conArchivo: !!url };
+  return { ok: true, recargos: rec ? rec.monto : 0, gastoRecargosId: idR, aVencimiento: aVenc ? { id: vid, nombre: s(v0.d.nombre) } : null, totalPagado: comp.limpio.totalPagado, conArchivo: !!url,
+    porCsv, fechasCorregidas: r.fechas, difAnulada: r.difAnulada };
 }
 // v0.67.0 · Quitar el comprobante de un mes (para cambiarlo): queda en comprobantesQuitados (con quién, cuándo y por qué), el gasto
 // de multas e intereses se anula (no se borra) y, si estaba en el plan de un vencimiento por pagar, sale de ahí. Los trabajadores

@@ -1,9 +1,95 @@
-# Sistema Fën · v0.67.2
+# Sistema Fën · v0.67.3
 
-**App:** v0.67.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
+**App:** v0.67.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.67.3: Previred lee todos los formatos del comprobante, el CSV de la nómina, la diferencia del banco como multas e instrucciones dentro de Previred
+**Dónde:** Conciliación → Previred · Conciliación → Subir archivo · Conciliación → Cartola (Cargos) → "Pago de Previred" · Hoy. Solo con Gastos en la base nueva.
+
+### El caso (real)
+El comprobante de agosto (pagado atrasado) se leía bien. El de septiembre (pagado en plazo, con licencias y un trabajador nuevo) no se leía: trae primero las AFP, con otro título ("…Y DEPOSITOS DE AHORRO VOLUNTARIO FONDO DE PENSIONES…"), columnas de movimiento de personal con fechas, y deja fuera las líneas en 0 (el ISL solo trae "TOTAL A PAGAR A LA MUTUAL").
+
+### Qué cambia en cómo trabajas
+1. **Un solo lector para todos los comprobantes.** Reconoce cada sección por su título, en cualquier orden. Lo que puede faltar vale 0: intereses, reajustes, multas, recargos y costas, las columnas de movimiento de personal y sus fechas. Los cruces siguen estrictos: en cada institución, las filas de los trabajadores suman la cotización, y cotización + intereses + multas = total. Si algo no calza, el aviso dice **la sección y el cruce que falló** (por ejemplo, "AFP Modelo · fondo de pensiones: … no da el total … (cruce: cotización + intereses + multas = total)").
+2. **Isapre u otra sección desconocida: bloquea.** Si el PDF trae una sección que todavía no se lee, dice: "Este PDF trae una sección que Sistema Fën todavía no lee (<nombre>): carga el mes con el archivo CSV de la nómina." **No se adivinan montos.**
+3. **El CSV de la nómina se puede subir** aquí o con "Subir archivo", que lo reconoce: filas con ";", unos 105 campos, RUT y período. Crea un gasto por trabajador, igual que el certificado y el comprobante: AFP, SIS, salud, seguro social, accidentes y AFC.
+   - **La AFP** sale del último mes cargado de ese RUT, porque el CSV casi nunca la dice. Para un trabajador nuevo se pregunta **una vez** y queda recordada.
+   - **La fecha de pago** se escribe en la vista previa.
+   - **Subir el mismo CSV otra vez no repite nada.**
+4. **CSV y comprobante del mismo mes, sin duplicar:**
+   - **Comprobante primero:** el CSV solo se compara por trabajador y no crea nada.
+   - **CSV primero:** el comprobante agrega las multas e intereses, la fecha de pago (corrige la de la planilla y la de los gastos por trabajador) y los folios. También muestra la diferencia por trabajador, si la hay.
+5. **"Registrar la diferencia como multas e intereses ($X)".** Al unir los cargos del banco a una planilla **sin comprobante**, si suman más que las cotizaciones (más de $10), aparece este botón. Crea el mismo gasto "Multas e intereses Previred <mes>":
+   - con el ítem financiero, área ADMIN, sin IVA y la fecha del último cargo unido;
+   - deja la planilla "pagada y conciliada" con el total del banco;
+   - se quita en Previred → Meses cargados → **Quitar la diferencia**, o deshaciendo el cargo (el gasto se anula, no se borra).
+
+   No aparece si el mes tiene comprobante: ahí las multas salen del comprobante. Si después subes el comprobante, la diferencia se anula y manda el comprobante.
+6. **"Cómo cargar Previred cada mes"**, arriba de Previred (plegable): 7 pasos y la tabla "Qué documento usar".
+
+### Dónde se guarda (fen-gastos; las reglas v0.1.0 ya lo cubren)
+- `cotizaciones/*.deCsv = true` en las líneas del CSV. El folio es sintético (período + concepto + RUT) y no cambia entre subidas.
+- `cotiz_trabajadores/{rut}.afp`: la AFP elegida.
+- `previred_planillas/{AAAA-MM}`:
+  - `difMultas = { monto, gastoId, fecha, item, area, cotizaciones, banco, cargos, por, en }`;
+  - al quitarla, `difMultas: null` y `difMultasQuitadas: [ … con quitado { por, en, motivo } ]`.
+- El gasto de la diferencia lleva `previred: { periodo, recargos: true, diferenciaBanco: true }`.
+- **Script de Gastos: sin cambios (v2.18.0). Reglas de fen-gastos: sin cambios (v0.1.0).** El CSV va a Drive, a la carpeta de Previred, con su nombre. El script v2.18.0 solo acepta PDF o imagen para Previred, así que Drive lo marca como imagen, pero el archivo llega completo y se descarga igual.
+
+### Lecturas y escrituras
+- **Leer el PDF o el CSV:** en tu equipo, 0 lecturas. La vista previa (AFP del historial, área por RUT, ítems financieros, el mes) sale de la memoria de fs-gastos: **0 lecturas nuevas**. Lo mismo al cambiar la fecha de pago.
+- **Registrar un mes con el CSV:** lo mismo que el certificado. En la transacción se lee cada línea y cada trabajador (L + N) y se escribe L + 2N; con 7 trabajadores y unas 35 líneas, unas 42 lecturas y 49 escrituras.
+- **CSV de un mes ya cargado:** 0 escrituras.
+- **Comprobante después del CSV:**
+  - lo de la v0.67.0: 2 escrituras y 2 o 3 lecturas;
+  - si la fecha de pago cambia: más N lecturas y N escrituras (una por gasto de trabajador);
+  - si había una diferencia registrada: más 1 lectura y 1 escritura.
+- **Diferencia como multas:** lo mismo que unir los cargos, más 1 lectura y 1 escritura (el gasto).
+- **Quitar la diferencia:** 2 lecturas y 2 escrituras.
+- **Aviso de Hoy:** sin lecturas nuevas.
+
+### Instalación v0.67.3 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.67.3.zip`, con la carpeta `cocina/` (no cambia).
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script, reglas ni Cocina.**
+
+### Lista de verificación v0.67.3
+- [ ] Abajo a la izquierda dice **v0.67.3**.
+- [ ] Conciliación → Previred: arriba está **"Cómo cargar Previred cada mes"** con 7 pasos y la tabla "Qué documento usar". Se pliega y queda plegado.
+- [ ] Subo el comprobante de **septiembre** (en plazo, con licencias y un trabajador nuevo): se lee sin avisos, y cada institución y el total calzan con el PDF.
+- [ ] Subo el comprobante de **agosto**: se sigue leyendo igual que en la v0.67.2.
+- [ ] Subo el CSV de la nómina con **Subir archivo**: dice "CSV de la nómina de Previred" y abre Previred. Si el mes ya tiene comprobante, dice que **solo se compara** y que los totales por trabajador calzan.
+- [ ] En un mes sin comprobante, si los cargos del banco suman más: aparece **"Registrar la diferencia como multas e intereses ($X)"**. Al tocarlo, la planilla queda "pagada y conciliada" y en Gastos aparece el gasto en ADMIN.
+- [ ] En Previred → Meses cargados, **Quitar la diferencia** lo anula y la planilla vuelve a sus cotizaciones.
+- [ ] Hoy deja de decir "Previred de <mes> vence…" cuando el mes se carga con el CSV o con el comprobante.
+- [ ] En el celular nada se sale de lado.
+
+### Si algo sale mal
+Sube de nuevo la v0.67.2. Lo guardado (`deCsv`, `afp`, `difMultas`, `difMultasQuitadas`) queda en fen-gastos sin estorbar. Nada se borra.
+
+**Por dentro:**
+- `previred.js`: un solo `leerComprobante` (títulos en cualquier orden, cifras opcionales, cruces con la sección, `AVISO_SECCION_NUEVA`), más `leerCsv`, `esCsvNomina`, `lineasCsv`, `conAfps`, `folioCsv`, `textoDeArchivo` y `quitarDifMultas`.
+- `gastos-g3d.js`: `afpsPorRut`, `afpDeInstitucion`, `difVigente`, `recDiferencia`, y `afp` por trabajador.
+- `gastos-g3d-fs.js`: `cotRegistrar` con `csv`, `cotComprobante` que corrige la fecha y reemplaza la diferencia, `cotLista` con `difMultas`, y `cotQuitarDifMultas`.
+- `gastos-cartola.js`: `difComoMultas`, y `planillasPrevired` con la diferencia.
+- `gastos-cartola-fs.js`: `unirPlanilla` con `difMultas`; deshacer el cargo anula la diferencia.
+- `gastos.js` (`cot_quitar_dif`), `app.js` (instrucciones, vista previa del CSV, botón de la diferencia, Meses cargados, Subir archivo), `estilos.css`, `config.js`, `index.html` y los demás (solo versión). La carpeta `cocina/` no cambia.
+
+**Pruebas:**
+- Nueva `pruebas/sistemafen/previred-formatos-v0673.test.js` (16, solo con datos ficticios). Cubre:
+  - la matriz del lector: normal, atrasado, licencias, contratación, término, atrasado + licencias, otro orden, título viejo, isapre y cruce roto;
+  - el CSV: totales, AFP del historial, AFP preguntada, latin-1 y subir dos veces;
+  - los casos combinados: CSV y después comprobante, comprobante y después CSV;
+  - la diferencia: crear, repetir, oculta con comprobante y quitar;
+  - el aviso de Hoy;
+  - las instrucciones en 4 anchos.
+- Siguen pasando: e2e, sii-v066, sii-reclasificar-v0672, conciliacion-v064, conciliacion-v0652, conciliacion-notas-sii-v0671, previred-v0651, previred-comprobante-v067, cuota-v0632, cuota-v0633, sf-pantallas, finanzas-f1b/f3a/f3b y gastos-g3a/b/c/d/e.
+- Capturas en `pruebas/capturas/v0673/`.
 
 ## Novedades de la v0.67.2: una factura del SII con todos sus gastos anulados vuelve a "Por clasificar", y "Volver a clasificar"
 **Dónde:** Conciliación → Cargas del SII → Documentos del SII (Por clasificar · Revisar automáticas) y la carga abierta · Conciliación → Cartola (Cargos) · Gastos → Registrados. Solo con Gastos en la base nueva.

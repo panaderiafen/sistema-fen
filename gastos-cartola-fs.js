@@ -19,18 +19,18 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.67.2';
-import * as M from './gastos-g2.js?v=0.67.2';
-import * as G3 from './gastos-g3.js?v=0.67.2';
-import * as G3D from './gastos-g3d.js?v=0.67.2';
-import * as C from './gastos-cartola.js?v=0.67.2';
-import * as B from './gastos-banco.js?v=0.67.2';
-import { huella } from './gastos-modelo.js?v=0.67.2';
-import * as FS from './gastos-fs.js?v=0.67.2';
-import * as GB from './gastos-base.js?v=0.67.2';
-import * as TE from './tef-enviadas.js?v=0.67.2';
-import * as P from './proveedores.js?v=0.67.2';
-import * as SP from './sii-pendientes.js?v=0.67.2';   // v0.66.0: documentos del SII por clasificar
+import * as FB from './fs-gastos.js?v=0.67.3';
+import * as M from './gastos-g2.js?v=0.67.3';
+import * as G3 from './gastos-g3.js?v=0.67.3';
+import * as G3D from './gastos-g3d.js?v=0.67.3';
+import * as C from './gastos-cartola.js?v=0.67.3';
+import * as B from './gastos-banco.js?v=0.67.3';
+import { huella } from './gastos-modelo.js?v=0.67.3';
+import * as FS from './gastos-fs.js?v=0.67.3';
+import * as GB from './gastos-base.js?v=0.67.3';
+import * as TE from './tef-enviadas.js?v=0.67.3';
+import * as P from './proveedores.js?v=0.67.3';
+import * as SP from './sii-pendientes.js?v=0.67.3';   // v0.66.0: documentos del SII por clasificar
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -82,7 +82,7 @@ export async function lista(diasP) {
   const planillas = armarPlanillas(dPl, ab, cg);
   // v0.66.0 · Documentos del SII por clasificar (de la memoria): un cargo del mismo monto los ofrece "Por clasificar"
   // v0.67.1 · sin lo que ya tiene su gasto registrado (se une solo al listar); lo registrado, para proponer su pago
-  const SPF = await import('./sii-pendientes-fs.js?v=0.67.2');
+  const SPF = await import('./sii-pendientes-fs.js?v=0.67.3');
   const siiPendientes = await SPF.pendientes().catch(async () => SP.pendientesDe(await todos('sii_docs').catch(() => []))), siiRegistrados = await SPF.registrados().catch(() => []);
   return { ok: true, fuente: 'base', planillas, siiPendientes, siiRegistrados, cargos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
     vencimientos: ab.lista, gastos: B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon)))), sinFactura, siiSinImportar: {}, dias,
@@ -496,10 +496,21 @@ async function unirPlanilla(c0, p, marca) {
   if (!pl) throw error('Esa planilla de Previred ya no está (Conciliación → Previred)', 'datos');
   if (pl.vencAbierto) throw error('Esa planilla tiene su vencimiento de Cotizaciones por pagar: págalo con "Pago de Previred" en vez de unir.', 'datos');
   const clave = marca.t + marca.r, t = ahora(), por = quien();
+  // v0.67.3 · "Registrar la diferencia como multas e intereses": el ítem (de la lista vigente) y el área; el gasto sale del cargo
+  const pd = p.difMultas && typeof p.difMultas === 'object' ? p.difMultas : null;
+  let refD = null, itemD = null, areaD = '';
+  if (pd) {
+    if (pl.conComprobante) throw error('Esa planilla tiene su comprobante de pago: las multas e intereses salen de ahí.', 'datos');
+    itemD = (await catalogo()).lista.find(i => !i.archivado && i.item === s(pd.item));
+    if (!itemD) throw error('Multas e intereses: elige el ítem (uno de tipo financiero).', 'datos');
+    areaD = M.AREAS.includes(s(pd.area)) ? s(pd.area) : '';
+    if (!areaD) throw error('Multas e intereses: elige el área.', 'datos');
+    refD = FB.doc(d, 'gastos', M.idsLineas('gr', marca, 1)[0]);
+  }
   const refP = FB.doc(d, COL_PLANILLAS, per), refsC = lista.map(x => FB.doc(d, 'cartola_cargos', x.id));
   const r = await FB.runTransaction(d, async tx => {
     const snC = []; for (const rf of refsC) snC.push(await tx.get(rf));
-    const snP = await tx.get(refP);
+    const snP = await tx.get(refP), snD = refD ? await tx.get(refD) : null;
     const cs = snC.map((sn, i) => { if (!sn.exists()) throw error('Un cargo ya no está. Recarga la lista.', 'datos'); const c = C.vistaCargo(sn.id, sn.data()); if (lista[i].huella && c.huella !== lista[i].huella) throw error('Un cargo cambió. Recarga la lista.', 'cambio'); return c; });
     const c00 = cs.find(c => c.id === c0.id);
     if (c00.estado !== C.ESTADOS.revisar) { if (c00.detalle && c00.detalle.marca === clave) return { repetido: true }; throw error(`Ese cargo ya se había resuelto (${c00.accion}). Recarga la lista.`, 'resuelto'); }
@@ -508,15 +519,32 @@ async function unirPlanilla(c0, p, marca) {
     if (cs.some(c => antes.some(x => s(x.cargoId) === c.id))) throw error('Un cargo ya estaba unido a esta planilla. Recarga la lista.', 'resuelto');
     // Lo unido: lo del documento (al día, dentro de la transacción) y lo pagado con la cartola por su vencimiento (v0.64.0)
     const previo = antes.reduce((x, y) => x + (Number(y.monto) || 0), 0) + pl.pagos.filter(x => x.porVencimiento).reduce((x, y) => x + y.monto, 0);
-    const suma = cs.reduce((x, c) => x + c.monto, 0), q = C.revisarUnion({ ...pl, unido: previo }, suma);
+    // Lo de la planilla al día (dentro de la transacción): ¿llegó un comprobante o ya hay una diferencia registrada?
+    const comp = a && a.comprobante && !a.comprobante.quitado, difYa = G3D.difVigente(a);
+    if (pd && (comp || difYa)) throw error(comp ? 'Esa planilla recibió su comprobante de pago: las multas e intereses salen de ahí. Recarga la lista.' : 'Esa planilla ya tiene su diferencia registrada como multas e intereses. Recarga la lista.', 'cambio');
+    if (snD && snD.exists()) throw error('Las multas e intereses de este cargo ya estaban registradas. Recarga la lista.', 'resuelto');
+    const suma = cs.reduce((x, c) => x + c.monto, 0), q = C.revisarUnion({ ...pl, conComprobante: pl.conComprobante || !!comp, conDif: pl.conDif || !!difYa, unido: previo }, suma, !!pd);
     if (q.error) throw error(q.error, 'datos');
     const nuevos = cs.map(c => ({ cargoId: c.id, monto: c.monto, fecha: c.fecha, descripcion: C.texto(c.descripcion, 120), cuenta: s(c.cuenta), cuentaN: s(c.cuentaN), por, en: t, marca: clave }));
-    const campos = { periodo: per, total: pl.total, fechaPago: pl.fechaPago, trabajadores: pl.n, pagos: antes.concat(nuevos), unido: q.avance.unido, falta: q.avance.falta,
-      estado: q.avance.completa ? 'pagada_conciliada' : 'parcial', ...(q.avance.completa ? { conciliadaEl: t, conciliadaPor: por } : { conciliadaEl: '', conciliadaPor: '' }) };
-    if (a) tx.update(refP, sinPlanilla(cambio(a, `unió ${cs.length} ${cs.length === 1 ? 'cargo' : 'cargos'} del banco`, campos))); else tx.set(refP, sinPlanilla(nuevo({ ...campos, pagosQuitados: [] }, 'previred')));
-    const grupo = { planillaId: per, nombre: pl.nombre, total: pl.total, fechaPago: pl.fechaPago, cargos: cs.map(c => ({ id: c.id, monto: c.monto, fecha: c.fecha, descripcion: c.descripcion })), suma, unido: q.avance.unido, falta: q.avance.falta, completa: q.avance.completa, principal: c0.id };
+    // v0.67.3 · La diferencia como multas e intereses: con la fecha del último cargo unido; el total pasa a ser lo del banco
+    let dif = null, gD = null;
+    if (pd) {
+      const fecha = antes.map(x => s(x.fecha)).concat(cs.map(c => c.fecha)).filter(Boolean).sort().pop(), banco = previo + suma;
+      const rec = G3D.recDiferencia(per, pl.total, banco, fecha, itemD, areaD, 'dif-' + per + '-' + clave);
+      gD = nuevo({ ...G3D.lineaRecargos(rec, '', M.ahoraChile().hora), origenDetalle: { tipo: 'previred', recargos: true, diferenciaBanco: true, periodo: per, cargos: cs.map(c => c.id), por, en: t } }, 'previred');
+      gD.previred = { ...gD.previred, diferenciaBanco: true };
+      dif = { monto: rec.monto, gastoId: refD.id, fecha, item: itemD.item, area: areaD, cotizaciones: pl.total, banco, por, en: t, clave: rec.clave, cargos: cs.map(c => c.id) };
+    }
+    const total = dif ? dif.banco : pl.total;
+    const campos = { periodo: per, total, fechaPago: pl.fechaPago, trabajadores: pl.n, pagos: antes.concat(nuevos), unido: q.avance.unido, falta: q.avance.falta,
+      estado: q.avance.completa ? 'pagada_conciliada' : 'parcial', ...(q.avance.completa ? { conciliadaEl: t, conciliadaPor: por } : { conciliadaEl: '', conciliadaPor: '' }), ...(dif ? { difMultas: dif } : {}) };
+    if (a) tx.update(refP, sinPlanilla(cambio(a, dif ? `unió ${cs.length} ${cs.length === 1 ? 'cargo' : 'cargos'} del banco y registró la diferencia como multas e intereses` : `unió ${cs.length} ${cs.length === 1 ? 'cargo' : 'cargos'} del banco`, campos)));
+    else tx.set(refP, sinPlanilla(nuevo({ ...campos, pagosQuitados: [] }, 'previred')));
+    if (gD) tx.set(refD, gD);
+    const grupo = { planillaId: per, nombre: pl.nombre, total, fechaPago: pl.fechaPago, cargos: cs.map(c => ({ id: c.id, monto: c.monto, fecha: c.fecha, descripcion: c.descripcion })), suma, unido: q.avance.unido, falta: q.avance.falta, completa: q.avance.completa, principal: c0.id,
+      ...(dif ? { difMultas: { monto: dif.monto, gastoId: dif.gastoId, fecha: dif.fecha } } : {}) };
     cs.forEach((c, i) => tx.update(refsC[i], aCargo(c, snC[i].data(), { estado: C.ESTADOS.conciliado, accion: C.PREVIRED_PLANILLA, detalle: JSON.stringify({ previredPlanilla: grupo, marca: clave }).slice(0, 45000) })));
-    return { n: 1 + cs.length, detalle: { previredPlanilla: grupo } };
+    return { n: 1 + cs.length + (gD ? 1 : 0), detalle: { previredPlanilla: grupo } };
   });
   if (r.repetido) return { ok: true, repetido: true, id: c0.id, accion: C.PREVIRED_PLANILLA };
   await despues(r.n);
@@ -527,18 +555,24 @@ async function unirPlanilla(c0, p, marca) {
 async function deshacerUnion(d, c0, motivo) {
   const g = (c0.detalle && c0.detalle.previredPlanilla) || {}, per = s(g.planillaId).slice(0, 7), t = ahora(), por = quien(), avisos = [];
   const ref = FB.doc(d, 'cartola_cargos', c0.id), refP = per ? FB.doc(d, COL_PLANILLAS, per) : null;
+  // v0.67.3 · Si con este cargo se registró la diferencia como multas e intereses, se deshace también (el gasto se anula)
+  const gDif = g.difMultas && s(g.difMultas.gastoId) ? FB.doc(d, 'gastos', s(g.difMultas.gastoId)) : null;
   const r = await FB.runTransaction(d, async tx => {
     const sn = await tx.get(ref); if (!sn.exists()) throw error('Ese cargo ya no está', 'datos');
-    const snP = refP ? await tx.get(refP) : null;
+    const snP = refP ? await tx.get(refP) : null, snG = gDif ? await tx.get(gDif) : null;
     const c = C.vistaCargo(sn.id, sn.data()); if (c.estado === C.ESTADOS.revisar) return { yaEstaba: true };
     let n = 1;
     if (snP && snP.exists()) {
       const a = snP.data(), l = Array.isArray(a.pagos) ? a.pagos : [], fuera = l.filter(x => s(x.cargoId) === c.id), quedan = l.filter(x => s(x.cargoId) !== c.id);
       if (fuera.length) {
-        const av = C.avancePlanilla(Number(a.total) || 0, quedan.reduce((x, y) => x + (Number(y.monto) || 0), 0));
-        tx.update(refP, sinPlanilla(cambio(a, 'quitó un cargo del banco (deshecho)', { pagos: quedan, pagosQuitados: (Array.isArray(a.pagosQuitados) ? a.pagosQuitados : []).concat(fuera.map(x => ({ ...x, quitado: { por, en: t, motivo } }))),
-          unido: av.unido, falta: av.falta, estado: av.completa ? 'pagada_conciliada' : quedan.length ? 'parcial' : 'sin_pagos', ...(av.completa ? {} : { conciliadaEl: '', conciliadaPor: '' }) }, { motivo })));
+        const dif = G3D.difVigente(a), conDif = !!(dif && gDif && s(dif.gastoId) === gDif.id);
+        const total = conDif ? M.n(dif.cotizaciones) : Number(a.total) || 0;
+        const av = C.avancePlanilla(total, quedan.reduce((x, y) => x + (Number(y.monto) || 0), 0));
+        tx.update(refP, sinPlanilla(cambio(a, conDif ? 'quitó un cargo del banco (deshecho) y la diferencia registrada como multas e intereses' : 'quitó un cargo del banco (deshecho)', { pagos: quedan, pagosQuitados: (Array.isArray(a.pagosQuitados) ? a.pagosQuitados : []).concat(fuera.map(x => ({ ...x, quitado: { por, en: t, motivo } }))),
+          unido: av.unido, falta: av.falta, estado: av.completa ? 'pagada_conciliada' : quedan.length ? 'parcial' : 'sin_pagos', ...(av.completa ? {} : { conciliadaEl: '', conciliadaPor: '' }),
+          ...(conDif ? { total, difMultas: null, difMultasQuitadas: (Array.isArray(a.difMultasQuitadas) ? a.difMultasQuitadas : []).concat([{ ...dif, quitado: { por, en: t, motivo } }]) } : {}) }, { motivo })));
         n++;
+        if (conDif && snG && snG.exists() && snG.data().estado === 'vigente') { tx.update(gDif, cambio(snG.data(), 'anuló', { estado: 'anulado', anulado: { el: t, en: t, por, motivo: 'Cargo de Previred deshecho: ' + motivo, filaOriginal: '' } }, { motivo })); n++; avisos.push('La diferencia registrada como multas e intereses se anuló.'); }
       } else avisos.push('El cargo ya no estaba en la planilla: no se tocó.');
     } else avisos.push('La planilla ya no está: solo vuelve el cargo.');
     tx.update(ref, cambioCargo(sn.data(), 'deshizo', { estado: C.ESTADOS.revisar, accion: '', detalle: '', resueltoEl: '', resueltoPor: '', historial: C.conDeshecho(c, motivo, t, por) }, { motivo }));

@@ -9,11 +9,11 @@
 //    copia (migracion/{coleccion} guarda una huella por documento, como en B2B).
 //  · En G1 nada cambia en el uso: Gastos sigue leyendo y escribiendo la planilla con el script.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.67.2';
-import * as FB from './fs-gastos.js?v=0.67.2';
-import * as Gastos from './gastos.js?v=0.67.2';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.67.2';
-import { armar, cambios, comparar, totalesGastos, COLECCIONES, ANIO } from './gastos-modelo.js?v=0.67.2';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.67.3';
+import * as FB from './fs-gastos.js?v=0.67.3';
+import * as Gastos from './gastos.js?v=0.67.3';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.67.3';
+import { armar, cambios, comparar, totalesGastos, COLECCIONES, ANIO } from './gastos-modelo.js?v=0.67.3';
 
 export { ANIO };
 export const VERSION_EXPORTAR = '2.9.0';   // script de Gastos con la op "exportar" (SistemaFen.gs v1.8.0)
