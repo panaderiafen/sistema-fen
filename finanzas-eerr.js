@@ -21,7 +21,7 @@
 //  no se toca: lo que cambie después aparece como "Ajustes de meses cerrados" en el primer mes abierto siguiente
 //  (= cálculo de hoy del mes cerrado − su snapshot − lo ya informado como ajuste en otros meses cerrados).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.65.3';
+import * as FR from './finanzas-resultados.js?v=0.66.0';
 
 export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
 export const COLS = ['PAN', 'BOL', 'PAS', 'CAF', 'comun'];
@@ -307,6 +307,12 @@ export function checksCierre(D) {
   const sc = D.sinClasificar || {};
   add('clasificar', 'Gastos clasificados', !num(sc.n), num(sc.n) ? `${sc.n} ${sc.n === 1 ? 'ítem' : 'ítems'} sin tipo para resultados (${pesosTxt(sc.neto)}).` : 'Todos los gastos del mes tienen tipo.',
     '#finanzas/resultados/clasificacion', 'Cada ítem de gasto del mes con su tipo para resultados (Resultados → Clasificación). Lo sin clasificar no entra al resultado.');
+  // v0.66.0 · Documentos del SII de ese mes sin clasificar = 0 (su gasto todavía no existe)
+  if (D.siiPendientes) {
+    const sp = D.siiPendientes;
+    add('sii_clasif', `Documentos del SII de ${mesTxt(mes)} sin clasificar: ${num(sp.n)}`, !num(sp.n), num(sp.n) ? `${sp.n} ${sp.n === 1 ? 'documento del SII' : 'documentos del SII'} de ${mesTxt(mes)} sin clasificar (${pesosTxt(sp.monto)}): su gasto todavía no existe.` : `Todos los documentos del SII de ${mesTxt(mes)} están clasificados.`,
+      `#conciliacion/sii/porclasificar/${mes}`, 'Los documentos del SII que subiste y no se clasificaron solos (proveedor nuevo o con dudas) no tienen gasto todavía: no están en el estado de resultados. Clasifícalos al conciliar la cartola (el cargo del mismo monto), en Conciliación → Pagos sin banco o en Cargas del SII. Para cerrar igual, escribe el motivo.');
+  }
   // 6. Productos vendidos sin asociar < 10 % de la venta
   const pctSin = num(v.netoTotal) > 0 ? num(v.netoSinAsociar) / num(v.netoTotal) * 100 : 0;
   add('asociar', 'Productos vendidos asociados', pctSin < 10, `${String(Math.round(pctSin * 10) / 10).replace('.', ',')} % de la venta neta sin asociar (${pesosTxt(v.netoSinAsociar)}); el límite es menos de 10 %.`,

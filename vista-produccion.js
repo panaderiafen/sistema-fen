@@ -5,10 +5,10 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.65.3';
+import * as P from './produccion.js?v=0.66.0';
 import * as K from './cocina/consumo.js?v=0.17.0';
-import { conBuscador, coincide } from './buscador.js?v=0.65.3';
-import * as FBQ from './fermentacion.js?v=0.65.3';
+import { conBuscador, coincide } from './buscador.js?v=0.66.0';
+import * as FBQ from './fermentacion.js?v=0.66.0';
 
 const st = { fb: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -162,7 +162,7 @@ async function pintarBase(el, H, cx) {
       ${t ? pliegue('control', 'Control de totales', resControl, control) : ''}
     </section>`;
   conectarPliegues(el);
-  // v0.65.3: la lista de la fermentación en bloque se lee solo con "Configuración de Producción" abierta
+  // v0.66.0: la lista de la fermentación en bloque se lee solo con "Configuración de Producción" abierta
   const plCfg = el.querySelector('details.pliegue[data-pliegue="config"]');
   if (plCfg) { if (plCfg.open) cargarFB(el, H, cfgs); else plCfg.addEventListener('toggle', () => { if (plCfg.open) cargarFB(el, H, cfgs); }); }
   if (st.fb) conectarFB();
@@ -306,7 +306,7 @@ function seccionConfig(cfgs, H) {
     ${bloque('PAN')}${bloqueFB(cfgs.PAN || {}, H)}${bloque('BOL')}${bloque('CAF')}`;
 }
 
-// ── v0.65.3 · Fermentación en bloque (Panadería): config/PAN.fermentacionBloque = { recetaId | subId: minutos } ──
+// ── v0.66.0 · Fermentación en bloque (Panadería): config/PAN.fermentacionBloque = { recetaId | subId: minutos } ──
 // Se carga al abrir "Configuración de Producción" (recetas con su marca, como siempre, + ajustes/PAN__hoy: un documento).
 const INFO_FB = 'Tiempo a temperatura ambiente después de terminar la masa. Ajústalo según la temporada: en invierno más, en verano menos.';
 function bloqueFB(c, H) {

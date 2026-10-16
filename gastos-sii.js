@@ -12,8 +12,8 @@
 //    forman (últimos 2 años) y su posición en la planilla, para dar exactamente lo mismo que el script.
 //  Sin red: se prueba sola. Los documentos usan los mismos nombres que la copia G1 (gastos-modelo.armar).
 // ═══════════════════════════════════════════════
-import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.65.3';
-import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.65.3';
+import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.66.0';
+import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.66.0';
 
 export const RE_FOLIO_OBS = /(?:^|[^A-Za-z])(NC|F)\.(\d+)/;
 const s = v => String(v == null ? '' : v);
@@ -269,7 +269,10 @@ export function limpiarFacturas(facturas, lista) {
         descuento: numOVacio(d.descuento), monto: Math.round(num(d.monto)) || 0, item: d.item ? s(d.item) : '', area: d.area ? s(d.area) : '' });
     }
     limpias.push({ rut, folio, tipoDoc, razonSocial: sfTexto(f.razonSocial, 200), fechaDocto: s(f.fechaDocto), total, neto, iva, esHarina: !!f.esHarina,
-      estado: f.estado, fechaEstado: f.fechaEstado, lineas, detalle });
+      estado: f.estado, fechaEstado: f.fechaEstado, lineas, detalle,
+      // v0.66.0 · clasificada sola al subir (proveedor conocido), pagada sin saber todavía cómo (espera su pago: cartola, efectivo o tarjeta)
+      ...(f.auto === true ? { auto: true } : {}), ...(f.esperaPago === true && f.estado === 'pagada' ? { esperaPago: true } : {}), ...(f.formaPago === 'tarjeta' && f.estado === 'pagada' ? { formaPago: 'tarjeta' } : {}),
+      ...(f.pagoSinBanco && typeof f.pagoSinBanco === 'object' ? { pagoSinBanco: { medio: s(f.pagoSinBanco.medio).slice(0, 20), fecha: s(f.pagoSinBanco.fecha).slice(0, 10), ...(f.pagoSinBanco.origen ? { origen: s(f.pagoSinBanco.origen).slice(0, 20) } : {}), ...(f.pagoSinBanco.origenTexto ? { origenTexto: s(f.pagoSinBanco.origenTexto).slice(0, 120) } : {}) } } : {}) });
   }
   return { limpias };
 }
@@ -289,9 +292,11 @@ export function planFactura(f, k, totalFacturas, marca, hora) {
   (f.lineas || []).forEach(ln => (ln.areas || []).forEach(a => {
     const bruto = Math.round(a.monto), proporcion = f.total ? bruto / f.total : 0, neto = Math.round(f.neto * proporcion);
     filas.push(docGasto({ fecha: f.fechaDocto, hora, itemGasto: ln.item || '', categoria: ln.categoria || '', tipo: ln.tipo || '', subTipo: ln.subTipo || '', area: a.area,
-      tipoMonto: 'bruto', montoNeto: neto, montoFinal: bruto, esHarina: f.esHarina ? 'Sí' : 'No', formaPago: f.estado === 'pagada' ? 'contado' : 'proveedor',
-      fechaPago: f.estado === 'pagada' ? f.fechaEstado : '', archivo: '', observacion: obsBase, urlFoto: '' },
-    { rutProveedor: f.rut, razonSocial: f.razonSocial, siiDoc: { id: docId, rut: f.rut, folio: f.folio, tipo: s(f.tipoDoc) } }));
+      tipoMonto: 'bruto', montoNeto: neto, montoFinal: bruto, esHarina: f.esHarina ? 'Sí' : 'No', formaPago: f.estado === 'pagada' ? (f.formaPago === 'tarjeta' ? 'tarjeta' : 'contado') : 'proveedor',
+      fechaPago: f.estado === 'pagada' && !f.esperaPago ? f.fechaEstado : '', archivo: '', observacion: obsBase, urlFoto: '' },
+    { rutProveedor: f.rut, razonSocial: f.razonSocial, siiDoc: { id: docId, rut: f.rut, folio: f.folio, tipo: s(f.tipoDoc) },
+      ...(f.auto ? { clasificacionAutomatica: true } : {}), ...(f.esperaPago ? { esperaPago: true } : {}),
+      ...(f.pagoSinBanco ? { medioPago: f.pagoSinBanco.medio, pagoSinBanco: f.pagoSinBanco } : {}) }));
   }));
   const ids = idsGastosFactura(marca, k, totalFacturas, filas.length);
   let venc = null;
@@ -324,7 +329,7 @@ export function docSiiImportado(prev, p, extra) {
   let fecha = a.fecha || ''; p.detalle.forEach(l => { if (l.fecha && (!fecha || l.fecha < fecha)) fecha = l.fecha; });
   const totalNeto = Math.round(((Number(a.totalNeto) || 0) + p.detalle.reduce((x, l) => x + (Number(l.montoNeto) || 0), 0)) * 100) / 100;
   return { ...a, razonSocial: a.razonSocial || f.razonSocial, lineas, tiposDoc: tipos, fecha, totalNeto, posPlanilla: p.posPlanilla,
-    importado: { ...(extra || {}), clave: p.clave, gastos: p.gastos.map(g => g.id), vencimiento: p.venc ? p.venc.id : '', fechaDocto: f.fechaDocto, total: f.total, neto: f.neto, iva: f.iva,
+    importado: { ...(extra || {}), ...(f.auto ? { automatico: true } : {}), clave: p.clave, gastos: p.gastos.map(g => g.id), vencimiento: p.venc ? p.venc.id : '', fechaDocto: f.fechaDocto, total: f.total, neto: f.neto, iva: f.iva,
       estado: f.estado, fechaEstado: f.fechaEstado } };
 }
 // Vincular (vincularGastoConDocumento): la observación lleva "F.<folio>" (o "NC.<folio>") al inicio, si no lo tenía

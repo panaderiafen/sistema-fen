@@ -1,9 +1,60 @@
-# Sistema Fën · v0.65.3
+# Sistema Fën · v0.66.0
 
-**App:** v0.65.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (va con esta) · 15 de octubre de 2026
+**App:** v0.66.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 15 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.66.0: el SII se sube, se clasifica al conciliar y el gasto es del mes de la factura; Pagos sin banco
+**Dónde:** Conciliación → Subir archivo (SII) · Cargas del SII → **Documentos del SII** (Por clasificar · Revisar automáticas) · Cartola → Cargos · **Pagos sin banco** (pestaña nueva) · Hoy · Finanzas → Cierre de mes y Cómo trabajamos. Solo con Gastos en la base nueva.
+
+### Qué cambia en cómo trabajas
+1. **Subir el SII ya no es clasificar.** Al subir el archivo se guardan los documentos como **"Por clasificar"** (sin gasto todavía). La excepción: los proveedores **conocidos** — los que clasificaste **con el mismo ítem y área al menos 2 veces, sin repartir** (y sin otra forma que compita) — se clasifican e importan solos: el gasto nace con la **fecha de la factura**, con el chip **"clasificación automática"**. La ficha a mano del proveedor ya no clasifica sola: solo propone. Las facturas de una obligación "según documento" (internet, gas) van a su vencimiento como siempre.
+2. **Revisa las automáticas** en Conciliación → Cargas del SII → **Revisar automáticas**: "Está bien", cambia el ítem o el área (queda en su historial) o **Anular** (con motivo).
+3. **Clasifica donde te acomode:**
+   - **En la cartola** (Conciliación → Cartola → Cargos): un cargo que calza **exacto** (±$1, de 5 días antes a 45 después de la factura) con una factura por clasificar dice **"Factura por clasificar: Proveedor F.55"** (**Seguro** si el RUT calza —glosa, transferencia enviada o ficha—; si no, **Probable**; nunca se confirma solo). Al abrirlo eliges ítem y área ahí mismo (viene propuesto con lo que se sepa del proveedor; "Repartir en otra línea" si son varios) → **Clasificar y conciliar**: el gasto queda con la **fecha de la factura** (su mes: una factura de septiembre pagada en octubre está en el estado de resultados de septiembre) y el pago con la **fecha del banco**. Si el cargo es menor y del mismo proveedor, es un **abono**: el gasto es la factura completa y queda el saldo.
+   - **En Cargas del SII** → **Por clasificar** (filtra por mes): ítem y área → **Importar compra**. O abriendo la carga, como antes (Importar compra / Importar todas las clasificadas).
+4. **Pagos sin banco** (Conciliación, con su número en la pestaña): las facturas del SII (clasificadas o no) **sin pago del banco** después de **10 días** de la factura (lo cambias ahí mismo) o **pasado su vencimiento**; las a crédito que todavía no vencen no aparecen. Lo primero es pagar desde el banco: esto es para las excepciones (su (i) lo explica). Cada una:
+   - **Pagada en efectivo**: fecha y **de dónde salió el efectivo** — por defecto **"Efectivo de cobros B2B"** (lo que pagan en efectivo los clientes B2B, que nunca pasa por el banco) u **"Otro"** con una nota. Si está por clasificar, eliges ítem y área primero. Gasto con la fecha de la factura + un pago guardado (medio efectivo y su origen) para el flujo de caja.
+   - **Pagada con tarjeta de crédito**: fecha → pago medio tarjeta.
+   - **Todavía por pagar**: queda **a crédito** con la fecha en que esperas pagarla (Vencimientos, Agenda y Hoy); se reagenda en la misma pestaña.
+   - **Efectivo en mano estimado** (por mes): cobrado en efectivo a B2B menos lo pagado con ese efectivo. Lo de "Otro" no descuenta.
+5. **Cierre de mes:** revisión nueva **"Documentos del SII de <mes> sin clasificar: N"** (debe ser 0; **Revisar** abre Cargas del SII filtrado en ese mes). El estado de resultados sigue usando la fecha de la factura y avisa cuántos faltan.
+6. **Hoy:** "Facturas por clasificar: N" (solo si hay), enlace a Cargas del SII.
+7. **Lo de antes:** lo ya importado queda igual. Lo que quedó **sin importar** en cargas anteriores pasa a "Por clasificar" **una sola vez**, solo, la primera vez que abres Cargas del SII (sin clasificarse solo). Gastos y Previred no cambian.
+
+### Dónde se guarda (fen-gastos; las reglas v0.1.0 ya lo cubren)
+- `sii_docs/{RUT_folio}.porClasificar`: el documento tal como vino (montos, fechas, forma de pago, productos, carga y archivo). Al clasificarse se importa como siempre (`importado`, con `automatico: true` si fue solo).
+- Gastos: `clasificacionAutomatica`, `autoRevisada`, `esperaPago`, `medioPago` (banco | efectivo | tarjeta), `pagoSinBanco { medio, fecha, origen (cobros_b2b | otro), origenTexto }`. Al unir un cargo, `fechaPago` = fecha del banco.
+- `sii_pagos/sp-{doc}`: `{ docId, rut, folio, razonSocial, monto, fecha, mes, medio, origen, origenTexto, gastos, fechaFactura, por, en, historial }` para el flujo de caja (F4). No pasa a la planilla.
+- Vencimientos de "todavía por pagar": `porPagarSinBanco: true`. `config/sii_pagos = { dias, migrado }`.
+- **Script de Gastos: sin cambios (v2.18.0)**: la planilla no necesita columnas nuevas (gastos y vencimientos pasan como siempre; forma y fecha de pago en sus columnas).
+
+### Lecturas
+Todo desde la memoria de fs-gastos.js (`sii_docs`, `gastos`, `proveedores` en los paquetes): ninguna lectura por documento ni por cargo. Subir un XML de N documentos = N escrituras. La migración única lee de Drive (con el script) solo las cargas que tienen documentos sin importar. Prueba `cuota-v0632` y `cuota-v0633` siguen pasando.
+
+### Instalación v0.66.0 (unos 3 minutos)
+GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.66.0.zip` (con la carpeta `cocina/`, que no cambia; `sii-pendientes.js` y `sii-pendientes-fs.js` son nuevos) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC). Nada en Apps Script, reglas ni Cocina.
+
+### Lista de verificación v0.66.0
+- [ ] Abajo a la izquierda dice **v0.66.0**.
+- [ ] Abro Conciliación → Cargas del SII: lo que quedó sin importar de cargas anteriores aparece en **Por clasificar** (una vez).
+- [ ] Subo el XML del SII: dice cuántos se clasificaron solos y cuántos quedan por clasificar; los automáticos están en **Revisar automáticas** con la fecha de la factura.
+- [ ] En Revisar automáticas cambio el ítem de uno → queda en su historial y sale de la lista.
+- [ ] Un proveedor nuevo queda "Por clasificar" y no tiene gasto.
+- [ ] Subo la cartola: el cargo de esa factura dice **"Factura por clasificar: …"**; elijo ítem y área → **Clasificar y conciliar** → el gasto es del mes de la factura y la fecha de pago es la del banco.
+- [ ] **Pagos sin banco** muestra su número; marco una "Pagada en efectivo" (Efectivo de cobros B2B) → baja el **Efectivo en mano estimado**.
+- [ ] "Todavía por pagar" con una fecha → sale en Vencimientos, Agenda y Hoy; **Reagendar** la cambia.
+- [ ] Hoy muestra "Facturas por clasificar: N" (solo si hay).
+- [ ] Cierre de un mes con una factura por clasificar: "Documentos del SII de … sin clasificar: 1" en rojo; **Revisar** me lleva a esa lista.
+- [ ] En el celular nada se sale de lado.
+
+### Si algo sale mal
+Sube de nuevo la v0.65.3. Lo guardado (`porClasificar`, `sii_pagos`, `esperaPago`) queda en fen-gastos sin estorbar: con la v0.65.3 los documentos por clasificar se ven en Cargas del SII como pendientes (al abrir su carga) y se importan como antes.
+
+Por dentro: nuevos `sii-pendientes.js` (reglas: clasificar solo, propuesta, líneas, factura clasificada, candidatos del cargo, pagos sin banco, origen del efectivo, efectivo B2B, automáticas por revisar, pendientes del mes) y `sii-pendientes-fs.js` (guardar, clasificar, efectivo/tarjeta, todavía por pagar, reagendar, revisar automáticas, conteos, migración única); cambian `gastos-sii.js`, `gastos-cartola-fs.js`, `gastos.js` (Hoy), `b2b.js`, `finanzas.js`, `finanzas-eerr.js`, `vista-finanzas-eerr.js`, `vista-finanzas.js`, `app.js`, `estilos.css`, `config.js`, `index.html` y los demás (solo versión). La carpeta `cocina/` no cambia.
+
+Pruebas: nueva `pruebas/sistemafen/sii-v066.test.js` (13: 4 unitarias —umbral de la clasificación automática (2 veces, sin repartir, sin otra forma), ventana y Seguro/Probable, gasto con la fecha de la factura aunque se pague al mes siguiente, selección de pagos sin banco (días, vencimiento, crédito que no vence) y origen del efectivo, revisión del cierre— y de punta a punta con datos ficticios: XML de 3 facturas (1 conocida → automática; 2 nuevas → por clasificar) y Hoy; revisar automáticas (cambio con historial); cargo exacto → "Factura por clasificar" → clasificar en línea → gasto de septiembre en el estado de resultados de septiembre pagado en octubre; el cierre lo bloquea y su enlace filtra; pagos sin banco → efectivo de cobros B2B → gasto + pago medio efectivo y el cierre queda listo; todavía por pagar → Agenda y reagendar; 390/768/1280). `sf-pantallas` suma Pagos sin banco y Documentos del SII. Siguen pasando `conciliacion-v064`, `conciliacion-v0652`, `previred-v0651`, `gastos-g3a…g3e`, `gastos-v063`, `finanzas-f1b/f3b`, `e2e`, `cuota-v0632/v0633`. Capturas en `pruebas/capturas/sii-v066/`.
 
 ## Novedades de la v0.65.3: fermentación en bloque (Panadería)
 **Dónde:** Producción → Configuración de Producción → **Fermentación en bloque · Panadería** (debajo de la configuración de Panadería), con su (i): *"Tiempo a temperatura ambiente después de terminar la masa. Ajústalo según la temporada: en invierno más, en verano menos."*

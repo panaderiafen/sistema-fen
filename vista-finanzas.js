@@ -12,14 +12,14 @@
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.65.3';
-import * as FC from './finanzas-costos.js?v=0.65.3';
-import * as FS from './finanzas-sii.js?v=0.65.3';
-import * as FM from './finanzas-motor.js?v=0.65.3';
-import * as FV from './finanzas-ventas.js?v=0.65.3';
-import * as FMG from './finanzas-margenes.js?v=0.65.3';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.65.3';
-import * as VR from './vista-finanzas-resultados.js?v=0.65.3';
+import * as F from './finanzas.js?v=0.66.0';
+import * as FC from './finanzas-costos.js?v=0.66.0';
+import * as FS from './finanzas-sii.js?v=0.66.0';
+import * as FM from './finanzas-motor.js?v=0.66.0';
+import * as FV from './finanzas-ventas.js?v=0.66.0';
+import * as FMG from './finanzas-margenes.js?v=0.66.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.66.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.66.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -120,7 +120,7 @@ function comoTrabajamos(H) {
     <ol class="fin-pasos">
       ${paso(1, 'dia', 'Todos los días', '', '<p>El costo directo de cada producto se actualiza con cada compra. En <b>Hoy</b>: la venta del mes contra la meta y el punto de equilibrio.</p>')}
       ${paso(2, 'cierre', 'Cierre del mes', 'día 5 a 8 del mes siguiente', `<p>Se cierra cuando están las cuatro cosas:</p>
-        <ul class="fin-cond">${cond('SII del mes cargado')}${cond('Ventas completas, de las dos sucursales')}${cond('Gastos conciliados con la cartola')}${cond('Conteo de bodega hecho')}</ul>
+        <ul class="fin-cond">${cond('SII del mes cargado y clasificado')}${cond('Ventas completas, de las dos sucursales')}${cond('Gastos conciliados con la cartola')}${cond('Conteo de bodega hecho')}</ul>
         <p>Al cerrarlo, el mes queda <b>congelado</b>. Lo que aparezca después entra como ajuste del mes siguiente.</p>`)}
       ${paso(3, 'informe', 'Informes', '', '<p>Estado de resultados y flujo de caja del mes cerrado, comparados con el presupuesto.</p>')}
       ${paso(4, 'decision', 'Decisiones', '', '<p>Precios, mezcla de productos, costos y metas.</p>')}
@@ -143,6 +143,15 @@ function comoTrabajamos(H) {
       <div class="fin-regla">${ic('campana', 22)}<div><b>Los vencimientos te dicen qué pagar; la cartola lo registra</b><span>Un vencimiento de banco dice "Se paga desde la cartola": te recuerda pagarlo, no se paga ahí.</span></div></div>
       <div class="fin-regla">${ic('check', 22)}<div><b>Si registras a mano un pago de banco, la cartola solo lo confirma</b><span>Queda esperando su cargo (Hoy: "Esperan cartola"). Cuando llega, elige "Ya está en Gastos" para no duplicarlo.</span></div></div>
     </div>
+  </section>
+  <section class="tarjeta" aria-labelledby="t-fin-sii" id="fin-sii-flujo">
+    <h2 id="t-fin-sii">Las facturas del SII, de la subida al cierre ${H.info('Facturas del SII', 'Acordado el 15 de octubre de 2026 (v0.66.0). Un gasto del SII siempre es del mes de la FACTURA (lo devengado), aunque se pague otro día. El pago queda con su propia fecha (la del banco, la del efectivo o la de la tarjeta) para el flujo de caja.\nNada se da por pagado en efectivo solo: lo decides tú en Pagos sin banco.')}</h2>
+    <ol class="fin-pasos fin-sii-pasos">
+      ${paso(1, 'fuente', 'Subir el SII', 'Conciliación → Subir archivo', '<p>Se guardan todos los documentos. Los de <b>proveedores conocidos</b> (el mismo ítem y área al menos 2 veces, sin repartir) <b>se clasifican solos</b>: su gasto queda con la fecha de la factura y el chip "clasificación automática" (se revisan en Cargas del SII → <b>Revisar automáticas</b>: está bien, cambiar ítem o área, o anular). Lo nuevo o dudoso queda <b>por clasificar</b>, sin gasto.</p>')}
+      ${paso(2, 'banco', 'Clasificar al conciliar', 'Conciliación → Cartola → Cargos', '<p>El cargo del banco del mismo monto muestra "Factura por clasificar": eliges ítem y área (y repartes si hace falta) y al confirmar nace el gasto con la fecha de la factura y el pago con la del banco. Si pagaste en partes, se clasifica con el primer abono. También puedes clasificar en Cargas del SII, como siempre.</p>')}
+      ${paso(3, 'efectivo', 'Pagos sin banco', 'Conciliación → Pagos sin banco', '<p>Lo primero es pagar desde el banco; esto es para las excepciones. Las facturas sin pago del banco después de 10 días (o pasado su vencimiento, si son a crédito): <b>pagada en efectivo</b> (de dónde: <b>efectivo de cobros B2B</b>, que nunca pasa por el banco, u otro), <b>con tarjeta de crédito</b> o <b>todavía por pagar</b> (a crédito con su vencimiento: Agenda y Hoy). Ahí ves también el <b>efectivo en mano estimado</b>: lo cobrado en efectivo a clientes B2B menos lo pagado con ese efectivo.</p>')}
+      ${paso(4, 'cierre', 'Cierre del mes', 'Resultados → Cierre de mes', '<p>Para cerrar, ningún documento del SII de ese mes puede quedar por clasificar (o se cierra igual con el motivo). El estado de resultados avisa si quedan, con su monto.</p>')}
+    </ol>
   </section>
   <section class="tarjeta" aria-labelledby="t-fin-calc">
     <h2 id="t-fin-calc">Cómo se calcula</h2>

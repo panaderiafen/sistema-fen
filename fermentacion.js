@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-//  fën · Fermentación en bloque (sin pantalla)  ·  Cocina v0.17.1 · Sistema Fën v0.65.3
+//  fën · Fermentación en bloque (sin pantalla)  ·  Cocina v0.17.1 · Sistema Fën v0.66.0
 //  Copia exacta en las dos apps (cocina/fermentacion.js y sistema-fen/fermentacion.js).
 //  config/{AREA}.fermentacionBloque = { recetaId | subId: minutos } (lo escribe Sistema Fën → Configuración de Producción).
 //  Sin número (o null / 0) = esa receta no tiene fermentación en bloque.

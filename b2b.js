@@ -8,12 +8,12 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.65.3';
-import * as FB from './firebase-b2b.js?v=0.65.3';
-import * as Apps from './apps.js?v=0.65.3';
-import * as Mem from './fs-memoria.js?v=0.65.3';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.65.3';
-import { distanciaTef } from './feriados-cl.js?v=0.65.3';   // v0.63.4: días hábiles para cruzar transferencias
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.66.0';
+import * as FB from './firebase-b2b.js?v=0.66.0';
+import * as Apps from './apps.js?v=0.66.0';
+import * as Mem from './fs-memoria.js?v=0.66.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.66.0';
+import { distanciaTef } from './feriados-cl.js?v=0.66.0';   // v0.63.4: días hábiles para cruzar transferencias
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -904,15 +904,15 @@ let cacheAnalisis = null;
 export async function ordenesParaAnalisis(forzar) {
   const db = await dbOk();
   const ahora = Date.now();
-  if (!forzar && !cacheAnalisis) { try { const c = JSON.parse(localStorage.getItem(K_ANALISIS) || 'null'); if (c && c.v === 1) cacheAnalisis = c; } catch (e) {} }
+  if (!forzar && !cacheAnalisis) { try { const c = JSON.parse(localStorage.getItem(K_ANALISIS) || 'null'); if (c && c.v === 2) cacheAnalisis = c; } catch (e) {} }
   if (!forzar && cacheAnalisis && ahora - cacheAnalisis.en < 6 * 3600e3) return cacheAnalisis;
   const h = new Date(), desde = hoyTxt(new Date(h.getFullYear(), h.getMonth() - 6, 1));
   const sn = await FB.getDocs(FB.query(FB.collection(db, 'ordenes'), FB.where('fecha', '>=', desde)));
   uso.lecturas += Math.max(1, sn.size);
-  const campos = ['n', 'fecha', 'cliente', 'clienteId', 'neto', 'total', 'folio', 'fechaFolio', 'estadoPago', 'fechaPago', 'estado', 'quitadoEnPlanilla'];
+  const campos = ['n', 'fecha', 'cliente', 'clienteId', 'neto', 'total', 'folio', 'fechaFolio', 'estadoPago', 'fechaPago', 'estado', 'quitadoEnPlanilla', 'medioPago', 'totalFactura'];   // v0.66.0: medioPago y totalFactura (efectivo cobrado)
   const ordenes = sn.docs.map(d => { const x = d.data(), o = { id: d.id }; campos.forEach(k => { if (x[k] !== undefined) o[k] = x[k]; }); return o; })
     .filter(o => !o.quitadoEnPlanilla && o.estado !== 'anulada');
-  cacheAnalisis = { v: 1, en: ahora, desde, ordenes };
+  cacheAnalisis = { v: 2, en: ahora, desde, ordenes };
   try { localStorage.setItem(K_ANALISIS, JSON.stringify(cacheAnalisis)); } catch (e) {}
   return cacheAnalisis;
 }

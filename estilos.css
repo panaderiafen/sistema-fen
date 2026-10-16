@@ -1446,7 +1446,7 @@ p.volver a { display: inline-flex; gap: 4px; align-items: center; }
 .aviso-enlinea { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 8px 0 4px; }
 .aviso-enlinea > span { flex: 1 1 240px; min-width: 0; }
 
-/* v0.65.3 · Fermentación en bloque (Producción → Configuración de Producción → Panadería) */
+/* v0.66.0 · Fermentación en bloque (Producción → Configuración de Producción → Panadería) */
 .fb-buscar { max-width: 360px; margin-bottom: 8px; }
 .fb-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 18px; margin: 4px 0 6px; }
 .fb-fila { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--linea, #ECE6DE); min-width: 0; }
@@ -1456,3 +1456,28 @@ p.volver a { display: inline-flex; gap: 4px; align-items: center; }
 .fb-fila input { width: 96px; flex: none; text-align: center; min-height: 44px; }
 .fb-fila input[aria-invalid="true"] { border-color: #B23A2E; outline: 2px solid #B23A2E; outline-offset: 1px; }
 @media (max-width: 420px) { .fb-lista { grid-template-columns: 1fr; } }
+
+/* v0.66.0 · Documentos del SII por clasificar y Pagos sin banco */
+.sp-clasif { border: 1px solid var(--borde, #e3ded3); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+.sp-linea { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 4px 12px; align-items: end; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px dashed var(--borde, #e3ded3); }
+.sp-linea:last-of-type { border-bottom: 0; margin-bottom: 0; }
+.sp-linea .campo { margin: 0; min-width: 0; }
+.sp-linea select, .sp-linea input { width: 100%; max-width: 100%; }
+.sp-area-fija { display: block; padding: 8px 0; }
+.sp-quitar { justify-self: start; }
+.sp-pie { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.sp-estado { flex: 1 1 180px; }
+.sp-prods { list-style: none; margin: 6px 0; padding: 0; }
+.sp-prods li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px dotted var(--borde, #e3ded3); overflow-wrap: anywhere; }
+.sp-detalle { margin: 6px 0 10px; }
+input.sinb-dias { width: 4.5em; display: inline-block; text-align: center; }
+.sinb-saldo { font-size: 1.05rem; margin: 10px 0 4px; }
+.sinb-pp .acciones { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sinb-origen { margin: 8px 0; }
+.sinb-origen legend { font-weight: 600; margin-bottom: 4px; }
+.sinb-origen input[type="text"], .sinb-origen input:not([type]) { width: 100%; max-width: 420px; }
+.sinb-prioridad { margin: 6px 0 10px; }
+.sdoc-mes { max-width: 280px; margin: 8px 0; }
+.sdoc-mes select { width: 100%; }
+#sii-docs-sec .pastillas { flex-wrap: wrap; }
+@media (max-width: 600px) { .sp-linea { grid-template-columns: minmax(0, 1fr); } }

@@ -1,0 +1,284 @@
+// ═══════════════════════════════════════════════
+//  Sistema Fën — Documentos del SII por clasificar y pagos sin banco  v0.66.0 (reglas puras, sin red)
+//  Lo acordado (15-oct):
+//  · Subir el SII solo guarda los documentos (sii_docs). Los de proveedores conocidos (clasificación aprendida segura: el mismo
+//    ítem y área al menos 2 veces, sin repartir) se clasifican solos al subir: su gasto nace al tiro con la FECHA DE LA FACTURA
+//    (lo devengado), marcado clasificacionAutomatica (chip "automático", se revisa y corrige como cualquier gasto).
+//    Lo nuevo o dudoso queda "por clasificar" (sin gasto todavía).
+//  · Clasificar al conciliar: un cargo de la cartola que calza EXACTO (±$1, de 5 días antes a 45 después de la factura) con
+//    un documento por clasificar lo muestra "Por clasificar"; al confirmar se elige ítem y área (y se reparte), el gasto
+//    nace con la fecha de la factura y el pago queda con la fecha del banco. Un abono también sirve: se clasifica con el
+//    primero y el gasto es el documento completo.
+//  · Pagos sin banco: facturas del SII sin pago del banco después de N días de la factura (10) o pasado su vencimiento (las a
+//    crédito que no vencen no entran) → pagada en efectivo (origen: efectivo de cobros B2B u otro), con tarjeta de crédito, o
+//    todavía por pagar (a crédito con su vencimiento). Nunca se da por pagada en efectivo sola.
+//  · Efectivo disponible: lo cobrado en efectivo a clientes B2B en el mes menos lo pagado con ese efectivo.
+//  Fechas aaaa-mm-dd (hora de Chile). Montos en pesos, brutos.
+// ═══════════════════════════════════════════════
+
+export const DIAS_SIN_PAGO = 10;      // días desde la factura para preguntar cómo se pagó
+export const VENTANA_CARGO = [-5, 45]; // días de la factura al cargo (como las facturas del SII en "Ya está en Gastos")
+export const MIN_VECES_AUTO = 2;      // lo aprendido debe repetirse al menos 2 veces para clasificar solo
+
+const s = v => String(v == null ? '' : v);
+const t = v => s(v).trim();
+const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
+const dia = v => { const x = t(v); let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(x); if (m) return `${m[1]}-${m[2]}-${m[3]}`; m = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/.exec(x); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : ''; };
+const utc = f => { const [y, m, d] = f.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+export const diasEntre = (a, b) => (dia(a) && dia(b) ? Math.round((utc(dia(b)) - utc(dia(a))) / 864e5) : NaN);
+export const sumarDias = (f, n) => { const x = dia(f); if (!x) return ''; return new Date(utc(x) + n * 864e5).toISOString().slice(0, 10); };
+const dma = iso => (dia(iso) ? dia(iso).split('-').reverse().join('-') : '');
+export const rutNorm = r => s(r).toUpperCase().replace(/[^0-9K]/g, '');
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+export const nombreMes = m => (/^\d{4}-\d{2}/.test(s(m)) ? `${MESES[Number(s(m).slice(5, 7)) - 1]} ${s(m).slice(0, 4)}` : '');
+const necesitaAreas = it => !!it && (it.area === 'SELECCIONAR' || it.area === 'PRORRATEADO');
+
+// ── Lo que se guarda del documento al subirlo (sii_docs/{id}.porClasificar) ──
+// f: documento leído del archivo (sii.js: fecha dd/mm/aaaa, montos con signo, detalle neto)
+export function datosPendiente(f, origen = {}, ahora = '', por = '') {
+  const det = Array.isArray(f.detalle) ? f.detalle.slice(0, 300) : [];
+  return {
+    tipoDoc: s(f.tipoDoc) || (num(f.total) < 0 ? '61' : '33'), fecha: dia(f.fecha), total: Math.round(num(f.total)), neto: Math.round(num(f.neto)), iva: Math.round(num(f.iva)),
+    exento: Math.round(num(f.exento)), otroImpuesto: Math.round(num(f.otroImpuesto)), esHarina: !!f.esHarina, fechaVenc: dia(f.fechaVencISO), formaPagoSII: s(f.formaPagoSII).slice(0, 2),
+    termPago: s(f.termPago).slice(0, 80), descuadre: s(f.descuadre).slice(0, 200),
+    detalle: det.map(d => ({ descripcion: s(d.descripcion).slice(0, 300), codigo: s(d.codigo).slice(0, 60), unidad: s(d.unidad).slice(0, 20), cantidad: num(d.cantidad) || '', precioUnitario: num(d.precioUnitario) || '',
+      precioLista: num(d.precioLista) || '', descuento: num(d.descuento) || '', monto: Math.round(num(d.monto)) })),
+    cargaId: s(origen.cargaId).slice(0, 80), formato: s(origen.formato).slice(0, 12), archivo: s(origen.archivo).slice(0, 120), subido: s(ahora), por: s(por), motivo: s(origen.motivo).slice(0, 200)
+  };
+}
+export const esPendiente = d => !!(d && d.porClasificar && !d.importado && !d.quitadoEnPlanilla && !d.descartado);
+const esCredito = p => !!(p && ((p.fechaVenc && p.fecha && p.fechaVenc > p.fecha) || s(p.formaPagoSII) === '2'));
+const esContado = p => !!(p && s(p.formaPagoSII) === '1');
+// La vista de un documento por clasificar
+export function vistaPendiente(id, d) {
+  const p = d.porClasificar || {};
+  return { id: s(id), rut: t(d.rut), folio: t(d.folio), tipo: s(d.tipo) === '61' ? '61' : '', tipoDoc: s(p.tipoDoc) || '33', razonSocial: t(d.razonSocial), fecha: dia(p.fecha), total: num(p.total), neto: num(p.neto), iva: num(p.iva),
+    exento: num(p.exento), otroImpuesto: num(p.otroImpuesto), esHarina: !!p.esHarina, fechaVenc: dia(p.fechaVenc), formaPagoSII: s(p.formaPagoSII), credito: esCredito(p), contado: esContado(p),
+    detalle: Array.isArray(p.detalle) ? p.detalle : [], cargaId: s(p.cargaId), formato: s(p.formato), archivo: s(p.archivo), motivo: s(p.motivo), esNC: s(d.tipo) === '61' || num(p.total) < 0 };
+}
+export const pendientesDe = docs => (docs || []).filter(x => x && esPendiente(x.d)).map(x => vistaPendiente(x.id, x.d));
+
+// El documento como lo trabaja la pantalla de Cargas del SII (sii.js), para sugerir y armar la importación
+export function aFactura(v) {
+  return { rut: v.rut, folio: v.folio, tipoDoc: v.tipoDoc, esNotaCredito: v.esNC, razonSocial: v.razonSocial, fecha: dma(v.fecha).replace(/-/g, '/'), total: v.total, neto: v.neto, iva: v.iva,
+    exento: v.exento, otroImpuesto: v.otroImpuesto, esHarina: v.esHarina, fechaVencISO: v.fechaVenc, formaPagoSII: v.formaPagoSII, detalle: v.detalle.map(d => ({ ...d })) };
+}
+
+// ── ¿Se clasifica solo al subir? ──  (v0.66.0, acordado con Emmanuel)
+// Solo si el proveedor tiene una clasificación aprendida SEGURA (proveedores/{rut}, sii_clasif): el MISMO ítem y área usado
+// al menos 2 veces, sin repartir (una sola línea y una sola área) y sin otra forma que compita (la más usada, al menos el doble
+// que la segunda). La ficha a mano y lo aprendido por producto solo PROPONEN (no clasifican solos).
+// f: el documento leído; clasif: { porRut } (lo aprendido); ITEMS: ítems vigentes; AREAS: áreas válidas.
+// → { auto: true, por: 'proveedor', item, area } o { auto: false, motivo }
+export function decidirAuto(f, clasif, ficha, ITEMS, AREAS) {
+  const activo = item => (ITEMS || []).find(x => x.item === item), areaOk = a => (AREAS || []).includes(a);
+  if (!f) return { auto: false, motivo: 'sin documento' };
+  if (f.esNotaCredito || s(f.tipoDoc) === '61' || num(f.total) < 0) return { auto: false, motivo: 'Nota de crédito: revísala tú' };
+  if (f.descuadre) return { auto: false, motivo: 'Los montos del documento no cuadran' };
+  if (!(num(f.total) > 0)) return { auto: false, motivo: 'Sin monto' };
+  const prov = clasif && (clasif.porRut || {})[rutNorm(f.rut)];
+  const pats = prov && Array.isArray(prov.patrones) ? prov.patrones : [];
+  if (!pats.length) return { auto: false, motivo: 'Proveedor nuevo (sin clasificación aprendida)' };
+  const top = pats[0];
+  if (!(num(top.n) >= MIN_VECES_AUTO)) return { auto: false, motivo: 'Clasificado menos de 2 veces' };
+  if (pats.length > 1 && !(num(top.n) >= 2 * num(pats[1].n))) return { auto: false, motivo: 'El proveedor tiene varias formas de clasificar: elige tú' };
+  const ls = Array.isArray(top.lineas) ? top.lineas : [];
+  if (ls.length !== 1 || (ls[0].areas || []).length > 1) return { auto: false, motivo: 'Se reparte en varios ítems o áreas: elige tú' };
+  const it = activo(ls[0].item);
+  if (!it) return { auto: false, motivo: 'El ítem aprendido ya no existe' };
+  if (it.area === 'PRORRATEADO') return { auto: false, motivo: 'El ítem se reparte entre áreas: elige tú' };
+  const areaAp = s(((ls[0].areas || [])[0] || {}).area);
+  const area = it.area === 'SELECCIONAR' ? areaAp : it.area;
+  if (it.area === 'SELECCIONAR' && !areaOk(area)) return { auto: false, motivo: 'Falta el área' };
+  return { auto: true, por: 'proveedor', item: it.item, area };
+}
+// Estado con que se importa lo clasificado solo: a crédito (vencimiento del XML, o 30 días) o pagada esperando su pago
+export function estadoAuto(v) {
+  if (v.credito) return { estado: 'pendiente', fechaEstado: v.fechaVenc && v.fechaVenc > v.fecha ? v.fechaVenc : sumarDias(v.fecha, 30), esperaPago: false };
+  return { estado: 'pagada', fechaEstado: v.fecha, esperaPago: true };
+}
+
+// ── Clasificar a mano (al conciliar o en Pagos sin banco): líneas { item, area, monto } ──
+// Propuesta: lo sugerido (productos o proveedor), la ficha a mano, o una línea vacía con el total
+export function lineasPropuestas(f, ITEMS, ficha) {
+  const total = Math.abs(Math.round(num(f.total))), activo = item => (ITEMS || []).find(x => x.item === item);
+  const out = [];
+  if (f.detalle && f.detalle.some(d => d.item)) {
+    const factor = (() => { const sm = f.detalle.reduce((a, d) => a + Math.abs(num(d.monto)), 0); return sm > 0 ? total / sm : 1; })(), g = {};
+    f.detalle.forEach(d => { if (!d.item) return; const k = d.item + '|' + (d.area || ''); g[k] = (g[k] || 0) + Math.abs(num(d.monto)) * factor; });
+    Object.keys(g).forEach(k => { const [item, area] = k.split('|'); out.push({ item, area, monto: Math.round(g[k]) }); });
+  } else if ((f.lineas || []).some(l => l.item)) {
+    const ls = f.lineas.filter(l => l.item);
+    ls.forEach(l => {
+      const base = ls.length > 1 ? Math.round(num(l.monto)) : total, it = activo(l.item);
+      const ar = (l.areas || []).filter(a => a.area && num(a.valor) > 0);
+      if (necesitaAreas(it) && ar.length) {
+        const pct = (l.modoArea || 'monto') === 'pct';
+        ar.forEach(a => out.push({ item: l.item, area: a.area, monto: pct ? Math.round(base * num(a.valor) / 100) : Math.round(num(a.valor)) }));
+      } else out.push({ item: l.item, area: it && !necesitaAreas(it) ? it.area : '', monto: base });
+    });
+  } else if (ficha && ficha.item && activo(ficha.item)) {
+    const it = activo(ficha.item);
+    out.push({ item: it.item, area: necesitaAreas(it) ? s(ficha.area) : it.area, monto: total });
+  }
+  if (!out.length) out.push({ item: '', area: '', monto: total });
+  const suma = out.reduce((a, l) => a + l.monto, 0);
+  if (suma !== total) out[out.length - 1].monto += total - suma;   // los redondeos, en la última
+  return out;
+}
+// '' si está bien; si no, qué falta
+export function revisarLineas(lineas, total, ITEMS, AREAS) {
+  const activo = item => (ITEMS || []).find(x => x.item === item), areaOk = a => (AREAS || []).includes(a);
+  const l = (lineas || []).filter(x => x && (x.item || num(x.monto)));
+  if (!l.length) return 'Elige el ítem';
+  for (const x of l) {
+    const it = activo(x.item);
+    if (!it) return 'Elige el ítem de cada línea';
+    if (necesitaAreas(it) && !areaOk(x.area)) return `Elige el área de ${it.item}`;
+    if (!(Math.round(num(x.monto)) > 0)) return 'Cada línea con su monto';
+  }
+  const vistas = new Set(); for (const x of l) { const k = x.item + '|' + (necesitaAreas(activo(x.item)) ? x.area : ''); if (vistas.has(k)) return `${x.item}: cada área una sola vez`; vistas.add(k); }
+  const suma = l.reduce((a, x) => a + Math.round(num(x.monto)), 0), tot = Math.abs(Math.round(num(total)));
+  if (Math.abs(suma - tot) > l.length) return `Las líneas suman $${suma.toLocaleString('es-CL')} y la factura es de $${tot.toLocaleString('es-CL')}`;
+  return '';
+}
+// La factura lista para importar (lo que recibe gastos-sii.js: limpiarFacturas), con lo clasificado y cómo se pagó.
+// pago: { estado: 'pagada' | 'pendiente', fechaEstado, esperaPago?, formaPago? ('tarjeta'), pagoSinBanco? { medio, fecha } }
+export function facturaClasificada(v, lineas, ITEMS, pago, auto = false) {
+  const activo = item => (ITEMS || []).find(x => x.item === item);
+  const tot = Math.abs(Math.round(v.total)), signo = v.total < 0 ? -1 : 1, porItem = {};
+  const l = (lineas || []).filter(x => x && x.item);
+  l.forEach(x => { const it = activo(x.item) || {}; const area = necesitaAreas(it) ? s(x.area) : s(it.area); (porItem[x.item] = porItem[x.item] || []).push({ area, monto: Math.round(num(x.monto)) * signo }); });
+  // los redondeos (±$1 por línea) se absorben en la última área
+  const suma = Object.values(porItem).flat().reduce((a, x) => a + x.monto, 0), dif = Math.round(v.total) - suma;
+  const ult = Object.values(porItem).flat().pop(); if (ult && dif && Math.abs(dif) <= l.length) ult.monto += dif;
+  const items = Object.keys(porItem);
+  const unico = items.length === 1 ? { item: items[0], area: porItem[items[0]].length === 1 ? porItem[items[0]][0].area : '' } : null;
+  return {
+    rut: v.rut, razonSocial: v.razonSocial, folio: v.folio, tipoDoc: v.tipoDoc || (v.total < 0 ? '61' : '33'), fechaDocto: dma(v.fecha), total: v.total, neto: v.neto, iva: v.iva, esHarina: !!v.esHarina,
+    estado: pago.estado, fechaEstado: pago.fechaEstado, ...(pago.esperaPago ? { esperaPago: true } : {}), ...(pago.formaPago === 'tarjeta' ? { formaPago: 'tarjeta' } : {}), ...(pago.pagoSinBanco ? { pagoSinBanco: pago.pagoSinBanco } : {}), ...(auto ? { auto: true } : {}),
+    lineas: items.map(item => { const it = activo(item) || {}; return { item, categoria: it.categoria || '', tipo: it.tipo || '', subTipo: it.subTipo || '', areas: porItem[item] }; }),
+    detalle: v.detalle.map(d => ({ ...d, monto: Math.round(num(d.monto)) * signo, item: d.item || (unico ? unico.item : ''), area: d.area || (unico ? unico.area : '') }))
+  };
+}
+
+// ── Conciliación: documentos por clasificar que calzan EXACTO con un cargo ──
+// c: cargo (monto, fecha, rut, proveedor). Seguro = mismo RUT (glosa, transferencia enviada o ficha del proveedor).
+// Con el mismo proveedor (seguro) y el cargo menor que la factura, también como abono (pago parcial).
+export function candidatosCargo(c, pendientes) {
+  const rutC = rutNorm(c.rut || (c.proveedor && c.proveedor.rut) || ''), out = [];
+  (pendientes || []).forEach(v => {
+    if (v.esNC || !(v.total > 0)) return;
+    const dd = diasEntre(v.fecha, c.fecha);
+    if (!(dd >= VENTANA_CARGO[0] && dd <= VENTANA_CARGO[1])) return;
+    const seguro = !!rutC && rutNorm(v.rut) === rutC;
+    if (Math.abs(Math.round(v.total) - Math.round(c.monto)) <= 1) out.push({ v, dias: dd, seguro, parcial: false });
+    else if (seguro && c.monto > 0 && c.monto < v.total) out.push({ v, dias: dd, seguro, parcial: true });
+  });
+  return out.sort((a, b) => (a.parcial - b.parcial) || (b.seguro - a.seguro) || Math.abs(a.dias) - Math.abs(b.dias));
+}
+
+// ── Pagos sin banco ──  (v0.66.0: lo prioritario es pagar por banco; esto es para las excepciones)
+// Entra una factura del SII (clasificada o no) sin pago del banco unido:
+//  · al contado (o sin plazo): desde N días después de la fecha de la factura (N = 10 si no se cambia);
+//  · a crédito (el XML trae un vencimiento después de la factura, o dice crédito: 30 días): solo cuando ya pasó su vencimiento.
+//    La clasificada a crédito tiene su vencimiento en Gastos → Vencimientos (se paga ahí o con la cartola): no entra aquí.
+// pendientes: vistas (por clasificar); gastos: [{ id, d }] (los que esperan su pago: esperaPago); pagos: sii_pagos (ya marcados)
+// → [{ docId, rut, folio, razonSocial, fecha, total, porClasificar, credito, fechaVenc, dias, gastos }] (lo más antiguo primero)
+export const vencimientoDe = v => (v && v.credito ? (v.fechaVenc && v.fechaVenc > v.fecha ? v.fechaVenc : sumarDias(v.fecha, 30)) : '');
+export function entraSinBanco(v, hoy, dias = DIAS_SIN_PAGO) {
+  if (!v || !dia(v.fecha) || !dia(hoy)) return false;
+  if (v.credito) return diasEntre(vencimientoDe(v), hoy) > 0;   // crédito: todavía no vence → no entra
+  return diasEntre(v.fecha, hoy) >= dias;
+}
+export function pagosSinBanco({ pendientes = [], gastos = [], pagos = [], hoy, dias = DIAS_SIN_PAGO } = {}) {
+  const ya = new Set((pagos || []).map(p => s(p.docId))), out = [];
+  pendientes.forEach(v => {
+    if (v.esNC || !(v.total > 0) || ya.has(v.id) || !entraSinBanco(v, hoy, dias)) return;
+    out.push({ docId: v.id, rut: v.rut, folio: v.folio, razonSocial: v.razonSocial, fecha: v.fecha, total: v.total, porClasificar: true, contado: v.contado, credito: v.credito,
+      fechaVenc: v.credito ? vencimientoDe(v) : v.fechaVenc, dias: diasEntre(v.fecha, hoy), gastos: [], v });
+  });
+  const porDoc = {};
+  (gastos || []).forEach(({ id, d }) => {
+    if (!d || d.estado !== 'vigente' || d.quitadoEnPlanilla || d.esperaPago !== true || s(d.cartolaCargo) || s(d.fechaPago)) return;
+    const k = s(d.siiDoc && d.siiDoc.id) || ('f:' + rutNorm(d.rutProveedor) + '|' + s(d.folio));
+    const x = porDoc[k] || (porDoc[k] = { docId: k, rut: t(d.rutProveedor), folio: s(d.folio), razonSocial: t(d.razonSocial), fecha: dia(d.fecha), total: 0, porClasificar: false, automatico: false, gastos: [], items: [] });
+    x.total += num(d.montoFinal); x.gastos.push(id);
+    if (d.clasificacionAutomatica === true) x.automatico = true;
+    if (d.itemGasto && !x.items.includes(s(d.itemGasto))) x.items.push(s(d.itemGasto));
+  });
+  Object.values(porDoc).forEach(x => {
+    if (ya.has(x.docId) || !entraSinBanco(x, hoy, dias)) return;
+    out.push({ ...x, total: Math.round(x.total), dias: diasEntre(x.fecha, hoy) });
+  });
+  return out.sort((a, b) => s(a.fecha).localeCompare(s(b.fecha)) || s(a.folio).localeCompare(s(b.folio)));
+}
+// De dónde salió el efectivo: por defecto, de lo cobrado en efectivo a clientes B2B (nunca pasa por el banco)
+export const ORIGEN_B2B = 'cobros_b2b';
+export const ORIGENES_EFECTIVO = [[ORIGEN_B2B, 'Efectivo de cobros B2B'], ['otro', 'Otro']];
+// '' si está bien; si no, qué falta. → { origen, origenTexto } limpio en o.limpio
+export function revisarOrigen(o) {
+  const tipo = s(o && o.origen) || ORIGEN_B2B, tx = t(o && o.origenTexto).slice(0, 120);
+  if (!ORIGENES_EFECTIVO.some(([k]) => k === tipo)) return { error: 'Elige de dónde salió el efectivo' };
+  if (tipo === 'otro' && tx.length < 3) return { error: 'Escribe de dónde salió el efectivo' };
+  return { error: '', limpio: { origen: tipo, ...(tipo === 'otro' ? { origenTexto: tx } : {}) } };
+}
+export const textoOrigen = p => (s(p && p.origen) === 'otro' ? `Otro: ${t(p.origenTexto)}` : 'Efectivo de cobros B2B');
+
+// ── Revisar automáticas: los gastos que se clasificaron solos al subir y todavía no revisas ──
+// gastos: [{ id, d }] → [{ docId, rut, folio, razonSocial, fecha, total, gastos: [{ id, item, area, monto, version, d }] }]
+export function automaticasDe(gastos) {
+  const porDoc = {};
+  (gastos || []).forEach(({ id, d }) => {
+    if (!d || d.clasificacionAutomatica !== true || d.autoRevisada === true || d.estado !== 'vigente' || d.quitadoEnPlanilla) return;
+    const k = s(d.siiDoc && d.siiDoc.id) || ('f:' + rutNorm(d.rutProveedor) + '|' + s(d.folio));
+    const x = porDoc[k] || (porDoc[k] = { docId: k, rut: t(d.rutProveedor), folio: s(d.folio) || s((d.siiDoc || {}).folio), razonSocial: t(d.razonSocial), fecha: dia(d.fecha), total: 0, gastos: [] });
+    x.total += num(d.montoFinal);
+    x.gastos.push({ id, item: s(d.itemGasto), area: s(d.area), monto: Math.round(num(d.montoFinal)), version: Number(d.version) || 0, d });
+  });
+  return Object.values(porDoc).map(x => ({ ...x, total: Math.round(x.total) })).sort((a, b) => s(b.fecha).localeCompare(s(a.fecha)) || s(a.folio).localeCompare(s(b.folio)));
+}
+// Meses (aaaa-mm) presentes en una lista de documentos, del más nuevo al más antiguo
+export const mesesDe = l => [...new Set((l || []).map(x => s(x.fecha).slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))].sort().reverse();
+
+// ── Efectivo disponible ──
+const esEfectivo = m => /^\s*efectivo/i.test(s(m));
+const mesDe = f => dia(f).slice(0, 7);
+// Lo cobrado en efectivo a clientes B2B en el mes: abonos con medio "Efectivo" y folios pagados en efectivo (el total del
+// folio menos sus abonos). ordenes: [{ folio, total, totalFactura, estadoPago, fechaPago, medioPago, cliente }]; abonos: [{ folio, fecha, monto, referencia }]
+export function efectivoB2b(ordenes, abonos, mes) {
+  const detalle = [];
+  (abonos || []).forEach(a => { if (!a || a.quitadoEnPlanilla || !esEfectivo(a.referencia) || mesDe(a.fecha) !== mes) return; detalle.push({ tipo: 'abono', folio: s(a.folio), fecha: dia(a.fecha), monto: Math.round(num(a.monto)) }); });
+  const folios = {};
+  (ordenes || []).forEach(o => { if (!o || !o.folio || o.estado === 'anulada' || o.quitadoEnPlanilla) return; (folios[s(o.folio)] = folios[s(o.folio)] || []).push(o); });
+  Object.entries(folios).forEach(([f, os]) => {
+    const pag = os.find(o => /PAGADO/.test(s(o.estadoPago)) && esEfectivo(o.medioPago) && mesDe(o.fechaPago) === mes);
+    if (!pag) return;
+    const tf = os.map(o => num(o.totalFactura)).find(x => x > 0), total = tf || os.reduce((a, o) => a + num(o.total), 0);
+    const abonado = (abonos || []).filter(a => a && !a.quitadoEnPlanilla && s(a.folio) === f).reduce((a, x) => a + num(x.monto), 0);
+    const monto = Math.max(0, Math.round(total - abonado));
+    if (monto) detalle.push({ tipo: 'folio', folio: f, fecha: dia(pag.fechaPago), monto, cliente: s(pag.cliente) });
+  });
+  detalle.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  return { total: detalle.reduce((a, x) => a + x.monto, 0), detalle };
+}
+// pagos: sii_pagos del mes (medio efectivo, origen cobros B2B; lo de "Otro" no descuenta) → saldo estimado
+export function balanceEfectivo(cobrado, pagos, mes) {
+  const l = (pagos || []).filter(p => p && p.medio === 'efectivo' && s(p.origen || ORIGEN_B2B) === ORIGEN_B2B && mesDe(p.fecha) === mes && !p.quitado);
+  const pagado = l.reduce((a, p) => a + num(p.monto), 0), c = num(cobrado && cobrado.total !== undefined ? cobrado.total : cobrado);
+  return { cobrado: c, pagado, saldo: c - pagado, negativo: c - pagado < 0, pagos: l };
+}
+// Meses para el selector: el actual y los 5 anteriores
+export function mesesEfectivo(hoy, n = 6) { const out = []; let m = dia(hoy).slice(0, 7); for (let i = 0; i < n; i++) { out.push(m); const [y, mm] = m.split('-').map(Number); m = mm === 1 ? `${y - 1}-12` : `${y}-${String(mm - 1).padStart(2, '0')}`; } return out; }
+
+// ── Cierre de mes y estado de resultados: documentos por clasificar de un mes (por la fecha de la factura) ──
+export function pendientesDelMes(pendientes, mes) {
+  const l = (pendientes || []).filter(v => s(v.fecha).slice(0, 7) === mes);
+  return { n: l.length, monto: l.reduce((a, v) => a + Math.round(v.total), 0), docs: l };
+}
+// Hoy: cuántos por clasificar y cuántas facturas sin pago registrado (más de N días)
+export function conteosHoy(pendientes, sinPago) {
+  return { porClasificar: (pendientes || []).filter(v => !v.esNC).length, sinPago: (sinPago || []).length, montoSinPago: (sinPago || []).reduce((a, x) => a + num(x.total), 0) };
+}
+export const fmt = m => '$' + Math.round(num(m)).toLocaleString('es-CL');
+export const textoDoc = x => `${x.razonSocial || 'Proveedor'} F.${x.folio}`;

@@ -19,17 +19,18 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.65.3';
-import * as M from './gastos-g2.js?v=0.65.3';
-import * as G3 from './gastos-g3.js?v=0.65.3';
-import * as G3D from './gastos-g3d.js?v=0.65.3';
-import * as C from './gastos-cartola.js?v=0.65.3';
-import * as B from './gastos-banco.js?v=0.65.3';
-import { huella } from './gastos-modelo.js?v=0.65.3';
-import * as FS from './gastos-fs.js?v=0.65.3';
-import * as GB from './gastos-base.js?v=0.65.3';
-import * as TE from './tef-enviadas.js?v=0.65.3';
-import * as P from './proveedores.js?v=0.65.3';
+import * as FB from './fs-gastos.js?v=0.66.0';
+import * as M from './gastos-g2.js?v=0.66.0';
+import * as G3 from './gastos-g3.js?v=0.66.0';
+import * as G3D from './gastos-g3d.js?v=0.66.0';
+import * as C from './gastos-cartola.js?v=0.66.0';
+import * as B from './gastos-banco.js?v=0.66.0';
+import { huella } from './gastos-modelo.js?v=0.66.0';
+import * as FS from './gastos-fs.js?v=0.66.0';
+import * as GB from './gastos-base.js?v=0.66.0';
+import * as TE from './tef-enviadas.js?v=0.66.0';
+import * as P from './proveedores.js?v=0.66.0';
+import * as SP from './sii-pendientes.js?v=0.66.0';   // v0.66.0: documentos del SII por clasificar
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -79,7 +80,9 @@ export async function lista(diasP) {
     .map(c => ({ id: c.id, fecha: c.fecha, monto: c.monto, descripcion: c.descripcion, items: [...new Set(porCargo[c.id].map(g => s(g.itemGasto)))] }));
   // v0.65.1 · Planillas de Previred ya registradas (meses cargados) con sus pagos del banco unidos
   const planillas = armarPlanillas(dPl, ab, cg);
-  return { ok: true, fuente: 'base', planillas, cargos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
+  // v0.66.0 · Documentos del SII por clasificar (de la memoria): un cargo del mismo monto los ofrece "Por clasificar"
+  const siiPendientes = SP.pendientesDe(await todos('sii_docs').catch(() => []));
+  return { ok: true, fuente: 'base', planillas, siiPendientes, cargos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
     vencimientos: ab.lista, gastos: B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon)))), sinFactura, siiSinImportar: {}, dias,
     abonoDest: dAb.destinatarios, trabajadores: dAb.trabajadores,   // v0.63.1: para "Área de este abono"
     enviadas: { n: enviadas.length, hasta: enviadas.map(x => x.fecha).sort().pop() || '', subidas: [...new Set(enviadas.map(x => x.subida.slice(0, 10)))].sort().slice(-3) } };
@@ -334,6 +337,8 @@ async function resolverGasto(d, ref, c0, filas, marca, tr) {
       if (a.esperaCargo === true) { campos.esperaCargo = false; esperaban.push(refs[i].id); }
       // Una factura a crédito (sin vencimiento por pagar) que se paga con este cargo: queda con su fecha de pago
       if (['proveedor', 'tarjeta'].includes(s(a.formaPago)) && !s(a.fechaPago)) { campos.fechaPago = c0.fecha; conFecha.push(refs[i].id); }
+      // v0.66.0 · Factura del SII clasificada sola (o al conciliar) que esperaba su pago: la fecha de pago es la del banco
+      else if (a.esperaPago === true) { campos.fechaPago = c0.fecha; campos.esperaPago = false; campos.medioPago = 'banco'; conFecha.push(refs[i].id); }
       tx.update(refs[i], cambio(a, 'conciliado con la cartola', campos));
     });
     snV.forEach((v, i) => {
@@ -620,7 +625,7 @@ export async function deshacer(id, motivoP) {
       if (!sg.exists()) return; const g = sg.data(); if (g.estado !== 'vigente') return;
       const forma = s(g.formaPago);
       // v0.63.1: lo que esperaba su cargo vuelve a esperarlo; la fecha de pago puesta al vincular se quita
-      if (c.accion === 'gasto') tx.update(refsG[i], cambio(g, 'sin cartola (deshecho)', { cartola: '', cartolaCargo: '', ...((det.esperaban || []).includes(refsG[i].id) ? { esperaCargo: true } : {}), ...((det.conFechaPago || []).includes(refsG[i].id) ? { fechaPago: '' } : {}) }, { motivo }));
+      if (c.accion === 'gasto') tx.update(refsG[i], cambio(g, 'sin cartola (deshecho)', { cartola: '', cartolaCargo: '', ...((det.esperaban || []).includes(refsG[i].id) ? { esperaCargo: true } : {}), ...((det.conFechaPago || []).includes(refsG[i].id) ? { fechaPago: '', ...(g.medioPago === 'banco' && g.siiDoc && s(g.formaPago) === 'contado' ? { esperaPago: true, medioPago: '' } : {}) } : {}) }, { motivo }));
       else if (forma === 'proveedor' || forma === 'tarjeta') tx.update(refsG[i], cambio(g, 'pago deshecho (cartola)', { fechaPago: '', cartola: '', cartolaCargo: '' }, { motivo }));
       else tx.update(refsG[i], cambio(g, 'anuló', { estado: 'anulado', anulado }, { motivo: anulado.motivo }));
       n++;

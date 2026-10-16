@@ -6,10 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.65.3';
-import * as FR from './finanzas-resultados.js?v=0.65.3';
-import * as FE from './finanzas-eerr.js?v=0.65.3';
-import * as FC from './finanzas-costos.js?v=0.65.3';
+import * as F from './finanzas.js?v=0.66.0';
+import * as FR from './finanzas-resultados.js?v=0.66.0';
+import * as FE from './finanzas-eerr.js?v=0.66.0';
+import * as FC from './finanzas-costos.js?v=0.66.0';
+import * as SP from './sii-pendientes.js?v=0.66.0';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
 const $ = id => document.getElementById(id);
@@ -31,12 +32,13 @@ const mesHoy = () => hoyTxt().slice(0, 7);
 const mesDefecto = () => FE.mesMas(mesHoy(), -1) >= `${FR.ANIO}-01` ? FE.mesMas(mesHoy(), -1) : mesHoy();
 const cerrado = m => !!(ES.cierres && ES.cierres[m] && ES.cierres[m].estado === 'cerrado');
 const mensajes = H => `<p class="ok-texto" id="e-msg" role="status">${H.esc(ES.msg)}</p><p class="error" id="e-err" role="alert">${H.esc(ES.err)}</p>`;
-export function olvidar() { ES.cierres = null; ES.cartola = null; ES.sii = null; ES.vivo = {}; ES.checks = {}; ES.conteos = {}; ES.msg = ''; ES.err = ''; F.olvidarMeses(); }
+export function olvidar() { ES.cierres = null; ES.cartola = null; ES.sii = null; ES.siiPend = null; ES.vivo = {}; ES.checks = {}; ES.conteos = {}; ES.msg = ''; ES.err = ''; F.olvidarMeses(); }
 
 // ── Datos comunes (una vez por entrada a Resultados) ──
 async function base() {
   if (!ES.cierres) { const x = await F.leerCierres(); ES.cierres = x.cierres; ES.claves = x.claves || {}; }
   if (!ES.cartola) ES.cartola = await F.cargosCartola();
+  if (!ES.siiPend) { try { ES.siiPend = await F.siiPorClasificar(); } catch (e) { ES.siiPend = null; } }
 }
 // Estado de resultados calculado hoy (sin el snapshot) de un mes
 async function vivo(R, mes) {
@@ -46,6 +48,9 @@ async function vivo(R, mes) {
   const e = FE.armarEERR({ mes, margen: dm.margen, merma: dm.merma, gastos: D.gastos, fin: D.fin, mapa, creditosMes: FE.creditosDelMes(D.creditos, D.vencimientos, D.gastos, mes),
     invs: FR.inversiones(D.gastos, D.fin, D.invGuardadas, mapa), pagosTarjeta: ES.cartola.pagosTarjeta });
   e.ventasInfo = dm.ventasInfo;
+  // v0.66.0 · Documentos del SII de ese mes por clasificar: su gasto todavía no existe (no están en este estado de resultados)
+  const sp = ES.siiPend ? SP.pendientesDelMes(ES.siiPend, mes) : null;
+  if (sp && sp.n) e.avisos = (e.avisos || []).concat([{ k: 'sii_por_clasificar', texto: `${sp.n} ${sp.n === 1 ? 'documento del SII' : 'documentos del SII'} de ${FE.mesTxt(mes)} sin clasificar (${SP.fmt(sp.monto)}): su gasto todavía no existe y no está en este estado de resultados. Clasifícalos al conciliar la cartola o en Conciliación → Cargas del SII.` }]);
   ES.vivo[mes] = e;
   return e;
 }
@@ -288,7 +293,8 @@ const TXT_CIERRE = 'Lo acordado (Cómo trabajamos): del día 5 al 8 del mes sigu
 async function datosCierre(R, mes) {
   const [e, dm, conteos, sii] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes), ES.sii ? Promise.resolve(ES.sii) : F.cargasSii()]);
   ES.conteos[mes] = conteos; ES.sii = sii;
-  const checks = FE.checksCierre({ mes, cargasSii: sii, ventas: dm.ventasInfo, cargosPorRevisar: ES.cartola.porRevisar.filter(c => FE.mesDe(c.fecha) === mes), conteos, sinClasificar: e.info.sinClasificar });
+  const checks = FE.checksCierre({ mes, cargasSii: sii, ventas: dm.ventasInfo, cargosPorRevisar: ES.cartola.porRevisar.filter(c => FE.mesDe(c.fecha) === mes), conteos, sinClasificar: e.info.sinClasificar,
+    ...(ES.siiPend ? { siiPendientes: SP.pendientesDelMes(ES.siiPend, mes) } : {}) });
   return { e, checks };
 }
 export async function pintarCierre(el, H, ctx, R) {
