@@ -9,44 +9,45 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.67.6';
-import * as Caja from './caja.js?v=0.67.6';
-import * as Stock from './stock.js?v=0.67.6';
-import * as Ajustes from './ajustes.js?v=0.67.6';
-import * as Apps from './apps.js?v=0.67.6';
-import * as Agenda from './agenda.js?v=0.67.6';
-import * as Gastos from './gastos.js?v=0.67.6';
-import * as G3 from './gastos-g3.js?v=0.67.6';
-import * as G3D from './gastos-g3d.js?v=0.67.6';
-import * as GBanco from './gastos-banco.js?v=0.67.6';
-import * as TE from './tef-enviadas.js?v=0.67.6';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.67.6';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.67.6';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.67.6';
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.6';
-import * as Sii from './sii.js?v=0.67.6';
-import * as GSii from './gastos-sii.js?v=0.67.6';
-import * as SP from './sii-pendientes.js?v=0.67.6';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.67.6');
-import * as Previred from './previred.js?v=0.67.6';
-import * as B2b from './b2b.js?v=0.67.6';
-import * as Cartola from './cartola.js?v=0.67.6';
-import * as SiiFactura from './sii-factura.js?v=0.67.6';
-import * as PdfOrden from './pdf-orden.js?v=0.67.6';
-import * as Prod from './produccion.js?v=0.67.6';
-import * as Mem from './fs-memoria.js?v=0.67.6';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.67.6';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.67.7';
+import * as Caja from './caja.js?v=0.67.7';
+import * as Stock from './stock.js?v=0.67.7';
+import * as Ajustes from './ajustes.js?v=0.67.7';
+import * as Apps from './apps.js?v=0.67.7';
+import * as Agenda from './agenda.js?v=0.67.7';
+import * as Gastos from './gastos.js?v=0.67.7';
+import * as G3 from './gastos-g3.js?v=0.67.7';
+import * as G3D from './gastos-g3d.js?v=0.67.7';
+import * as GBanco from './gastos-banco.js?v=0.67.7';
+import * as TE from './tef-enviadas.js?v=0.67.7';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.67.7';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.67.7';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.67.7';
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.7';
+import * as Sii from './sii.js?v=0.67.7';
+import * as GSii from './gastos-sii.js?v=0.67.7';
+import * as SP from './sii-pendientes.js?v=0.67.7';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.67.7');
+import * as Previred from './previred.js?v=0.67.7';
+import * as B2b from './b2b.js?v=0.67.7';
+import * as Cartola from './cartola.js?v=0.67.7';
+import * as RD from './registro-detalle.js?v=0.67.7';   // v0.67.7: "Ver el registro" (B2B y Gastos)
+import * as SiiFactura from './sii-factura.js?v=0.67.7';
+import * as PdfOrden from './pdf-orden.js?v=0.67.7';
+import * as Prod from './produccion.js?v=0.67.7';
+import * as Mem from './fs-memoria.js?v=0.67.7';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.67.7';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.0';
-import * as VistaProd from './vista-produccion.js?v=0.67.6';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.6';
+import * as VistaProd from './vista-produccion.js?v=0.67.7';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.7';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.6');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.7');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.6');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.7');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.6')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.7')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -353,7 +354,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.6" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.7" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -621,14 +622,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.67.6').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.67.7').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.67.6').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.67.7').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -1017,9 +1018,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.67.6').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.67.7').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.6').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.7').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -2613,7 +2614,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.67.6')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.67.7')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -2868,7 +2869,7 @@ function editorCargo(c, p, dg) {
     const enProp = new Set(((c.repetidoProp && c.repetidoProp.candidatos) || []).map(x => x.id));
     const parecido = (D.cargos || []).find(x => x.id !== c.id && x.fecha === c.fecha && x.monto === c.monto && x.estado !== 'IGNORADO' && x.estado !== 'REPETIDO' && !enProp.has(x.id));
     const sinSii = D.fuente === 'base' ? mesSinSii(c.fecha) : '';
-    cuerpo = `${sinSii ? `<p class="aviso-cc cc-sin-sii">${esc(sinSii)} ${info('Factura que llega después', TXT_ESPERA_FACTURA)}</p>` : ''}${parecido ? `<p class="aviso-cc">Ojo: hay otro cargo del mismo día y monto (${esc(parecido.descripcion)}, ${esc(cuentaCc(parecido))}${parecido.estado === 'POR_REVISAR' ? ', por revisar' : ', ya revisado'}). Si es el mismo movimiento en otra cartola, márcalo "No es gasto".</p>` : ''}<div class="grilla-montos"><div class="campo"><label for="cc-item-${esc(c.id)}">Ítem</label><select id="cc-item-${esc(c.id)}" data-cc-nuevo="item" data-cc="${esc(c.id)}"><option value="">Elige un ítem</option>${items.map(i => `<option ${i.item === n.item ? 'selected' : ''}>${esc(i.item)}</option>`).join('')}</select></div>
+    cuerpo = `${sinSii ? `<p class="aviso-cc cc-sin-sii">${esc(sinSii)} ${info('Factura que llega después', TXT_ESPERA_FACTURA)}</p>` : ''}${parecido ? `<div class="aviso-cc cc-ojo"><p>Ojo: hay otro cargo del mismo día y monto (${esc(parecido.descripcion)}, ${esc(cuentaCc(parecido))}${parecido.estado === 'POR_REVISAR' ? ', por revisar' : ', ya revisado'}). Si es el mismo movimiento en otra cartola, márcalo "No es gasto".</p>${regCargoHtml(parecido)}</div>` : ''}<div class="grilla-montos"><div class="campo"><label for="cc-item-${esc(c.id)}">Ítem</label><select id="cc-item-${esc(c.id)}" data-cc-nuevo="item" data-cc="${esc(c.id)}"><option value="">Elige un ítem</option>${items.map(i => `<option ${i.item === n.item ? 'selected' : ''}>${esc(i.item)}</option>`).join('')}</select></div>
       ${it ? (it.area === 'SELECCIONAR' ? `<div class="campo"><span class="etiqueta">Área</span>${selA('area', n.area)}</div>` : it.area === 'PRORRATEADO' ? `<div class="campo"><span class="etiqueta">Reparto (%)</span><div class="prorrateo">${[1, 2, 3].map(k => `<div class="fila-area">${selA('a' + k, pr['area' + k])}<input type="number" min="0" max="100" data-cc-nuevo="p${k}" data-cc="${esc(c.id)}" value="${esc(pr['pct' + k] || '')}" placeholder="%" aria-label="Porcentaje ${k}"></div>`).join('')}</div></div>` : `<div class="campo"><span class="etiqueta">Área</span><span>${esc(it.area)}</span></div>`) : ''}</div>
       <label class="check-linea"><input type="checkbox" data-cc-nuevo="sinFactura" data-cc="${esc(c.id)}" ${n.sinFactura ? 'checked' : ''}> No lleva factura (sin IVA crédito: intereses, comisiones, impuestos…) ${info('Sin factura', 'Marcado: el monto queda sin IVA y no se avisa "pagado sin factura".\nSin marcar: el monto incluye IVA y, mientras no llegue su factura en una carga del SII (se vincula sola en Cargas del SII, por el monto), aparece en Avisos como "pagado sin factura": podría ser IVA crédito que se pierde.')}</label>
       <div class="campo"><label for="cc-obs-${esc(c.id)}">Observación</label><input id="cc-obs-${esc(c.id)}" data-cc-nuevo="obs" data-cc="${esc(c.id)}" maxlength="200" value="${esc(n.obs)}" placeholder="${esc('Cartola: ' + c.descripcion)}"></div>
@@ -3559,22 +3560,44 @@ const fuenteTxt = f => (f ? CB.textoFuente(f).replace(/^Cartola/, 'cartola') : '
 const origRepTxt = o => `${pesos(o.monto)} · ${o.descripcion} del ${diaTexto(o.fecha)} (${fuenteTxt(o.fuente)})`;
 const estadoRepTxt = o => (o.estado === 'POR_REVISAR' ? 'por revisar' : `ya revisado: ${resumenHecho(o)}`);
 // En la fila del cargo: la propuesta (el primer posible) con su botón
+// v0.67.7: y "Ver el registro" (abre el cargo con el detalle del otro movimiento, sin salir de la pantalla)
 function filaRepetidoHtml(c) {
   const rp = c.repetidoProp; if (!rp || !rp.candidatos.length) return '';
   const o = rp.candidatos[0], n = rp.candidatos.length;
   return `<span class="cc-rep-prop" data-cc-repprop="${esc(c.id)}">${icono('copias', 14)}<span>Parece el mismo movimiento que <b>${esc(origRepTxt(o))}</b> (${esc(estadoRepTxt(o))}).${o.fuerte ? '' : ' Solo coinciden la fecha (±1 día) y el monto: mira la glosa.'}${n > 1 ? ` Hay ${n} posibles: ábrelo para elegir.` : ''} ${info('Repetido de otra cartola', TXT_REPETIDO)}</span>
-    ${n === 1 ? `<button type="button" class="btn btn-chico" data-cc-rep="${esc(c.id)}" data-orig="${esc(o.id)}" ${cart.ocupado ? 'disabled' : ''}>Marcar como repetido</button>` : ''}</span>`;
+    <span class="cc-rep-botones">${n === 1 ? `<button type="button" class="btn btn-chico" data-cc-rep="${esc(c.id)}" data-orig="${esc(o.id)}" ${cart.ocupado ? 'disabled' : ''}>Marcar como repetido</button>` : ''}<button type="button" class="btn-link btn-chico" data-reg-abrir="cc:${esc(o.id)}" data-reg-fila="${esc(c.id)}">${icono('lupa', 14)} Ver el registro</button></span></span>`;
 }
-// Arriba del detalle: si hay más de un posible, cada uno con su botón
+// Arriba del detalle: cada posible con su botón y su registro (v0.67.7: también si hay uno solo)
 function propRepetidoHtml(c) {
-  const rp = c.repetidoProp; if (!rp || rp.candidatos.length < 2) return '';
-  return `<div class="cc-rep-lista"><p class="ayuda">¿Es el mismo movimiento que alguno de estos de otra cartola? Elige cuál, o revísalo normal más abajo si es otro pago.</p>
-    ${rp.candidatos.map(o => `<div class="fila-caja"><div class="txt"><b>${esc(origRepTxt(o))}</b><span>${esc(estadoRepTxt(o))} · ${esc(CB.textoCriterio(o.por))}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico" data-cc-rep="${esc(c.id)}" data-orig="${esc(o.id)}" ${cart.ocupado ? 'disabled' : ''}>Marcar como repetido</button></div></div>`).join('')}</div>`;
+  const rp = c.repetidoProp; if (!rp || !rp.candidatos.length) return '';
+  const uno = rp.candidatos.length === 1;
+  return `<div class="cc-rep-lista"><p class="ayuda">${uno ? 'El otro movimiento, tal como quedó registrado:' : '¿Es el mismo movimiento que alguno de estos de otra cartola? Elige cuál, o revísalo normal más abajo si es otro pago.'}</p>
+    ${rp.candidatos.map(o => `<div class="cc-rep-cand"><div class="fila-caja"><div class="txt"><b>${esc(origRepTxt(o))}</b><span>${esc(estadoRepTxt(o))} · ${esc(CB.textoCriterio(o.por))}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico" data-cc-rep="${esc(c.id)}" data-orig="${esc(o.id)}" ${cart.ocupado ? 'disabled' : ''}>Marcar como repetido</button></div></div>${regCargoHtml(ccPorId(o.id) || o)}</div>`).join('')}</div>`;
 }
+// ═══ v0.67.7 · "Ver el registro" (registro-detalle.js): lo mismo en Gastos y en B2B, de lo que ya está en la memoria ═══
+const regAbiertos = new Set();   // los bloques abiertos (se mantienen al repintar)
+const TXT_REGISTRO = 'El otro movimiento tal como quedó registrado: de qué cartola vino, cuándo se subió y quién lo subió, y cómo se resolvió (qué se pagó, con qué factura o gasto, y quién y cuándo lo resolvió).\nSale de lo que la pantalla ya tiene leído: abrirlo no gasta lecturas.';
+const ccPorId = id => { const D = cart.d || {}; return (D.todosCargos || D.cargos || []).find(x => x.id === id || x.docId === id) || null; };
+const fuentesCcTxt = c => { const l = CB.fuentesCargo(c).map(CB.textoFuente); return l.length ? l.join(' · ') : c.nCartola ? 'Cartola N°' + c.nCartola : c.cartola || '—'; };
+function regCargoHtml(c) {
+  if (!c) return '';
+  const D = cart.d || {}, reg = RD.registroCargo(c, { cuentaTxt: cuentaCc, fuentesTxt: fuentesCcTxt, gastos: (D.ligados || {})[c.id] || (D.ligados || {})[c.docId] || [], nombreCriterio: CB.textoCriterio });
+  return RD.htmlRegistro(reg, { abierto: regAbiertos.has(reg.clave), icono: icono('lupa', 14), info: info('Ver el registro', TXT_REGISTRO) });
+}
+// Lo que guardó un repetido de su original, si el original ya no está en la memoria (más antiguo que los días de la lista)
+const originalDeRepetido = c => ccPorId(c.repetidoDe) || (c.detalle && c.detalle.original ? { id: c.repetidoDe, monto: c.monto, cuenta: c.cuenta, cuentaN: c.cuentaN, ...c.detalle.original, fuentes: c.detalle.original.fuente ? [c.detalle.original.fuente] : [], detalle: null, operacion: '' } : null);
+// Abrir y cerrar el bloque (un solo oyente para toda la app; también dentro de los diálogos). Queda recordado al repintar.
+if (typeof document !== 'undefined') document.addEventListener('click', ev => {
+  const b = ev.target && ev.target.closest && ev.target.closest('[data-reg-btn]'); if (!b) return;
+  ev.preventDefault(); ev.stopPropagation();
+  const box = b.closest('.reg-det'), cu = box && box.querySelector('.reg-cuerpo'); if (!cu) return;
+  const abrir = cu.hidden; cu.hidden = !abrir; box.classList.toggle('abierto', abrir); b.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+  if (abrir) regAbiertos.add(box.dataset.reg); else regAbiertos.delete(box.dataset.reg);
+}, true);
 function histCcHtml(hechos, base) {
   return `<details class="tarjeta plegable" data-plegar="cc-hist" ${plegadas()['cc-hist'] === false ? 'open' : ''}><summary class="titulo-fila"><h2>Ya revisados</h2><span>últimos ${cart.dias} días · ${hechos.length}</span></summary>
     <div class="buscar-b2b"><input type="search" data-cc-hbuscar value="${esc(cart.histBuscar)}" placeholder="Buscar por descripción, monto, gasto o nota" aria-label="Buscar en ya revisados"></div>
-    ${hechos.length ? hechos.map(c => `<div class="fila-hist fila-caja${c.nota ? ' cc-con-nota' : ''}" data-txt="${esc(normCc([c.descripcion, c.monto, resumenHecho(c), c.fecha, c.nota ? c.nota.texto : '', c.estado === 'REPETIDO' ? CB.textoRepetido(c.detalle) : ''].join(' ')))}"><div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))} · ${esc(resumenHecho(c))}</span><span class="nota">${esc(c.resueltoEl)} · ${esc(c.resueltoPor)}</span>${notaCcHtml(c)}</div>
+    ${hechos.length ? hechos.map(c => `<div class="fila-hist fila-caja${c.nota ? ' cc-con-nota' : ''}" data-txt="${esc(normCc([c.descripcion, c.monto, resumenHecho(c), c.fecha, c.nota ? c.nota.texto : '', c.estado === 'REPETIDO' ? CB.textoRepetido(c.detalle) : ''].join(' ')))}"><div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))} · ${esc(resumenHecho(c))}</span><span class="nota">${esc(c.resueltoEl)} · ${esc(c.resueltoPor)}</span>${notaCcHtml(c)}${c.estado === 'REPETIDO' ? regCargoHtml(originalDeRepetido(c)) : ''}</div>
       <div class="acciones">${base ? botonNotaCc(c) : ''}${c.estado === 'REPETIDO' ? `<span class="chip chip-chico c-gris cc-rep-chip">${icono('copias', 12)} ${esc(CB.textoRepetido(c.detalle))}</span>` : `<span class="chip chip-chico ${c.estado === 'IGNORADO' || c.accion === 'pago_tarjeta' || c.accion === 'traspaso' ? 'c-gris' : c.estado === 'A_MEDIAS' ? 'c-rojo' : 'c-verde'}">${c.estado === 'IGNORADO' ? 'No es gasto' : c.estado === 'A_MEDIAS' ? 'A medias: deshacer' : c.accion === 'pago_tarjeta' ? 'Pago de tarjeta' : c.accion === 'traspaso' ? 'Traspaso' : 'Conciliado'}</span>`}<button type="button" class="btn-sec btn-chico" data-cc-deshacer="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Deshacer</button></div></div>`).join('') : '<div class="vacio" style="border:0">Nada todavía.</div>'}
     <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-link" id="cc-hist-mas">Ver más antiguos</button></div></details>`;
 }
@@ -3630,6 +3653,12 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
     const c = cargo(b.dataset.ccAuto), pd = pedidoDeProp(c, props[c.id], dg.items || []);
     if (!pd) { cart.abierto = c.id; cart.modo[c.id] = props[c.id].tipo; repintar(); return; }
     ocupado(c.id, async () => { await enviar(c, pd); cart.msg = `Listo: ${pesos(c.monto)} · ${esc(c.descripcion)}.`; });
+  }));
+  // v0.67.7 · "Ver el registro" desde la fila: abre el cargo con el detalle del otro movimiento
+  el.querySelectorAll('[data-reg-abrir][data-reg-fila]').forEach(b => b.addEventListener('click', ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    regAbiertos.add(b.dataset.regAbrir); cart.abierto = b.dataset.regFila; repintar();
+    const x = el.querySelector(`.reg-det[data-reg="${CSS.escape(b.dataset.regAbrir)}"]`); if (x) x.scrollIntoView({ block: 'nearest' });
   }));
   // v0.67.6 · "Marcar como repetido": el mismo movimiento que ya llegó en otra cartola (no crea nada; se deshace en Ya revisados)
   el.querySelectorAll('[data-cc-rep]').forEach(b => b.addEventListener('click', ev => {
@@ -5950,7 +5979,7 @@ function pintarB2bCuenta(el, sub) {
 
 // ── v0.14 · Conciliación bancaria ──────────────────
 // Estado de la pantalla: lo que cambiaste a mano en cada movimiento se mantiene aunque lleguen cambios en vivo
-const b2bConc = { msg: '', error: '', cargando: false, forzados: {}, edit: {}, parecidos: {}, abierto: '', ocupado: '', repintar: false, an: null, anPidiendo: false, favor: {}, hist: null, histDias: 60, histCargando: false, histBuscar: '', histAbierto: false };
+const b2bConc = { msg: '', error: '', cargando: false, forzados: {}, edit: {}, parecidos: {}, abierto: '', ocupado: '', repintar: false, an: null, anPidiendo: false, favor: {}, hist: null, histDias: 60, histCargando: false, histBuscar: '', histAbierto: false, rep: null, repFirma: null, repPidiendo: false };
 // ── v0.23.0 · Conciliación: su propia sección (abonos de B2B y cargos de Gastos con una sola cartola) ──
 const SUBS_CONC = [['', 'Abonos (B2B)'], ['cargos', 'Cargos (Gastos)']];
 // v0.64.0 · Conciliación es el centro de todos los archivos: Cartola (abonos y cargos), Cargas del SII, Previred y Proveedores,
@@ -6161,11 +6190,16 @@ function pintarB2bConciliacion(el, sub) {
   const porCobrar = B2b.foliosPorCobrar(ordenes, d.abonos, d.clientes);
   const grupos = { auto: [], revisar: [], sinCliente: [] };
   if (b2bConc.histAbierto && !b2bConc.hist && !b2bConc.histCargando) cargarHistConc();
-  d.movimientos.forEach(m => { const p = props[m.id]; (grupos[b2bConc.edit[m.id] && p.tipo === 'auto' ? 'revisar' : p.tipo] || grupos.revisar).push(m); });
+  // v0.67.7 · El mismo abono en la cartola en línea y en la histórica: lo ya subido se revisa contra lo ya resuelto (lectura por rango,
+  // una vez por sesión). Los pares claros quedan "Repetido"; los dudosos van arriba en Para revisar, con la propuesta (nunca solos).
+  revisarRepetidosAbonos(d.movimientos);
+  const repP = abonosRepProp(d.movimientos), conRep = [];
+  d.movimientos.forEach(m => { const p = props[m.id]; if (repP[m.id]) { conRep.push(m); return; } (grupos[b2bConc.edit[m.id] && p.tipo === 'auto' ? 'revisar' : p.tipo] || grupos.revisar).push(m); });
+  grupos.revisar = conRep.concat(grupos.revisar);
   const tefTxt = t => t ? `<small class="fechas-cobro">Transfirió: ${esc(t.nombre || '—')} · RUT ${esc(t.rutTxt || t.rut)}${t.banco ? ' · ' + esc(t.banco) : ''}${t.hora ? ' · ' + esc(t.hora) : ''}</small>` : '';
   // v0.65.2 · Seguro (RUT, lo aprendido, elegido por ti o el nombre completo) o Probable (solo el monto exacto: confírmalo tú)
   const chipConf = p => p.clienteId && p.confianza ? ` <span class="chip ${p.confianza === 'seguro' ? 'c-verde' : 'c-amarillo'} chip-chico chip-conf">${p.confianza === 'seguro' ? 'Seguro' : 'Probable'}</span>` : '';
-  const cab = m => `<div class="txt"><b>${pesos(m.monto)}${props[m.id].cliente ? ' · ' + esc(props[m.id].cliente) : ''}</b>${chipConf(props[m.id])}<span>${esc(diaTexto(m.fecha))} · ${esc(m.descripcion)}</span>${tefTxt(props[m.id].tef)}</div>`;
+  const cab = m => `<div class="txt"><b>${pesos(m.monto)}${props[m.id].cliente ? ' · ' + esc(props[m.id].cliente) : ''}</b>${chipConf(props[m.id])}<span>${esc(diaTexto(m.fecha))} · ${esc(m.descripcion)}</span>${tefTxt(props[m.id].tef)}${filaRepAbonoHtml(m, repP[m.id])}</div>`;
   const folioTxt = a => `folio ${esc(a.folio)} ${pesos(a.monto)}`;
   const optsCli = sel => `<option value="">Elige el cliente…</option>` + d.clientes.filter(c => c.estado !== 'archivado' || c.id === sel).map(c => `<option value="${esc(c.id)}" ${c.id === sel ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('');
   // v0.26.0 · Órdenes de un folio de varias órdenes: marcar cuáles paga este abono (el monto se llena solo)
@@ -6189,7 +6223,8 @@ function pintarB2bConciliacion(el, sub) {
     const txtOk = asignado > 0 ? 'Confirmar' + (sobra > 0 ? (favorOn ? ` · ${pesos(sobra)} a favor` : ' (con saldo sin asignar)') : '') : `Dejar ${pesos(m.monto)} a favor`;
     return `<div class="mov-edit" data-mov="${esc(m.id)}">
       <div class="campo"><label for="mc-${esc(m.id)}">Cliente</label><select id="mc-${esc(m.id)}" data-mov-cli="${esc(m.id)}">${optsCli(p.clienteId)}</select></div>
-      ${p.motivo ? `<p class="ayuda${p.sinExactas ? ' mov-sin-exactas' : ''}">${esc(p.motivo)}${p.sinExactas ? ' ' + info('Solo montos exactos', TXT_ABONO_EXACTO) : ''}</p>` : ''}
+      ${propRepAbonoHtml(m, repP[m.id])}
+      ${p.motivo ? `<p class="ayuda${p.sinExactas ? ' mov-sin-exactas' : ''}">${esc(p.motivo)}${p.sinExactas ? ' ' + info('Solo montos exactos', TXT_ABONO_EXACTO) : ''}</p>` : ''}${similaresRegHtml(p)}
       ${otrasExactasHtml(m, p)}${parecidosAbonoHtml(m, p)}
       ${p.clienteId ? (fol.length ? `<p class="ayuda">Toca un folio para asignarle su saldo (o lo que queda del abono); tócalo otra vez para quitarlo.</p><div class="mov-folios">${fol.map(f => `<div class="mov-folio${Number(val(f)) > 0 ? ' mov-folio-on' : ''}${post.has(f.folio) ? ' mov-folio-post' : ''}"><button type="button" class="mov-folio-btn" data-mov-usar="${esc(m.id)}" data-folio="${esc(f.folio)}" aria-pressed="${Number(val(f)) > 0}"><b>Folio ${esc(f.folio)}</b><small>${esc(diaTexto(f.fecha))} · saldo ${pesos(f.saldo)}${f.abonado ? ` (abonado ${pesos(f.abonado)})` : ''}${post.has(f.folio) ? ' · pedidos después del pago' : ''}</small></button>
           <input inputmode="numeric" data-mov-monto="${esc(m.id)}" data-folio="${esc(f.folio)}" value="${val(f) ? Number(val(f)).toLocaleString('es-CL') : ''}" placeholder="0" aria-label="Monto para el folio ${esc(f.folio)}"></div>${ordsHtml(m, f)}`).join('')}</div>
@@ -6201,7 +6236,7 @@ function pintarB2bConciliacion(el, sub) {
         <button type="button" class="btn-sec btn-chico" data-mov-ign="${esc(m.id)}">No es de B2B</button></div></div>`;
   };
   const fila = (m, conEditor) => `<details class="fila-orden-b2b mov" data-movd="${esc(m.id)}" ${conEditor && b2bConc.abierto === m.id ? 'open' : ''}><summary class="fila-caja">${cab(m)}
-      <div class="acciones">${props[m.id].tipo === 'auto' && !b2bConc.edit[m.id] ? `<span class="mov-prop">${props[m.id].asignaciones.map(folioTxt).join(' + ')}</span><button type="button" class="btn btn-chico" data-mov-auto="${esc(m.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${editor(m)}</details>`;
+      <div class="acciones">${props[m.id].tipo === 'auto' && !b2bConc.edit[m.id] && !repP[m.id] ? `<span class="mov-prop">${props[m.id].asignaciones.map(folioTxt).join(' + ')}</span><button type="button" class="btn btn-chico" data-mov-auto="${esc(m.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${editor(m)}</details>`;
   const seccion = (k, titulo, l, ayuda, extra = '') => `<details class="tarjeta plegable" data-plegar="c-${k}" ${plegadas()['c-' + k] === true && l.length ? '' : 'open'}><summary class="titulo-fila"><h2>${titulo}</h2><span>${l.length} ${l.length === 1 ? 'abono' : 'abonos'} · ${pesos(l.reduce((s, m) => s + m.monto, 0))}</span></summary>
       ${l.length ? `<p class="ayuda">${ayuda}</p>${extra}${l.map(m => fila(m, true)).join('')}` : '<div class="vacio" style="border:0">Nada aquí.</div>'}</details>`;
   el.innerHTML = cabConc('') + `
@@ -6260,13 +6295,13 @@ function pintarB2bConciliacion(el, sub) {
   el.querySelectorAll('[data-deshacer]').forEach(b => b.addEventListener('click', async () => {
     const m = (b2bConc.hist || []).find(x => x.id === b.dataset.deshacer); if (!m) return;
     const folios = (m.asignaciones || []).map(a => a.folio);
-    const que = m.estado === 'conciliado'
+    const que = m.estado === 'repetido' ? '<p>No cambia ningún folio: el abono no había registrado ningún pago. Queda anotado que no es repetido de ese movimiento (no se vuelve a marcar solo).</p>' : m.estado === 'conciliado'
       ? `<p>${folios.length ? `${folios.length === 1 ? 'El folio' : 'Los folios'} <b>${folios.map(esc).join(', ')}</b> ${folios.length === 1 ? 'vuelve' : 'vuelven'} a Por cobrar como estaban antes. Los abonos que se crearon quedan anulados (no se borran).` : ''}${m.favorInicial ? ` El saldo a favor de ${pesos(m.favorInicial)} se quita.` : ''}</p>${m.aprendido ? `<p class="ayuda">También se olvida que "${esc(m.descripcion)}" es ${esc(m.cliente)}.</p>` : ''}`
       : '<p>No cambia ningún folio.</p>';
     const r = await pedirDatos('Deshacer', `<p class="ayuda">${pesos(m.monto)} · ${esc(m.descripcion)} (${esc(diaTexto(m.fecha))})</p>${que}<p class="ayuda">El abono vuelve a "Para revisar" para resolverlo bien.</p>
       <div class="campo"><label for="pd-nota">Motivo (opcional)</label><input id="pd-nota" maxlength="200" placeholder="Ej: era de otro cliente"></div>`, 'Deshacer', dd => ({ nota: dd.querySelector('#pd-nota').value }));
     if (!r) return;
-    ocupado('deshacer', async () => { await B2b.deshacerMovimiento(m.id, r.nota); b2bConc.hist = null; b2bConc.msg = `Listo: el abono de ${pesos(m.monto)} del ${esc(diaTexto(m.fecha))} volvió a "Para revisar".`; registrar('Deshizo abono conciliado', `${pesos(m.monto)} · ${m.cliente || m.descripcion}${folios.length ? ' · folio ' + folios.join(', ') : ''}${r.nota ? ' · ' + r.nota : ''}`); });
+    ocupado('deshacer', async () => { await B2b.deshacerMovimiento(m.id, r.nota); b2bConc.hist = null; b2bConc.msg = `Listo: el abono de ${pesos(m.monto)} del ${esc(diaTexto(m.fecha))} volvió a "Para revisar".`; registrar(m.estado === 'repetido' ? 'Deshizo abono repetido' : 'Deshizo abono conciliado', `${pesos(m.monto)} · ${m.cliente || m.descripcion}${folios.length ? ' · folio ' + folios.join(', ') : ''}${r.nota ? ' · ' + r.nota : ''}`); });
   }));
   el.querySelectorAll('[data-deshacer-uso]').forEach(b => b.addEventListener('click', async () => {
     const m = (b2bConc.hist || []).find(x => x.id === b.dataset.deshacerUso), u = m && (m.favorUsos || []).find(x => x.abono === b.dataset.abono); if (!u) return;
@@ -6311,11 +6346,25 @@ function pintarB2bConciliacion(el, sub) {
     e.montos[folio] = elegidas.length && elegidas.length === pend.length ? f.saldo : elegidas.reduce((x, o) => x + o.total, 0);
     b2bConc.abierto = id; repintar();
   }));
+  // v0.67.7 · "Marcar como repetido" (la propuesta) y "Ver el registro" desde la fila
+  el.querySelectorAll('[data-mov-rep]').forEach(b => b.addEventListener('click', ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    const id = b.dataset.movRep, m = d.movimientos.find(x => x.id === id), o = B2b.movConocido(b.dataset.orig); if (!m) return;
+    ocupado(id, async () => { await B2b.marcarRepetidoB2b(id, b.dataset.orig); delete b2bConc.forzados[id]; delete b2bConc.edit[id]; b2bConc.hist = null;
+      b2bConc.msg = `Listo: el abono de ${pesos(m.monto)} del ${esc(diaTexto(m.fecha))} quedó como repetido${o ? ' de la ' + esc(B2b.textoFuenteMov(B2b.fuenteMov(o))) : ''}: no registra ningún pago. Si no lo era, usa Deshacer en Ya conciliados.`;
+      registrar('Marcó abono repetido', `${pesos(m.monto)} · ${m.descripcion}${o ? ' · mismo que ' + (o.cliente || o.descripcion) : ''}`); });
+  }));
+  el.querySelectorAll('[data-reg-abrir][data-reg-mov]').forEach(b => b.addEventListener('click', ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    regAbiertos.add(b.dataset.regAbrir); b2bConc.abierto = b.dataset.regMov; repintar();
+    const x = el.querySelector(`.reg-det[data-reg="${CSS.escape(b.dataset.regAbrir)}"]`); if (x) x.scrollIntoView({ block: 'nearest' });
+  }));
   el.querySelectorAll('[data-mov-rev]').forEach(b => b.addEventListener('click', async () => {
     const id = b.dataset.movRev, m = d.movimientos.find(x => x.id === id), p = props[id] || {};
     // Si elegiste el cliente a mano (o se adivinó por parte del nombre), queda aprendido igual que al confirmar
     const cli = p.clienteId && aprendeAbono(m, p) ? (d.clientes.find(c => c.id === p.clienteId) || null) : null;
-    const r = await pedirDatos('Ya estaba registrado', `<p class="ayuda">${pesos(m.monto)} · ${esc(m.descripcion)} (${esc(diaTexto(m.fecha))})</p><p class="ayuda">No se registra ningún pago: el abono queda como revisado (por ejemplo, un pago que ya anotaste a mano o un anticipo).${cli ? ` Queda aprendido que este abono es de <b>${esc(cli.nombre)}</b>, para la próxima cartola.` : ''}</p>
+    const rp0 = repP[id] && repP[id].candidatos[0], regYa = rp0 ? regAbonoHtml(B2b.movConocido(rp0.id), true) : (p.similares || []).length ? regFolioHtml(p.similares[0], true) : '';
+    const r = await pedirDatos('Ya estaba registrado', `<p class="ayuda">${pesos(m.monto)} · ${esc(m.descripcion)} (${esc(diaTexto(m.fecha))})</p><p class="ayuda">No se registra ningún pago: el abono queda como revisado (por ejemplo, un pago que ya anotaste a mano o un anticipo).${cli ? ` Queda aprendido que este abono es de <b>${esc(cli.nombre)}</b>, para la próxima cartola.` : ''}</p>${regYa ? `<p class="ayuda">${rp0 ? 'Parece el mismo movimiento que este (si lo es, mejor usa "Marcar como repetido"):' : 'El pago parecido ya registrado:'}</p>${regYa}` : ''}
       <div class="campo"><label for="pd-nota">Nota (opcional)</label><input id="pd-nota" maxlength="200" placeholder="Ej: ya registrado el folio 5512"></div>`, 'Marcar revisado', dd => ({ nota: dd.querySelector('#pd-nota').value }));
     if (!r) return;
     ocupado(id, async () => { await B2b.marcarMovimiento(id, 'revisado', r.nota, '', cli); delete b2bConc.forzados[id]; b2bConc.hist = null; registrar('Abono de cartola revisado', `${pesos(m.monto)} · ${m.descripcion}`); });
@@ -6330,6 +6379,78 @@ function pintarB2bConciliacion(el, sub) {
     if (!r) return;
     ocupado(id, async () => { await B2b.marcarMovimiento(id, 'ignorado', r.nota, r.patron); b2bConc.hist = null; registrar('Abono de cartola ignorado', `${pesos(m.monto)} · ${m.descripcion}${r.patron ? ' · siempre: ' + r.patron : ''}`); });
   }));
+}
+// ═══ v0.67.7 · Abonos: el mismo movimiento en la cartola en línea y en la histórica, y "Ver el registro" ═══
+const TXT_REPETIDO_AB = 'La cartola en línea y la histórica pueden traer el mismo abono, a veces con un día de diferencia (la histórica usa la fecha contable), con otro saldo o con otra glosa.\nEs el mismo cuando es de la misma cuenta, el mismo monto, la fecha a ±1 día y de otra cartola, y además tiene el mismo N° de operación, la misma glosa o el mismo RUT en la glosa. Si los dos traen N° de operación y son distintos, son dos pagos.\nSi el par es claro, el que llegó después queda "Repetido": no aparece por conciliar y no registra ningún pago. Si no es claro (solo coinciden fecha y monto, o hay dos posibles), queda arriba con la propuesta y tú decides.\nDos abonos iguales en la MISMA cartola nunca son repetidos: son pagos distintos.\nDeshacer (en Ya conciliados) lo devuelve a Para revisar como un abono normal, y no se vuelve a marcar solo.';
+// Una vez por cada conjunto de pendientes: lee por rango solo lo que falta (B2b.revisarRepetidosB2b) y repinta al terminar
+function revisarRepetidosAbonos(movs) {
+  const firma = movs.map(m => m.id).sort().join(',');
+  if (!movs.length || b2bConc.repFirma === firma || b2bConc.repPidiendo) return;
+  b2bConc.repPidiendo = true;
+  B2b.revisarRepetidosB2b(movs).then(r => {
+    b2bConc.rep = r;
+    if (r.marcados) { b2bConc.msg = `${r.marcados === 1 ? 'Un abono ya subido era' : r.marcados + ' abonos ya subidos eran'} el mismo movimiento que otro ya resuelto (de otra cartola): ${r.marcados === 1 ? 'quedó' : 'quedaron'} como repetido y no se ${r.marcados === 1 ? 'concilia' : 'concilian'}. Están en Ya conciliados, con Deshacer.`; b2bConc.hist = null; }
+  }).catch(() => {}).finally(() => { b2bConc.repFirma = firma; b2bConc.repPidiendo = false; if (enConc('abonos') && !document.querySelector('dialog[open]')) pintarB2bConciliacion(concEl(), ''); });
+}
+// La propuesta de cada pendiente (solo con posibles que se conocen y siguen vigentes)
+function abonosRepProp(movs) {
+  const P = (b2bConc.rep && b2bConc.rep.props) || {}, out = {}, vivos = new Set(movs.map(m => m.id));
+  Object.entries(P).forEach(([id, x]) => { if (!vivos.has(id)) return; const l = x.candidatos.filter(c => { const o = B2b.movConocido(c.id); return o && o.estado !== 'repetido'; }); if (l.length) out[id] = { ...x, candidatos: l }; });
+  return out;
+}
+const fuenteAbTxt = o => B2b.textoFuenteMov(o && (o.fuente || B2b.fuenteMov(o)));
+const origAbTxt = o => `${pesos(o.monto)} · ${o.descripcion} del ${diaTexto(o.fecha)} (${fuenteAbTxt(o)})`;
+function estadoAbTxt(o) {
+  if (o._fuera) return 'resuelto en otro equipo';
+  if (o.estado === 'pendiente') return 'por conciliar';
+  if (o.estado === 'revisado') return `ya registrado${o.cliente ? ': ' + o.cliente : ''}${o.nota ? ' (' + o.nota + ')' : ''}`;
+  if (o.estado === 'ignorado') return 'marcado "No es de B2B"';
+  const f = (o.asignaciones || []).map(a => a.folio);
+  return `ya conciliado: ${o.cliente || '—'}${f.length ? ' · folio ' + f.join(', ') : o.favorInicial ? ' · saldo a favor' : ''}`;
+}
+const CRITERIO_AB = { operacion: 'mismo N° de operación', glosa: 'misma glosa', rut: 'mismo RUT en la glosa', fecha_monto: 'misma fecha (±1 día) y monto' };
+// En la fila (cabecera): "Parece el mismo movimiento que…" con "Marcar como repetido" (un posible) y "Ver el registro"
+function filaRepAbonoHtml(m, rp) {
+  if (!rp) return '';
+  const c0 = rp.candidatos[0], o = B2b.movConocido(c0.id), n = rp.candidatos.length; if (!o) return '';
+  return `<span class="cc-rep-prop mov-rep-prop" data-mov-repprop="${esc(m.id)}">${icono('copias', 14)}<span>Parece el mismo movimiento que <b>${esc(origAbTxt(o))}</b> (${esc(estadoAbTxt(o))}).${c0.fuerte ? '' : ' Solo coinciden la fecha (±1 día) y el monto: mira la glosa.'}${n > 1 ? ` Hay ${n} posibles: ábrelo para elegir.` : ''} ${info('Repetido de otra cartola', TXT_REPETIDO_AB)}</span>
+    <span class="cc-rep-botones">${n === 1 ? `<button type="button" class="btn btn-chico" data-mov-rep="${esc(m.id)}" data-orig="${esc(o.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Marcar como repetido</button>` : ''}<button type="button" class="btn-link btn-chico" data-reg-abrir="b2b:${esc(o.id)}" data-reg-mov="${esc(m.id)}">${icono('lupa', 14)} Ver el registro</button></span></span>`;
+}
+// Al abrir el abono: cada posible con su botón y su registro
+function propRepAbonoHtml(m, rp) {
+  if (!rp) return '';
+  const l = rp.candidatos.map(c => ({ c, o: B2b.movConocido(c.id) })).filter(x => x.o);
+  return `<div class="cc-rep-lista"><p class="ayuda">${l.length === 1 ? 'El otro movimiento, tal como quedó registrado. Si es el mismo, márcalo repetido: no se registra ningún pago.' : '¿Es el mismo movimiento que alguno de estos de otra cartola? Elige cuál, o concílialo normal más abajo si es otro pago.'}</p>
+    ${l.map(({ c, o }) => `<div class="cc-rep-cand"><div class="fila-caja"><div class="txt"><b>${esc(origAbTxt(o))}</b><span>${esc(estadoAbTxt(o))} · ${esc(CRITERIO_AB[c.por] || '')}</span></div><div class="acciones"><button type="button" class="btn-sec btn-chico" data-mov-rep="${esc(m.id)}" data-orig="${esc(o.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Marcar como repetido</button></div></div>${regAbonoHtml(o)}</div>`).join('')}</div>`;
+}
+const f10 = v => { const x = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || '')); return x ? x[0] : ''; };
+// Un folio (de las órdenes y abonos en la memoria): fecha de factura, total, saldo que queda, fecha y medio de pago
+function infoFolioB2b(folio) {
+  const d = b2b.datos; if (!d) return null;
+  const vistos = new Set(), os = [...d.ordenes.values()].concat(b2bConc.an ? b2bConc.an.ordenes : []).filter(o => String(o.folio) === folio && o.estado !== 'anulada' && !o.quitadoEnPlanilla && !vistos.has(String(o.n)) && vistos.add(String(o.n)));
+  if (!os.length) return null;
+  const total = B2b.totalFolio(os).total, abonado = d.abonos.filter(a => String(a.folio) === folio).reduce((x, a) => x + (Number(a.monto) || 0), 0);
+  const pagado = os.every(o => /PAGADO/.test(String(o.estadoPago || '').toUpperCase())), fp = os.map(o => f10(o.fechaPago)).filter(Boolean).sort().pop() || '';
+  return { cliente: os[0].cliente || '', fechaFactura: f10(os[0].fechaFolio) || f10(os[0].fecha), total, saldo: pagado ? 0 : Math.max(0, Math.round(total - abonado)), pagado, fechaPago: pagado ? fp : '', medioPago: pagado ? (os.find(o => o.medioPago) || {}).medioPago || '' : '', ordenes: os.map(o => Number(o.n)).sort((a, b) => a - b) };
+}
+const ctxRegB2b = () => ({ cuentaTxt: k => B2b.NOMBRE_CUENTA[k] || k, fuenteTxt: o => fuenteAbTxt(o), infoFolio: infoFolioB2b, cuando: B2b.momentoTxt,
+  movDe: folio => B2b.movsConocidos().find(x => x.estado === 'conciliado' && (x.asignaciones || []).some(a => String(a.folio) === folio)) || null });
+function regAbonoHtml(o, abierto) {
+  if (!o) return '';
+  const reg = RD.registroAbono(o, ctxRegB2b());
+  return RD.htmlRegistro(reg, { abierto: abierto || regAbiertos.has(reg.clave), icono: icono('lupa', 14), info: info('Ver el registro', TXT_REGISTRO) });
+}
+function regFolioHtml(sim, abierto) {
+  const reg = RD.registroFolioPagado(sim, ctxRegB2b());
+  return reg ? RD.htmlRegistro(reg, { abierto: abierto || regAbiertos.has(reg.clave), icono: icono('lupa', 14), resumen: `Ver el registro del folio ${sim.folio}`, info: info('Ver el registro', TXT_REGISTRO) }) : '';
+}
+// "Ojo: el folio … ya se registró pagado el …": el registro de cada uno (hasta 3)
+const similaresRegHtml = p => ((p && p.similares) || []).slice(0, 3).map(x => regFolioHtml(x)).join('');
+// El original de un repetido: el conocido (memoria) o la copia que guardó el repetido
+const originalDeAbono = m => B2b.movConocido(m.repetidoDe) || (m.repetido && m.repetido.original ? { id: m.repetidoDe, ...m.repetido.original, resuelto: { por: m.repetido.original.resueltoPor, en: m.repetido.original.resueltoEn }, asignaciones: m.repetido.original.folios || [] } : null);
+function textoRepAbono(m) {
+  const o = (m.repetido && m.repetido.original) || {};
+  return `Es el mismo movimiento que ${o.descripcion || 'otro abono'}${o.fecha ? ' del ' + diaTexto(o.fecha) : ''}${m.repetido && m.repetido.por ? ' (' + (CRITERIO_AB[m.repetido.por] || '') + ')' : ''}: no registra ningún pago`;
 }
 // ── v0.15 · Ritmo, saldos a favor e historial de la conciliación ──
 const NOMBRE_DIA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -6385,17 +6506,17 @@ function cargarHistConc() {
     .finally(() => { b2bConc.histCargando = false; if (enConc('abonos') && !document.querySelector('dialog[open]')) pintarB2bConciliacion(concEl(), ''); });
 }
 function histConcHtml() {
-  const l = b2bConc.hist, ESTADO = { conciliado: ['Conciliado', 'c-verde'], revisado: ['Ya registrado', 'c-azul'], ignorado: ['No es de B2B', 'c-gris'] };
+  const l = b2bConc.hist, ESTADO = { conciliado: ['Conciliado', 'c-verde'], revisado: ['Ya registrado', 'c-azul'], ignorado: ['No es de B2B', 'c-gris'], repetido: ['Repetido', 'c-gris'] };
   const fila = m => {
     const [et, cl] = m.estado === 'conciliado' && m.origen === 'app antigua' ? ['App antigua', 'c-gris'] : ESTADO[m.estado] || [m.estado, 'c-gris'];
     const asig = (m.asignaciones || []).map(a => `folio ${esc(a.folio)} ${pesos(a.monto)}${a.tipo === 'abono' ? ' (abono)' : ''}`).join(' + ') || (m.folios ? 'folios ' + esc(m.folios) : '');
     const favor = m.favorInicial ? `${asig ? ' · ' : ''}${pesos(m.favorInicial)} a favor${m.favorDisponible !== m.favorInicial ? ` (quedan ${pesos(m.favorDisponible || 0)})` : ''}` : '';
-    const detalle = m.estado === 'conciliado' ? asig + favor : esc(m.nota || '');
+    const detalle = m.estado === 'conciliado' ? asig + favor : m.estado === 'repetido' ? esc(textoRepAbono(m)) : esc(m.nota || '');
     const puede = !(m.estado === 'conciliado' && m.origen === 'app antigua');
     const txt = [m.cliente, m.descripcion, (m.asignaciones || []).map(a => a.folio).join(' '), m.folios, m.monto, et].join(' ').toLowerCase();
     const montos = [m.monto, ...(m.asignaciones || []).map(a => a.monto), m.favorInicial].filter(v => Number(v) > 0).map(v => Math.round(Number(v))).join(' ');
-    return `<div class="fila-hist" data-txt="${esc(txt)}" data-montos="${montos}"><div class="fila-caja"><div class="txt"><b>${pesos(m.monto)}${m.cliente ? ' · ' + esc(m.cliente) : ''}</b><span>${esc(diaTexto(m.fecha))} · ${esc(m.descripcion)}</span>${detalle ? `<small class="fechas-cobro">${detalle}</small>` : ''}${m.deshechos ? `<small class="fechas-cobro">Deshecho ${m.deshechos === 1 ? 'una vez' : m.deshechos + ' veces'} antes</small>` : ''}</div>
-      <div class="acciones"><span class="chip chip-chico ${cl}">${et}</span>${puede ? `<button type="button" class="btn-sec btn-chico" data-deshacer="${esc(m.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Deshacer</button>` : ''}</div></div>
+    return `<div class="fila-hist" data-txt="${esc(txt)}" data-montos="${montos}"><div class="fila-caja"><div class="txt"><b>${pesos(m.monto)}${m.cliente ? ' · ' + esc(m.cliente) : ''}</b><span>${esc(diaTexto(m.fecha))} · ${esc(m.descripcion)}</span>${detalle ? `<small class="fechas-cobro">${detalle}</small>` : ''}${m.deshechos ? `<small class="fechas-cobro">Deshecho ${m.deshechos === 1 ? 'una vez' : m.deshechos + ' veces'} antes</small>` : ''}${m.estado === 'repetido' ? regAbonoHtml(originalDeAbono(m)) : ''}</div>
+      <div class="acciones"><span class="chip chip-chico ${cl}${m.estado === 'repetido' ? ' cc-rep-chip' : ''}">${m.estado === 'repetido' ? icono('copias', 12) + ' ' + esc(B2b.textoRepetidoMov(m.repetido)) : et}</span>${puede ? `<button type="button" class="btn-sec btn-chico" data-deshacer="${esc(m.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Deshacer</button>` : ''}</div></div>
       ${(m.favorUsos || []).map(u => u.tipo === 'redondeo' ? `<div class="uso-favor"><span>Saldo a favor de ${pesos(u.monto)} cerrado: era redondeo de la factura</span></div>` : `<div class="uso-favor"><span>Saldo a favor usado en el folio ${esc(u.folio)}: ${pesos(u.monto)}</span><button type="button" class="btn-link" data-deshacer-uso="${esc(m.id)}" data-abono="${esc(u.abono)}" ${b2bConc.ocupado ? 'disabled' : ''}>Deshacer</button></div>`).join('')}</div>`;
   };
   const cuerpo = b2bConc.histCargando || (b2bConc.histAbierto && !l) ? '<div class="vacio" style="border:0">Leyendo…</div>'
@@ -6425,7 +6546,7 @@ function cartolasHtml(conf) {
   const orden = l.slice().sort((a, b) => String(b.hasta || '').localeCompare(String(a.hasta || '')) || String(b.cargada || '').localeCompare(String(a.cargada || '')));
   return `${cuentas.map(bloque).join('')}
     <details class="detalle-an"><summary>Cartolas cargadas (${l.filter(c => c.tipo !== 'antigua').length})</summary>
-      ${orden.map(c => `<div><span><b>${nombre(c)}</b> · ${c.desde ? (c.desde === c.hasta ? esc(fd(c.desde)) : `${esc(fd(c.desde))} al ${esc(fd(c.hasta))}`) : 'sin fechas'}${c.tipo !== 'antigua' ? ` · cargada ${esc(String(c.cargada || '').slice(0, 16))}` : ''}</span><b>${c.tipo === 'antigua' ? `${c.abonos} abonos` : `${c.nuevos} ${c.nuevos === 1 ? 'nuevo' : 'nuevos'} de ${c.abonos}`}</b></div>`).join('')}
+      ${orden.map(c => `<div><span><b>${nombre(c)}</b> · ${c.desde ? (c.desde === c.hasta ? esc(fd(c.desde)) : `${esc(fd(c.desde))} al ${esc(fd(c.hasta))}`) : 'sin fechas'}${c.tipo !== 'antigua' ? ` · cargada ${esc(String(c.cargada || '').slice(0, 16))}` : ''}</span><b>${c.tipo === 'antigua' ? `${c.abonos} abonos` : `${c.nuevos} ${c.nuevos === 1 ? 'nuevo' : 'nuevos'} de ${c.abonos}${c.repetidos ? ` · ${c.repetidos} ${c.repetidos === 1 ? 'repetido' : 'repetidos'}` : ''}`}</b></div>`).join('')}
     </details>`;
 }
 // Primera vez: traer lo que ya se concilió en la app antigua (así no vuelve a aparecer)
@@ -6474,7 +6595,7 @@ async function subirCartola(file, conf) {
 function msgCartola(x, aqui) {
   const n = (k, s, p) => `${k} ${k === 1 ? s : p}`, a = x.abonos, g = x.cargos;
   if (x.tef) return `<b>Transferencias recibidas:</b> ${n(x.tef.leidas, 'transferencia', 'transferencias')} en el archivo · <b>${n(x.tef.nuevas, 'nueva', 'nuevas')}</b>. Los abonos de la cartola con el mismo monto y fecha ahora muestran el RUT y el nombre de quien transfirió, y si el RUT es de un cliente, se reconoce solo.`;
-  const ab = a ? `${n(a.abonos, 'abono', 'abonos')} en la cartola · <b>${n(a.nuevos, 'nuevo', 'nuevos')}</b> · ${a.yaVistos} ya ${a.yaVistos === 1 ? 'visto' : 'vistos'} antes · ${n(a.ignorados, 'ignorado', 'ignorados')} (Transbank y otros)` : `los abonos no se pasaron a B2B: ${esc(x.errAbonos)}`;
+  const ab = a ? `${n(a.abonos, 'abono', 'abonos')} en la cartola · <b>${n(a.nuevos, 'nuevo', 'nuevos')}</b> · ${a.yaVistos} ya ${a.yaVistos === 1 ? 'visto' : 'vistos'} antes · ${n(a.ignorados, 'ignorado', 'ignorados')} (Transbank y otros)${a.repetidos ? ` · ${n(a.repetidos, 'repetido', 'repetidos')} de otra cartola (ya estaban: no aparecen por conciliar)` : ''}${a.parecidos ? ` · ${a.parecidos} ${a.parecidos === 1 ? 'parece repetido' : 'parecen repetidos'}: revísalos arriba en Para revisar` : ''}` : `los abonos no se pasaron a B2B: ${esc(x.errAbonos)}`;
   const cg = g ? `${n(g.cargos, 'cargo', 'cargos')} · <b>${n(g.nuevos, 'nuevo', 'nuevos')}</b> · ${g.yaVistos} ya ${g.yaVistos === 1 ? 'visto' : 'vistos'} antes${g.ignorados ? ` · ${n(g.ignorados, 'ignorado', 'ignorados')} (lo que marcaste "siempre")` : ''}${g.repetidos ? ` · ${n(g.repetidos, 'repetido', 'repetidos')} de otra cartola (ya estaban: no aparecen en Para revisar)` : ''}${g.parecidos ? ` · ${g.parecidos} ${g.parecidos === 1 ? 'parece repetido' : 'parecen repetidos'}: revísalos arriba en Para revisar` : ''}` : `los cargos no se pasaron a Gastos: ${esc(x.errCargos)}`;
   const cuenta = x.c.cuenta && x.c.cuenta.tipo === 'cc' ? ` (${B2b.NOMBRE_CUENTA.cc}${x.c.cuenta.numero ? ' ' + B2b.ultimos4(x.c.cuenta.numero) : ''})` : '';
   const ar = x.archivo ? `<br>Archivo: ${x.archivo.ya ? 'ya estaba guardado' : 'guardado'} en Drive (privado).` : x.errArchivo ? `<br>Archivo: <b>no se pudo guardar en Drive</b> (${esc(String(x.errArchivo).replace(/\.$/, ''))}). Lo leído de la cartola sí quedó.` : '';
@@ -7130,7 +7251,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.67.6')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.6'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.67.7')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.7'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }

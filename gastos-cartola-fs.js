@@ -19,18 +19,18 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.67.6';
-import * as M from './gastos-g2.js?v=0.67.6';
-import * as G3 from './gastos-g3.js?v=0.67.6';
-import * as G3D from './gastos-g3d.js?v=0.67.6';
-import * as C from './gastos-cartola.js?v=0.67.6';
-import * as B from './gastos-banco.js?v=0.67.6';
-import { huella } from './gastos-modelo.js?v=0.67.6';
-import * as FS from './gastos-fs.js?v=0.67.6';
-import * as GB from './gastos-base.js?v=0.67.6';
-import * as TE from './tef-enviadas.js?v=0.67.6';
-import * as P from './proveedores.js?v=0.67.6';
-import * as SP from './sii-pendientes.js?v=0.67.6';   // v0.66.0: documentos del SII por clasificar
+import * as FB from './fs-gastos.js?v=0.67.7';
+import * as M from './gastos-g2.js?v=0.67.7';
+import * as G3 from './gastos-g3.js?v=0.67.7';
+import * as G3D from './gastos-g3d.js?v=0.67.7';
+import * as C from './gastos-cartola.js?v=0.67.7';
+import * as B from './gastos-banco.js?v=0.67.7';
+import { huella } from './gastos-modelo.js?v=0.67.7';
+import * as FS from './gastos-fs.js?v=0.67.7';
+import * as GB from './gastos-base.js?v=0.67.7';
+import * as TE from './tef-enviadas.js?v=0.67.7';
+import * as P from './proveedores.js?v=0.67.7';
+import * as SP from './sii-pendientes.js?v=0.67.7';   // v0.66.0: documentos del SII por clasificar
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -83,6 +83,8 @@ export async function lista(diasP) {
   });
   // "Pagado sin factura": gasto nuevo desde la cartola sin documento del SII
   const porCargo = {}; gastos.forEach(x => { const k = s(x.d.cartolaCargo); if (k && x.d.estado === 'vigente') (porCargo[k] = porCargo[k] || []).push(x.d); });
+  // v0.67.7 · Lo ligado a cada cargo (para "Ver el registro"): fecha, ítem, monto y fecha de pago, de los gastos ya en la memoria
+  const ligados = {}; Object.entries(porCargo).forEach(([k, l]) => { ligados[k] = l.slice(0, 12).map(g => ({ fecha: s(g.fecha).slice(0, 10), item: s(g.itemGasto), monto: Number(g.montoFinal) || 0, area: s(g.area), folio: s(g.folio), razon: s(g.razonSocial), fechaPago: s(g.fechaPago).slice(0, 10), formaPago: s(g.formaPago) })); });
   const sinFactura = cargos.filter(c => c.estado === C.ESTADOS.conciliado && c.accion === 'nuevo' && !(c.detalle && c.detalle.sinFactura) && (porCargo[c.id] || []).length && porCargo[c.id].every(g => !s(g.rutProveedor).trim()))
     .map(c => ({ id: c.id, fecha: c.fecha, monto: c.monto, descripcion: c.descripcion, items: [...new Set(porCargo[c.id].map(g => s(g.itemGasto)))] }));
   // v0.65.1 · Planillas de Previred ya registradas (meses cargados) con sus pagos del banco unidos
@@ -92,9 +94,9 @@ export async function lista(diasP) {
   // v0.67.4 · Los gastos sin cargo y, aparte, las notas de crédito sin cargo (con su referencia): solo se suman con su factura
   const grupos = B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon))), { conNC: true });
   const rNC = refsNC(ab.siiDocs), ncs = grupos.filter(g => g.monto < 0).map(g => (rNC[g.siiDocId] ? { ...g, refs: rNC[g.siiDocId] } : g));
-  const SPF = await import('./sii-pendientes-fs.js?v=0.67.6');
+  const SPF = await import('./sii-pendientes-fs.js?v=0.67.7');
   const siiPendientes = await SPF.pendientes().catch(async () => SP.pendientesDe(await todos('sii_docs').catch(() => []))), siiRegistrados = await SPF.registrados().catch(() => []);
-  return { ok: true, fuente: 'base', planillas, siiPendientes, siiRegistrados, cargos, repetidos, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
+  return { ok: true, fuente: 'base', planillas, siiPendientes, siiRegistrados, cargos, repetidos, ligados, todosCargos: todosC, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
     vencimientos: ab.lista, gastos: grupos.filter(g => g.monto > 0), notasCredito: ncs, sinFactura, siiSinImportar: {}, dias,
     abonoDest: dAb.destinatarios, trabajadores: dAb.trabajadores,   // v0.63.1: para "Área de este abono"
     enviadas: { n: enviadas.length, hasta: enviadas.map(x => x.fecha).sort().pop() || '', subidas: [...new Set(enviadas.map(x => x.subida.slice(0, 10)))].sort().slice(-3) } };
@@ -116,7 +118,9 @@ async function repetidosAlListar(todosC) {
   props.forEach(({ c, x }) => { if (c.estado !== C.ESTADOS.revisar) return;
     const l = x.auto ? [{ e: x.original, por: x.por, fuerte: true, dias: x.dias }] : x.candidatos;
     c.repetidoProp = { ambiguo: !!x.ambiguo, candidatos: l.map(y => ({ id: y.e.id, fecha: y.e.fecha, monto: y.e.monto, descripcion: y.e.descripcion, cuenta: y.e.cuenta, cuentaN: y.e.cuentaN, estado: y.e.estado, accion: y.e.accion,
-      detalle: y.e.detalle, fuente: C.fuentesCargo(y.e)[0] || null, por: y.por, fuerte: !!y.fuerte, dias: y.dias })) }; });
+      detalle: y.e.detalle, fuente: C.fuentesCargo(y.e)[0] || null, por: y.por, fuerte: !!y.fuerte, dias: y.dias,
+      // v0.67.7 · Para "Ver el registro" (de la memoria): de qué cartola, cuándo y quién la subió, y quién lo resolvió
+      docId: y.e.docId, operacion: y.e.operacion, cartola: y.e.cartola, nCartola: y.e.nCartola, fuentes: C.fuentesCargo(y.e), subidaEl: y.e.subidaEl, subidaPor: y.e.subidaPor, resueltoEl: y.e.resueltoEl, resueltoPor: y.e.resueltoPor })) }; });
   // En cada original: de qué otra cartola llegó también (fuentes y RUT de la glosa, solo en memoria: la histórica trae más)
   todosC.forEach(c => { if (c.estado !== C.ESTADOS.repetido || !c.repetidoDe) return; const o = porId.get(c.repetidoDe); if (!o) return;
     (o.repetidos = o.repetidos || []).push({ id: c.id, descripcion: c.descripcion, fecha: c.fecha, fuente: C.fuentesCargo(c)[0] || null });

@@ -1594,3 +1594,40 @@ details[open] > summary .cc-nota-txt, .fila-hist:hover .cc-nota-txt, .fila-hist:
 .cc-rep-lista .fila-caja .txt { min-width: 0; overflow-wrap: anywhere; }
 .cc-rep-chip { display: inline-flex; align-items: center; gap: 4px; white-space: normal; text-align: left; max-width: 100%; }
 @media (max-width: 560px) { .cc-rep-prop .btn { width: 100%; } }
+
+/* v0.67.7 · "Ver el registro": el detalle del otro movimiento, ahí mismo (Gastos y B2B) */
+.cc-rep-prop > .cc-rep-botones { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cc-rep-botones .btn-link { display: inline-flex; align-items: center; gap: 4px; color: inherit; text-decoration: underline; }
+.cc-rep-cand + .cc-rep-cand { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--linea); }
+.cc-ojo p { margin: 0; }
+.reg-det { margin: 6px 0 2px; border: 1px solid var(--borde); border-radius: 10px; background: var(--tarjeta); color: var(--texto); font-size: 13px; max-width: 100%; }
+.reg-det > .reg-btn { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 10px; border: 0; background: none; cursor: pointer; text-align: left; font: inherit; font-weight: 600; color: var(--acento); border-radius: 10px; }
+.reg-det > .reg-btn:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
+.reg-det > .reg-btn::after { content: ''; width: 7px; height: 7px; margin-left: 2px; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
+.reg-det.abierto > .reg-btn::after { transform: rotate(-135deg) translateY(-2px); }
+.reg-det .reg-cuerpo[hidden] { display: none; }
+.reg-cuerpo { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px 16px; padding: 4px 10px 10px; }
+.reg-bloque { min-width: 0; }
+.reg-tit { margin: 4px 0 6px; font-weight: 600; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.reg-sub { margin: 8px 0 4px; color: var(--suave); }
+.reg-dl { margin: 0; display: grid; gap: 3px; }
+.reg-dl > div { display: grid; grid-template-columns: 112px 1fr; gap: 8px; }
+.reg-dl dt { color: var(--suave); }
+.reg-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.reg-docs { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.reg-docs li { padding: 5px 8px; border-radius: 8px; background: var(--fondo); display: grid; gap: 2px; overflow-wrap: anywhere; }
+.reg-docs li span { color: var(--suave); }
+.reg-pago { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.reg-pago span { color: var(--suave); }
+.reg-quien { margin: 6px 0 0; color: var(--suave); }
+.reg-aviso { margin: 6px 0 0; }
+.aviso-cc .reg-det, .cc-rep-prop .reg-det { color: var(--texto); }
+dialog .reg-det { text-align: left; }
+@media (max-width: 560px) { .cc-rep-prop > .cc-rep-botones { flex: 1 1 100%; } .reg-dl > div { grid-template-columns: 96px 1fr; } }
+/* dentro de una fila (.fila-caja .txt) el registro no toma los tamaños de la fila */
+.reg-det.reg-det :is(b, span, dt, dd, p, li, small) { font-size: 13px; line-height: 1.4; display: revert; }
+.reg-det.reg-det > .reg-btn > span { display: inline; color: inherit; font-weight: 600; }
+.reg-det.reg-det .reg-tit, .reg-det.reg-det .reg-pago { display: flex; }
+.reg-det.reg-det .reg-docs li { display: grid; }
+.reg-det.reg-det .reg-docs li b { font-weight: 600; }
+.reg-det.reg-det .chip { font-size: 11px; display: inline-block; }

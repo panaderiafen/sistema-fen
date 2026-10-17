@@ -1,9 +1,97 @@
-# Sistema Fën · v0.67.6
+# Sistema Fën · v0.67.7
 
-**App:** v0.67.6 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
+**App:** v0.67.7 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.67.7: el mismo abono de B2B en la cartola en línea y en la histórica ya no pasa dos veces, y "Ver el registro" muestra el otro movimiento ahí mismo
+**Dónde:** Conciliación → Abonos (B2B): al subir la cartola, Para revisar y Ya conciliados · Conciliación → Cargos (Gastos): la propuesta "Parece el mismo movimiento", el aviso "Ojo" y Ya revisados.
+
+### El caso (real)
+Conciliaste abonos de la **cartola en línea**. Después subiste la **histórica** y algunos de esos mismos abonos volvieron a aparecer por conciliar. Y cuando la pantalla avisaba que había un registro parecido ("Parece el mismo movimiento", "Ojo: hay otro…", "Ya estaba registrado"), no decía **cuál**: había que ir a buscarlo.
+
+**Por qué pasaba:** cada abono se identifica por su "huella": fecha, **saldo**, monto y glosa. La histórica puede traer el movimiento con la fecha contable (un día después), con otro saldo o con otra glosa: basta una diferencia para que entre como abono nuevo. La v0.67.6 arregló esto para los cargos, pero no para los abonos: de B2B solo están en la memoria los abonos **pendientes**; los ya conciliados no, así que no había con qué compararlos sin leerlos de nuevo.
+
+### Qué cambia en cómo trabajas
+1. **Al subir una cartola**, cada abono se compara con los que llegaron en **otra** cartola de la misma cuenta (ya conciliados, ya registrados, "No es de B2B" o todavía pendientes). Es el mismo movimiento si tiene el mismo monto, la fecha a ±1 día y además:
+   - el mismo N° de operación (si los dos lo traen), o
+   - la misma glosa (sin tildes, mayúsculas ni signos), o
+   - el mismo RUT en la glosa.
+   Si los dos traen N° de operación y son distintos, son dos pagos: nunca se marca solo.
+2. **Si el par es claro**, el nuevo queda **"Repetido"**: no aparece por conciliar, no registra ningún pago ni abono y no cambia ningún folio. En **Ya conciliados** lleva el chip **"Repetido de la cartola en línea del 13-10-2026"** (o "…de la cartola histórica N°53").
+3. **Si no es claro** (solo coinciden la fecha y el monto, o hay dos posibles), el abono queda **arriba** en Para revisar con "Parece el mismo movimiento que <el otro> (ya conciliado: <cliente> · folio <N°>)" y el botón **"Marcar como repetido"** (un clic). Con dos posibles dice "Hay 2 posibles: ábrelo para elegir". Estos abonos nunca van a "Listos para confirmar".
+4. **También con lo ya subido:** al abrir Abonos, lo pendiente se compara con lo ya resuelto de esos mismos días. Los pares claros quedan "Repetido" (una sola vez, y te avisa arriba); lo dudoso trae la propuesta.
+5. **Dos abonos iguales en la MISMA cartola nunca son repetidos:** son pagos distintos.
+6. **Deshacer** (en Ya conciliados) devuelve el repetido a Para revisar como un abono normal y deja anotado que **no** es repetido de ese movimiento: no se vuelve a marcar ni a proponer con ese.
+7. El mensaje al subir dice cuántos abonos quedaron repetidos y cuántos parecen repetidos.
+
+### "Ver el registro": el otro movimiento, ahí mismo
+Donde la pantalla dice que hay otro movimiento igual o parecido, ahora hay un bloque **"Ver el registro"** que se abre sin salir de la pantalla:
+- **En Abonos (B2B):** en "Parece el mismo movimiento que…" (en la fila y al abrir el abono), en el chip "Repetido de…" de Ya conciliados, en el aviso "Ojo: el folio … ya se registró pagado…" y dentro de "Ya estaba registrado".
+- **En Cargos (Gastos):** en "Parece el mismo movimiento que…", en "Ojo: hay otro cargo del mismo día y monto" y en el chip "Repetido de…" de Ya revisados.
+
+Qué muestra:
+- **El movimiento:** fecha, monto, glosa, cuenta, N° de operación, de qué cartola vino ("cartola en línea del …" o "cartola histórica N°…"), cuándo se subió y quién lo subió.
+- **Cómo se resolvió:**
+  - B2B: el cliente, cada folio (fecha de factura, monto de este abono, total, saldo que queda, órdenes), si fue un **pago parcial**, el saldo a favor si lo hubo, y quién lo concilió y cuándo.
+  - Gastos: la acción (pagó vencimientos, ya estaba en Gastos, gasto nuevo, Previred, abono de sueldo, no es gasto, pago de tarjeta…), cada gasto o vencimiento (fecha, ítem, área y monto) y quién lo revisó y cuándo.
+- **La fecha de pago** registrada en la factura o el gasto.
+- Todo sale de lo que la pantalla ya tiene leído: **abrirlo no gasta lecturas**. El botón (i) del bloque lo explica.
+
+### Dónde se guarda (fen-b2b; las reglas v1.6.0 ya lo cubren)
+- `movimientos/{id}` del repetido:
+  - `estado: "repetido"`, `repetidoDe: <id del original>`;
+  - `repetido`: `{ repetidoDe, por: operacion|glosa|rut|fecha_monto, como: carga|lista|mano, original: { fecha, monto, descripcion, cuenta, nOperacion, cartola, fuente, estado, cliente, folios, resueltoPor, resueltoEn, subidaPor, subidaEl } }` (la copia del original, para mostrar el chip y el registro aunque el original no esté en la memoria);
+  - `resuelto: { por, en }` ("Sistema Fën (repetido)" o quien lo marcó) y `planillaPendiente: false`.
+- Desde ahora cada abono subido guarda también `nOperacion`, `tipoCartola` y `nCartola` (para reconocer el mismo movimiento y mostrar de dónde vino).
+- Al deshacer: vuelve a `pendiente` con `deshechos` + 1 (lo que pide la regla v1.5.0), `ultimoDeshecho`, `deshechosAntes` y `noRepetidoDe: [<id del original>]`.
+- `config/conciliacion.cartolas[].repetidos`: cuántos quedaron repetidos en esa subida.
+- **La planilla de B2B no cambia:** un repetido no registró nada, así que no pasa a "ConciliacionBancaria_Historial" (el script v2.8.2 ni lo ve).
+- **Nada se borra.**
+
+### Lecturas y escrituras (Spark)
+- **Al subir (B2B):** una sola consulta por rango de fechas, [primera fecha − 1 día, última + 1 día] del archivo, de todas las cuentas (se filtra en el navegador; así no hace falta un índice nuevo). Sirve para dos cosas: ver qué ya estaba (la misma huella) y reconocer el mismo movimiento de otra cartola. Lo que no aparece en el rango se pregunta uno por uno, como antes.
+  - Lecturas = abonos ya guardados en esos días + abonos del archivo que no estaban en el rango. Antes: 1 por abono del archivo.
+  - Medido con la N°53 de prueba (6 abonos, 6 ya guardados en esos días): **12 lecturas** (antes habrían sido 6) y **7 escrituras** (6 abonos + el registro de la cartola), igual que antes. Un repetido no agrega escrituras.
+- **Lo ya subido (al abrir Abonos):** la misma consulta, solo para los días de los pendientes (±1), en tramos (como máximo 6 consultas) y **una vez por sesión**: queda en la memoria (lo ya leído al subir o al abrir "Ya conciliados" también sirve).
+  - Medido: 1 consulta y 2 lecturas. Marcar cada par claro: 1 lectura y 1 escritura, una sola vez.
+  - Volver a pintar la lista o revisar otra vez: 0 lecturas.
+- **Marcar como repetido (la propuesta):** 3 lecturas (el abono y el original, y el abono otra vez dentro de la transacción) y 1 escritura.
+- **Deshacer un repetido:** 2 lecturas y 1 escritura (no llama al script de B2B).
+- **Ver el registro (B2B y Gastos):** 0 lecturas.
+- **Cargos (Gastos):** la lista ya traía los gastos de 150 días; ahora entrega también lo ligado a cada cargo (de la misma memoria): 0 lecturas nuevas.
+
+### Instalación v0.67.7 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.67.7.zip`, con la carpeta `cocina/` (no cambia). Hay un archivo nuevo: `registro-detalle.js`.
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script, reglas ni Cocina.**
+
+### Lista de verificación v0.67.7
+- [ ] Abajo a la izquierda dice **v0.67.7**.
+- [ ] Abre Conciliación → Abonos. Si había abonos de la histórica que ya habías conciliado desde la en línea, arriba dice "… quedó como repetido …" y ya no están por conciliar.
+- [ ] En **Ya conciliados**, ese abono tiene el chip **"Repetido de la cartola en línea del …"**. Toca **"Ver el registro"**: aparecen el cliente, el folio con su fecha de factura y saldo, de qué cartola vino y quién lo concilió.
+- [ ] Si algún abono tiene arriba "Parece el mismo movimiento que…", toca **"Ver el registro"** y, si es el mismo, **"Marcar como repetido"**.
+- [ ] La próxima histórica: el mensaje dice "N repetidos de otra cartola" en los abonos y esos no aparecen por conciliar.
+- [ ] En Cargos, un "Ojo: hay otro cargo del mismo día y monto" trae "Ver el registro" con el gasto (fecha, ítem, monto) y quién lo revisó.
+- [ ] En el celular el registro queda en una columna y nada se sale de lado.
+
+### Si algo sale mal
+Sube de nuevo la v0.67.6. Los abonos marcados "repetido" siguen sin aparecer por conciliar (no están pendientes) y en Ya conciliados salen con el estado "repetido" sin el registro; su Deshacer funciona igual (con la v0.67.6 pide el script de B2B, como siempre). Los cargos no cambian. Nada se borra.
+
+**Por dentro:**
+- `b2b.js`:
+  - `cargarCartola`: una consulta por rango (`leerRango`) para lo ya visto y el mismo movimiento; el par claro nace `repetido`; cuenta `repetidos` y `parecidos`; guarda `nOperacion`, `tipoCartola` y `nCartola`;
+  - `revisarRepetidosB2b` (lo ya subido, una vez por sesión: `tramosFaltantes`), `marcarRepetidoB2b`, `deshacerRepetidoB2b` (dentro de `deshacerMovimiento`), `fuenteMov`, `textoFuenteMov`, `textoRepetidoMov`, `detalleRepetidoMov`, `vistaRepMov`;
+  - la memoria de los abonos leídos (`movConocido`, `movsConocidos`, `usoRepetidosB2b`) se pone al día al conciliar, marcar o deshacer, y con lo que lee "Ya conciliados".
+  - Usa las mismas reglas que los cargos (`gastos-cartola.js`: `mismoMovimiento`, `buscarRepetidos`).
+- `registro-detalle.js` (nuevo): el bloque "Ver el registro", igual para B2B y Gastos (`htmlRegistro`, `registroAbono`, `registroFolioPagado`, `registroCargo`).
+- `gastos-cartola-fs.js`: la lista entrega `ligados` (los gastos de cada cargo) y los posibles con de qué cartola, cuándo y quién.
+- `app.js`: la propuesta, "Marcar como repetido", el registro y el chip en Abonos; el registro en Cargos (propuesta, "Ojo" y Ya revisados); el mensaje al subir. `estilos.css`: el bloque del registro.
+- `config.js`, `index.html` y los demás: solo la versión.
 
 ## Novedades de la v0.67.6: el mismo movimiento en la cartola en línea y en la histórica ya no aparece dos veces, y Previred avisa si el cargo es de otro mes
 **Dónde:** Conciliación → Cartola → Cargos (al subir la cartola y en la lista) · el cargo de Previred ("Pago de Previred"). Solo con Gastos en la base nueva.

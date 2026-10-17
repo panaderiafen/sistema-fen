@@ -8,12 +8,13 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.67.6';
-import * as FB from './firebase-b2b.js?v=0.67.6';
-import * as Apps from './apps.js?v=0.67.6';
-import * as Mem from './fs-memoria.js?v=0.67.6';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.67.6';
-import { distanciaTef } from './feriados-cl.js?v=0.67.6';   // v0.63.4: días hábiles para cruzar transferencias
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.67.7';
+import * as FB from './firebase-b2b.js?v=0.67.7';
+import * as Apps from './apps.js?v=0.67.7';
+import * as Mem from './fs-memoria.js?v=0.67.7';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.67.7';
+import { distanciaTef } from './feriados-cl.js?v=0.67.7';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.67.7';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1172,20 +1173,207 @@ export async function cargarCartola(cartola, conf) {
     cand.push({ f, i, huella: huellaMovimiento(f) });
   });
   const ids = await Promise.all(cand.map(x => idMovimiento(x.huella)));
-  const sns = await Promise.all(ids.map(id => FB.getDoc(FB.doc(db, 'movimientos', id))));
-  uso.lecturas += ids.length;
-  const porEscribir = [];
+  // v0.67.7 · Una sola consulta por rango de fechas: [la primera − 1 día, la última + 1 día] del archivo, todas las cuentas y estados
+  // (se filtra aquí). Sirve para dos cosas: lo ya visto (la misma huella) y el mismo movimiento que llegó en otra cartola.
+  // Lo que no aparece en el rango se pregunta uno por uno, como antes (por si un documento antiguo tiene otra fecha).
+  const fechas = cand.map(x => fechaDe(x.f.fecha)).filter(Boolean).sort();
+  const enRango = new Map();
+  let lect = 0;
+  if (fechas.length) { const rr = await leerRango(db, masDiasB(fechas[0], -1), masDiasB(fechas[fechas.length - 1], 1)); lect += rr.lecturas; rr.docs.forEach(d => enRango.set(d.id, d)); }
+  const faltan = [...new Set(ids.filter(id => !enRango.has(id)))];
+  const sns = await Promise.all(faltan.map(id => FB.getDoc(FB.doc(db, 'movimientos', id))));
+  uso.lecturas += faltan.length; lect += faltan.length;
+  const existe = new Set(faltan.filter((id, k) => sns[k].exists()).concat([...enRango.keys()]));
+  const cuenta = (cartola.cuenta && cartola.cuenta.tipo) || 'chequera', ahora = ahoraSeg(), quien = authSF.currentUser.email;
+  const llegan = [], vistosAqui = new Set();
   cand.forEach((x, k) => {
-    if (sns[k].exists()) { r.yaVistos++; return; }
-    r.nuevos++;
-    porEscribir.push([ids[k],  { huella: x.huella, fecha: x.f.fecha, descripcion: x.f.descripcion, descNorm: normCartola(x.f.descripcion), monto: x.f.abonos, saldo: x.f.saldo, orden: x.i,
-      cartola: cartola.identificador, cuenta: (cartola.cuenta && cartola.cuenta.tipo) || 'chequera', estado: 'pendiente', origen: 'sistema-fen', cargado: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: false }]);
+    if (existe.has(ids[k]) || vistosAqui.has(ids[k])) { r.yaVistos++; return; }
+    vistosAqui.add(ids[k]);
+    llegan.push({ id: ids[k], x, d: { huella: x.huella, fecha: x.f.fecha, descripcion: x.f.descripcion, descNorm: normCartola(x.f.descripcion), monto: x.f.abonos, saldo: x.f.saldo, orden: x.i,
+      nOperacion: String(x.f.operacion || ''), tipoCartola: cartola.tipo || '', nCartola: cartola.nCartola || null,   // v0.67.7: para reconocer el mismo movimiento y mostrar de dónde vino
+      cartola: cartola.identificador, cuenta, estado: 'pendiente', origen: 'sistema-fen', cargado: { por: quien, en: FB.serverTimestamp() }, planillaPendiente: false } });
+  });
+  // v0.67.7 · ¿El mismo movimiento que ya llegó en OTRA cartola (en línea ↔ histórica)? Las mismas reglas que los cargos (v0.67.6)
+  const orig = [...enRango.values()].filter(m => !m.quitadoEnPlanilla).map(vistaRepMov);
+  const rep = CB.buscarRepetidos(llegan.map(l => vistaRepMov({ id: l.id, ...l.d, subidaEl: ahora })), orig, { tomados: CB.tomadosDe(orig) });
+  const porEscribir = [];
+  r.repetidos = 0; r.parecidos = 0;
+  llegan.forEach(l => {
+    const m = rep.get(l.id);
+    if (m && m.auto) {
+      const det = detalleRepetidoMov(m.original.m, m.por, 'carga');
+      Object.assign(l.d, { estado: REPETIDO_B2B, repetidoDe: m.original.id, repetido: det, resuelto: { por: POR_REPETIDO_B2B, en: FB.serverTimestamp() } });
+      r.repetidos++;
+    } else { r.nuevos++; if (m) r.parecidos++; }
+    porEscribir.push([l.id, l.d]);
   });
   for (let i = 0; i < porEscribir.length; i += 400) { const b = FB.writeBatch(db); porEscribir.slice(i, i + 400).forEach(([id, d]) => b.set(FB.doc(db, 'movimientos', id), d)); await b.commit(); uso.escrituras += Math.min(400, porEscribir.length - i); }
+  // Lo recién subido queda en la memoria de los repetidos (así la lista no vuelve a leer este rango)
+  porEscribir.forEach(([id, d]) => repMem.docs.set(id, { id, ...d, subidaEl: ahora, cargado: { por: quien, en: ahora }, ...(d.resuelto ? { resuelto: { por: d.resuelto.por, en: ahora } } : {}), _subido: true }));
   // v0.14.5: queda anotada la cartola (tipo, N°, período) para saber hasta dónde se revisó
-  await anotarCartola({ id: cartola.identificador, tipo: cartola.tipo, cuenta: (cartola.cuenta && cartola.cuenta.tipo) || 'chequera', cuentaFin: cartola.cuenta && cartola.cuenta.numero ? String(cartola.cuenta.numero).slice(-4) : null,
-    nCartola: cartola.nCartola || null, desde: cartola.desde || null, hasta: cartola.hasta || null, abonos: r.abonos, nuevos: r.nuevos, yaVistos: r.yaVistos, ignorados: r.ignorados });
+  await anotarCartola({ id: cartola.identificador, tipo: cartola.tipo, cuenta, cuentaFin: cartola.cuenta && cartola.cuenta.numero ? String(cartola.cuenta.numero).slice(-4) : null,
+    nCartola: cartola.nCartola || null, desde: cartola.desde || null, hasta: cartola.hasta || null, abonos: r.abonos, nuevos: r.nuevos, yaVistos: r.yaVistos, ignorados: r.ignorados, ...(r.repetidos ? { repetidos: r.repetidos } : {}) });
+  r.lecturas = lect;   // v0.67.7: lecturas de movimientos al subir (el rango + los que no estaban en él)
+  repMem.ultimaSubida = { lecturas: lect, enRango: enRango.size, sueltas: faltan.length, desde: fechas.length ? masDiasB(fechas[0], -1) : '', hasta: fechas.length ? masDiasB(fechas[fechas.length - 1], 1) : '' };
   return r;
+}
+
+// ═══════════════════════════════════════════════
+//  v0.67.7 · El mismo abono en la cartola en línea y en la histórica
+//  Igual que los cargos (v0.67.6, gastos-cartola.js): misma cuenta, mismo monto, fecha ±1 día y de OTRA subida; fuerte si además
+//  tiene el mismo N° de operación (si los dos lo traen), la misma glosa normalizada o el mismo RUT. Dos N° de operación distintos
+//  nunca son fuertes. Dos iguales de la misma subida nunca se comparan.
+//  · Par fuerte y único → "repetido" (repetidoDe): no aparece por conciliar, no crea abonos ni pagos; en Ya conciliados con su chip.
+//  · Débil o con dos posibles → queda pendiente, arriba, con la propuesta "Parece el mismo movimiento que…" (un clic).
+//  · Deshacer → vuelve a pendiente (deshechos + 1, como pide la regla v1.5.0) con noRepetidoDe: no se vuelve a marcar con ese.
+//  Los resueltos no están en la memoria (solo los pendientes): se leen por rango de fechas, una vez por sesión (repMem).
+// ═══════════════════════════════════════════════
+export const REPETIDO_B2B = 'repetido';
+export const POR_REPETIDO_B2B = 'Sistema Fën (repetido)';
+const ahoraSeg = (d = new Date()) => `${ahoraTxt(d)}:${String(d.getSeconds()).padStart(2, '0')}`;
+const msTxt = t => { const ms = msDe(t); return ms ? ahoraSeg(new Date(ms)) : ''; };
+// De qué cartola vino un abono (de su identificador o, desde la v0.67.7, de tipoCartola y nCartola)
+export function fuenteMov(m) {
+  const id = String((m && m.cartola) || '');
+  if ((m && m.tipoCartola === 'historica') || /Hist[oó]rica/i.test(id)) { const n = String((m && m.nCartola) || (id.match(/N°\s*([0-9A-Za-z]+)/) || [])[1] || ''); return { tipo: 'historica', numero: n }; }
+  if (/App antigua/i.test(id) || (m && m.origen === 'app antigua' && !id)) return { tipo: 'antigua' };
+  const g = id.match(/generada (\d{2})\/(\d{2})\/(\d{4})/); if (g) return { tipo: 'enlinea', generada: `${g[3]}-${g[2]}-${g[1]}` };
+  const r = id.match(/\(\d{4}-\d{2}-\d{2} a (\d{4}-\d{2}-\d{2})\)/);
+  if ((m && m.tipoCartola === 'enlinea') || /En l[ií]nea/i.test(id)) return { tipo: 'enlinea', generada: r ? r[1] : '' };
+  return { tipo: '', texto: id };
+}
+export function textoFuenteMov(f) {
+  if (!f) return 'otra cartola';
+  if (f.tipo === 'historica') return `cartola histórica N°${f.numero || '?'}`;
+  if (f.tipo === 'enlinea') return f.generada ? `cartola en línea del ${fechaDMY(f.generada)}` : 'cartola en línea';
+  if (f.tipo === 'antigua') return 'app B2B antigua';
+  return f.texto || 'otra cartola';
+}
+export const textoRepetidoMov = det => `Repetido de la ${textoFuenteMov(det && det.original && det.original.fuente)}`;
+// Un abono como lo comparan las reglas de los cargos (gastos-cartola.buscarRepetidos)
+const ESTADO_REP = { pendiente: 'POR_REVISAR', repetido: 'REPETIDO' };
+export function vistaRepMov(m) {
+  return { id: m.id, docId: m.id, cuenta: m.cuenta || 'chequera', fecha: fechaDe(m.fecha) || '', monto: Math.round(Number(m.monto) || 0), descripcion: m.descripcion || '', operacion: m.nOperacion || '',
+    cartola: m.cartola || '', subidaEl: m.subidaEl || msTxt(m.cargado && m.cargado.en), estado: m._fuera ? 'RESUELTO' : ESTADO_REP[m.estado] || 'CONCILIADO', repetidoDe: m.repetidoDe || '',
+    noRepetidoDe: Array.isArray(m.noRepetidoDe) ? m.noRepetidoDe : [], m };
+}
+// Lo que queda en el repetido (para mostrar el chip y el registro aunque el original ya no esté en la memoria)
+export function detalleRepetidoMov(o, por, como) {
+  const r = o.resuelto || {};
+  return { repetidoDe: o.id, por: String(por || ''), como: String(como || ''), original: { fecha: fechaDe(o.fecha) || '', monto: Math.round(Number(o.monto) || 0), descripcion: String(o.descripcion || '').slice(0, 120),
+    cuenta: o.cuenta || 'chequera', nOperacion: o.nOperacion || '', cartola: String(o.cartola || '').slice(0, 120), fuente: fuenteMov(o), estado: o.estado || '', cliente: o.cliente || '', clienteId: o.clienteId || null,
+    folios: (o.asignaciones || []).map(a => ({ folio: String(a.folio), monto: Math.round(Number(a.monto) || 0), tipo: a.tipo || '' })).slice(0, 20), nota: o.nota || null,
+    resueltoPor: r.por || '', resueltoEn: msTxt(r.en) || '', subidaPor: (o.cargado && o.cargado.por) || '', subidaEl: o.subidaEl || msTxt(o.cargado && o.cargado.en) || '' } };
+}
+// ── Memoria de esta sesión: los abonos leídos por rango (todos los estados) y los rangos ya leídos ──
+const repMem = { docs: new Map(), rangos: [], lecturas: 0, consultas: 0, ultimaSubida: null };
+export function olvidarRepetidosB2b() { repMem.docs.clear(); repMem.rangos = []; repMem.lecturas = 0; repMem.consultas = 0; }
+export const usoRepetidosB2b = () => ({ lecturas: repMem.lecturas, consultas: repMem.consultas, rangos: repMem.rangos.map(r => r.slice()), ultimaSubida: repMem.ultimaSubida || null });
+async function leerRango(db, desde, hasta) {
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'movimientos'), FB.where('fecha', '>=', desde), FB.where('fecha', '<=', hasta)));
+  const n = Math.max(1, sn.size); uso.lecturas += n; repMem.lecturas += n; repMem.consultas++;
+  const docs = sn.docs.map(x => ({ id: x.id, ...x.data() }));
+  docs.forEach(d => { const p = repMem.docs.get(d.id); if (!p || !p._local) repMem.docs.set(d.id, d); });
+  repMem.rangos.push([desde, hasta]);
+  return { docs, lecturas: n };
+}
+// Lo ya leído en otro lado (Ya conciliados: los últimos N días) también sirve
+export function anotarLeidosB2b(docs, desde, hasta) {
+  (docs || []).forEach(d => { const p = repMem.docs.get(d.id); if (!p || !p._local) repMem.docs.set(d.id, { ...d }); });
+  if (desde) repMem.rangos.push([desde, hasta || '9999-12-31']);
+}
+const cubierto = f => repMem.rangos.some(([a, b]) => f >= a && f <= b);
+// Los días que faltan leer para comparar estos pendientes (cada uno ±1 día), juntos en tramos seguidos (como máximo 6 consultas)
+export function tramosFaltantes(fechas, max = 6) {
+  const dias = new Set();
+  (fechas || []).forEach(f => { if (!fechaDe(f)) return; [-1, 0, 1].forEach(k => { const x = masDiasB(fechaDe(f), k); if (!cubierto(x)) dias.add(x); }); });
+  const l = [...dias].sort(), tramos = [];
+  l.forEach(x => { const t = tramos[tramos.length - 1]; if (t && masDiasB(t[1], 1) === x) t[1] = x; else tramos.push([x, x]); });
+  while (tramos.length > max) {   // junta los dos tramos más cercanos (menos consultas; lee también los días entre medio)
+    let k = 0, mejor = Infinity;
+    for (let i = 0; i < tramos.length - 1; i++) { const g = diasEntre(tramos[i][1], tramos[i + 1][0]); if (g < mejor) { mejor = g; k = i; } }
+    tramos.splice(k, 2, [tramos[k][0], tramos[k + 1][1]]);
+  }
+  return tramos;
+}
+// Un abono ya conocido (pendiente en la memoria o leído por rango): para "Ver el registro"
+export const movConocido = id => repMem.docs.get(id) || null;
+export const movsConocidos = () => [...repMem.docs.values()];
+export const momentoTxt = t => (typeof t === 'string' ? t : msTxt(t));
+// Después de resolver o deshacer desde aquí: la memoria queda al día sin leer de nuevo
+function anotarLocal(id, cambios) {
+  const p = repMem.docs.get(id); if (!p) return;
+  repMem.docs.set(id, { ...p, ...cambios, _local: true, _fuera: false });
+}
+// pendientes: los abonos pendientes de la memoria (b2b.datos.movimientos). Lee por rango solo lo que falta (una vez por sesión),
+// marca los pares claros (1 lectura y 1 escritura cada uno, una vez) y devuelve las propuestas.
+// → { marcados, props: { [id]: { ambiguo, candidatos: [{ id, por, fuerte, dias }] } }, lecturas }
+export async function revisarRepetidosB2b(pendientes) {
+  const db = await dbOk(), vivos = new Set((pendientes || []).map(m => m.id));
+  let lecturas = 0;
+  for (const [a, b] of tramosFaltantes((pendientes || []).map(m => m.fecha))) lecturas += (await leerRango(db, a, b)).lecturas;
+  (pendientes || []).forEach(m => { const p = repMem.docs.get(m.id); repMem.docs.set(m.id, { ...(p && p._subido ? { subidaEl: p.subidaEl } : {}), ...m }); });
+  // Un pendiente leído antes que ya no está pendiente: se resolvió en otro equipo (no se sabe cómo; no se propone como original dudoso)
+  repMem.docs.forEach((d, id) => { if (d.estado === 'pendiente' && !vivos.has(id) && !d._subido && !d._local) d._fuera = true; });
+  const vs = [...repMem.docs.values()].filter(m => !m.quitadoEnPlanilla).map(vistaRepMov);
+  const pend = vs.filter(v => v.estado === 'POR_REVISAR' && vivos.has(v.id));
+  const antes = (a, b) => (a.subidaEl + '|' + a.cartola + '|' + a.id) < (b.subidaEl + '|' + b.cartola + '|' + b.id);
+  const r = CB.buscarRepetidos(pend, vs, { tomados: CB.tomadosDe(vs), puede: (n, e) => e.estado !== 'POR_REVISAR' || antes(e, n) });
+  const autos = [], props = {};
+  r.forEach((x, id) => { if (x.auto) autos.push({ id, x }); else props[id] = { ambiguo: !!x.ambiguo, candidatos: x.candidatos.map(y => ({ id: y.e.id, por: y.por, fuerte: !!y.fuerte, dias: y.dias })) }; });
+  let marcados = 0;
+  if (autos.length) {
+    try { marcados = await marcarRepetidosB2b(autos.map(({ id, x }) => ({ id, original: x.original.m, por: x.por, como: 'lista' }))); }
+    catch (e) { autos.forEach(({ id, x }) => { props[id] = { ambiguo: false, candidatos: [{ id: x.original.id, por: x.por, fuerte: true, dias: x.dias }] }; }); }   // sin cuota o sin red: queda la propuesta
+    // lo que no se pudo marcar (cambió en otro lado) queda como propuesta
+    autos.forEach(({ id, x }) => { const d = repMem.docs.get(id); if (d && d.estado === 'pendiente' && !props[id]) props[id] = { ambiguo: false, candidatos: [{ id: x.original.id, por: x.por, fuerte: true, dias: x.dias }] }; });
+  }
+  return { marcados, props, lecturas };
+}
+// Marca como repetidos (al listar o a mano). Cada uno se revisa adentro: sigue pendiente, la misma huella y no está en noRepetidoDe.
+// lista: [{ id, original (abono), por, como, motivo }]. → cuántos marcó
+async function marcarRepetidosB2b(lista) {
+  const db = await dbOk(), quien = authSF.currentUser.email;
+  let n = 0;
+  for (let i = 0; i < lista.length; i += 100) {
+    const parte = lista.slice(i, i + 100);
+    const hechos = await FB.runTransaction(db, async tx => {
+      const refs = parte.map(x => FB.doc(db, 'movimientos', x.id)), sns = [];
+      for (const ref of refs) sns.push(await tx.get(ref));
+      const ok = [];
+      parte.forEach((x, j) => {
+        const sn = sns[j]; if (!sn.exists()) return;
+        const a = sn.data(), prev = repMem.docs.get(x.id);
+        if (a.estado !== 'pendiente' || (prev && prev.huella && prev.huella !== a.huella) || (a.noRepetidoDe || []).includes(x.original.id)) return;
+        const det = { ...detalleRepetidoMov(x.original, x.por, x.como), ...(x.motivo ? { motivo: String(x.motivo).slice(0, 200) } : {}) };
+        const resp = x.como === 'mano' ? quien : POR_REPETIDO_B2B;
+        tx.update(refs[j], { estado: REPETIDO_B2B, repetidoDe: x.original.id, repetido: det, resuelto: { por: resp, en: FB.serverTimestamp() }, planillaPendiente: false });
+        ok.push({ x, det, resp });
+      });
+      return ok;
+    });
+    uso.lecturas += parte.length; uso.escrituras += hechos.length;
+    hechos.forEach(({ x, det, resp }) => anotarLocal(x.id, { estado: REPETIDO_B2B, repetidoDe: x.original.id, repetido: det, resuelto: { por: resp, en: ahoraSeg() } }));
+    n += hechos.length;
+  }
+  return n;
+}
+// "Marcar como repetido" (la propuesta): revisa en el servidor que sea el mismo movimiento. 2 lecturas y 1 escritura.
+export async function marcarRepetidoB2b(movId, origId, motivo) {
+  const db = await dbOk();
+  const [sm, so] = await Promise.all([FB.getDoc(FB.doc(db, 'movimientos', movId)), FB.getDoc(FB.doc(db, 'movimientos', origId))]);
+  uso.lecturas += 2;
+  if (!sm.exists() || !so.exists()) throw new Error('Ese abono ya no está.');
+  const m = { id: movId, ...sm.data() }, o = { id: origId, ...so.data() };
+  if (m.estado !== 'pendiente') throw new Error('Ese abono ya se resolvió.');
+  if (o.estado === REPETIDO_B2B) throw new Error('El otro abono también es un repetido: elige el original.');
+  const p = repMem.docs.get(movId), q = repMem.docs.get(origId);
+  const vm = vistaRepMov({ ...m, subidaEl: (p && p.subidaEl) || '' }), vo = vistaRepMov({ ...o, subidaEl: (q && q.subidaEl) || '' });
+  const x = CB.mismoMovimiento(vm, vo);
+  if (!x) throw new Error('No es el mismo movimiento: debe ser de la misma cuenta, el mismo monto, la fecha a ±1 día y de otra cartola.');
+  repMem.docs.set(origId, { ...(q || {}), ...o });
+  const n = await marcarRepetidosB2b([{ id: movId, original: o, por: x.por, como: 'mano', motivo }]);
+  if (!n) throw new Error('Ese abono cambió en otro lado: recarga la lista.');
 }
 
 // ── A quién corresponde y cómo repartir cada abono ──
@@ -1460,6 +1648,7 @@ export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender
   if (!asig.length && !aFavor) throw new Error('Asigna el monto a al menos un folio.');
   if (!clienteId) throw new Error('Elige el cliente.');
   const cliente = (await FB.getDoc(FB.doc(db, 'clientes', clienteId))).data() || {};
+  let fin = null;   // v0.67.7: lo que quedó, para la memoria de los repetidos
   await FB.runTransaction(db, async tx => {
     // Las consultas (órdenes y abonos de cada folio) se repiten en cada intento: si otro equipo cambió algo, se ve
     const info = {};
@@ -1505,8 +1694,10 @@ export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender
     }
     const favor = aFavor ? mv.monto - total : 0;
     tx.update(mref, { estado: 'conciliado', clienteId, cliente: cliente.nombre || '', asignaciones: hechas, sobra: mv.monto - total, favorInicial: favor, favorDisponible: favor, favorUsos: [], aprendido: !!aprender, resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: true });
+    fin = { estado: 'conciliado', clienteId, cliente: cliente.nombre || '', asignaciones: hechas, sobra: mv.monto - total, favorInicial: favor, resuelto: { por: authSF.currentUser.email, en: ahoraSeg() } };
   });
   uso.escrituras += asig.length * 2 + 1;
+  if (fin) anotarLocal(movId, fin);
 }
 
 // ═══════════════════════════════════════════════
@@ -1566,11 +1757,13 @@ async function scriptParaDeshacer() {
 }
 export async function deshacerMovimiento(movId, motivo) {
   const db = await dbOk();
-  await scriptParaDeshacer();
   const mref = FB.doc(db, 'movimientos', movId), pre = await FB.getDoc(mref);
+  uso.lecturas++;
   if (!pre.exists()) throw new Error('Ese abono ya no está.');
   const m0 = pre.data();
   if (m0.estado === 'pendiente') throw new Error('Ese abono ya está por revisar.');
+  if (m0.estado === REPETIDO_B2B) return deshacerRepetidoB2b(db, mref, movId, motivo);   // v0.67.7: no tocó ningún folio ni la planilla
+  await scriptParaDeshacer();
   if (m0.estado === 'conciliado' && m0.origen === 'app antigua') throw new Error('Se concilió en la app antigua: si hay un error, corrígelo en Por cobrar.');
   const usosReales = m => (m.favorUsos || []).filter(u => u.tipo !== 'redondeo');   // v0.25.0: el cierre por redondeo no bloquea
   if (usosReales(m0).length) throw new Error(`Primero deshaz el uso del saldo a favor (folio ${usosReales(m0).map(u => u.folio).join(', ')}).`);
@@ -1592,6 +1785,24 @@ export async function deshacerMovimiento(movId, motivo) {
       clienteId: null, cliente: '', asignaciones: [], sobra: null, favorInicial: 0, favorDisponible: 0, favorUsos: [], aprendido: false, nota: null, resuelto: null, planillaPendiente: true });
   });
   uso.escrituras += 3;
+  anotarLocal(movId, { estado: 'pendiente', clienteId: null, cliente: '', asignaciones: [], nota: null, resuelto: null, deshechos: (m0.deshechos || 0) + 1 });   // v0.67.7
+}
+// v0.67.7 · Deshacer un repetido: vuelve a pendiente como un abono normal y queda anotado que NO es repetido de ese original
+// (no se vuelve a marcar ni a proponer con ese). No tocó folios ni la planilla: no necesita el script. 1 lectura y 1 escritura.
+async function deshacerRepetidoB2b(db, mref, movId, motivo) {
+  const mot = String(motivo || '').trim().slice(0, 200);
+  let no = [];
+  await FB.runTransaction(db, async tx => {
+    const ms = await tx.get(mref), mv = ms.data();
+    if (mv.estado !== REPETIDO_B2B) throw new Error('Ese abono ya no está como repetido.');
+    no = [...new Set((mv.noRepetidoDe || []).concat(mv.repetidoDe ? [mv.repetidoDe] : []))].slice(-20);
+    const u = { en: ahoraTxt(), por: authSF.currentUser.email, motivo: mot || 'No es repetido' };
+    tx.update(mref, { estado: 'pendiente', deshechos: (mv.deshechos || 0) + 1, ultimoDeshecho: u, deshechosAntes: (mv.deshechosAntes || []).concat([{ estado: mv.estado, repetidoDe: mv.repetidoDe || null, resuelto: mv.resuelto || null, ...u }]).slice(-10),
+      repetidoDe: null, repetido: null, noRepetidoDe: no, resuelto: null, planillaPendiente: false });
+  });
+  uso.lecturas++; uso.escrituras++;
+  anotarLocal(movId, { estado: 'pendiente', repetidoDe: null, repetido: null, noRepetidoDe: no, resuelto: null });
+  return { repetido: true, noRepetidoDe: no };
 }
 // Usar el saldo a favor de un abono en un folio del mismo cliente (queda como abono con la fecha del banco)
 export async function usarFavor(movId, folio, monto) {
@@ -1685,6 +1896,7 @@ export async function historialConciliacion(dias = 60) {
   const db = await dbOk();
   const sn = await FB.getDocs(FB.query(FB.collection(db, 'movimientos'), FB.where('fecha', '>=', masDias(hoyTxt(), -dias))));
   uso.lecturas += Math.max(1, sn.size);
+  anotarLeidosB2b(sn.docs.map(x => ({ id: x.id, ...x.data() })), masDias(hoyTxt(), -dias));   // v0.67.7: también sirve para los repetidos y "Ver el registro"
   return sn.docs.map(x => ({ id: x.id, ...x.data() })).filter(m => m.estado !== 'pendiente')
     .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)) || (b.orden || 0) - (a.orden || 0));
 }
@@ -1786,6 +1998,7 @@ export async function marcarMovimiento(movId, estado, nota, patron, cliente) {
     if (patron) { const c = configConciliacion(cs.exists() ? cs.data() : null), p = normCartola(patron); if (p.length < 4) throw new Error('El texto a ignorar es muy corto.'); tx.set(cref, { ...(cs.exists() ? cs.data() : {}), equivalencias: c.equivalencias, ignorar: [...new Set(c.ignorar.concat([p]))] }); }
     tx.update(mref, { estado, nota: String(nota || '').trim().slice(0, 200) || null, ...(cliente && cliente.id && estado === 'revisado' ? { clienteId: cliente.id, cliente: cliente.nombre || '', aprendido: !!aprender } : {}), resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: estado === 'revisado' || !!ms.data().deshechos });   // deshecho antes: su fila del historial se corrige
   });
+  anotarLocal(movId, { estado, nota: String(nota || '').trim().slice(0, 200) || null, ...(cliente && cliente.id && estado === 'revisado' ? { clienteId: cliente.id, cliente: cliente.nombre || '' } : {}), resuelto: { por: authSF.currentUser.email, en: ahoraSeg() } });   // v0.67.7
   uso.escrituras += patron || cliente ? 2 : 1;
 }
 
