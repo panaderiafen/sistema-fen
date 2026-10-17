@@ -10,7 +10,7 @@
 //  · armarAsociacion: el documento de costos_asoc y su historial (costos_asoc_hist).
 //  Todo en neto. Se prueba solo: pruebas/sistemafen/finanzas-f1b.test.js.
 // ═══════════════════════════════════════════════
-import { num, parsearContenido, contenidoValido, IVA } from './finanzas-costos.js?v=0.67.7';
+import { num, parsearContenido, contenidoValido, IVA } from './finanzas-costos.js?v=0.68.0';
 
 export const DIAS_COMPRAS = 90;
 export const LIMITE_PCT = 40;

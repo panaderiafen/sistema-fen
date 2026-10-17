@@ -19,18 +19,19 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.67.7';
-import * as M from './gastos-g2.js?v=0.67.7';
-import * as G3 from './gastos-g3.js?v=0.67.7';
-import * as G3D from './gastos-g3d.js?v=0.67.7';
-import * as C from './gastos-cartola.js?v=0.67.7';
-import * as B from './gastos-banco.js?v=0.67.7';
-import { huella } from './gastos-modelo.js?v=0.67.7';
-import * as FS from './gastos-fs.js?v=0.67.7';
-import * as GB from './gastos-base.js?v=0.67.7';
-import * as TE from './tef-enviadas.js?v=0.67.7';
-import * as P from './proveedores.js?v=0.67.7';
-import * as SP from './sii-pendientes.js?v=0.67.7';   // v0.66.0: documentos del SII por clasificar
+import * as FB from './fs-gastos.js?v=0.68.0';
+import * as M from './gastos-g2.js?v=0.68.0';
+import * as G3 from './gastos-g3.js?v=0.68.0';
+import * as G3D from './gastos-g3d.js?v=0.68.0';
+import * as C from './gastos-cartola.js?v=0.68.0';
+import * as B from './gastos-banco.js?v=0.68.0';
+import { huella } from './gastos-modelo.js?v=0.68.0';
+import * as FS from './gastos-fs.js?v=0.68.0';
+import * as GB from './gastos-base.js?v=0.68.0';
+import * as TE from './tef-enviadas.js?v=0.68.0';
+import * as P from './proveedores.js?v=0.68.0';
+import * as SP from './sii-pendientes.js?v=0.68.0';   // v0.66.0: documentos del SII por clasificar
+import { registradosGastos } from './bandeja.js?v=0.68.0';   // v0.68.0: lo registrado con su estado (Buscar en Gastos)
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -94,10 +95,11 @@ export async function lista(diasP) {
   // v0.67.4 · Los gastos sin cargo y, aparte, las notas de crédito sin cargo (con su referencia): solo se suman con su factura
   const grupos = B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon))), { conNC: true });
   const rNC = refsNC(ab.siiDocs), ncs = grupos.filter(g => g.monto < 0).map(g => (rNC[g.siiDocId] ? { ...g, refs: rNC[g.siiDocId] } : g));
-  const SPF = await import('./sii-pendientes-fs.js?v=0.67.7');
+  const SPF = await import('./sii-pendientes-fs.js?v=0.68.0');
   const siiPendientes = await SPF.pendientes().catch(async () => SP.pendientesDe(await todos('sii_docs').catch(() => []))), siiRegistrados = await SPF.registrados().catch(() => []);
   return { ok: true, fuente: 'base', planillas, siiPendientes, siiRegistrados, cargos, repetidos, ligados, todosCargos: todosC, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
     vencimientos: ab.lista, gastos: grupos.filter(g => g.monto > 0), notasCredito: ncs, sinFactura, siiSinImportar: {}, dias,
+    registrados: registradosGastos(gastos, ab.vencs, hoy),   // v0.68.0 · "Buscar en Gastos": lo ya leído (gastos de 150 días y vencimientos), con su estado; 0 lecturas
     abonoDest: dAb.destinatarios, trabajadores: dAb.trabajadores,   // v0.63.1: para "Área de este abono"
     enviadas: { n: enviadas.length, hasta: enviadas.map(x => x.fecha).sort().pop() || '', subidas: [...new Set(enviadas.map(x => x.subida.slice(0, 10)))].sort().slice(-3) } };
 }

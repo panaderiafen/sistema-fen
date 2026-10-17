@@ -1,9 +1,95 @@
-# Sistema Fën · v0.67.7
+# Sistema Fën · v0.68.0
 
-**App:** v0.67.7 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 16 de octubre de 2026
+**App:** v0.68.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 17 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.68.0: Conciliación como bandeja de entrada (lista y detalle lado a lado)
+**Dónde:** Conciliación → Cartola → Cargos (Gastos) y Abonos (B2B).
+
+### El caso
+Al conciliar cargos había que ir a Gastos para ver si algo estaba registrado de verdad, y se perdía el hilo. En Abonos no se veía de un vistazo qué estaba pagado y qué no.
+
+### Qué cambia en cómo trabajas
+1. **Una fila por movimiento**, con:
+   - una etiqueta escrita y un borde de color;
+   - la fecha, el monto, la glosa corta y la propuesta en una línea (por ejemplo "Paga MOLINOS FICTICIOS SPA F.5501" o "Gasto nuevo: COMISIONES BANCARIAS · ADMIN").
+   Las etiquetas son:
+   - **Listo** (verde): son los mismos de "Listos para confirmar".
+   - **Revisar** (amarillo): la propuesta es probable o tiene dudas, parece repetido o lo aprendido no calza exacto.
+   - **Sin coincidencia** (rojo): nada calza.
+   - En lo ya revisado: **Conciliado** (verde) o gris (Repetido, No es gasto, Pago de tarjeta, Traspaso, No es de B2B).
+2. **Arriba de la lista:**
+   - los contadores por estado, que también filtran;
+   - el buscador (monto con o sin $, glosa, proveedor o cliente);
+   - el botón para confirmar varios.
+   Debajo, la línea "Listo: …" con **Deshacer** del último que resolviste.
+3. **En el PC (desde 1024 px), dos columnas:** la lista a la izquierda y el detalle del movimiento a la derecha, cada una con su propio scroll. Con el teclado:
+   - ↑ y ↓ para moverte;
+   - Enter para abrir;
+   - Esc (o la X) para cerrar.
+4. **El detalle dice todo en un lugar:**
+   - el movimiento completo (cuenta, cartola, N° de operación, quién lo subió);
+   - **Qué es** y **Qué propongo y por qué** (por ejemplo "mismo RUT del proveedor y monto exacto, 2 días después de la factura");
+   - el botón principal;
+   - abajo, las acciones de siempre.
+5. **Cargos:**
+   - **En Gastos** muestra el estado real de lo propuesto: si está registrado, su fecha, ítem, área y monto, si ya está pagado y con qué cargo (o en efectivo o con tarjeta), o si espera su cargo. Si algo del mismo monto ya está pagado en esos días, te avisa, con "Ver el registro".
+   - **Buscar en Gastos**: sin salir, busca gastos, vencimientos y facturas por clasificar por monto, proveedor, folio o ítem. Lo que espera su pago se elige ahí mismo ("Es este gasto", "Pagar con este cargo", "Clasificar y conciliar").
+6. **Abonos:**
+   - las facturas del cliente divididas en **Abiertas** (fecha de factura, total, saldo y "en este abono" en las que cubre la propuesta) y **Pagadas recientes** (cuándo y con qué abono se pagaron);
+   - **Buscar facturas** por folio, cliente o monto: una abierta se asigna con "Asignar a este abono".
+7. **Después de confirmar o resolver:**
+   - en el PC se abre solo el siguiente pendiente;
+   - en el celular queda abajo un botón **Siguiente**.
+8. **Ya revisados / Ya conciliados** están en la misma lista: al tocar uno se ve cómo se resolvió, su registro y **Deshacer**.
+9. **Arriba, plegable ("Cartola y cobertura"):** cargar la cartola, días de conciliar y "Qué está cubierto". Si la pliegas, queda plegada.
+10. **En el celular y la tablet:** las mismas etiquetas y la propuesta en cada tarjeta. Al abrirla, el mismo detalle aparece debajo.
+
+### Lecturas (Spark)
+- Seleccionar, moverse, filtrar, buscar en la lista, "Buscar en Gastos", "Buscar facturas", abrir lo ya revisado y "Ver el registro": **0 lecturas** (medido).
+- "Buscar en Gastos" usa lo que la lista de Gastos ya leía (gastos de 150 días y vencimientos): 0 lecturas nuevas.
+- Confirmar y deshacer gastan lo mismo que antes.
+
+### Instalación v0.68.0 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.68.0.zip`, con la carpeta `cocina/` (no cambia). Hay un archivo nuevo: `bandeja.js`.
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script, reglas ni Cocina.**
+
+### Lista de verificación v0.68.0
+- [ ] Abajo a la izquierda dice **v0.68.0**.
+- [ ] Conciliación → Cargos en el PC: la lista a la izquierda con etiquetas Listo, Revisar o Sin coincidencia, y al tocar un cargo el detalle aparece a la derecha.
+- [ ] En el detalle de un cargo, "En Gastos" dice si el gasto o la factura está registrado y si ya está pagado.
+- [ ] "Buscar en Gastos" con un monto conocido muestra el gasto y, si ya está conciliado, con qué cargo.
+- [ ] Confirma uno: se abre solo el siguiente y arriba aparece "Listo: …" con Deshacer.
+- [ ] Toca "Sin coincidencia" arriba: quedan solo esos. Tócalo otra vez: vuelven todos.
+- [ ] ↑ ↓ y Enter funcionan en la lista; Esc cierra el detalle.
+- [ ] Abonos: al abrir uno se ven las facturas abiertas y pagadas recientes del cliente.
+- [ ] En el celular: tarjetas con etiqueta; después de confirmar aparece "Siguiente" abajo.
+
+### Si algo sale mal
+Sube de nuevo la v0.67.7. No cambió nada en la base ni en las reglas: todo lo conciliado sigue igual. Nada se borra.
+
+**Por dentro:**
+- `bandeja.js` (nuevo, puro):
+  - el estado de cada movimiento (`claseCargo`, `claseAbono`);
+  - la propuesta en una línea, qué es y por qué (`resumenCargo`, `queEsCargo`, `porQueCargo`, `resumenAbono`, `queEsAbono`, `porQueAbono`);
+  - lo registrado con su estado (`registradosGastos`, `estadoTxt`);
+  - las búsquedas (`buscarGastos`, `buscarFacturas`, `parseQ`, `coincide`);
+  - las facturas del cliente (`facturasCliente`) y `siguiente`.
+- `gastos-cartola-fs.js`: la lista entrega `registrados`, de lo que ya leía.
+- `app.js`:
+  - la bandeja (`barraBjHtml`, `conectarBandeja`, `arribaConcHtml`);
+  - el detalle de cargos (`detCargoHtml`, `candCargoHtml`, `buscarGastosHtml`) y de abonos (`detAbonoHtml`, `pagadasAbHtml`, `buscarFactHtml`);
+  - lo ya revisado (`detHechoCcHtml`, `detHechoAbHtml`);
+  - avanzar al siguiente y Deshacer desde la línea de confirmación.
+  - Los mismos `data-*` de antes.
+- `estilos.css`: la bandeja (en el PC, el detalle se ubica a la derecha con CSS: es el mismo detalle de la fila).
+- `config.js`, `index.html` y los demás: solo la versión.
 
 ## Novedades de la v0.67.7: el mismo abono de B2B en la cartola en línea y en la histórica ya no pasa dos veces, y "Ver el registro" muestra el otro movimiento ahí mismo
 **Dónde:** Conciliación → Abonos (B2B): al subir la cartola, Para revisar y Ya conciliados · Conciliación → Cargos (Gastos): la propuesta "Parece el mismo movimiento", el aviso "Ojo" y Ya revisados.

@@ -9,45 +9,46 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.67.7';
-import * as Caja from './caja.js?v=0.67.7';
-import * as Stock from './stock.js?v=0.67.7';
-import * as Ajustes from './ajustes.js?v=0.67.7';
-import * as Apps from './apps.js?v=0.67.7';
-import * as Agenda from './agenda.js?v=0.67.7';
-import * as Gastos from './gastos.js?v=0.67.7';
-import * as G3 from './gastos-g3.js?v=0.67.7';
-import * as G3D from './gastos-g3d.js?v=0.67.7';
-import * as GBanco from './gastos-banco.js?v=0.67.7';
-import * as TE from './tef-enviadas.js?v=0.67.7';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.67.7';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.67.7';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.67.7';
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.67.7';
-import * as Sii from './sii.js?v=0.67.7';
-import * as GSii from './gastos-sii.js?v=0.67.7';
-import * as SP from './sii-pendientes.js?v=0.67.7';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.67.7');
-import * as Previred from './previred.js?v=0.67.7';
-import * as B2b from './b2b.js?v=0.67.7';
-import * as Cartola from './cartola.js?v=0.67.7';
-import * as RD from './registro-detalle.js?v=0.67.7';   // v0.67.7: "Ver el registro" (B2B y Gastos)
-import * as SiiFactura from './sii-factura.js?v=0.67.7';
-import * as PdfOrden from './pdf-orden.js?v=0.67.7';
-import * as Prod from './produccion.js?v=0.67.7';
-import * as Mem from './fs-memoria.js?v=0.67.7';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.67.7';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.68.0';
+import * as Caja from './caja.js?v=0.68.0';
+import * as Stock from './stock.js?v=0.68.0';
+import * as Ajustes from './ajustes.js?v=0.68.0';
+import * as Apps from './apps.js?v=0.68.0';
+import * as Agenda from './agenda.js?v=0.68.0';
+import * as Gastos from './gastos.js?v=0.68.0';
+import * as G3 from './gastos-g3.js?v=0.68.0';
+import * as G3D from './gastos-g3d.js?v=0.68.0';
+import * as GBanco from './gastos-banco.js?v=0.68.0';
+import * as TE from './tef-enviadas.js?v=0.68.0';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.68.0';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.68.0';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.68.0';
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.68.0';
+import * as Sii from './sii.js?v=0.68.0';
+import * as GSii from './gastos-sii.js?v=0.68.0';
+import * as SP from './sii-pendientes.js?v=0.68.0';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.68.0');
+import * as Previred from './previred.js?v=0.68.0';
+import * as B2b from './b2b.js?v=0.68.0';
+import * as Cartola from './cartola.js?v=0.68.0';
+import * as RD from './registro-detalle.js?v=0.68.0';   // v0.67.7: "Ver el registro" (B2B y Gastos)
+import * as BJ from './bandeja.js?v=0.68.0';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
+import * as SiiFactura from './sii-factura.js?v=0.68.0';
+import * as PdfOrden from './pdf-orden.js?v=0.68.0';
+import * as Prod from './produccion.js?v=0.68.0';
+import * as Mem from './fs-memoria.js?v=0.68.0';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.68.0';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.0';
-import * as VistaProd from './vista-produccion.js?v=0.67.7';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.67.7';
+import * as VistaProd from './vista-produccion.js?v=0.68.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.68.0';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.67.7');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.68.0');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.67.7');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.68.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.67.7')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.68.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -354,7 +355,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.67.7" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.68.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -622,14 +623,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.67.7').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.68.0').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.67.7').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.68.0').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -1018,9 +1019,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.67.7').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.68.0').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.67.7').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.68.0').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -2614,7 +2615,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.67.7')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.68.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -3396,9 +3397,10 @@ function pintarCartola(el, sub, dg) {
   const D = cart.d;
   // Con la conciliación de B2B ya empezada, arriba va la misma tarjeta que en Abonos (una sola cartola, días y cuentas)
   const bd = b2b.datos, compartida = !!(bd && bd.conciliacion && bd.conciliacion.importado);
-  const subir = compartida ? tarjetaConcHtml(bd, bd.conciliacion) + (cart.msg ? `<p class="ayuda" role="status">${cart.msg}</p>` : '') + (cart.err ? `<p class="error" role="alert">${esc(cart.err)}</p>` : '') + (D ? `<details class="tarjeta plegable"><summary class="titulo-fila"><h2>Cartolas en Gastos</h2></summary>${coberturaCcHtml(D)}</details>` : '') : `<section class="tarjeta" aria-labelledby="t-cc"><div class="titulo-fila"><h2 id="t-cc">Cargar cartola ${info('Cartola', 'Sube la cartola de BancoEstado tal como la descargas (histórica o en línea), de la cuenta corriente o de la Chequera Electrónica. Es la misma de B2B → Conciliación: una sola subida reparte los abonos a B2B y los cargos a Gastos. Se pueden subir las dos aunque se repitan días: nada se cuenta dos veces.\nLuego dices qué es cada cargo: paga uno o varios vencimientos (con la fecha del banco), ya estaba en Gastos, es un gasto nuevo, es el pago de la tarjeta de crédito (con la base nueva: no crea gasto) o no es gasto. Lo que confirmas se aprende para la próxima.')}</h2></div>
+  const msgArriba = !D ? (cart.msg ? `<p class="ayuda" role="status">${cart.msg}</p>` : '') + (cart.err ? `<p class="error" role="alert">${esc(cart.err)}</p>` : '') : '';   // v0.68.0: con la lista, el mensaje va en la bandeja
+  const subir = compartida ? tarjetaConcHtml(bd, bd.conciliacion) + msgArriba + (D ? `<details class="tarjeta plegable"><summary class="titulo-fila"><h2>Cartolas en Gastos</h2></summary>${coberturaCcHtml(D)}</details>` : '') : `<section class="tarjeta" aria-labelledby="t-cc"><div class="titulo-fila"><h2 id="t-cc">Cargar cartola ${info('Cartola', 'Sube la cartola de BancoEstado tal como la descargas (histórica o en línea), de la cuenta corriente o de la Chequera Electrónica. Es la misma de B2B → Conciliación: una sola subida reparte los abonos a B2B y los cargos a Gastos. Se pueden subir las dos aunque se repitan días: nada se cuenta dos veces.\nLuego dices qué es cada cargo: paga uno o varios vencimientos (con la fecha del banco), ya estaba en Gastos, es un gasto nuevo, es el pago de la tarjeta de crédito (con la base nueva: no crea gasto) o no es gasto. Lo que confirmas se aprende para la próxima.')}</h2></div>
     <div class="fila-cartola"><label class="btn" for="cc-archivo">${cart.subiendo ? 'Leyendo…' : 'Elegir cartola (.xlsx)'}</label><input id="cc-archivo" type="file" accept=".xlsx,.xls" class="sr" ${cart.subiendo ? 'disabled' : ''}></div>
-    ${cart.msg ? `<p class="ayuda" role="status">${cart.msg}</p>` : ''}${cart.err ? `<p class="error" role="alert">${esc(cart.err)}</p>${cart.errCode === 'actualizar' || cart.errCode === 'sin_url' ? '<p class="ayuda"><a href="#ajustes/conexiones">Ir a Conexiones</a></p>' : ''}` : ''}
+    ${!D && cart.msg ? `<p class="ayuda" role="status">${cart.msg}</p>` : ''}${cart.err && (!D || cart.errCode === 'actualizar' || cart.errCode === 'sin_url') ? `${D ? '' : `<p class="error" role="alert">${esc(cart.err)}</p>`}${cart.errCode === 'actualizar' || cart.errCode === 'sin_url' ? '<p class="ayuda"><a href="#ajustes/conexiones">Ir a Conexiones</a></p>' : ''}` : ''}
     ${D ? coberturaCcHtml(D) : ''}</section>`;
   const conectarArriba = () => { if (compartida) conectarTarjetaConc(el, bd.conciliacion, () => pintarCartola(concEl(), 'cargos', cart.dg), async (id, fn) => { b2bConc.ocupado = id; b2bConc.error = ''; try { await fn(); } catch (e) { b2bConc.error = errorB2b(e); } b2bConc.ocupado = ''; pintarCartola(concEl(), 'cargos', cart.dg); }); else conectarSubida(el); };
   if (!D) { el.innerHTML = cabConc('cargos') + subir + coberturaDosHtml(null) + (cart.err ? '' : '<section class="tarjeta"><div class="vacio" style="border:0">Cargando los cargos…</div></section>'); conectarArriba(); conectarCobDos(el); return; }
@@ -3416,17 +3418,22 @@ function pintarCartola(el, sub, dg) {
   }
   // v0.67.6 · Un cargo que parece repetido de otra cartola nunca va a "Listos para confirmar": primero se decide si es el mismo
   const listos = pend.filter(c => props[c.id] && props[c.id].seguro && !cart.modo[c.id] && !c.repetidoProp), revisar = pend.filter(c => !listos.includes(c)).sort((a, b) => (!!b.repetidoProp - !!a.repetidoProp));
+  // v0.68.0 · La bandeja: el estado de cada cargo (Listo = los de "Listos para confirmar"; Revisar = con propuesta o dudas; Sin coincidencia)
+  const clase = {}; pend.forEach(c => { clase[c.id] = BJ.claseCargo(c, props[c.id], listos.includes(c)); });
+  const kBj = BJ.contar(pend.map(c => clase[c.id]));
+  if (cart.bjFiltro && !kBj[cart.bjFiltro]) cart.bjFiltro = '';
+  if (cart.histSel && !hechos.some(c => c.id === cart.histSel)) cart.histSel = '';
   // v0.50.0 · Base nueva: casillas para confirmar varios de una vez (los seguros vienen marcados; cualquiera con propuesta completa se puede marcar)
   const base = D.fuente === 'base', pedibles = {};
   if (base) pend.forEach(c => { const pd = pedidoDeProp(c, props[c.id], dg.items || []); if (pd) { pedibles[c.id] = pd; if (cart.sel[c.id] === undefined) cart.sel[c.id] = listos.includes(c); } else delete cart.sel[c.id]; });
   const elegidos = base ? pend.filter(c => pedibles[c.id] && cart.sel[c.id]) : [];
   const casilla = c => (base && pedibles[c.id] ? `<label class="cc-sel" title="Confirmar con los seleccionados"><input type="checkbox" data-cc-sel="${esc(c.id)}" ${cart.sel[c.id] ? 'checked' : ''} ${cart.ocupado ? 'disabled' : ''} aria-label="Elegir ${esc(pesos(c.monto) + ' ' + c.descripcion)}"></label>` : '');
-  const fila = c => { const p = props[c.id], auto = listos.includes(c); return `<details class="fila-orden-b2b mov${c.nota ? ' cc-con-nota' : ''}" data-ccd="${esc(c.id)}" ${cart.abierto === c.id ? 'open' : ''}><summary class="fila-caja">${casilla(c)}<div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))}</span>${base ? `<small class="cc-origen">${esc(origenCargoTxt(c))}</small>` : ''}${c.tef ? `<small class="cc-tef">${esc(TE.textoPagaste(c.tef))}</small>` : ''}${c.proveedor ? `<small class="cc-prov">Proveedor: ${esc(c.proveedor.nombre)}</small>` : ''}${c.repetidoProp ? '' : p ? `<small class="prop-cc">${textoProp(p)}</small>` : ''}${notaCcHtml(c)}${filaRepetidoHtml(c)}</div>
-      <div class="acciones">${base ? botonNotaCc(c) : ''}${auto ? `<button type="button" class="btn btn-chico" data-cc-auto="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${cart.abierto === c.id ? propRepetidoHtml(c) + editorCargo(c, p, dg) : ''}</details>`; };
+  const fila = c => { const p = props[c.id], auto = listos.includes(c), pc = c.repetidoProp ? '' : BJ.porCorto(p), rs = BJ.resumenCargo(p, c) + (pc ? ` (${pc})` : ''); return `<details class="fila-orden-b2b mov${c.nota ? ' cc-con-nota' : ''}" data-ccd="${esc(c.id)}" data-bj="${clase[c.id]}" ${bjAttrs([c.descripcion, c.proveedor ? c.proveedor.nombre : '', c.tef ? c.tef.nombre : '', rs, c.nota ? c.nota.texto : ''].join(' '), [c.monto])} ${cart.abierto === c.id ? 'open' : ''}><summary class="fila-caja">${casilla(c)}<div class="txt">${l0Bj(clase[c.id], c.fecha)}<b><span class="bj-monto">${pesos(c.monto)}</span><span class="bj-sep"> · </span><span class="bj-glosa">${esc(c.descripcion)}</span></b>${glBj(c.descripcion)}${resBj(rs)}<span class="bj-ocultar">${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))}</span>${base ? `<small class="cc-origen">${esc(origenCargoTxt(c))}</small>` : ''}${c.tef ? `<small class="cc-tef">${esc(TE.textoPagaste(c.tef))}</small>` : ''}${c.proveedor ? `<small class="cc-prov">Proveedor: ${esc(c.proveedor.nombre)}</small>` : ''}${c.repetidoProp ? '' : p ? `<small class="prop-cc">${textoProp(p)}</small>` : ''}${notaCcHtml(c)}${filaRepetidoHtml(c)}</div>
+      <div class="acciones">${base ? botonNotaCc(c) : ''}${auto ? `<button type="button" class="btn btn-chico" data-cc-auto="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${cart.abierto === c.id ? `<div class="bj-det" data-bj-det="${esc(c.id)}" role="region" aria-label="Detalle del cargo">${detCargoHtml(c, p, clase[c.id], !!(base ? pedibles[c.id] : pedidoDeProp(c, p, dg.items || [])))}${propRepetidoHtml(c)}${editorCargo(c, p, dg)}</div>` : ''}</details>`; };
   // v0.67.1 · Filtro "Con nota" (solo si hay alguna)
   const nNota = D.cargos.filter(c => c.nota).length;
   if (!nNota) cart.conNota = false;
-  const fNota = l => (cart.conNota ? l.filter(c => c.nota) : l);
+  const fNota = l => (cart.conNota ? l.filter(c => c.nota) : l).filter(c => !cart.bjFiltro || !clase[c.id] || clase[c.id] === cart.bjFiltro);
   const TIPO_LOTE = { vencimientos: ['pago de vencimiento', 'pagos de vencimientos'], abono: ['abono', 'abonos'], abono_parcial: ['abono parcial', 'abonos parciales'], gasto: ['ya en Gastos', 'ya en Gastos'], nuevo: ['gasto nuevo', 'gastos nuevos'], pago_tarjeta: ['pago de tarjeta', 'pagos de tarjeta'], traspaso: ['traspaso', 'traspasos'], ignorar: ['no es gasto', 'no son gasto'] };
   const resLote = base ? Cartola.resumenLote(elegidos.map(c => ({ c, p: props[c.id] }))) : null;
   const textoLote = r => Object.entries(r.porTipo).map(([k, n]) => `${n} ${(TIPO_LOTE[k] || [k, k])[n === 1 ? 0 : 1]}`).join(' · ');
@@ -3436,14 +3443,21 @@ function pintarCartola(el, sub, dg) {
       <span class="ayuda" id="cc-lote-avance" role="status">${esc(cart.avance || '')}</span></div>` : '';
   const seccion = (k, titulo, l, ayuda, extra = '') => `<details class="tarjeta plegable" data-plegar="cc-${k}" ${plegadas()['cc-' + k] === true && l.length ? '' : 'open'}><summary class="titulo-fila"><h2>${titulo}</h2><span>${l.length} ${l.length === 1 ? 'cargo' : 'cargos'} · ${pesos(l.reduce((s, c) => s + c.monto, 0))}</span></summary>
     ${l.length ? `<p class="ayuda">${ayuda}</p>${extra}${l.map(fila).join('')}` : '<div class="vacio" style="border:0">Nada aquí.</div>'}</details>`;
-  const filtroNota = base && nNota ? `<div class="chips cc-filtro-nota" role="group" aria-label="Filtrar cargos"><button type="button" class="chip-filtro" id="cc-con-nota" aria-pressed="${!!cart.conNota}">${icono('nota', 14)} Con nota · ${nNota}</button>${info('Notas de los cargos', TXT_NOTA_CC)}</div>` : '';
-  el.innerHTML = cabConc('cargos') + subir + coberturaDosHtml(D)
-    + barraLote + filtroNota
+  const filtroNota = base && nNota ? `<span class="cc-filtro-nota"><button type="button" class="bj-filtro chip-filtro" id="cc-con-nota" aria-pressed="${!!cart.conNota}">${icono('nota', 14)} <span>Con nota ·</span> <b class="bj-num">${nNota}</b></button>${info('Notas de los cargos', TXT_NOTA_CC)}</span>` : '';
+  // El orden visible (para avanzar al siguiente después de confirmar)
+  cart.bjOrden = fNota(listos).concat(fNota(revisar)).map(c => c.id);
+  const sigC = cart.bjSig ? pend.find(c => c.id === cart.bjSig) : null; if (cart.bjSig && !sigC) cart.bjSig = '';
+  const hechoC = cart.hecho && cart.hechoMsg === cart.msg ? D.cargos.find(c => c.id === cart.hecho && c.estado !== 'POR_REVISAR') : null;
+  const barra = barraBjHtml({ tipo: 'cc', k: kBj, filtro: cart.bjFiltro || '', q: cart.bjQ || '', extraFiltro: filtroNota, lote: barraLote,
+    hecho: hechoBjHtml({ tipo: 'cc', msg: cart.msg, err: cart.err, deshacer: hechoC ? hechoC.id : '', attr: 'data-bj-deshacer', sig: sigC ? sigC.id : '', sigTxt: sigC ? `${pesos(sigC.monto)} · ${sigC.descripcion}`.slice(0, 48) : '' }) });
+  el.innerHTML = cabConc('cargos') + arribaConcHtml('cc', subir + coberturaDosHtml(D), resumenArribaCc(D))
+    + `<section class="tarjeta bandeja" data-bandeja="cc" aria-label="Cargos de la cartola">${barra}<div class="bj-cuerpo"><div class="bj-lista" data-bj-lista="cc">`
     + seccion('listos', 'Listos para confirmar', fNota(listos), base ? 'Se reconoció qué es cada uno (monto fijo exacto, monto del documento, lo aprendido o el RUT de la transferencia). Revisa y confirma; si alguno no corresponde, ábrelo para cambiarlo.' : 'Se reconoció qué es cada uno (por lo aprendido, el RUT de la transferencia o un gasto del mismo monto). Revisa y confirma; si alguno no corresponde, ábrelo para cambiarlo.', !base && listos.length > 1 ? `<div class="botones" style="justify-content:flex-start;margin:4px 0 8px"><button type="button" class="btn btn-chico" id="cc-todos" ${cart.ocupado ? 'disabled' : ''}>Confirmar los ${listos.length} · ${pesos(listos.reduce((s, c) => s + c.monto, 0))}</button></div>` : '')
     + seccion('revisar', 'Para revisar', fNota(revisar), 'Ábrelo y elige qué es: los vencimientos por pagar más cercanos a la fecha aparecen primero.')
-    + avisosCcHtml(D, props) + histCcHtml(fNota(hechos), base) + reglasCcHtml(D)
+    + histCcHtml(cart.conNota ? hechos.filter(c => c.nota) : hechos, base) + `</div>${vacioDetBj('cc', kBj)}</div></section>`
+    + avisosCcHtml(D, props) + reglasCcHtml(D)
     + `<p class="nota-i">(i) Pagar un vencimiento aquí hace lo mismo que en Vencimientos (crea el gasto o completa el de la compra a crédito), con la fecha del banco. Cada gasto y cada vencimiento queda con la columna "Cartola" en la planilla: de qué cartola, cuenta y operación salió el pago, cuándo se subió y, si era una factura del SII, de qué carga venía. Deshacer no borra nada: el cargo vuelve a revisar, el vencimiento queda por pagar y un gasto creado aquí pasa a "Gastos anulados".</p>`;
-  conectarArriba(); conectarCartola(el, dg, props, listos, pedibles); conectarCobDos(el);
+  conectarArriba(); conectarCartola(el, dg, props, listos, pedibles); conectarCobDos(el); conectarBandeja(el, 'cc');
 }
 // ── v0.29.0 · Cobertura de la cartola y de las cargas del SII, lado a lado (Conciliación → Cargos) ──
 // Meses desde la primera carga del SII hasta hoy: con carga (hasta qué día llegan sus documentos) o sin carga
@@ -3535,7 +3549,7 @@ function resumenHecho(c) {
 // v0.67.1 · La nota de un cargo: una línea con su ícono (plegada; completa al abrir el cargo o al pasar el mouse) y su botón
 const TXT_NOTA_CC = 'Una nota corta (hasta 300 letras) en el cargo, para acordarte de algo sin clasificarlo ni conciliarlo. Por ejemplo: "Compra del 30 sep, aún sin factura: pedirla el 17-oct".\nQueda con quién y cuándo la escribió. Si la cambias o la quitas, la versión anterior queda guardada (no se borra).\n"Con nota" muestra solo los cargos que tienen una.';
 const notaCcHtml = c => (c.nota ? `<small class="cc-nota" title="${esc(c.nota.texto)}">${icono('nota', 14)}<span class="cc-nota-txt">${esc(c.nota.texto)}</span><span class="cc-nota-quien">${esc(c.nota.en.slice(0, 10).split('-').reverse().join('-'))}</span></small>` : '');
-const botonNotaCc = c => `<button type="button" class="btn-link btn-chico cc-nota-btn" data-cc-nota="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>${icono('nota', 14)} ${c.nota ? 'Editar nota' : 'Agregar nota'}</button>`;
+const botonNotaCc = c => `<button type="button" class="btn-link btn-chico cc-nota-btn" data-cc-nota="${esc(c.id)}" title="${c.nota ? 'Editar nota' : 'Agregar nota'}" aria-label="${c.nota ? 'Editar nota' : 'Agregar nota'}" ${cart.ocupado ? 'disabled' : ''}>${icono('nota', 14)} <span class="cc-nota-btn-tx">${c.nota ? 'Editar nota' : 'Agregar nota'}</span></button>`;
 async function editarNotaCc(c) {
   const n = c.nota, pr = pedirDatos(n ? 'Editar nota' : 'Agregar nota', `<p class="ayuda">${pesos(c.monto)} · ${esc(c.descripcion)} (${esc(diaTexto(c.fecha))}) ${info('Nota del cargo', TXT_NOTA_CC)}</p>
     <div class="campo"><label for="cc-nota-txt">Nota</label><textarea id="cc-nota-txt" rows="3" maxlength="300" placeholder="Ej: Compra del 30 sep, aún sin factura: pedirla el 17-oct">${esc(n ? n.texto : '')}</textarea><span class="ayuda" id="cc-nota-cuenta">${(n ? n.texto.length : 0)} de 300</span></div>
@@ -3594,11 +3608,203 @@ if (typeof document !== 'undefined') document.addEventListener('click', ev => {
   const abrir = cu.hidden; cu.hidden = !abrir; box.classList.toggle('abierto', abrir); b.setAttribute('aria-expanded', abrir ? 'true' : 'false');
   if (abrir) regAbiertos.add(box.dataset.reg); else regAbiertos.delete(box.dataset.reg);
 }, true);
+// ═══ v0.68.0 · Conciliación como bandeja (Entrega A): una fila por movimiento con su estado y, en el PC, el detalle a la derecha ═══
+// Todo sale de la memoria (la lista de Gastos y lo de B2B que ya se escucha): seleccionar, buscar y moverse no gasta lecturas.
+const enPC = () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(min-width: 1024px)').matches;
+const etBj = k => `<span class="bj-et bj-et-${k}">${esc(BJ.ETIQUETA[k] || k)}</span>`;
+const fechaLargaBj = f => (/^\d{4}-\d{2}-\d{2}/.test(String(f || '')) ? `${diaTexto(String(f).slice(0, 10))} ${String(f).slice(0, 4)}` : '');
+const nombreCuentaBj = k => (k === 'cc' ? 'cuenta corriente' : k === 'chequera' ? 'Chequera Electrónica' : String(k || ''));
+const TXT_BANDEJA_CONC = 'Cada movimiento pendiente es una fila, con su estado escrito y su color:\n• Listo (verde): la propuesta es segura y única. Son los mismos de "Listos para confirmar".\n• Revisar (amarillo): la propuesta es probable o tiene dudas, parece repetido de otra cartola o lo aprendido no calza exacto. Ábrelo y decide.\n• Sin coincidencia (rojo): nada calza. Búscalo en el detalle o elige qué es.\n• Gris: ya revisado (repetido, no es gasto o ignorado), en la lista de ya revisados.\nLos botones de arriba filtran la lista y el buscador encuentra por monto (con o sin $), glosa, proveedor o cliente.\nEn el PC: ↑ y ↓ para moverte, Enter para abrir el detalle a la derecha y Esc para cerrarlo. Después de confirmar se abre solo el siguiente de la lista.\nMoverte, abrir y buscar no gasta lecturas: todo sale de lo que la pantalla ya tiene leído.';
+const TXT_EN_GASTOS = 'Lo que ya está registrado en Gastos y tiene que ver con este cargo, con su estado real:\n• "Espera su cargo": el gasto o la factura está registrado y todavía no tiene un cargo de la cartola.\n• "Por pagar": el vencimiento (o la factura a crédito) sigue abierto.\n• "Pagado con el cargo…": ya está conciliado con otro movimiento del banco (si este es el mismo, puede ser un repetido).\n• "Pagado en efectivo" o "con tarjeta": se pagó sin banco (Pagos sin banco).\nTambién avisa si hay algo del mismo monto ya pagado en esos días, para que no se registre dos veces.';
+const TXT_BUSCAR_G = 'Busca en lo que la lista ya tiene leído de Gastos (los últimos 150 días): gastos registrados, vencimientos y facturas del SII por clasificar. Escribe un monto (con o sin $), el proveedor, el folio o el ítem.\nSin escribir nada muestra lo del mismo monto que el cargo.\nCada resultado dice si ya está pagado y con qué. Lo que todavía espera su pago se puede elegir: "Es este gasto" (Ya está en Gastos), "Pagar con este cargo" (Paga vencimientos) o "Clasificar y conciliar" (Factura por clasificar).\nNo gasta lecturas.';
+// Los filtros (por estado), el buscador, el botón de confirmar varios y la línea de confirmación (con Deshacer y, en el celular, Siguiente)
+function barraBjHtml(o) {
+  const tot = o.k.listo + o.k.revisar + o.k.sin;
+  const b = (f, tx, nn) => `<button type="button" class="bj-filtro${f ? ' bj-f-' + f : ''}" data-bj-filtro="${f}" aria-pressed="${(o.filtro || '') === f}">${f ? '<span class="bj-punto" aria-hidden="true"></span>' : ''}<span>${tx}</span> <b class="bj-num">${nn}</b></button>`;
+  return `<div class="bj-barra" data-bj-barra="${o.tipo}">
+    <div class="bj-fila1"><div class="bj-filtros" role="group" aria-label="Filtrar por estado">${b('', 'Todos', tot)}${b('listo', 'Listo', o.k.listo)}${b('revisar', 'Revisar', o.k.revisar)}${b('sin', 'Sin coincidencia', o.k.sin)}${o.extraFiltro || ''}</div>${info('La bandeja', TXT_BANDEJA_CONC)}</div>
+    <div class="bj-fila2"><label class="bj-buscar-l">${icono('lupa', 16)}<span class="sr">Buscar en la lista</span><input type="search" class="bj-q" data-bj-q="${o.tipo}" value="${esc(o.q || '')}" placeholder="${o.tipo === 'cc' ? 'Buscar: monto, glosa o proveedor' : 'Buscar: monto, glosa o cliente'}" autocomplete="off"></label>${o.lote || ''}</div>
+    <p class="ayuda bj-q-msg" data-bj-qmsg="${o.tipo}" role="status" aria-live="polite"></p>
+    <div class="bj-hecho${o.hecho ? ' bj-hecho-on' : ''}" data-bj-hecho="${o.tipo}" role="status" aria-live="polite">${o.hecho || ''}</div></div>`;
+}
+// La línea de confirmación: el mensaje, Deshacer del último movimiento resuelto y (en el celular) Siguiente
+function hechoBjHtml(o) {
+  if (!o.msg && !o.err && !o.sig) return '';
+  return `${o.err ? `<p class="error" role="alert">${esc(o.err)}</p>` : ''}${o.msg ? `<p class="bj-hecho-msg">${o.msg}</p>` : ''}
+    <div class="bj-hecho-bot">${o.deshacer ? `<button type="button" class="btn-sec btn-chico" ${o.attr}="${esc(o.deshacer)}">Deshacer</button>` : ''}${o.sig ? `<button type="button" class="btn btn-chico bj-sig" data-bj-sig="${esc(o.sig)}">Siguiente${o.sigTxt ? ': ' + esc(o.sigTxt) : ''}</button>` : ''}<button type="button" class="btn-link btn-chico" data-bj-cerrar-msg="${o.tipo}">Cerrar</button></div>`;
+}
+// El texto que se busca en cada fila (normalizado) y sus montos
+const bjAttrs = (texto, montos) => `data-bj-txt="${esc(BJ.norm(texto))}" data-bj-montos="${esc((montos || []).filter(v => Number(v)).map(v => Math.abs(Math.round(Number(v)))).join(' '))}"`;
+// La parte de arriba de cada fila: la etiqueta del estado y la fecha; abajo, la glosa corta y la propuesta en una línea
+const l0Bj = (k, fecha) => `<span class="bj-l0">${etBj(k)}<span class="bj-fecha">${esc(diaTexto(fecha))}</span></span>`;
+const glBj = t => `<span class="bj-gl" title="${esc(t)}">${esc(t)}</span>`;
+const resBj = t => `<span class="bj-res" title="${esc(t)}">${esc(t)}</span>`;
+// Una tarjeta de estado (candidato o resultado de búsqueda): título, monto, detalle y el estado en palabras (nunca solo el color)
+function cardBj(x) {
+  return `<div class="bj-card bj-t-${x.tono || 'gris'}"${x.attrs ? ' ' + x.attrs : ''}><div class="bj-card-l1"><b class="bj-card-tit">${esc(x.titulo)}</b>${x.monto !== undefined && x.monto !== null ? `<b class="bj-num">${montoCc(x.monto)}</b>` : ''}</div>
+    ${x.sub ? `<p class="bj-card-sub">${esc(x.sub)}</p>` : ''}${x.estado ? `<p class="bj-card-est"><span class="bj-punto" aria-hidden="true"></span><span>${esc(x.estado)}</span></p>` : ''}${x.extra || ''}</div>`;
+}
+const cargoTxtBj = id => { const o = ccPorId(id); return o ? `del ${diaTexto(o.fecha)} (${pesos(o.monto)} · ${o.descripcion})` : ''; };
+// ── Cargos: lo que hay en Gastos para la propuesta, con su estado real ──
+function candCargoHtml(c, p) {
+  const D = cart.d || {}, cards = [];
+  const venc = (id, monto) => { const v = (D.vencimientos || []).find(x => x.id === id); if (!v) return;
+    cards.push({ titulo: BJ.limpio(v.nombre), monto: v.estadoBase === 'con_abonos' && v.saldo ? v.saldo : v.monto, tono: 'amarillo', sub: [v.fecha ? 'vence el ' + fechaLargaBj(v.fecha) : '', v.item, v.area].filter(Boolean).join(' · '),
+      estado: v.folio ? `Factura F.${v.folio} registrada en Gastos a crédito: por pagar${v.estado === 'VENCIDA' ? ' (atrasada)' : ''}` : `En Vencimientos: por pagar${v.estado === 'VENCIDA' ? ' (atrasado)' : ''}${v.estadoBase === 'con_abonos' ? ' · tiene abonos' : ''}`,
+      extra: monto && Math.round(monto) !== Math.round(v.monto) ? `<p class="bj-card-sub">Este cargo paga ${pesos(monto)}.</p>` : '' }); };
+  const grupo = g => { const e = BJ.estadoTxt({ estado: 'sin_cargo', clase: g.clase });
+    cards.push({ titulo: `${(g.items || []).join(' + ') || 'Gasto'}${g.razon ? ' · ' + g.razon : ''}`, monto: g.monto, tono: e.tono, sub: [fechaLargaBj(g.fecha), g.folio ? (g.monto < 0 ? 'NC ' : 'F.') + g.folio : '', (g.filas || []).map(f => f.area).filter((a, i, l) => a && l.indexOf(a) === i).join(', '), g.chip].filter(Boolean).join(' · '), estado: e.texto }); };
+  if (p && !c.repetidoProp) {
+    if (p.tipo === 'vencimientos' && p.sinPropuesta) (p.opciones || []).forEach(o => venc(o.id));
+    else if (p.tipo === 'vencimientos' || p.tipo === 'abono_parcial' || p.tipo === 'abono') (p.pagos || [{ id: p.vencId }]).forEach(x => venc(x.id, x.monto));
+    else if (p.tipo === 'gasto' && p.combo) (p.grupos || []).forEach(grupo);
+    else if (p.tipo === 'gasto' && p.gasto) { grupo(p.gasto); if ((p.otros || []).length) cards.push({ titulo: `Hay ${p.otros.length} ${p.otros.length === 1 ? 'gasto más' : 'gastos más'} del mismo monto sin cargo`, tono: 'amarillo', estado: 'Revisa en "Ya está en Gastos" cuál es' }); }
+    else if (p.tipo === 'sii_pend') { const v = (D.siiPendientes || []).find(x => x.id === p.docId); if (v) cards.push({ titulo: `${v.esNC ? 'Nota de crédito' : 'Factura'} F.${v.folio} · ${v.razonSocial || v.razon || ''}`, monto: v.total, tono: 'amarillo', sub: 'factura del ' + fechaLargaBj(v.fecha), estado: 'Factura del SII por clasificar: todavía no está en Gastos' }); }
+    else if (p.tipo === 'nuevo') cards.push({ titulo: 'No hay un gasto registrado para este cargo', tono: 'gris', estado: `Al confirmar se crea un gasto nuevo: ${p.item || 'elige el ítem'}${p.area && !/^\{/.test(String(p.area)) ? ' · ' + p.area : ''}${p.sinFactura ? ' (sin factura)' : ''}` });
+    else if (p.tipo === 'previred') cards.push({ titulo: p.texto || 'Pago de Previred', tono: 'amarillo', estado: 'Se juntan los cargos de Previred del mismo día y se comparan con la planilla' });
+    else if (['ignorar', 'pago_tarjeta', 'traspaso'].includes(p.tipo)) cards.push({ titulo: BJ.resumenCargo(p, c), tono: 'gris', estado: 'No crea ningún gasto' });
+  }
+  // ¿Algo del mismo monto ya pagado en esos días (±20)? Para no registrarlo dos veces
+  const ya = (D.registrados || []).filter(r => ['cargo', 'efectivo', 'tarjeta', 'pagado'].includes(r.estado) && Math.abs(Math.round(r.monto) - Math.round(c.monto)) <= 1 && r.cargoId !== c.id && r.cargoId !== c.docId
+    && Math.abs((new Date((r.fechaPago || r.fecha) + 'T12:00:00') - new Date(c.fecha + 'T12:00:00')) / 864e5) <= 20).slice(0, 3);
+  if (!cards.length && !c.repetidoProp) cards.push(ya.length ? { titulo: 'Nada sin pagar en Gastos calza con este cargo', tono: 'rojo', estado: 'Lo del mismo monto ya está pagado (abajo): si es el mismo pago, puede ser un repetido' }
+    : { titulo: 'Nada registrado en Gastos calza con este cargo', tono: 'rojo', estado: 'Búscalo abajo por monto, proveedor o folio, o elige qué es' });
+  ya.forEach(r => { const e = BJ.estadoTxt(r, cargoTxtBj), o = r.cargoId ? ccPorId(r.cargoId) : null;
+    cards.push({ titulo: `Ojo: ${r.tipo === 'venc' ? r.nombre : (r.items.join(' + ') || 'un gasto') + (r.razon ? ' · ' + r.razon : '')} del mismo monto ya está pagado`, monto: r.monto, tono: 'verde', sub: [fechaLargaBj(r.fecha), r.folio ? 'F.' + r.folio : '', r.areas.join(', ')].filter(Boolean).join(' · '),
+      estado: e.texto, extra: o ? regCargoHtml(o) : '' }); });
+  return `<div class="bj-cards">${cards.map(cardBj).join('')}</div>`;
+}
+// ── Cargos: "Buscar en Gastos" dentro del detalle ──
+function resGastosHtml(c) {
+  const D = cart.d || {}, q = (cart.bjGq || {})[c.id] || '', l = BJ.buscarGastos(q, D, c, { cargoTxt: cargoTxtBj });
+  const spIds = new Set(SP.candidatosCargo(c, D.siiPendientes || []).map(k => k.v.id));
+  if (!l.length) return `<p class="ayuda bj-res-vacio">${q ? 'Nada en Gastos con eso (últimos 150 días).' : `Nada registrado en Gastos de ${pesos(c.monto)}. Escribe otro monto, el proveedor o el folio.`}</p>`;
+  return `${q ? '' : `<p class="ayuda">Del mismo monto (${pesos(c.monto)}):</p>`}<div class="bj-cards">${l.map(r => {
+    const bt = r.accion === 'gasto' ? `<button type="button" class="btn-sec btn-chico" data-bj-elegir="gasto" data-cc="${esc(c.id)}" data-k="${esc(r.clave)}" ${cart.ocupado ? 'disabled' : ''}>Es este gasto</button>`
+      : r.accion === 'venc' ? `<button type="button" class="btn-sec btn-chico" data-bj-elegir="venc" data-cc="${esc(c.id)}" data-k="${esc(r.id)}" ${cart.ocupado ? 'disabled' : ''}>Pagar con este cargo</button>`
+      : r.accion === 'sii' ? (spIds.has(r.id) ? `<button type="button" class="btn-sec btn-chico" data-bj-elegir="sii" data-cc="${esc(c.id)}" data-k="${esc(r.id)}" ${cart.ocupado ? 'disabled' : ''}>Clasificar y conciliar</button>` : '<a class="btn-link btn-chico" href="#conciliacion/sii/porclasificar">Ir a Por clasificar</a>') : '';
+    const o = r.cargoId ? ccPorId(r.cargoId) : null;
+    return cardBj({ titulo: r.titulo, monto: r.monto, sub: r.sub, tono: r.estado.tono, estado: r.estado.texto, attrs: `data-bj-r="${esc(r.fuente)}"`, extra: (bt ? `<div class="bj-card-bot">${bt}</div>` : '') + (o ? regCargoHtml(o) : '') });
+  }).join('')}</div>`;
+}
+function buscarGastosHtml(c) {
+  const q = (cart.bjGq || {})[c.id] || '';
+  const ab = cart.bjGab !== false;   // un botón (no un <details>): la fila del cargo ya es un <details>
+  return `<div class="bj-buscar" data-bj-gbuscar="${esc(c.id)}"><div class="bj-buscar-cab"><button type="button" class="bj-buscar-t" aria-expanded="${ab}">${icono('lupa', 16)} Buscar en Gastos</button>${info('Buscar en Gastos', TXT_BUSCAR_G)}</div>
+    <div class="bj-buscar-cuerpo" ${ab ? '' : 'hidden'}><input type="search" class="bj-gq" data-bj-gq="${esc(c.id)}" value="${esc(q)}" placeholder="Monto, proveedor, folio o ítem" aria-label="Buscar en Gastos" autocomplete="off">
+    <div class="bj-gres" data-bj-gres="${esc(c.id)}">${resGastosHtml(c)}</div></div></div>`;
+}
+// La cabecera del detalle de un cargo: el movimiento completo, qué es, qué propongo y por qué, y el botón principal
+function detCargoHtml(c, p, clase, pedible) {
+  const D = cart.d || {}, pq = BJ.porQueCargo(c, p, D);
+  const datos = [['Cuenta', cuentaCc(c)], ['Cartola', origenCargoTxt(c) || fuentesCcTxt(c)], ['N° de operación', c.operacion || '—']].concat(c.subidaEl ? [['Subida', `${String(c.subidaEl).slice(0, 16).replace(/^(\d{4})-(\d{2})-(\d{2})/, '$3-$2-$1')}${c.subidaPor ? ' · ' + c.subidaPor : ''}`]] : []);
+  const conf = pedible && !c.repetidoProp ? `<div class="bj-prim"><button type="button" class="btn bj-btn-prim" data-bj-confirmar="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Confirmar: ${esc(BJ.resumenCargo(p, c))}</button></div>` : '';
+  return `<div class="bj-cab"><div class="bj-cab-l1">${etBj(clase)}<span class="bj-cab-tipo">Cargo · ${esc(fechaLargaBj(c.fecha))}</span><button type="button" class="btn-link bj-cerrar" data-bj-cerrar="cc" aria-label="Cerrar el detalle" title="Cerrar (Esc)">${icono('anular', 18)}</button></div>
+      <p class="bj-cab-monto">${pesos(c.monto)}</p><p class="bj-cab-glosa">${esc(c.descripcion)}</p>
+      <dl class="bj-datos">${datos.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl></div>
+    <div class="bj-explica"><p><span class="bj-k">Qué es</span>${esc(BJ.queEsCargo(c, { cuenta: nombreCuentaBj(c.cuenta), previred: pareceSegunPrevired(c) }))}</p>
+      <p><span class="bj-k">Qué propongo</span><b>${esc(pq.que)}</b>${pq.porque ? `<span class="bj-porque">Por qué: ${esc(pq.porque)}.</span>` : ''}</p>${conf}</div>
+    <section class="bj-sec" aria-label="En Gastos"><h3 class="bj-h3">En Gastos ${info('En Gastos', TXT_EN_GASTOS)}</h3>${candCargoHtml(c, p)}</section>
+    ${buscarGastosHtml(c)}
+    <h3 class="bj-h3 bj-h3-acc">Qué es este cargo</h3>`;
+}
+// Ya revisados: el detalle del seleccionado (cómo se resolvió, el registro y Deshacer)
+function detHechoCcHtml(c) {
+  const reg = RD.registroCargo(c, { cuentaTxt: cuentaCc, fuentesTxt: fuentesCcTxt, gastos: ((cart.d || {}).ligados || {})[c.id] || ((cart.d || {}).ligados || {})[c.docId] || [], nombreCriterio: CB.textoCriterio });
+  return `<div class="bj-det bj-det-hecho" data-bj-det="${esc(c.id)}"><div class="bj-cab"><div class="bj-cab-l1">${etHechoCc(c)}<span class="bj-cab-tipo">Cargo · ${esc(fechaLargaBj(c.fecha))}</span><button type="button" class="btn-link bj-cerrar" data-bj-cerrar="cch" aria-label="Cerrar el detalle" title="Cerrar (Esc)">${icono('anular', 18)}</button></div>
+      <p class="bj-cab-monto">${pesos(c.monto)}</p><p class="bj-cab-glosa">${esc(c.descripcion)}</p></div>
+    <div class="bj-explica"><p><span class="bj-k">Cómo se resolvió</span><b>${esc(resumenHecho(c))}</b><span class="bj-porque">${esc([c.resueltoEl, c.resueltoPor].filter(Boolean).join(' · '))}</span></p>
+      <div class="bj-prim"><button type="button" class="btn-sec" data-bj-deshacer="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Deshacer</button> ${info('Deshacer', 'El cargo vuelve a "Para revisar". No se borra nada: lo que se creó con él pasa a anulado y queda anotado.')}</div></div>
+    ${RD.htmlRegistro(reg, { abierto: regAbiertos.has(reg.clave), icono: icono('lupa', 14), info: info('Ver el registro', TXT_REGISTRO) })}</div>`;
+}
+// ── v0.68.0 · Lo común de la bandeja (Cargos y Abonos) ──
+// La zona de arriba, plegable: cargar la cartola, días de conciliar y "Qué está cubierto" (queda como la dejaste)
+function arribaConcHtml(tipo, html, resumen) {
+  return `<details class="conc-arriba" data-plegar="conc-arriba" ${plegadas()['conc-arriba'] === true ? '' : 'open'}><summary><span class="conc-arriba-tit">${icono('banco', 18)}<b>Cartola y cobertura</b></span><span class="conc-arriba-res">${resumen}</span></summary>
+    <div class="conc-arriba-cuerpo conc-arriba-${tipo}">${html}</div></details>`;
+}
+function resumenArribaCc(D) {
+  const cob = Cartola.coberturaPorCuenta(D.cartolas, B2b.coberturaCartolas), l = Object.entries(cob).filter(([, c]) => c.hasta).map(([k, c]) => `${B2b.NOMBRE_CUENTA[k] || k} hasta el ${diaTexto(c.hasta)}${c.huecos.length ? ' (faltan días)' : ''}`);
+  const S = sii.cargas ? coberturaSii(sii.cargas) : null; if (S) l.push(`SII hasta el ${diaTexto(S.hasta)}`);
+  const bd = b2b.datos, t = bd && bd.conciliacion ? B2b.tocaConciliar(bd.conciliacion) : null; if (t && t.toca) l.unshift('Toca conciliar');
+  return l.length ? esc(l.join(' · ')) : bd && bd.conciliacion ? resumenArribaAb(bd.conciliacion) : 'Todavía no se sube ninguna cartola';
+}
+function resumenArribaAb(conf) {
+  const t = B2b.tocaConciliar(conf), l = ((conf && conf.cartolas) || []).filter(c => c.tipo !== 'antigua'), h = l.map(c => c.hasta).filter(Boolean).sort().pop();
+  return esc([t && t.toca ? 'Toca conciliar' : t ? 'Al día' : '', h ? `cartola hasta el ${diaTexto(h)}` : 'sin cartola', `${l.length} ${l.length === 1 ? 'cartola cargada' : 'cartolas cargadas'}`].filter(Boolean).join(' · '));
+}
+// El lado derecho cuando no hay nada abierto (solo en el PC)
+function vacioDetBj(tipo, k) {
+  const tot = k.listo + k.revisar + k.sin, que = tipo === 'cc' ? 'cargo' : 'abono';
+  return `<div class="bj-vacio-det"><div class="bj-vacio-in">${icono(tipo === 'cc' ? 'boleta' : 'banco', 28)}<p class="bj-vacio-t">${tot ? `Elige un ${que} de la lista` : 'No queda nada por revisar'}</p>
+    <p class="ayuda">${tot ? `Quedan ${tot}: ${k.listo} ${k.listo === 1 ? 'listo' : 'listos'}, ${k.revisar} por revisar y ${k.sin} sin coincidencia. Con ↑ y ↓ te mueves, con Enter se abre aquí y con Esc se cierra.` : 'Lo ya resuelto está abajo en la lista: tócalo para ver cómo se resolvió o para deshacerlo.'}</p></div></div>`;
+}
+// Filtros, buscador, teclado, selección y la línea de confirmación (después de cada pintada; los elementos son nuevos)
+function conectarBandeja(el, tipo) {
+  const st = tipo === 'cc' ? cart : b2bConc, sec = el.querySelector(`[data-bandeja="${tipo}"]`); if (!sec) return;
+  const lista = sec.querySelector('.bj-lista'), SEL = tipo === 'cc' ? 'details[data-ccd]' : 'details[data-movd]', attr = tipo === 'cc' ? 'ccd' : 'movd';
+  const repintar = () => (tipo === 'cc' ? pintarCartola(concEl(), 'cargos', cart.dg) : pintarB2bConciliacion(concEl(), ''));
+  sec.querySelectorAll('[data-bj-filtro]').forEach(b => b.addEventListener('click', () => { const f = b.dataset.bjFiltro; st.bjFiltro = st.bjFiltro === f ? '' : f; repintar(); }));
+  // Buscar en la lista: monto (con o sin $), glosa, proveedor o cliente; esconde las filas que no calzan (sin volver a pintar)
+  const q = sec.querySelector('[data-bj-q]'), qmsg = sec.querySelector('[data-bj-qmsg]');
+  const aplicarQ = () => {
+    const Q = BJ.parseQ(st.bjQ || ''), filas = [...lista.querySelectorAll(SEL)]; let n = 0;
+    filas.forEach(f => { const ok = BJ.coincide(Q, { texto: f.dataset.bjTxt || '', montos: (f.dataset.bjMontos || '').split(' ') }); f.hidden = !ok; if (ok) n++; });
+    if (qmsg) qmsg.textContent = Q.texto ? (n ? `${n} de ${filas.length}` : 'Ninguno con eso. Prueba con otro monto, la glosa o el nombre.') : '';
+  };
+  if (q) q.addEventListener('input', () => { st.bjQ = q.value; aplicarQ(); });
+  aplicarQ();
+  // Teclado: ↑ ↓ (Inicio, Fin) entre las filas visibles; Enter abre (en lo ya revisado, lo selecciona); Esc cierra el detalle
+  const visible = x => !x.closest('[hidden]') && !x.parentElement.closest('details.plegable:not([open])');
+  const items = () => [...lista.querySelectorAll(`${SEL} > summary, .fila-hist[data-bj-hist]`)].filter(visible);
+  lista.addEventListener('keydown', ev => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(ev.key)) return;
+    const a = document.activeElement; if (a && a.closest && a.closest('input, select, textarea, .bj-det')) return;
+    const l = items(); if (!l.length) return;
+    let i = l.indexOf(a); i = ev.key === 'Home' ? 0 : ev.key === 'End' ? l.length - 1 : ev.key === 'ArrowDown' ? Math.min(l.length - 1, i + 1) : Math.max(0, i < 0 ? 0 : i - 1);
+    ev.preventDefault(); l[i].focus(); l[i].scrollIntoView({ block: 'nearest' });
+  });
+  const verEntero = () => setTimeout(() => { if (!enPC()) return; const s = document.querySelector(`[data-bandeja="${tipo}"]`); if (!s) return; const r = s.getBoundingClientRect(); if (r.top < -4 || r.bottom > window.innerHeight + 4) window.scrollBy({ top: r.top - 8 }); }, 0);
+  const quitarHist = () => { if (!st.histSel) return; st.histSel = ''; lista.querySelectorAll('.bj-det-hecho').forEach(x => x.remove()); lista.querySelectorAll('.fila-hist.bj-sel').forEach(x => { x.classList.remove('bj-sel'); x.setAttribute('aria-current', 'false'); }); };
+  lista.querySelectorAll(`${SEL} > summary`).forEach(s => s.addEventListener('click', ev => {
+    if (ev.target.closest('button, a, input, select, textarea, label.cc-sel')) return;
+    st.bjFoco = s.parentElement.dataset[attr === 'ccd' ? 'ccd' : 'movd'];
+    // En el PC la fila abierta no se cierra al tocarla otra vez (se cierra con la X o con Esc): es la selección
+    if (enPC() && s.parentElement.open) { ev.preventDefault(); return; }
+    quitarHist(); verEntero();
+  }));
+  const cerrar = () => { const id = st.abierto || st.histSel; if (!id) return; st.abierto = ''; st.histSel = ''; st.bjFoco = id; repintar(); };
+  sec.querySelectorAll('[data-bj-cerrar]').forEach(b => b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); cerrar(); }));
+  sec.addEventListener('keydown', ev => { if (ev.key !== 'Escape' || document.querySelector('dialog[open]') || (ev.target.closest && ev.target.closest('input, textarea, select'))) return; if (st.abierto || st.histSel) { ev.preventDefault(); cerrar(); } });
+  // Lo ya revisado: tocar la fila (no sus botones) la selecciona y muestra cómo se resolvió, con Deshacer
+  lista.querySelectorAll('.fila-hist[data-bj-hist]').forEach(f => {
+    const sel = () => { const id = f.dataset.bjHist; st.histSel = st.histSel === id && !enPC() ? '' : id; if (st.histSel) st.abierto = ''; st.bjFoco = id; repintar(); verEntero(); };
+    f.addEventListener('click', ev => { if (ev.target.closest('button, a, input, select, textarea, label, .bj-det, .reg-det')) return; sel(); });
+    f.addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target === f) { ev.preventDefault(); sel(); } });
+  });
+  // La línea de confirmación: Cerrar y (en el celular) Siguiente
+  sec.querySelectorAll('[data-bj-cerrar-msg]').forEach(b => b.addEventListener('click', () => { if (tipo === 'cc') { cart.msg = ''; cart.err = ''; cart.hecho = ''; } else { b2bConc.msg = ''; b2bConc.error = ''; b2bConc.hecho = null; } st.bjSig = ''; repintar(); }));
+  sec.querySelectorAll('[data-bj-sig]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.bjSig; st.abierto = id; st.histSel = ''; st.bjSig = ''; st.bjFoco = id; st.bjIrFila = id; if (tipo === 'cc') { cart.msg = ''; cart.hecho = ''; } else { b2bConc.msg = ''; b2bConc.hecho = null; } repintar(); }));
+  // Después de pintar: el foco vuelve a la fila (teclado) y, con "Siguiente", la fila queda a la vista
+  if (st.bjFoco && !document.querySelector('dialog[open]')) {
+    const id = st.bjFoco; st.bjFoco = '';
+    const x = lista.querySelector(`${SEL}[data-${attr}="${CSS.escape(id)}"] > summary`) || lista.querySelector(`.fila-hist[data-bj-hist="${CSS.escape(id)}"]`);
+    const a = document.activeElement, enOtro = a && a !== document.body && a.closest && !a.closest('[data-bandeja]') && a.matches('input, select, textarea');
+    if (x && !enOtro) { x.focus({ preventScroll: true }); if (enPC()) x.scrollIntoView({ block: 'nearest' }); }
+  }
+  if (st.bjIrFila) { const id = st.bjIrFila; st.bjIrFila = ''; const x = lista.querySelector(`${SEL}[data-${attr}="${CSS.escape(id)}"]`); if (x) x.scrollIntoView({ block: 'start' }); }
+}
+// La etiqueta de un cargo ya revisado: verde "Conciliado" o gris (repetido, no es gasto, tarjeta, traspaso); rojo si quedó a medias
+function etHechoCc(c, conFecha) {
+  const [k, tx] = c.estado === 'REPETIDO' ? ['gris', 'Repetido'] : c.estado === 'IGNORADO' ? ['gris', 'No es gasto'] : c.estado === 'A_MEDIAS' ? ['sin', 'A medias'] : c.accion === 'pago_tarjeta' ? ['gris', 'Pago de tarjeta'] : c.accion === 'traspaso' ? ['gris', 'Traspaso'] : ['hecho', 'Conciliado'];
+  const et = `<span class="bj-et bj-et-${k}">${tx}</span>`;
+  return conFecha ? `<span class="bj-l0">${et}<span class="bj-fecha">${esc(diaTexto(c.fecha))}</span></span>` : et;
+}
 function histCcHtml(hechos, base) {
   return `<details class="tarjeta plegable" data-plegar="cc-hist" ${plegadas()['cc-hist'] === false ? 'open' : ''}><summary class="titulo-fila"><h2>Ya revisados</h2><span>últimos ${cart.dias} días · ${hechos.length}</span></summary>
     <div class="buscar-b2b"><input type="search" data-cc-hbuscar value="${esc(cart.histBuscar)}" placeholder="Buscar por descripción, monto, gasto o nota" aria-label="Buscar en ya revisados"></div>
-    ${hechos.length ? hechos.map(c => `<div class="fila-hist fila-caja${c.nota ? ' cc-con-nota' : ''}" data-txt="${esc(normCc([c.descripcion, c.monto, resumenHecho(c), c.fecha, c.nota ? c.nota.texto : '', c.estado === 'REPETIDO' ? CB.textoRepetido(c.detalle) : ''].join(' ')))}"><div class="txt"><b>${pesos(c.monto)} · ${esc(c.descripcion)}</b><span>${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))} · ${esc(resumenHecho(c))}</span><span class="nota">${esc(c.resueltoEl)} · ${esc(c.resueltoPor)}</span>${notaCcHtml(c)}${c.estado === 'REPETIDO' ? regCargoHtml(originalDeRepetido(c)) : ''}</div>
-      <div class="acciones">${base ? botonNotaCc(c) : ''}${c.estado === 'REPETIDO' ? `<span class="chip chip-chico c-gris cc-rep-chip">${icono('copias', 12)} ${esc(CB.textoRepetido(c.detalle))}</span>` : `<span class="chip chip-chico ${c.estado === 'IGNORADO' || c.accion === 'pago_tarjeta' || c.accion === 'traspaso' ? 'c-gris' : c.estado === 'A_MEDIAS' ? 'c-rojo' : 'c-verde'}">${c.estado === 'IGNORADO' ? 'No es gasto' : c.estado === 'A_MEDIAS' ? 'A medias: deshacer' : c.accion === 'pago_tarjeta' ? 'Pago de tarjeta' : c.accion === 'traspaso' ? 'Traspaso' : 'Conciliado'}</span>`}<button type="button" class="btn-sec btn-chico" data-cc-deshacer="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Deshacer</button></div></div>`).join('') : '<div class="vacio" style="border:0">Nada todavía.</div>'}
+    ${hechos.length ? hechos.map(c => `<div class="fila-hist fila-caja${c.nota ? ' cc-con-nota' : ''}${cart.histSel === c.id ? ' bj-sel' : ''}" tabindex="0" data-bj-hist="${esc(c.id)}" aria-current="${cart.histSel === c.id}" data-txt="${esc(normCc([c.descripcion, c.monto, resumenHecho(c), c.fecha, c.nota ? c.nota.texto : '', c.estado === 'REPETIDO' ? CB.textoRepetido(c.detalle) : ''].join(' ')))}"><div class="txt">${etHechoCc(c, true)}<b><span class="bj-monto">${pesos(c.monto)}</span><span class="bj-sep"> · </span><span class="bj-glosa">${esc(c.descripcion)}</span></b>${glBj(c.descripcion)}<span class="bj-hres">${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))} · ${esc(resumenHecho(c))}</span><span class="nota">${esc(c.resueltoEl)} · ${esc(c.resueltoPor)}</span>${notaCcHtml(c)}${c.estado === 'REPETIDO' ? regCargoHtml(originalDeRepetido(c)) : ''}</div>
+      <div class="acciones">${base ? botonNotaCc(c) : ''}${c.estado === 'REPETIDO' ? `<span class="chip chip-chico c-gris cc-rep-chip">${icono('copias', 12)} ${esc(CB.textoRepetido(c.detalle))}</span>` : `<span class="chip chip-chico ${c.estado === 'IGNORADO' || c.accion === 'pago_tarjeta' || c.accion === 'traspaso' ? 'c-gris' : c.estado === 'A_MEDIAS' ? 'c-rojo' : 'c-verde'}">${c.estado === 'IGNORADO' ? 'No es gasto' : c.estado === 'A_MEDIAS' ? 'A medias: deshacer' : c.accion === 'pago_tarjeta' ? 'Pago de tarjeta' : c.accion === 'traspaso' ? 'Traspaso' : 'Conciliado'}</span>`}<button type="button" class="btn-sec btn-chico" data-cc-deshacer="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Deshacer</button></div>${cart.histSel === c.id ? detHechoCcHtml(c) : ''}</div>`).join('') : '<div class="vacio" style="border:0">Nada todavía.</div>'}
     <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-link" id="cc-hist-mas">Ver más antiguos</button></div></details>`;
 }
 function reglasCcHtml(D) {
@@ -3628,18 +3834,28 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   const D = cart.d, repintar = () => pintarCartola(concEl(), 'cargos', cart.dg), cargo = id => D.cargos.find(c => c.id === id);
   el.querySelectorAll('details[data-plegar]').forEach(dt => dt.addEventListener('toggle', () => plegar(dt.dataset.plegar, !dt.open)));
   el.querySelectorAll('details[data-ccd]').forEach(dt => dt.addEventListener('toggle', () => {
+    if (!dt.isConnected) return;   // v0.68.0: una fila de una pintada anterior (ya reemplazada) no cambia la selección
     if (dt.open && cart.abierto !== dt.dataset.ccd) { cart.abierto = dt.dataset.ccd; repintar(); }
     else if (!dt.open && cart.abierto === dt.dataset.ccd) cart.abierto = '';
   }));
   const ocupado = async (id, fn) => {
     cart.ocupado = id; cart.err = ''; repintar();
-    try { await fn(); } catch (e) { cart.err = e.message || mensajeError(e); }
+    try { await fn(); if (cart.hecho === id) cart.hechoMsg = cart.msg; } catch (e) { cart.err = e.message || mensajeError(e); }
     cart.ocupado = ''; cargarCartolaGastos(true);
   };
-  const enviar = async (c, pedido) => {
+  // v0.68.0 · Después de resolver un cargo se avanza al siguiente de la lista visible (en el PC se abre a la derecha; en el
+  // celular queda el botón "Siguiente"). En un lote no se avanza.
+  const avanzar = (c, pedido) => {
+    const fuera = new Set([c.id].concat(((pedido && pedido.cargos) || []).map(x => x.id)));
+    const sig = (cart.bjOrden || []).filter(id => !fuera.has(id) || id === c.id), s = BJ.siguiente(sig, c.id), sg = s && !fuera.has(s) ? s : '';
+    if (enPC()) { if (cart.abierto === c.id || !cart.abierto) { cart.abierto = sg; cart.bjFoco = sg; } }
+    else { if (cart.abierto === c.id) cart.abierto = ''; cart.bjSig = sg; }
+    cart.hecho = c.id;
+  };
+  const enviar = async (c, pedido, opc = {}) => {
     const r = await Cartola.resolver({ id: c.id, huella: c.huella, ...pedido }, 'cc-' + c.id + '-' + Gastos.nuevaClave());
     ESTADO_CC.forEach(k => { delete cart[k][c.id]; }); delete abAreas['cc-' + c.id];
-    if (cart.abierto === c.id) cart.abierto = '';
+    if (opc.lote) { if (cart.abierto === c.id) cart.abierto = ''; } else avanzar(c, pedido);
     registrar('Concilió un cargo', `${pesos(c.monto)} · ${c.descripcion} · ${NOMBRE_ACC[pedido.accion] || accCc()[pedido.accion]}`);
     return r;
   };
@@ -3648,12 +3864,30 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   // v0.67.1 · Notas: el botón está en la fila (no abre ni cierra el cargo) y el filtro "Con nota"
   el.querySelectorAll('[data-cc-nota]').forEach(b => b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); const c = cargo(b.dataset.ccNota); if (c) editarNotaCc(c); }));
   if ($('cc-con-nota')) $('cc-con-nota').addEventListener('click', () => { cart.conNota = !cart.conNota; repintar(); });
-  el.querySelectorAll('[data-cc-auto]').forEach(b => b.addEventListener('click', ev => {
-    ev.preventDefault(); ev.stopPropagation();
-    const c = cargo(b.dataset.ccAuto), pd = pedidoDeProp(c, props[c.id], dg.items || []);
+  const confirmarProp = id => {
+    const c = cargo(id), pd = pedidoDeProp(c, props[c.id], dg.items || []);
     if (!pd) { cart.abierto = c.id; cart.modo[c.id] = props[c.id].tipo; repintar(); return; }
-    ocupado(c.id, async () => { await enviar(c, pd); cart.msg = `Listo: ${pesos(c.monto)} · ${esc(c.descripcion)}.`; });
+    ocupado(c.id, async () => { await enviar(c, pd); cart.msg = `Listo: ${pesos(c.monto)} · ${esc(c.descripcion)} · ${esc(BJ.resumenCargo(props[c.id], c))}.`; });
+  };
+  el.querySelectorAll('[data-cc-auto]').forEach(b => b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); confirmarProp(b.dataset.ccAuto); }));
+  // v0.68.0 · El botón principal del detalle (la misma propuesta)
+  el.querySelectorAll('[data-bj-confirmar]').forEach(b => b.addEventListener('click', () => confirmarProp(b.dataset.bjConfirmar)));
+  // v0.68.0 · "Buscar en Gastos" dentro del detalle: elegir un resultado usa la acción de siempre
+  const elegirBj = b => {
+    const c = cargo(b.dataset.cc), k = b.dataset.k; if (!c) return;
+    if (b.dataset.bjElegir === 'gasto') { cart.modo[c.id] = 'gasto'; cart.varios[c.id] = false; cart.gasto[c.id] = k; }
+    else if (b.dataset.bjElegir === 'venc') { const v = (D.vencimientos || []).find(x => x.id === k); cart.modo[c.id] = 'vencimientos'; cart.montos[c.id] = { [k]: v ? Math.min(c.monto, (v.estadoBase === 'con_abonos' && v.saldo ? v.saldo : v.monto) || c.monto) : c.monto }; }
+    else if (b.dataset.bjElegir === 'sii') { cart.modo[c.id] = 'sii_pend'; cart.spSel[c.id] = k; }
+    cart.abierto = c.id; cart.bjIrAcc = c.id; repintar();
+  };
+  const conectarResBj = box => box.querySelectorAll('[data-bj-elegir]').forEach(b => b.addEventListener('click', () => elegirBj(b)));
+  conectarResBj(el);
+  el.querySelectorAll('[data-bj-gq]').forEach(i => i.addEventListener('input', () => {
+    const c = cargo(i.dataset.bjGq); if (!c) return; (cart.bjGq || (cart.bjGq = {}))[c.id] = i.value;
+    const box = el.querySelector(`[data-bj-gres="${CSS.escape(c.id)}"]`); if (box) { box.innerHTML = resGastosHtml(c); conectarResBj(box); }
   }));
+  el.querySelectorAll('[data-bj-gbuscar] .bj-buscar-t').forEach(b => b.addEventListener('click', () => { const cu = b.closest('.bj-buscar').querySelector('.bj-buscar-cuerpo'), ab = cu.hidden; cu.hidden = !ab; b.setAttribute('aria-expanded', String(ab)); cart.bjGab = ab; if (ab) { const i = cu.querySelector('input'); if (i) i.focus(); } }));
+  if (cart.bjIrAcc) { const x = el.querySelector(`[data-bj-det="${CSS.escape(cart.bjIrAcc)}"] .bj-h3-acc`); cart.bjIrAcc = ''; if (x) setTimeout(() => x.scrollIntoView({ block: 'start', behavior: 'smooth' }), 0); }
   // v0.67.7 · "Ver el registro" desde la fila: abre el cargo con el detalle del otro movimiento
   el.querySelectorAll('[data-reg-abrir][data-reg-fila]').forEach(b => b.addEventListener('click', ev => {
     ev.preventDefault(); ev.stopPropagation();
@@ -3669,7 +3903,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   if ($('cc-todos')) $('cc-todos').addEventListener('click', () => ocupado('todos', async () => {
     let ok = 0; const errores = [];
     let faltan = 0;
-    for (const c of listos) { const pd = pedidoDeProp(c, props[c.id], dg.items || []); if (!pd) { faltan++; continue; } try { await enviar(c, pd); ok++; } catch (e) { errores.push(`${pesos(c.monto)}: ${e.message || mensajeError(e)}`); } }
+    for (const c of listos) { const pd = pedidoDeProp(c, props[c.id], dg.items || []); if (!pd) { faltan++; continue; } try { await enviar(c, pd, { lote: true }); ok++; } catch (e) { errores.push(`${pesos(c.monto)}: ${e.message || mensajeError(e)}`); } }
     cart.msg = `Listo: ${ok} ${ok === 1 ? 'cargo confirmado' : 'cargos confirmados'}.${faltan ? ` ${faltan} sin confirmar: les falta un dato (ábrelos).` : ''}`;
     if (errores.length) throw new Error(errores.join(' · '));
   }));
@@ -3841,8 +4075,8 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   if (hb) hb.addEventListener('input', () => { cart.histBuscar = hb.value; filtrar(); });
   filtrar();
   if ($('cc-hist-mas')) $('cc-hist-mas').addEventListener('click', () => { cart.dias += 90; cart.d = null; cargarCartolaGastos(true); repintar(); });
-  el.querySelectorAll('[data-cc-deshacer]').forEach(b => b.addEventListener('click', async () => {
-    const c = cargo(b.dataset.ccDeshacer); if (!c) return;
+  const deshacerCc = async id => {
+    const c = cargo(id); if (!c) return;
     const que = c.estado === 'REPETIDO' ? '<p>Vuelve a "Para revisar" como un cargo normal (no había nada en Gastos) y no se vuelve a marcar solo como repetido de ese movimiento.</p>'
       : c.accion === 'previred_planilla' ? '<p>Solo este cargo sale de la planilla de Previred (queda anotado en ella); los demás cargos unidos siguen. No había gastos: no cambia nada en Gastos.</p>'
       : c.accion === 'previred' ? '<p>Se deshace el pago de Previred completo: todos sus cargos vuelven a "Para revisar", el vencimiento de Cotizaciones queda por pagar y los gastos por trabajador pasan a "Gastos anulados".</p>'
@@ -3851,8 +4085,11 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
       : c.accion === 'nuevo' ? '<p>El gasto que se creó pasa a "Gastos anulados" (no se borra).</p>' : c.accion === 'abono' ? '<p>El abono sale del vencimiento (queda anotado) y su gasto pasa a "Gastos anulados".</p>' : c.accion === 'gasto' ? (c.detalle && c.detalle.combinacion ? '<p>Los gastos de la combinación quedan igual; a todos se les quita la cartola (si esperaban su cargo, vuelven a esperarlo).</p>' : '<p>El gasto queda igual; solo se le quita la cartola (si esperaba su cargo, vuelve a esperarlo).</p>') : c.accion === 'pago_tarjeta' ? '<p>Deja de contar como pago de tarjeta (no había gasto: no cambia nada en Gastos).</p>' : c.accion === 'traspaso' ? '<p>Deja de contar como traspaso (no había gasto: no cambia nada en Gastos).</p>' : '<p>No cambia nada en Gastos.</p>';
     const motivo = await pedirMotivo('Deshacer', `<p class="ayuda">${pesos(c.monto)} · ${esc(c.descripcion)} (${esc(diaTexto(c.fecha))}) · ${esc(resumenHecho(c))}</p>${que}<p class="ayuda">El cargo vuelve a "Para revisar" y lo aprendido de él se olvida.</p>`, 'Deshacer');
     if (!motivo) return;
-    ocupado('deshacer', async () => { const r = await Cartola.deshacer(c.id, motivo, 'ccd-' + Gastos.nuevaClave()); cart.msg = `Listo: el cargo de ${pesos(c.monto)} volvió a "Para revisar".${(r.avisos || []).length ? ' ' + r.avisos.map(esc).join(' ') : ''}`; registrar('Deshizo un cargo conciliado', `${pesos(c.monto)} · ${c.descripcion} · ${motivo}`); });
-  }));
+    ocupado('deshacer', async () => { const r = await Cartola.deshacer(c.id, motivo, 'ccd-' + Gastos.nuevaClave()); cart.msg = `Listo: el cargo de ${pesos(c.monto)} volvió a "Para revisar".${(r.avisos || []).length ? ' ' + r.avisos.map(esc).join(' ') : ''}`; if (cart.histSel === c.id) cart.histSel = ''; registrar('Deshizo un cargo conciliado', `${pesos(c.monto)} · ${c.descripcion} · ${motivo}`); });
+  };
+  el.querySelectorAll('[data-cc-deshacer]').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); deshacerCc(b.dataset.ccDeshacer); }));
+  // v0.68.0 · Deshacer desde la línea de confirmación o desde el detalle de un ya revisado
+  el.querySelectorAll('[data-bj-deshacer]').forEach(b => b.addEventListener('click', () => deshacerCc(b.dataset.bjDeshacer)));
   el.querySelectorAll('[data-cc-regla]').forEach(b => b.addEventListener('click', () => {
     if (!confirm('¿Quitar lo aprendido? Lo ya conciliado no cambia.')) return;
     ocupado('regla', async () => { await Cartola.quitarRegla(b.dataset.ccRegla); cart.msg = 'Listo: se quitó.'; });
@@ -6130,7 +6367,7 @@ async function pintarConciliacion(sub) {
 // Cuando cambia algo en B2B (escucha en vivo): repinta la pestaña abierta sin cortar lo que estás escribiendo
 function repintarConcVivo() {
   if (document.querySelector('dialog[open]')) return;
-  const foco = document.activeElement && document.activeElement.closest && document.activeElement.closest('#v-conciliacion .mov-edit');
+  const foco = document.activeElement && document.activeElement.closest && document.activeElement.closest('#v-conciliacion .mov-edit, #v-conciliacion .bj-buscar, #v-conciliacion .bj-barra');
   if (enConc('abonos')) { if (foco) b2bConc.repintar = true; else pintarB2bConciliacion(concEl(), ''); return; }
   const d = b2b.datos, firma = d && d.conciliacion ? JSON.stringify([(d.conciliacion.cartolas || []).length, d.conciliacion.ritmo || null, !!d.conciliacion.importado]) : '';
   if (enConc('cargos') && cart.dg && firma !== cart.firmaConf && !foco) { cart.firmaConf = firma; pintarCartola(concEl(), 'cargos', cart.dg); }
@@ -6139,11 +6376,11 @@ function repintarConcVivo() {
   if (enConc('sinbanco') && sinb.dg && sinb.nAb !== nAb && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('#v-conciliacion .sinb-fila'))) { sinb.nAb = nAb; sinb.pintado = null; pintarSinBanco(concEl(), sinb.dg); }
 }
 // La tarjeta de arriba (subir cartola, días de conciliar, hasta dónde está revisada cada cuenta): la misma en las dos pestañas
-function tarjetaConcHtml(d, conf) {
+function tarjetaConcHtml(d, conf, sinMsg) {   // v0.68.0 · sinMsg: en Abonos el mensaje va en la línea de la bandeja
   return `<section class="tarjeta" aria-labelledby="t-conc"><div class="titulo-fila"><h2 id="t-conc">Cargar cartola ${info('Conciliación bancaria', 'Sube la cartola de BancoEstado tal como la descargas (histórica o en línea), de la cuenta corriente o de la Chequera Electrónica. Una sola subida: los abonos van a "Abonos (B2B)" y los cargos a "Cargos (Gastos)". Se pueden subir las dos aunque se repitan días: nada se cuenta dos veces.\nSolo se miran los abonos (lo que entra). Los de Transbank y los que marques "No es de B2B" se ignoran.\nEl cliente se reconoce por lo aprendido antes, por el RUT que trae la descripción o por su nombre o razón social. Cuando lo eliges a mano, se aprende para la próxima.\nAl confirmar, el pago queda con la fecha del banco: si cubre el saldo del folio queda PAGADO; si no, como abono (PARCIAL). Todo pasa solo a la planilla.')}</h2></div>
       <div class="fila-cartola"><label class="btn" for="conc-archivo">${b2bConc.cargando ? 'Leyendo…' : 'Elegir cartola (.xlsx)'}</label><input id="conc-archivo" type="file" accept=".xlsx,.xls" class="sr" ${b2bConc.cargando ? 'disabled' : ''}>
         <span class="ayuda">${d.movimientos.length ? `${d.movimientos.length} ${d.movimientos.length === 1 ? 'abono pendiente' : 'abonos pendientes'} de cartolas anteriores` : 'No hay abonos pendientes.'}</span></div>
-      ${b2bConc.msg ? `<p class="ayuda" role="status">${b2bConc.msg}</p>` : ''}${b2bConc.error ? `<p class="error" role="alert">${esc(b2bConc.error)}</p>` : ''}
+      ${!sinMsg && b2bConc.msg ? `<p class="ayuda" role="status">${b2bConc.msg}</p>` : ''}${!sinMsg && b2bConc.error ? `<p class="error" role="alert">${esc(b2bConc.error)}</p>` : ''}
       ${ritmoHtml(conf)}
       ${cartolasHtml(conf)}
       <p class="ayuda" style="margin-top:8px">¿Volviste a usar la app antigua un tiempo? <button type="button" class="btn-link" id="conc-reimportar" ${b2bConc.cargando ? 'disabled' : ''}>Traer otra vez lo conciliado allá</button></p></section>`;
@@ -6196,10 +6433,17 @@ function pintarB2bConciliacion(el, sub) {
   const repP = abonosRepProp(d.movimientos), conRep = [];
   d.movimientos.forEach(m => { const p = props[m.id]; if (repP[m.id]) { conRep.push(m); return; } (grupos[b2bConc.edit[m.id] && p.tipo === 'auto' ? 'revisar' : p.tipo] || grupos.revisar).push(m); });
   grupos.revisar = conRep.concat(grupos.revisar);
+  // v0.68.0 · La bandeja: el estado de cada abono (Listo = Listos para confirmar; Revisar; Sin coincidencia = Sin cliente)
+  const claseAb = {}; grupos.auto.forEach(m => { claseAb[m.id] = 'listo'; }); grupos.revisar.forEach(m => { claseAb[m.id] = 'revisar'; }); grupos.sinCliente.forEach(m => { claseAb[m.id] = 'sin'; });
+  const kBj = BJ.contar(d.movimientos.map(m => claseAb[m.id]));
+  if (b2bConc.bjFiltro && !kBj[b2bConc.bjFiltro]) b2bConc.bjFiltro = '';
+  const fB = l => (b2bConc.bjFiltro ? l.filter(m => claseAb[m.id] === b2bConc.bjFiltro) : l);
+  b2bConc.bjCtx = { porCobrar };
+  if (b2bConc.histSel && !(b2bConc.hist || []).some(m => m.id === b2bConc.histSel)) b2bConc.histSel = '';
   const tefTxt = t => t ? `<small class="fechas-cobro">Transfirió: ${esc(t.nombre || '—')} · RUT ${esc(t.rutTxt || t.rut)}${t.banco ? ' · ' + esc(t.banco) : ''}${t.hora ? ' · ' + esc(t.hora) : ''}</small>` : '';
   // v0.65.2 · Seguro (RUT, lo aprendido, elegido por ti o el nombre completo) o Probable (solo el monto exacto: confírmalo tú)
   const chipConf = p => p.clienteId && p.confianza ? ` <span class="chip ${p.confianza === 'seguro' ? 'c-verde' : 'c-amarillo'} chip-chico chip-conf">${p.confianza === 'seguro' ? 'Seguro' : 'Probable'}</span>` : '';
-  const cab = m => `<div class="txt"><b>${pesos(m.monto)}${props[m.id].cliente ? ' · ' + esc(props[m.id].cliente) : ''}</b>${chipConf(props[m.id])}<span>${esc(diaTexto(m.fecha))} · ${esc(m.descripcion)}</span>${tefTxt(props[m.id].tef)}${filaRepAbonoHtml(m, repP[m.id])}</div>`;
+  const cab = m => `<div class="txt">${l0Bj(claseAb[m.id], m.fecha)}<b><span class="bj-monto">${pesos(m.monto)}</span>${props[m.id].cliente ? `<span class="bj-sep"> · </span><span class="bj-glosa">${esc(props[m.id].cliente)}</span>` : ''}</b>${chipConf(props[m.id])}<span class="bj-ab-sp"><span class="bj-ocultar">${esc(diaTexto(m.fecha))} · </span><span class="bj-gl" title="${esc(m.descripcion)}">${esc(m.descripcion)}</span></span>${resBj(BJ.resumenAbono(props[m.id], repP[m.id]))}${tefTxt(props[m.id].tef)}${filaRepAbonoHtml(m, repP[m.id])}</div>`;
   const folioTxt = a => `folio ${esc(a.folio)} ${pesos(a.monto)}`;
   const optsCli = sel => `<option value="">Elige el cliente…</option>` + d.clientes.filter(c => c.estado !== 'archivado' || c.id === sel).map(c => `<option value="${esc(c.id)}" ${c.id === sel ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('');
   // v0.26.0 · Órdenes de un folio de varias órdenes: marcar cuáles paga este abono (el monto se llena solo)
@@ -6226,30 +6470,45 @@ function pintarB2bConciliacion(el, sub) {
       ${propRepAbonoHtml(m, repP[m.id])}
       ${p.motivo ? `<p class="ayuda${p.sinExactas ? ' mov-sin-exactas' : ''}">${esc(p.motivo)}${p.sinExactas ? ' ' + info('Solo montos exactos', TXT_ABONO_EXACTO) : ''}</p>` : ''}${similaresRegHtml(p)}
       ${otrasExactasHtml(m, p)}${parecidosAbonoHtml(m, p)}
-      ${p.clienteId ? (fol.length ? `<p class="ayuda">Toca un folio para asignarle su saldo (o lo que queda del abono); tócalo otra vez para quitarlo.</p><div class="mov-folios">${fol.map(f => `<div class="mov-folio${Number(val(f)) > 0 ? ' mov-folio-on' : ''}${post.has(f.folio) ? ' mov-folio-post' : ''}"><button type="button" class="mov-folio-btn" data-mov-usar="${esc(m.id)}" data-folio="${esc(f.folio)}" aria-pressed="${Number(val(f)) > 0}"><b>Folio ${esc(f.folio)}</b><small>${esc(diaTexto(f.fecha))} · saldo ${pesos(f.saldo)}${f.abonado ? ` (abonado ${pesos(f.abonado)})` : ''}${post.has(f.folio) ? ' · pedidos después del pago' : ''}</small></button>
+      ${p.clienteId ? `<p class="bj-sub-t">Abiertas de ${esc(p.cliente)}${fol.length ? '' : ': ninguna'}</p>` : ''}${p.clienteId ? (fol.length ? `<p class="ayuda">Toca un folio para asignarle su saldo (o lo que queda del abono); tócalo otra vez para quitarlo.</p><div class="mov-folios">${fol.map(f => `<div class="mov-folio${Number(val(f)) > 0 ? ' mov-folio-on' : ''}${post.has(f.folio) ? ' mov-folio-post' : ''}"><button type="button" class="mov-folio-btn" data-mov-usar="${esc(m.id)}" data-folio="${esc(f.folio)}" aria-pressed="${Number(val(f)) > 0}"><b>Folio ${esc(f.folio)}</b><small>factura del ${esc(diaTexto(f.fecha))} · total ${pesos(f.total)} · saldo ${pesos(f.saldo)}${f.abonado ? ` (abonado ${pesos(f.abonado)})` : ''}${post.has(f.folio) ? ' · pedidos después del pago' : ''}${Number(val(f)) > 0 ? ' · <b class="bj-en-prop">en este abono</b>' : ''}</small></button>
           <input inputmode="numeric" data-mov-monto="${esc(m.id)}" data-folio="${esc(f.folio)}" value="${val(f) ? Number(val(f)).toLocaleString('es-CL') : ''}" placeholder="0" aria-label="Monto para el folio ${esc(f.folio)}"></div>${ordsHtml(m, f)}`).join('')}</div>
         <p class="mov-suma ${sobra < 0 ? 'error' : ''}">Asignado ${pesos(asignado)} de ${pesos(m.monto)}${sobra > 0 ? ` · quedan ${pesos(sobra)} sin asignar` : sobra < 0 ? ` · te pasaste en ${pesos(-sobra)}` : ' · calza exacto'}</p>`
         : '<p class="ayuda">Este cliente no tiene folios por cobrar.</p>') : ''}
+      ${pagadasAbHtml(m, p)}${buscarFactHtml(m)}
       ${p.clienteId && sobra > 0 ? `<label class="check-linea"><input type="checkbox" data-mov-favor="${esc(m.id)}" ${favorOn ? 'checked' : ''}> Dejar ${pesos(sobra)} como saldo a favor de ${esc(p.cliente)} ${info('Saldo a favor', 'Lo que sobra de este abono queda guardado para el cliente: aparece arriba, en "Saldos a favor", y se usa en su próximo folio con un botón.\nSirve cuando el cliente paga de más o paga antes de que exista la factura.\nSi lo desmarcas, lo que sobra no se registra en ninguna parte (por ejemplo, si una parte del abono no era de B2B).')}</label>` : ''}
       <div class="botones" style="justify-content:flex-start">${p.clienteId ? `<button type="button" class="btn btn-chico" data-mov-ok="${esc(m.id)}" ${puede ? '' : 'disabled'}>${txtOk}</button>` : ''}
         <button type="button" class="${p.sinCalce && (p.similares || []).length && asignado === 0 ? 'btn' : 'btn-sec'} btn-chico" data-mov-rev="${esc(m.id)}">Ya estaba registrado</button>
         <button type="button" class="btn-sec btn-chico" data-mov-ign="${esc(m.id)}">No es de B2B</button></div></div>`;
   };
-  const fila = (m, conEditor) => `<details class="fila-orden-b2b mov" data-movd="${esc(m.id)}" ${conEditor && b2bConc.abierto === m.id ? 'open' : ''}><summary class="fila-caja">${cab(m)}
-      <div class="acciones">${props[m.id].tipo === 'auto' && !b2bConc.edit[m.id] && !repP[m.id] ? `<span class="mov-prop">${props[m.id].asignaciones.map(folioTxt).join(' + ')}</span><button type="button" class="btn btn-chico" data-mov-auto="${esc(m.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${editor(m)}</details>`;
-  const seccion = (k, titulo, l, ayuda, extra = '') => `<details class="tarjeta plegable" data-plegar="c-${k}" ${plegadas()['c-' + k] === true && l.length ? '' : 'open'}><summary class="titulo-fila"><h2>${titulo}</h2><span>${l.length} ${l.length === 1 ? 'abono' : 'abonos'} · ${pesos(l.reduce((s, m) => s + m.monto, 0))}</span></summary>
-      ${l.length ? `<p class="ayuda">${ayuda}</p>${extra}${l.map(m => fila(m, true)).join('')}` : '<div class="vacio" style="border:0">Nada aquí.</div>'}</details>`;
+  const fila = (m, conEditor) => { const p = props[m.id], auto = p.tipo === 'auto' && !b2bConc.edit[m.id] && !repP[m.id], rs = BJ.resumenAbono(p, repP[m.id]);
+    return `<details class="fila-orden-b2b mov" data-movd="${esc(m.id)}" data-bj="${claseAb[m.id] || 'revisar'}" ${bjAttrs([m.descripcion, p.cliente || '', p.tef ? p.tef.nombre : '', rs].join(' '), [m.monto])} ${conEditor && b2bConc.abierto === m.id ? 'open' : ''}><summary class="fila-caja">${cab(m)}
+      <div class="acciones">${auto ? `<span class="mov-prop">${p.asignaciones.map(folioTxt).join(' + ')}</span><button type="button" class="btn btn-chico" data-mov-auto="${esc(m.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary><div class="bj-det" data-bj-det="${esc(m.id)}" role="region" aria-label="Detalle del abono">${detAbonoHtml(m, p, claseAb[m.id] || 'revisar', repP[m.id], auto)}${editor(m)}</div></details>`; };
+  const seccion = (k, titulo, l0, ayuda, extra = '') => { const l = fB(l0); return `<details class="tarjeta plegable" data-plegar="c-${k}" ${plegadas()['c-' + k] === true && l.length ? '' : 'open'}><summary class="titulo-fila"><h2>${titulo}</h2><span>${l.length} ${l.length === 1 ? 'abono' : 'abonos'} · ${pesos(l.reduce((s, m) => s + m.monto, 0))}</span></summary>
+      ${l.length ? `<p class="ayuda">${ayuda}</p>${extra}${l.map(m => fila(m, true)).join('')}` : '<div class="vacio" style="border:0">Nada aquí.</div>'}</details>`; };
+  // v0.68.0 · El orden visible (para avanzar al siguiente), la línea de confirmación y la barra de la bandeja
+  b2bConc.bjOrden = fB(grupos.auto).concat(fB(grupos.revisar), fB(grupos.sinCliente)).map(m => m.id);
+  const sigM = b2bConc.bjSig ? d.movimientos.find(m => m.id === b2bConc.bjSig) : null; if (b2bConc.bjSig && !sigM) b2bConc.bjSig = '';
+  const hechoM = b2bConc.hecho && b2bConc.hecho.msg === b2bConc.msg && !d.movimientos.some(m => m.id === b2bConc.hecho.m.id) ? b2bConc.hecho.m : null;
+  const lote = grupos.auto.length > 1 ? `<button type="button" class="btn btn-chico" id="conc-todos" ${b2bConc.ocupado ? 'disabled' : ''}>Confirmar los ${grupos.auto.length} listos · ${pesos(grupos.auto.reduce((s, m) => s + m.monto, 0))}</button>` : '';
+  const barra = barraBjHtml({ tipo: 'ab', k: kBj, filtro: b2bConc.bjFiltro || '', q: b2bConc.bjQ || '', lote,
+    hecho: hechoBjHtml({ tipo: 'ab', msg: b2bConc.msg, err: b2bConc.error, deshacer: hechoM ? hechoM.id : '', attr: 'data-bj-deshacer-ab', sig: sigM ? sigM.id : '', sigTxt: sigM ? `${pesos(sigM.monto)} · ${sigM.descripcion}`.slice(0, 48) : '' }) });
   el.innerHTML = cabConc('') + `
-    ${tarjetaConcHtml(d, conf)}
+    ${arribaConcHtml('ab', tarjetaConcHtml(d, conf, true), resumenArribaAb(conf))}
     ${favorHtml(porCobrar)}
-    ${seccion('auto', 'Listos para confirmar', grupos.auto, 'Calzan exacto con folios por cobrar de ese cliente. Revisa y confirma; si alguno no corresponde, ábrelo para cambiarlo.', grupos.auto.length > 1 ? `<div class="botones" style="justify-content:flex-start;margin:4px 0 8px"><button type="button" class="btn btn-chico" id="conc-todos" ${b2bConc.ocupado ? 'disabled' : ''}>Confirmar los ${grupos.auto.length} · ${pesos(grupos.auto.reduce((s, m) => s + m.monto, 0))}</button></div>` : '')}
+    <section class="tarjeta bandeja" data-bandeja="ab" aria-label="Abonos de la cartola">${barra}<div class="bj-cuerpo"><div class="bj-lista" data-bj-lista="ab">
+    ${seccion('auto', 'Listos para confirmar', grupos.auto, 'Calzan exacto con folios por cobrar de ese cliente. Revisa y confirma; si alguno no corresponde, ábrelo para cambiarlo.')}
     ${seccion('revisar', 'Para revisar', grupos.revisar, 'Seguro: se sabe el cliente (RUT, lo aprendido o su nombre), pero el monto no calza exacto o hay más de una forma de calzar. Probable: nada dice quién pagó, pero el monto calza exacto (±$1) con lo que debe ese cliente; nunca se confirma solo: revísalo y confirma.')}
-    ${seccion('sin', 'Sin cliente', grupos.sinCliente, 'No se reconoció quién pagó y el monto no calza exacto con lo que debe ningún cliente: no se adivina. Busca el monto con "$" en Ventas B2B, elige el cliente (se aprende para la próxima) o márcalo "No es de B2B". Para ver el RUT y el nombre completo de quien transfirió, sube también el archivo "Transferencias recibidas" del banco (mismo botón de arriba).')}
-    ${histConcHtml()}`;
+    ${seccion('sin', 'Sin cliente', grupos.sinCliente, 'No se reconoció quién pagó y el monto no calza exacto con lo que debe ningún cliente: no se adivina. Busca la factura en el detalle, elige el cliente (se aprende para la próxima) o márcalo "No es de B2B". Para ver el RUT y el nombre completo de quien transfirió, sube también el archivo "Transferencias recibidas" del banco (mismo botón de arriba).')}
+    ${histConcHtml()}</div>${vacioDetBj('ab', kBj)}</div></section>`;
   // ── Acciones ──
   el.querySelectorAll('.mov-edit').forEach(x => x.addEventListener('focusout', () => setTimeout(() => { if (b2bConc.repintar && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('#v-conciliacion .mov-edit')) && enConc('abonos')) pintarB2bConciliacion(concEl(), ''); }, 0)));
   el.querySelectorAll('details[data-plegar]').forEach(dt => dt.addEventListener('toggle', () => plegar(dt.dataset.plegar, !dt.open)));
-  el.querySelectorAll('details[data-movd]').forEach(dt => dt.addEventListener('toggle', () => { if (dt.open) b2bConc.abierto = dt.dataset.movd; else if (b2bConc.abierto === dt.dataset.movd) b2bConc.abierto = ''; }));
+  // v0.68.0 · En el PC se ve uno a la vez (el detalle va a la derecha): al abrir uno se cierran los demás
+  el.querySelectorAll('details[data-movd]').forEach(dt => dt.addEventListener('toggle', () => {
+    if (!dt.isConnected) return;   // v0.68.0: el aviso de una fila de una pintada anterior (ya reemplazada) no cambia la selección
+    if (dt.open) { b2bConc.abierto = dt.dataset.movd; if (enPC()) el.querySelectorAll('details[data-movd][open]').forEach(o => { if (o !== dt) o.open = false; }); }
+    else if (b2bConc.abierto === dt.dataset.movd) b2bConc.abierto = '';
+  }));
   const repintar = () => pintarB2bConciliacion(el, sub);
   const confirmar = async (id, conEdicion) => {
     const m = d.movimientos.find(x => x.id === id), p = props[id], e = b2bConc.edit[id];
@@ -6257,11 +6516,22 @@ function pintarB2bConciliacion(el, sub) {
     const asignadoT = asign.reduce((s, a) => s + (Math.round(Number(a.monto)) || 0), 0), sobra = m.monto - asignadoT, aFavor = conEdicion && sobra > 0 && favorMarcado(id, p, asignadoT);
     await B2b.aplicarMovimiento(id, p.clienteId, asign, aprendeAbono(m, p), aFavor, p.tef ? p.tef.rut : '');   // se aprende lo que confirmaste tú
     delete b2bConc.edit[id]; delete b2bConc.forzados[id]; delete b2bConc.favor[id]; b2bConc.hist = null;
+    // v0.68.0 · La línea de confirmación (con Deshacer): lo justo para pedir el Deshacer aunque "Ya conciliados" no esté leído
+    const fs0 = asign.filter(a => Number(a.monto) > 0);
+    b2bConc.msg = `Listo: abono de ${esc(p.cliente)} conciliado · ${fs0.length ? fs0.map(a => 'folio ' + esc(a.folio)).join(', ') : 'sin folio'}${aFavor ? ' · con saldo a favor' : ''}.`;
+    b2bConc.hecho = { msg: b2bConc.msg, m: { id, monto: m.monto, descripcion: m.descripcion, fecha: m.fecha, estado: 'conciliado', cliente: p.cliente, asignaciones: fs0.map(a => ({ folio: a.folio, monto: Math.round(Number(a.monto)) })), favorInicial: aFavor ? sobra : 0, aprendido: aprendeAbono(m, p) } };
     registrar('Concilió abono', `${pesos(m.monto)} · ${p.cliente} · ${asign.filter(a => Number(a.monto) > 0).map(a => 'folio ' + a.folio).join(', ') || 'sin folio'}${aFavor ? ` · ${pesos(sobra)} a favor` : ''}`);
   };
-  const ocupado = async (id, fn) => { b2bConc.ocupado = id; b2bConc.error = ''; repintar(); try { await fn(); B2b.pasarAPlanilla().catch(() => {}); } catch (e) { b2bConc.error = errorB2b(e); alert('No se pudo: ' + b2bConc.error); } b2bConc.ocupado = ''; repintar(); };
+  // v0.68.0 · Después de resolver un abono se avanza al siguiente de la lista visible (PC: se abre a la derecha; celular: "Siguiente")
+  const ocupado = async (id, fn) => {
+    const esMov = d.movimientos.some(x => x.id === id), sel = b2bConc.abierto === id || !b2bConc.abierto, sig = esMov ? BJ.siguiente(b2bConc.bjOrden, id) : '';
+    b2bConc.ocupado = id; b2bConc.error = ''; repintar(); let ok = false;
+    try { await fn(); ok = true; B2b.pasarAPlanilla().catch(() => {}); } catch (e) { b2bConc.error = errorB2b(e); alert('No se pudo: ' + b2bConc.error); }
+    if (ok && esMov) { const sg = sig !== id ? sig : ''; if (enPC()) { if (sel) { b2bConc.abierto = sg; b2bConc.bjFoco = sg; } } else { if (b2bConc.abierto === id) b2bConc.abierto = ''; b2bConc.bjSig = sg; } }
+    b2bConc.ocupado = ''; repintar(); };
   el.querySelectorAll('[data-mov-auto]').forEach(b => b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); ocupado(b.dataset.movAuto, () => confirmar(b.dataset.movAuto, false)); }));
   el.querySelectorAll('[data-mov-ok]').forEach(b => b.addEventListener('click', () => ocupado(b.dataset.movOk, () => confirmar(b.dataset.movOk, true))));
+  el.querySelectorAll('[data-bj-confirmar-ab]').forEach(b => b.addEventListener('click', () => ocupado(b.dataset.bjConfirmarAb, () => confirmar(b.dataset.bjConfirmarAb, false))));
   if ($('conc-todos')) $('conc-todos').addEventListener('click', () => ocupado('todos', async () => {
     let ok = 0; const errores = [];
     for (const m of grupos.auto) { try { await confirmar(m.id, false); ok++; } catch (e) { errores.push(`${pesos(m.monto)}: ${errorB2b(e)}`); } }
@@ -6269,6 +6539,7 @@ function pintarB2bConciliacion(el, sub) {
     if (errores.length) throw new Error(errores.join(' · '));
   }));
   conectarTarjetaConc(el, conf, repintar, ocupado);
+  conectarBandeja(el, 'ab');
   // v0.15 · usar un saldo a favor en un folio
   // v0.25.0: saldo a favor de $1 a $3 que vino del redondeo de la factura
   el.querySelectorAll('[data-favor-redondeo]').forEach(b => b.addEventListener('click', () => {
@@ -6292,8 +6563,8 @@ function pintarB2bConciliacion(el, sub) {
   if (hb) hb.addEventListener('input', () => { b2bConc.histBuscar = hb.value; filtrarHist(); });
   filtrarHist();
   if ($('conc-hist-mas')) $('conc-hist-mas').addEventListener('click', () => { b2bConc.histDias += 60; b2bConc.hist = null; cargarHistConc(); repintar(); });
-  el.querySelectorAll('[data-deshacer]').forEach(b => b.addEventListener('click', async () => {
-    const m = (b2bConc.hist || []).find(x => x.id === b.dataset.deshacer); if (!m) return;
+  const deshacerAb = async m => {
+    if (!m) return;
     const folios = (m.asignaciones || []).map(a => a.folio);
     const que = m.estado === 'repetido' ? '<p>No cambia ningún folio: el abono no había registrado ningún pago. Queda anotado que no es repetido de ese movimiento (no se vuelve a marcar solo).</p>' : m.estado === 'conciliado'
       ? `<p>${folios.length ? `${folios.length === 1 ? 'El folio' : 'Los folios'} <b>${folios.map(esc).join(', ')}</b> ${folios.length === 1 ? 'vuelve' : 'vuelven'} a Por cobrar como estaban antes. Los abonos que se crearon quedan anulados (no se borran).` : ''}${m.favorInicial ? ` El saldo a favor de ${pesos(m.favorInicial)} se quita.` : ''}</p>${m.aprendido ? `<p class="ayuda">También se olvida que "${esc(m.descripcion)}" es ${esc(m.cliente)}.</p>` : ''}`
@@ -6301,8 +6572,22 @@ function pintarB2bConciliacion(el, sub) {
     const r = await pedirDatos('Deshacer', `<p class="ayuda">${pesos(m.monto)} · ${esc(m.descripcion)} (${esc(diaTexto(m.fecha))})</p>${que}<p class="ayuda">El abono vuelve a "Para revisar" para resolverlo bien.</p>
       <div class="campo"><label for="pd-nota">Motivo (opcional)</label><input id="pd-nota" maxlength="200" placeholder="Ej: era de otro cliente"></div>`, 'Deshacer', dd => ({ nota: dd.querySelector('#pd-nota').value }));
     if (!r) return;
-    ocupado('deshacer', async () => { await B2b.deshacerMovimiento(m.id, r.nota); b2bConc.hist = null; b2bConc.msg = `Listo: el abono de ${pesos(m.monto)} del ${esc(diaTexto(m.fecha))} volvió a "Para revisar".`; registrar(m.estado === 'repetido' ? 'Deshizo abono repetido' : 'Deshizo abono conciliado', `${pesos(m.monto)} · ${m.cliente || m.descripcion}${folios.length ? ' · folio ' + folios.join(', ') : ''}${r.nota ? ' · ' + r.nota : ''}`); });
+    ocupado('deshacer', async () => { await B2b.deshacerMovimiento(m.id, r.nota); b2bConc.hist = null; b2bConc.hecho = null; if (b2bConc.histSel === m.id) b2bConc.histSel = ''; b2bConc.msg = `Listo: el abono de ${pesos(m.monto)} del ${esc(diaTexto(m.fecha))} volvió a "Para revisar".`; registrar(m.estado === 'repetido' ? 'Deshizo abono repetido' : 'Deshizo abono conciliado', `${pesos(m.monto)} · ${m.cliente || m.descripcion}${folios.length ? ' · folio ' + folios.join(', ') : ''}${r.nota ? ' · ' + r.nota : ''}`); });
+  };
+  el.querySelectorAll('[data-deshacer]').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); deshacerAb((b2bConc.hist || []).find(x => x.id === b.dataset.deshacer)); }));
+  // v0.68.0 · Deshacer desde la línea de confirmación (aunque "Ya conciliados" no esté leído) o desde el detalle de un ya conciliado
+  el.querySelectorAll('[data-bj-deshacer-ab]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.bjDeshacerAb; deshacerAb((b2bConc.hist || []).find(x => x.id === id) || (b2bConc.hecho && b2bConc.hecho.m.id === id ? b2bConc.hecho.m : null)); }));
+  // v0.68.0 · "Buscar facturas" dentro del detalle: asignar una factura abierta usa la misma elección de cliente y folio de siempre
+  const conectarFactBj = box => box.querySelectorAll('[data-bj-folio]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.bjFolio, cli = b.dataset.cli, folio = b.dataset.folio, m = d.movimientos.find(x => x.id === id), f = (porCobrar[cli] || []).find(x => x.folio === folio); if (!m || !f) return;
+    b2bConc.forzados[id] = cli; b2bConc.edit[id] = { montos: { [folio]: Math.min(f.saldo, m.monto) } }; delete b2bConc.favor[id]; b2bConc.abierto = id; (b2bConc.bjFq || (b2bConc.bjFq = {}))[id] = ''; repintar();
   }));
+  conectarFactBj(el);
+  el.querySelectorAll('[data-bj-fq]').forEach(i => i.addEventListener('input', () => {
+    const id = i.dataset.bjFq, m = d.movimientos.find(x => x.id === id); if (!m) return; (b2bConc.bjFq || (b2bConc.bjFq = {}))[id] = i.value;
+    const box = el.querySelector(`[data-bj-fres="${CSS.escape(id)}"]`); if (box) { box.innerHTML = resFactHtml(m); conectarFactBj(box); }
+  }));
+  el.querySelectorAll('[data-bj-fbuscar] .bj-buscar-t').forEach(b => b.addEventListener('click', () => { const box = b.closest('.bj-buscar'), cu = box.querySelector('.bj-buscar-cuerpo'), ab = cu.hidden; cu.hidden = !ab; b.setAttribute('aria-expanded', String(ab)); (b2bConc.bjFab || (b2bConc.bjFab = {}))[box.dataset.bjFbuscar] = ab; if (ab) { const i = cu.querySelector('input'); if (i) i.focus(); } }));
   el.querySelectorAll('[data-deshacer-uso]').forEach(b => b.addEventListener('click', async () => {
     const m = (b2bConc.hist || []).find(x => x.id === b.dataset.deshacerUso), u = m && (m.favorUsos || []).find(x => x.abono === b.dataset.abono); if (!u) return;
     const r = await pedirDatos('Deshacer el uso del saldo a favor', `<p>El folio <b>${esc(u.folio)}</b> vuelve a Por cobrar y los ${pesos(u.monto)} vuelven al saldo a favor de ${esc(m.cliente)}.</p>
@@ -6352,6 +6637,7 @@ function pintarB2bConciliacion(el, sub) {
     const id = b.dataset.movRep, m = d.movimientos.find(x => x.id === id), o = B2b.movConocido(b.dataset.orig); if (!m) return;
     ocupado(id, async () => { await B2b.marcarRepetidoB2b(id, b.dataset.orig); delete b2bConc.forzados[id]; delete b2bConc.edit[id]; b2bConc.hist = null;
       b2bConc.msg = `Listo: el abono de ${pesos(m.monto)} del ${esc(diaTexto(m.fecha))} quedó como repetido${o ? ' de la ' + esc(B2b.textoFuenteMov(B2b.fuenteMov(o))) : ''}: no registra ningún pago. Si no lo era, usa Deshacer en Ya conciliados.`;
+      b2bConc.hecho = { msg: b2bConc.msg, m: { id, monto: m.monto, descripcion: m.descripcion, fecha: m.fecha, estado: 'repetido', asignaciones: [] } };
       registrar('Marcó abono repetido', `${pesos(m.monto)} · ${m.descripcion}${o ? ' · mismo que ' + (o.cliente || o.descripcion) : ''}`); });
   }));
   el.querySelectorAll('[data-reg-abrir][data-reg-mov]').forEach(b => b.addEventListener('click', ev => {
@@ -6367,7 +6653,8 @@ function pintarB2bConciliacion(el, sub) {
     const r = await pedirDatos('Ya estaba registrado', `<p class="ayuda">${pesos(m.monto)} · ${esc(m.descripcion)} (${esc(diaTexto(m.fecha))})</p><p class="ayuda">No se registra ningún pago: el abono queda como revisado (por ejemplo, un pago que ya anotaste a mano o un anticipo).${cli ? ` Queda aprendido que este abono es de <b>${esc(cli.nombre)}</b>, para la próxima cartola.` : ''}</p>${regYa ? `<p class="ayuda">${rp0 ? 'Parece el mismo movimiento que este (si lo es, mejor usa "Marcar como repetido"):' : 'El pago parecido ya registrado:'}</p>${regYa}` : ''}
       <div class="campo"><label for="pd-nota">Nota (opcional)</label><input id="pd-nota" maxlength="200" placeholder="Ej: ya registrado el folio 5512"></div>`, 'Marcar revisado', dd => ({ nota: dd.querySelector('#pd-nota').value }));
     if (!r) return;
-    ocupado(id, async () => { await B2b.marcarMovimiento(id, 'revisado', r.nota, '', cli); delete b2bConc.forzados[id]; b2bConc.hist = null; registrar('Abono de cartola revisado', `${pesos(m.monto)} · ${m.descripcion}`); });
+    ocupado(id, async () => { await B2b.marcarMovimiento(id, 'revisado', r.nota, '', cli); delete b2bConc.forzados[id]; b2bConc.hist = null; registrar('Abono de cartola revisado', `${pesos(m.monto)} · ${m.descripcion}`);
+      b2bConc.msg = 'Listo: el abono quedó como ya registrado (sin pago nuevo).'; b2bConc.hecho = { msg: b2bConc.msg, m: { id, monto: m.monto, descripcion: m.descripcion, fecha: m.fecha, estado: 'revisado', cliente: cli ? cli.nombre : '', asignaciones: [] } }; });
   }));
   el.querySelectorAll('[data-mov-ign]').forEach(b => b.addEventListener('click', async () => {
     const id = b.dataset.movIgn, m = d.movimientos.find(x => x.id === id), patron = B2b.normCartola(m.descripcion).replace(/^(TEF( BANCOESTADO)?( DE)+)\s*/, '');
@@ -6377,7 +6664,8 @@ function pintarB2bConciliacion(el, sub) {
       <div class="campo"><label for="pd-nota">Nota (opcional)</label><input id="pd-nota" maxlength="200" placeholder="Ej: transferencia entre mis cuentas"></div>`, 'No es de B2B',
       dd => { const siempre = dd.querySelector('#pd-siempre').checked, pt = dd.querySelector('#pd-patron').value.trim(); if (siempre && B2b.normCartola(pt).length < 4) return { error: 'Escribe un texto más largo para ignorar.' }; return { nota: dd.querySelector('#pd-nota').value, patron: siempre ? pt : '' }; });
     if (!r) return;
-    ocupado(id, async () => { await B2b.marcarMovimiento(id, 'ignorado', r.nota, r.patron); b2bConc.hist = null; registrar('Abono de cartola ignorado', `${pesos(m.monto)} · ${m.descripcion}${r.patron ? ' · siempre: ' + r.patron : ''}`); });
+    ocupado(id, async () => { await B2b.marcarMovimiento(id, 'ignorado', r.nota, r.patron); b2bConc.hist = null; registrar('Abono de cartola ignorado', `${pesos(m.monto)} · ${m.descripcion}${r.patron ? ' · siempre: ' + r.patron : ''}`);
+      b2bConc.msg = 'Listo: el abono quedó como "No es de B2B".'; b2bConc.hecho = { msg: b2bConc.msg, m: { id, monto: m.monto, descripcion: m.descripcion, fecha: m.fecha, estado: 'ignorado', asignaciones: [] } }; });
   }));
 }
 // ═══ v0.67.7 · Abonos: el mismo movimiento en la cartola en línea y en la histórica, y "Ver el registro" ═══
@@ -6452,6 +6740,62 @@ function textoRepAbono(m) {
   const o = (m.repetido && m.repetido.original) || {};
   return `Es el mismo movimiento que ${o.descripcion || 'otro abono'}${o.fecha ? ' del ' + diaTexto(o.fecha) : ''}${m.repetido && m.repetido.por ? ' (' + (CRITERIO_AB[m.repetido.por] || '') + ')' : ''}: no registra ningún pago`;
 }
+// ═══ v0.68.0 · Abonos (B2B) en la bandeja: el detalle del abono, las facturas del cliente y "Buscar facturas" ═══
+const TXT_FACT_CLI = 'Las facturas del cliente que la pantalla ya tiene leídas:\n• Abiertas: los folios por cobrar, con la fecha de la factura, el total y el saldo. Tócalos para asignarles este abono; los que van en la propuesta quedan marcados "en este abono".\n• Pagadas recientes: los últimos folios ya pagados, con la fecha del pago y con qué abono se pagaron (si ese abono está en la memoria; si no, cómo se registró).\nSirve para ver de un vistazo qué está pagado y qué no, sin ir a Ventas B2B. No gasta lecturas.';
+const TXT_BUSCAR_F = 'Busca entre las facturas por cobrar de todos los clientes y las pagadas que la pantalla ya tiene leídas (6 meses). Escribe el folio, el cliente o un monto (con o sin $).\nUna factura abierta se puede asignar a este abono: queda ese cliente con el saldo del folio (lo que quede del abono) y lo revisas antes de confirmar. Una pagada solo se muestra, con su registro.\nNo gasta lecturas.';
+const ordenesMemB2b = () => { const d = b2b.datos; return d ? [...d.ordenes.values()].concat(b2bConc.an ? b2bConc.an.ordenes : []) : []; };
+function factClienteAb(p) {
+  const d = b2b.datos, X = b2bConc.bjCtx || {};
+  if (!d || !p || !p.clienteId) return null;
+  return BJ.facturasCliente(p.clienteId, p.cliente, (X.porCobrar || {})[p.clienteId] || [], ordenesMemB2b(), d.abonos, ctxRegB2b().movDe, { max: 5 });
+}
+// Pagadas recientes del cliente (debajo de las abiertas, en el editor)
+function pagadasAbHtml(m, p) {
+  const F = factClienteAb(p); if (!F) return '';
+  return `<div class="bj-pagadas"><p class="bj-sub-t">Pagadas recientes de ${esc(p.cliente)}${F.pagadas.length ? '' : ': ninguna en estos meses'}</p>
+    ${F.pagadas.length ? `<div class="bj-cards">${F.pagadas.map(f => cardBj({ titulo: `Folio ${f.folio}`, monto: f.total, tono: 'verde', sub: [f.fecha ? 'factura del ' + fechaLargaBj(f.fecha) : '', 'saldo $0'].filter(Boolean).join(' · '),
+      estado: `Pagada${f.fechaPago ? ' el ' + diaTexto(f.fechaPago) : ''} ${f.conQue}`, extra: regFolioHtml({ folio: f.folio, total: f.total, fechaPago: f.fechaPago }) })).join('')}</div>` : ''}</div>`;
+}
+function resFactHtml(m) {
+  const d = b2b.datos, X = b2bConc.bjCtx || {}, q = (b2bConc.bjFq || {})[m.id] || '';
+  if (!q.trim()) return '<p class="ayuda bj-res-vacio">Escribe el folio, el cliente o el monto.</p>';
+  const l = BJ.buscarFacturas(q, X.porCobrar || {}, (d && d.clientes) || [], ordenesMemB2b());
+  if (!l.length) return '<p class="ayuda bj-res-vacio">Ninguna factura con eso (por cobrar, o pagada en los últimos 6 meses).</p>';
+  return `<div class="bj-cards">${l.map(f => cardBj({ titulo: `Folio ${f.folio} · ${f.cliente || 'sin cliente'}`, monto: f.total, tono: f.abierta ? 'amarillo' : 'verde',
+    sub: [f.fecha ? 'factura del ' + fechaLargaBj(f.fecha) : '', f.abierta ? 'saldo ' + pesos(f.saldo) : 'saldo $0'].filter(Boolean).join(' · '),
+    estado: f.abierta ? 'Por cobrar' : `Pagada${f.fechaPago ? ' el ' + diaTexto(f.fechaPago) : ''}`,
+    extra: f.abierta ? (f.clienteId ? `<div class="bj-card-bot"><button type="button" class="btn-sec btn-chico" data-bj-folio="${esc(m.id)}" data-cli="${esc(f.clienteId)}" data-folio="${esc(f.folio)}" ${b2bConc.ocupado ? 'disabled' : ''}>Asignar a este abono</button></div>` : '') : regFolioHtml({ folio: f.folio, total: f.total, fechaPago: f.fechaPago }) })).join('')}</div>`;
+}
+function buscarFactHtml(m) {
+  const q = (b2bConc.bjFq || {})[m.id] || '';
+  const ab = !!((b2bConc.bjFab || {})[m.id] || q);
+  return `<div class="bj-buscar" data-bj-fbuscar="${esc(m.id)}"><div class="bj-buscar-cab"><button type="button" class="bj-buscar-t" aria-expanded="${ab}">${icono('lupa', 16)} Buscar facturas</button>${info('Buscar facturas', TXT_BUSCAR_F)}</div>
+    <div class="bj-buscar-cuerpo" ${ab ? '' : 'hidden'}><input type="search" class="bj-gq" data-bj-fq="${esc(m.id)}" value="${esc(q)}" placeholder="Folio, cliente o monto" aria-label="Buscar facturas" autocomplete="off">
+    <div class="bj-gres" data-bj-fres="${esc(m.id)}">${resFactHtml(m)}</div></div></div>`;
+}
+// La cabecera del detalle de un abono: el movimiento completo, qué es, qué propongo y por qué, y el botón principal
+function detAbonoHtml(m, p, clase, rep, auto) {
+  const X = b2bConc.bjCtx || {}, fol = (p && p.clienteId && (X.porCobrar || {})[p.clienteId]) || [], pq = BJ.porQueAbono(m, p, fol, rep);
+  const datos = [['Cuenta', B2b.NOMBRE_CUENTA[m.cuenta] || m.cuenta || '—'], ['Cartola', fuenteAbTxt(m)], ['N° de operación', m.nOperacion || '—']].concat(m.cargado && m.cargado.en ? [['Subida', `${String(B2b.momentoTxt ? B2b.momentoTxt(m.cargado.en) : '').slice(0, 16).replace(/^(\d{4})-(\d{2})-(\d{2})/, '$3-$2-$1')}${m.cargado.por ? ' · ' + m.cargado.por : ''}`]] : []);
+  const conf = auto ? `<div class="bj-prim"><button type="button" class="btn bj-btn-prim" data-bj-confirmar-ab="${esc(m.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Confirmar: ${esc(BJ.resumenAbono(p))}</button></div>` : '';
+  return `<div class="bj-cab"><div class="bj-cab-l1">${etBj(clase)}<span class="bj-cab-tipo">Abono · ${esc(fechaLargaBj(m.fecha))}</span><button type="button" class="btn-link bj-cerrar" data-bj-cerrar="ab" aria-label="Cerrar el detalle" title="Cerrar (Esc)">${icono('anular', 18)}</button></div>
+      <p class="bj-cab-monto">${pesos(m.monto)}</p><p class="bj-cab-glosa">${esc(m.descripcion)}</p>
+      <dl class="bj-datos">${datos.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl></div>
+    <div class="bj-explica"><p><span class="bj-k">Qué es</span>${esc(BJ.queEsAbono(m, p, { cuenta: nombreCuentaBj(m.cuenta) }))}</p>
+      <p><span class="bj-k">Qué propongo</span><b>${esc(pq.que)}</b>${pq.porque ? `<span class="bj-porque">Por qué: ${esc(pq.porque)}.</span>` : ''}</p>${conf}</div>
+    <h3 class="bj-h3 bj-h3-acc">Facturas y qué hacer con este abono ${info('Facturas del cliente', TXT_FACT_CLI)}</h3>`;
+}
+// Ya conciliados: el detalle del seleccionado (cómo se resolvió, el registro y Deshacer)
+function detHechoAbHtml(m, puede) {
+  const [k, tx] = m.estado === 'conciliado' ? ['hecho', m.origen === 'app antigua' ? 'App antigua' : 'Conciliado'] : m.estado === 'revisado' ? ['hecho', 'Ya registrado'] : m.estado === 'repetido' ? ['gris', 'Repetido'] : ['gris', 'No es de B2B'];
+  const res = m.estado === 'conciliado' ? `${m.cliente || '—'}${(m.asignaciones || []).length ? ' · ' + m.asignaciones.map(a => `folio ${a.folio} ${pesos(a.monto)}${a.tipo === 'abono' ? ' (abono)' : ''}`).join(' + ') : ''}${m.favorInicial ? ` · ${pesos(m.favorInicial)} a favor` : ''}`
+    : m.estado === 'repetido' ? textoRepAbono(m) : m.estado === 'revisado' ? `Ya estaba registrado${m.nota ? ': ' + m.nota : ''}` : `No es de B2B${m.nota ? ': ' + m.nota : ''}`;
+  return `<div class="bj-det bj-det-hecho" data-bj-det="${esc(m.id)}"><div class="bj-cab"><div class="bj-cab-l1"><span class="bj-et bj-et-${k}">${esc(tx)}</span><span class="bj-cab-tipo">Abono · ${esc(fechaLargaBj(m.fecha))}</span><button type="button" class="btn-link bj-cerrar" data-bj-cerrar="abh" aria-label="Cerrar el detalle" title="Cerrar (Esc)">${icono('anular', 18)}</button></div>
+      <p class="bj-cab-monto">${pesos(m.monto)}</p><p class="bj-cab-glosa">${esc(m.descripcion)}</p></div>
+    <div class="bj-explica"><p><span class="bj-k">Cómo se resolvió</span><b>${esc(res)}</b>${m.resuelto && m.resuelto.en ? `<span class="bj-porque">${esc([B2b.momentoTxt ? B2b.momentoTxt(m.resuelto.en) : '', m.resuelto.por].filter(Boolean).join(' · '))}</span>` : ''}</p>
+      ${puede ? `<div class="bj-prim"><button type="button" class="btn-sec" data-bj-deshacer-ab="${esc(m.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Deshacer</button> ${info('Deshacer', 'El abono vuelve a "Para revisar". Sus folios vuelven a Por cobrar y sus abonos quedan anulados: no se borra nada.')}</div>` : ''}</div>
+    ${regAbonoHtml(m)}</div>`;
+}
 // ── v0.15 · Ritmo, saldos a favor e historial de la conciliación ──
 const NOMBRE_DIA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const DIAS_RITMO = [[1, 'L'], [2, 'M'], [3, 'X'], [4, 'J'], [5, 'V'], [6, 'S'], [0, 'D']];
@@ -6515,9 +6859,10 @@ function histConcHtml() {
     const puede = !(m.estado === 'conciliado' && m.origen === 'app antigua');
     const txt = [m.cliente, m.descripcion, (m.asignaciones || []).map(a => a.folio).join(' '), m.folios, m.monto, et].join(' ').toLowerCase();
     const montos = [m.monto, ...(m.asignaciones || []).map(a => a.monto), m.favorInicial].filter(v => Number(v) > 0).map(v => Math.round(Number(v))).join(' ');
-    return `<div class="fila-hist" data-txt="${esc(txt)}" data-montos="${montos}"><div class="fila-caja"><div class="txt"><b>${pesos(m.monto)}${m.cliente ? ' · ' + esc(m.cliente) : ''}</b><span>${esc(diaTexto(m.fecha))} · ${esc(m.descripcion)}</span>${detalle ? `<small class="fechas-cobro">${detalle}</small>` : ''}${m.deshechos ? `<small class="fechas-cobro">Deshecho ${m.deshechos === 1 ? 'una vez' : m.deshechos + ' veces'} antes</small>` : ''}${m.estado === 'repetido' ? regAbonoHtml(originalDeAbono(m)) : ''}</div>
+    const kEt = m.estado === 'conciliado' || m.estado === 'revisado' ? 'hecho' : 'gris';
+    return `<div class="fila-hist${b2bConc.histSel === m.id ? ' bj-sel' : ''}" tabindex="0" data-bj-hist="${esc(m.id)}" aria-current="${b2bConc.histSel === m.id}" data-txt="${esc(txt)}" data-montos="${montos}"><div class="fila-caja"><div class="txt"><span class="bj-l0"><span class="bj-et bj-et-${kEt}">${esc(et)}</span><span class="bj-fecha">${esc(diaTexto(m.fecha))}</span></span><b><span class="bj-monto">${pesos(m.monto)}</span>${m.cliente ? `<span class="bj-sep"> · </span><span class="bj-glosa">${esc(m.cliente)}</span>` : ''}</b><span class="bj-ab-sp"><span class="bj-ocultar">${esc(diaTexto(m.fecha))} · </span><span class="bj-gl" title="${esc(m.descripcion)}">${esc(m.descripcion)}</span></span>${detalle ? `<small class="fechas-cobro">${detalle}</small>` : ''}${m.deshechos ? `<small class="fechas-cobro">Deshecho ${m.deshechos === 1 ? 'una vez' : m.deshechos + ' veces'} antes</small>` : ''}${m.estado === 'repetido' ? regAbonoHtml(originalDeAbono(m)) : ''}</div>
       <div class="acciones"><span class="chip chip-chico ${cl}${m.estado === 'repetido' ? ' cc-rep-chip' : ''}">${m.estado === 'repetido' ? icono('copias', 12) + ' ' + esc(B2b.textoRepetidoMov(m.repetido)) : et}</span>${puede ? `<button type="button" class="btn-sec btn-chico" data-deshacer="${esc(m.id)}" ${b2bConc.ocupado ? 'disabled' : ''}>Deshacer</button>` : ''}</div></div>
-      ${(m.favorUsos || []).map(u => u.tipo === 'redondeo' ? `<div class="uso-favor"><span>Saldo a favor de ${pesos(u.monto)} cerrado: era redondeo de la factura</span></div>` : `<div class="uso-favor"><span>Saldo a favor usado en el folio ${esc(u.folio)}: ${pesos(u.monto)}</span><button type="button" class="btn-link" data-deshacer-uso="${esc(m.id)}" data-abono="${esc(u.abono)}" ${b2bConc.ocupado ? 'disabled' : ''}>Deshacer</button></div>`).join('')}</div>`;
+      ${(m.favorUsos || []).map(u => u.tipo === 'redondeo' ? `<div class="uso-favor"><span>Saldo a favor de ${pesos(u.monto)} cerrado: era redondeo de la factura</span></div>` : `<div class="uso-favor"><span>Saldo a favor usado en el folio ${esc(u.folio)}: ${pesos(u.monto)}</span><button type="button" class="btn-link" data-deshacer-uso="${esc(m.id)}" data-abono="${esc(u.abono)}" ${b2bConc.ocupado ? 'disabled' : ''}>Deshacer</button></div>`).join('')}${b2bConc.histSel === m.id ? detHechoAbHtml(m, puede) : ''}</div>`;
   };
   const cuerpo = b2bConc.histCargando || (b2bConc.histAbierto && !l) ? '<div class="vacio" style="border:0">Leyendo…</div>'
     : !l ? '' : `<p class="ayuda">Abonos de la cartola ya resueltos, por fecha del banco. "Deshacer" lo devuelve a Para revisar: sus folios vuelven a Por cobrar y sus abonos quedan anulados (no se borra nada).</p>
@@ -7251,7 +7596,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.67.7')).dbBase(); const FG = await import('./fs-gastos.js?v=0.67.7'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.68.0')).dbBase(); const FG = await import('./fs-gastos.js?v=0.68.0'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }
