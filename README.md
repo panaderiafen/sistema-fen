@@ -1,9 +1,68 @@
-# Sistema Fën · v0.69.0
+# Sistema Fën · v0.69.1
 
-**App:** v0.69.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 17 de octubre de 2026
+**App:** v0.69.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 17 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.69.1: área REVENTA (lo que se compra hecho y se vende tal cual)
+**Dónde:** Gastos → Ítems y Registrar, Finanzas → Resultados (estado de resultados), Finanzas → Márgenes → Asociar productos y Finanzas → Cómo trabajamos.
+
+### El caso
+Los chocolates, el té, las infusiones y Magia se compran hechos y se venden tal cual. Hasta ahora iban al área donde se venden (por ejemplo, Cafetería), y su margen se mezclaba con el de lo que produce esa área.
+
+### Qué cambia en cómo trabajas
+1. **Área nueva REVENTA** en la lista de áreas de Gastos: ítems, Registrar, cartola, abonos, Previred y las reglas de conciliación. La lista de áreas ahora está en un solo lugar de la app (`areas.js`).
+2. **El ítem "PRODUCTOS DE REVENTA"**: en Gastos → Ítems, ponle **área fija REVENTA**. Si el nombre dice REVENTA y el área es otra, aparece una nota (i). Su compra sigue sin ser un gasto del mes: en Resultados → Clasificación va como "Compras de productos de reventa" y queda en **Fuera del resultado**.
+3. **Estado de resultados:** columna **Reventa**, entre Cafetería y Común. Muestra sus ventas, el costo de lo vendido (costo de compra neto × unidades), su margen de contribución y sus fijos, si algún gasto tiene área REVENTA (por ejemplo, el arriendo de una vitrina). **La columna aparece solo si el mes tiene algo de Reventa.** Un mes ya cerrado se ve como quedó al cerrarlo.
+4. **Márgenes → Asociar productos:** al elegir "Es reventa" se propone el **área Reventa** (puedes elegir otra). Lo que ya estaba asociado **no se cambia solo**: una reventa que estaba en Cafetería sigue ahí, y al abrirla dice "Hoy está en Cafetería". Una reventa antigua sin área cuenta en Reventa.
+5. **"Pasar los productos de reventa al área REVENTA (N)"** (Asociar productos, aparece solo si hay alguna): se usa una sola vez. Primero muestra la lista ("Hoy: Cafetería → Reventa") y pide confirmar. Solo cambia el área: el costo, las unidades por venta y el envase quedan iguales. Cada cambio queda en el historial del producto. Nada se borra.
+6. **REVENTA es solo un área de margen:**
+   - no está en Cocina ni en Producción (bodegas, jefas, recetas, stock);
+   - en un reparto (PRORRATEADO, "Agregar área", "Repartir en %") la app nunca la pone sola: solo si la eliges tú;
+   - no recibe comunes en "Comunes repartidos por causa": ahí su margen va en Común y el total no cambia.
+7. **Textos:** el (i) de Productos de reventa (Gastos) y "Cómo trabajamos" en Finanzas ahora dicen área REVENTA.
+
+### Lecturas y escrituras (Spark)
+- Nada nuevo al abrir pantallas: la columna Reventa y la propuesta salen de lo que ya se leía (**0 lecturas**).
+- "Pasar los productos de reventa al área REVENTA": **1 lectura y 2 escrituras por producto** (el vínculo y su historial, en una transacción), una sola vez. Medido en las pruebas: 2 productos → 2 lecturas y 4 escrituras.
+- Asociar un producto: igual que antes (1 lectura y 2 escrituras).
+
+### Instalación v0.69.1 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.69.1.zip`, con la carpeta `cocina/` (no cambia). Hay un archivo nuevo: `areas.js`.
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script ni en las reglas de Firestore.**
+- **Script de Gastos v2.18.0, sin cambios:** con Gastos en la base nueva, la copia a la planilla (`planilla_sync`, BaseNueva.gs) pasa el área tal cual, sin revisarla contra una lista. Probado con el script real: un gasto REVENTA llega a Registro Gasto con Área REVENTA. La lista fija de áreas del script (`SF_AREAS` en SistemaFen.gs) solo se usa en el modo antiguo con la planilla, que está bloqueado con la base nueva (igual que pasó con B2B en la v0.63.1).
+- **Reglas de fen-gastos v0.1.0, sin cambios:** no nombran áreas.
+
+**A mano, si los usas (opcional):**
+- Si la planilla de Gastos tiene una **validación de datos** (lista desplegable) en la columna Área de Registro Gasto, Ítems u Obligaciones, agrégale **REVENTA**. Si no, la fila igual se copia, pero la celda puede quedar marcada en rojo.
+- Si algún informe de **Looker Studio** filtra o agrupa por una lista fija de áreas, agrégale REVENTA.
+
+### Lista de verificación v0.69.1
+- [ ] Abajo a la izquierda dice **v0.69.1**.
+- [ ] Gastos → Ítems: "PRODUCTOS DE REVENTA" con área **REVENTA** (créalo o edítalo).
+- [ ] Registra o clasifica una compra de chocolates con ese ítem: en Registrados aparece con área REVENTA.
+- [ ] Finanzas → Resultados → Clasificación: "PRODUCTOS DE REVENTA" está como **Compras de productos de reventa**.
+- [ ] Finanzas → Márgenes → Asociar productos: si aparece **"Pasar los productos de reventa al área REVENTA (N)"**, revisa la lista y confirma.
+- [ ] Asocia un producto nuevo como "Es reventa": propone el área Reventa.
+- [ ] Finanzas → Resultados: el mes con reventa muestra la columna **Reventa**; un mes sin reventa no la muestra.
+- [ ] "Comunes repartidos por causa" no tiene columna Reventa y el total es el mismo.
+- [ ] En el celular se ve bien.
+
+### Si algo sale mal
+Sube de nuevo la v0.69.0. Lo guardado queda (gastos con área REVENTA, vínculos con área REVENTA): la v0.69.0 los muestra en Común (el estado de resultados) y en Registrados tal cual. Nada se borra.
+
+**Por dentro:**
+- `areas.js` (nuevo, puro): las listas `GASTO`, `PRODUCCION`, `MARGEN`, `NOMBRE`, `SOLO_A_MANO` y `paraRepartir`.
+- `gastos-g2.js` (`AREAS` = `areas.GASTO`) y `app.js` (`AREAS_GASTO` desde areas.js, "Agregar área" sin REVENTA, la nota del editor de ítems, TXT_AREAS_GASTO y TXT_REVENTA).
+- `finanzas-ventas.js` (`AREAS` = las de margen, `AREAS_PRODUCCION`, `areaMargenDe`, `areaVinculo`, `reventaFueraDeArea`) y `finanzas-margenes.js`.
+- `finanzas-resultados.js` (REVENTA área propia por defecto) y `finanzas-eerr.js` (columna REVENTA, `colConDatos`, `colsVisibles`, `AREAS_REPARTO` para el reparto por causa).
+- `finanzas.js` (`pasarReventaArea`); `vista-finanzas.js`, `vista-finanzas-eerr.js` y `vista-finanzas-resultados.js` (pantallas y textos). Los demás: solo la versión. `cocina/` y `fermentacion.js` no cambian.
+
 
 ## Novedades de la v0.69.0: Reglas de conciliación (las manejas tú) y un puntaje explicado en cada propuesta
 **Dónde:** Conciliación → Cartola (botón **Reglas** arriba de la bandeja, en Cargos y en Abonos) y Configuración → Reglas de conciliación.

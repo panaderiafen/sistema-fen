@@ -8,10 +8,10 @@
 //  Reglas puras en finanzas-resultados.js; datos en finanzas.js (fen-gastos). No cambia ningún gasto.
 //  ctx = { cab, error, conexion, sinBase } de vista-finanzas.js; H = ayudas de app.js.
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.69.0';
-import * as FR from './finanzas-resultados.js?v=0.69.0';
-import * as FC from './finanzas-costos.js?v=0.69.0';
-import * as VE from './vista-finanzas-eerr.js?v=0.69.0';
+import * as F from './finanzas.js?v=0.69.1';
+import * as FR from './finanzas-resultados.js?v=0.69.1';
+import * as FC from './finanzas-costos.js?v=0.69.1';
+import * as VE from './vista-finanzas-eerr.js?v=0.69.1';
 
 const RS = { datos: null, filtro: 'todos', q: '', msg: '', err: '', sel: null, anioDep: '' };
 const $ = id => document.getElementById(id);
@@ -82,7 +82,7 @@ const fuente = H => `<div class="fin-mfuente"><span class="ayuda">${nf(RS.datos.
 const avisoMsg = (txt) => { RS.msg = txt; RS.err = ''; };
 
 // ═══════════════ Clasificación ═══════════════
-const TXT_AREAS = 'Cada gasto tiene un código de área (el que se eligió al registrarlo). Aquí dices a qué parte del estado de resultados va:\n· Área propia (Panadería, Bollería, Pastelería o Cafetería): sus fijos y sueldos son "fijos propios" de esa área.\n· Común: Administración, Ventas y lo demás. Va al resultado del negocio sin repartir.\nLos gastos prorrateados ya se guardan en una línea por área (con su %), así que cada parte va a su área. Si una línea antigua dice "PRORRATEADO" con sus %, se reparte con esos %.\nPor defecto, las cuatro de producción son propias y el resto común.';
+const TXT_AREAS = 'Cada gasto tiene un código de área (el que se eligió al registrarlo). Aquí dices a qué parte del estado de resultados va:\n· Área propia (Panadería, Bollería, Pastelería, Cafetería o Reventa): sus fijos y sueldos son "fijos propios" de esa área.\n· Común: Administración, Ventas y lo demás. Va al resultado del negocio sin repartir.\nLos gastos prorrateados ya se guardan en una línea por área (con su %), así que cada parte va a su área. Si una línea antigua dice "PRORRATEADO" con sus %, se reparte con esos %.\nPor defecto, las cuatro de producción y REVENTA son propias y el resto común. Las compras de reventa no son fijos: el ítem "PRODUCTOS DE REVENTA" se clasifica como "Compras de productos de reventa" (fuera del resultado).';
 const TXT_CANAL = 'B2B es el código de los costos del canal B2B (atención de clientes, órdenes y despacho). Su lugar en el estado de resultados es una fila "costo de canal" del canal B2B, que todavía no existe: llega con F3. Mientras tanto va a Común (sin repartir), igual que Administración y Ventas.';
 const TXT_TIPOS = 'Un tipo para cada ítem de gasto, para armar el estado de resultados (todo en neto):\n· Compras de materias primas o de reventa: no son una línea de gasto (su costo ya está en el costo directo); se usan para la desviación.\n· Remuneraciones y gastos fijos: van al área del gasto (propio) o a común, según el mapa de áreas.\n· Ya en el margen: comisiones de tarjeta y despacho B2B (no se cuentan dos veces).\n· Financiero: intereses, multas (por ejemplo, las de Previred) y banco.\n· Fuera del resultado: capital de las cuotas (el interés va a financiero con la tabla del crédito), F29/IVA/PPM, inversiones (entran como depreciación), retiros y otros con motivo.\nLa propuesta sale de palabras del nombre del ítem y de su subtipo en Gastos (INVERSIÓN, FINANCIERO, PASIVO). Nada se guarda solo: tú aplicas o eliges.\nUn ítem con subtipo FINANCIERO en Gastos (Gastos → Ítems) que no clasificaste aquí ya cuenta como Financiero en el estado de resultados y en Previred (salvo que su nombre diga crédito, cuota o préstamo). Lo que eliges aquí siempre manda.';
 function htmlClasificacion(H) {
@@ -388,7 +388,7 @@ function htmlInversiones(H) {
   const deEste = FR.depreciacionPorMes(invs, [mesHoy])[0];
   const itemsInv = Object.values(RS.datos.fin || {}).filter(x => x.tipo === 'inversion').length;
   const cifra = (t, v, nota = '') => `<div class="tarjeta cifra"><span class="rotulo">${t}</span><span class="valor">${v}</span>${nota ? `<span class="nota">${nota}</span>` : ''}</div>`;
-  const cols = FR.AREAS.concat('comun');
+  const cols = FR.AREAS.filter(a => a !== 'REVENTA' || tab.some(f => f.REVENTA)).concat('comun');   // v0.69.1: Reventa solo si tiene depreciación
   const fila = i => `<div class="fin-compra fin-rinv" data-r-inv="${H.esc(i.id)}">
     <div><b>${H.esc(i.item)}</b><span class="ayuda">${fechaTxt(i.fecha)}${i.proveedor ? ' · ' + H.esc(i.proveedor) : ''}${i.detalle ? ' · ' + H.esc(i.detalle) : ''}</span></div>
     <div><span><b>${pesos(i.valor)}</b> neto</span><span class="ayuda">${H.esc(i.lineas.map(l => `${l.area} → ${destinoTxt(l.destino)}`).join(' · '))}</span></div>

@@ -9,48 +9,49 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.69.0';
-import * as Caja from './caja.js?v=0.69.0';
-import * as Stock from './stock.js?v=0.69.0';
-import * as Ajustes from './ajustes.js?v=0.69.0';
-import * as Apps from './apps.js?v=0.69.0';
-import * as Agenda from './agenda.js?v=0.69.0';
-import * as Gastos from './gastos.js?v=0.69.0';
-import * as G3 from './gastos-g3.js?v=0.69.0';
-import * as G3D from './gastos-g3d.js?v=0.69.0';
-import * as GBanco from './gastos-banco.js?v=0.69.0';
-import * as TE from './tef-enviadas.js?v=0.69.0';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.69.0';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.69.0';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.69.0';
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.69.0';
-import * as Sii from './sii.js?v=0.69.0';
-import * as GSii from './gastos-sii.js?v=0.69.0';
-import * as SP from './sii-pendientes.js?v=0.69.0';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.69.0');
-import * as Previred from './previred.js?v=0.69.0';
-import * as B2b from './b2b.js?v=0.69.0';
-import * as Cartola from './cartola.js?v=0.69.0';
-import * as RD from './registro-detalle.js?v=0.69.0';   // v0.67.7: "Ver el registro" (B2B y Gastos)
-import * as BJ from './bandeja.js?v=0.69.0';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
-import * as RC from './reglas-conc.js?v=0.69.0';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
-import * as PT from './puntaje.js?v=0.69.0';       // v0.69.0: el puntaje explicado de cada propuesta
-import * as SiiFactura from './sii-factura.js?v=0.69.0';
-import * as PdfOrden from './pdf-orden.js?v=0.69.0';
-import * as Prod from './produccion.js?v=0.69.0';
-import * as Mem from './fs-memoria.js?v=0.69.0';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.69.0';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.69.1';
+import * as Caja from './caja.js?v=0.69.1';
+import * as Stock from './stock.js?v=0.69.1';
+import * as Ajustes from './ajustes.js?v=0.69.1';
+import * as Apps from './apps.js?v=0.69.1';
+import * as Agenda from './agenda.js?v=0.69.1';
+import * as Gastos from './gastos.js?v=0.69.1';
+import * as G3 from './gastos-g3.js?v=0.69.1';
+import * as G3D from './gastos-g3d.js?v=0.69.1';
+import * as GBanco from './gastos-banco.js?v=0.69.1';
+import * as TE from './tef-enviadas.js?v=0.69.1';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.69.1';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.69.1';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.69.1';
+import * as AR from './areas.js?v=0.69.1';   // v0.69.1: una sola lista de áreas (con REVENTA)
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.69.1';
+import * as Sii from './sii.js?v=0.69.1';
+import * as GSii from './gastos-sii.js?v=0.69.1';
+import * as SP from './sii-pendientes.js?v=0.69.1';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.69.1');
+import * as Previred from './previred.js?v=0.69.1';
+import * as B2b from './b2b.js?v=0.69.1';
+import * as Cartola from './cartola.js?v=0.69.1';
+import * as RD from './registro-detalle.js?v=0.69.1';   // v0.67.7: "Ver el registro" (B2B y Gastos)
+import * as BJ from './bandeja.js?v=0.69.1';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
+import * as RC from './reglas-conc.js?v=0.69.1';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
+import * as PT from './puntaje.js?v=0.69.1';       // v0.69.0: el puntaje explicado de cada propuesta
+import * as SiiFactura from './sii-factura.js?v=0.69.1';
+import * as PdfOrden from './pdf-orden.js?v=0.69.1';
+import * as Prod from './produccion.js?v=0.69.1';
+import * as Mem from './fs-memoria.js?v=0.69.1';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.69.1';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.0';
-import * as VistaProd from './vista-produccion.js?v=0.69.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.69.0';
+import * as VistaProd from './vista-produccion.js?v=0.69.1';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.69.1';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.69.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.69.1');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.69.0');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.69.1');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.69.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.69.1')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -358,7 +359,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.69.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.69.1" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -626,14 +627,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.69.0').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.69.1').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.69.0').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.69.1').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -1003,9 +1004,9 @@ async function abrirItemAgenda(item, fecha) {
 function refrescarAgenda() { Object.keys(agAuto).forEach(k => delete agAuto[k]); const v = vistaDesdeHash(); if (v === 'agenda') pintarAgendaMes(); else if (v === 'hoy') pintarHoy(); else if (v === 'gastos') pintarGastos(subVista()); }
 
 // ── Gastos ─────────────────────────────────────────
-// v0.63.1: + B2B (costos del canal B2B). Lo mismo que M.AREAS de gastos-g2.js
-const AREAS_GASTO = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS', 'B2B'];
-const TXT_AREAS_GASTO = 'BOL Bollería · PAN Panadería · CAF Cafetería · PAS Pastelería · ADMIN Administración · VENTAS Ventas · B2B: costos del canal B2B: atención de clientes, órdenes y despacho.\nSELECCIONAR: el área se elige en cada gasto. PRORRATEADO: se reparte en % entre áreas.\nEn Finanzas cada código va a un área propia o a Común (Resultados → Clasificación).';
+// v0.63.1: + B2B (costos del canal B2B). v0.69.1: + REVENTA. La misma lista que M.AREAS de gastos-g2.js (sale de areas.js)
+const AREAS_GASTO = AR.GASTO;
+const TXT_AREAS_GASTO = 'BOL Bollería · PAN Panadería · CAF Cafetería · PAS Pastelería · ADMIN Administración · VENTAS Ventas · B2B: costos del canal B2B: atención de clientes, órdenes y despacho · REVENTA: lo que se compra hecho y se vende tal cual (chocolates, té, infusiones, Magia…).\nSELECCIONAR: el área se elige en cada gasto. PRORRATEADO: se reparte en % entre áreas. REVENTA nunca entra sola en un reparto: solo si la eliges tú.\nREVENTA es solo un área de margen: no está en Cocina ni en Producción (bodegas, jefas, recetas).\nEn Finanzas cada código va a un área propia o a Común (Resultados → Clasificación).';
 const montoV = v => (Number(v.montoDocumento) > 0 ? Number(v.montoDocumento) : v.multiArea && v.multiArea.length ? v.multiArea.reduce((s, a) => s + (Number(a.monto) || 0), 0) : Number(String(v.montoEstimado || '').replace(/[^0-9]/g, '')) || 0);
 // v0.23.0: en el orden del trabajo (lo diario primero, la configuración al final); la cartola pasó a Conciliación
 // v0.43.0: "Base nueva" (fen-gastos, etapa G1): copia y control; Gastos sigue con la planilla
@@ -1022,9 +1023,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.69.0').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.69.1').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.69.0').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.69.1').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -1208,7 +1209,7 @@ function pintarRegistrarGasto(el, sub, d) {
       <div class="error" id="gs-error" role="alert"></div>
       <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn" id="gs-guardar">Registrar gasto</button></div>
     </form>
-    <p class="nota-i">(i) Lo que compras hecho para venderlo tal cual (bebidas, chocolates, té, infusiones…) va al ítem "PRODUCTOS DE REVENTA" con el área donde se vende ${info('Productos de reventa', TXT_REVENTA)}.</p>
+    <p class="nota-i">(i) Lo que compras hecho para venderlo tal cual (bebidas, chocolates, té, infusiones…) va al ítem "PRODUCTOS DE REVENTA" con el área REVENTA ${info('Productos de reventa', TXT_REVENTA)}.</p>
     <p class="nota-i">(i) Arriendo, luz y las demás obligaciones recurrentes no aparecen aquí: se pagan desde Vencimientos. Para corregir o anular un gasto ya registrado, ve a Registrados. Las facturas del SII se importan en Cargas del SII.</p>`;
   let n = 0;
   const seccion = () => { const id = ++n; return `<fieldset class="item-gasto" data-sec="${id}"><legend class="sr">Ítem ${id}</legend>
@@ -2448,7 +2449,7 @@ function activarAreasAbono(root) {
       const st = abAreas[k], b = e.target.closest('button'); if (!st || !b || b.classList.contains('btn-info')) return;
       if (b.hasAttribute('data-ab-mas')) {
         if (!st.areas.length) st.areas = [{ area: '', pct: 100 }];
-        const libre = AREAS_GASTO.find(a => !st.areas.some(x => x.area === a)) || '';
+        const libre = AR.paraRepartir(AREAS_GASTO).find(a => !st.areas.some(x => x.area === a)) || '';   // v0.69.1: REVENTA solo a mano
         if (st.areas.length === 1) { st.areas[0].pct = 50; st.areas.push({ area: libre, pct: 50 }); }
         else { const resto = Math.max(0, 100 - st.areas.reduce((t, a) => t + (Number(a.pct) || 0), 0)); st.areas.push({ area: libre, pct: resto }); }
       } else if (b.dataset.abQuitar !== undefined) {
@@ -2618,7 +2619,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.69.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.69.1')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -3165,7 +3166,7 @@ function conectarSinBanco(el, d) {
   }));
 }
 // v0.64.0 · Cómo funciona la reventa (Gastos → Registrar e Ítems; también en Finanzas → Cómo trabajamos)
-const TXT_REVENTA = 'Reventa: lo que compras hecho para venderlo tal cual (bebidas, jugos, chocolates, té e infusiones, Magia…).\n• En Gastos, su compra va al ítem "PRODUCTOS DE REVENTA", con el área donde se vende (por ejemplo, Cafetería). En Finanzas → Resultados → Clasificación ese ítem es "Compras de productos de reventa" (se propone solo si el nombre dice reventa, chocolate, infusión, té o Magia).\n• Esa compra no es una línea de gasto del mes: lo que entra al estado de resultados es el costo de lo VENDIDO = costo de compra neto de cada producto (Finanzas → Márgenes → Asociar productos, tipo "Reventa", su costo de compra neto) × unidades vendidas.\n• Pendiente: que ese costo de compra se actualice solo con cada factura del SII. Por ahora se escribe a mano al asociar el producto.';
+const TXT_REVENTA = 'Reventa: lo que compras hecho para venderlo tal cual (bebidas, jugos, chocolates, té e infusiones, Magia…).\n• En Gastos, su compra va al ítem "PRODUCTOS DE REVENTA", con el área REVENTA (en Gastos → Ítems, ponle área fija REVENTA). En Finanzas → Resultados → Clasificación ese ítem es "Compras de productos de reventa" (se propone solo si el nombre dice reventa, chocolate, infusión, té o Magia).\n• Esa compra no es una línea de gasto del mes: lo que entra al estado de resultados es el costo de lo VENDIDO = costo de compra neto de cada producto (Finanzas → Márgenes → Asociar productos, tipo "Reventa", área REVENTA, su costo de compra neto) × unidades vendidas. Así la reventa tiene su propia columna REVENTA, con sus ventas, su costo y su margen.\n• REVENTA es solo un área de margen: no está en Cocina ni en Producción, y no entra sola en un reparto (PRORRATEADO): solo si la eliges tú.\n• Pendiente: que ese costo de compra se actualice solo con cada factura del SII. Por ahora se escribe a mano al asociar el producto.';
 // ═══ v0.64.0 · Conciliación de cargos: textos y piezas nuevas ═══
 const TXT_ABONO_PARCIAL = 'Cuando pagas una factura, una boleta o una cuota en partes, cada pago es un abono.\nEl gasto es el documento completo (lo que se debe), no lo pagado:\n• Factura del SII o compra a crédito: su gasto ya está en Gastos; los abonos solo anotan cada pago y el último le pone la fecha de pago.\n• Obligación de monto fijo o según documento: el gasto completo (con su ítem y sus áreas) se crea con el PRIMER abono.\nEl vencimiento queda "Con abonos · saldo $X" y el último abono lo deja pagado. "Reagendar saldo" (Gastos → Vencimientos) le pone fecha nueva a lo que falta, para la Agenda y Hoy.\nCada abono guarda su fecha, monto y cargo (para el flujo de caja).\nPrevired y los sueldos (obligaciones libres) tienen su propia forma.';
 const TXT_ABONO_MES = 'Aparecen todos los vencimientos de tipo libre abiertos, de cualquier mes, el más nuevo primero, con su período.\nLos sueldos de un mes se pagan a inicios del siguiente: si el cargo es del día 15 o antes, se propone el del mes anterior (si sigue abierto); si no, el del mes del cargo. Puedes elegir otro.\nEl cargo se agrega como un abono (crea su gasto con el ítem de la obligación y el área que elijas abajo, con la fecha del banco). El vencimiento no se cierra solo: ciérralo en Vencimientos cuando estén todos los abonos. Lo que eliges se aprende para proponerlo la próxima vez (sin marcarlo seguro).';
@@ -4443,10 +4444,14 @@ function editarItem(i) {
     ${i ? '<p class="ayuda">Si cambias el nombre, los gastos ya registrados y las obligaciones que lo usan siguen con el nombre anterior.</p>' : ''}
     <div class="grilla-montos"><div class="campo"><label for="it-cat">Categoría</label>${sel('it-cat', ['FIJO', 'VARIABLE'], i && i.categoria)}</div><div class="campo"><label for="it-tipo">Tipo</label>${sel('it-tipo', ['DIRECTO', 'INDIRECTO'], i && i.tipo)}</div></div>
     <div class="grilla-montos"><div class="campo"><label for="it-sub">Subtipo</label>${sel('it-sub', ['OPERATIVO', 'COMERCIAL', 'INVERSIÓN', 'FINANCIERO', 'PASIVO'], i && i.subTipo)}</div><div class="campo"><label for="it-area">Área ${info('Áreas', TXT_AREAS_GASTO)}</label>${sel('it-area', ['SELECCIONAR', 'PRORRATEADO', ...AREAS_GASTO], i && i.area)}</div></div>
+    <p class="nota-i oculto" id="it-rev">(i) Lo que se compra hecho para venderlo tal cual (chocolates, té, infusiones, Magia…) va con área fija <b>REVENTA</b>. Así su margen se ve aparte en Finanzas. ${info('Productos de reventa', TXT_REVENTA)}</p>
     <div class="error" id="it-error" role="alert"></div>
     <div class="botones"><button type="button" class="btn-sec" id="it-cancelar">Cancelar</button><button type="submit" class="btn" id="it-guardar">Guardar</button></div></form>`);
   const q = s => d.querySelector(s);
   q('#it-cancelar').onclick = () => d.close();
+  // v0.69.1: un ítem de reventa (el nombre dice REVENTA) sin el área REVENTA muestra la nota (no se cambia solo)
+  const verRev = () => q('#it-rev').classList.toggle('oculto', !(/REVENTA/i.test(q('#it-nombre').value) && q('#it-area').value !== AR.REVENTA));
+  q('#it-nombre').addEventListener('input', verRev); q('#it-area').addEventListener('change', verRev); verRev();
   q('form').addEventListener('submit', async e => {
     e.preventDefault();
     const datos = { nombreOriginal: i ? i.item : '', nombre: q('#it-nombre').value.trim().toUpperCase(), categoria: q('#it-cat').value, tipo: q('#it-tipo').value, subTipo: q('#it-sub').value, area: q('#it-area').value };
@@ -8018,7 +8023,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.69.0')).dbBase(); const FG = await import('./fs-gastos.js?v=0.69.0'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.69.1')).dbBase(); const FG = await import('./fs-gastos.js?v=0.69.1'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }

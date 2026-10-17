@@ -20,12 +20,18 @@
 //  Cierre: snapshot (fin_cierres/{AAAA-MM}) con todo el estado de resultados, los costos usados y quién/cuándo. Un mes cerrado
 //  no se toca: lo que cambie después aparece como "Ajustes de meses cerrados" en el primer mes abierto siguiente
 //  (= cálculo de hoy del mes cerrado − su snapshot − lo ya informado como ajuste en otros meses cerrados).
+//  v0.69.1: columna REVENTA (lo que se compra hecho y se vende tal cual): sus ventas, su costo (costo de compra × unidades),
+//  su margen de contribución y sus fijos, si algún gasto tiene área REVENTA. Las compras de reventa siguen fuera del resultado
+//  (info "compras_reventa"). REVENTA no recibe comunes en el reparto por causa (la vista secundaria es solo de las 4 que producen).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.69.0';
+import * as FR from './finanzas-resultados.js?v=0.69.1';
+import * as AR from './areas.js?v=0.69.1';
 
-export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
-export const COLS = ['PAN', 'BOL', 'PAS', 'CAF', 'comun'];
-export const NOMBRE_COL = { PAN: 'Panadería', BOL: 'Bollería', PAS: 'Pastelería', CAF: 'Cafetería', comun: 'Común', total: 'Total' };
+export const AREAS = AR.MARGEN;
+export const REVENTA = AR.REVENTA;
+export const AREAS_REPARTO = AR.PRODUCCION;   // las que reciben comunes en la vista "comunes repartidos por causa"
+export const COLS = [...AREAS, 'comun'];
+export const NOMBRE_COL = { PAN: 'Panadería', BOL: 'Bollería', PAS: 'Pastelería', CAF: 'Cafetería', REVENTA: 'Reventa', comun: 'Común', total: 'Total' };
 export const SUCS = ['barros', 'ainavillo', 'b2b'];
 export const NOMBRE_SUC = { barros: 'Caja Barros Arana', ainavillo: 'Caja Ainavillo', b2b: 'B2B' };
 export const MESES_L = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -56,7 +62,14 @@ export const NOMBRE_PISO = { 1: 'Piso 1 · Margen de contribución', 2: 'Piso 2 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
 const r0 = v => Math.round(num(v));
-export const vacia = () => ({ PAN: 0, BOL: 0, PAS: 0, CAF: 0, comun: 0, total: 0 });
+export const vacia = () => ({ ...Object.fromEntries(COLS.map(c => [c, 0])), total: 0 });
+// v0.69.1 · ¿La columna tiene algo en el mes? (para mostrar REVENTA solo cuando hay datos; un cierre antiguo no la trae)
+export function colConDatos(eerr, col) {
+  if (!eerr) return false;
+  const F = eerr.filas || {}, D = eerr.detalle || {};
+  return Object.values(F).some(f => f && Math.round(num(f[col])) !== 0) || Object.keys(D).some(k => k.endsWith('.' + col) && (D[k] || []).length > 0);
+}
+export const colsVisibles = (eerr, extra = []) => COLS.filter(c => c !== REVENTA || colConDatos(eerr, c) || extra.some(e => colConDatos(e, c)));
 const conTotal = c => { const x = { ...vacia(), ...c }; COLS.forEach(k => { x[k] = r0(x[k]); }); x.total = COLS.reduce((a, k) => a + x[k], 0); return x; };
 const colDe = a => (AREAS.includes(s(a).toUpperCase()) ? s(a).toUpperCase() : 'comun');
 export const mesDe = f => s(f).slice(0, 7);
@@ -212,25 +225,25 @@ export function pctDe(asig, bases = {}) {
   if (!asig || !asig.base) return null;
   const src = asig.base === 'manual' ? asig.pct : (bases || {})[asig.base];
   if (!src) return null;
-  const v = AREAS.map(a => Math.max(0, num(src[a])));
+  const v = AREAS_REPARTO.map(a => Math.max(0, num(src[a])));
   const t = v.reduce((a, x) => a + x, 0);
   if (!(t > 0)) return null;
   if (asig.base === 'manual' && Math.abs(t - 100) > 0.01) return null;
-  return Object.fromEntries(AREAS.map((a, i) => [a, v[i] / t * 100]));
+  return Object.fromEntries(AREAS_REPARTO.map((a, i) => [a, v[i] / t * 100]));
 }
 export function validarClaves(d) {
   const out = { bases: {}, porTipo: {}, porItem: {} };
   ['m2', 'kwh', 'horas'].forEach(b => {
     const x = (d.bases || {})[b] || {}, y = {};
-    AREAS.forEach(a => { const v = s(x[a]).trim() === '' ? 0 : Number(s(x[a]).replace(',', '.')); if (!(v >= 0)) throw new Error(`${BASES.find(z => z.k === b).t}: escribe números de 0 o más.`); y[a] = v; });
+    AREAS_REPARTO.forEach(a => { const v = s(x[a]).trim() === '' ? 0 : Number(s(x[a]).replace(',', '.')); if (!(v >= 0)) throw new Error(`${BASES.find(z => z.k === b).t}: escribe números de 0 o más.`); y[a] = v; });
     out.bases[b] = y;
   });
   const asig = (a, nom) => {
     if (!a || !a.base) return null;
     if (!BASES.some(b => b.k === a.base)) throw new Error(`${nom}: elige una clave.`);
     if (a.base === 'manual') {
-      const pct = {}; AREAS.forEach(k => { pct[k] = Number(s((a.pct || {})[k] || 0).replace(',', '.')) || 0; });
-      const t = AREAS.reduce((x, k) => x + pct[k], 0);
+      const pct = {}; AREAS_REPARTO.forEach(k => { pct[k] = Number(s((a.pct || {})[k] || 0).replace(',', '.')) || 0; });
+      const t = AREAS_REPARTO.reduce((x, k) => x + pct[k], 0);
       if (Math.abs(t - 100) > 0.01) throw new Error(`${nom}: los % suman ${String(Math.round(t * 100) / 100).replace('.', ',')}, deben sumar 100.`);
       return { base: 'manual', pct };
     }
@@ -246,7 +259,7 @@ export function validarClaves(d) {
 // → { porArea { PAN: { rem, fijos, dep, total } }, sinRepartir { rem, fijos, dep, total, lineas }, resultadoArea { PAN… },
 //     comunResto (margen de Común − sin repartir), total (= resultado operacional), lineas [{ item, base, neto, partes }] }
 export function repartirComunes(eerr, claves = {}) {
-  const porArea = Object.fromEntries(AREAS.map(a => [a, { rem: 0, fijos: 0, dep: 0, total: 0 }])), sin = { rem: 0, fijos: 0, dep: 0, total: 0, lineas: [] }, lineas = [];
+  const porArea = Object.fromEntries(AREAS_REPARTO.map(a => [a, { rem: 0, fijos: 0, dep: 0, total: 0 }])), sin = { rem: 0, fijos: 0, dep: 0, total: 0, lineas: [] }, lineas = [];
   const key = { remuneraciones: 'rem', fijo: 'fijos', depreciacion: 'dep' };
   TIPOS_COMUNES.forEach(t => {
     const refs = (eerr.detalle || {})[t.fila + '.comun'] || [];
@@ -260,16 +273,19 @@ export function repartirComunes(eerr, claves = {}) {
       const pct = pctDe(asig, claves.bases), neto = r0(g.neto);
       if (!pct) { sin[key[t.k]] += neto; sin.lineas.push({ tipo: t.k, item: g.item, neto }); lineas.push({ tipo: t.k, item: g.item, clave: g.clave, base: '', neto, partes: null }); return; }
       let resto = neto; const partes = {};
-      const conPct = AREAS.filter(a => pct[a] > 0);
+      const conPct = AREAS_REPARTO.filter(a => pct[a] > 0);
       conPct.forEach((a, i) => { const v = i === conPct.length - 1 ? resto : Math.round(neto * pct[a] / 100); resto -= v; partes[a] = v; porArea[a][key[t.k]] += v; });
       lineas.push({ tipo: t.k, item: g.item, clave: g.clave, base: asig.base, porItem: !!((claves.porItem || {})[g.clave]), neto, partes });
     });
   });
-  AREAS.forEach(a => { const x = porArea[a]; x.total = x.rem + x.fijos + x.dep; });
+  AREAS_REPARTO.forEach(a => { const x = porArea[a]; x.total = x.rem + x.fijos + x.dep; });
   sin.total = sin.rem + sin.fijos + sin.dep;
-  const resultadoArea = Object.fromEntries(AREAS.map(a => [a, eerr.filas.ma[a] - porArea[a].total]));
-  const comunResto = eerr.filas.ma.comun - sin.total;
-  return { porArea, sinRepartir: sin, resultadoArea, comunResto, total: AREAS.reduce((x, a) => x + resultadoArea[a], 0) + comunResto, lineas };
+  const resultadoArea = Object.fromEntries(AREAS_REPARTO.map(a => [a, eerr.filas.ma[a] - porArea[a].total]));
+  // v0.69.1: REVENTA no recibe comunes ni tiene columna en esta vista: su margen del área va en Común (así el total sigue
+  // siendo el resultado operacional de la vista principal)
+  const reventa = num((eerr.filas.ma || {})[REVENTA]);
+  const comunResto = eerr.filas.ma.comun - sin.total + reventa;
+  return { porArea, sinRepartir: sin, resultadoArea, comunResto, reventa, total: AREAS_REPARTO.reduce((x, a) => x + resultadoArea[a], 0) + comunResto, lineas };
 }
 
 // ═══════════════ Cierre de mes: lo que se revisa antes de cerrar ═══════════════

@@ -11,7 +11,7 @@
 //  ventana de la v0.63.4 (desde 1 día antes hasta 3 días hábiles después; feriados-cl.js). Una transferencia nunca queda
 //  en dos cargos: se asigna primero el par más cercano de todos.
 // ═══════════════════════════════════════════════
-import { distanciaTef } from './feriados-cl.js?v=0.69.0';
+import { distanciaTef } from './feriados-cl.js?v=0.69.1';
 
 const s = v => String(v == null ? '' : v);
 export const norm = t => s(t).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();

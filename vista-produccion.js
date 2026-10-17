@@ -5,10 +5,10 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.69.0';
+import * as P from './produccion.js?v=0.69.1';
 import * as K from './cocina/consumo.js?v=0.17.0';
-import { conBuscador, coincide } from './buscador.js?v=0.69.0';
-import * as FBQ from './fermentacion.js?v=0.69.0';
+import { conBuscador, coincide } from './buscador.js?v=0.69.1';
+import * as FBQ from './fermentacion.js?v=0.69.1';
 
 const st = { fb: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);

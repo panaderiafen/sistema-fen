@@ -11,11 +11,13 @@
 //  Todo en neto. Nada de esto cambia los gastos: es una capa de Finanzas (fen-gastos: fin_items, fin_config,
 //  fin_creditos, fin_inversiones).
 // ═══════════════════════════════════════════════
-import { idLimpio } from './gastos-modelo.js?v=0.69.0';
+import { idLimpio } from './gastos-modelo.js?v=0.69.1';
+import * as AR from './areas.js?v=0.69.1';
 
 export const ANIO = 2026;
-export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
-export const NOMBRE_AREA = { PAN: 'Panadería', BOL: 'Bollería', PAS: 'Pastelería', CAF: 'Cafetería', comun: 'Común' };
+// v0.69.1: las áreas propias son las de margen (las 4 de producción + REVENTA), de areas.js
+export const AREAS = AR.MARGEN;
+export const NOMBRE_AREA = { PAN: 'Panadería', BOL: 'Bollería', PAS: 'Pastelería', CAF: 'Cafetería', REVENTA: 'Reventa', comun: 'Común' };
 
 // ── Tipos para resultados ──
 // grupo: costo (entra al resultado), compra (no es línea de gasto: va a la desviación de materias primas),
@@ -128,7 +130,7 @@ export function lineasArea(g) {
 // v0.63.1 · Códigos de canal (B2B: costos del canal B2B, atención de clientes, órdenes y despacho). El estado de resultados
 // todavía no tiene la fila "costo de canal": por ahora van a Común (pendiente para F3; no se construye ahora).
 export const CANALES_PENDIENTES = { B2B: 'Canal B2B (costo de canal)' };
-// Por defecto: las de producción son área propia (la misma); Administración, Ventas, Prorrateado y cualquier otra, común.
+// Por defecto: las de producción y REVENTA son área propia (la misma); Administración, Ventas, Prorrateado y cualquier otra, común.
 export const destinoDefecto = codigo => (AREAS.includes(s(codigo).toUpperCase()) ? s(codigo).toUpperCase() : 'comun');
 export function destinoArea(codigo, mapa) {
   const c = s(codigo).trim().toUpperCase(), v = mapa && mapa[c];

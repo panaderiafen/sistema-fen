@@ -6,11 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.69.0';
-import * as FR from './finanzas-resultados.js?v=0.69.0';
-import * as FE from './finanzas-eerr.js?v=0.69.0';
-import * as FC from './finanzas-costos.js?v=0.69.0';
-import * as SP from './sii-pendientes.js?v=0.69.0';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.69.1';
+import * as FR from './finanzas-resultados.js?v=0.69.1';
+import * as FE from './finanzas-eerr.js?v=0.69.1';
+import * as FC from './finanzas-costos.js?v=0.69.1';
+import * as SP from './sii-pendientes.js?v=0.69.1';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
 const $ = id => document.getElementById(id);
@@ -72,7 +72,7 @@ async function delMes(R, mes) {
 }
 
 // ═══════════════ Estado de resultados ═══════════════
-const TXT_EERR = 'El estado de resultados del mes por área (la que produce) y el total, en tres pisos, todo en neto:\n1. Ventas netas − costo directo de lo vendido (receta × unidades al costo del mes; reventa a su costo de compra) − costos de venta (comisión de tarjeta, despacho) − merma valorizada = margen de contribución.\n2. − remuneraciones propias del área − otros fijos propios − depreciación del área = margen del área.\n3. − comunes sin repartir (remuneraciones comunes con el sueldo empresarial, fijos comunes, depreciación común) = resultado operacional; − financieros (interés de las cuotas pagadas en el mes según la tabla del crédito + gastos financieros) = resultado del mes.\nCada cifra se puede tocar para ver de dónde sale.\nUn mes cerrado se ve congelado (como quedó al cerrarlo).';
+const TXT_EERR = 'El estado de resultados del mes por área (la que produce) y el total, en tres pisos, todo en neto:\nLa columna Reventa (lo que se compra hecho y se vende tal cual) aparece solo si el mes tiene ventas, costo o gastos de Reventa. Sus compras no son una línea de gasto (van a "Fuera del resultado"): entra el costo de lo vendido.\n1. Ventas netas − costo directo de lo vendido (receta × unidades al costo del mes; reventa a su costo de compra) − costos de venta (comisión de tarjeta, despacho) − merma valorizada = margen de contribución.\n2. − remuneraciones propias del área − otros fijos propios − depreciación del área = margen del área.\n3. − comunes sin repartir (remuneraciones comunes con el sueldo empresarial, fijos comunes, depreciación común) = resultado operacional; − financieros (interés de las cuotas pagadas en el mes según la tabla del crédito + gastos financieros) = resultado del mes.\nCada cifra se puede tocar para ver de dónde sale.\nUn mes cerrado se ve congelado (como quedó al cerrarlo).';
 function selectorMes(H, id = 'e-mes') {
   const meses = FE.mesesDelAnio(FR.ANIO, hoyTxt());
   return `<div class="campo fin-emes"><label for="${id}">Mes</label><select id="${id}">${meses.map(m => `<option value="${m}" ${m === ES.mes ? 'selected' : ''}>${H.esc(FE.mesTxt(m))}${cerrado(m) ? ' · cerrado' : m === mesHoy() ? ' · en curso' : ''}</option>`).join('')}</select></div>`;
@@ -108,7 +108,7 @@ function celda(H, e, f, col, extra = '') {
   return `<td class="fin-enum${v < 0 && f.resultado ? ' fin-eneg' : ''}"${extra}>${conDet ? `<button type="button" class="fin-ecel" data-e-det="${H.esc(detKey)}" data-e-col="${col}" aria-label="${H.esc(f.t)} · ${H.esc(FE.NOMBRE_COL[col])}: ver de dónde sale">${txt}</button>` : `<span>${txt}</span>`}${p}</td>`;
 }
 function htmlEERR(H, e, prev, R) {
-  const cols = FE.COLS.concat('total');
+  const cols = FE.colsVisibles(e).concat('total');   // v0.69.1: Reventa solo si tiene algo en el mes
   const congel = e.congelado ? ES.cierres[ES.mes] : null;
   const filasT = [];
   let pisoAnt = 0;
@@ -182,10 +182,10 @@ function htmlCuadratura(H, e) {
 // ── Vista secundaria: comunes repartidos por causa ──
 function htmlRepartido(H, e, R) {
   const rp = FE.repartirComunes(e, ES.claves || {});
-  const A = FE.AREAS;
+  const A = FE.AREAS_REPARTO;   // v0.69.1: Reventa no recibe comunes (su margen va en Común en esta vista)
   const filaR = (t, vals, tot, cls = '') => `<tr class="${cls}"><th scope="row">${t}</th>${A.map(a => `<td class="fin-enum">${vals[a] === null ? '' : pesos(vals[a])}</td>`).join('')}<td class="fin-enum">${vals.comun === null ? '' : pesos(vals.comun)}</td><td class="fin-enum">${pesos(tot)}</td></tr>`;
   const neg = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v === null ? null : -v]));
-  const ma = { ...Object.fromEntries(A.map(a => [a, e.filas.ma[a]])), comun: e.filas.ma.comun };
+  const ma = { ...Object.fromEntries(A.map(a => [a, e.filas.ma[a]])), comun: e.filas.ma.comun + (rp.reventa || 0) };
   const rep = { ...Object.fromEntries(A.map(a => [a, rp.porArea[a].total])), comun: rp.sinRepartir.total };
   const res = { ...rp.resultadoArea, comun: rp.comunResto };
   const asignTxt = l => (l.partes ? `${l.porItem ? 'clave del ítem' : 'clave del tipo'}: ${FE.BASES.find(b => b.k === l.base).t}` : 'sin clave: queda sin repartir');
@@ -196,12 +196,12 @@ function htmlRepartido(H, e, R) {
       ${filaR('= Resultado con comunes repartidos', res, rp.total, 'fin-eres')}
       ${filaR('− Financieros', { PAN: null, BOL: null, PAS: null, CAF: null, comun: -e.filas.financieros.total }, -e.filas.financieros.total)}
       ${filaR('= Resultado del mes', { PAN: null, BOL: null, PAS: null, CAF: null, comun: null }, rp.total - e.filas.financieros.total, 'fin-eres')}</tbody></table></div>
-    <p class="nota-i" id="e-rep-nota">(i) El total es el mismo que en la vista principal: resultado operacional ${pesos(e.filas.resOp.total)}. Común = margen de ventas sin asociar − lo que quedó sin clave.</p>
+    <p class="nota-i" id="e-rep-nota">(i) El total es el mismo que en la vista principal: resultado operacional ${pesos(e.filas.resOp.total)}. Común = margen de ventas sin asociar${rp.reventa ? ` y de Reventa (${pesos(rp.reventa)}: Reventa no recibe comunes)` : ''} − lo que quedó sin clave.</p>
     ${rp.lineas.length ? `<details class="fin-sindet" id="e-rep-det"><summary>Cómo se repartió cada común (${nf(rp.lineas.length)})</summary><ul class="fin-hist-lista">${rp.lineas.map(l => `<li><div><b>${H.esc(l.item)}</b> · ${pesos(l.neto)}</div><span class="ayuda">${H.esc(asignTxt(l))}${l.partes ? ' · ' + A.filter(a => l.partes[a]).map(a => `${FE.NOMBRE_COL[a]} ${pesos(l.partes[a])}`).join(' · ') : ''}</span></li>`).join('')}</ul></details>` : ''}
     ${htmlClaves(H, e)}`;
 }
 function htmlClaves(H, e) {
-  const C = ES.claves || {}, B = C.bases || {}, A = FE.AREAS;
+  const C = ES.claves || {}, B = C.bases || {}, A = FE.AREAS_REPARTO;
   const val = (b, a) => { const v = (B[b] || {})[a]; return v === undefined || v === null || v === 0 ? '' : H.esc(String(v)); };
   const selAsig = (id, asig, conTipo) => `<select id="${id}" data-e-asig="${id}">${conTipo ? `<option value="">Como su tipo</option>` : '<option value="">Sin repartir</option>'}${FE.BASES.map(b => `<option value="${b.k}" ${asig && asig.base === b.k ? 'selected' : ''}>${H.esc(b.t)}</option>`).join('')}</select>`;
   const manual = (id, asig) => `<div class="fin-epcts ${asig && asig.base === 'manual' ? '' : 'oculto'}" data-e-man="${id}">${A.map(a => `<label><span>${FE.NOMBRE_COL[a]} %</span><input type="number" inputmode="decimal" min="0" max="100" step="any" data-e-pct="${id}" data-area="${a}" value="${asig && asig.base === 'manual' && asig.pct ? H.esc(String(asig.pct[a] ?? '')) : ''}"></label>`).join('')}</div>`;

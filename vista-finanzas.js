@@ -12,14 +12,14 @@
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.69.0';
-import * as FC from './finanzas-costos.js?v=0.69.0';
-import * as FS from './finanzas-sii.js?v=0.69.0';
-import * as FM from './finanzas-motor.js?v=0.69.0';
-import * as FV from './finanzas-ventas.js?v=0.69.0';
-import * as FMG from './finanzas-margenes.js?v=0.69.0';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.69.0';
-import * as VR from './vista-finanzas-resultados.js?v=0.69.0';
+import * as F from './finanzas.js?v=0.69.1';
+import * as FC from './finanzas-costos.js?v=0.69.1';
+import * as FS from './finanzas-sii.js?v=0.69.1';
+import * as FM from './finanzas-motor.js?v=0.69.1';
+import * as FV from './finanzas-ventas.js?v=0.69.1';
+import * as FMG from './finanzas-margenes.js?v=0.69.1';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.69.1';
+import * as VR from './vista-finanzas-resultados.js?v=0.69.1';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -116,7 +116,7 @@ function comoTrabajamos(H) {
   return `
   <section class="tarjeta" aria-labelledby="t-fin-metodo">
     <h2 id="t-fin-metodo">La forma de trabajar ${H.info('Cómo trabajamos', 'Es el método acordado el 12 de octubre de 2026 para mirar los números de Fën. Cada pantalla de Finanzas sigue estas reglas.\nSolo tú ves estos números, y solo en Sistema Fën: las jefas no ven nada de esto.')}</h2>
-    <p class="ayuda">Todo se mira en dos ejes: el <b>área que produce</b> (Panadería, Bollería, Pastelería, Cafetería) y el <b>canal donde se vende</b> (caja Barros Arana, caja Ainavillo, B2B). Cada venta va al área del producto; cada canal tiene sus propios costos (cajeras, despacho, comisiones).</p>
+    <p class="ayuda">Todo se mira en dos ejes: el <b>área que produce</b> (Panadería, Bollería, Pastelería, Cafetería) y el <b>canal donde se vende</b> (caja Barros Arana, caja Ainavillo, B2B). Cada venta va al área del producto; cada canal tiene sus propios costos (cajeras, despacho, comisiones). Lo que se compra hecho y se vende tal cual va al área <b>Reventa</b>, que solo existe para ver su margen (no produce: no está en Cocina ni en Producción).</p>
     <ol class="fin-pasos">
       ${paso(1, 'dia', 'Todos los días', '', '<p>El costo directo de cada producto se actualiza con cada compra. En <b>Hoy</b>: la venta del mes contra la meta y el punto de equilibrio.</p>')}
       ${paso(2, 'cierre', 'Cierre del mes', 'día 5 a 8 del mes siguiente', `<p>Se cierra cuando están las cuatro cosas:</p>
@@ -165,7 +165,7 @@ function comoTrabajamos(H) {
       ${def('Mes cerrado y ajustes', 'Al cerrar el mes (Resultados → Cierre de mes) su estado de resultados queda congelado. Si después cambia algo de ese mes (una factura atrasada, un gasto corregido), el mes cerrado no se toca: la diferencia aparece como <b>Ajustes de meses cerrados</b> en el primer mes abierto siguiente.')}
       ${def('Punto de equilibrio', 'La venta neta que cubre los fijos: fijos ÷ % de margen de contribución.', 'Ejemplo: fijos $3.000.000 al mes y margen 60 % → hay que vender $5.000.000 netos en el mes.')}
       ${def('Tarjeta de crédito', '<b>Compras con tarjeta</b>: son gasto el día de la compra (entran por el SII, con su factura). <b>Pago de la tarjeta</b>: queda fuera del resultado, es solo flujo de caja (en la cartola se marca "Pago de tarjeta": no crea gasto). <b>Mantención e intereses de la tarjeta</b>: gasto financiero, se registran a mano en Gastos.', 'Ejemplo: compras $100.000 en harina con la tarjeta el 10 de marzo → gasto de marzo. El 5 de abril pagas la tarjeta: ese cargo no es gasto (ya se contó en marzo). La comisión de mantención de $3.000 sí es gasto financiero de abril.')}
-      ${def('Productos de reventa', 'Lo que compras hecho para venderlo tal cual (bebidas, jugos, chocolates, té e infusiones, Magia…). <b>En Gastos</b> la compra va al ítem "PRODUCTOS DE REVENTA" con el <b>área donde se vende</b>. En Resultados → Clasificación ese ítem es "Compras de productos de reventa" (se propone solo por el nombre: reventa, chocolate, infusión, té, Magia): <b>no es una línea de gasto</b>. Lo que entra al resultado es el costo de lo <b>vendido</b>: el costo de compra neto de cada producto (Márgenes → Asociar productos, tipo Reventa) × las unidades vendidas. <b>Pendiente:</b> que ese costo se actualice solo con cada factura del SII; por ahora se escribe a mano.', 'Ejemplo: compras 24 chocolates a $500 netos c/u ($12.000) y vendes 10 en el mes → al resultado entran $5.000 de costo; los 14 que quedan no son gasto todavía.')}
+      ${def('Productos de reventa', 'Lo que compras hecho para venderlo tal cual (bebidas, jugos, chocolates, té e infusiones, Magia…). <b>En Gastos</b> la compra va al ítem "PRODUCTOS DE REVENTA" con el <b>área REVENTA</b> (en Gastos → Ítems, área fija REVENTA). En Resultados → Clasificación ese ítem es "Compras de productos de reventa" (se propone solo por el nombre: reventa, chocolate, infusión, té, Magia): <b>no es una línea de gasto</b>. Lo que entra al resultado es el costo de lo <b>vendido</b>: el costo de compra neto de cada producto (Márgenes → Asociar productos, tipo Reventa) × las unidades vendidas. En Asociar productos, el tipo Reventa propone el <b>área Reventa</b>: así el estado de resultados tiene su columna <b>Reventa</b> (aparece solo si el mes tiene algo), con sus ventas, su costo, su margen de contribución y sus fijos, si algún gasto tiene área REVENTA. Reventa es solo un área de margen: no está en Cocina ni en Producción, no entra sola en un reparto (solo si la eliges) y no recibe comunes en la vista repartida por causa. <b>Pendiente:</b> que ese costo se actualice solo con cada factura del SII; por ahora se escribe a mano.', 'Ejemplo: compras 24 chocolates a $500 netos c/u ($12.000) y vendes 10 en el mes → al resultado entran $5.000 de costo; los 14 que quedan no son gasto todavía.')}
       ${def('Qué queda fuera del resultado', 'No son gasto del mes, van al flujo de caja: el <b>capital</b> de las cuotas de crédito (solo el interés es gasto), el pago de IVA (<b>F29</b>), las <b>inversiones</b> (entran al resultado como depreciación mensual según su vida útil) y los <b>retiros</b>. El sueldo empresarial sí es costo (fijo común).')}
     </dl>
   </section>`;
@@ -841,6 +841,9 @@ function htmlFuente(H) {
     ${faltan ? `<p class="aviso">${nf(faltan)} ${faltan === 1 ? 'cierre no tiene' : 'cierres no tienen'} resumen: sus ventas no se cuentan. <button type="button" class="btn-sec btn-chico" id="m-generar">Generar los que faltan</button></p>` : ''}
     ${d.b2bEstado !== 'ok' ? '<p class="aviso">La base de B2B no está conectada: solo se ven las ventas de la caja (y los meses de B2B ya guardados). Conéctala en <a href="#b2b/base">Ventas B2B → Base nueva</a>.</p>' : ''}`;
 }
+// v0.69.1 · Las áreas de margen que se muestran: Reventa solo si tiene algo (o si está elegida en el filtro)
+const hayEn = x => !!x && (typeof x === 'number' ? x !== 0 : (Number(x.n || 0) > 0 || Math.round(Number(x.neto || 0)) !== 0));
+const areasVer = (porArea, elegida = '') => FV.AREAS.filter(a => a !== FV.REVENTA || a === elegida || hayEn((porArea || {})[a]));
 function htmlCobertura(t, n, H) {
   const pct = t.pct === null ? 0 : Math.max(0, Math.min(100, t.pct));
   return `<div class="fin-mcob" id="m-cobertura"><div class="fin-mcob-txt"><span>Asociado: <b>${t.pctTxt}</b> de la venta neta del período ${H.info('Cobertura', `Parte de la venta neta del período cuyos productos ya están asociados: a su receta (y su área), a una reventa o marcados "no es un producto" (propinas, cargos).\nLo que falta asociar no tiene área, y en el próximo paso no tendrá costo ni margen.\nConviene partir por los que más venden (Asociar productos los ordena así).\nAsociado: ${pesosM(t.decidido)} de ${pesosM(t.todo)}.`)}</span>
@@ -854,7 +857,7 @@ function htmlVentas(prods, H) {
   const parte = v => (t.total > 0 ? `<span>${(Math.round(v / t.total * 1000) / 10).toLocaleString('es-CL')} %</span>` : '');
   const canales = FV.SUCS.filter(sc => MS.canal === 'todos' || sc === MS.canal);
   return `<section class="tarjeta" aria-labelledby="t-m-ventas">
-    <div class="titulo-fila fin-titulo"><h2 id="t-m-ventas">Ventas por producto ${H.info('Ventas por producto', 'Lo vendido en el período, en neto (sin IVA), por producto, área y canal.\nÁrea: la de la receta del producto (Panadería, Bollería, Pastelería, Cafetería); en una reventa, la que elegiste.\nCanal: caja Barros Arana, caja Ainavillo y B2B. Los productos de la caja y de B2B que van a la misma receta se ven en una sola fila.\nUnidades: lo vendido × unidades por venta (una "caja de 6" = 6 unidades de la receta).\nPrecio neto promedio: venta neta ÷ unidades.\nLos "no es un producto" (propinas, cargos) no suman.')}</h2>
+    <div class="titulo-fila fin-titulo"><h2 id="t-m-ventas">Ventas por producto ${H.info('Ventas por producto', 'Lo vendido en el período, en neto (sin IVA), por producto, área y canal.\nÁrea: la de la receta del producto (Panadería, Bollería, Pastelería, Cafetería); en una reventa, Reventa (o la que elegiste antes).\nCanal: caja Barros Arana, caja Ainavillo y B2B. Los productos de la caja y de B2B que van a la misma receta se ven en una sola fila.\nUnidades: lo vendido × unidades por venta (una "caja de 6" = 6 unidades de la receta).\nPrecio neto promedio: venta neta ÷ unidades.\nLos "no es un producto" (propinas, cargos) no suman.')}</h2>
       <span class="ayuda">${H.esc(fechaTxt(per.desde))} al ${H.esc(fechaTxt(per.hasta))}</span></div>
     ${selectorPeriodo(H)}
     <p class="ok-texto" id="m-msg" role="status">${H.esc(MS.msg)}</p><p class="error" id="m-err" role="alert">${H.esc(MS.err)}</p>
@@ -866,12 +869,12 @@ function htmlVentas(prods, H) {
       ${canales.map(sc => cifra(FV.NOMBRE_SUC[sc], t.porSuc[sc] || 0, '', parte(t.porSuc[sc] || 0))).join('')}</div>
     <h3 class="fin-dtit">Por área</h3>
     <div class="fin-prev-cifras fin-mcifras" id="m-areas">
-      ${FV.AREAS.map(a => cifra(FV.NOMBRE_AREA[a], t.porArea[a] || 0, '', parte(t.porArea[a] || 0))).join('')}
+      ${areasVer(t.porArea).map(a => cifra(FV.NOMBRE_AREA[a], t.porArea[a] || 0, '', parte(t.porArea[a] || 0))).join('')}
       ${t.sinAsociar ? cifra('Sin asociar', t.sinAsociar, 'Venta de productos que todavía no tienen receta (ni son reventa): no tienen área. Asócialos en Asociar productos.', parte(t.sinAsociar), 'fin-msin') : ''}</div>
-    ${t.reventa ? `<p class="ayuda">Incluye ${pesosM(t.reventa)} de reventa (va al área que elegiste para cada una).</p>` : ''}
+    ${t.reventa ? `<p class="ayuda">Incluye ${pesosM(t.reventa)} de reventa${t.reventa - (t.porArea[FV.REVENTA] || 0) ? ` (${pesosM(t.reventa - (t.porArea[FV.REVENTA] || 0))} con otra área elegida antes)` : ''}.</p>` : ''}
     <div class="filtros fin-filtros" id="m-filtros-ventas">
       <div class="fin-buscar">${ic('lupa', 18)}<label class="sr" for="m-q">Buscar producto</label><input type="search" id="m-q" placeholder="Buscar producto…" autocomplete="off" spellcheck="false" value="${H.esc(MS.q)}"></div>
-      <div class="chips" role="group" aria-label="Filtrar por área">${['todas', ...FV.AREAS, 'sin'].map(a => `<button type="button" class="chip-filtro" data-m-area="${a}" aria-pressed="${MS.area === a}">${a === 'todas' ? 'Todas' : a === 'sin' ? 'Sin asociar' : FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
+      <div class="chips" role="group" aria-label="Filtrar por área">${['todas', ...areasVer(t.porArea, MS.area), 'sin'].map(a => `<button type="button" class="chip-filtro" data-m-area="${a}" aria-pressed="${MS.area === a}">${a === 'todas' ? 'Todas' : a === 'sin' ? 'Sin asociar' : FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
       <div class="chips" role="group" aria-label="Filtrar por canal">${['todos', ...FV.SUCS].map(c => `<button type="button" class="chip-filtro" data-m-canal="${c}" aria-pressed="${MS.canal === c}">${c === 'todos' ? 'Todos los canales' : FV.NOMBRE_SUC[c]}</button>`).join('')}</div></div>
     <div class="fin-mtabla" aria-label="Ventas por producto">
       <div class="fin-mfila fin-mcab" aria-hidden="true"><span>Producto</span><span>Área</span><span>Caja Barros</span><span>Caja Ainavillo</span><span>B2B</span><span>Unidades</span><span>Venta neta</span><span>Precio neto prom.</span></div>
@@ -887,7 +890,7 @@ function filasVentas(prods) {
 function filaVenta(f, H) {
   const celda = sc => { const x = f.porSuc[sc]; return x ? `${pesosM(x.neto)}<span class="ayuda">${cantM(x.cantidad)} ${x.cantidad === 1 ? 'vendido' : 'vendidos'}</span>` : '<span class="ayuda">—</span>'; };
   const fuentes = f.fuentes.map(x => `${x.nombre} (${x.canal === 'b2b' ? 'B2B' : 'caja'}${x.unidadesPorVenta !== 1 ? ` × ${String(x.unidadesPorVenta).replace('.', ',')}` : ''})`).join(' · ');
-  const area = f.tipo === 'sin' ? '<span class="chip c-amarillo chip-chico">Sin asociar</span>' : `${H.esc(FV.NOMBRE_AREA[f.area] || f.area || '—')}${f.tipo === 'reventa' ? ' <span class="chip c-gris chip-chico">Reventa</span>' : ''}`;
+  const area = f.tipo === 'sin' ? '<span class="chip c-amarillo chip-chico">Sin asociar</span>' : `${H.esc(FV.NOMBRE_AREA[f.area] || f.area || '—')}${f.tipo === 'reventa' && f.area !== FV.REVENTA ? ' <span class="chip c-gris chip-chico">Reventa</span>' : ''}`;
   return `<div class="fin-mfila" data-m-fila="${H.esc(f.clave)}">
     <span class="fin-nombre"><b>${H.esc(f.nombre)}</b>${f.tipo === 'receta' ? `<span class="ayuda">${H.esc(fuentes)}</span>` : ''}${f.tipo === 'sin' ? ` <button type="button" class="fin-mlink" data-m-asociar="${H.esc(f.productoClave)}">Asociar</button>` : ''}</span>
     <span><span class="fin-et">Área</span>${area}</span>
@@ -921,8 +924,10 @@ function conectarVentas(el, prods, H) {
 const canalTxt = p => (p.canal === 'b2b' ? 'B2B' : 'Caja');
 const ventaTxt = p => Object.entries(p.porSuc).map(([sc, x]) => `${FV.NOMBRE_SUC[sc]}: ${cantM(x.cantidad)} · ${pesosM(x.neto)}`).join(' · ');
 const propuestaTxt = p => !p.propuesta ? '' : p.propuesta.receta ? `${p.propuesta.recetaNombre}${p.propuesta.origen === 'catalogo' ? (p.canal === 'b2b' ? ' (del catálogo de B2B)' : ' (del catálogo de la caja)') : ' (nombre parecido)'}` : '';
+const TXT_PASAR_REV = 'Desde la v0.69.1 lo que se compra hecho y se vende tal cual (chocolates, té, infusiones, Magia…) tiene su propia área, Reventa: así su venta, su costo y su margen se ven aparte en el estado de resultados.\nEstos productos ya estaban asociados como reventa a otra área (por ejemplo Cafetería). No se cambian solos: con este botón pasan todos de una vez al área Reventa, después de que confirmes.\nSolo cambia el área: el costo de compra, las unidades por venta y el envase quedan iguales. Cada cambio queda en el historial del producto. Un mes ya cerrado no cambia (se ve como quedó al cerrarlo).';
 function htmlAsociar(prods, H) {
   const t = FV.totales(prods), sin = prods.filter(p => !p.vinculo), asoc = prods.filter(p => p.vinculo);
+  const rev = FV.reventaFueraDeArea(MS.vinc);   // v0.69.1: todos los vínculos de reventa (no solo los vendidos en el período)
   const deCat = sin.filter(p => p.propuesta && p.propuesta.origen === 'catalogo');
   const fila = (p, conCambio) => `<div class="fin-compra fin-masoc" data-m-prod="${H.esc(p.clave)}">
     <div><b>${H.esc(p.nombre)}</b><span class="ayuda">${canalTxt(p)} · ${H.esc(p.productoId)}</span></div>
@@ -933,7 +938,7 @@ function htmlAsociar(prods, H) {
     <div class="acciones fin-c-acc">${!conCambio && p.propuesta && p.propuesta.receta ? `<button type="button" class="btn" data-m-confirmar="${H.esc(p.clave)}">${ic('check', 16)} Confirmar</button>` : ''}
       <button type="button" class="btn-sec" data-m-asociar="${H.esc(p.clave)}">${conCambio ? 'Cambiar' : 'Asociar…'}</button></div></div>`;
   return `<section class="tarjeta" aria-labelledby="t-m-asoc">
-    <div class="titulo-fila fin-titulo"><h2 id="t-m-asoc">Asociar productos ${H.info('Asociar productos', 'Cada producto que se vende en la caja o en B2B se asocia a la receta que lo produce: de ahí sale su área, su costo y su margen.\nReventa: algo que se compra hecho y se vende (bebidas, por ejemplo). Eliges el área y anotas su costo de compra neto (por ahora a mano).\nNo es un producto: propinas, cargos de despacho, ajustes… no suman en la venta por producto.\nUnidades por venta: cuántas unidades de la receta lleva una venta (una "caja de 6" = 6).\nLa sugerencia sale primero del ID de receta que ya tiene el producto en el catálogo de la caja o de B2B; si no, de un nombre parecido. Nada se asocia solo: tú confirmas.\nCada cambio queda en el historial. Se guarda en Finanzas (fen-gastos): no cambia nada en la caja ni en B2B.')}</h2>
+    <div class="titulo-fila fin-titulo"><h2 id="t-m-asoc">Asociar productos ${H.info('Asociar productos', 'Cada producto que se vende en la caja o en B2B se asocia a la receta que lo produce: de ahí sale su área, su costo y su margen.\nReventa: algo que se compra hecho y se vende tal cual (bebidas, chocolates, té, Magia…). Va al área Reventa (se propone sola; puedes elegir otra) y anotas su costo de compra neto (por ahora a mano).\nNo es un producto: propinas, cargos de despacho, ajustes… no suman en la venta por producto.\nUnidades por venta: cuántas unidades de la receta lleva una venta (una "caja de 6" = 6).\nLa sugerencia sale primero del ID de receta que ya tiene el producto en el catálogo de la caja o de B2B; si no, de un nombre parecido. Nada se asocia solo: tú confirmas.\nCada cambio queda en el historial. Se guarda en Finanzas (fen-gastos): no cambia nada en la caja ni en B2B.')}</h2>
       <span class="chip ${sin.length ? 'c-amarillo' : 'c-verde'}">${nf(sin.length)} sin asociar</span></div>
     ${selectorPeriodo(H)}
     <p class="ok-texto" id="m-msg" role="status">${H.esc(MS.msg)}</p><p class="error" id="m-err" role="alert">${H.esc(MS.err)}</p>
@@ -941,6 +946,8 @@ function htmlAsociar(prods, H) {
     ${htmlCobertura(t, sin.length, H)}
     ${deCat.length ? `<div class="fin-mcat"><span>${nf(deCat.length)} ${deCat.length === 1 ? 'producto ya tiene' : 'productos ya tienen'} su receta en el catálogo de la caja o de B2B (${pesosM(deCat.reduce((a, p) => a + p.neto, 0))}). ${H.info('Vínculos del catálogo', 'Son los productos que ya tienen un ID de receta (ID_receta) en el catálogo de la caja o en Productos de B2B, y esa receta existe en Producción. Confirmarlos de una vez los asocia a esa receta, con 1 unidad por venta. Si alguno es una caja o un pack, cámbialo después con "Cambiar".')}</span>
       <button type="button" class="btn" id="m-cat">${ic('check', 16)} Confirmar los ${nf(deCat.length)} del catálogo</button></div>` : ''}
+    ${rev.length ? `<div class="fin-mcat fin-mrev" id="m-rev"><span>${nf(rev.length)} ${rev.length === 1 ? 'producto de reventa está' : 'productos de reventa están'} en otra área (${H.esc([...new Set(rev.map(v => FV.NOMBRE_AREA[v.area] || v.area || 'sin área'))].join(', '))}). ${H.info('Pasar al área Reventa', TXT_PASAR_REV)}</span>
+      <button type="button" class="btn-sec" id="m-rev-pasar">${ic('enlace', 16)} Pasar los productos de reventa al área REVENTA (${nf(rev.length)})</button></div>` : ''}
     <h3 class="fin-dtit">Sin asociar, de mayor a menor venta</h3>
     <div class="fin-compras" id="m-sin">${sin.length ? sin.map(p => fila(p, false)).join('') : '<div class="vacio">Todos los productos vendidos en el período están asociados.</div>'}</div>
     ${asoc.length ? `<details class="fin-sindet" id="m-asoc-det" ${MS.verAsoc ? 'open' : ''}><summary>Ya asociados <span class="chip c-gris chip-chico">${nf(asoc.length)}</span></summary>
@@ -959,6 +966,8 @@ function conectarAsociar(el, prods, H) {
       MS.msg = `${p.nombre} → ${p.propuesta.recetaNombre}.`; dibujarMargenes(el, 'asociar', H);
     } catch (e) { b.disabled = false; $('m-err').textContent = error(e, H); }
   }));
+  const pr = $('m-rev-pasar');
+  if (pr) pr.addEventListener('click', () => dialogoPasarReventa(el, H));
   const c = $('m-cat');
   if (c) c.addEventListener('click', async () => {
     c.disabled = true; c.lastChild.textContent = ' Guardando…';
@@ -969,12 +978,39 @@ function conectarAsociar(el, prods, H) {
     } catch (e) { c.disabled = false; c.lastChild.textContent = ' Confirmar los del catálogo'; $('m-err').textContent = error(e, H); }
   });
 }
+// v0.69.1 · Confirmar antes de pasar los vínculos de reventa al área REVENTA (lista con el área de hoy de cada uno)
+function dialogoPasarReventa(el, H) {
+  const rev = FV.reventaFueraDeArea(MS.vinc);
+  if (!rev.length) return;
+  const d = H.dialogo(`<form class="form-dialogo" id="m-rev-f" novalidate>
+    <h2>Pasar al área Reventa</h2>
+    <p>${nf(rev.length)} ${rev.length === 1 ? 'producto de reventa pasa' : 'productos de reventa pasan'} al área <b>Reventa</b>. Solo cambia el área: el costo de compra, las unidades por venta y el envase quedan iguales.</p>
+    <ul class="fin-hist-lista fin-rev-lista" id="m-rev-lista">${rev.map(v => `<li><div><b>${H.esc(v.nombre || v.productoId || v.clave)}</b> · ${v.canal === 'b2b' ? 'B2B' : 'Caja'}</div><span class="ayuda">Hoy: ${H.esc(FV.NOMBRE_AREA[v.area] || v.area || 'sin área')} → Reventa</span></li>`).join('')}</ul>
+    <p class="nota-i">(i) Cada cambio queda en el historial del producto (Cambiar → Historial). Los meses ya cerrados no cambian: se ven como quedaron al cerrarlos.</p>
+    <p class="error" id="m-rev-err" role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" id="m-rev-no">Cancelar</button><button type="submit" class="btn" id="m-rev-si">${ic('check', 16)} Pasar ${nf(rev.length)} a Reventa</button></div>
+  </form>`);
+  d.querySelector('#m-rev-no').addEventListener('click', () => d.close());
+  d.querySelector('#m-rev-f').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const b = d.querySelector('#m-rev-si'), err = d.querySelector('#m-rev-err'); err.textContent = '';
+    b.disabled = true; b.lastChild.textContent = ' Guardando…';
+    try {
+      const r = await F.pasarReventaArea(rev.map(v => v.clave));
+      Object.entries(r.cambiados).forEach(([k, doc]) => { MS.vinc[k] = doc; });
+      H.registrar('Finanzas: pasó productos de reventa al área REVENTA', `${r.n} productos`);
+      MS.msg = r.n ? `${nf(r.n)} ${r.n === 1 ? 'producto de reventa pasó' : 'productos de reventa pasaron'} al área Reventa.` : 'No había productos para pasar: ya estaban en Reventa.';
+      MS.err = ''; d.close(); dibujarMargenes(el, 'asociar', H);
+    } catch (e) { err.textContent = error(e, H); b.disabled = false; b.lastChild.textContent = ` Pasar ${nf(rev.length)} a Reventa`; }
+  });
+}
 function dialogoVinculo(p, el, volver, H) {
   const v = p.vinculo, recetas = MS.recetas || [];
   const sug = FV.sugerirRecetas(p.nombre, recetas), idsSug = new Set(sug.map(x => x.id));
   const tipo0 = v ? v.tipo : 'receta';
   const recSel = v && v.receta ? v.receta : p.propuesta && p.propuesta.receta ? p.propuesta.receta : '';
-  const area0 = (v && v.area) || p.areaCatalogo || '';
+  // v0.69.1: una reventa nueva propone el área REVENTA; una reventa que ya tenía otra área la conserva (no se cambia sola)
+  const area0 = v && v.tipo === 'reventa' && v.area ? v.area : FV.REVENTA;
   const etq = r => `${r.nombre}${r.area ? ' · ' + (FV.NOMBRE_AREA[FV.areaDe(r.area)] || r.area) : ''}${r.tipo === 'sub_receta' ? ' · sub receta' : ''}`;
   const opt = (r, extra = '') => `<option value="${H.esc(r.id)}" ${r.id === recSel ? 'selected' : ''}>${H.esc(etq(r) + extra)}</option>`;
   const catRec = p.recetaCatalogo && recetas.find(r => r.id === p.recetaCatalogo);
@@ -991,7 +1027,8 @@ function dialogoVinculo(p, el, volver, H) {
       ${catRec ? opt(catRec, ' · del catálogo') : ''}${sug.filter(x => !catRec || x.id !== catRec.id).map(x => opt(recetas.find(r => r.id === x.id), ' · parecida')).join('')}${ordenadas.filter(r => !idsSug.has(r.id) && (!catRec || r.id !== catRec.id)).map(r => opt(r)).join('')}</select>
       ${sug.length || catRec ? '<span class="ayuda">Primero la del catálogo y las de nombre parecido.</span>' : ''}${recetas.sinProduccion ? '<span class="aviso">Producción no está conectada: la lista es la del último costeo (solo recetas aprobadas).</span>' : ''}</div></div>
     <div id="m-v-rev" class="${tipo0 === 'reventa' ? '' : 'oculto'}">
-      <div class="campo"><label for="m-v-area">Área</label><select id="m-v-area"><option value="">Elige…</option>${FV.AREAS.map(a => `<option value="${a}" ${a === area0 ? 'selected' : ''}>${FV.NOMBRE_AREA[a]}</option>`).join('')}</select></div>
+      <div class="campo"><label for="m-v-area">Área ${H.info('Área de la reventa', 'Lo que se compra hecho y se vende tal cual va al área Reventa: así su venta, su costo de compra y su margen se ven aparte en el estado de resultados.\nPuedes elegir otra área si de verdad corresponde. Una reventa que ya tenía otra área la conserva hasta que la cambies aquí (o con "Pasar los productos de reventa al área REVENTA").')}</label><select id="m-v-area"><option value="">Elige…</option>${FV.AREAS.map(a => `<option value="${a}" ${a === area0 ? 'selected' : ''}>${FV.NOMBRE_AREA[a]}</option>`).join('')}</select>
+        <span class="ayuda" id="m-v-area-prop">${v && v.tipo === 'reventa' && v.area && v.area !== FV.REVENTA ? `Hoy está en ${H.esc(FV.NOMBRE_AREA[v.area] || v.area)}. Lo propuesto para la reventa es Reventa.` : 'Propuesta: Reventa.'}</span></div>
       <div class="campo"><label for="m-v-costo">Costo de compra por unidad, neto (opcional) ${H.info('Costo de la reventa', 'Lo que pagas por una unidad, sin IVA. Por ahora se anota a mano; es el costo directo de la reventa en Margen por producto. Si lo copias de una boleta con IVA, marca la casilla.')}</label>
         <input id="m-v-costo" type="number" inputmode="decimal" min="0" step="any" value="${v && v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? H.esc(String(v.costoReventaNeto)) : ''}">
         <label class="check fin-check"><input type="checkbox" id="m-v-iva"> Lo escribo con IVA (19 %)</label></div></div>
@@ -1084,9 +1121,9 @@ function htmlMargen(H) {
     <h3 class="fin-dtit">Por canal</h3>
     <div class="fin-mccs" id="m-mc-canales">${tarjetaMC(MS.mcCanal === 'todos' ? 'Total' : 'Total del canal', t.total, H, { ayuda: true, cls: 'fin-mcc-tot', id: 'm-mc-total' })}${sucs.map(sc => tarjetaMC(FV.NOMBRE_SUC[sc], t.porSuc[sc], H)).join('')}</div>
     <h3 class="fin-dtit">Por área</h3>
-    <div class="fin-mccs" id="m-mc-areas">${FV.AREAS.map(a => tarjetaMC(FV.NOMBRE_AREA[a], t.porArea[a], H)).join('')}</div>
+    <div class="fin-mccs" id="m-mc-areas">${areasVer(t.porArea).map(a => tarjetaMC(FV.NOMBRE_AREA[a], t.porArea[a], H)).join('')}</div>
     <div class="filtros fin-filtros" id="m-mc-filtros">
-      <div class="chips" role="group" aria-label="Filtrar por área">${['todas', ...FV.AREAS].map(a => `<button type="button" class="chip-filtro" data-mc-area="${a}" aria-pressed="${MS.mcArea === a}">${a === 'todas' ? 'Todas' : FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
+      <div class="chips" role="group" aria-label="Filtrar por área">${['todas', ...areasVer(t.porArea, MS.mcArea)].map(a => `<button type="button" class="chip-filtro" data-mc-area="${a}" aria-pressed="${MS.mcArea === a}">${a === 'todas' ? 'Todas' : FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
       <div class="chips" role="group" aria-label="Filtrar por canal">${['todos', ...FV.SUCS].map(c => `<button type="button" class="chip-filtro" data-mc-canal="${c}" aria-pressed="${MS.mcCanal === c}">${c === 'todos' ? 'Todos los canales' : FV.NOMBRE_SUC[c]}</button>`).join('')}</div>
       <div class="campo fin-orden"><label for="m-mc-orden">Ordenar por</label><select id="m-mc-orden">${FMG.ORDENES_MC.map(([k, x]) => `<option value="${k}" ${MS.mcOrden === k ? 'selected' : ''}>${x}</option>`).join('')}</select></div></div>
     <div class="fin-mctabla" aria-label="Margen por producto">
@@ -1169,7 +1206,7 @@ function htmlMatriz(H) {
     <p class="ok-texto" id="m-msg" role="status">${H.esc(MS.msg)}</p><p class="error" id="m-err" role="alert">${H.esc(MS.err)}</p>
     ${avisoComision(H)}
     ${selectorCosto(H, r)}
-    <div class="chips fin-mx-areas" role="group" aria-label="Área">${FV.AREAS.map(a => `<button type="button" class="chip-filtro" data-mx-area="${a}" aria-pressed="${MS.mxArea === a}">${FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
+    <div class="chips fin-mx-areas" role="group" aria-label="Área">${FV.AREAS.filter(a => a !== FV.REVENTA || conDatos.includes(a) || MS.mxArea === a).map(a => `<button type="button" class="chip-filtro" data-mx-area="${a}" aria-pressed="${MS.mxArea === a}">${FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
     ${m.puntos.length ? `<p class="ayuda" id="m-mx-prom">Promedios de ${H.esc(FV.NOMBRE_AREA[m.area])}: <b>${cantM(Math.round(m.volProm * 10) / 10)}</b> unidades por producto · MC <b>${pesosM(m.mcProm)}</b> por unidad ${H.info('Promedios del área', `Unidades: suma de las unidades de los ${m.puntos.length} productos ÷ ${m.puntos.length}.\nMC por unidad: MC total del área ÷ unidades totales.\nUn producto está "arriba" si su MC por unidad es igual o mayor que el promedio, y "a la derecha" si vende igual o más unidades que el promedio.`)}</p>
       ${mezcla ? '<p class="aviso">En esta área hay productos por kg (recetas que rinden gramos) y por unidad: compáralos con cuidado.</p>' : ''}
       <div class="fin-mx-grid">
@@ -1194,7 +1231,9 @@ function badgeDif(c) {
 function htmlPrecios(H) {
   const cfg = cfgM(), r = calcM('todos'), k = FMG.costosVentaPeriodo(r.totales, cfg);
   const filas = FMG.tablaPrecios(FMG.conListas(r.filas, MS.datos && MS.datos.catalogo ? MS.datos.catalogo.caja : {}), (MS.costos && MS.costos.docs) || {}, cfg, { ...k, vinculos: MS.vinc || {} });
-  const areas = FV.AREAS.filter(a => MS.prArea === 'todas' || a === MS.prArea);
+  const conRev = filas.some(f => f.area === FV.REVENTA) || MS.prArea === FV.REVENTA;   // v0.69.1: Reventa solo si tiene productos
+  const areasPr = FV.AREAS.filter(a => a !== FV.REVENTA || conRev);
+  const areas = areasPr.filter(a => MS.prArea === 'todas' || a === MS.prArea);
   const sinObj = FV.AREAS.filter(a => cfg.margenObjetivo[a] === null);
   const bloque = a => {
     const xs = filas.filter(f => f.area === a).sort((x, y) => String(x.nombre).localeCompare(String(y.nombre), 'es'));
@@ -1209,8 +1248,8 @@ function htmlPrecios(H) {
     <p class="ok-texto" id="m-msg" role="status">${H.esc(MS.msg)}</p><p class="error" id="m-err" role="alert">${H.esc(MS.err)}</p>
     ${avisoComision(H)}
     <p class="ayuda" id="m-pr-k">Costos de venta usados: caja <b>${pctM(k.kCaja * 100, 2)}</b> del precio neto ${H.info('Costos de venta de la caja', 'Comisión de tarjeta del período como % de la venta neta de la caja: 1,19 × (parte pagada con débito × comisión débito + crédito × comisión crédito + otros × comisión otros). Si no hay ventas de la caja en el período, se usa la mezcla configurada en Ajustes.')} · B2B <b>${pctM(k.kB2b * 100, 2)}</b> ${H.info('Costos de venta de B2B', 'Despacho como % de la venta neta B2B: el % configurado, o (si es $ por orden) el despacho del período ÷ la venta neta B2B.')} · redondeo de la caja a $${nf(cfg.redondeo)}</p>
-    ${sinObj.length === 4 ? `<p class="aviso" id="m-pr-sinobj">Todavía no hay margen objetivo para ningún área. Defínelo en <a href="#finanzas/margenes/ajustes">Ajustes</a> (la etapa de Metas lo va a calcular con los fijos de cada área).</p>` : ''}
-    <div class="chips" role="group" aria-label="Filtrar por área">${['todas', ...FV.AREAS].map(a => `<button type="button" class="chip-filtro" data-pr-filtro="${a}" aria-pressed="${MS.prArea === a}">${a === 'todas' ? 'Todas' : FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
+    ${sinObj.length === FV.AREAS.length ? `<p class="aviso" id="m-pr-sinobj">Todavía no hay margen objetivo para ningún área. Defínelo en <a href="#finanzas/margenes/ajustes">Ajustes</a> (la etapa de Metas lo va a calcular con los fijos de cada área).</p>` : ''}
+    <div class="chips" role="group" aria-label="Filtrar por área">${['todas', ...areasPr].map(a => `<button type="button" class="chip-filtro" data-pr-filtro="${a}" aria-pressed="${MS.prArea === a}">${a === 'todas' ? 'Todas' : FV.NOMBRE_AREA[a]}</button>`).join('')}</div>
     <div id="m-pr-lista">${areas.map(bloque).join('')}</div>
   </section>`;
 }

@@ -10,10 +10,15 @@
 //    recetaCatalogo, areaCatalogo }. Una por producto y sucursal dentro del mes.
 //  Vínculo (fin_productos/{canal}_{productoId}): { canal: 'caja'|'b2b', productoId, nombre, tipo: 'receta'|'reventa'|'ignorar',
 //    receta (id) | null, recetaNombre, reventa (bool), costoReventaNeto, ignorar (bool), unidadesPorVenta, area, origen }.
+//  v0.69.1: área REVENTA (solo de margen) para lo que se compra hecho. AREAS = las de margen (las 4 de producción + REVENTA);
+//  AREAS_PRODUCCION = las que producen (la de una receta o del catálogo). Las listas salen de areas.js.
 // ═══════════════════════════════════════════════
+import * as AR from './areas.js?v=0.69.1';
 
-export const AREAS = ['PAN', 'BOL', 'PAS', 'CAF'];
-export const NOMBRE_AREA = { PAN: 'Panadería', BOL: 'Bollería', PAS: 'Pastelería', CAF: 'Cafetería' };
+export const AREAS = AR.MARGEN;
+export const AREAS_PRODUCCION = AR.PRODUCCION;
+export const REVENTA = AR.REVENTA;
+export const NOMBRE_AREA = { PAN: 'Panadería', BOL: 'Bollería', PAS: 'Pastelería', CAF: 'Cafetería', REVENTA: 'Reventa' };
 export const SUCS = ['barros', 'ainavillo', 'b2b'];
 export const NOMBRE_SUC = { barros: 'Caja Barros Arana', ainavillo: 'Caja Ainavillo', b2b: 'B2B' };
 export const DIAS_GRACIA = 7;   // un mes se guarda (cerrado) desde el día 8 del mes siguiente: el cierre del mes es del 5 al 8
@@ -34,7 +39,15 @@ export const idDoc = t => s(t).replace(/\//g, '_').replace(/^\.+$/, '_').slice(0
 export const claveProducto = (canal, productoId) => `${canal}_${idDoc(productoId)}`;
 // Área desde lo que traiga un catálogo: "PAN", "Panadería", "Sándwiches"…
 const AREA_TXT = { pan: 'PAN', panaderia: 'PAN', sandwiches: 'PAN', bol: 'BOL', bolleria: 'BOL', pas: 'PAS', pasteleria: 'PAS', chocolateria: 'PAS', caf: 'CAF', cafeteria: 'CAF' };
-export const areaDe = a => AREA_TXT[normalizar(a)] || (AREAS.includes(s(a).toUpperCase()) ? s(a).toUpperCase() : '');
+// Solo las de producción: una receta o un catálogo nunca dicen REVENTA
+export const areaDe = a => AREA_TXT[normalizar(a)] || (AREAS_PRODUCCION.includes(s(a).toUpperCase()) ? s(a).toUpperCase() : '');
+// v0.69.1 · El área de margen de un vínculo (acepta REVENTA)
+export const areaMargenDe = a => (normalizar(a) === 'reventa' ? REVENTA : areaDe(a));
+// v0.69.1 · El área con que cuenta un vínculo: la elegida; una reventa sin área va a REVENTA (lo elegido antes se respeta)
+export const areaVinculo = v => (!v ? '' : s(v.area) ? s(v.area) : v.tipo === 'reventa' ? REVENTA : '');
+// v0.69.1 · Vínculos de reventa que todavía no están en el área REVENTA (para pasarlos de una vez, con su historial)
+export const reventaFueraDeArea = vinculos => Object.entries(vinculos || {}).filter(([, v]) => v && v.tipo === 'reventa' && s(v.area) !== REVENTA)
+  .map(([clave, v]) => ({ clave, ...v })).sort((a, b) => s(a.nombre).localeCompare(s(b.nombre), 'es'));
 
 // ── Meses ──
 export const mesDe = f => s(f).slice(0, 7);
@@ -161,8 +174,8 @@ export function armarVinculo(prev, datos, { recetas = [], hoy = '', por = '' } =
     if (!r) throw new Error('Elige la receta.');
     Object.assign(doc, { receta: r.id, recetaNombre: s(r.nombre) || r.id, area: areaDe(r.area) });
   } else if (tipo === 'reventa') {
-    const a = areaDe(datos.area);
-    if (!a) throw new Error('Elige el área a la que va la reventa.');
+    const a = areaMargenDe(datos.area);
+    if (!a) throw new Error('Elige el área a la que va la reventa (lo normal: Reventa).');
     let c = s(datos.costoReventaNeto).trim() === '' ? null : Number(String(datos.costoReventaNeto).replace(',', '.'));
     if (c !== null && !(c >= 0)) throw new Error('El costo de compra debe ser un número (o déjalo vacío).');
     if (c !== null && datos.conIva) c = red(c / 1.19, 2);
@@ -184,7 +197,7 @@ export function textoVinculo(v) {
   if (!v) return 'Sin asociar';
   if (v.tipo === 'ignorar') return 'No es un producto (no suma)';
   const u = upv(v) !== 1 ? ` × ${String(upv(v)).replace('.', ',')} un` : '';
-  if (v.tipo === 'reventa') return `Reventa · ${NOMBRE_AREA[v.area] || v.area}${v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? ` · costo $${Math.round(v.costoReventaNeto).toLocaleString('es-CL')} neto` : ''}${u}`;
+  if (v.tipo === 'reventa') return `Reventa${areaVinculo(v) === REVENTA ? '' : ' · ' + (NOMBRE_AREA[v.area] || v.area)}${v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? ` · costo $${Math.round(v.costoReventaNeto).toLocaleString('es-CL')} neto` : ''}${u}`;
   const ex = v.costoExtraNeto > 0 ? ` · envase $${Math.round(v.costoExtraNeto).toLocaleString('es-CL')}` : '';
   return `${v.recetaNombre || v.receta}${u}${ex}`;
 }
@@ -220,7 +233,7 @@ export function tablaVentas(productos, { canal = 'todos' } = {}) {
     if (!sucs.length) return;
     const tipo = v ? v.tipo : 'sin';
     const clave = tipo === 'receta' ? 'r:' + v.receta : (tipo === 'reventa' ? 'v:' : 's:') + p.clave;
-    const f = F[clave] || (F[clave] = { clave, tipo, nombre: tipo === 'receta' ? (v.recetaNombre || v.receta) : p.nombre, area: v ? v.area || '' : '', receta: tipo === 'receta' ? v.receta : null,
+    const f = F[clave] || (F[clave] = { clave, tipo, nombre: tipo === 'receta' ? (v.recetaNombre || v.receta) : p.nombre, area: areaVinculo(v), receta: tipo === 'receta' ? v.receta : null,
       productoClave: tipo === 'receta' ? null : p.clave, fuentes: [], porSuc: {}, cantidad: 0, unidades: 0, neto: 0 });
     const u = upv(v);
     f.fuentes.push({ canal: p.canal, nombre: p.nombre, unidadesPorVenta: u, clave: p.clave });
@@ -236,7 +249,7 @@ export function tablaVentas(productos, { canal = 'todos' } = {}) {
 }
 // Totales del período (sobre los productos vendidos): por área, por canal (sucursal), sin asociar, ignorado y cobertura
 export function totales(productos, { canal = 'todos' } = {}) {
-  const t = { total: 0, porArea: { PAN: 0, BOL: 0, PAS: 0, CAF: 0 }, porSuc: { barros: 0, ainavillo: 0, b2b: 0 }, sinAsociar: 0, ignorado: 0, reventa: 0, todo: 0, decidido: 0, nSinAsociar: 0 };
+  const t = { total: 0, porArea: Object.fromEntries(AREAS.map(a => [a, 0])), porSuc: { barros: 0, ainavillo: 0, b2b: 0 }, sinAsociar: 0, ignorado: 0, reventa: 0, todo: 0, decidido: 0, nSinAsociar: 0 };
   (productos || []).forEach(p => {
     const v = p.vinculo;
     let neto = 0;
@@ -248,7 +261,7 @@ export function totales(productos, { canal = 'todos' } = {}) {
     t.total += neto;
     if (!v) { t.sinAsociar += neto; t.nSinAsociar++; return; }
     if (v.tipo === 'reventa') t.reventa += neto;
-    if (v.area) t.porArea[v.area] = (t.porArea[v.area] || 0) + neto;
+    const ar = areaVinculo(v); if (ar) t.porArea[ar] = (t.porArea[ar] || 0) + neto;
   });
   return { ...t, ...cobertura(t.decidido, t.todo) };
 }

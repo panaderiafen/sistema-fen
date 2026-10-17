@@ -45,21 +45,21 @@
 //   guarda porMedio y el de B2B ordenesValidas. costos_config/finanzas.margenes (comisión por medio de pago, mezcla de la caja, despacho B2B,
 //   margen objetivo por área, redondeo) + historialMargenes. fin_productos.costoExtraNeto (envase por venta, neto).
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.69.0';
-import * as FB from './fs-gastos.js?v=0.69.0';
-import * as GB from './gastos-base.js?v=0.69.0';
-import * as P from './produccion.js?v=0.69.0';
-import * as FC from './finanzas-costos.js?v=0.69.0';
-import * as FS from './finanzas-sii.js?v=0.69.0';
-import * as FM from './finanzas-motor.js?v=0.69.0';
-import * as FV from './finanzas-ventas.js?v=0.69.0';
-import * as FMG from './finanzas-margenes.js?v=0.69.0';
-import * as FR from './finanzas-resultados.js?v=0.69.0';
-import * as FE from './finanzas-eerr.js?v=0.69.0';
-import * as Caja from './caja.js?v=0.69.0';
-import * as B from './b2b.js?v=0.69.0';
-import * as FBB from './firebase-b2b.js?v=0.69.0';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.69.0';
+import { auth as authSF } from './firebase.js?v=0.69.1';
+import * as FB from './fs-gastos.js?v=0.69.1';
+import * as GB from './gastos-base.js?v=0.69.1';
+import * as P from './produccion.js?v=0.69.1';
+import * as FC from './finanzas-costos.js?v=0.69.1';
+import * as FS from './finanzas-sii.js?v=0.69.1';
+import * as FM from './finanzas-motor.js?v=0.69.1';
+import * as FV from './finanzas-ventas.js?v=0.69.1';
+import * as FMG from './finanzas-margenes.js?v=0.69.1';
+import * as FR from './finanzas-resultados.js?v=0.69.1';
+import * as FE from './finanzas-eerr.js?v=0.69.1';
+import * as Caja from './caja.js?v=0.69.1';
+import * as B from './b2b.js?v=0.69.1';
+import * as FBB from './firebase-b2b.js?v=0.69.1';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.69.1';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -468,6 +468,37 @@ export async function confirmarCatalogo(items) {
   for (let i = 0; i < ops.length; i += LOTE) { const b = FB.writeBatch(db); ops.slice(i, i + LOTE).forEach(([ref, d]) => b.set(ref, d)); await b.commit(); }
   return ops.length / 2;
 }
+// v0.69.1 · "Pasar los productos de reventa al área REVENTA": una sola vez, con confirmación. Cada vínculo de reventa que no
+// está en REVENTA se lee en una transacción (si cambió mientras tanto, se usa lo nuevo; si ya no es reventa o ya está en
+// REVENTA, no se toca), se cambia solo el área y queda su historial. Nada se borra. Lecturas: 1 por vínculo; escrituras: 2.
+export const LOTE_REVENTA = 150;
+export async function pasarReventaArea(claves) {
+  const db = await dbG(), hoy = hoyTxt(), por = yo(), lista = [...new Set((claves || []).filter(Boolean))];
+  let n = 0;
+  const cambiados = {};
+  for (let i = 0; i < lista.length; i += LOTE_REVENTA) {
+    const parte = lista.slice(i, i + LOTE_REVENTA);
+    const r = await FB.runTransaction(db, async tx => {
+      const refs = parte.map(c => FB.doc(db, 'fin_productos', c));
+      const sns = await Promise.all(refs.map(ref => tx.get(ref)));
+      const hechos = {};
+      sns.forEach((sn, k) => {
+        if (!sn.exists()) return;
+        const prev = sn.data();
+        if (!prev || prev.tipo !== 'reventa' || prev.area === FV.REVENTA) return;
+        const doc = { ...prev, area: FV.REVENTA, fecha: hoy, por, origen: 'reventa_v0691', nota: 'Pasado al área REVENTA (v0.69.1)' };
+        delete doc.updatedAt;
+        const corto = x => ({ tipo: x.tipo, receta: x.receta || null, recetaNombre: x.recetaNombre || '', unidadesPorVenta: x.unidadesPorVenta ?? 1, area: x.area || '', costoReventaNeto: x.costoReventaNeto ?? null, ...(x.costoExtraNeto !== null && x.costoExtraNeto !== undefined ? { costoExtraNeto: x.costoExtraNeto } : {}) });
+        tx.set(refs[k], { ...doc, updatedAt: FB.serverTimestamp() });
+        tx.set(FB.doc(db, 'fin_productos_hist', idNuevo('vp-')), { clave: parte[k], nombre: prev.nombre || '', accion: 'cambio', antes: corto(prev), despues: corto(doc), origen: 'reventa_v0691', nota: doc.nota, fecha: hoy, por, en: FB.serverTimestamp() });
+        hechos[parte[k]] = doc;
+      });
+      return hechos;
+    });
+    Object.assign(cambiados, r); n += Object.keys(r).length;
+  }
+  return { n, cambiados, lecturas: lista.length, escrituras: n * 2 };
+}
 export async function historialVinculo(clave) {
   const db = await dbG();
   const sn = await FB.getDocs(FB.query(FB.collection(db, 'fin_productos_hist'), FB.where('clave', '==', clave)));
@@ -631,8 +662,8 @@ export async function cargosCartola() {
 // v0.66.0 · Documentos del SII por clasificar (subidos, sin gasto todavía), de la memoria: para el cierre y el estado de resultados
 // v0.67.1: lo mismo que Conciliación (sin lo que ya tiene su gasto registrado: eso no se cuenta en el cierre)
 export async function siiPorClasificar() {
-  try { return await (await import('./sii-pendientes-fs.js?v=0.69.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
-  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.69.0');
+  try { return await (await import('./sii-pendientes-fs.js?v=0.69.1')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
+  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.69.1');
   const sn = await FB.getDocs(FB.collection(db, 'sii_docs'));
   return SP.pendientesDe(sn.docs.map(d => ({ id: d.id, d: d.data() })));
 }

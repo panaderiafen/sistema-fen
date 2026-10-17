@@ -17,9 +17,10 @@
 //
 //  Config (costos_config/finanzas, campo "margenes"):
 //   { comision: { debito, credito, otros } (% o null = falta configurar), mixCaja: { debito, credito, otros } (% o null),
-//     despacho: { modo: 'pct'|'orden', valor }, margenObjetivo: { PAN, BOL, PAS, CAF } (% o null), redondeo: 10|50|100 }
+//     despacho: { modo: 'pct'|'orden', valor }, margenObjetivo: { PAN, BOL, PAS, CAF, REVENTA } (% o null), redondeo: 10|50|100 }
+//  v0.69.1: área REVENTA (las de margen salen de areas.js): una reventa sin área cuenta en REVENTA; la elegida se respeta.
 // ═══════════════════════════════════════════════
-import { AREAS, NOMBRE_AREA, SUCS, canalDeSuc, claveProducto, upv, mesDe, ultimoDia } from './finanzas-ventas.js?v=0.69.0';
+import { AREAS, NOMBRE_AREA, SUCS, canalDeSuc, claveProducto, upv, mesDe, ultimoDia, areaVinculo } from './finanzas-ventas.js?v=0.69.1';
 
 export const IVA = 0.19;
 export const TOLERANCIA = 5;           // % de diferencia con el precio sugerido que todavía es "OK"
@@ -158,7 +159,7 @@ export function calcularMargenes(meses, vinculos, costos, cfg, { hoy, modo = 'me
       const tipo = v && (v.tipo === 'receta' || v.tipo === 'reventa') ? v.tipo : 'sin';
       const k = tipo === 'receta' ? 'r:' + v.receta : (tipo === 'reventa' ? 'v:' : 's:') + clave;
       const u = upv(v), cant = num(l.cantidad), unidades = cant * u, neto = num(l.neto);
-      const f = F[k] || (F[k] = { clave: k, tipo, nombre: tipo === 'receta' ? (v.recetaNombre || v.receta) : s(l.nombre), area: v ? s(v.area) : '', receta: tipo === 'receta' ? v.receta : null,
+      const f = F[k] || (F[k] = { clave: k, tipo, nombre: tipo === 'receta' ? (v.recetaNombre || v.receta) : s(l.nombre), area: areaVinculo(v), receta: tipo === 'receta' ? v.receta : null,
         productoClave: tipo === 'receta' ? null : clave, unidad: 'un', fuentes: {}, porSuc: {}, cantidad: 0, unidades: 0, neto: 0, costo: 0, comision: 0, despacho: 0, extra: 0, motivos: new Set(), fuenteCosto: new Set() });
       f.fuentes[clave] = { nombre: s(l.nombre), canal: cn, productoId: l.productoId, unidadesPorVenta: u };
       // Costo directo
