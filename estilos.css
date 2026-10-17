@@ -1952,3 +1952,22 @@ dialog .reg-det { text-align: left; }
 .rc-lados { margin-top: 12px; }
 .rc-editor .rc-form { max-width: 760px; }
 .rc-cab .ayuda { max-width: 70ch; }
+
+/* ═══ v0.69.2 · Pagos mixtos: el resto de un pago parcial y el historial de pagos de un documento ═══ */
+.cc-resto { margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--linea); border-radius: 10px; background: var(--tarjeta, #FFFDF9); }
+.cc-resto .cc-parcial-doc { margin-top: 0; }
+.cc-resto .cc-parcial-sub { display: block; margin-top: 4px; font-weight: 400; }
+.cc-resto-op { margin: 6px 0 8px; flex-wrap: wrap; }
+.cc-resto-f input[type="date"] { max-width: 220px; }
+.cc-resto-prev, .cc-resto-txt, .cc-partes { overflow-wrap: anywhere; }
+.cc-resto-prev { color: var(--texto); }
+.mov-folio-btn .cc-partes { display: block; font-size: 12px; color: var(--suave); }
+.bj-hist-pagos { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--linea); }
+.bj-partes { margin: 4px 0; padding-left: 18px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.bj-partes li { overflow-wrap: anywhere; }
+.dg-pagado { overflow-wrap: anywhere; }
+.ap-medio { margin: 8px 0; }
+.ap-medio legend { font-weight: 600; margin-bottom: 4px; }
+.ap-medio .pastillas { flex-wrap: wrap; }
+.dlg-sino .botones { flex-wrap: wrap; }
+.cc-resto .botones .btn, .sinb-fila .botones .btn { white-space: normal; max-width: 100%; text-align: left; height: auto; padding-top: 8px; padding-bottom: 8px; }

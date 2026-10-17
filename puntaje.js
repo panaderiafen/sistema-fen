@@ -94,6 +94,10 @@ function quienCargo(c, p) {
   if (p && p.combo && p.conf === 'seguro') return { k: 'quien', pts: PESOS.quien.rut, txt: 'mismo RUT del proveedor' };
   if (p && (p.por === 'proveedor' || (p.combo && c.proveedor))) return { k: 'quien', pts: PESOS.quien.nombre, txt: 'proveedor reconocido' + (c.proveedor && c.proveedor.nombre ? ` (${c.proveedor.nombre})` : '') };
   if (p && p.por === 'aprendido') return { k: 'quien', pts: PESOS.quien.glosa, txt: 'glosa aprendida' };
+  // v0.69.2 · El saldo de un documento con partes: el proveedor del cargo es el del documento (RUT o nombre)
+  if (p && p.saldoDoc && p.quien === 'rut') return { k: 'quien', pts: PESOS.quien.rut, txt: c.rutDe === 'tef' ? 'mismo RUT del documento (transferencia enviada)' : 'mismo RUT del documento' };
+  if (p && p.saldoDoc && p.quien === 'proveedor') return { k: 'quien', pts: PESOS.quien.nombre, txt: 'proveedor reconocido' + (c.proveedor && c.proveedor.nombre ? ` (${c.proveedor.nombre})` : '') };
+  if (p && p.saldoDoc) return { k: 'quien', pts: PESOS.quien.parcial, txt: 'nada dice que sea de ese proveedor', malo: true };
   if (p && (p.por === 'monto fijo' || p.por === 'documento' || p.por === 'saldo')) return { k: 'quien', pts: PESOS.quien.obligacion, txt: 'obligación conocida' };
   if (p && p.por === 'regla') return { k: 'quien', pts: PESOS.quien.glosa, txt: 'la glosa calza con tu regla' };
   if (p && p.por === 'glosa') return { k: 'quien', pts: PESOS.quien.glosa, txt: 'la glosa dice Previred' };
@@ -113,7 +117,10 @@ function montoCargo(c, p, ctx) {
   if (p.tipo === 'gasto' && !p.combo && p.gasto && Math.abs(Math.abs(n(p.gasto.monto)) - c.monto) > 1) return { k: 'monto', pts: PESOS.monto.lejos, txt: `otro monto (${pesos(p.gasto.monto)})`, malo: true };
   if (p.tipo === 'gasto') return p.combo ? { k: 'monto', pts: PESOS.monto.combinacion, txt: 'la suma calza exacto' } : { k: 'monto', pts: PESOS.monto.exacto, txt: 'monto exacto' };
   if (p.tipo === 'sii_pend') { const v = (D.siiPendientes || []).find(x => x.id === p.docId); if (v && Math.abs(Math.abs(n(v.total)) - c.monto) > 1) return { k: 'monto', pts: PESOS.monto.lejos, txt: `otro monto (${pesos(v.total)})`, malo: true }; }
+  if (p.tipo === 'abono_parcial' && p.saldoDoc) return { k: 'monto', pts: PESOS.monto.exacto, txt: `el saldo exacto (de ${pesos(p.total)}, ya tiene ${p.partes} ${p.partes === 1 ? 'pago' : 'pagos'})` };
   if (p.tipo === 'sii_pend' || p.tipo === 'abono_parcial') return { k: 'monto', pts: PESOS.monto.exacto, txt: 'monto exacto' };
+  // v0.69.2 · Un pago parcial: el monto no calza con el documento (paga una parte)
+  if (p.tipo === 'pago_parcial') return { k: 'monto', pts: PESOS.monto.lejos, txt: `paga una parte: ${pesos(c.monto)} de ${pesos(p.pendiente)}, falta ${pesos(p.falta)}`, malo: true };
   // Resultados sin documento (gasto nuevo, no es gasto, tarjeta, traspaso, abono de sueldo, Previred): el rango de la regla o el último monto
   if (r && (r.cond.montoMin !== null || r.cond.montoMax !== null)) return { k: 'monto', pts: PESOS.monto.rango, txt: 'monto dentro del rango de la regla' };
   const ult = r ? n(r.ultimoMonto) : 0;
@@ -134,6 +141,14 @@ function fechaCargo(c, p, ctx) {
     if (Math.abs(d) <= 3) return { k: 'fecha', pts: PESOS.fecha.ritmo, txt: d === 0 ? 'el mismo día del vencimiento' : `a ${dd(Math.abs(d))} del vencimiento` };
     return factorFecha(v.fecha, c.fecha, null, d >= -15 && d <= 10, 'del vencimiento');
   }
+  // v0.69.2 · El saldo de un documento con partes y el pago parcial: la fecha del documento (o de su saldo)
+  if ((p.tipo === 'abono_parcial' && p.saldoDoc) || (p.tipo === 'pago_parcial' && p.doc)) {
+    const v = p.vencId ? vs.find(x => x.id === p.vencId) : p.doc && p.doc.tipo === 'venc' ? vs.find(x => x.id === p.doc.vencId) : null;
+    const f = v ? v.fecha : p.doc && p.doc.fecha; if (!f) return null;
+    const d = diasEntre(f, c.fecha); if (d === null) return null;
+    if (Math.abs(d) <= 3) return { k: 'fecha', pts: PESOS.fecha.ritmo, txt: d === 0 ? 'el mismo día que vence el saldo' : `a ${dd(Math.abs(d))} de la fecha del saldo` };
+    return factorFecha(f, c.fecha, null, d >= -15 && d <= 45, v ? 'de la fecha del saldo' : 'del documento');
+  }
   if (p.tipo === 'sii_pend') {
     const v = (D.siiPendientes || []).find(x => x.id === p.docId); if (!v) return null;
     const rut = s(v.rut || v.rutEmisor).toUpperCase().replace(/[^0-9K]/g, '');
@@ -150,6 +165,8 @@ function fuenteCargo(c, p) {
   if (p.tipo === 'gasto' && p.combo) return { k: 'fuente', pts: PESOS.fuente.combinacion, txt: 'combinación de documentos del proveedor' };
   if (p.tipo === 'gasto') { const esp = !!(p.gasto && (p.gasto.esperaCargo || p.gasto.clase === 'espera')); return { k: 'fuente', pts: esp ? PESOS.fuente.gastoEspera : p.por === 'monto' && !p.seguro ? PESOS.fuente.monto : p.por === 'monto' ? PESOS.fuente.gastoEspera : PESOS.fuente.gasto, txt: p.registrado ? 'factura del SII ya registrada' : esp ? 'pago registrado a mano que espera su cargo' : 'gasto ya registrado, sin cargo' }; }
   if (p.tipo === 'sii_pend') return { k: 'fuente', pts: PESOS.fuente.documento, txt: 'factura del SII por clasificar' };
+  if (p.tipo === 'abono_parcial' && p.saldoDoc) return { k: 'fuente', pts: PESOS.fuente.documento, txt: 'el saldo de un documento que ya tiene pagos' };
+  if (p.tipo === 'pago_parcial') return { k: 'fuente', pts: PESOS.fuente.documento, txt: 'documento del proveedor por pagar, mayor que el cargo' };
   if (p.registrado) return { k: 'fuente', pts: PESOS.fuente.documento, txt: 'factura del SII ya registrada' };
   if (p.tipo === 'vencimientos' && p.sinPropuesta) return { k: 'fuente', pts: PESOS.fuente.documento, txt: 'vencimientos de la obligación' };
   if (p.por === 'monto') return { k: 'fuente', pts: PESOS.fuente.monto, txt: FUENTE_TXT.monto };
@@ -162,7 +179,8 @@ function topeCargo(p) {
   if (p.tipo === 'abono') return 'los abonos de sueldo se revisan siempre';
   if (p.tipo === 'gasto' && p.combo) return 'una combinación se revisa en el detalle';
   if (p.tipo === 'sii_pend') return 'la factura se clasifica antes';
-  if (p.tipo === 'abono_parcial') return 'el abono parcial se revisa';
+  if (p.tipo === 'abono_parcial') return p.saldoDoc ? 'el proveedor del cargo no se reconoce como el del documento' : 'el abono parcial se revisa';
+  if (p.tipo === 'pago_parcial') return 'un pago parcial se revisa siempre';
   if ((p.por === 'regla' || p.por === 'aprendido') && p.nivelRegla === 'proponer') return 'la regla solo propone';
   return 'probable: confírmalo tú';
 }

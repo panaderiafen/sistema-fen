@@ -8,13 +8,13 @@
 //  v0.50.0: con Gastos en la base nueva, todo va a gastos-cartola-fs.js (fen-gastos) y las propuestas siguen la forma de
 //  trabajar acordada (gastos-cartola.js: monto fijo, documento, abonos). Con la planilla, igual que en la v0.49.0.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.69.1';
-import * as CB from './gastos-cartola.js?v=0.69.1';
-export { resumenLote } from './gastos-cartola.js?v=0.69.1';
+import * as Gastos from './gastos.js?v=0.69.2';
+import * as CB from './gastos-cartola.js?v=0.69.2';
+export { resumenLote } from './gastos-cartola.js?v=0.69.2';
 
 export const VERSION_CARTOLA = '2.8.0';
 const op = (o, d, idem) => Gastos.llamar(o, d, idem, VERSION_CARTOLA);
-const fsC = () => import('./gastos-cartola-fs.js?v=0.69.1');
+const fsC = () => import('./gastos-cartola-fs.js?v=0.69.2');
 const enBase = () => Gastos.enBase();
 
 let cache = null;
@@ -54,7 +54,7 @@ export async function guardarArchivo(file, cartola, idem) {
   return r;
 }
 export async function resolver(d, idem) { const r = (await enBase()) ? await (await fsC()).resolver(d) : await op('cc_resolver', d, idem); olvidar(); Gastos.olvidarTodo(); return r; }
-export async function deshacer(id, motivo, idem) { const r = (await enBase()) ? await (await fsC()).deshacer(id, motivo) : await op('cc_deshacer', { id, motivo }, idem); olvidar(); Gastos.olvidarTodo(); return r; }
+export async function deshacer(id, motivo, idem, opc = {}) { const r = (await enBase()) ? await (await fsC()).deshacer(id, motivo, opc) : await op('cc_deshacer', { id, motivo }, idem); olvidar(); Gastos.olvidarTodo(); return r; }
 export async function quitarRegla(clave) { const r = (await enBase()) ? await (await fsC()).quitarRegla(clave) : await op('cc_quitar_regla', { clave }); olvidar(); return r; }
 // v0.50.0 · Confirmar varios de una vez: cada uno por su lado (si uno falla, los demás siguen) e idempotente por el cargo.
 // lista: [{ c, pedido }]; avance(hechos, total, c). Devuelve { ok: [ids], errores: [{ c, error }] }

@@ -15,18 +15,19 @@
 //  · v0.67.2: un documento cuyos gastos fueron todos anulados vuelve a por clasificar (contexto, una escritura por documento, una
 //    vez) y "Volver a clasificar" (infoVolver, volverAClasificar).
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.69.1';
-import * as M from './gastos-g2.js?v=0.69.1';
-import * as S from './gastos-sii.js?v=0.69.1';
-import * as SP from './sii-pendientes.js?v=0.69.1';
-import * as G3 from './gastos-g3.js?v=0.69.1';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo } from './gastos-fs.js?v=0.69.1';
+import * as FB from './fs-gastos.js?v=0.69.2';
+import * as M from './gastos-g2.js?v=0.69.2';
+import * as S from './gastos-sii.js?v=0.69.2';
+import * as SP from './sii-pendientes.js?v=0.69.2';
+import * as G3 from './gastos-g3.js?v=0.69.2';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo, abonoParcial } from './gastos-fs.js?v=0.69.2';
+import * as PM from './pagos-mixtos.js?v=0.69.2';   // v0.69.2: documentos pagados en partes con saldo
 
 const s = v => String(v == null ? '' : v);
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const ahora = () => M.ahoraChile().texto;
 const hoy = () => M.ahoraChile().dia;
-const SIIF = () => import('./gastos-sii-fs.js?v=0.69.1');
+const SIIF = () => import('./gastos-sii-fs.js?v=0.69.2');
 export const COL_PAGOS = 'sii_pagos';
 
 // ── Configuración (días) ──
@@ -230,23 +231,27 @@ export async function volverAClasificar(docId, motivoP) {
 }
 async function pagos() { try { return (await todos(COL_PAGOS)).filter(x => !x.d.quitado).map(x => ({ id: x.id, ...x.d })); } catch (e) { return []; } }
 // Lo que muestra la pestaña "Pagos sin banco"
+// v0.69.2 · La lista: las facturas sin pago del banco y los documentos pagados en partes con saldo cuya fecha ya pasó
+const listaSinBanco = (pend, gs, pg, c, vencs) => SP.pagosSinBanco({ pendientes: pend, gastos: gs, pagos: pg, hoy: hoy(), dias: c.dias })
+  .concat(PM.saldosSinBanco(vencs, hoy())).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || String(a.folio).localeCompare(String(b.folio)));
 export async function datos() {
   const [pend, gs, pg, c, vencs] = await Promise.all([pendientes(), todos('gastos', FB.where('esperaPago', '==', true)).catch(() => []), pagos(), config(), todos('vencimientos')]);
-  const lista = SP.pagosSinBanco({ pendientes: pend, gastos: gs, pagos: pg, hoy: hoy(), dias: c.dias });
-  // "Todavía por pagar" ya registrados: vencimientos abiertos de facturas del SII (para reagendar)
-  const porPagar = vencs.filter(x => x.d && !x.d.quitadoEnPlanilla && x.d.porPagarSinBanco === true && G3.abierto(x.d))
+  const lista = listaSinBanco(pend, gs, pg, c, vencs), conSaldo = new Set(lista.filter(x => x.saldo).map(x => x.vencId));
+  // "Todavía por pagar" ya registrados: vencimientos abiertos de facturas del SII (para reagendar); los que ya pasaron su fecha y
+  // tienen partes van arriba, en la lista (v0.69.2)
+  const porPagar = vencs.filter(x => x.d && !x.d.quitadoEnPlanilla && x.d.porPagarSinBanco === true && G3.abierto(x.d) && !conSaldo.has(x.id))
     .map(x => ({ id: x.id, nombre: s(x.d.nombre), fecha: G3.fechaReal(x.d), monto: Number(x.d.montoEstimado) || 0 })).sort((a, b) => a.fecha.localeCompare(b.fecha));
   return { lista, pagos: pg, config: c, porPagar, pendientes: pend };
 }
 // Hoy: conteos desde la memoria
 export async function conteosHoy() {
-  const [pend, gs, pg, c] = await Promise.all([pendientes(), todos('gastos', FB.where('esperaPago', '==', true)).catch(() => []), pagos(), config()]);
-  return SP.conteosHoy(pend, SP.pagosSinBanco({ pendientes: pend, gastos: gs, pagos: pg, hoy: hoy(), dias: c.dias }));
+  const [pend, gs, pg, c, vencs] = await Promise.all([pendientes(), todos('gastos', FB.where('esperaPago', '==', true)).catch(() => []), pagos(), config(), todos('vencimientos').catch(() => [])]);
+  return SP.conteosHoy(pend, listaSinBanco(pend, gs, pg, c, vencs));
 }
 // Las pestañas de Conciliación (los números junto al nombre): todo desde la memoria
 export async function conteos() {
-  const [pend, gs, pg, c, ga] = await Promise.all([pendientes(), todos('gastos', FB.where('esperaPago', '==', true)).catch(() => []), pagos(), config(), todos('gastos', FB.where('clasificacionAutomatica', '==', true)).catch(() => [])]);
-  return { porClasificar: pend.filter(v => !v.esNC).length, sinBanco: SP.pagosSinBanco({ pendientes: pend, gastos: gs, pagos: pg, hoy: hoy(), dias: c.dias }).length, automaticas: SP.automaticasDe(ga).length };
+  const [pend, gs, pg, c, ga, vencs] = await Promise.all([pendientes(), todos('gastos', FB.where('esperaPago', '==', true)).catch(() => []), pagos(), config(), todos('gastos', FB.where('clasificacionAutomatica', '==', true)).catch(() => []), todos('vencimientos').catch(() => [])]);
+  return { porClasificar: pend.filter(v => !v.esNC).length, sinBanco: listaSinBanco(pend, gs, pg, c, vencs).length, automaticas: SP.automaticasDe(ga).length };
 }
 // Cargas del SII → "Por clasificar" y "Revisar automáticas"
 export async function documentos() {
@@ -324,7 +329,7 @@ export async function clasificar(docId, lineas, pago, opc = {}) {
   const SF = await SIIF();
   await SF.importar([f], false, opc.marca || M.marcaNueva(), { formato: v.formato, archivo: v.archivo, cargaId: v.cargaId });
   const sn2 = await FB.getDoc(ref), im = (sn2.exists() && sn2.data().importado) || {};
-  try { import('./finanzas.js?v=0.69.1').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
+  try { import('./finanzas.js?v=0.69.2').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
   return { ok: true, gastos: im.gastos || [], vencimiento: im.vencimiento || '' };
 }
 
@@ -359,6 +364,16 @@ export async function marcarPago(x, medio, fecha, lineas, origen, detalle) {
     historial: [{ que: medio === 'efectivo' ? `pagada en efectivo (${SP.textoOrigen(org)})` : 'pagada con tarjeta de crédito', por, en }] };
   await FB.setDoc(FB.doc(d, COL_PAGOS, idPago(x.docId)), limpio(reg));
   return { ok: true, gastos: ids };
+}
+// v0.69.2 · El saldo de un documento pagado en partes, pagado en efectivo o con tarjeta: una parte más (abono con su medio), con
+// su pago guardado en sii_pagos (efectivo disponible y flujo de caja). Cuando completa el total, el documento queda pagado.
+// x: fila de saldosSinBanco; medio 'efectivo' | 'tarjeta'; origen: { origen, origenTexto } (efectivo)
+export async function pagarSaldo(x, medio, fecha, origen) {
+  if (!['efectivo', 'tarjeta'].includes(medio)) throw error('Elige cómo se pagó', 'datos');
+  if (!M.esIso(fecha)) throw error('Elige la fecha del pago', 'datos');
+  if (!x || !x.vencId || !(Number(x.monto) > 0)) throw error('Falta el documento', 'datos');
+  const r = await abonoParcial(x.vencId, { monto: Math.round(Number(x.monto)), fecha, origen: 'mano', medio, origenEfectivo: origen && origen.origen, origenTexto: origen && origen.origenTexto, obs: 'Pagos sin banco: el saldo' }, M.marcaNueva());
+  return { ok: true, final: !!r.final, saldo: r.saldo || 0 };
 }
 // "Todavía por pagar": un vencimiento con la fecha esperada. Por clasificar: se clasifica e importa a crédito (crea su vencimiento).
 export async function porPagar(x, fecha, lineas, detalle) {

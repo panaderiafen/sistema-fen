@@ -25,16 +25,17 @@
 //    salió: tipo, quién, cuándo y lo propio de cada origen); "origen" sigue siendo el texto de siempre (el script lo usa).
 //    Hoy: "Esperan cartola". detalleGasto(ids): las líneas y su origen, para el detalle del gasto.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.69.1';
-import * as FB from './fs-gastos.js?v=0.69.1';
-import * as GB from './gastos-base.js?v=0.69.1';
-import * as GP from './gastos-planilla.js?v=0.69.1';
-import * as M from './gastos-g2.js?v=0.69.1';
-import * as G3 from './gastos-g3.js?v=0.69.1';
-import * as G3D from './gastos-g3d.js?v=0.69.1';
-import * as B from './gastos-banco.js?v=0.69.1';
-import { dia } from './gastos-modelo.js?v=0.69.1';
-import * as AB from './gastos-abono.js?v=0.69.1';
+import { auth as authSF } from './firebase.js?v=0.69.2';
+import * as FB from './fs-gastos.js?v=0.69.2';
+import * as GB from './gastos-base.js?v=0.69.2';
+import * as GP from './gastos-planilla.js?v=0.69.2';
+import * as M from './gastos-g2.js?v=0.69.2';
+import * as G3 from './gastos-g3.js?v=0.69.2';
+import * as G3D from './gastos-g3d.js?v=0.69.2';
+import * as B from './gastos-banco.js?v=0.69.2';
+import { dia } from './gastos-modelo.js?v=0.69.2';
+import * as AB from './gastos-abono.js?v=0.69.2';
+import * as PM from './pagos-mixtos.js?v=0.69.2';   // v0.69.2: pagos mixtos (partes de un documento)
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';
@@ -665,26 +666,25 @@ export async function abonoParcial(vencId, a, marca) {
   const d = await db(), ref = FB.doc(d, 'vencimientos', String(vencId || '')), sn0 = await FB.getDoc(ref);
   if (!sn0.exists() || sn0.data().quitadoEnPlanilla) throw error('Ese vencimiento ya no existe', 'datos');
   const v0 = sn0.data(), clave = marca.t + marca.r, quien = correo() || 'Sistema Fën';
-  const pre = G3.abonoParcial(v0, { ...a, clave });
+  // v0.69.2 · El medio de esta parte (Banco/transferencia, Efectivo o Tarjeta) y, en efectivo, de dónde salió
+  const medio = ['banco', 'efectivo', 'tarjeta'].includes(String(a.medio || '')) ? String(a.medio) : a.origen === 'cartola' ? 'banco' : '';
+  let org = {};
+  if (medio === 'efectivo') { const r = PM.revisarResto({ medio: 'efectivo', fecha: a.fecha, origen: a.origenEfectivo, origenTexto: a.origenTexto }, 1); if (r.error) throw error(r.error, 'datos'); org = { origenEfectivo: r.limpio.origenEfectivo, ...(r.limpio.origenTexto ? { origenTexto: r.limpio.origenTexto } : {}) }; }
+  const pagoId = medio === 'efectivo' || medio === 'tarjeta' ? PM.idPago(ref.id, clave) : '';
+  const pre = G3.abonoParcial(v0, { ...a, ...org, medio, pagoId, clave });
   if (pre.repetido) return { ok: true, repetido: true };
   if (pre.error) throw error(pre.error, 'datos');
   const conL = G3.conLineas(v0);
   // Factura del SII o compra a crédito que queda pagada con este abono: sus gastos reciben la fecha de pago
+  // v0.69.2: los gastos del documento guardados en el vencimiento (gastosDoc) mandan; si no, se buscan como antes
   let credito = [];
-  if (!conL && pre.final) {
-    const m = /^\s*📋\s*(.*?)\s+F\.(\d+)\s*$/.exec(s(v0.nombre)), folio = m ? m[2] : '';
-    if (folio) credito = (await todos('gastos', FB.where('folio', '==', folio))).filter(x => x.d.estado === 'vigente' && !s(x.d.fechaPago) && ['proveedor', 'tarjeta'].includes(s(x.d.formaPago)));
-    if (!credito.length && s(v0.item)) {
-      const delItem = (await todos('gastos', FB.where('itemGasto', '==', s(v0.item)))).sort((x, y) => s(y.d.fecha).localeCompare(s(x.d.fecha)) || s(y.d.hora).localeCompare(s(x.d.hora)) || y.id.localeCompare(x.id));
-      credito = M.gastosDelCredito(M.vistaVencimiento(ref.id, v0), delItem);
-    }
-  }
+  if (!conL && (pre.final || medio === 'efectivo' || medio === 'tarjeta')) credito = await gastosDelDocumento(ref.id, v0);
   const hora = M.ahoraChile().hora, en = M.ahoraChile().texto;
   const r = await FB.runTransaction(d, async tx => {
     const sn = await tx.get(ref), v = sn.data();
     const refsC = credito.map(x => FB.doc(d, 'gastos', x.id)), snC = [];
     for (const rf of refsC) snC.push(await tx.get(rf));
-    const x = G3.abonoParcial(v, { ...a, clave, por: quien, en });
+    const x = G3.abonoParcial(v, { ...a, ...org, medio, pagoId, clave, por: quien, en });
     if (x.repetido) return { repetido: true };
     if (x.error) throw error(x.error, 'datos');
     let lineas = [], ids = [], tocados = 0;
@@ -697,17 +697,44 @@ export async function abonoParcial(vencId, a, marca) {
       lineas.forEach((l, k) => tx.set(FB.doc(d, 'gastos', ids[k]), nuevo({ ...l, ...(a.cartola ? { cartola: s(a.cartola), cartolaCargo: s(a.cargoId) } : {}), origenDetalle: od }, 'obligacion')));
       x.campos.abonos[x.campos.abonos.length - 1].gastoIds = ids;
     }
+    const vN = { ...v, ...x.campos };
     if (!conL && x.final) snC.forEach((s2, i) => {
       if (!s2.exists()) return; const g = s2.data(); if (g.fechaPago || g.estado !== 'vigente') return;
-      tx.update(refsC[i], cambio(g, 'pagó (último abono)', { fechaPago: a.fecha, ...(a.cartola ? { cartola: s(a.cartola), cartolaCargo: s(a.cargoId) } : {}) }, { vencimiento: ref.id })); tocados++;
+      // v0.69.2: con más de una parte (o alguna sin banco), el gasto dice cómo se pagó: "Pagado: $X banco (cargo dd-mm) + $Z efectivo…"
+      const mix = PM.partesDe(vN).length > 1 || PM.partesDe(vN).some(p => p.medio !== 'banco') ? { pagoMixto: PM.pagoMixtoDe(vN) } : {};
+      tx.update(refsC[i], cambio(g, 'pagó (último abono)', { fechaPago: x.campos.fechaPago || a.fecha, ...mix, ...(a.cartola ? { cartola: s(a.cartola), cartolaCargo: s(a.cargoId) } : {}) }, { vencimiento: ref.id })); tocados++;
     });
-    tx.update(ref, cambio(v, x.final ? 'último abono (pagado)' : 'abono parcial', x.campos, { monto: x.abono.monto }));
-    return { lineas: lineas.length, gastos: ids, completados: tocados, final: x.final, saldo: x.saldo, total: x.total, n: x.campos.abonos.length };
+    tx.update(ref, cambio(v, x.final ? 'último abono (pagado)' : 'abono parcial', x.campos, { monto: x.abono.monto, ...(medio ? { medio } : {}) }));
+    // v0.69.2 · En efectivo o con tarjeta: también queda como pago (sii_pagos), para el efectivo disponible y el flujo de caja
+    let pagos = 0;
+    if (pagoId) {
+      const g0 = (snC.find(z => z.exists()) || { data: () => ({}) }).data();
+      const doc = { docId: s(v.siiDocId) || s(g0.siiDoc && g0.siiDoc.id), vencimientoId: ref.id, rut: s(v.rutProveedor || g0.rutProveedor), folio: s(v.folio || g0.folio), razonSocial: s(v.razonSocial || g0.razonSocial), fechaFactura: dia(g0.fecha) || '', gastos: credito.map(z => z.id) };
+      tx.set(FB.doc(d, 'sii_pagos', pagoId), limpio(PM.registroPago(doc, { medio, fecha: a.fecha, monto: x.abono.monto, ...org }, { por: quien, en, clave })));
+      pagos = 1;
+    }
+    return { lineas: lineas.length, gastos: ids, completados: tocados, final: x.final, saldo: x.saldo, total: x.total, n: x.campos.abonos.length, pagos, pagoId };
   });
   if (r.repetido) return { ok: true, repetido: true };
   await despues(1 + r.lineas + r.completados);
   if (r.final) { try { await vencimientosAlDia(); } catch (e) {} }
   return { ok: true, ...r };
+}
+// v0.69.2 · Los gastos del documento de un vencimiento (factura o compra): los guardados en él (gastosDoc) o, como antes, por el
+// folio del nombre ("📋 RAZÓN F.123") o por el ítem y la fecha de compra. Solo los vigentes que todavía no tienen fecha de pago.
+export async function gastosDelDocumento(vid, v) {
+  if (Array.isArray(v.gastosDoc) && v.gastosDoc.length) {
+    const d = await db(), sns = await Promise.all(v.gastosDoc.slice(0, 40).map(id => FB.getDoc(FB.doc(d, 'gastos', String(id)))));
+    return sns.filter(x => x.exists() && x.data().estado === 'vigente').map(x => ({ id: x.id, d: x.data() }));
+  }
+  const m = /^\s*📋\s*(.*?)\s+F\.(\d+)\s*$/.exec(s(v.nombre)), folio = m ? m[2] : s(v.folio);
+  let l = [];
+  if (folio) l = (await todos('gastos', FB.where('folio', '==', folio))).filter(x => x.d.estado === 'vigente' && !s(x.d.fechaPago) && ['proveedor', 'tarjeta'].includes(s(x.d.formaPago)));
+  if (!l.length && s(v.item)) {
+    const delItem = (await todos('gastos', FB.where('itemGasto', '==', s(v.item)))).sort((x, y) => s(y.d.fecha).localeCompare(s(x.d.fecha)) || s(y.d.hora).localeCompare(s(x.d.hora)) || y.id.localeCompare(x.id));
+    l = M.gastosDelCredito(M.vistaVencimiento(vid, v), delItem);
+  }
+  return l;
 }
 // "Reagendar saldo": fecha nueva para lo que falta pagar (vale para Agenda, Hoy y los atrasos)
 export async function reagendarSaldo(vencId, fecha, nota) {

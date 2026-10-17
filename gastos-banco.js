@@ -500,9 +500,17 @@ export function resumenLineas(lineas) {
   const d0 = L[0] || {};
   const neto = L.reduce((t, d) => t + n(d.montoNeto), 0), total = L.reduce((t, d) => t + n(d.montoFinal), 0);
   const forma = s(d0.formaPago || 'contado'), medio = s(d0.medioPago || (d0.origenDetalle || {}).medio);
-  const formaTxt = forma === 'tarjeta' ? 'Tarjeta de crédito' : forma === 'proveedor' ? 'Crédito proveedor' + (s(d0.fechaPago) ? ` (pagado el ${dma(d0.fechaPago)})` : '') : medio === 'efectivo' ? 'Contado · efectivo' : medio === 'banco' ? 'Contado · transferencia o banco' : 'Contado';
+  // v0.69.2 · Pagado en partes (un cargo y el resto en efectivo o con tarjeta, o varios cargos): lo dice tal cual
+  const mix = d0.pagoMixto && Array.isArray(d0.pagoMixto.partes) && d0.pagoMixto.partes.length ? d0.pagoMixto : null;
+  const pagado = mix ? textoPagadoMix(mix) : '';
+  const formaTxt = mix ? `Pagado en partes (el ${dma(d0.fechaPago)}, la última)` : d0.enPartes === true ? 'En partes: todavía tiene saldo (ver su vencimiento)' : forma === 'tarjeta' ? 'Tarjeta de crédito' : forma === 'proveedor' ? 'Crédito proveedor' + (s(d0.fechaPago) ? ` (pagado el ${dma(d0.fechaPago)})` : '') : medio === 'efectivo' ? 'Contado · efectivo' : medio === 'banco' ? 'Contado · transferencia o banco' : 'Contado';
   return { fecha: dia(d0.fecha), fechaPago: dia(d0.fechaPago), hora: s(d0.hora).slice(0, 5), items: [...new Set(L.map(d => s(d.itemGasto)))],
     areas: L.map(d => ({ area: s(d.area), item: s(d.itemGasto), neto: n(d.montoNeto), total: n(d.montoFinal) })),
     neto, iva: total - neto, total, tipoMonto: { bruto: 'Bruto (con IVA)', neto: 'Neto (+IVA)', siniva: 'Sin IVA' }[s(d0.tipoMonto)] || s(d0.tipoMonto), forma: formaTxt,
-    obs: s(d0.observacion), archivos: [...new Set(L.map(d => s(d.urlFoto)).filter(Boolean))], esperaCargo: L.some(d => d.esperaCargo === true), cartola: L.map(d => s(d.cartola)).find(Boolean) || '' };
+    obs: s(d0.observacion), archivos: [...new Set(L.map(d => s(d.urlFoto)).filter(Boolean))], esperaCargo: L.some(d => d.esperaCargo === true), cartola: L.map(d => s(d.cartola)).find(Boolean) || '', pagado };
+}
+// "Pagado: $113.780 banco (cargo 14-10) + $11.220 efectivo (15-10, cobros B2B)" (de pagoMixto del gasto)
+function textoPagadoMix(mix) {
+  const dm = f => dma(f).slice(0, 5), o = p => (s(p.origen) === 'otro' ? s(p.origenTexto) || 'otro' : 'cobros B2B');
+  return 'Pagado: ' + mix.partes.map(p => `${fmt(n(p.monto))} ${p.medio === 'banco' ? `banco (${p.cargoId ? 'cargo ' : ''}${dm(p.fecha)})` : p.medio === 'efectivo' ? `efectivo (${dm(p.fecha)}, ${o(p)})` : p.medio === 'tarjeta' ? `tarjeta (${dm(p.fecha)})` : `a mano (${dm(p.fecha)})`}`).join(' + ');
 }

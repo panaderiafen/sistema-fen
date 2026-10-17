@@ -17,7 +17,7 @@
 //    toma el neto de la factura (netoFactura / conNetoSii).
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import { dia } from './gastos-modelo.js?v=0.69.1';
+import { dia } from './gastos-modelo.js?v=0.69.2';
 
 export const TIPOS_OBLIGACION = ['fijo', 'documento', 'libre'];
 export const NOMBRE_TIPO = { fijo: 'Monto fijo', documento: 'Según documento del mes', libre: 'Libre (abonos)' };
@@ -244,9 +244,16 @@ export function abonoParcial(d, a) {
   if (a.cargoId && lista.some(x => x.cargoId && x.cargoId === a.cargoId)) return { repetido: true };
   const saldo0 = total - totalAbonos(d);
   if (monto > saldo0) return { error: `El abono (${fmt(monto)}) es mayor que el saldo (${fmt(saldo0)})` };
-  const abono = { monto, fecha: a.fecha, origen: a.origen === 'cartola' ? 'cartola' : 'mano', cargoId: s(a.cargoId), clave: s(a.clave), gastoIds: Array.isArray(a.gastoIds) ? a.gastoIds : [], url: s(a.url), por: s(a.por), en: s(a.en), parcial: true };
+  const abono = { monto, fecha: a.fecha, origen: a.origen === 'cartola' ? 'cartola' : 'mano', cargoId: s(a.cargoId), clave: s(a.clave), gastoIds: Array.isArray(a.gastoIds) ? a.gastoIds : [], url: s(a.url), por: s(a.por), en: s(a.en), parcial: true,
+    // v0.69.2 · Pagos mixtos: el medio de esta parte (banco, efectivo o tarjeta), de dónde salió el efectivo, su registro en
+    // sii_pagos (pagoId) y el cargo con el que se registró (conCargo: el resto de un cargo, para deshacerlo junto con él)
+    ...(['banco', 'efectivo', 'tarjeta'].includes(s(a.medio)) ? { medio: s(a.medio) } : a.origen === 'cartola' ? { medio: 'banco' } : {}),
+    ...(s(a.medio) === 'efectivo' ? { origenEfectivo: s(a.origenEfectivo) || 'cobros_b2b', ...(s(a.origenEfectivo) === 'otro' ? { origenTexto: s(a.origenTexto).slice(0, 120) } : {}) } : {}),
+    ...(a.pagoId ? { pagoId: s(a.pagoId) } : {}), ...(a.conCargo ? { conCargo: s(a.conCargo) } : {}), ...(a.obs ? { obs: s(a.obs).slice(0, 200) } : {}) };
   const abonos = lista.concat([abono]), saldo = saldo0 - monto, final = saldo === 0;
-  const campos = final ? { abonos, estado: 'pagado', fechaPago: a.fecha, montoPago: String(total), fechaSaldo: '' } : { abonos, estado: 'con_abonos' };
+  // v0.69.2: la fecha de pago es la de la última parte (por fecha), no la del último abono registrado
+  const ultima = abonos.map(x => s(x.fecha)).filter(esIso).sort().pop() || a.fecha;
+  const campos = final ? { abonos, estado: 'pagado', fechaPago: ultima, montoPago: String(total), fechaSaldo: '' } : { abonos, estado: 'con_abonos' };
   return { campos, abono, final, saldo, total, primero: !lista.length };
 }
 // Quitar el abono de un cargo (deshacer): { error } | { campos, quedan, eraPrimero, cerraba }

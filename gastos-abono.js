@@ -14,7 +14,7 @@
 //    destinatarioDeTrabajador (el abono de la misma persona: por RUT o por nombre) y elegirReparto (lo más nuevo por fecha
 //    entre lo guardado en Previred y en abonos; cada lado guarda solo en lo suyo).
 // ═══════════════════════════════════════════════
-import { claveDe, norm, rutNorm } from './gastos-cartola.js?v=0.69.1';
+import { claveDe, norm, rutNorm } from './gastos-cartola.js?v=0.69.2';
 
 const s = v => String(v == null ? '' : v);
 const num = v => { if (typeof v === 'number') return isFinite(v) ? v : 0; const x = Number(s(v).replace(',', '.').replace(/[^0-9.\-]/g, '')); return isFinite(x) ? x : 0; };

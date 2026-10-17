@@ -7,6 +7,7 @@
 //  · las facturas de un cliente de B2B (abiertas y pagadas recientes) y la búsqueda de facturas.
 //  Todo es puro: sale de lo que la pantalla ya tiene leído (0 lecturas).
 // ═══════════════════════════════════════════════
+import * as PM from './pagos-mixtos.js?v=0.69.2';   // v0.69.2: el historial de pagos de un documento pagado en partes
 const s = v => String(v == null ? '' : v);
 const n = v => Number(v) || 0;
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -73,7 +74,8 @@ export function resumenCargo(p, c) {
     case 'nuevo': return 'Gasto nuevo: ' + (s(p.item) || t) + (p.area && !/^\{/.test(s(p.area)) ? ' · ' + p.area : '');
     case 'sii_pend': return 'Factura por clasificar: ' + t;
     case 'abono': return 'Abono de sueldo: ' + t;
-    case 'abono_parcial': return 'Abono al ' + t;
+    case 'abono_parcial': return 'Abono al ' + t + (p.saldoDoc ? ' · queda pagado' : '');
+    case 'pago_parcial': return t;   // v0.69.2: "Pago parcial: $113.780 de $125.000 · falta $11.220 · …
     case 'previred': return 'Pago de Previred: ' + t;
     case 'pago_tarjeta': return t && !/^Pago de tarjeta de cr/.test(t) ? 'Pago de tarjeta: ' + t : 'Pago de tarjeta de crédito';
     case 'traspaso': return 'Traspaso entre cuentas propias' + (p.nota ? ': ' + limpio(p.nota) : '');
@@ -92,7 +94,7 @@ export function queEsCargo(c, ctx = {}) {
   if (c.proveedor && c.proveedor.nombre) return `${base}: pago a ${c.proveedor.nombre} (proveedor reconocido).`;
   if (ctx.previred) return `${base}: pago a Previred (cotizaciones).`;
   if (c.rut) return `${base}: pago a RUT ${s(c.rut).replace(/^(\d+)(\w)$/, '$1-$2')}.`;
-  return `${base}. La glosa no dice a quién: «${s(c.descripcion)}».`;
+  return `${base}: «${s(c.descripcion)}» (sin RUT en la glosa).`;
 }
 // "Qué propongo y por qué": la propuesta y su razón (con los días respecto de la factura o el vencimiento, si se sabe)
 export function porQueCargo(c, p, D = {}) {
@@ -107,6 +109,9 @@ export function porQueCargo(c, p, D = {}) {
   if (p.tipo === 'gasto' && p.gasto && p.gasto.fecha) ref = diasTxt(p.gasto.fecha, c.fecha, p.gasto.folio ? 'de la factura' : 'del gasto');
   if (p.tipo === 'sii_pend') { const v = (D.siiPendientes || []).find(x => x.id === p.docId); porque = p.conf === 'seguro' ? 'mismo RUT y monto exacto' : 'mismo monto; el RUT no se sabe'; if (v && v.fecha) ref = diasTxt(v.fecha, c.fecha, 'de la factura'); }
   if (p.tipo === 'gasto' && p.combo) porque = (p.conf === 'seguro' ? 'mismo proveedor (RUT confirmado)' : 'mismo proveedor') + ' y la suma calza exacto';
+  // v0.69.2 · Pagos mixtos
+  if (p.tipo === 'abono_parcial' && p.saldoDoc) porque = `es el saldo exacto de un documento que ya tiene ${p.partes} ${p.partes === 1 ? 'pago' : 'pagos'}${p.quien ? (p.quien === 'rut' ? ', con el mismo RUT' : ', del proveedor reconocido') : ''}`;
+  if (p.tipo === 'pago_parcial') porque = `el proveedor ${p.por === 'rut' ? '(por el RUT)' : 'reconocido'} tiene un documento por pagar mayor que el cargo: este cargo paga solo una parte`;
   if (p.sinPropuesta) porque = s(p.duda) || 'hay más de una opción';
   if (p.duda && !p.sinPropuesta) porque = [porque, s(p.duda)].filter(Boolean).join('. ');
   if (p.por === 'regla' && p.fraseRegla) porque = `lo dice tu regla «${limpio(p.fraseRegla)}»`;
@@ -118,6 +123,9 @@ export function porQueCargo(c, p, D = {}) {
 // → [{ tipo: 'gasto'|'venc', ids, fecha, items, areas, monto, folio, razon, rut, obs, estado, cargoId, fechaPago, medio, nombre, vence }]
 const CC_RE = /\[(cc[0-9a-f]{10})\]/;
 export function estadoGastoDoc(d) {
+  // v0.69.2 · Pagado en partes: "Pagado: $X banco (cargo dd-mm) + $Z efectivo (dd-mm, cobros B2B)"
+  if (d.pagoMixto && Array.isArray(d.pagoMixto.partes) && d.pagoMixto.partes.length) return { estado: 'partes', fechaPago: dia(d.fechaPago), cargoId: s(d.cartolaCargo), partes: d.pagoMixto.partes, totalDoc: n(d.pagoMixto.total) };
+  if (d.enPartes === true && !dia(d.fechaPago)) return { estado: 'con_abonos', fechaPago: '' };
   const cargo = s(d.cartolaCargo) || ((CC_RE.exec(s(d.cartola)) || [])[1] || '');
   if (cargo) return { estado: 'cargo', cargoId: cargo, fechaPago: dia(d.fechaPago) };
   const sb = d.pagoSinBanco || null, forma = s(d.formaPago || 'contado');
@@ -150,8 +158,11 @@ export function registradosGastos(gastos, vencs, hoy, diasAtras = 150) {
     const pagado = est === 'pagado', cargo = s(d.cartolaCargo) || ((CC_RE.exec(s(d.cartola)) || [])[1] || '');
     const monto = pagado && n(d.montoPago) ? n(d.montoPago) : (n(d.montoDocumento) || n(d.montoEstimado));
     const m = /^\s*\S*\s*(.*?)\s+F\.(\d+)\s*$/.exec(s(d.nombre));
-    out.push({ tipo: 'venc', ids: [id], fecha: vence, vence, nombre: limpio(d.nombre), items: s(d.item) ? [s(d.item)] : [], areas: s(d.area) ? [s(d.area)] : [], monto, folio: m ? m[2] : '', razon: m ? m[1].trim() : '',
-      estado: pagado ? (cargo ? 'cargo' : 'pagado') : 'por_pagar', cargoId: cargo, fechaPago: fp, rut: '' });
+    const partes = PM.partesDe(d), total = n(d.montoDocumento) || n(d.montoEstimado);
+    out.push({ tipo: 'venc', ids: [id], fecha: vence, vence, nombre: limpio(d.nombre), items: s(d.item) ? [s(d.item)] : [], areas: s(d.area) ? [s(d.area)] : [], monto, folio: m ? m[2] : s(d.folio), razon: m ? m[1].trim() : s(d.razonSocial),
+      // v0.69.2: con partes (abonos), su historial y lo que falta
+      estado: pagado ? (partes.length > 1 || partes.some(x => x.medio !== 'banco') ? 'partes' : cargo ? 'cargo' : 'pagado') : partes.length ? 'con_abonos' : 'por_pagar', cargoId: cargo, fechaPago: fp, rut: '',
+      ...(partes.length ? { partes, totalDoc: total, falta: Math.max(0, total - partes.reduce((a, x) => a + x.monto, 0)) } : {}) });
   });
   return out.sort((a, b) => s(b.fecha).localeCompare(s(a.fecha))).slice(0, 1200);
 }
@@ -171,10 +182,21 @@ export function estadoTxt(r, cargoTxt) {
     case 'por_pagar': return { texto: `Vencimiento por pagar${r.vence ? ' · vence el ' + diaTxt(r.vence) : ''}`, tono: 'amarillo', corto: 'Por pagar' };
     case 'sin_cargo': return { texto: CLASE_SIN[r.clase] || 'Registrado: todavía sin cargo de la cartola', tono: 'azul', corto: 'Espera su cargo' };
     case 'por_clasificar': return { texto: 'Factura del SII por clasificar: todavía no está en Gastos', tono: 'amarillo', corto: 'Por clasificar' };
+    // v0.69.2 · Pagos mixtos
+    case 'partes': return { texto: PM.textoPagado(r.partes || [], r.totalDoc, cargoFechaDe(cargoTxt)) || 'Pagado en partes', tono: 'verde', corto: 'Pagado en partes' };
+    case 'con_abonos': return { texto: r.partes && r.partes.length ? PM.textoPagado(r.partes, r.totalDoc, cargoFechaDe(cargoTxt)) : 'Con pagos parciales: todavía tiene saldo', tono: 'amarillo', corto: 'Con saldo' };
     default: return { texto: '', tono: 'gris', corto: '' };
   }
 }
 
+// La fecha de un cargo (para "banco (cargo dd-mm)"): cargoTxt puede traer .fecha(id); si no, la de la parte
+const cargoFechaDe = cargoTxt => (cargoTxt && typeof cargoTxt.fecha === 'function' ? cargoTxt.fecha : null);
+// v0.69.2 · El historial de pagos de un documento: una línea por parte (medio, fecha, cargo u origen) y lo que falta
+export function historialPagos(partes, total, cargoFecha) {
+  const l = (partes || []).filter(p => p && p.monto > 0); if (!l.length) return null;
+  const pagado = l.reduce((a, p) => a + p.monto, 0), falta = Math.max(0, Math.round(n(total) - pagado));
+  return { lineas: l.map(p => PM.textoParte(p, cargoFecha)), pagado, falta, total: Math.round(n(total)), texto: PM.textoPagado(l, total, cargoFecha) };
+}
 // "Buscar en Gastos": gastos sin cargo (se pueden elegir: "Ya está en Gastos"), vencimientos por pagar (se pueden pagar),
 // facturas del SII por clasificar y lo ya pagado (solo se muestra: con qué cargo, en efectivo o con tarjeta).
 // D = cart.d (la lista de Gastos en la memoria); c = el cargo. Sin búsqueda: lo del mismo monto (±$1).

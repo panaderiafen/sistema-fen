@@ -1,9 +1,61 @@
-# Sistema Fën · v0.69.1
+# Sistema Fën · v0.69.2
 
-**App:** v0.69.1 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 17 de octubre de 2026
+**App:** v0.69.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 17 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.69.2: pagos mixtos y en partes (un cargo paga una parte de la factura y el resto fue en efectivo, con tarjeta o se debe)
+**Dónde:** Conciliación → Cartola (Cargos), Conciliación → Pagos sin banco y Gastos → Vencimientos ("Registrar abono").
+
+### El caso
+Un cargo del banco pagó una parte de una factura que ya estaba en Gastos (por ejemplo, $113.780 de $125.000) y la diferencia se pagó en efectivo. Hasta ahora "Ya está en Gastos" pedía el mismo monto (±$1), "Pagos sin banco" marcaba la factura COMPLETA en efectivo, y el abono de Vencimientos no preguntaba de dónde salió el efectivo.
+
+### Qué cambia en cómo trabajas
+1. **"¿Y el resto?" en el cargo.** Al elegir una factura o un gasto MAYOR que el cargo (en "Ya está en Gastos" o en "Paga vencimientos"), aparece: "Este cargo paga $113.780 de $125.000. ¿Y el resto ($11.220)?", con tres opciones:
+   - **Lo pagué en efectivo:** la fecha (por defecto, la del cargo) y de dónde salió (Efectivo de cobros B2B u Otro, con una nota);
+   - **Lo pagué con tarjeta:** la fecha;
+   - **Todavía lo debo:** una factura a crédito sigue "Con abonos · saldo $Z" (como siempre); una al contado queda por pagar con la fecha que eliges (Vencimientos, Agenda, Hoy y "Todavía por pagar" en Pagos sin banco).
+   Nada se registra solo: primero eliges qué pasó con el resto. Al confirmar se ve "Pagado: $113.780 banco (cargo 15-10) + $11.220 efectivo (17-10, cobros B2B)".
+2. **El gasto nunca se duplica.** Su monto sigue siendo el total del documento. Cada pago queda como una **parte** (medio, fecha y cargo u origen). Cuando las partes suman el total (±$1) el documento queda pagado, con la fecha de pago de la última parte, y el detalle del gasto dice "Pagado: … + …".
+3. **El efectivo cuenta donde siempre.** La parte en efectivo queda como pago guardado (igual que en Pagos sin banco): baja el "Efectivo en mano estimado" si salió de los cobros B2B, y llega al flujo de caja. La parte con tarjeta también queda guardada (no toca el efectivo).
+4. **Varios cargos para un documento.** Un cargo menor que una factura del proveedor reconocido se propone como **"Pago parcial: $113.780 de $125.000 · falta $11.220"** (siempre en Revisar, nunca Listo). El cargo siguiente que es el **saldo exacto** de ese documento se propone solo ("Abono al saldo de … · queda pagado") y puede quedar **Listo** si el proveedor se reconoce (RUT o nombre). En la bandeja, el documento muestra sus **pagos** (cada parte con medio, fecha y cargo u origen) y lo que falta.
+5. **Vencimientos → Registrar abono** tiene **Medio**: Banco/transferencia, Efectivo (por defecto) o Tarjeta. En efectivo pregunta de dónde salió, así el efectivo de B2B cuadra venga de donde venga la parte en efectivo.
+6. **Deshacer el cargo** saca solo la parte del banco. Si el resto (efectivo o tarjeta) se registró junto con ese cargo, pregunta "¿Quitar también el pago en efectivo de $Z?": **Sí** (sale también, queda anotado) o **No, dejarlo** (el documento vuelve a deber solo lo del cargo). Si el documento era al contado y queda sin pagos, vuelve exactamente a como estaba (su vencimiento "en partes" queda anulado, no se borra).
+7. **Pagos sin banco:** no muestra los documentos pagados por completo en partes, y SÍ muestra los que tienen saldo y ya pasó su fecha: ahí pagas el saldo en efectivo o con tarjeta, o lo reagendas.
+
+### Lecturas y escrituras (Spark)
+- Abrir el cargo, elegir el resto, ver el historial de pagos y la propuesta del saldo: **0 lecturas** (sale de lo ya leído).
+- Confirmar cargo + resto en efectivo (una transacción): el cargo, el vencimiento, cada línea del gasto, el documento del SII y el pago guardado. Medido con 1 línea: **11 lecturas** (con la lista que se refresca) y **6 escrituras** (contando el contador de siempre).
+- Abono en efectivo desde Vencimientos (el último): **11 lecturas y 4 escrituras** medidas.
+- Deshacer con "Sí": **12 lecturas y 6 escrituras**; con "No, dejarlo": **10 lecturas y 4 escrituras**.
+
+### Instalación v0.69.2 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.69.2.zip`, con la carpeta `cocina/` (no cambia). Hay un archivo nuevo: `pagos-mixtos.js`.
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script ni en las reglas de Firestore.** Las reglas de fen-gastos v0.1.0 ya dejan a administración escribir `vencimientos`, `gastos` y `sii_pagos`. El Script de Gastos v2.18.0 copia a la planilla las columnas que conoce: los campos nuevos (partes, pagoMixto) no pasan a la planilla y no molestan.
+
+### Lista de verificación v0.69.2
+- [ ] Abajo a la izquierda dice **v0.69.2**.
+- [ ] Un cargo menor que una factura del proveedor dice "Pago parcial: $X de $Y · falta $Z" y está en Revisar.
+- [ ] Al abrirlo: "Este cargo paga $X de $Y. ¿Y el resto ($Z)?". Elige "Lo pagué en efectivo", la fecha y "Efectivo de cobros B2B", y confirma.
+- [ ] Gastos → Registrados: el gasto es UNO, con el total de la factura; su detalle dice "Pagado: $X banco (cargo …) + $Z efectivo (…, cobros B2B)".
+- [ ] Pagos sin banco: la factura ya no aparece y el "Efectivo en mano estimado" bajó $Z.
+- [ ] Vencimientos → Abonar: el campo Medio y, en efectivo, de dónde salió.
+- [ ] Deshacer un cargo con resto: pregunta "¿Quitar también…?" con Sí y No, dejarlo.
+- [ ] En el celular se ve bien.
+
+### Si algo sale mal
+Sube de nuevo la v0.69.1. Lo guardado queda: los documentos pagados en partes se ven como vencimientos con abonos (pagados o con saldo), los gastos con su fecha de pago y los pagos en efectivo en Pagos sin banco. Nada se borra.
+
+**Por dentro:**
+- `pagos-mixtos.js` (nuevo, puro): textos, revisar el resto, el vencimiento "en partes" de un documento al contado, las partes y su texto, quitar partes al deshacer, saldos para Pagos sin banco y las partes para el flujo de caja (`pagosDeCaja`).
+- `gastos-cartola-fs.js` (`resolverPagoParcial`: todo en una transacción; `deshacer` con `quitarResto`), `gastos-fs.js` (`abonoParcial` con medio, origen, pago guardado y `pagoMixto`; `gastosDelDocumento`), `gastos-g3.js` (el abono guarda su medio; la fecha de pago es la de la última parte).
+- `gastos-cartola.js` (la propuesta del saldo de un documento y el pago parcial), `puntaje.js`, `bandeja.js` (estado "pagado en partes" e historial), `gastos-banco.js` (el detalle del gasto), `sii-pendientes-fs.js` (saldos atrasados y `pagarSaldo`), `registro-detalle.js`, `cartola.js`, `app.js` y `estilos.css`. Los demás: solo la versión. `cocina/` y `fermentacion.js` no cambian.
+
 
 ## Novedades de la v0.69.1: área REVENTA (lo que se compra hecho y se vende tal cual)
 **Dónde:** Gastos → Ítems y Registrar, Finanzas → Resultados (estado de resultados), Finanzas → Márgenes → Asociar productos y Finanzas → Cómo trabajamos.

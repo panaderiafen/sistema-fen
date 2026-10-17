@@ -16,10 +16,11 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.69.1';
-import * as B from './gastos-banco.js?v=0.69.1';
-import { habilesEntre } from './feriados-cl.js?v=0.69.1';
-import * as D3 from './gastos-g3d.js?v=0.69.1';   // v0.67.0: total del plan de Previred con multas e intereses
+import * as G3 from './gastos-g3.js?v=0.69.2';
+import * as B from './gastos-banco.js?v=0.69.2';
+import { habilesEntre } from './feriados-cl.js?v=0.69.2';
+import * as D3 from './gastos-g3d.js?v=0.69.2';   // v0.67.0: total del plan de Previred con multas e intereses
+import * as PM from './pagos-mixtos.js?v=0.69.2';   // v0.69.2: pagos mixtos (un documento pagado en partes)
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
@@ -301,7 +302,9 @@ export function vencimientosAbiertos(vencs, plantillas, siiRut, hoy) {
       periodo: /^\d{4}-\d{2}$/.test(s(d.periodoKey)) ? s(d.periodoKey) : dia(d.fechaVencimiento).slice(0, 7), total: G3.totalVenc(d), saldo: G3.saldoVenc(d), conLineas: G3.conLineas(d), fechaSaldo: dia(d.fechaSaldo),
       // v0.67.0: el total incluye las multas e intereses del comprobante (recargos)
       previred: d.documento && d.documento.tipo === 'previred' && d.documento.previred ? { periodo: s(d.documento.previred.periodo), fechaPago: dia(d.documento.previred.fechaPago), total: D3.totalPlan(d.documento.previred), recargos: num(d.documento.previred.recargos && d.documento.previred.recargos.monto), n: (d.documento.previred.trabajadores || []).length } : null,
-      folio: m ? m[2] : '', razon: m ? m[1].trim() : '', rut: (siiRut && siiRut[id]) || (d.documento && d.documento.tipo === 'sii' ? rutNorm(d.documento.rut) : ''), sii: '',
+      folio: m ? m[2] : s(d.folio), razon: m ? m[1].trim() : s(d.razonSocial).trim(), rut: (siiRut && siiRut[id]) || (d.documento && d.documento.tipo === 'sii' ? rutNorm(d.documento.rut) : '') || rutNorm(d.rutProveedor), sii: '',
+      // v0.69.2: las partes ya pagadas (medio, fecha, cargo u origen) y si es un documento pagado en partes
+      partes: PM.partesDe(d), enPartes: !!d.pagoEnPartes, deDocumento: PM.esDeDocumento(d),
       fechaDoc: dia(d.fechaCompra) || (d.documento && dia(d.documento.fecha)) || '' });   // v0.69.0: la fecha de la factura (para el ritmo de pago)
   });
   return out.sort((a, b) => s(a.fecha).localeCompare(s(b.fecha)) || a.id.localeCompare(b.id));
@@ -366,7 +369,11 @@ export function proponer(c, D) {
   }
   // v0.64.0 · El saldo de un vencimiento con abonos (no libre): el último abono lo cierra
   const saldos = vencs.filter(v => v.estadoBase === 'con_abonos' && v.tipoObligacion !== 'libre' && !v.previred && v.saldo > 0 && v.saldo === c.monto && (!c.rut || !v.rut || v.rut === c.rut));
-  if (saldos.length === 1) return { tipo: ABONO_PARCIAL, seguro: false, vencId: saldos[0].id, texto: `saldo de ${saldos[0].nombre}`, por: 'saldo' };
+  if (saldos.length === 1) {
+    // v0.69.2 · El saldo exacto de un DOCUMENTO que ya tiene partes, con el proveedor del cargo reconocido (RUT o nombre): seguro
+    const v = saldos[0], prov = v.deDocumento ? provCargo(c, D) : null, calza = v.deDocumento ? PM.calzaProveedor(c, v, prov, B) : '';
+    return { tipo: ABONO_PARCIAL, seguro: !!calza, vencId: v.id, texto: `saldo de ${v.nombre}`, por: 'saldo', ...(v.deDocumento ? { saldoDoc: true, total: v.total, partes: (v.partes || []).length, quien: calza } : {}) };
+  }
   // Choque de montos, o lo aprendido apunta a una obligación según documento sin documento todavía: opciones, sin propuesta automática
   // Lo aprendido apunta a una obligación; las de su mismo ítem (Luz Barros y Luz Ainavillo) son las opciones.
   // Sin nada aprendido: las que esperan su documento con un monto estimado parecido (±30%).
@@ -420,7 +427,15 @@ export function proponer(c, D) {
   // 8) Un vencimiento sin clasificar con el monto exacto: a revisar (el tipo "monto fijo" lo deja seguro)
   const ex = vencs.filter(v => v.tipoObligacion !== 'libre' && v.tipoObligacion !== 'documento' && v.monto === c.monto && enVentana(c, v));
   if (ex.length === 1) return pagoDe(c, ex[0], 'monto', false);
+  // 9) v0.69.2 · Pago parcial: el proveedor del cargo está reconocido y tiene un documento abierto MAYOR que el cargo (nunca Listo)
+  if (D.fuente === 'base') { const pp = PM.propuestaParcial(c, D.gastos || [], vencs, provCargo(c, D), B); if (pp) return pp; }
   return null;
+}
+// v0.69.2 · El proveedor del cargo (v0.67.4: RUT, glosa aprendida o nombre en la glosa), también con los documentos a crédito
+function provCargo(c, D) {
+  const vs = (D.vencimientos || []).filter(v => !v.plantillaId && (v.rut || v.razon)).map(v => ({ rut: v.rut, razon: v.razon }));
+  const p = B.proveedorDelCargo(c, (D.gastos || []).concat(D.notasCredito || [], vs));
+  return p && !p.ambiguo ? p : null;
 }
 const fmt = n => '$' + Math.round(n).toLocaleString('es-CL');
 
