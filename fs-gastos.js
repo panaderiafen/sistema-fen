@@ -18,8 +18,8 @@
 //  · Uso de hoy: lecturas y escrituras hechas desde este navegador (Configuración). La lectura de un documento cuenta 1;
 //    una consulta vacía cuenta 1; además, cada pedido cuenta 1 por la regla de seguridad (exists de admins).
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.68.0';
-import { diaCuota, proximoReinicio, horaChile, esCuota, mensajeCuota, anotar, contarMemoria, usoHoy, reiniciarUso, cuota, alCambiarCuota, marcarAgotada, marcarViva, olvidarCuota, errorCuota } from './fs-cuota.js?v=0.68.0';
+import * as FB from './firebase-gastos.js?v=0.69.0';
+import { diaCuota, proximoReinicio, horaChile, esCuota, mensajeCuota, anotar, contarMemoria, usoHoy, reiniciarUso, cuota, alCambiarCuota, marcarAgotada, marcarViva, olvidarCuota, errorCuota } from './fs-cuota.js?v=0.69.0';
 export { diaCuota, proximoReinicio, horaChile, esCuota, mensajeCuota, usoHoy, reiniciarUso, cuota, alCambiarCuota, olvidarCuota };
 
 export const VERSION_PAQUETES = 1;

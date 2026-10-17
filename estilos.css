@@ -1860,3 +1860,95 @@ dialog .reg-det { text-align: left; }
   .bj-lista details.mov > summary.fila-caja > .txt { flex: 1 1 60%; }
   .bj-lista details.mov > summary.fila-caja:has(.btn) > .acciones { flex: 1 1 100%; justify-content: flex-end; }
 }
+
+/* ═══ v0.69.0 · El puntaje de cada propuesta y las reglas de conciliación ═══ */
+/* En la fila: "Listo · 92" (el número junto a la etiqueta, en el color del estado) */
+.bj-pt { display: inline-flex; align-items: center; gap: 4px; margin-left: 2px; font-size: 12px; font-weight: 700; color: var(--bj-c, var(--suave)); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bj-pt-chico { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 20px; padding: 0 6px; border-radius: 6px; background: var(--menu); color: var(--suave); font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
+/* En "Qué propongo": el número grande y sus razones en una línea */
+.bj-pt-bloque { margin: 6px 0 2px; padding: 10px 12px; border-radius: 10px; background: var(--fondo); border: 1px solid var(--linea); display: grid; gap: 6px; }
+.bj-pt-cab { display: flex; align-items: baseline; gap: 6px; margin: 0; }
+.bj-pt-n { font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--suave); }
+.bj-pt-n.bj-pt-listo { color: var(--verde-t); } .bj-pt-n.bj-pt-revisar { color: var(--amarillo-t); } .bj-pt-n.bj-pt-sin { color: var(--rojo-t); }
+.bj-pt-de { font-size: 12.5px; color: var(--suave); }
+.bj-factores { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 0; font-size: 13px; line-height: 1.5; }
+.bj-factores li { white-space: normal; overflow-wrap: anywhere; }
+.bj-factores li + li::before { content: '·'; margin: 0 7px; color: var(--borde); }
+.bj-f-mas { color: var(--verde-t); } .bj-f-menos { color: var(--rojo-t); }
+.bj-ritmo, .bj-regla-uso { display: flex; gap: 6px; align-items: flex-start; margin: 0; font-size: 12.5px; color: var(--suave); line-height: 1.45; }
+.bj-ritmo svg, .bj-regla-uso svg { flex: none; margin-top: 2px; }
+.bj-regla-uso span { min-width: 0; overflow-wrap: anywhere; }
+.bj-regla-uso .btn-link { font-size: 12.5px; padding: 0; min-height: 0; }
+/* Opciones que chocan: las dos a la vista, con "Usar esta" */
+.bj-alt { margin: 8px 0 2px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--linea); display: grid; gap: 8px; }
+.bj-alt-choque { border-color: var(--bj-amarillo); background: #FBF5E8; }
+.bj-alt-t { display: flex; gap: 6px; align-items: flex-start; margin: 0; font-size: 13px; color: var(--amarillo-t); font-weight: 600; }
+.bj-alt-t svg { flex: none; margin-top: 1px; }
+.bj-alt-op { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding-top: 8px; border-top: 1px solid var(--linea); }
+.bj-alt-txt { flex: 1 1 220px; min-width: 0; display: grid; gap: 2px; font-size: 13.5px; overflow-wrap: anywhere; }
+.bj-alt-txt small { color: var(--suave); font-size: 12px; }
+/* El acceso a las reglas y el aviso de reglas sugeridas en la barra de la bandeja */
+.bj-reglas { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; text-decoration: none; }
+.bj-sug { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 8px 6px 10px; border-radius: 10px; background: var(--lila); color: var(--lila-t); }
+.bj-sug-t { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 4px; border: 0; background: transparent; color: inherit; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.bj-sug-t::after { content: '›'; font-size: 18px; line-height: 1; transition: transform .15s; }
+.bj-sug-t[aria-expanded="true"]::after { transform: rotate(90deg); }
+.bj-sug-t:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 6px; }
+.bj-sug-l { flex-basis: 100%; display: grid; gap: 8px; padding: 4px 0 2px; color: var(--texto); }
+.bj-sug-l .rc-sug { background: var(--tarjeta); border-radius: 8px; padding: 10px 12px; }
+@media (prefers-reduced-motion: reduce) { .bj-sug-t::after { transition: none; } }
+
+/* La pantalla de reglas */
+.rc-cab .titulo-fila h2 { display: inline-flex; align-items: center; gap: 8px; }
+.rc-cab .pastillas { margin-top: 10px; }
+.rc-msg { margin: 10px 0 0; color: var(--acento); }
+.rc-frase { margin: 0; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.rc-frase b { font-weight: 700; }
+.rc-fl { color: var(--suave); margin: 0 2px; }
+.rc-lista .titulo-fila { gap: 10px; flex-wrap: wrap; }
+.rc-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 8px; }
+.rc-barra .bj-buscar-l { flex: 1 1 220px; }
+.rc-filas { display: grid; }
+.rc-fila { display: grid; gap: 6px; padding: 14px 2px; border-top: 1px solid var(--linea); }
+.rc-fila:first-child { border-top: 0; }
+.rc-fila.rc-e-pausada .rc-frase, .rc-fila.rc-e-archivada .rc-frase { color: var(--suave); }
+.rc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rc-meta { margin: 0; font-size: 12.5px; color: var(--suave); overflow-wrap: anywhere; }
+.rc-acc { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.rc-acc .btn-link { display: inline-flex; align-items: center; gap: 4px; }
+.rc-hist { margin: 4px 0 0; padding: 8px 12px 8px 28px; border-radius: 8px; background: var(--fondo); font-size: 12.5px; display: grid; gap: 6px; }
+.rc-hist li small { display: block; color: var(--suave); overflow-wrap: anywhere; }
+.rc-sugeridas { display: grid; gap: 10px; }
+.rc-sug { display: grid; gap: 6px; padding: 12px 0 0; border-top: 1px solid var(--linea); }
+.rc-sugeridas .titulo-fila + .rc-sug { border-top: 0; padding-top: 0; }
+.rc-sug .ayuda { margin: 0; overflow-wrap: anywhere; }
+.rc-bot { justify-content: flex-start; margin: 0; }
+.rc-editor { border-color: var(--acento); }
+.rc-form { display: grid; gap: 14px; }
+.rc-grupo { border: 0; margin: 0; padding: 0; display: grid; gap: 10px; min-width: 0; }
+.rc-grupo legend { padding: 0; margin-bottom: 6px; font-size: 13px; font-weight: 700; color: var(--acento); }
+.rc-grupo .campo { margin: 0; min-width: 0; }
+.rc-grupo input, .rc-grupo select { width: 100%; min-width: 0; }
+.rc-fila2, .rc-reparto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.rc-reparto { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); }
+.rc-exacta { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--fondo); overflow-wrap: anywhere; font-size: 14px; }
+.rc-niveles { display: grid; gap: 8px; }
+.rc-niveles .check-linea { align-items: flex-start; }
+.rc-niveles .check-linea span { display: grid; gap: 2px; }
+.rc-niveles small { color: var(--suave); font-size: 12.5px; }
+.rc-previa { padding: 10px 12px; border-radius: 10px; background: var(--acento-suave); display: grid; gap: 4px; }
+.rc-previa .ayuda { margin: 0; overflow-wrap: anywhere; }
+.rc-falta { color: var(--amarillo-t); }
+.rc-redir .btn-enlace { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 560px) {
+  .rc-fila2 { grid-template-columns: minmax(0, 1fr); }
+  .rc-reparto { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .bj-reglas { margin-left: 0; }
+  .bj-pt-n { font-size: 26px; }
+}
+.bj-lista details.mov[data-bj="listo"] .bj-pt { color: var(--verde-t); }
+.bj-lista details.mov[data-bj="revisar"] .bj-pt { color: var(--amarillo-t); }
+.bj-lista details.mov[data-bj="sin"] .bj-pt { color: var(--rojo-t); }
+.rc-lados { margin-top: 12px; }
+.rc-editor .rc-form { max-width: 760px; }
+.rc-cab .ayuda { max-width: 70ch; }

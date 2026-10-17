@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën · bandeja.js · v0.68.0
+//  Sistema Fën · bandeja.js · v0.68.0 · v0.69.0 (las propuestas de una regla y el puntaje junto a la etiqueta)
 //  Conciliación → Cartola como bandeja de entrada (Entrega A del rediseño):
 //  · el estado de cada movimiento pendiente (Listo, Revisar, Sin coincidencia) con su etiqueta;
 //  · la propuesta en una línea, "Qué es" y "Qué propongo y por qué";
@@ -61,7 +61,7 @@ export function coincide(q, x) {
 // ═══ Cargos: la propuesta en una línea, qué es y por qué ═══
 const POR_CARGO = { aprendido: 'lo aprendiste al conciliar esta glosa antes', rut: 'mismo RUT del proveedor y monto exacto', proveedor: 'el proveedor reconocido y monto exacto', monto: 'solo calza el monto: nada dice quién es',
   'monto fijo': 'monto fijo exacto de la obligación', documento: 'mismo monto del documento (boleta o factura)', glosa: 'la glosa lo dice', saldo: 'es el saldo exacto de un vencimiento con abonos',
-  sii: 'la factura del SII ya está registrada y es del mismo monto', combinacion: 'mismo proveedor y la suma calza exacto' };
+  sii: 'la factura del SII ya está registrada y es del mismo monto', combinacion: 'mismo proveedor y la suma calza exacto', regla: 'lo dice una regla tuya' };
 export function resumenCargo(p, c) {
   if (c && c.repetidoProp && (c.repetidoProp.candidatos || []).length) return 'Parece repetido de otra cartola';
   if (!p) return 'Sin coincidencia';
@@ -82,7 +82,7 @@ export function resumenCargo(p, c) {
   }
 }
 // Cómo se llegó a la propuesta, en corto (va entre paréntesis en la fila)
-const POR_CORTO = { aprendido: 'aprendido', rut: 'por el RUT', proveedor: 'por el proveedor', monto: 'por el monto', 'monto fijo': 'monto fijo exacto', documento: 'por el monto del documento', glosa: 'por la glosa', saldo: 'el monto del saldo' };
+const POR_CORTO = { regla: 'por tu regla', aprendido: 'aprendido', rut: 'por el RUT', proveedor: 'por el proveedor', monto: 'por el monto', 'monto fijo': 'monto fijo exacto', documento: 'por el monto del documento', glosa: 'por la glosa', saldo: 'el monto del saldo' };
 export const porCorto = p => (p && !p.sinPropuesta && POR_CORTO[p.por]) || '';
 // "Qué es": a quién se pagó, según lo que se sabe del cargo
 export function queEsCargo(c, ctx = {}) {
@@ -109,6 +109,7 @@ export function porQueCargo(c, p, D = {}) {
   if (p.tipo === 'gasto' && p.combo) porque = (p.conf === 'seguro' ? 'mismo proveedor (RUT confirmado)' : 'mismo proveedor') + ' y la suma calza exacto';
   if (p.sinPropuesta) porque = s(p.duda) || 'hay más de una opción';
   if (p.duda && !p.sinPropuesta) porque = [porque, s(p.duda)].filter(Boolean).join('. ');
+  if (p.por === 'regla' && p.fraseRegla) porque = `lo dice tu regla «${limpio(p.fraseRegla)}»`;
   return { que: resumenCargo(p, c), porque: [porque, ref].filter(Boolean).join(', ') };
 }
 
@@ -217,10 +218,12 @@ export function buscarGastos(q, D, c, opc = {}) {
 
 // ═══ Abonos (B2B) ═══
 const POR_ABONO = { transferencia: 'el RUT de la transferencia recibida', rut: 'el RUT en la glosa', aprendido: 'lo aprendiste antes con esta glosa', manual: 'elegiste tú el cliente', nombre: 'la glosa trae su nombre completo',
-  'nombre-parcial': 'la glosa se parece a su nombre', monto: 'solo calza el monto exacto con lo que debe' };
+  'nombre-parcial': 'la glosa se parece a su nombre', monto: 'solo calza el monto exacto con lo que debe', regla: 'una regla tuya dice el cliente' };
 export function resumenAbono(p, rep) {
   if (rep) return 'Parece repetido de otra cartola';
   if (!p || p.tipo === 'sinCliente') return 'Sin coincidencia';
+  if (p.accion === 'noB2B') return 'No es de B2B (tu regla)';
+  if (p.accion === 'revisado') return `Ya estaba registrado${p.cliente ? ' · ' + p.cliente : ''} (tu regla)`;
   const fs = (p.asignaciones || []).filter(a => n(a.monto) > 0).map(a => 'F.' + a.folio);
   if (fs.length) return `Paga ${fs.join(' + ')} · ${p.cliente}`;
   if (p.yaPagado) return `Parece un pago ya registrado · ${p.cliente}`;
@@ -236,6 +239,7 @@ export function queEsAbono(m, p, ctx = {}) {
 // folios: los por cobrar de ese cliente (para la fecha de la factura)
 export function porQueAbono(m, p, folios, rep) {
   if (rep) return { que: 'Marcarlo como repetido de otra cartola', porque: 'mismo monto y fecha a ±1 día que un abono de otra cartola' };
+  if (p && (p.accion === 'noB2B' || p.accion === 'revisado')) return { que: resumenAbono(p), porque: `lo dice tu regla «${limpio(p.fraseRegla || '')}»` };
   if (!p || p.tipo === 'sinCliente') return { que: 'Nada calza con este abono', porque: 'no se sabe quién pagó y el monto no calza exacto con lo que debe ningún cliente. Busca la factura abajo o márcalo "No es de B2B"' };
   const as = (p.asignaciones || []).filter(a => n(a.monto) > 0), sobra = n(p.sobra);
   const partes = [POR_ABONO[p.por] || ''];

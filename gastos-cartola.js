@@ -16,10 +16,10 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.68.0';
-import * as B from './gastos-banco.js?v=0.68.0';
-import { habilesEntre } from './feriados-cl.js?v=0.68.0';
-import * as D3 from './gastos-g3d.js?v=0.68.0';   // v0.67.0: total del plan de Previred con multas e intereses
+import * as G3 from './gastos-g3.js?v=0.69.0';
+import * as B from './gastos-banco.js?v=0.69.0';
+import { habilesEntre } from './feriados-cl.js?v=0.69.0';
+import * as D3 from './gastos-g3d.js?v=0.69.0';   // v0.67.0: total del plan de Previred con multas e intereses
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
@@ -301,7 +301,8 @@ export function vencimientosAbiertos(vencs, plantillas, siiRut, hoy) {
       periodo: /^\d{4}-\d{2}$/.test(s(d.periodoKey)) ? s(d.periodoKey) : dia(d.fechaVencimiento).slice(0, 7), total: G3.totalVenc(d), saldo: G3.saldoVenc(d), conLineas: G3.conLineas(d), fechaSaldo: dia(d.fechaSaldo),
       // v0.67.0: el total incluye las multas e intereses del comprobante (recargos)
       previred: d.documento && d.documento.tipo === 'previred' && d.documento.previred ? { periodo: s(d.documento.previred.periodo), fechaPago: dia(d.documento.previred.fechaPago), total: D3.totalPlan(d.documento.previred), recargos: num(d.documento.previred.recargos && d.documento.previred.recargos.monto), n: (d.documento.previred.trabajadores || []).length } : null,
-      folio: m ? m[2] : '', razon: m ? m[1].trim() : '', rut: (siiRut && siiRut[id]) || (d.documento && d.documento.tipo === 'sii' ? rutNorm(d.documento.rut) : ''), sii: '' });
+      folio: m ? m[2] : '', razon: m ? m[1].trim() : '', rut: (siiRut && siiRut[id]) || (d.documento && d.documento.tipo === 'sii' ? rutNorm(d.documento.rut) : ''), sii: '',
+      fechaDoc: dia(d.fechaCompra) || (d.documento && dia(d.documento.fecha)) || '' });   // v0.69.0: la fecha de la factura (para el ritmo de pago)
   });
   return out.sort((a, b) => s(a.fecha).localeCompare(s(b.fecha)) || a.id.localeCompare(b.id));
 }

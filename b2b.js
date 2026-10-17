@@ -8,13 +8,14 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.68.0';
-import * as FB from './firebase-b2b.js?v=0.68.0';
-import * as Apps from './apps.js?v=0.68.0';
-import * as Mem from './fs-memoria.js?v=0.68.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.68.0';
-import { distanciaTef } from './feriados-cl.js?v=0.68.0';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.68.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.69.0';
+import * as FB from './firebase-b2b.js?v=0.69.0';
+import * as Apps from './apps.js?v=0.69.0';
+import * as Mem from './fs-memoria.js?v=0.69.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.69.0';
+import { distanciaTef } from './feriados-cl.js?v=0.69.0';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.69.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.69.0';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1162,7 +1163,8 @@ export const configConciliacion = c => ({ ...CONC_DEF, ...(c || {}), ignorar: (c
 // Guarda los abonos nuevos de la cartola como "pendientes" (los ya vistos no se repiten)
 export async function cargarCartola(cartola, conf) {
   const db = await dbOk();
-  const c = configConciliacion(conf), ign = c.ignorar.map(normCartola).filter(Boolean);
+  // v0.69.0 · Con las reglas migradas, se saltan los textos de las reglas "No es de B2B" activas que se ignoran solas al subir
+  const c = configConciliacion(conf), ign = (migradoB2b(conf) ? RC.ignorarAlSubir(reglasB2b(conf)) : c.ignorar).map(normCartola).filter(Boolean);
   const r = { abonos: 0, nuevos: 0, yaVistos: 0, ignorados: 0, cargos: 0, identificador: cartola.identificador };
   const cand = [];
   cartola.filas.forEach((f, i) => {
@@ -1550,16 +1552,18 @@ export function proponer(movs, ctx) {
     const eqRut = tef && (ctx.equivalencias || []).find(e => e.rut && e.rut === tef.rut);
     const porTef = tef && (ctx.clientes.find(c => c.rut && normRut(c.rut) === tef.rut && c.estado !== 'archivado') || (eqRut && ctx.clientes.find(c => c.id === eqRut.clienteId)));
     const forz = ctx.forzados && ctx.forzados[mv.id] && ctx.clientes.find(c => c.id === ctx.forzados[mv.id]);
-    ident.set(mv, { tef, id: forz ? { cliente: forz, por: 'manual' } : porTef ? { cliente: porTef, por: 'transferencia' } : identificarCliente(mv, ctx.clientes, ctx.equivalencias) });
+    // v0.69.0 · Una regla de Abonos que asigna el cliente (contiene, o la glosa exacta de "Solo proponer"): con su nivel
+    const rg = ctx.reglasMov && ctx.reglasMov[mv.id], porRegla = rg && ctx.clientes.find(c => c.id === rg.clienteId && c.estado !== 'archivado');
+    ident.set(mv, { tef, id: forz ? { cliente: forz, por: 'manual' } : porTef ? { cliente: porTef, por: 'transferencia' } : porRegla ? { cliente: porRegla, por: 'regla', regla: rg.id, soloProponer: rg.nivel !== 'listos' } : identificarCliente(mv, ctx.clientes, ctx.equivalencias) });
   });
-  const seguroId = mv => { const x = ident.get(mv).id; return !!(x && SEGUROS.includes(x.por)); };
+  const seguroId = mv => { const x = ident.get(mv).id; return !!(x && (SEGUROS.includes(x.por) || x.por === 'regla')); };
   // ¿Ya se registró a mano un pago de ese monto? (v0.28.0: todos los del cliente en los 15 días antes del pago, o hasta 3 después)
   const similaresDe = (mv, cid) => { const cerca = p => p.fechaPago && diasEntre(p.fechaPago, mv.fecha) <= 15 && diasEntre(mv.fecha, p.fechaPago) <= 3;
     return (ctx.pagados || []).filter(p => p.clienteId === cid && Math.abs(Math.round(p.total) - mv.monto) <= 3 && cerca(p)).sort((a, b) => String(b.fechaPago).localeCompare(String(a.fechaPago))); };
   const avisoDe = similares => similares.length ? `Ojo: ${similares.length === 1 ? 'el folio ' + similares[0].folio + ' ya se registró pagado el ' + fechaDMY(similares[0].fechaPago) : 'ya hay ' + similares.length + ' folios pagados con este monto en esos días: ' + similares.map(p => `${p.folio} (${fechaDMY(p.fechaPago)})`).join(', ')}. Si es el mismo pago, marca "Ya estaba registrado".` : '';
   movs.filter(seguroId).concat(movs.filter(mv => !seguroId(mv))).forEach(mv => {
     const { tef, id } = ident.get(mv);
-    if (!id || !SEGUROS.includes(id.por)) {
+    if (!id || !(SEGUROS.includes(id.por) || id.por === 'regla')) {
       // ── Probable: el monto calza exacto con lo que debe un cliente (con pista de nombre cortado, ese cliente primero) ──
       const hintId = id ? id.cliente.id : '', cands = probablesAbono(mv, porCobrar, ctx.clientes, reservados, hintId);
       if (!cands.length) {
@@ -1582,7 +1586,7 @@ export function proponer(movs, ctx) {
     const ordAntes = f => (f.detalle || []).filter(d => !d.pagadaEl && (!d.fecha || d.fecha <= limite));
     const folioAntes = f => { const d = (f.detalle || []).filter(x => !x.pagadaEl); return !d.length || d.every(x => !x.fecha || x.fecha <= limite); };
     const folios = todos.filter(folioAntes), posteriores = todos.filter(f => !folioAntes(f)).map(f => f.folio);
-    const base = { clienteId: c.id, cliente: c.nombre, por: id.por, confianza: 'seguro', folios: todos, posteriores, limite, tef };
+    const base = { clienteId: c.id, cliente: c.nombre, por: id.por, confianza: 'seguro', folios: todos, posteriores, limite, tef, ...(id.regla ? { regla: id.regla, nivelRegla: id.soloProponer ? 'proponer' : 'listos', soloProponer: !!id.soloProponer } : {}) };
     const similares = similaresDe(mv, c.id), yaPagado = similares[0] || null, avisoYa = avisoDe(similares);
     if (!folios.length) { out[mv.id] = { ...base, tipo: 'revisar', sinCalce: true, similares, motivo: avisoYa || (todos.length ? `Sus folios por cobrar son de pedidos posteriores al pago (${fechaDMY(mv.fecha)}). ¿Es un pago ya registrado o un abono adelantado?` : 'No tiene folios por cobrar.'), yaPagado, asignaciones: [], sobra: mv.monto }; return; }
     // 1) un folio completo  2) de 2 a 4 folios completos (v0.65.2: ±$1, los más antiguos primero)  2b) todo lo que debe
@@ -1615,7 +1619,8 @@ export function proponer(movs, ctx) {
       }
     }
     // Se confirma sola solo si no hay ninguna duda: una sola forma de calzar y ningún pago igual ya registrado
-    if (asignaciones && unica && !yaPagado) {
+    if (asignaciones && unica && !yaPagado && id.soloProponer) motivo = 'Tu regla dice el cliente, pero solo propone: confírmalo tú. ' + motivo;
+    if (asignaciones && unica && !yaPagado && !id.soloProponer) {
       asignaciones.forEach(a => reservados.add(a.folio));
       out[mv.id] = { ...base, tipo: 'auto', motivo, asignaciones, sobra: Math.max(0, mv.monto - asignaciones.reduce((x, y) => x + y.monto, 0)) };
       return;
@@ -1642,7 +1647,7 @@ export function proponer(movs, ctx) {
 // Aplica un abono de la cartola: todo junto o nada (pagos/abonos de cada folio + el movimiento queda conciliado)
 // v0.15: con aFavor, lo que sobra del abono queda como saldo a favor del cliente (se usa después en sus folios)
 // v0.27.0: rutTef = RUT de quien transfirió (archivo de transferencias): al aprender, también se aprende ese RUT → cliente
-export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender, aFavor, rutTef) {
+export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender, aFavor, rutTef, opc = {}) {
   const db = await dbOk();
   const asig = (asignaciones || []).map(a => ({ folio: String(a.folio), monto: Math.round(Number(a.monto) || 0), ordenes: Array.isArray(a.ordenes) && a.ordenes.length ? a.ordenes.map(Number) : null })).filter(a => a.monto > 0);
   if (!asig.length && !aFavor) throw new Error('Asigna el monto a al menos un folio.');
@@ -1666,7 +1671,7 @@ export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender
     const total = asig.reduce((s, a) => s + a.monto, 0);
     if (aFavor && total >= mv.monto) aFavor = false;
     if (total > mv.monto) throw new Error(`Asignaste ${total.toLocaleString('es-CL')}, más que el abono del banco (${mv.monto.toLocaleString('es-CL')}).`);
-    const cref = FB.doc(db, 'config', 'conciliacion'), cs = aprender ? await tx.get(cref) : null;
+    const cref = FB.doc(db, 'config', 'conciliacion'), cs = aprender || opc.regla ? await tx.get(cref) : null;
     const leidas = {};
     for (const a of asig) { leidas[a.folio] = []; for (const id of info[a.folio].ids) { const s = await tx.get(FB.doc(db, 'ordenes', id)); if (s.exists()) leidas[a.folio].push({ id, ...s.data() }); } }
     const hechas = [];
@@ -1687,13 +1692,16 @@ export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender
       tocadas.forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio(completo ? { estadoPago: 'PAGADO', fechaPago: mv.fecha, medioPago: 'Transferencia (cartola)' } : { estadoPago: 'PARCIAL' })));
       hechas.push({ folio: a.folio, monto: a.monto, tipo: completo ? (tipo === 'pago' ? 'pago' : 'abono final') : 'abono', abono: aref ? aref.id : null, ordenes: tocadas.map(o => o.id), ...(ords ? { pagaOrdenes: ords } : {}) });
     }
+    // v0.69.0 · Las reglas (si ya se migraron): lo aprendido crea o pone al día la regla exacta de la glosa (y la del RUT de la transferencia),
+    // y la regla que propuso suma un uso. Todo en la misma escritura de config/conciliacion.
+    const rs = cs && cs.exists() ? reglasNuevas(cs.data(), mv, { aprender: aprender && mv.descNorm ? { tipo: 'cliente', clienteId, nombre: cliente.nombre || '' } : null, rut: normRut(rutTef), regla: opc.regla }) : null;
     if (aprender && mv.descNorm) {
       const r = normRut(rutTef), c = configConciliacion(cs.exists() ? cs.data() : null);
       const eq = c.equivalencias.filter(e => e.desc !== mv.descNorm && !(r && e.rut === r)).concat([{ desc: mv.descNorm, clienteId, nombre: cliente.nombre || '' }], r ? [{ desc: '', rut: r, clienteId, nombre: cliente.nombre || '' }] : []);
-      tx.set(cref, { ...(cs.exists() ? cs.data() : {}), ignorar: c.ignorar, equivalencias: eq.slice(-500) });
-    }
+      tx.set(cref, { ...(cs.exists() ? cs.data() : {}), ignorar: c.ignorar, equivalencias: eq.slice(-500), ...(rs ? { [RC.CAMPO_B2B]: rs } : {}) });
+    } else if (rs) tx.update(cref, { [RC.CAMPO_B2B]: rs });
     const favor = aFavor ? mv.monto - total : 0;
-    tx.update(mref, { estado: 'conciliado', clienteId, cliente: cliente.nombre || '', asignaciones: hechas, sobra: mv.monto - total, favorInicial: favor, favorDisponible: favor, favorUsos: [], aprendido: !!aprender, resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: true });
+    tx.update(mref, { estado: 'conciliado', clienteId, cliente: cliente.nombre || '', asignaciones: hechas, sobra: mv.monto - total, favorInicial: favor, favorDisponible: favor, favorUsos: [], aprendido: !!aprender, resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: true, ...extraMov(opc) });
     fin = { estado: 'conciliado', clienteId, cliente: cliente.nombre || '', asignaciones: hechas, sobra: mv.monto - total, favorInicial: favor, resuelto: { por: authSF.currentUser.email, en: ahoraSeg() } };
   });
   uso.escrituras += asig.length * 2 + 1;
@@ -1778,7 +1786,7 @@ export async function deshacerMovimiento(movId, motivo) {
     const cref = FB.doc(db, 'config', 'conciliacion'), cs = mv.aprendido ? await tx.get(cref) : null;
     const planes = hechas.map(h => planDeshacer(folios[h.folio], h, mv.fecha, mv.resuelto && mv.resuelto.en, movId));
     planes.forEach(p => aplicarPlan(db, tx, p, 'Deshecho en la conciliación' + (mot ? ': ' + mot : '')));
-    if (cs && cs.exists() && mv.descNorm) { const c = configConciliacion(cs.data()); tx.set(cref, { ...cs.data(), ignorar: c.ignorar, equivalencias: c.equivalencias.filter(e => !(e.desc === mv.descNorm && e.clienteId === mv.clienteId)) }); }
+    if (cs && cs.exists() && mv.descNorm) { const c = configConciliacion(cs.data()), ro = olvidarRegla(cs.data(), mv, mot); tx.set(cref, { ...cs.data(), ignorar: c.ignorar, equivalencias: c.equivalencias.filter(e => !(e.desc === mv.descNorm && e.clienteId === mv.clienteId)), ...(ro ? { [RC.CAMPO_B2B]: ro } : {}) }); }
     const antes = { estado: mv.estado, cliente: mv.cliente || '', clienteId: mv.clienteId || null, asignaciones: hechas, favorInicial: mv.favorInicial || 0, nota: mv.nota || null, resuelto: mv.resuelto || null };
     const u = { en: ahoraTxt(), por: authSF.currentUser.email, motivo: mot };
     tx.update(mref, { estado: 'pendiente', deshechos: (mv.deshechos || 0) + 1, ultimoDeshecho: u, deshechosAntes: (mv.deshechosAntes || []).concat([{ ...antes, ...u }]).slice(-10),
@@ -1986,21 +1994,125 @@ export async function guardarRitmo(dias) {
 }
 // "Ya estaba registrado" (revisado) o "No es de B2B" (ignorado); con patrón, se ignoran siempre los que lo digan
 // v0.24.3: "Ya estaba registrado" con un cliente elegido a mano: también se aprende quién pagó (para la próxima cartola)
-export async function marcarMovimiento(movId, estado, nota, patron, cliente) {
+export async function marcarMovimiento(movId, estado, nota, patron, cliente, opc = {}) {
   const db = await dbOk();
   if (!['revisado', 'ignorado'].includes(estado)) throw new Error('Estado no válido.');
   await FB.runTransaction(db, async tx => {
     const mref = FB.doc(db, 'movimientos', movId), ms = await tx.get(mref);
     if (!ms.exists() || ms.data().estado !== 'pendiente') throw new Error('Ese movimiento ya se resolvió.');
     const aprender = estado === 'revisado' && cliente && cliente.id && ms.data().descNorm;
-    const cref = FB.doc(db, 'config', 'conciliacion'), cs = patron || aprender ? await tx.get(cref) : null;
-    if (aprender) { const c = configConciliacion(cs.exists() ? cs.data() : null), dn = ms.data().descNorm; tx.set(cref, { ...(cs.exists() ? cs.data() : {}), ignorar: c.ignorar, equivalencias: c.equivalencias.filter(e => e.desc !== dn).concat([{ desc: dn, clienteId: cliente.id, nombre: cliente.nombre || '' }]).slice(-500) }); }
-    if (patron) { const c = configConciliacion(cs.exists() ? cs.data() : null), p = normCartola(patron); if (p.length < 4) throw new Error('El texto a ignorar es muy corto.'); tx.set(cref, { ...(cs.exists() ? cs.data() : {}), equivalencias: c.equivalencias, ignorar: [...new Set(c.ignorar.concat([p]))] }); }
-    tx.update(mref, { estado, nota: String(nota || '').trim().slice(0, 200) || null, ...(cliente && cliente.id && estado === 'revisado' ? { clienteId: cliente.id, cliente: cliente.nombre || '', aprendido: !!aprender } : {}), resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: estado === 'revisado' || !!ms.data().deshechos });   // deshecho antes: su fila del historial se corrige
+    const cref = FB.doc(db, 'config', 'conciliacion'), cs = patron || aprender || opc.regla ? await tx.get(cref) : null;
+    if (patron && normCartola(patron).length < 4) throw new Error('El texto a ignorar es muy corto.');
+    // v0.69.0 · Con las reglas migradas: "Ignorar siempre" crea la regla "No es de B2B" (se ignora sola al subir), lo aprendido la regla exacta
+    // de la glosa y la regla que propuso suma un uso; todo en la misma escritura de config/conciliacion
+    const rs = cs && cs.exists() ? reglasNuevas(cs.data(), ms.data(), { aprender: aprender ? { tipo: 'cliente', clienteId: cliente.id, nombre: cliente.nombre || '' } : null, patron: patron ? normCartola(patron) : '', regla: opc.regla }) : null;
+    let cd = cs && cs.exists() ? { ...cs.data() } : {}, escribe = false;
+    if (aprender) { const c = configConciliacion(cd), dn = ms.data().descNorm; cd = { ...cd, ignorar: c.ignorar, equivalencias: c.equivalencias.filter(e => e.desc !== dn).concat([{ desc: dn, clienteId: cliente.id, nombre: cliente.nombre || '' }]).slice(-500) }; escribe = true; }
+    if (patron) { const c = configConciliacion(cd), p = normCartola(patron); cd = { ...cd, equivalencias: c.equivalencias, ignorar: [...new Set(c.ignorar.concat([p]))] }; escribe = true; }
+    if (escribe) tx.set(cref, { ...cd, ...(rs ? { [RC.CAMPO_B2B]: rs } : {}) }); else if (rs) tx.update(cref, { [RC.CAMPO_B2B]: rs });
+    tx.update(mref, { estado, nota: String(nota || '').trim().slice(0, 200) || null, ...(cliente && cliente.id && estado === 'revisado' ? { clienteId: cliente.id, cliente: cliente.nombre || '', aprendido: !!aprender } : {}), resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: estado === 'revisado' || !!ms.data().deshechos, ...extraMov(opc) });   // deshecho antes: su fila del historial se corrige
   });
   anotarLocal(movId, { estado, nota: String(nota || '').trim().slice(0, 200) || null, ...(cliente && cliente.id && estado === 'revisado' ? { clienteId: cliente.id, cliente: cliente.nombre || '' } : {}), resuelto: { por: authSF.currentUser.email, en: ahoraSeg() } });   // v0.67.7
-  uso.escrituras += patron || cliente ? 2 : 1;
+  uso.escrituras += patron || cliente || opc.regla ? 2 : 1;
 }
+
+// ═══════════════════════════════════════════════
+//  v0.69.0 · Reglas de conciliación de Abonos: en config/conciliacion.reglasConc (las reglas v1.6.0 de fen-b2b ya dejan que
+//  administración escriba config/*; no hace falta publicar reglas nuevas). Se leen con la misma escucha de config/conciliacion
+//  que ya tiene la conciliación (0 lecturas nuevas); cada cambio es 1 lectura y 1 escritura (una transacción).
+// ═══════════════════════════════════════════════
+export const reglasB2b = conf => (conf && Array.isArray(conf[RC.CAMPO_B2B]) ? conf[RC.CAMPO_B2B] : []).map(x => RC.vista(x.id, x));
+export const migradoB2b = conf => !!(conf && conf[RC.MARCA_B2B]);
+// Las equivalencias que lee la propuesta: con las reglas migradas, las de las reglas exactas activas de nivel Listos
+export const equivalenciasDe = conf => (migradoB2b(conf) ? RC.legacyAbonos(reglasB2b(conf)) : configConciliacion(conf).equivalencias);
+const extraMov = opc => { const p = puntajeMov(opc && opc.puntaje); return { ...(p ? { puntaje: p } : {}), ...(opc && opc.regla ? { reglaConc: String(opc.regla).slice(0, 40) } : {}) }; };
+const puntajeMov = x => (x && typeof x === 'object' && isFinite(Number(x.valor)) ? { valor: Math.max(0, Math.min(100, Math.round(Number(x.valor)))), propuesta: String(x.propuesta || '').slice(0, 40), coincide: !!x.coincide, en: ahoraTxt() } : null);
+const conLista = (cd, fn) => { const L = reglasB2b(cd), out = fn(L.slice()); return out ? out.slice(-RC.MAX_REGLAS_B2B).map(RC.aDoc) : null; };
+const poner = (L, r) => { const i = L.findIndex(x => x.id === r.id); if (i >= 0) L[i] = r; else L.push(r); return L; };
+// Dentro de la transacción: lo aprendido, el texto a ignorar y el uso de la regla que propuso → la lista nueva (o null si no cambia)
+function reglasNuevas(cd, mv, { aprender, rut, patron, regla } = {}) {
+  if (!migradoB2b(cd)) return null;
+  const t = ahoraTxt(), por = authSF.currentUser.email;
+  let cambia = false;
+  const out = conLista(cd, L => {
+    const idE = mv.descNorm ? RC.idExacta('abono', 'txt:' + mv.descNorm) : '';
+    if (aprender && idE) { poner(L, RC.aprendida(L.find(x => x.id === idE) || null, 'abono', 'txt:' + mv.descNorm, aprender, mv.monto, por, t)); cambia = true;
+      if (rut) { const k = 'tef:' + rut, idR = RC.idExacta('abono', k); poner(L, RC.aprendida(L.find(x => x.id === idR) || null, 'abono', k, aprender, mv.monto, por, t)); } }
+    if (patron) { const id = RC.idExacta('abono', 'ign:' + patron), a = L.find(x => x.id === id);
+      if (!a) { const r = RC.nueva({ lado: 'abono', nivel: 'listos', cond: { tipo: 'contiene', palabras: [patron], no: [], montoMin: null, montoMax: null, cuenta: '', rut: '' }, res: { tipo: 'noB2B', motivo: '', alSubir: true } }, 'manual', por, t, { id }); poner(L, r); }
+      else if (a.estado !== 'activa') poner(L, RC.conEstado(a, 'activa', por, t, 'Ignorar siempre al marcar No es de B2B'));
+      cambia = true; }
+    if (regla && !(aprender && regla === idE)) { const u = L.find(x => x.id === regla); if (u) { poner(L, RC.usada(u, mv.monto, t)); cambia = true; } }
+    return L;
+  });
+  return cambia ? out : null;
+}
+// Deshacer: la regla exacta de esa glosa (aprendida para ese cliente) pierde un uso; en cero queda archivada
+function olvidarRegla(cd, mv, motivo) {
+  if (!migradoB2b(cd) || !mv.descNorm) return null;
+  const id = RC.idExacta('abono', 'txt:' + mv.descNorm);
+  let cambia = false;
+  const out = conLista(cd, L => { const a = L.find(x => x.id === id); if (a && a.res.tipo === 'cliente' && a.res.clienteId === mv.clienteId) { const x = RC.olvidada(a, authSF.currentUser.email, ahoraTxt(), motivo); if (x) { poner(L, x); cambia = true; } } return L; });
+  return cambia ? out : null;
+}
+// Una sola vez: lo aprendido (equivalencias) y los textos a ignorar pasan a reglas. No se borra nada de lo de antes.
+export async function migrarReglasB2b() {
+  const db = await dbOk(), cref = FB.doc(db, 'config', 'conciliacion');
+  let n = 0;
+  await FB.runTransaction(db, async tx => {
+    const cs = await tx.get(cref); if (!cs.exists()) return;
+    const cd = cs.data(); if (migradoB2b(cd)) return;
+    const t = ahoraTxt(), por = authSF.currentUser.email, ya = reglasB2b(cd), ids = new Set(ya.map(r => r.id));
+    const nuevas = RC.migrarAbonos(cd, por, t).filter(r => !ids.has(r.id)); n = nuevas.length;
+    tx.update(cref, { [RC.CAMPO_B2B]: ya.concat(nuevas).slice(-RC.MAX_REGLAS_B2B).map(RC.aDoc), [RC.MARCA_B2B]: { v: 1, en: t, por, migradas: nuevas.length, equivalencias: (cd.equivalencias || []).length, ignorar: (cd.ignorar || []).length } });
+  });
+  uso.lecturas++; uso.escrituras++;
+  return n;
+}
+// Crear, editar, pausar, activar, archivar, aceptar o descartar una sugerencia (como guardarReglaConc de Cargos)
+export async function guardarReglaB2b(op) {
+  const db = await dbOk(), cref = FB.doc(db, 'config', 'conciliacion'), o = op || {}, t = ahoraTxt(), por = authSF.currentUser.email;
+  let res = null;
+  await FB.runTransaction(db, async tx => {
+    const cs = await tx.get(cref); if (!cs.exists()) throw new Error('Falta la configuración de la conciliación.');
+    const cd = cs.data(); if (!migradoB2b(cd)) throw new Error('Las reglas de Abonos todavía no están listas: abre Conciliación → Abonos y vuelve a intentar.');
+    const L = reglasB2b(cd);
+    let x = null;
+    if (o.que === 'crear' || o.que === 'aceptar' || o.que === 'descartar') {
+      const base = o.que === 'descartar' ? { nivel: 'proponer', cond: o.sugerida.cond, res: o.sugerida.res } : o.regla;
+      x = RC.nueva({ ...base, lado: 'abono' }, o.que === 'crear' ? 'manual' : 'propuesta', por, t, { firma: o.sugerida ? o.sugerida.firma : '', evidencia: o.sugerida ? o.sugerida.evidencia : null, id: o.sugerida ? 'ra-s' + RC.huella(o.sugerida.firma) : '' });
+      if (o.que === 'descartar') x = { ...x, estado: 'descartada', historial: [RC.entrada('descartó la regla sugerida', por, t, { frase: RC.frase(x) })] };
+      if (L.some(r => r.id === x.id && r.estado !== 'descartada')) throw new Error('Esa regla ya existe: recarga.');
+    } else {
+      const a = L.find(r => r.id === o.id); if (!a) throw new Error('Esa regla ya no está. Recarga.');
+      x = o.que === 'editar' ? RC.editar(a, o.regla, por, t) : RC.conEstado(a, o.estado, por, t, o.motivo);
+    }
+    if (!x) return;
+    tx.update(cref, { [RC.CAMPO_B2B]: poner(L, x).slice(-RC.MAX_REGLAS_B2B).map(RC.aDoc) });
+    res = x;
+  });
+  uso.lecturas++; if (res) uso.escrituras++;
+  return { ok: true, regla: res, sinCambios: !res };
+}
+// Lo ya resuelto de los últimos 120 días (para las reglas sugeridas): una sola consulta por fecha, guardada en la sesión
+let recientes = null;
+export function movimientosRecientes(dias = RC.DIAS_SUGERIR) {
+  if (recientes && recientes.dias >= dias) return recientes.p;
+  const p = (async () => {
+    const db = await dbOk(), desde = masDias(hoyTxt(), -dias);
+    const sn = await FB.getDocs(FB.query(FB.collection(db, 'movimientos'), FB.where('fecha', '>=', desde)));
+    uso.lecturas += Math.max(1, sn.size); recientes.lecturas = Math.max(1, sn.size);
+    const l = sn.docs.map(x => ({ id: x.id, ...x.data() }));
+    anotarLeidosB2b(l, desde);   // también sirve para los repetidos y "Ver el registro"
+    return l;
+  })();
+  recientes = { dias, p, lecturas: 0 };
+  p.catch(() => { recientes = null; });
+  return p;
+}
+export const usoRecientesB2b = () => (recientes ? { dias: recientes.dias, lecturas: recientes.lecturas } : null);
+// Lo conocido de esos días con lo resuelto en esta sesión (repMem guarda lo que se confirmó aquí sin volver a leer)
+export const movsResueltosConocidos = () => [...repMem.docs.values()].filter(m => m.estado && m.estado !== 'pendiente');
 
 // ── Una sola vez: traer lo ya conciliado en la app antigua (historial, lo aprendido, lo ignorado y lo pendiente) ──
 export const VERSION_CONCILIACION = '2.6.0';   // script que entrega las hojas de conciliación (SistemaFen.gs v1.4.0)

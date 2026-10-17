@@ -8,13 +8,13 @@
 //  v0.50.0: con Gastos en la base nueva, todo va a gastos-cartola-fs.js (fen-gastos) y las propuestas siguen la forma de
 //  trabajar acordada (gastos-cartola.js: monto fijo, documento, abonos). Con la planilla, igual que en la v0.49.0.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.68.0';
-import * as CB from './gastos-cartola.js?v=0.68.0';
-export { resumenLote } from './gastos-cartola.js?v=0.68.0';
+import * as Gastos from './gastos.js?v=0.69.0';
+import * as CB from './gastos-cartola.js?v=0.69.0';
+export { resumenLote } from './gastos-cartola.js?v=0.69.0';
 
 export const VERSION_CARTOLA = '2.8.0';
 const op = (o, d, idem) => Gastos.llamar(o, d, idem, VERSION_CARTOLA);
-const fsC = () => import('./gastos-cartola-fs.js?v=0.68.0');
+const fsC = () => import('./gastos-cartola-fs.js?v=0.69.0');
 const enBase = () => Gastos.enBase();
 
 let cache = null;
@@ -76,6 +76,8 @@ export async function guardarEnviadas(L, nombre) { const r = await (await soloBa
 export async function proveedores() { return (await soloBase()).proveedoresLista(); }
 export async function guardarFicha(p) { const r = await (await soloBase()).guardarFicha(p); olvidar(); return r; }
 // v0.67.1 · Nota de un cargo (sin clasificar ni conciliar): 1 escritura. docId: el id del documento del cargo
+// v0.69.0 · Reglas de conciliación de Cargos (conc_reglas): crear, editar, pausar, activar, archivar, aceptar o descartar una sugerida
+export async function guardarReglaConc(op) { const r = await (await soloBase()).guardarReglaConc(op); olvidar(); return r; }
 export async function notaCargo(docId, texto) { const r = await (await soloBase()).notaCargo(docId, texto); olvidar(); return r; }
 
 // ── Propuestas ──

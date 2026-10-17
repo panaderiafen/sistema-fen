@@ -19,19 +19,21 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.68.0';
-import * as M from './gastos-g2.js?v=0.68.0';
-import * as G3 from './gastos-g3.js?v=0.68.0';
-import * as G3D from './gastos-g3d.js?v=0.68.0';
-import * as C from './gastos-cartola.js?v=0.68.0';
-import * as B from './gastos-banco.js?v=0.68.0';
-import { huella } from './gastos-modelo.js?v=0.68.0';
-import * as FS from './gastos-fs.js?v=0.68.0';
-import * as GB from './gastos-base.js?v=0.68.0';
-import * as TE from './tef-enviadas.js?v=0.68.0';
-import * as P from './proveedores.js?v=0.68.0';
-import * as SP from './sii-pendientes.js?v=0.68.0';   // v0.66.0: documentos del SII por clasificar
-import { registradosGastos } from './bandeja.js?v=0.68.0';   // v0.68.0: lo registrado con su estado (Buscar en Gastos)
+import * as FB from './fs-gastos.js?v=0.69.0';
+import * as M from './gastos-g2.js?v=0.69.0';
+import * as G3 from './gastos-g3.js?v=0.69.0';
+import * as G3D from './gastos-g3d.js?v=0.69.0';
+import * as C from './gastos-cartola.js?v=0.69.0';
+import * as B from './gastos-banco.js?v=0.69.0';
+import { huella } from './gastos-modelo.js?v=0.69.0';
+import * as FS from './gastos-fs.js?v=0.69.0';
+import * as GB from './gastos-base.js?v=0.69.0';
+import * as TE from './tef-enviadas.js?v=0.69.0';
+import * as P from './proveedores.js?v=0.69.0';
+import * as SP from './sii-pendientes.js?v=0.69.0';   // v0.66.0: documentos del SII por clasificar
+import { registradosGastos } from './bandeja.js?v=0.69.0';   // v0.68.0: lo registrado con su estado (Buscar en Gastos)
+import * as RC from './reglas-conc.js?v=0.69.0';   // v0.69.0: las reglas de conciliación (conc_reglas)
+import * as PT from './puntaje.js?v=0.69.0';      // v0.69.0: el ritmo de pago de cada proveedor
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -42,6 +44,8 @@ const s = v => String(v == null ? '' : v);
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const ahora = () => M.ahoraChile().texto;
 const quien = () => correo() || 'Sistema Fën';
+// v0.69.0 · El puntaje que mostró la pantalla al confirmar: { valor, propuesta, coincide } (solo para afinar los pesos después)
+const puntajeDe = x => (x && typeof x === 'object' && isFinite(Number(x.valor)) ? { valor: Math.max(0, Math.min(100, Math.round(Number(x.valor)))), propuesta: s(x.propuesta).slice(0, 40), coincide: !!x.coincide, en: ahora() } : null);
 export async function sha256(t) {
   const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(t)));
   return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
@@ -63,8 +67,10 @@ const refsNC = docs => { const m = {}; (docs || []).forEach(x => { const d = x.d
 export async function lista(diasP) {
   const hoy = M.ahoraChile().dia, dias = Math.min(400, Math.max(7, Math.round(Number(diasP)) || 60)), corte = G3.sumarDias(hoy, -dias);
   try { await FS.vencimientosAlDia(); } catch (e) {}
-  const [cg, ct, reglas, ab, gastos, dAb, tefs, provs, dPl] = await Promise.all([todos('cartola_cargos'), todos('cartolas'), reglasTodas(), abiertos(), todos('gastos', FB.where('fecha', '>=', G3.sumarDias(hoy, -150))), FS.datosAbono().catch(() => ({ destinatarios: [], trabajadores: [] })),
-    todos('tef_enviadas').catch(() => []), todos('proveedores').catch(() => []), datosPlanillas()]);
+  const [cg, ct, reglas0, ab, gastos, dAb, tefs, provs, dPl, RCx] = await Promise.all([todos('cartola_cargos'), todos('cartolas'), reglasTodas(), abiertos(), todos('gastos', FB.where('fecha', '>=', G3.sumarDias(hoy, -150))), FS.datosAbono().catch(() => ({ destinatarios: [], trabajadores: [] })),
+    todos('tef_enviadas').catch(() => []), todos('proveedores').catch(() => []), datosPlanillas(), reglasConc()]);
+  // v0.69.0 · Con las reglas migradas, lo aprendido sale de conc_reglas (las exactas, con la forma de siempre); cartola_reglas queda como estaba
+  const reglas = RCx.ok ? RC.legacyCargos(RCx.reglas).map(r => ({ ...r, docId: r.regla })) : reglas0;
   // v0.67.6 · El mismo movimiento en dos cartolas: lo ya subido se revisa contra todo (de la memoria, sin lecturas). Los pares
   // claros se marcan "Repetido" una vez (con su registro); los dudosos quedan con la propuesta "Marcar como repetido".
   const todosC = cg.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCargo(x.id, x.d));
@@ -95,13 +101,118 @@ export async function lista(diasP) {
   // v0.67.4 · Los gastos sin cargo y, aparte, las notas de crédito sin cargo (con su referencia): solo se suman con su factura
   const grupos = B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon))), { conNC: true });
   const rNC = refsNC(ab.siiDocs), ncs = grupos.filter(g => g.monto < 0).map(g => (rNC[g.siiDocId] ? { ...g, refs: rNC[g.siiDocId] } : g));
-  const SPF = await import('./sii-pendientes-fs.js?v=0.68.0');
+  const SPF = await import('./sii-pendientes-fs.js?v=0.69.0');
   const siiPendientes = await SPF.pendientes().catch(async () => SP.pendientesDe(await todos('sii_docs').catch(() => []))), siiRegistrados = await SPF.registrados().catch(() => []);
+  // v0.69.0 · El ritmo de pago de cada proveedor (factura → cargo del banco), de los gastos de 12 meses que ya están en la memoria (0 lecturas)
+  const ritmos = await ritmosProveedores(hoy, todosC).catch(() => ({}));
   return { ok: true, fuente: 'base', planillas, siiPendientes, siiRegistrados, cargos, repetidos, ligados, todosCargos: todosC, cartolas: ct.filter(x => !x.d.quitadoEnPlanilla).map(x => C.vistaCartola(x.id, x.d)), reglas: reglas.filter(r => !r.quitada && r.veces > 0),
+    reglasConc: RCx.reglas, concMigrado: RCx.ok, concMarca: RCx.marca || null, ritmos,
     vencimientos: ab.lista, gastos: grupos.filter(g => g.monto > 0), notasCredito: ncs, sinFactura, siiSinImportar: {}, dias,
     registrados: registradosGastos(gastos, ab.vencs, hoy),   // v0.68.0 · "Buscar en Gastos": lo ya leído (gastos de 150 días y vencimientos), con su estado; 0 lecturas
     abonoDest: dAb.destinatarios, trabajadores: dAb.trabajadores,   // v0.63.1: para "Área de este abono"
     enviadas: { n: enviadas.length, hasta: enviadas.map(x => x.fecha).sort().pop() || '', subidas: [...new Set(enviadas.map(x => x.subida.slice(0, 10)))].sort().slice(-3) } };
+}
+
+// ═══ v0.69.0 · Reglas de conciliación (conc_reglas) ═══
+// Una colección chica: se lee entera una vez (queda en la memoria de la sesión; después solo "lo que cambió"). El documento
+// conc_reglas/migracion-v0690 marca que lo aprendido (cartola_reglas) ya se copió: la migración corre una sola vez y no borra nada.
+let concOk = false;
+async function reglasConc() {
+  const l = await todos(RC.COL).catch(() => null);
+  if (l === null) return { ok: false, reglas: [] };
+  const marca = l.find(x => x.id === RC.ID_MARCA);
+  if (!marca) {
+    try { await migrarConc(l); } catch (e) { console.warn('Reglas sin migrar', e); return { ok: false, reglas: [] }; }
+    const l2 = await todos(RC.COL).catch(() => null), m2 = l2 && l2.find(x => x.id === RC.ID_MARCA);
+    if (!m2) return { ok: false, reglas: [] };
+    concOk = true;
+    return { ok: true, reglas: l2.filter(x => x.id !== RC.ID_MARCA).map(x => RC.vista(x.id, x.d)), marca: m2.d };
+  }
+  concOk = true;
+  return { ok: true, reglas: l.filter(x => x.id !== RC.ID_MARCA).map(x => RC.vista(x.id, x.d)), marca: marca.d };
+}
+export const reglasConcLista = async () => (await reglasConc()).reglas;
+// La migración: cada regla viva de cartola_reglas pasa a una regla "glosa exacta" con id fijo (rc- + huella de la clave). Si ya
+// existe (otra pestaña la migró), no se toca. La marca va en el último lote.
+async function migrarConc(ya) {
+  const d = await dbBase(), t = ahora(), por = quien();
+  const sm = await FB.getDoc(FB.doc(d, RC.COL, RC.ID_MARCA));   // por si otra pestaña terminó recién
+  if (sm.exists()) return 0;
+  const viejas = await reglasTodas(), existe = new Set((ya || []).map(x => x.id));
+  const nuevas = RC.migrarCargos(viejas, por, t).filter(r => !existe.has(r.id));
+  const marca = { id: RC.ID_MARCA, tipo: 'marca', v: 1, desde: 'cartola_reglas', leidas: viejas.length, migradas: nuevas.length, en: t, por };
+  for (let i = 0; i <= nuevas.length; i += 400) {
+    const parte = nuevas.slice(i, i + 400), b = FB.writeBatch(d);
+    parte.forEach(r => b.set(FB.doc(d, RC.COL, r.id), limpio(RC.aDoc(r))));
+    if (i + 400 > nuevas.length) b.set(FB.doc(d, RC.COL, RC.ID_MARCA), marca);
+    await b.commit();
+  }
+  return nuevas.length;
+}
+// Crear, editar, pausar, activar, archivar, aceptar o descartar una sugerencia: una transacción (1 lectura y 1 escritura)
+// op = { que: 'crear'|'editar'|'estado'|'aceptar'|'descartar', id, regla (de RC.revisar), estado, motivo, sugerida }
+export async function guardarReglaConc(op) {
+  const d = await dbBase(), t = ahora(), por = quien(), o = op || {};
+  let id = s(o.id), nuevaR = null;
+  if (o.que === 'crear' || o.que === 'aceptar' || o.que === 'descartar') {
+    const base = o.que === 'descartar' ? { lado: 'cargo', nivel: 'proponer', cond: o.sugerida.cond, res: o.sugerida.res } : o.regla;
+    if (!base) throw error('Falta la regla', 'datos');
+    nuevaR = RC.nueva({ ...base, lado: 'cargo' }, o.que === 'crear' ? 'manual' : 'propuesta', por, t, { firma: o.sugerida ? o.sugerida.firma : '', evidencia: o.sugerida ? o.sugerida.evidencia : null, id: o.sugerida ? 'rc-s' + RC.huella(o.sugerida.firma) : '' });
+    if (o.que === 'descartar') nuevaR = { ...nuevaR, estado: 'descartada', historial: [RC.entrada('descartó la regla sugerida', por, t, { frase: RC.frase(nuevaR) })] };
+    id = nuevaR.id;
+  }
+  const ref = FB.doc(d, RC.COL, id);
+  const r = await FB.runTransaction(d, async tx => {
+    const sn = await tx.get(ref), act = sn.exists() ? RC.vista(sn.id, sn.data()) : null;
+    let x;
+    if (nuevaR) { if (act && act.estado !== 'descartada' && o.que !== 'descartar') throw error('Esa regla ya existe: recarga.', 'resuelto'); x = act && o.que === 'descartar' ? RC.conEstado(act, 'descartada', por, t) : nuevaR; }
+    else if (!act) throw error('Esa regla ya no está. Recarga.', 'datos');
+    else if (o.que === 'editar') x = RC.editar(act, o.regla, por, t);
+    else if (o.que === 'estado') x = RC.conEstado(act, o.estado, por, t, o.motivo);
+    if (!x) return { sinCambios: true, regla: act };
+    tx.set(ref, limpio(RC.aDoc(x)));
+    return { regla: x };
+  });
+  return { ok: true, ...r };
+}
+// Dentro de la transacción de un cargo: la regla exacta de su glosa (lo aprendido) y la regla que propuso (si es otra)
+async function leerConc(tx, d, clave, idUsada) {
+  if (!concOk) return null;
+  const idE = RC.idExacta('cargo', clave), out = { exacta: { ref: FB.doc(d, RC.COL, idE) }, usada: null };
+  const se = await tx.get(out.exacta.ref); out.exacta.act = se.exists() ? RC.vista(se.id, se.data()) : null;
+  if (idUsada && idUsada !== idE) { const ref = FB.doc(d, RC.COL, s(idUsada)), su = await tx.get(ref); out.usada = { ref, act: su.exists() ? RC.vista(su.id, su.data()) : null }; }
+  else if (idUsada) out.usada = out.exacta;
+  return out;
+}
+// Lo aprendido (la regla exacta, "Solo proponer" si es nueva) y el uso de la regla que propuso, en la misma escritura
+function escribirConc(tx, Q, regla, c) {
+  if (!Q) return 0;
+  const t = ahora(), por = quien(), res = regla ? RC.resDeLegacy({ ...regla, ejemplo: regla.ejemplo }) : null, p = c.__p || {};
+  let n = 0;
+  const usadaOk = Q.usada && Q.usada.act && p.reglaAccion && p.reglaAccion === s(p.accion);
+  // Si la propuso una regla "contiene" y se confirmó eso mismo, no se crea además una exacta (se cuenta el uso de esa)
+  const porOtra = usadaOk && Q.usada !== Q.exacta && Q.usada.act.cond.tipo !== 'exacta';
+  if (res && !porOtra) {
+    if (regla.accion === 'ignorar') res.siempre = true;
+    const x = RC.aprendida(Q.exacta.act, 'cargo', c.clave, res, c.monto, por, t);
+    tx.set(Q.exacta.ref, limpio(RC.aDoc(x))); n++;
+  } else if (usadaOk && Q.usada === Q.exacta && Q.exacta.act) { tx.set(Q.exacta.ref, limpio(RC.aDoc(RC.usada(Q.exacta.act, c.monto, t)))); n++; }
+  if (usadaOk && Q.usada !== Q.exacta) { tx.set(Q.usada.ref, limpio(RC.aDoc(RC.usada(Q.usada.act, c.monto, t)))); n++; }
+  return n;
+}
+// El ritmo de pago de cada proveedor: días de la factura (gasto del SII) al cargo del banco que la pagó, en 12 meses
+async function ritmosProveedores(hoy, cargos) {
+  const g = await todos('gastos', FB.where('fecha', '>=', G3.sumarDias(hoy, -400)));
+  const fc = new Map((cargos || []).map(c => [c.id, c.fecha]));
+  const pares = [];
+  g.forEach(({ d: x }) => {
+    if (!x || x.estado !== 'vigente') return;
+    const rut = P.rutNorm(x.rutProveedor), folio = s(x.folio) || s(x.siiDoc && x.siiDoc.folio), cg = s(x.cartolaCargo);
+    if (!rut || !folio || !cg) return;
+    const fp = fc.get(cg) || s(x.fechaPago).slice(0, 10);
+    pares.push({ clave: rut, id: folio, fechaDoc: s(x.fecha).slice(0, 10), fechaPago: fp });
+  });
+  return PT.ritmos(pares, hoy);
 }
 
 // ═══ v0.67.6 · Repetidos al listar ═══
@@ -198,7 +309,9 @@ export async function cargar(meta, cargos, parte) {
   const d = await dbBase(), t = ahora(), por = correo() || 'Sistema Fën';
   L.fuente = C.fuenteDeCarga(meta, t);   // v0.64.0: de qué archivo salió cada cargo
   const [cg, ct, reglas] = await Promise.all([todos('cartola_cargos'), todos('cartolas'), reglasTodas()]);
-  const plan = C.planCarga(L, cg.map(x => C.vistaCargo(x.id, x.d)), C.mapaReglas(reglas), t, por);
+  // v0.69.0 · Con las reglas migradas, solo "No es gasto" que se ignora sola (lo que marcaste "siempre") se aplica al subir
+  const RCx = await reglasConc();
+  const plan = C.planCarga(L, cg.map(x => C.vistaCargo(x.id, x.d)), C.mapaReglas(RCx.ok ? RC.legacyAlSubir(RCx.reglas) : reglas), t, por);
   let n = 0;
   for (let i = 0; i < plan.nuevos.length; i += 200) {
     const parteN = plan.nuevos.slice(i, i + 200);
@@ -258,18 +371,24 @@ async function leerCargo(id) {
   return { d, ref, c: C.vistaCargo(sn.id || s(id), sn.data()) };
 }
 // Lo aprendido, dentro de la transacción: lee la regla de esa clave y la deja al día
-async function leerRegla(tx, d, clave) {
+// v0.69.0 · También la regla nueva (conc_reglas) de esa glosa y la que propuso: se leen aquí (antes de escribir) y se escriben en la
+// misma transacción. cartola_reglas sigue al día igual (por si hay que volver a la v0.68.0).
+async function leerRegla(tx, d, clave, c) {
   const lista = await todos('cartola_reglas'), x = lista.find(y => s(y.d.clave) === clave);
   const ref = FB.doc(d, 'cartola_reglas', x ? x.id : 'r-' + huella(clave));
   const sn = await tx.get(ref);
-  return { ref, sn, act: sn.exists() ? C.vistaRegla(ref.id, sn.data()) : null };
+  const conc = await leerConc(tx, d, clave, c && c.__p && c.__p.regla);
+  return { ref, sn, act: sn.exists() ? C.vistaRegla(ref.id, sn.data()) : null, conc };
 }
 function escribirRegla(tx, R, regla, c) {
+  if (R && R.conc) escribirConc(tx, R.conc, regla, c);
   if (!regla) return;
   const campos = C.aprender(R.act, c.clave, regla, c.descripcion, ahora(), quien());
   if (R.sn.exists()) tx.update(R.ref, cambio(R.sn.data(), 'aprendió', campos)); else tx.set(R.ref, nuevo(campos, 'cartola'));
 }
-const aCargo = (c0, a, campos) => cambioCargo(a, 'resolvió', { ...campos, resueltoEl: ahora(), resueltoPor: quien() });
+// v0.69.0 · El puntaje que se mostró al confirmar y la regla que propuso (solo campos, para afinar después)
+const extraCargo = c0 => { const p = (c0 && c0.__p) || {}; return { ...(p.puntaje ? { puntaje: p.puntaje } : {}), ...(p.regla ? { reglaConc: p.regla } : {}) }; };
+const aCargo = (c0, a, campos) => cambioCargo(a, 'resolvió', { ...campos, ...extraCargo(c0), resueltoEl: ahora(), resueltoPor: quien() });
 // Revisa el cargo dentro de la transacción: por revisar, misma huella; o ya resuelto con esta misma marca (repetido)
 function revisarCargo(sn, c0, clave) {
   if (!sn.exists()) throw error('Ese cargo ya no está', 'datos');
@@ -293,6 +412,7 @@ export async function resolver(p) {
     throw error(`Ese cargo ya se había resuelto (${c0.accion}, ${c0.resueltoEl}). Recarga la lista.`, 'resuelto');
   }
   const tr = C.traza(c0), hora = M.ahoraChile().hora;
+  c0.__p = { accion, regla: s(p.regla).slice(0, 40), reglaAccion: s(p.reglaAccion), puntaje: puntajeDe(p.puntaje) };   // v0.69.0
   let r;
   if (accion === 'vencimientos') r = await resolverVencimientos(d, ref, c0, p.pagos, marca, tr, hora);
   else if (accion === 'gasto') r = await resolverGasto(d, ref, c0, p.filas, marca, tr, p.combinacion === true);
@@ -306,9 +426,9 @@ export async function resolver(p) {
     const motivo = C.texto(p.motivo, 80) || 'No es gasto', detalle = { motivo, siempre: !!p.siempre, marca: clave };
     r = await FB.runTransaction(d, async tx => {
       const sn = await tx.get(ref), x = revisarCargo(sn, c0, clave); if (x.repetido) return { repetido: true };
-      const R = p.siempre ? await leerRegla(tx, d, c0.clave) : null;
+      const R = p.siempre || p.regla ? await leerRegla(tx, d, c0.clave, c0) : null;
       tx.update(ref, aCargo(c0, sn.data(), { estado: C.ESTADOS.ignorado, accion, detalle: JSON.stringify(detalle) }));
-      if (R) escribirRegla(tx, R, C.reglaDe('ignorar', c0, { siempre: true, motivo }), c0);
+      if (R) escribirRegla(tx, R, p.siempre ? C.reglaDe('ignorar', c0, { siempre: true, motivo }) : null, c0);
       return { n: 1 + (R ? 1 : 0), detalle, estado: C.ESTADOS.ignorado };
     });
   } else if (accion === C.PAGO_TARJETA) {
@@ -316,7 +436,7 @@ export async function resolver(p) {
     const tarjeta = C.texto(p.tarjeta, 80), detalle = { movimiento: 'flujo', tipo: C.PAGO_TARJETA, tarjeta, marca: clave };
     r = await FB.runTransaction(d, async tx => {
       const sn = await tx.get(ref), x = revisarCargo(sn, c0, clave); if (x.repetido) return { repetido: true };
-      const R = await leerRegla(tx, d, c0.clave);
+      const R = await leerRegla(tx, d, c0.clave, c0);
       tx.update(ref, aCargo(c0, sn.data(), { estado: C.ESTADOS.conciliado, accion, detalle: JSON.stringify(detalle) }));
       escribirRegla(tx, R, C.reglaDe(C.PAGO_TARJETA, c0, { tarjeta }), c0);
       return { n: 2, detalle, estado: C.ESTADOS.conciliado };
@@ -326,7 +446,7 @@ export async function resolver(p) {
     const nota = C.texto(p.nota, 80), detalle = { movimiento: 'flujo', tipo: C.TRASPASO, nota, marca: clave };
     r = await FB.runTransaction(d, async tx => {
       const sn = await tx.get(ref), x = revisarCargo(sn, c0, clave); if (x.repetido) return { repetido: true };
-      const R = await leerRegla(tx, d, c0.clave);
+      const R = await leerRegla(tx, d, c0.clave, c0);
       tx.update(ref, aCargo(c0, sn.data(), { estado: C.ESTADOS.conciliado, accion, detalle: JSON.stringify(detalle) }));
       escribirRegla(tx, R, C.reglaDe(C.TRASPASO, c0, { nota }), c0);
       return { n: 2, detalle, estado: C.ESTADOS.conciliado };
@@ -377,7 +497,7 @@ async function resolverVencimientos(d, ref, c0, pagos, marca, tr, hora) {
     for (const r of refsV) snV.push(await tx.get(r));
     const snC = {};
     for (const id of Object.keys(creditos)) { snC[id] = []; for (const gid of creditos[id]) { const rg = FB.doc(d, 'gastos', gid); snC[id].push({ ref: rg, sn: await tx.get(rg) }); } }
-    const R = await leerRegla(tx, d, c0.clave);
+    const R = await leerRegla(tx, d, c0.clave, c0);
     let n = 1;
     const pagados = [];
     rp.pedidos.forEach(({ v: v0, monto }, i) => {
@@ -483,7 +603,7 @@ async function resolverNuevo(d, ref, c0, gq, marca, tr, hora) {
   const lineas = M.lineasCompra(e, li.limpios), ids = M.idsLineas('gc', marca, lineas.length), clave = marca.t + marca.r;
   return FB.runTransaction(d, async tx => {
     const sn = await tx.get(ref), x = revisarCargo(sn, c0, clave); if (x.repetido) return { repetido: true };
-    const R = await leerRegla(tx, d, c0.clave);
+    const R = await leerRegla(tx, d, c0.clave, c0);
     const od = { tipo: 'cartola', cargoId: c0.id, descripcion: c0.descripcion, fecha: c0.fecha, cuenta: c0.cuenta, por: quien(), en: ahora() };
     // v0.64.0: el SII de ese mes no estaba cargado: el gasto espera su factura (en la carga del SII se ofrece vincularla)
     const espera = gq.esperaFactura === true && !gq.sinFactura;
@@ -511,7 +631,7 @@ async function resolverAbono(d, ref, c0, vencId, marca, tr, p = {}) {
     const snV = await tx.get(FB.doc(d, 'vencimientos', vencId)), a = snV.data(), l = Array.isArray(a.abonos) ? a.abonos : [];
     const k = l.findIndex(y => y.cargoId === c0.id);
     if (k < 0) throw error('El abono no quedó en el vencimiento: vuelve a intentarlo.', 'cambio');
-    const R = await leerRegla(tx, d, c0.clave);
+    const R = await leerRegla(tx, d, c0.clave, c0);
     const detalle = { abono: { vencimientoId: vencId, nombre: s(a.nombre), n: k + 1, monto: c0.monto, plantillaId: s(a.plantillaID), gastos: l[k].gastoIds || [], ...(Array.isArray(l[k].areas) ? { areas: l[k].areas } : {}) }, marca: clave, repetidoAbono: !!ra.repetido };
     tx.update(ref, aCargo(c0, sn.data(), { estado: C.ESTADOS.conciliado, accion: 'abono', detalle: JSON.stringify(detalle) }));
     if (s(a.plantillaID)) escribirRegla(tx, R, C.reglaDe('abono', c0, { plantillaId: s(a.plantillaID), nombre: s(a.nombre) }), c0);
@@ -740,6 +860,7 @@ export async function deshacer(id, motivoP) {
     const refsG = gIds.map(x => FB.doc(d, 'gastos', x)), snG = [];
     for (const rg of refsG) snG.push(await tx.get(rg));
     const desap = C.aDesaprender(c), R = desap ? await leerRegla(tx, d, c.clave) : null;
+    const RCo = desap && R && R.conc && R.conc.exacta.act ? R.conc.exacta : null;   // v0.69.0: la regla exacta de esa glosa
     let n = 1;
     const anulado = { el: t, en: t, por, motivo: `Deshecho en la conciliación de la cartola (${c.id}): ${motivo}`, filaOriginal: '' };
     // Vencimientos pagados con este cargo: vuelven por pagar (con el reparto estimado de antes)
@@ -784,6 +905,7 @@ export async function deshacer(id, motivoP) {
     });
     tx.update(ref, cambioCargo(sn.data(), 'deshizo', { estado: C.ESTADOS.revisar, accion: '', detalle: '', resueltoEl: '', resueltoPor: '', historial: C.conDeshecho(c, motivo, t, por) }, { motivo }));
     if (R && R.sn.exists()) { const x = C.desaprender(R.act, desap, t, por); if (x) { tx.update(R.ref, cambio(R.sn.data(), 'olvidó (deshecho)', x)); n++; } }
+    if (RCo && RC.claveRes(RCo.act.res).split('|')[0] === ({ gasto: 'nuevo', vencimiento: 'venc' }[desap] || desap)) { const x = RC.olvidada(RCo.act, por, t, motivo); if (x) { tx.set(RCo.ref, limpio(RC.aDoc(x))); n++; } }
     return { n };
   });
   if (r.yaEstaba) return { ok: true, yaEstaba: true };
@@ -847,6 +969,8 @@ export async function quitarRegla(clave) {
   const ref = FB.doc(d, 'cartola_reglas', x.id);
   await FB.runTransaction(d, async tx => { const sn = await tx.get(ref); tx.update(ref, cambio(sn.data(), 'quitó', { veces: 0, quitada: `${ahora()} · ${quien()}` })); });
   await despues(1);
+  // v0.69.0 · Con las reglas migradas, la regla exacta de esa glosa queda archivada (no se borra)
+  if (concOk) { try { await guardarReglaConc({ que: 'estado', id: RC.idExacta('cargo', s(clave)), estado: 'archivada', motivo: 'Quitada desde lo aprendido' }); } catch (e) {} }
   return { ok: true };
 }
 

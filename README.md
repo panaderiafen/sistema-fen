@@ -1,9 +1,75 @@
-# Sistema Fën · v0.68.0
+# Sistema Fën · v0.69.0
 
-**App:** v0.68.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 17 de octubre de 2026
+**App:** v0.69.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 17 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.69.0: Reglas de conciliación (las manejas tú) y un puntaje explicado en cada propuesta
+**Dónde:** Conciliación → Cartola (botón **Reglas** arriba de la bandeja, en Cargos y en Abonos) y Configuración → Reglas de conciliación.
+
+### El caso
+Lo aprendido se acumulaba solo, glosa por glosa, y no había cómo decir "todo lo que diga COMISION es una comisión bancaria". Tampoco se veía cuán segura era cada propuesta ni por qué.
+
+### Qué cambia en cómo trabajas
+1. **Reglas de conciliación** (una pantalla nueva, con pestañas Cargos y Abonos). Cada regla se lee como una frase:
+   "Si la glosa contiene COMISION y el monto está entre $1.000 y $20.000 → Gasto nuevo: COMISIONES BANCARIAS · ADMIN".
+   - **Condición:** la glosa contiene una o más palabras (todas deben aparecer, sin importar tildes ni mayúsculas), "y no contiene", monto desde/hasta, cuenta y RUT (en la glosa o en la transferencia). Las aprendidas son "la glosa es…" (exacta).
+   - **Resultado:** lo mismo de siempre. Cargos: gasto nuevo (ítem y área o reparto), no es gasto, pago de tarjeta, traspaso, abono de sueldo a una persona o paga un vencimiento. Abonos: asignar al cliente, No es de B2B o Ya estaba registrado.
+   - **Nivel:** "Solo proponer" (queda en Revisar) o "Pasar a Listos para confirmar". **Nunca se confirma nada sin tu clic.**
+   - Cada regla muestra su estado (activa, pausada, archivada), su origen (creada por ti, propuesta y aceptada, migrada de Lo aprendido, aprendida al confirmar), cuántas veces se usó, la última vez, quién y cuándo, y su **historial**. Editar, pausar y archivar quedan anotados. Nada se borra.
+   - Al escribir una regla ves su frase y **con cuántos movimientos pendientes calza ahora**.
+2. **Lo aprendido pasó a reglas** (una sola vez, solo):
+   - Cargos: cada glosa aprendida es una regla "la glosa es…" (migrada de Lo aprendido).
+   - Abonos: las glosas y RUT aprendidos de cada cliente y los textos a ignorar (TRANSBANK…).
+   - Se comportan igual que antes. El bloque "Lo aprendido" ahora lleva a la pantalla de reglas. Lo de antes sigue guardado (no se borró).
+   - Lo que confirmes desde ahora crea o pone al día la regla "la glosa es…" de esa glosa ("Solo proponer"), como antes se aprendía.
+3. **Reglas sugeridas:** cuando 3 o más movimientos de los últimos 120 días se resolvieron igual y su glosa comparte una palabra (o un par) que dice algo, y ninguno con esas palabras se resolvió distinto, aparece un aviso discreto en la bandeja: "Hay N reglas sugeridas", con **Aceptar**, **Editar** o **Descartar** (lo descartado no se vuelve a sugerir).
+4. **Choques:** si dos reglas dicen cosas distintas, o una regla choca con una factura, un vencimiento o un folio del mismo monto con un dato que dice quién es, el movimiento queda en **Revisar** con las dos opciones y "Usar esta". El documento manda como propuesta; nunca se elige solo.
+5. **El puntaje (0 a 100)** en cada fila ("Listo · 92") y, en el detalle, en "Qué propongo" con sus razones: "+ mismo RUT · + monto exacto · + a 28 días de la factura (lo normal: 28 ± 1) · − hay otra opción parecida".
+   - **85 o más y sin choque:** Listo (verde). **50 a 84:** Revisar (amarillo). **Menos de 50 o nada:** Sin coincidencia (rojo).
+   - Lo que nunca se confirma solo (probable, una regla que solo propone, Previred, abonos de sueldo) llega a 84 como máximo.
+   - **Ritmo de pago:** cuántos días pasan entre la factura y el pago de cada proveedor (y de cada cliente de B2B), en 12 meses: "a este proveedor le pagas en promedio a los 28 días de la factura (±1)".
+   - Las listas del detalle ("Buscar en Gastos", otras coincidencias) van ordenadas por puntaje.
+   - Al confirmar queda guardado el puntaje que viste (para afinar los pesos más adelante).
+
+### Lecturas y escrituras (Spark)
+- **Seleccionar, moverse, puntuar y elegir otra opción: 0 lecturas** (medido en Cargos y Abonos).
+- Reglas de Cargos (fen-gastos, colección `conc_reglas`): se leen una vez por sesión con la memoria de siempre (después, 1 lectura cada 2 minutos si cambió algo). Crear, editar, pausar, archivar, aceptar o descartar: 1 lectura y 1 escritura.
+- Reglas de Abonos (fen-b2b, `config/conciliacion.reglasConc`): llegan con la escucha que la conciliación ya tenía: **0 lecturas nuevas**. Cada cambio: 1 lectura y 1 escritura.
+- Confirmar: la regla (lo aprendido y el contador de uso) va **en la misma transacción** de la confirmación: en Cargos 1 lectura y 1 escritura más (el documento de la regla); en Abonos, la escritura de config/conciliacion que ya se hacía al aprender (o 1 lectura y 1 escritura si solo se cuenta el uso).
+- Migración: una vez. Cargos: 1 escritura por regla aprendida + la marca. Abonos: 1 lectura y 1 escritura.
+- Reglas sugeridas de Abonos: al abrir Reglas → Abonos se lee **una vez por sesión** lo resuelto de 120 días (1 lectura por abono de esos días). En la bandeja se usa lo que ya está en la memoria.
+- El ritmo de pago sale de lo ya leído (gastos en memoria y órdenes pagadas de 6 meses): 0 lecturas.
+
+### Instalación v0.69.0 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.69.0.zip`, con la carpeta `cocina/` (no cambia). Hay dos archivos nuevos: `reglas-conc.js` y `puntaje.js`.
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script, reglas de Firestore ni Cocina.** Las reglas fen-b2b v1.6.0 ya dejan que administración escriba `config/*`, y las de fen-gastos v0.1.0 dejan escribir cualquier colección a administración.
+
+### Lista de verificación v0.69.0
+- [ ] Abajo a la izquierda dice **v0.69.0**.
+- [ ] Conciliación → Cargos: cada fila dice "Listo · 9x", "Revisar · 6x" o "Sin coincidencia".
+- [ ] Lo que antes iba a Listos para confirmar sigue ahí (lo aprendido no cambió).
+- [ ] Abre un cargo: en "Qué propongo" está el puntaje con sus razones.
+- [ ] Botón **Reglas**: están las migradas de Lo aprendido ("la glosa es…").
+- [ ] Crea una regla de prueba "Solo proponer" y mira que el cargo queda en Revisar; después archívala (queda en Archivadas con su historial).
+- [ ] Abonos → Reglas: están las glosas aprendidas y TRANSBANK.
+- [ ] Si aparece "Hay N reglas sugeridas", revisa una y acéptala o descártala.
+
+### Si algo sale mal
+Sube de nuevo la v0.68.0. Lo aprendido de antes se siguió poniendo al día (cartola_reglas y equivalencias), así que la v0.68.0 funciona igual. Las reglas nuevas quedan guardadas y se vuelven a usar al subir otra vez la v0.69.0. Nada se borra.
+
+**Por dentro:**
+- `reglas-conc.js` (nuevo, puro): la regla, la frase, calzar, la migración, lo aprendido, las sugeridas, las propuestas de una regla y juntar con la propuesta de siempre (`combinarCargo`).
+- `puntaje.js` (nuevo, puro): `PESOS` (todos los pesos en un lugar), `ritmos`, `cargo`, `abono`, `clase`, `factoresTxt`.
+- `gastos-cartola-fs.js`: `conc_reglas` (lectura, migración con la marca `conc_reglas/migracion-v0690`, `guardarReglaConc`), lo aprendido y el uso dentro de la transacción de confirmar, el puntaje en el cargo (`puntaje`, `reglaConc`), el ritmo de cada proveedor.
+- `b2b.js`: las reglas de Abonos en `config/conciliacion.reglasConc` (migración con `reglasConcMigrado`, `guardarReglaB2b`), la regla que dice el cliente en `proponer`, lo aprendido y el uso al confirmar, `movimientosRecientes` (120 días, una vez por sesión).
+- `app.js`: la pantalla de reglas (`pintarReglasConc`), el puntaje y las opciones en el detalle, el aviso de sugeridas, Configuración.
+- `bandeja.js`, `gastos-cartola.js` (fecha de la factura del vencimiento), `cartola.js`, `estilos.css`; los demás: solo la versión.
 
 ## Novedades de la v0.68.0: Conciliación como bandeja de entrada (lista y detalle lado a lado)
 **Dónde:** Conciliación → Cartola → Cargos (Gastos) y Abonos (B2B).
