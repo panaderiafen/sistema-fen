@@ -13,7 +13,7 @@
 //  v0.69.1: área REVENTA (solo de margen) para lo que se compra hecho. AREAS = las de margen (las 4 de producción + REVENTA);
 //  AREAS_PRODUCCION = las que producen (la de una receta o del catálogo). Las listas salen de areas.js.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.69.4';
+import * as AR from './areas.js?v=0.69.5';
 
 export const AREAS = AR.MARGEN;
 export const AREAS_PRODUCCION = AR.PRODUCCION;
@@ -21,7 +21,7 @@ export const REVENTA = AR.REVENTA;
 export const NOMBRE_AREA = { PAN: 'Panadería', BOL: 'Bollería', PAS: 'Pastelería', CAF: 'Cafetería', REVENTA: 'Reventa' };
 export const SUCS = ['barros', 'ainavillo', 'b2b'];
 export const NOMBRE_SUC = { barros: 'Caja Barros Arana', ainavillo: 'Caja Ainavillo', b2b: 'B2B' };
-export const DIAS_GRACIA = 7;   // un mes se guarda (cerrado) desde el día 8 del mes siguiente: el cierre del mes es del 5 al 8
+export const DIAS_GRACIA = 7;   // las ventas de un mes se guardan desde el día 8 del mes siguiente (el cierre de Finanzas, desde la v0.69.5, va después de cargar el Previred del mes, a más tardar el 13)
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };

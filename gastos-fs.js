@@ -25,17 +25,17 @@
 //    salió: tipo, quién, cuándo y lo propio de cada origen); "origen" sigue siendo el texto de siempre (el script lo usa).
 //    Hoy: "Esperan cartola". detalleGasto(ids): las líneas y su origen, para el detalle del gasto.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.69.4';
-import * as FB from './fs-gastos.js?v=0.69.4';
-import * as GB from './gastos-base.js?v=0.69.4';
-import * as GP from './gastos-planilla.js?v=0.69.4';
-import * as M from './gastos-g2.js?v=0.69.4';
-import * as G3 from './gastos-g3.js?v=0.69.4';
-import * as G3D from './gastos-g3d.js?v=0.69.4';
-import * as B from './gastos-banco.js?v=0.69.4';
-import { dia } from './gastos-modelo.js?v=0.69.4';
-import * as AB from './gastos-abono.js?v=0.69.4';
-import * as PM from './pagos-mixtos.js?v=0.69.4';   // v0.69.2: pagos mixtos (partes de un documento)
+import { auth as authSF } from './firebase.js?v=0.69.5';
+import * as FB from './fs-gastos.js?v=0.69.5';
+import * as GB from './gastos-base.js?v=0.69.5';
+import * as GP from './gastos-planilla.js?v=0.69.5';
+import * as M from './gastos-g2.js?v=0.69.5';
+import * as G3 from './gastos-g3.js?v=0.69.5';
+import * as G3D from './gastos-g3d.js?v=0.69.5';
+import * as B from './gastos-banco.js?v=0.69.5';
+import { dia } from './gastos-modelo.js?v=0.69.5';
+import * as AB from './gastos-abono.js?v=0.69.5';
+import * as PM from './pagos-mixtos.js?v=0.69.5';   // v0.69.2: pagos mixtos (partes de un documento)
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';

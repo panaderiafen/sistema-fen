@@ -1,9 +1,60 @@
-# Sistema Fën · v0.69.4
+# Sistema Fën · v0.69.5
 
-**App:** v0.69.4 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 18 de octubre de 2026
+**App:** v0.69.5 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 18 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.69.5: el Previred del mes es parte del cierre de ese mes
+
+- **Dónde va:** repo **sistema-fen**, raíz. No cambian scripts ni reglas.
+
+### El caso
+Las cotizaciones de Previred de un mes son un **costo de ese mes**: su gasto queda con fecha del último día del mes y se pagan hasta el día 13 del mes siguiente. Si octubre se cerraba antes de cargarlas, octubre quedaba con menos costo y la diferencia entraba a noviembre como "Ajustes de meses cerrados". Además, el Resumen del mes de Conciliación pedía el Previred del mes **anterior** (cerrar octubre pedía el de septiembre).
+
+### Qué cambia en cómo trabajas
+1. **Cuándo se cierra el mes:** después de pagar y cargar su Previred, **a más tardar el día 13 del mes siguiente** (antes se cerraba en la primera semana del mes siguiente, antes de que el Previred estuviera cargado). Orden recomendado:
+   1. pagar Previred, ojalá antes del día 10;
+   2. subir el comprobante o el CSV en Conciliación → Previred;
+   3. cerrar el mes en Finanzas → Resultados → Cierre de mes.
+2. **Cierre de mes tiene una revisión nueva: "Previred de <mes> cargado"** (va después de "Cartola conciliada"). Cuenta como cargado si están las cotizaciones de ese mes (por el certificado, el comprobante o el CSV).
+   - **Falta** si no están: igual que las demás, para cerrar igual marcas "Cerrar igual" y escribes el motivo.
+   - **Aviso** si están cargadas pero todavía no unidas a sus cargos del banco (dice cuánto falta unir): no impide cerrar.
+   - **Listo** si están pagadas y conciliadas con la cartola.
+3. **Conciliación → Resumen del mes** usa esa misma revisión, con el mismo texto: octubre pide "Previred de octubre" y septiembre "Previred de septiembre", en el mismo lugar de la lista y con su enlace a Conciliación → Previred. Ya no pide el del mes anterior.
+4. **Hoy y Agenda:** el aviso "Previred de <mes> vence el …" (desde el día 10) suma una línea: **"Es lo que falta para cerrar <mes>"**, solo si ese mes no está cerrado. Para no leer nada, sale cuando la app ya sabe el estado del cierre en esa pestaña (después de abrir Finanzas → Resultados o Cierre de mes); si no lo sabe, el aviso sale como siempre, sin esa línea.
+5. **Textos:** "Cómo trabajamos" (Finanzas), el (i) de Cierre de mes, el mes en curso en Cierre de mes y el (i) del Resumen del mes dicen la regla nueva.
+
+### Lecturas (Spark)
+- Abrir Cierre de mes después de Hoy o de Conciliación: **0 lecturas nuevas** (medido contra la v0.69.4: 18 y 18). El Previred sale de lo que Hoy y Conciliación ya leyeron.
+- Si Cierre de mes es lo primero que abres en la sesión, lee una vez las cotizaciones y las planillas de Previred (en la prueba, 8 lecturas más; después, 0).
+- La línea de Hoy y Agenda: 0 lecturas (sale de la memoria).
+
+### Instalación v0.69.5 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.69.5.zip`, con la carpeta `cocina/` (no cambia). No hay archivos nuevos.
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script ni en las reglas de Firestore.** No se escribe nada nuevo.
+
+### Lista de verificación v0.69.5
+- [ ] Abajo a la izquierda dice **v0.69.5**.
+- [ ] Finanzas → Cómo trabajamos: "Cierre del mes" dice "después de Previred, hasta el día 13" y el orden recomendado (pagar, subir, cerrar).
+- [ ] Finanzas → Resultados → Cierre de mes, septiembre: aparece "Previred de septiembre cargado" (después de Cartola conciliada) con Listo, Aviso o Falta.
+- [ ] Si dice Falta, "Cerrar septiembre" pide marcar "Cerrar igual" y el motivo.
+- [ ] Conciliación → Cargos → Resumen del mes: con Octubre elegido dice "Previred de octubre cargado"; con Septiembre, "Previred de septiembre cargado", igual que en Cierre de mes.
+- [ ] Desde el día 10, si el Previred del mes pasado no está cargado: abre Cierre de mes, vuelve a Hoy y el aviso dice "Es lo que falta para cerrar <mes>" (si ese mes no está cerrado).
+- [ ] En el celular se ve bien (Hoy, Cierre de mes y Cómo trabajamos).
+
+### Si algo sale mal
+Sube de nuevo la v0.69.4. No se guarda nada nuevo: un mes cerrado con la v0.69.5 guarda en su cierre la revisión de Previred como una más.
+
+**Por dentro:**
+- `finanzas-eerr.js`: `checkPrevired` (la revisión, una sola vez) y `tituloPrevired`; `checksCierre` la agrega cuando recibe las planillas; `CHECKS_CONCILIACION` la incluye.
+- `conc-resumen.js`: "Qué falta para cerrar el mes" usa `checkPrevired` del mismo mes (sale el del mes anterior).
+- `fs-gastos.js` (`enMemoriaDocs`: lo ya cargado en la sesión, sin leer), `gastos-cartola-fs.js` (`planillasCierre`), `finanzas.js` (`planillasPrevired`) y `vista-finanzas-eerr.js` (la revisión y los textos).
+- `gastos-g3d.js` (`conCierre`), `gastos-g3d-fs.js` (el aviso de Previred con el estado del cierre de la memoria), `app.js` (Hoy, Agenda y el (i) del resumen), `vista-finanzas.js` (Cómo trabajamos) y `estilos.css`. `finanzas-ventas.js`: solo un comentario. Los demás: solo la versión. `cocina/` y `fermentacion.js` no cambian.
 
 ## Novedades de la v0.69.4: devoluciones visibles en el PDF "Resumen" de órdenes B2B
 
@@ -1740,7 +1791,7 @@ Plan acordado (`finanzas-plan.md`, F2): dos ejes, el **área que produce** (Pana
 **De dónde salen las ventas y cuánto cuesta leerlas** (debajo del período: qué se leyó, "unas N lecturas", (i) y **Volver a leer**):
 - **Caja:** el **resumen de cada cierre** (`resumenes_caja`, que ya trae cada producto con cantidad, bruto y neto, sin anuladas), no las ventas una por una; más las **cajas del mes** para saber si falta algún resumen o hay abiertas. Un mes ≈ 60 resúmenes + 60 cajas ≈ **120 lecturas**. Sucursal: "ainavillo" → Ainavillo; lo demás → Barros Arana.
 - **B2B:** las **órdenes del mes** sin anuladas (una lectura por orden). Los precios de B2B ya son **netos** (neto de la línea; si falta, cantidad × precio neto).
-- **Mes cerrado guardado:** desde el **día 8 del mes siguiente** (el cierre de mes es del 5 al 8), sin cajas abiertas ni cierres sin resumen, el mes se guarda en `fin_ventas_mes/{AAAA-MM}_{caja|b2b}`: la próxima vez cuesta **1 lectura por canal**. El mes en curso nunca se guarda. **Volver a leer** lo rehace (por ejemplo, si se corrigió una orden de un mes pasado).
+- **Mes cerrado guardado:** desde el **día 8 del mes siguiente** (entonces el cierre de mes era del día 5 al 8; desde la v0.69.5 se cierra después de cargar el Previred del mes, a más tardar el 13), sin cajas abiertas ni cierres sin resumen, el mes se guarda en `fin_ventas_mes/{AAAA-MM}_{caja|b2b}`: la próxima vez cuesta **1 lectura por canal**. El mes en curso nunca se guarda. **Volver a leer** lo rehace (por ejemplo, si se corrigió una orden de un mes pasado).
 - Además, una vez por sesión: el catálogo de la caja, el de B2B y la lista de recetas de Producción.
 
 **Cómo se calcula:** venta neta de la caja = la del resumen (bruto ÷ 1,19 de cada línea, después del descuento); unidades = cantidad vendida × unidades por venta; área = la de la receta (en reventa, la elegida); "no es un producto" sale de la venta y de la tabla (se muestra aparte); **cobertura** = venta neta con vínculo (receta, reventa o "no es un producto") ÷ toda la venta neta del período. Los vínculos valen para todos los períodos.

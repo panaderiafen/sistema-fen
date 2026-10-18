@@ -24,13 +24,13 @@
 //    ya cargado (y, si se pide, en los otros meses del trabajador) por el camino de siempre: corregir con historial y versión,
 //    anular lo que sobra y crear lo que falta. Un mes cerrado en Finanzas (fin_cierres) bloquea.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.69.4';
-import * as M from './gastos-g2.js?v=0.69.4';
-import * as G3 from './gastos-g3.js?v=0.69.4';
-import * as D from './gastos-g3d.js?v=0.69.4';
-import * as C from './gastos-cartola.js?v=0.69.4';
-import * as AB from './gastos-abono.js?v=0.69.4';
-import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.69.4';
+import * as FB from './fs-gastos.js?v=0.69.5';
+import * as M from './gastos-g2.js?v=0.69.5';
+import * as G3 from './gastos-g3.js?v=0.69.5';
+import * as D from './gastos-g3d.js?v=0.69.5';
+import * as C from './gastos-cartola.js?v=0.69.5';
+import * as AB from './gastos-abono.js?v=0.69.5';
+import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.69.5';
 
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const s = v => String(v == null ? '' : v);
@@ -339,7 +339,10 @@ export async function avisosPreviredHoy() {
   const [cot, pl] = await Promise.all([todos('cotizaciones').catch(() => []), todos(COL_PL).catch(() => [])]);
   const reg = new Set(cot.filter(x => x.d && !x.d.quitadoEnPlanilla).map(x => D.periodoCot(x.d.periodo)).filter(Boolean));
   pl.forEach(x => { if (compVigente(x.d)) reg.add(x.id); });
-  return D.avisosPrevired(M.ahoraChile().dia, [...reg]);
+  // v0.69.5 · "Es lo que falta para cerrar <mes>" si ese mes no está cerrado en Finanzas: solo con fin_cierres ya en la memoria
+  // de la sesión (se leyó al abrir Finanzas → Resultados); si no está, sin esa línea (no se lee nada para esto)
+  const fc = FB.enMemoriaDocs('fin_cierres');
+  return D.conCierre(D.avisosPrevired(M.ahoraChile().dia, [...reg]), fc ? Object.fromEntries(fc.map(x => [x.id, x.d])) : null);
 }
 
 // ═══ v0.67.5 · Cambiar el reparto de un trabajador en un mes ya cargado ═══

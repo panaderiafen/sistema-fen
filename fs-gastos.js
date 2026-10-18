@@ -18,8 +18,8 @@
 //  · Uso de hoy: lecturas y escrituras hechas desde este navegador (Configuración). La lectura de un documento cuenta 1;
 //    una consulta vacía cuenta 1; además, cada pedido cuenta 1 por la regla de seguridad (exists de admins).
 // ═══════════════════════════════════════════════
-import * as FB from './firebase-gastos.js?v=0.69.4';
-import { diaCuota, proximoReinicio, horaChile, esCuota, mensajeCuota, anotar, contarMemoria, usoHoy, reiniciarUso, cuota, alCambiarCuota, marcarAgotada, marcarViva, olvidarCuota, errorCuota } from './fs-cuota.js?v=0.69.4';
+import * as FB from './firebase-gastos.js?v=0.69.5';
+import { diaCuota, proximoReinicio, horaChile, esCuota, mensajeCuota, anotar, contarMemoria, usoHoy, reiniciarUso, cuota, alCambiarCuota, marcarAgotada, marcarViva, olvidarCuota, errorCuota } from './fs-cuota.js?v=0.69.5';
 export { diaCuota, proximoReinicio, horaChile, esCuota, mensajeCuota, usoHoy, reiniciarUso, cuota, alCambiarCuota, olvidarCuota };
 
 export const VERSION_PAQUETES = 1;
@@ -121,7 +121,16 @@ const M = {};
 export function olvidarTodo() { Object.keys(M).forEach(k => delete M[k]); }
 export const estadoMemoria = () => Object.fromEntries(Object.entries(M).map(([k, m]) => [k, { n: m.docs.size, ultimo: m.ultimo, leidoEn: m.leidoEn, sucio: m.sucio, cambiados: m.cambiados.size, paq: !!m.paq }]));
 export const enMemoria = () => Object.fromEntries(Object.entries(M).filter(([, m]) => m.cargado).map(([k, m]) => [k, m.docs.size]));
-if (typeof window !== 'undefined') window.__fsMemoria = enMemoria;   // para Configuración → Uso de la base hoy
+if (typeof window !== 'undefined') window.__fsMemoria = enMemoria;
+// v0.69.5 · Lo que ya está en la memoria de la sesión, SIN leer nada (ni el refresco de lo que cambió): los documentos de una
+// colección ya cargada y sin escrituras propias pendientes de refresco ([{ id, d }]); null si no está (o si se escribió en ella).
+// Para revisiones que no deben gastar lecturas (Cierre de mes: Previred; Hoy: si el mes ya está cerrado).
+export function enMemoriaDocs(col) {
+  const m = M[col];
+  if (!m || !m.cargado || m.sucio || m.pend) return null;
+  contarMemoria();
+  return [...m.docs.entries()].map(([id, d]) => ({ id, d: copia(d) }));
+}   // para Configuración → Uso de la base hoy
 const memo = col => (M[col] = M[col] || { docs: new Map(), cargado: false, marca: null, ultimo: 0, leidoEn: 0, sucio: false, pend: null, cambiados: new Set(), paq: null });
 function absorber(m, id, d) {
   m.docs.set(id, d);

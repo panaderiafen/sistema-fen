@@ -77,6 +77,7 @@ main { flex: 999 1 560px; min-width: 0; padding: 36px 44px 96px; display: flex; 
 .pendiente .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .pendiente .txt b { font-size: 15px; font-weight: 600; }
 .pendiente .txt span { font-size: 13px; color: var(--suave); }
+.pendiente .txt .pend-nota { color: var(--texto); font-weight: 600; }   /* v0.69.5: "Es lo que falta para cerrar <mes>" */
 .chip { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
 .c-amarillo { background: var(--amarillo); color: var(--amarillo-t); }
 .c-azul { background: var(--azul); color: var(--azul-t); }
@@ -295,6 +296,7 @@ h1 .btn-info { width: 22px; height: 22px; font-size: 13px; }
 .ag-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .ag-txt b { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 .ag-txt small { font-size: 12px; color: var(--suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-txt small.ag-nota { color: var(--texto); white-space: normal; }   /* v0.69.5: "Es lo que falta para cerrar <mes>" */
 .ag-item.hecho b { text-decoration: line-through; color: var(--suave); }
 .mes-nav { display: flex; align-items: center; gap: 6px; }
 .mes-grilla { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--linea); border: 1px solid var(--linea); border-radius: 12px; overflow: hidden; }
@@ -816,10 +818,14 @@ a.ag-item { text-decoration: none; }
 .fin-paso-txt p { margin: 4px 0 0; font-size: 14px; line-height: 1.5; }
 .fin-paso-tit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .fin-paso-tit h3 { margin: 0; font-size: 15px; }
+.fin-paso-tit .chip { white-space: normal; max-width: 100%; }   /* v0.69.5: un "cuándo" largo baja de línea en el celular */
 .fin-num { width: 22px; height: 22px; border-radius: 11px; background: var(--menu); color: var(--suave); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 .fin-cond { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 14px; }
 .fin-cond li { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; }
 .fin-cond svg { flex: none; margin-top: 2px; color: var(--verde-t); }
+/* v0.69.5 · Cómo trabajamos: el orden recomendado del cierre (pagar Previred → subir el comprobante → cerrar) */
+.fin-orden { margin: 6px 0 8px; padding-left: 22px; display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+.fin-orden li::marker { color: var(--suave); font-weight: 600; }
 .fin-reglas { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
 .fin-regla { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 14px; background: var(--fondo); border: 1px solid var(--linea); }
 .fin-regla svg { flex: none; color: var(--acento); }

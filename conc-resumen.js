@@ -5,13 +5,13 @@
 //  · lo más antiguo sin revisar (3 cargos y 3 abonos), con su edad en días;
 //  · cobertura: hasta dónde llega la cartola (cada cuenta) y el SII, y si el mes está completo;
 //  · "Qué falta para cerrar el mes": las MISMAS reglas de Finanzas → Cierre de mes (finanzas-eerr.js: checkSiiCargado,
-//    checkCartolaConciliada, checkSiiClasificados) más lo propio de la conciliación (cartola hasta el fin de mes, abonos B2B,
-//    Previred del período anterior y facturas con saldo vencido, este último solo como aviso);
+//    checkCartolaConciliada, checkSiiClasificados y, desde la v0.69.5, checkPrevired: el Previred DEL MES) más lo propio de la
+//    conciliación (cartola hasta el fin de mes, abonos B2B y facturas con saldo vencido, este último solo como aviso);
 //  · señales: pagos parciales con saldo, facturas por clasificar, efectivo pagado en el mes y reglas sugeridas (solo si hay).
 //  Conciliado = revisado: ya se dijo qué es (paga un vencimiento, gasto nuevo, no es gasto, cliente y folio, No es de B2B…).
 //  Un movimiento "Repetido" (el mismo en otra cartola) no cuenta en el total.
 // ═══════════════════════════════════════════════
-import * as FE from './finanzas-eerr.js?v=0.69.4';
+import * as FE from './finanzas-eerr.js?v=0.69.5';
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const n = v => { const x = Number(v); return isFinite(x) ? x : 0; };
@@ -101,15 +101,10 @@ export function checksMes(D) {
   else out.push(sin('sii', 'SII del mes cargado', 'Se ve al abrir Cargos.', '#conciliacion/cargos', 'Abrir Cargos'));
   // Documentos del SII del mes sin clasificar = 0 (la regla de Cierre de mes)
   if (D.siiPorMes) out.push(conAccion(FE.checkSiiClasificados({ mes, siiPendientes: D.siiPorMes[mes] || { n: 0, monto: 0 } }), 'Clasificar'));
-  // Previred del período anterior cargado y pagado
-  const per = FE.mesMas(mes, -1);
-  if (!D.planillas) out.push(sin('previred', `Previred de ${mesCorto(per)}`, 'Se ve al abrir Cargos.', '#conciliacion/previred', 'Ir a Previred', TXT_PREVIRED));
-  else {
-    const p = D.planillas.find(x => s(x.periodo).slice(0, 7) === per);
-    const pagada = !!p && (p.conciliada || (p.vencimientoId && !p.vencAbierto));
-    out.push({ k: 'previred', t: `Previred de ${mesCorto(per)}`, ok: pagada, nivel: pagada ? 'ok' : 'falla', ir: '#conciliacion/previred', accion: p ? 'Ir a Previred' : 'Cargar Previred', info: TXT_PREVIRED,
-      detalle: !p ? `La planilla de ${mesCorto(per)} no está cargada.` : pagada ? `Cargada y pagada (${pesos(p.total)}).` : `Cargada (${pesos(p.total)}), falta el pago${p.unido ? `: unidos ${pesos(p.unido)}` : ''}.` });
-  }
+  // v0.69.5 · Previred DEL MES cargado (la misma regla de Cierre de mes: finanzas-eerr.js checkPrevired). Antes se pedía el del
+  // mes anterior; ahora cerrar octubre pide "Previred de octubre" (su costo es de octubre y se paga hasta el 13 de noviembre).
+  if (!D.planillas) out.push(sin('previred', FE.tituloPrevired(mes), 'Se ve al abrir Cargos.', '#conciliacion/previred', 'Ir a Previred', FE.TXT_PREVIRED_MES));
+  else { const c = FE.checkPrevired({ mes, planillas: D.planillas }); out.push(conAccion(c, c.nivel === 'falla' ? 'Cargar Previred' : 'Ir a Previred')); }
   // Facturas con saldo vencido: aviso, no impide cerrar
   if (D.vencidas && D.vencidas.length) out.push({ k: 'vencidas', t: 'Facturas con saldo vencido', ok: false, nivel: 'aviso', ir: '#conciliacion/sinbanco', accion: 'Ver en Pagos sin banco', info: TXT_VENCIDAS,
     detalle: `${D.vencidas.length} ${D.vencidas.length === 1 ? 'factura' : 'facturas'} con saldo vencido (${pesos(D.vencidas.reduce((a, x) => a + n(x.monto), 0))}).` });
@@ -129,7 +124,6 @@ const sumar = (f, k) => new Date(Date.parse(dia(f) + 'T12:00:00Z') + k * 864e5).
 export const paraCerrar = checks => (checks || []).filter(c => c.nivel === 'falla').length;
 const TXT_CARTOLA_MES = 'Que la cartola de cada cuenta que concilias llegue hasta el último día del mes, sin días que falten. Sin eso no se sabe si quedan cargos o abonos por revisar. Cierre de mes no lo revisa: lo ves aquí.';
 const TXT_ABONOS = 'Que todos los abonos de la cartola del mes estén revisados en Conciliación → Abonos (B2B). Cierre de mes no lo revisa: aquí es un aviso.';
-const TXT_PREVIRED = 'Que la planilla de Previred del mes anterior (se paga hasta el día 13) esté cargada en Conciliación → Previred y pagada: unida a su cargo del banco o con su vencimiento de Cotizaciones pagado. Cierre de mes no lo revisa: lo ves aquí.';
 const TXT_VENCIDAS = 'Facturas pagadas en partes con saldo cuya fecha ya pasó (las de Pagos sin banco). Es un aviso: no impide cerrar.';
 
 // ── Señales (una línea cada una, solo si no es cero) ──

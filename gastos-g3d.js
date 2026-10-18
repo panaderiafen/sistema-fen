@@ -18,13 +18,13 @@
 //    vencimiento lo lleva (los gastos nacen partidos al pagarlo). "Cambiar reparto" de un mes ya cargado: planCambioReparto.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as B from './gastos-banco.js?v=0.69.4';
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.69.4';
-import * as M from './gastos-g2.js?v=0.69.4';
-import * as G3 from './gastos-g3.js?v=0.69.4';
-import { FERIADOS } from './feriados-cl.js?v=0.69.4';
-import * as FR from './finanzas-resultados.js?v=0.69.4';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
-import * as AB from './gastos-abono.js?v=0.69.4';   // v0.67.5: el reparto en % (el mismo de los abonos)
+import * as B from './gastos-banco.js?v=0.69.5';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.69.5';
+import * as M from './gastos-g2.js?v=0.69.5';
+import * as G3 from './gastos-g3.js?v=0.69.5';
+import { FERIADOS } from './feriados-cl.js?v=0.69.5';
+import * as FR from './finanzas-resultados.js?v=0.69.5';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
+import * as AB from './gastos-abono.js?v=0.69.5';   // v0.67.5: el reparto en % (el mismo de los abonos)
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -386,6 +386,17 @@ export function avisosPrevired(hoy, registrados, feriados = FERIADOS) {
     out.push({ periodo: per, vence, estado, dias: diasEntre(hoy, vence), titulo, detalle });
   });
   return out;
+}
+
+// v0.69.5 · "Es lo que falta para cerrar <mes>": el Previred de un mes es lo último que se carga antes de cerrarlo (Finanzas →
+// Cierre de mes lo pide). cierres = { AAAA-MM: { estado } } (fin_cierres) si ya está en la memoria; null si no se sabe: entonces
+// no se agrega nada (no se lee para esto). Solo si ese mes NO está cerrado.
+export function conCierre(avisos, cierres) {
+  if (!cierres) return avisos || [];
+  return (avisos || []).map(a => {
+    const c = cierres[a.periodo];
+    return c && c.estado === 'cerrado' ? a : { ...a, cierre: `Es lo que falta para cerrar ${MESES[+s(a.periodo).slice(5, 7) - 1] || a.periodo}` };
+  });
 }
 
 // ═══ Clasificar obligaciones ═══

@@ -12,14 +12,14 @@
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.69.4';
-import * as FC from './finanzas-costos.js?v=0.69.4';
-import * as FS from './finanzas-sii.js?v=0.69.4';
-import * as FM from './finanzas-motor.js?v=0.69.4';
-import * as FV from './finanzas-ventas.js?v=0.69.4';
-import * as FMG from './finanzas-margenes.js?v=0.69.4';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.69.4';
-import * as VR from './vista-finanzas-resultados.js?v=0.69.4';
+import * as F from './finanzas.js?v=0.69.5';
+import * as FC from './finanzas-costos.js?v=0.69.5';
+import * as FS from './finanzas-sii.js?v=0.69.5';
+import * as FM from './finanzas-motor.js?v=0.69.5';
+import * as FV from './finanzas-ventas.js?v=0.69.5';
+import * as FMG from './finanzas-margenes.js?v=0.69.5';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.69.5';
+import * as VR from './vista-finanzas-resultados.js?v=0.69.5';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -119,9 +119,11 @@ function comoTrabajamos(H) {
     <p class="ayuda">Todo se mira en dos ejes: el <b>área que produce</b> (Panadería, Bollería, Pastelería, Cafetería) y el <b>canal donde se vende</b> (caja Barros Arana, caja Ainavillo, B2B). Cada venta va al área del producto; cada canal tiene sus propios costos (cajeras, despacho, comisiones). Lo que se compra hecho y se vende tal cual va al área <b>Reventa</b>, que solo existe para ver su margen (no produce: no está en Cocina ni en Producción).</p>
     <ol class="fin-pasos">
       ${paso(1, 'dia', 'Todos los días', '', '<p>El costo directo de cada producto se actualiza con cada compra. En <b>Hoy</b>: la venta del mes contra la meta y el punto de equilibrio.</p>')}
-      ${paso(2, 'cierre', 'Cierre del mes', 'día 5 a 8 del mes siguiente', `<p>Se cierra cuando están las cuatro cosas:</p>
-        <ul class="fin-cond">${cond('SII del mes cargado y clasificado')}${cond('Ventas completas, de las dos sucursales')}${cond('Gastos conciliados con la cartola')}${cond('Conteo de bodega hecho')}</ul>
-        <p>Al cerrarlo, el mes queda <b>congelado</b>. Lo que aparezca después entra como ajuste del mes siguiente.</p>`)}
+      ${paso(2, 'cierre', 'Cierre del mes', 'después de Previred, hasta el día 13', `<p>Se cierra después de pagar y cargar el Previred de ese mes, a más tardar el día 13 del mes siguiente. Orden recomendado:</p>
+        <ol class="fin-orden" id="fin-orden-cierre"><li><b>Pagar Previred</b>, ojalá antes del día 10.</li><li><b>Subir el comprobante o el CSV</b> en Conciliación → Previred.</li><li><b>Cerrar el mes</b> (Resultados → Cierre de mes).</li></ol>
+        <p>Se cierra cuando están las cinco cosas:</p>
+        <ul class="fin-cond">${cond('SII del mes cargado y clasificado')}${cond('Ventas completas, de las dos sucursales')}${cond('Gastos conciliados con la cartola')}${cond('Previred del mes cargado')}${cond('Conteo de bodega hecho')}</ul>
+        <p>Al cerrarlo, el mes queda <b>congelado</b>. Lo que aparezca después entra como ajuste del mes siguiente. ${H.info('Por qué el Previred del mismo mes', 'Las cotizaciones de octubre son un costo de octubre: su gasto queda con fecha del 31 de octubre y se pagan hasta el 13 de noviembre. Si octubre se cierra antes de cargarlas, octubre queda con menos costo y la diferencia entra a noviembre como "Ajustes de meses cerrados". Por eso el cierre espera el Previred.')}</p>`)}
       ${paso(3, 'informe', 'Informes', '', '<p>Estado de resultados y flujo de caja del mes cerrado, comparados con el presupuesto.</p>')}
       ${paso(4, 'decision', 'Decisiones', '', '<p>Precios, mezcla de productos, costos y metas.</p>')}
       ${paso(5, 'meta', 'Presupuesto del mes siguiente', '', '<p>Fijos y metas de venta por área.</p>')}

@@ -6,11 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.69.4';
-import * as FR from './finanzas-resultados.js?v=0.69.4';
-import * as FE from './finanzas-eerr.js?v=0.69.4';
-import * as FC from './finanzas-costos.js?v=0.69.4';
-import * as SP from './sii-pendientes.js?v=0.69.4';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.69.5';
+import * as FR from './finanzas-resultados.js?v=0.69.5';
+import * as FE from './finanzas-eerr.js?v=0.69.5';
+import * as FC from './finanzas-costos.js?v=0.69.5';
+import * as SP from './sii-pendientes.js?v=0.69.5';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
 const $ = id => document.getElementById(id);
@@ -291,12 +291,13 @@ function conectarEERR(el, H, ctx, R, e, prev) {
 }
 
 // ═══════════════ Cierre de mes ═══════════════
-const TXT_CIERRE = 'Lo acordado (Cómo trabajamos): del día 5 al 8 del mes siguiente se revisa que esté todo y se cierra el mes. Al cerrarlo queda congelado: el estado de resultados de ese mes se guarda tal cual (ventas, costos usados, gastos, créditos, quién y cuándo) y no cambia más.\nLo que aparezca después (una factura atrasada, un gasto corregido) no cambia el mes cerrado: entra como "Ajustes de meses cerrados" en el primer mes abierto siguiente.\nSi una revisión no se cumple, se puede cerrar igual marcando "Cerrar igual" y escribiendo el motivo (queda guardado).';
+const TXT_CIERRE = 'Lo acordado (Cómo trabajamos): el mes se cierra después de pagar y cargar su Previred, a más tardar el día 13 del mes siguiente. Orden recomendado: (1) pagar Previred, ojalá antes del día 10; (2) subir el comprobante o el CSV en Conciliación → Previred; (3) revisar que esté todo y cerrar el mes.\nAl cerrarlo queda congelado: el estado de resultados de ese mes se guarda tal cual (ventas, costos usados, gastos, créditos, quién y cuándo) y no cambia más.\nLo que aparezca después (una factura atrasada, un gasto corregido) no cambia el mes cerrado: entra como "Ajustes de meses cerrados" en el primer mes abierto siguiente.\nSi una revisión no se cumple, se puede cerrar igual marcando "Cerrar igual" y escribiendo el motivo (queda guardado).';
 async function datosCierre(R, mes) {
-  const [e, dm, conteos, sii] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes), ES.sii ? Promise.resolve(ES.sii) : F.cargasSii()]);
+  // v0.69.5 · Previred del mes (planillas): de la memoria de la sesión, sin lecturas nuevas (lo que falte se lee)
+  const [e, dm, conteos, sii, planillas] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes), ES.sii ? Promise.resolve(ES.sii) : F.cargasSii(), F.planillasPrevired()]);
   ES.conteos[mes] = conteos; ES.sii = sii;
   const checks = FE.checksCierre({ mes, cargasSii: sii, ventas: dm.ventasInfo, cargosPorRevisar: FE.cargosPorRevisarDelMes(ES.cartola.porRevisar, mes), conteos, sinClasificar: e.info.sinClasificar,
-    ...(ES.siiPend ? { siiPendientes: SP.pendientesDelMes(ES.siiPend, mes) } : {}) });
+    ...(ES.siiPend ? { siiPendientes: SP.pendientesDelMes(ES.siiPend, mes) } : {}), planillas });
   return { e, checks };
 }
 export async function pintarCierre(el, H, ctx, R) {
@@ -327,7 +328,7 @@ function htmlCierre(H, x, hist) {
       <div class="botones fin-cbot"><a class="btn-sec" href="#finanzas/resultados">Ver el estado de resultados</a><button type="button" class="btn-sec btn-peligro" id="c-reabrir">${ic('abierto', 16)} Reabrir</button></div>
       <p class="nota-i">(i) Reabrir se puede, pero no se recomienda: el mes deja de estar congelado y sus números pueden cambiar respecto de lo que ya informaste. Para corregir algo de un mes cerrado no hace falta reabrir: el cambio aparece solo como ajuste en el mes siguiente.</p>`;
   } else if (ES.mes >= mesHoy()) {
-    cuerpo = `<p class="aviso" id="c-estado">${H.esc(FE.mesTxt(ES.mes))} está en curso: se cierra desde el día 1 del mes siguiente (lo acordado: del día 5 al 8).</p>`;
+    cuerpo = `<p class="aviso" id="c-estado">${H.esc(FE.mesTxt(ES.mes))} está en curso. Se cierra después de pagar y cargar su Previred, a más tardar el 13 de ${H.esc(FE.MESES_L[Number(FE.mesMas(ES.mes, 1).slice(5, 7)) - 1])}.</p>`;
   } else {
     const fs = FE.fallas(x.checks);
     cuerpo = `${c && c.estado === 'reabierto' ? `<p class="aviso" id="c-reab">Se reabrió el ${fechaTxt(c.reabiertoEn)} por ${H.esc(c.reabiertoPor || '—')}: ${H.esc(c.motivoReabrir || '')}</p>` : ''}

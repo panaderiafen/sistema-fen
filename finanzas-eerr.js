@@ -24,8 +24,8 @@
 //  su margen de contribución y sus fijos, si algún gasto tiene área REVENTA. Las compras de reventa siguen fuera del resultado
 //  (info "compras_reventa"). REVENTA no recibe comunes en el reparto por causa (la vista secundaria es solo de las 4 que producen).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.69.4';
-import * as AR from './areas.js?v=0.69.4';
+import * as FR from './finanzas-resultados.js?v=0.69.5';
+import * as AR from './areas.js?v=0.69.5';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -321,10 +321,29 @@ export function checkSiiClasificados(D) {
   return itemCheck('sii_clasif', `Documentos del SII de ${mesTxt(mes)} sin clasificar: ${num(sp.n)}`, !num(sp.n), num(sp.n) ? `${sp.n} ${sp.n === 1 ? 'documento del SII' : 'documentos del SII'} de ${mesTxt(mes)} sin clasificar (${pesosTxt(sp.monto)}): su gasto todavía no existe.` : `Todos los documentos del SII de ${mesTxt(mes)} están clasificados.`,
     `#conciliacion/sii/porclasificar/${mes}`, 'Los documentos del SII que subiste y no se clasificaron solos (proveedor nuevo o con dudas) no tienen gasto todavía: no están en el estado de resultados. Clasifícalos al conciliar la cartola (el cargo del mismo monto), en Conciliación → Pagos sin banco o en Cargas del SII. Para cerrar igual, escribe el motivo.');
 }
-// Las tres juntas (Conciliación → Resumen del mes las muestra con el mismo texto que el cierre)
-export const CHECKS_CONCILIACION = ['sii', 'cartola', 'sii_clasif'];
+// v0.69.5 · Previred DEL MES cargado (acordado con Emmanuel): las cotizaciones del mes M son costo de M (su gasto queda con
+// fecha del último día de M) y se pagan hasta el día 13 de M+1. Cerrar M sin ellas deja M con menos costo y la diferencia entra a
+// M+1 como "Ajustes de meses cerrados". Cargado = hay cotizaciones de ese período (por certificado, comprobante o CSV).
+// Cargado pero sin unir a sus cargos del banco es un aviso (no impide cerrar); sin cargar, falta (para cerrar igual, el motivo).
+// D.planillas = las planillas de Previred (gastos-cartola.planillasPrevired: { periodo, total, conciliada, unido, falta,
+// vencimientoId, vencAbierto }); null = no se pudieron leer.
+export const TXT_PREVIRED_MES = 'Las cotizaciones de Previred de un mes son un costo de ese mes (su gasto queda con fecha del último día del mes) y se pagan hasta el día 13 del mes siguiente. Si cierras el mes sin ellas, ese mes queda con menos costo y la diferencia entra al mes siguiente como "Ajustes de meses cerrados".\nCuenta como cargado si sus cotizaciones están en Conciliación → Previred (por el certificado, el comprobante de pago o el CSV). Si todavía no están unidas a sus cargos del banco, es un aviso: no impide cerrar.\nOrden recomendado: (1) pagar Previred, ojalá antes del día 10; (2) subir el comprobante o el CSV en Conciliación → Previred; (3) cerrar el mes, a más tardar el día 13.';
+export const tituloPrevired = mes => `Previred de ${MESES_L[Number(String(mes).slice(5, 7)) - 1] || mes} cargado`;
+export function checkPrevired(D) {
+  const mes = D.mes, t = tituloPrevired(mes), ir = '#conciliacion/previred', nombre = MESES_L[Number(mes.slice(5, 7)) - 1] || mes, sig = MESES_L[Number(mesMas(mes, 1).slice(5, 7)) - 1];
+  if (!Array.isArray(D.planillas)) return itemCheck('previred', t, false, 'No se pudo revisar Previred. Abre Conciliación → Previred y vuelve aquí.', ir, TXT_PREVIRED_MES);
+  const p = D.planillas.find(x => x && s(x.periodo).slice(0, 7) === mes);
+  if (!p) return itemCheck('previred', t, false, `Las cotizaciones de ${nombre} no están cargadas (se pagan hasta el 13 de ${sig}).`, ir, TXT_PREVIRED_MES);
+  if (p.conciliada) return itemCheck('previred', t, true, `Cargado (${pesosTxt(p.total)}), pagado y conciliado con la cartola.`, ir, TXT_PREVIRED_MES);
+  const unido = num(p.unido), vencPagado = !!(p.vencimientoId && !p.vencAbierto);
+  const detalle = unido > 0 ? `Cargado (${pesosTxt(p.total)}), unido solo en parte a sus cargos del banco: unidos ${pesosTxt(unido)}, faltan ${pesosTxt(num(p.falta))}.`
+    : vencPagado ? `Cargado (${pesosTxt(p.total)}) y su vencimiento pagado, pero sin unir a un cargo del banco.` : `Cargado (${pesosTxt(p.total)}), todavía sin unir a sus cargos del banco.`;
+  return itemCheck('previred', t, false, detalle, ir, TXT_PREVIRED_MES, 'aviso');
+}
+// Las juntas (Conciliación → Resumen del mes las muestra con el mismo texto que el cierre)
+export const CHECKS_CONCILIACION = ['sii', 'cartola', 'sii_clasif', 'previred'];
 export function checksConciliacion(D) {
-  return [checkSiiCargado(D), checkCartolaConciliada(D)].concat(D.siiPendientes ? [checkSiiClasificados(D)] : []);
+  return [checkSiiCargado(D), checkCartolaConciliada(D)].concat(D.siiPendientes ? [checkSiiClasificados(D)] : [], 'planillas' in D ? [checkPrevired(D)] : []);
 }
 export function checksCierre(D) {
   const mes = D.mes, out = [];
@@ -341,6 +360,8 @@ export function checksCierre(D) {
     '#caja/reportes', 'Ainavillo tiene que registrar sus ventas en la caja: si no, su venta no está en el estado de resultados. Es un aviso: no impide cerrar.', 'aviso');
   // 3. Cartola conciliada: ningún cargo del mes por revisar
   out.push(checkCartolaConciliada(D));
+  // v0.69.5 · Previred del mes cargado (el de ese mismo mes: es su costo). Lo pasa Cierre de mes; sin el dato no se agrega.
+  if ('planillas' in D) out.push(checkPrevired(D));
   // 4. Conteo de bodega hecho (cada bodega): un conteo en los últimos 3 días del mes o los primeros 3 del siguiente
   const w = ventanaConteo(mes), C = D.conteos || {}, bods = C.bodegas && C.bodegas.length ? C.bodegas : ['PROD', 'CAF'];
   const sinConteo = bods.filter(b => !((C.porBodega || {})[b] || []).some(f => f >= w.desde && f <= w.hasta));
