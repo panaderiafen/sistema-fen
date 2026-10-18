@@ -8,14 +8,14 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.69.3';
-import * as FB from './firebase-b2b.js?v=0.69.3';
-import * as Apps from './apps.js?v=0.69.3';
-import * as Mem from './fs-memoria.js?v=0.69.3';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.69.3';
-import { distanciaTef } from './feriados-cl.js?v=0.69.3';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.69.3';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.69.3';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.69.4';
+import * as FB from './firebase-b2b.js?v=0.69.4';
+import * as Apps from './apps.js?v=0.69.4';
+import * as Mem from './fs-memoria.js?v=0.69.4';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.69.4';
+import { distanciaTef } from './feriados-cl.js?v=0.69.4';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.69.4';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.69.4';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -609,6 +609,20 @@ export async function nuevoCliente(c) {
       facturacion: c.facturacion || 'Diaria', frecuenciaPago: c.frecuenciaPago || 'Diaria', precios: [], estado: 'activo', extra: {}, origen: { app: 'sistema-fen' }, quitadoEnPlanilla: false, planillaPendiente: true, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
     return id;
   });
+}
+
+// v0.69.4 · Para el resumen de varias órdenes: solo las ediciones y las cantidades originales (sin leer el cliente).
+// Lee únicamente las órdenes editadas (1 consulta por orden editada; las demás, 0 lecturas).
+export async function cambiosOrden(o) {
+  if (!(o && (o.editada || o.revisar))) return { ediciones: [], originales: {} };
+  const db = await dbOk();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'ediciones'), FB.where('n', '==', Number(o.n))));
+  uso.lecturas += Math.max(1, sn.size);
+  const ediciones = sn.docs.map(d => d.data()).filter(e => !e.quitadoEnPlanilla).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+  const originales = {};
+  const e0 = ediciones.find(e => e.cambios && /"antes"/.test(e.cambios));
+  if (e0) { try { (JSON.parse(e0.cambios).antes || []).forEach(l => { originales[l.producto] = (originales[l.producto] || 0) + l.cantidad; }); } catch (x) {} }
+  return { ediciones, originales };
 }
 
 // Para el PDF de una orden: el cliente y el historial de ediciones

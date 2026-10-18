@@ -73,6 +73,7 @@ const CSS = `.od{width:720px;padding:44px 52px 36px;background:#fff;color:#171c2
 .od-fila-n{font-size:16px;font-weight:600}.od-fila-s{font-size:13px;color:#4f5965;margin-top:2px;line-height:1.5}.od-fila-v{font-size:16px;font-weight:600;white-space:nowrap}
 .od-cambio{color:#8a4b00;font-weight:600}.od-quitado .od-fila-n{color:#8b939e;text-decoration:line-through}
 .od-grupo{padding:10px 0;border-bottom:1px solid #e4e8ee}.od-grupo:last-child{border-bottom:0}
+.od-grupo-nota{font-size:12px;color:#8a4b00;margin-top:4px}.od-quitado-l{color:#8b939e}
 .od-grupo-cab{display:flex;justify-content:space-between;gap:16px;font-size:15px;font-weight:700}.od-grupo-l{display:flex;justify-content:space-between;gap:16px;font-size:13px;color:#4f5965;margin-top:3px}
 .od-info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px;margin-top:26px;font-size:13px;line-height:1.6;color:#4f5965}.od-info b{display:block;font-weight:700;color:#171c22}
 .od-linea{margin-top:22px;font-size:13px;line-height:1.6;color:#4f5965}.od-linea b{font-weight:700;color:#171c22}
@@ -190,7 +191,10 @@ export async function variasOrdenes(lista, abrir) {
   return aPdf(lista.map(x => html(x.orden, x.cliente, x.originales || {}, x.ediciones || [])), `Ordenes_${ns[0]}-${ns[ns.length - 1]}_${archivo(lista[0].cliente.nombre || lista[0].orden.cliente)}.pdf`, ventana);
 }
 const fechaDMY = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); return m ? `${m[3]}-${m[2]}-${m[1]}` : esc(f || '—'); };
-export function htmlResumenOrdenes(ordenes, cliente) {
+// v0.69.4 · cambios: { N° orden → { originales: { producto: cantidad antes de editar }, ediciones: [{ fecha, motivo, resumen }] } }
+// En "Detalle por orden" cada producto devuelto o agregado lo dice en su fila ("eran 10, se devolvieron 2"),
+// los productos devueltos completos quedan tachados en $0, y el motivo del cambio va bajo la orden.
+export function htmlResumenOrdenes(ordenes, cliente, cambios = {}) {
   const E = (window.FEN_LOG || window.FEN_SIS).DATOS_EMPRESA;
   const os = ordenes.slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || a.n - b.n);
   const fs = os.map(o => o.fecha).filter(Boolean).sort();
@@ -200,19 +204,47 @@ export function htmlResumenOrdenes(ordenes, cliente) {
   const neto = os.reduce((s, o) => s + (Number(o.neto) || 0), 0), total = os.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const ns = os.map(o => o.n), folios = [...new Set(os.map(o => o.folio).filter(Boolean))];
   const lineaNeto = l => Number(l.neto) || (Number(l.cantidad) || 0) * (Number(l.precio) || 0);
+  // Devoluciones y agregados por producto, en todas las órdenes (para el total por producto)
+  const devTot = {}, agrTot = {};
+  const detalleOrden = o => {
+    const cb = cambios[o.n] || {}, orig = cb.originales || {}, ahora = {}, vistos = new Set();
+    (o.lineas || []).forEach(l => { ahora[l.producto] = (ahora[l.producto] || 0) + (Number(l.cantidad) || 0); });
+    const nota = p => {
+      if (!(p in orig) || orig[p] === ahora[p]) return '';
+      const d = Math.abs(orig[p] - ahora[p]), menos = ahora[p] < orig[p];
+      (menos ? devTot : agrTot)[p] = ((menos ? devTot : agrTot)[p] || 0) + d;
+      return ` · <span class="od-cambio">${orig[p] === 1 ? 'era' : 'eran'} ${orig[p]}, se ${menos ? (d === 1 ? 'devolvió' : 'devolvieron') : (d === 1 ? 'agregó' : 'agregaron')} ${d}</span>`;
+    };
+    const filas = (o.lineas || []).map(l => {
+      const primera = !vistos.has(l.producto); vistos.add(l.producto);
+      return `<div class="od-grupo-l"><span>${esc(l.cantidad)} × ${esc(l.producto)} (${clp(l.precio)})${primera ? nota(l.producto) : ''}</span><span>${clp(lineaNeto(l))}</span></div>`;
+    }).join('');
+    const quitados = Object.keys(orig).filter(p => !(p in ahora) && orig[p] > 0).map(p => {
+      devTot[p] = (devTot[p] || 0) + orig[p];
+      return `<div class="od-grupo-l od-quitado-l"><span><s>${esc(orig[p])} × ${esc(p)}</s> · <span class="od-cambio">${orig[p] === 1 ? 'se devolvió' : 'se devolvieron todos'}</span></span><span>$0</span></div>`;
+    }).join('');
+    const motivos = (cb.ediciones || []).filter(e => e.motivo || e.resumen).map(e => `${esc(fechaDMY(e.fecha))}: ${esc(e.motivo || String(e.resumen || '').replace(/\n/g, '; '))}`);
+    return filas + quitados + (motivos.length ? `<div class="od-grupo-nota">Cambio: ${motivos.join(' · ')}</div>` : '');
+  };
+  // Se arma primero el detalle (calcula las devoluciones) y después el total por producto
+  const detalleHtml = os.map(o => `<div class="od-grupo od-bloque"><div class="od-grupo-cab"><span>N° ${o.n} · ${esc(fechaLarga(o.fecha).replace(/ de \d{4}$/, '').replace(/ de (\w+)$/, (m, mes) => ' ' + mes.slice(0, 3)).replace(/^(\w)/, c => c.toLowerCase()))}</span><span>${clp(o.neto)}</span></div>
+    ${detalleOrden(o)}</div>`).join('');
+  const notaTotal = k => [devTot[k] ? `se descontaron ${devTot[k].toLocaleString('es-CL')} devueltos` : '', agrTot[k] ? `se agregaron ${agrTot[k].toLocaleString('es-CL')}` : ''].filter(Boolean).join(' · ');
+  const productosTot = [...new Set([...Object.keys(P), ...Object.keys(devTot)])];
   return `<div class="od">
   ${cabecera(`Resumen de ${os.length} ${os.length === 1 ? 'orden' : 'órdenes'} · ${esc(cliente.nombre)}`, `${esc(periodo)} · ${ns.length === 1 ? 'orden' : 'órdenes'} N° ${esc(listaN(ns.join(', ')))}`)}
   ${banda('Total con IVA', clp(total), `Neto ${clp(neto)} · IVA ${clp(total - neto)}<br>${folios.length ? 'Folio SII ' + esc(folios.join(', ')) : 'Folio SII pendiente'}`)}
-  ${caja('Total por producto', 'Neto', Object.values(P).sort((a, b) => a.producto.localeCompare(b.producto, 'es')).map(p => fila(esc(p.producto), p.precios.size === 1 ? `${p.cantidad.toLocaleString('es-CL')} × ${clp([...p.precios][0])}` : `${p.cantidad.toLocaleString('es-CL')} unidades (con precios distintos)`, clp(p.neto))).join(''))}
-  ${caja('Detalle por orden', 'Neto', os.map(o => `<div class="od-grupo od-bloque"><div class="od-grupo-cab"><span>N° ${o.n} · ${esc(fechaLarga(o.fecha).replace(/ de \d{4}$/, '').replace(/ de (\w+)$/, (m, mes) => ' ' + mes.slice(0, 3)).replace(/^(\w)/, c => c.toLowerCase()))}</span><span>${clp(o.neto)}</span></div>
-    ${(o.lineas || []).map(l => `<div class="od-grupo-l"><span>${esc(l.cantidad)} × ${esc(l.producto)} (${clp(l.precio)})</span><span>${clp(lineaNeto(l))}</span></div>`).join('')}</div>`).join(''))}
+  ${caja('Total por producto', 'Neto', productosTot.sort((a, b) => a.localeCompare(b, 'es')).map(k => { const p = P[k], nt = notaTotal(k);
+    if (!p) return fila(`<s>${esc(k)}</s>`, `0 unidades · <span class="od-cambio">${nt}</span>`, '$0', 'od-quitado');
+    return fila(esc(p.producto), (p.precios.size === 1 ? `${p.cantidad.toLocaleString('es-CL')} × ${clp([...p.precios][0])}` : `${p.cantidad.toLocaleString('es-CL')} unidades (con precios distintos)`) + (nt ? ` · <span class="od-cambio">${nt}</span>` : ''), clp(p.neto)); }).join(''))}
+  ${caja('Detalle por orden', 'Neto', detalleHtml)}
   <div class="od-pie od-bloque">${pieEmpresa(E)}<br>${esc(cliente.razonSocial || cliente.nombre)} · RUT ${esc(cliente.rut || '—')} · Documento interno de pedido. No es comprobante tributario.</div>
 </div>`;
 }
-export async function resumenOrdenes(ordenes, cliente, abrir) {
+export async function resumenOrdenes(ordenes, cliente, abrir, cambios = {}) {
   if (!ordenes.length) throw new Error('Marca al menos una orden.');
   const ventana = abrir ? window.open('', '_blank') : null;
   if (ventana) ventana.document.write('<p style="font-family:sans-serif;padding:24px">Generando el PDF…</p>');
   const ns = ordenes.map(o => o.n).sort((a, b) => a - b);
-  return aPdf(htmlResumenOrdenes(ordenes, cliente), `Resumen_ordenes_${ns[0]}-${ns[ns.length - 1]}_${archivo(cliente.nombre)}.pdf`, ventana);
+  return aPdf(htmlResumenOrdenes(ordenes, cliente, cambios), `Resumen_ordenes_${ns[0]}-${ns[ns.length - 1]}_${archivo(cliente.nombre)}.pdf`, ventana);
 }

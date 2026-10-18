@@ -1,9 +1,18 @@
-# Sistema Fën · v0.69.3
+# Sistema Fën · v0.69.4
 
-**App:** v0.69.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 17 de octubre de 2026
+**App:** v0.69.4 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 18 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.69.4: devoluciones visibles en el PDF "Resumen" de órdenes B2B
+
+- **Dónde va:** repo **sistema-fen**, raíz. No cambian scripts ni reglas.
+- En Ventas B2B → marcar órdenes → PDF → **Resumen**, la sección **Detalle por orden** muestra, en el día y en la fila del producto, lo que cambió al editar la orden: "8 × Pan de molde · eran 10, se devolvieron 2". Un producto devuelto completo queda tachado en $0, y el motivo del cambio va bajo la orden ("Cambio: 06-10-2026: …").
+- **Total por producto** dice cuánto se descontó: "18 × $3.000 · se descontaron 2 devueltos".
+- Lecturas: solo las órdenes editadas leen su historial (1 consulta cada una); las demás, 0.
+
+**Checklist:** (1) subir los archivos y recargar: abajo dice v0.69.4; (2) marcar una orden editada con devolución y otra sin cambios → PDF → Resumen; (3) revisar que la devolución sale en su día y su producto.
 
 ## Novedades de la v0.69.3: Resumen del mes en Conciliación (cuánto falta y qué falta para cerrar)
 **Dónde:** Conciliación → Cartola, arriba de todo (el mismo en Abonos y en Cargos). También una línea en Hoy.
