@@ -9,50 +9,51 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.69.2';
-import * as Caja from './caja.js?v=0.69.2';
-import * as Stock from './stock.js?v=0.69.2';
-import * as Ajustes from './ajustes.js?v=0.69.2';
-import * as Apps from './apps.js?v=0.69.2';
-import * as Agenda from './agenda.js?v=0.69.2';
-import * as Gastos from './gastos.js?v=0.69.2';
-import * as G3 from './gastos-g3.js?v=0.69.2';
-import * as G3D from './gastos-g3d.js?v=0.69.2';
-import * as GBanco from './gastos-banco.js?v=0.69.2';
-import * as TE from './tef-enviadas.js?v=0.69.2';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.69.2';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.69.2';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.69.2';
-import * as AR from './areas.js?v=0.69.2';   // v0.69.1: una sola lista de áreas (con REVENTA)
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.69.2';
-import * as Sii from './sii.js?v=0.69.2';
-import * as GSii from './gastos-sii.js?v=0.69.2';
-import * as SP from './sii-pendientes.js?v=0.69.2';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.69.2');
-import * as Previred from './previred.js?v=0.69.2';
-import * as B2b from './b2b.js?v=0.69.2';
-import * as Cartola from './cartola.js?v=0.69.2';
-import * as RD from './registro-detalle.js?v=0.69.2';   // v0.67.7: "Ver el registro" (B2B y Gastos)
-import * as BJ from './bandeja.js?v=0.69.2';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
-import * as RC from './reglas-conc.js?v=0.69.2';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
-import * as PT from './puntaje.js?v=0.69.2';       // v0.69.0: el puntaje explicado de cada propuesta
-import * as PM from './pagos-mixtos.js?v=0.69.2';  // v0.69.2: pagos mixtos (un documento pagado en partes)
-import * as SiiFactura from './sii-factura.js?v=0.69.2';
-import * as PdfOrden from './pdf-orden.js?v=0.69.2';
-import * as Prod from './produccion.js?v=0.69.2';
-import * as Mem from './fs-memoria.js?v=0.69.2';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.69.2';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.69.3';
+import * as Caja from './caja.js?v=0.69.3';
+import * as Stock from './stock.js?v=0.69.3';
+import * as Ajustes from './ajustes.js?v=0.69.3';
+import * as Apps from './apps.js?v=0.69.3';
+import * as Agenda from './agenda.js?v=0.69.3';
+import * as Gastos from './gastos.js?v=0.69.3';
+import * as G3 from './gastos-g3.js?v=0.69.3';
+import * as G3D from './gastos-g3d.js?v=0.69.3';
+import * as GBanco from './gastos-banco.js?v=0.69.3';
+import * as TE from './tef-enviadas.js?v=0.69.3';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.69.3';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.69.3';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.69.3';
+import * as AR from './areas.js?v=0.69.3';   // v0.69.1: una sola lista de áreas (con REVENTA)
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.69.3';
+import * as Sii from './sii.js?v=0.69.3';
+import * as GSii from './gastos-sii.js?v=0.69.3';
+import * as SP from './sii-pendientes.js?v=0.69.3';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.69.3');
+import * as Previred from './previred.js?v=0.69.3';
+import * as B2b from './b2b.js?v=0.69.3';
+import * as Cartola from './cartola.js?v=0.69.3';
+import * as RD from './registro-detalle.js?v=0.69.3';   // v0.67.7: "Ver el registro" (B2B y Gastos)
+import * as BJ from './bandeja.js?v=0.69.3';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
+import * as RC from './reglas-conc.js?v=0.69.3';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
+import * as PT from './puntaje.js?v=0.69.3';       // v0.69.0: el puntaje explicado de cada propuesta
+import * as PM from './pagos-mixtos.js?v=0.69.3';  // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as CR from './conc-resumen.js?v=0.69.3';  // v0.69.3: Conciliación → Resumen del mes (de la memoria)
+import * as SiiFactura from './sii-factura.js?v=0.69.3';
+import * as PdfOrden from './pdf-orden.js?v=0.69.3';
+import * as Prod from './produccion.js?v=0.69.3';
+import * as Mem from './fs-memoria.js?v=0.69.3';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.69.3';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.0';
-import * as VistaProd from './vista-produccion.js?v=0.69.2';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.69.2';
+import * as VistaProd from './vista-produccion.js?v=0.69.3';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.69.3';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.69.2');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.69.3');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.69.2');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.69.3');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.69.2')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.69.3')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -159,6 +160,8 @@ const P = {
   calendario: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>', abajo: '<path d="M6 9l6 6 6-6"/>',
   nota: '<path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4M8 12h8M8 16h5"/>',
   regla: '<path d="M4 5h16l-6 7.5V18l-4 2v-7.5z"/>',   // v0.69.0: Reglas de conciliación
+  check: '<path d="M5 12.5l4.5 4.5L19 7"/>',   // v0.69.3: Resumen del mes
+  avance: '<path d="M4 19h16"/><path d="M7 15V11M12 15V7M17 15V4"/>',
   copias: '<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>'
 };
 const icono = (n, t = 20) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ''}</svg>`;
@@ -360,7 +363,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.69.2" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.69.3" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -551,6 +554,9 @@ async function pintarHoy() {
     orden: 3, color: 'lila', icono: 'anular', chip: 'Revisar', url: '#caja/anulaciones', titulo: 'Anulación por aprobar', origen: 'Caja',
     detalle: `${sucursal(s.sucursal)} · ${pesos(s.total)} · pide ${s.solicitadoPor || ''}`
   }));
+  // v0.69.3 · "Conciliación de octubre: 87% · faltan 12" con lo que ya está en la memoria (si Conciliación no se abrió, no aparece)
+  try { const lc = lineaConcHoy(); if (lc) pend.push(lc); } catch (e) {}
+  if (!el.dataset.resOk) { el.dataset.resOk = '1'; el.addEventListener('click', ev => { if (ev.target.closest && ev.target.closest('#pend-conc-resumen')) { resConc.abrir = true; resConc.mes = ''; } }); }
   const estados = { gastos: { estado: 'leyendo' }, b2b: { estado: 'leyendo' }, produccion: { estado: 'leyendo' } };
   const pintarLista = () => {
     if (!$('lista-pend')) return;
@@ -628,14 +634,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.69.2').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.69.3').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.69.2').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.69.3').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -1024,9 +1030,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.69.2').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.69.3').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.69.2').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.69.3').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -2646,7 +2652,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.69.2')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.69.3')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 function abrirObligacion(p, d, pre) {
@@ -3574,7 +3580,9 @@ function pintarCartola(el, sub, dg) {
   const listos = pend.filter(c => props[c.id] && RX.clase[c.id] === 'listo' && !cart.modo[c.id] && !c.repetidoProp), revisar = pend.filter(c => !listos.includes(c)).sort((a, b) => (!!b.repetidoProp - !!a.repetidoProp));
   // v0.68.0 · La bandeja: el estado de cada cargo (Listo = los de "Listos para confirmar"; Revisar; Sin coincidencia)
   const clase = {}; pend.forEach(c => { clase[c.id] = listos.includes(c) ? 'listo' : RX.clase[c.id] === 'listo' ? 'revisar' : RX.clase[c.id]; });
-  const kBj = BJ.contar(pend.map(c => clase[c.id]));
+  // v0.69.3 · Con "Solo <mes>" (desde el Resumen del mes) los números y la lista son de ese mes
+  const delMesCc = c => !cart.bjMes || String(c.fecha || '').slice(0, 7) === cart.bjMes;
+  const kBj = BJ.contar(pend.filter(delMesCc).map(c => clase[c.id]));
   if (cart.bjFiltro && !kBj[cart.bjFiltro]) cart.bjFiltro = '';
   if (cart.histSel && !hechos.some(c => c.id === cart.histSel)) cart.histSel = '';
   // v0.50.0 · Base nueva: casillas para confirmar varios de una vez (los seguros vienen marcados; cualquiera con propuesta completa se puede marcar)
@@ -3587,7 +3595,7 @@ function pintarCartola(el, sub, dg) {
   // v0.67.1 · Filtro "Con nota" (solo si hay alguna)
   const nNota = D.cargos.filter(c => c.nota).length;
   if (!nNota) cart.conNota = false;
-  const fNota = l => (cart.conNota ? l.filter(c => c.nota) : l).filter(c => !cart.bjFiltro || !clase[c.id] || clase[c.id] === cart.bjFiltro);
+  const fNota = l => (cart.conNota ? l.filter(c => c.nota) : l).filter(c => !cart.bjFiltro || !clase[c.id] || clase[c.id] === cart.bjFiltro).filter(delMesCc);
   const TIPO_LOTE = { vencimientos: ['pago de vencimiento', 'pagos de vencimientos'], abono: ['abono', 'abonos'], abono_parcial: ['abono parcial', 'abonos parciales'], gasto: ['ya en Gastos', 'ya en Gastos'], nuevo: ['gasto nuevo', 'gastos nuevos'], pago_tarjeta: ['pago de tarjeta', 'pagos de tarjeta'], traspaso: ['traspaso', 'traspasos'], ignorar: ['no es gasto', 'no son gasto'] };
   const resLote = base ? Cartola.resumenLote(elegidos.map(c => ({ c, p: props[c.id] }))) : null;
   const textoLote = r => Object.entries(r.porTipo).map(([k, n]) => `${n} ${(TIPO_LOTE[k] || [k, k])[n === 1 ? 0 : 1]}`).join(' · ');
@@ -3604,16 +3612,16 @@ function pintarCartola(el, sub, dg) {
   const hechoC = cart.hecho && cart.hechoMsg === cart.msg ? D.cargos.find(c => c.id === cart.hecho && c.estado !== 'POR_REVISAR') : null;
   // v0.69.0 · Las reglas sugeridas (de lo ya revisado en la memoria: 0 lecturas)
   const sugCc = base && D.concMigrado ? sugerenciasCargos(D) : [];
-  const barra = barraBjHtml({ tipo: 'cc', k: kBj, filtro: cart.bjFiltro || '', q: cart.bjQ || '', extraFiltro: filtroNota, lote: barraLote, reglas: base && D.concMigrado ? '#conciliacion/reglas' : '', sug: sugBannerHtml('cargo', sugCc),
+  const barra = barraBjHtml({ tipo: 'cc', k: kBj, filtro: cart.bjFiltro || '', q: cart.bjQ || '', extraFiltro: filtroNota + filtroMesBjHtml(cart), lote: barraLote, reglas: base && D.concMigrado ? '#conciliacion/reglas' : '', sug: sugBannerHtml('cargo', sugCc),
     hecho: hechoBjHtml({ tipo: 'cc', msg: cart.msg, err: cart.err, deshacer: hechoC ? hechoC.id : '', attr: 'data-bj-deshacer', sig: sigC ? sigC.id : '', sigTxt: sigC ? `${pesos(sigC.monto)} · ${sigC.descripcion}`.slice(0, 48) : '' }) });
-  el.innerHTML = cabConc('cargos') + arribaConcHtml('cc', subir + coberturaDosHtml(D), resumenArribaCc(D))
+  el.innerHTML = cabConc('cargos') + resumenConcHtml('cc', clase) + arribaConcHtml('cc', subir + coberturaDosHtml(D), resumenArribaCc(D))
     + `<section class="tarjeta bandeja" data-bandeja="cc" aria-label="Cargos de la cartola">${barra}<div class="bj-cuerpo"><div class="bj-lista" data-bj-lista="cc">`
     + seccion('listos', 'Listos para confirmar', fNota(listos), base ? 'Se reconoció qué es cada uno (monto fijo exacto, monto del documento, lo aprendido o el RUT de la transferencia). Revisa y confirma; si alguno no corresponde, ábrelo para cambiarlo.' : 'Se reconoció qué es cada uno (por lo aprendido, el RUT de la transferencia o un gasto del mismo monto). Revisa y confirma; si alguno no corresponde, ábrelo para cambiarlo.', !base && listos.length > 1 ? `<div class="botones" style="justify-content:flex-start;margin:4px 0 8px"><button type="button" class="btn btn-chico" id="cc-todos" ${cart.ocupado ? 'disabled' : ''}>Confirmar los ${listos.length} · ${pesos(listos.reduce((s, c) => s + c.monto, 0))}</button></div>` : '')
     + seccion('revisar', 'Para revisar', fNota(revisar), 'Ábrelo y elige qué es: los vencimientos por pagar más cercanos a la fecha aparecen primero.')
     + histCcHtml(cart.conNota ? hechos.filter(c => c.nota) : hechos, base) + `</div>${vacioDetBj('cc', kBj)}</div></section>`
     + avisosCcHtml(D, props) + (base && D.concMigrado ? reglasRedirHtml('cargo', D.reglasConc) : reglasCcHtml(D))
     + `<p class="nota-i">(i) Pagar un vencimiento aquí hace lo mismo que en Vencimientos (crea el gasto o completa el de la compra a crédito), con la fecha del banco. Cada gasto y cada vencimiento queda con la columna "Cartola" en la planilla: de qué cartola, cuenta y operación salió el pago, cuándo se subió y, si era una factura del SII, de qué carga venía. Deshacer no borra nada: el cargo vuelve a revisar, el vencimiento queda por pagar y un gasto creado aquí pasa a "Gastos anulados".</p>`;
-  conectarArriba(); conectarCartola(el, dg, props, listos, pedibles); conectarCobDos(el); conectarBandeja(el, 'cc'); conectarSug(el, () => pintarCartola(concEl(), 'cargos', cart.dg));
+  conectarArriba(); conectarCartola(el, dg, props, listos, pedibles); conectarCobDos(el); conectarBandeja(el, 'cc'); conectarResumenConc(el); conectarSug(el, () => pintarCartola(concEl(), 'cargos', cart.dg));
 }
 // ── v0.29.0 · Cobertura de la cartola y de las cargas del SII, lado a lado (Conciliación → Cargos) ──
 // Meses desde la primera carga del SII hasta hoy: con carga (hasta qué día llegan sus documentos) o sin carga
@@ -3664,6 +3672,7 @@ function conectarCobDos(el) {
 }
 // Solo la parte de cobertura (después de una carga del SII o al llegar el historial)
 function repintarCobDos() {
+  if (vistaDesdeHash() === 'conciliacion') refrescarResumenConc();   // v0.69.3: la cobertura del SII también va en el resumen
   const t = document.getElementById('t-cob-dos'); if (!t || !enConc('cargos')) return;
   const sec = t.closest('section'), abierta = $('conc-sii');
   if (abierta) { const h = document.createElement('div'); h.innerHTML = coberturaDosHtml(cart.d); const nueva = h.firstElementChild; nueva.replaceChild(abierta, nueva.querySelector('#conc-sii')); sec.replaceWith(nueva); const b = nueva.querySelector('#cob-sii-abrir'); b.addEventListener('click', () => { cart.siiAbierto = false; pintarCartola(concEl(), 'cargos', cart.dg); }); }
@@ -3918,6 +3927,147 @@ function resumenArribaAb(conf) {
   const t = B2b.tocaConciliar(conf), l = ((conf && conf.cartolas) || []).filter(c => c.tipo !== 'antigua'), h = l.map(c => c.hasta).filter(Boolean).sort().pop();
   return esc([t && t.toca ? 'Toca conciliar' : t ? 'Al día' : '', h ? `cartola hasta el ${diaTexto(h)}` : 'sin cartola', `${l.length} ${l.length === 1 ? 'cartola cargada' : 'cartolas cargadas'}`].filter(Boolean).join(' · '));
 }
+// ═══ v0.69.3 · Conciliación → Resumen del mes (arriba, el mismo en Cargos y Abonos) ═══
+// Todo sale de lo que la app ya tiene en la memoria: los cargos de la lista (cart.d), los abonos de la escucha de B2B y lo resuelto
+// ya leído (B2b.abonosDelMes), las cargas del SII de "Qué está cubierto", los números de las pestañas (conc.cuentas.resumen:
+// documentos del SII por clasificar por mes, efectivo pagado, pagos parciales y saldos vencidos) y las planillas de Previred.
+// Abrirlo, cambiar de mes, filtrar y elegir una fila: 0 lecturas. "Contar todo el mes" (abonos) lee solo si lo pides.
+const resConc = { mes: '', R: null, ctx: null, abrir: false, contando: false, err: '' };
+const TXT_RESUMEN_CONC = 'El avance del mes elegido, por la fecha del movimiento en la cartola.\nConciliado = revisado: ya dijiste qué es (paga un vencimiento, gasto nuevo, no es gasto; en B2B, el cliente y su folio, Ya estaba registrado o No es de B2B). Los repetidos (el mismo movimiento en otra cartola) no cuentan.\nToca un número para ver solo eso en la bandeja, o un movimiento antiguo para abrirlo.\n"Qué falta para cerrar el mes" usa las mismas reglas de Finanzas → Cierre de mes, más lo propio de la conciliación (cartola hasta el fin de mes, abonos de B2B, Previred del mes anterior y facturas con saldo vencido).\nNo gasta lecturas: sale de lo que ya está cargado.';
+const TXT_CONTAR_AB = 'Los abonos ya conciliados de B2B no están en la memoria: se cuentan con lo que ya se leyó en esta sesión. "Contar todo el mes" los lee una sola vez (más o menos 1 lectura por abono del mes) y queda guardado mientras la app esté abierta.';
+const esCelRes = () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+const clavePlegRes = () => (esCelRes() ? 'conc-resumen-cel' : 'conc-resumen');
+function datosResumenConc(tab, clase) {
+  const hoy = Caja.diaLocal(), meses = CR.mesesSelector(hoy);
+  if (!meses.includes(resConc.mes)) resConc.mes = meses[0];
+  const mes = resConc.mes, D = cart.d && cart.d.fuente === 'base' ? cart.d : null, bd = b2b.datos, conf = bd && bd.conciliacion ? bd.conciliacion : null;
+  // Los abonos pendientes: los de la escucha de B2B; fuera de Conciliación (Hoy) la escucha se apaga y quedan los últimos que se vieron
+  const vivos = bd && bd.conciliacionLeida && Array.isArray(bd.movimientos) ? bd.movimientos : null;
+  if (vivos) resConc.movsMem = vivos;
+  const movs = vivos || resConc.movsMem || null, q = (conc.cuentas && conc.cuentas.resumen) || null;
+  // La cobertura de "Qué está cubierto": cada cuenta que se concilia (las de B2B → Días de conciliar) y las cargas del SII
+  const revisadas = conf ? B2b.cuentasRevisadas(conf) : null;
+  let cuentas = {};
+  if (D) cuentas = Cartola.coberturaPorCuenta(D.cartolas, B2b.coberturaCartolas);
+  else if (conf) (revisadas || []).forEach(k => { cuentas[k] = B2b.coberturaCartolas(B2b.cartolasDe(conf, k).filter(c => c.tipo !== 'antigua')); });
+  if (revisadas && Object.keys(cuentas).some(k => revisadas.includes(k))) cuentas = Object.fromEntries(Object.entries(cuentas).filter(([k]) => revisadas.includes(k)));
+  let sug = 0; try { sug = (D ? sugerenciasCargos(D).length : 0) + (conf ? sugerenciasAbonos(conf).length : 0); } catch (e) { sug = 0; }
+  if (tab === 'cc' && clase) cart.claseRes = clase; if (tab === 'ab' && clase) b2bConc.claseRes = clase;
+  return CR.resumen({ mes, hoy, cargos: D ? (D.todosCargos || D.cargos) : null, abonos: movs ? B2b.abonosDelMes(mes, movs, hoy) : null,
+    claseCc: cart.claseRes || {}, claseAb: b2bConc.claseRes || {}, cuentas, nombres: B2b.NOMBRE_CUENTA, cargasSii: sii.cargas || null,
+    siiPorMes: q ? q.siiPorMes : null, planillas: D ? D.planillas || [] : null, vencidas: q ? q.vencidas : null, partes: q ? q.partes : [], porClasificar: q ? q.porClasificar : 0,
+    caja: q ? q.caja : [], sugeridas: sug, pendCc: D ? D.cargos.filter(c => c.estado === 'POR_REVISAR') : null, pendAb: movs });
+}
+const resNum = v => `<span class="res-num">${esc(String(v))}</span>`;
+function resAvanceHtml(k, nombre, a, extra = '') {
+  if (!a) return `<div class="res-av res-av-sin" data-res-av="${k}"><span class="res-av-k">${nombre}</span><span class="ayuda">${k === 'cc' ? 'Se cuentan al abrir <a href="#conciliacion/cargos">Cargos</a>.' : 'Se cuentan al conectar Ventas B2B.'}</span></div>`;
+  if (!a.m) return `<div class="res-av res-av-sin" data-res-av="${k}"><span class="res-av-k">${nombre}</span><span class="ayuda">Sin movimientos en ${esc(CR.mesCorto(resConc.mes))}.</span></div>${extra}`;
+  const p = a.pct;
+  return `<div class="res-av" data-res-av="${k}"><div class="res-av-l1"><span class="res-av-k">${nombre}</span><span class="res-av-n"><b class="res-num">${a.n}</b> de ${resNum(a.m)} ${a.m === 1 ? 'conciliado' : 'conciliados'}</span><b class="res-av-p res-num">${p} %</b></div>
+    <div class="res-barra" role="progressbar" aria-label="${nombre}: ${p} % conciliado" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}"><span style="width:${p}%"></span></div>
+    <div class="res-av-l2 res-num">${esc(pesos(a.hecho))} de ${esc(pesos(a.total))}</div></div>${extra}`;
+}
+function resEstadosHtml(tipo, k, repIgn) {
+  if (!k) return '';
+  const b = (f, tx, nn) => `<button type="button" class="bj-filtro bj-f-${f}" data-res-filtro="${f}" ${nn ? '' : 'disabled'}><span class="bj-punto" aria-hidden="true"></span><span>${tx}</span> <b class="bj-num">${nn}</b></button>`;
+  const ri = tipo === 'cc' ? `<button type="button" class="bj-filtro bj-f-gris" data-res-hist ${repIgn ? '' : 'disabled'}><span class="bj-punto" aria-hidden="true"></span><span>Repetido o ignorado</span> <b class="bj-num">${repIgn}</b></button>`
+    : `<span class="bj-filtro bj-f-gris res-solo" title="Están en Ya conciliados"><span class="bj-punto" aria-hidden="true"></span><span>Repetido o ignorado</span> <b class="bj-num">${repIgn}</b></span>`;
+  return `<div class="res-estados" role="group" aria-label="Filtrar la bandeja por estado">${b('listo', 'Listo', k.listo)}${b('revisar', 'Revisar', k.revisar)}${b('sin', 'Sin coincidencia', k.sin)}${ri}</div>`;
+}
+function resAntiguosHtml(k, nombre, l, cargado) {
+  const fila = x => `<li><button type="button" class="res-ant" data-res-sel="${k}" data-id="${esc(x.id)}"><b class="res-num">${esc(pesos(x.monto))}</b><span class="res-ant-g" title="${esc(x.descripcion)}">${esc(x.descripcion)}</span><span class="res-ant-d">${esc(CR.haceTxt(x.dias))}</span></button></li>`;
+  return `<div class="res-ants" data-res-ants="${k}"><p class="res-sub">${nombre}</p>${!cargado ? `<p class="ayuda">${k === 'cc' ? 'Se ven al abrir <a href="#conciliacion/cargos">Cargos</a>.' : 'Sin datos de B2B.'}</p>` : l.length ? `<ul>${l.map(fila).join('')}</ul>` : '<p class="ayuda">Nada por revisar.</p>'}</div>`;
+}
+function resCheckHtml(c) {
+  const ico = c.nivel === 'ok' ? 'check' : c.nivel === 'aviso' ? 'alerta' : c.nivel === 'sin' ? 'reloj' : 'anular';
+  const est = { ok: 'Listo', aviso: 'Aviso', falla: 'Falta', sin: 'Sin datos' }[c.nivel];
+  return `<li class="res-check res-c-${c.nivel}" data-res-check="${esc(c.k)}"><span class="res-cic" aria-hidden="true">${icono(ico, 16)}</span><span class="res-ctx"><b>${esc(c.t)}</b><span class="sr"> · ${est}</span><span class="res-cdet">${esc(c.detalle)}</span></span>${c.nivel !== 'ok' && c.ir ? `<a class="res-cir" href="${esc(c.ir)}">${esc(c.accion || 'Revisar')}</a>` : ''}</li>`;
+}
+function resumenConcHtml(tab, clase) {
+  let R;
+  try { R = datosResumenConc(tab, clase); } catch (e) { console.warn('Resumen del mes', e); return ''; }
+  resConc.R = R; resConc.ctx = { tab };
+  const meses = CR.mesesSelector(Caja.diaLocal()), pl = plegadas()[clavePlegRes()];
+  const abierto = resConc.abrir || (pl === undefined ? !esCelRes() : pl !== true);
+  const cob = R.cob, fd = f => (f ? `el ${CR.diaTxt(f)}` : '—');
+  const cobCart = cob.cuentas.length ? cob.cuentas.map(c => `${esc(c.nombre)} hasta ${esc(fd(c.hasta))}`).join(' · ') : 'todavía no se sube';
+  const mesFin = CR.diaTxt(CR.ultimoDia(R.mes));
+  const ab = R.ab, abNota = ab && !R.abCompleto ? `<p class="res-nota" data-res-ab-nota><span>${R.abDesde ? `Lo conciliado de ${esc(CR.mesCorto(R.mes))} se cuenta con lo ya leído (una parte del mes).` : `Lo conciliado de ${esc(CR.mesCorto(R.mes))} todavía no se lee.`}</span> <button type="button" class="btn-link btn-chico" data-res-contar ${resConc.contando ? 'disabled' : ''}>${resConc.contando ? 'Contando…' : 'Contar todo el mes'}</button>${info('Contar todo el mes', TXT_CONTAR_AB)}</p>` : '';
+  const est = tab === 'cc' ? (R.cc ? resEstadosHtml('cc', R.estadosCc, R.cc.repIgn) : '') : (R.ab ? resEstadosHtml('ab', R.estadosAb, R.ab.repIgn) : '');
+  return `<details class="conc-res" data-conc-resumen="${tab}" id="conc-resumen" ${abierto ? 'open' : ''}><summary><span class="conc-res-tit">${icono('avance', 18)}<b>Resumen del mes</b><span class="sr conc-res-sr">Resumen del mes: </span></span><span class="conc-res-linea res-num" data-res-linea>${esc(R.linea)}</span></summary>
+    <div class="conc-res-cuerpo">
+      <div class="conc-res-cab"><div class="res-meses" role="group" aria-label="Mes del resumen">${meses.map(m => `<button type="button" class="chip-filtro" data-res-mes="${m}" aria-pressed="${m === R.mes}">${esc(CR.nombreMes(m))}</button>`).join('')}</div>${info('Resumen del mes', TXT_RESUMEN_CONC)}</div>
+      ${resConc.err ? `<p class="error" role="alert">${esc(resConc.err)}</p>` : ''}
+      <div class="conc-res-grid">
+        <section class="res-col" aria-label="Avance de ${esc(CR.mesCorto(R.mes))}">
+          <h3 class="res-h">Avance</h3>
+          ${resAvanceHtml('cc', 'Cargos', R.cc)}${resAvanceHtml('ab', 'Abonos B2B', ab, abNota)}
+          ${est ? `<p class="res-sub">En la bandeja de ${tab === 'cc' ? 'Cargos' : 'Abonos'}</p>${est}` : ''}
+          <h3 class="res-h">Lo más antiguo sin revisar</h3>
+          <div class="res-ants-dos">${resAntiguosHtml('cc', 'Cargos', R.antiguosCc, !!(cart.d && cart.d.fuente === 'base'))}${resAntiguosHtml('ab', 'Abonos B2B', R.antiguosAb, !!R.ab)}</div>
+        </section>
+        <section class="res-col" aria-label="Para cerrar ${esc(CR.mesCorto(R.mes))}">
+          <h3 class="res-h">Cobertura</h3>
+          <dl class="res-cob"><div><dt>Cartola</dt><dd class="res-num">${cobCart}</dd></div>
+            <div><dt>Mes completo</dt><dd class="res-num">${!cob.conCartola ? '—' : cob.completo ? `Sí, hasta el ${esc(mesFin)}` : `No, hasta el ${esc(mesFin)} falta cartola`}</dd></div>
+            <div><dt>SII</dt><dd class="res-num">${cob.sii === null ? 'se ve al abrir Cargos' : cob.sii ? `hasta ${esc(fd(cob.sii))}` : 'sin cargas'}</dd></div></dl>
+          <h3 class="res-h">Qué falta para cerrar el mes</h3>
+          <ul class="res-checks">${R.checks.map(resCheckHtml).join('')}</ul>
+          <p class="res-ircierre"><a class="btn-sec btn-chico" href="#finanzas/resultados/cierre" data-res-cierre="${R.mes}">${icono('finanzas', 16)} Ir a Cierre de mes</a></p>
+          ${R.senales.length ? `<ul class="res-senales">${R.senales.map(x => `<li data-res-senal="${x.k}"><a href="${esc(x.ir)}">${esc(x.texto)}</a></li>`).join('')}</ul>` : ''}
+        </section>
+      </div>
+      <p class="nota-i">(i) Sale de lo que ya está cargado: abrirlo y cambiar de mes no gasta lecturas.</p>
+    </div></details>`;
+}
+// Repinta solo la tarjeta (cambiar de mes, contar, llegan los números de las pestañas): sin tocar la bandeja
+function refrescarResumenConc() {
+  const x = document.querySelector('#v-conciliacion [data-conc-resumen]'); if (!x || !resConc.ctx) return;
+  const t = document.createElement('div'); t.innerHTML = resumenConcHtml(resConc.ctx.tab, null);
+  const nuevo = t.firstElementChild; if (!nuevo) return;
+  x.replaceWith(nuevo); conectarResumenConc(concEl());
+}
+const repintarTabConc = () => { if (enConc('cargos') && cart.dg) pintarCartola(concEl(), 'cargos', cart.dg); else if (enConc('abonos')) pintarB2bConciliacion(concEl(), ''); };
+function conectarResumenConc(el) {
+  const R0 = el && el.querySelector('[data-conc-resumen]'); if (!R0 || R0.dataset.ok) return; R0.dataset.ok = '1';
+  const tab = R0.dataset.concResumen, st = tab === 'cc' ? cart : b2bConc;
+  if (resConc.abrir) { resConc.abrir = false; setTimeout(() => R0.scrollIntoView({ block: 'start' }), 0); }
+  R0.querySelector('summary').addEventListener('click', () => setTimeout(() => plegar(clavePlegRes(), !R0.open), 0));
+  R0.querySelectorAll('[data-res-mes]').forEach(b => b.addEventListener('click', () => { if (resConc.mes === b.dataset.resMes) return; resConc.mes = b.dataset.resMes; resConc.err = ''; if (st.bjMes) { st.bjMes = resConc.mes; repintarTabConc(); } else refrescarResumenConc(); }));
+  const irBandeja = () => setTimeout(() => { const b = document.querySelector('#v-conciliacion [data-bandeja]'); if (b) b.scrollIntoView({ block: 'start' }); }, 0);
+  R0.querySelectorAll('[data-res-filtro]').forEach(b => b.addEventListener('click', () => { st.bjFiltro = b.dataset.resFiltro; st.bjMes = resConc.mes; st.bjQ = ''; if (tab === 'cc') cart.conNota = false;
+    [tab === 'cc' ? 'cc-listos' : 'c-auto', tab === 'cc' ? 'cc-revisar' : 'c-revisar', 'c-sin'].forEach(k => plegar(k, false)); repintarTabConc(); irBandeja(); }));
+  const hist = R0.querySelector('[data-res-hist]');
+  if (hist) hist.addEventListener('click', () => { plegar('cc-hist', false); repintarTabConc(); setTimeout(() => { const h = document.querySelector('#v-conciliacion details[data-plegar="cc-hist"]'); if (h) { h.open = true; h.scrollIntoView({ block: 'start' }); } }, 0); });
+  // Lo más antiguo: lo abre en la bandeja (si es de la otra pestaña, va allá)
+  R0.querySelectorAll('[data-res-sel]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.resSel, id = b.dataset.id, s0 = k === 'cc' ? cart : b2bConc;
+    s0.bjFiltro = ''; s0.bjMes = ''; s0.bjQ = ''; if (k === 'cc') { cart.conNota = false; cart.histSel = ''; } else b2bConc.histSel = '';
+    s0.abierto = id; s0.bjFoco = id; s0.bjIrFila = id;
+    [k === 'cc' ? 'cc-listos' : 'c-auto', k === 'cc' ? 'cc-revisar' : 'c-revisar', 'c-sin'].forEach(x => plegar(x, false));
+    if (k === tab) repintarTabConc(); else location.hash = k === 'cc' ? '#conciliacion/cargos' : '#conciliacion';
+  }));
+  const ct = R0.querySelector('[data-res-contar]');
+  if (ct) ct.addEventListener('click', async () => {
+    resConc.contando = true; resConc.err = ''; refrescarResumenConc();
+    try { const r = await B2b.leerAbonosDelMes(resConc.mes); registrar('Resumen del mes: contó lo conciliado de B2B', `${CR.mesCorto(resConc.mes)} · ${r.lecturas} lecturas`); }
+    catch (e) { resConc.err = 'No se pudo contar: ' + errorB2b(e); }
+    resConc.contando = false; refrescarResumenConc();
+  });
+  const ic = R0.querySelector('[data-res-cierre]');
+  if (ic) ic.addEventListener('click', async ev => { ev.preventDefault(); const m = ic.dataset.resCierre; try { (await import('./vista-finanzas-eerr.js?v=0.69.3')).elegirMes(m); } catch (e) {} location.hash = '#finanzas/resultados/cierre'; });
+}
+// La bandeja filtrada por el mes del resumen: "Solo octubre" con su X
+const filtroMesBjHtml = st => (st.bjMes ? `<button type="button" class="bj-filtro bj-f-mes" data-bj-mes-quitar aria-pressed="true" title="Mostrar todos los meses"><span>Solo ${esc(CR.mesCorto(st.bjMes))}</span>${icono('anular', 14)}</button>` : '');
+// Hoy: "Conciliación de octubre: 87% · faltan 12", solo con lo que ya está en la memoria (si no, no aparece: no se lee nada para esto)
+function lineaConcHoy() {
+  if (!(cart.d && cart.d.fuente === 'base')) return null;
+  const mes0 = resConc.mes; resConc.mes = CR.mesesSelector(Caja.diaLocal())[0];
+  let R = null; try { R = datosResumenConc('', null); } catch (e) { R = null; }
+  resConc.mes = mes0;
+  const t = CR.lineaHoy(R); if (!t) return null;
+  return { orden: 2.95, color: 'azul', icono: 'avance', chip: 'Ver', url: '#conciliacion/cargos', id: 'pend-conc-resumen', origen: 'Conciliación', titulo: t, detalle: R.cerrar ? `${R.cerrar} ${R.cerrar === 1 ? 'punto' : 'puntos'} para cerrar el mes` : 'Listo para cerrar el mes' };
+}
 // El lado derecho cuando no hay nada abierto (solo en el PC)
 function vacioDetBj(tipo, k) {
   const tot = k.listo + k.revisar + k.sin, que = tipo === 'cc' ? 'cargo' : 'abono';
@@ -3930,6 +4080,7 @@ function conectarBandeja(el, tipo) {
   const lista = sec.querySelector('.bj-lista'), SEL = tipo === 'cc' ? 'details[data-ccd]' : 'details[data-movd]', attr = tipo === 'cc' ? 'ccd' : 'movd';
   const repintar = () => (tipo === 'cc' ? pintarCartola(concEl(), 'cargos', cart.dg) : pintarB2bConciliacion(concEl(), ''));
   sec.querySelectorAll('[data-bj-filtro]').forEach(b => b.addEventListener('click', () => { const f = b.dataset.bjFiltro; st.bjFiltro = st.bjFiltro === f ? '' : f; repintar(); }));
+  sec.querySelectorAll('[data-bj-mes-quitar]').forEach(b => b.addEventListener('click', () => { st.bjMes = ''; repintar(); }));   // v0.69.3
   // Buscar en la lista: monto (con o sin $), glosa, proveedor o cliente; esconde las filas que no calzan (sin volver a pintar)
   const q = sec.querySelector('[data-bj-q]'), qmsg = sec.querySelector('[data-bj-qmsg]');
   const aplicarQ = () => {
@@ -6469,6 +6620,7 @@ async function refrescarCuentasConc(forzar) {
     conc.cuentas = await (await SPF()).conteos(); conc.cuentasT = Date.now();
     const t = document.querySelector('#v-conciliacion .pestanas');
     if (t && vistaDesdeHash() === 'conciliacion') { const nAb = b2b.datos && b2b.datos.movimientos ? b2b.datos.movimientos.length : 0, nCa = cart.d ? cart.d.cargos.filter(c => c.estado === 'POR_REVISAR').length : 0; t.outerHTML = tabsConcHtml(tabConc(subVista()), nAb + nCa); }
+    if (vistaDesdeHash() === 'conciliacion' && !document.querySelector('dialog[open]')) refrescarResumenConc();   // v0.69.3: el resumen usa los mismos números
   } catch (e) {} finally { conc.cuentasPidiendo = false; }
 }
 function cabConc(sub) {
@@ -6964,9 +7116,10 @@ function pintarB2bConciliacion(el, sub) {
   grupos.revisar = conRep.concat(grupos.revisar);
   // v0.68.0 · La bandeja: el estado de cada abono (Listo = Listos para confirmar; Revisar; Sin coincidencia)
   const claseAb = {}; d.movimientos.forEach(m => { claseAb[m.id] = repP[m.id] ? 'revisar' : grupos.auto.includes(m) ? 'listo' : grupos.sinCliente.includes(m) ? 'sin' : AX.clase[m.id] === 'listo' ? 'revisar' : AX.clase[m.id]; });
-  const kBj = BJ.contar(d.movimientos.map(m => claseAb[m.id]));
+  const delMesAb = m => !b2bConc.bjMes || String(m.fecha || '').slice(0, 7) === b2bConc.bjMes;   // v0.69.3: "Solo <mes>"
+  const kBj = BJ.contar(d.movimientos.filter(delMesAb).map(m => claseAb[m.id]));
   if (b2bConc.bjFiltro && !kBj[b2bConc.bjFiltro]) b2bConc.bjFiltro = '';
-  const fB = l => (b2bConc.bjFiltro ? l.filter(m => claseAb[m.id] === b2bConc.bjFiltro) : l);
+  const fB = l => (b2bConc.bjFiltro ? l.filter(m => claseAb[m.id] === b2bConc.bjFiltro) : l).filter(delMesAb);
   b2bConc.bjCtx = { porCobrar };
   if (b2bConc.histSel && !(b2bConc.hist || []).some(m => m.id === b2bConc.histSel)) b2bConc.histSel = '';
   const tefTxt = t => t ? `<small class="fechas-cobro">Transfirió: ${esc(t.nombre || '—')} · RUT ${esc(t.rutTxt || t.rut)}${t.banco ? ' · ' + esc(t.banco) : ''}${t.hora ? ' · ' + esc(t.hora) : ''}</small>` : '';
@@ -7020,9 +7173,9 @@ function pintarB2bConciliacion(el, sub) {
   const hechoM = b2bConc.hecho && b2bConc.hecho.msg === b2bConc.msg && !d.movimientos.some(m => m.id === b2bConc.hecho.m.id) ? b2bConc.hecho.m : null;
   const sugAb = migrado ? sugerenciasAbonos(conf) : [];
   const lote = grupos.auto.length > 1 ? `<button type="button" class="btn btn-chico" id="conc-todos" ${b2bConc.ocupado ? 'disabled' : ''}>Confirmar los ${grupos.auto.length} listos · ${pesos(grupos.auto.reduce((s, m) => s + m.monto, 0))}</button>` : '';
-  const barra = barraBjHtml({ tipo: 'ab', k: kBj, filtro: b2bConc.bjFiltro || '', q: b2bConc.bjQ || '', lote, reglas: migrado ? '#conciliacion/reglas-abonos' : '', sug: sugBannerHtml('abono', sugAb),
+  const barra = barraBjHtml({ tipo: 'ab', k: kBj, filtro: b2bConc.bjFiltro || '', q: b2bConc.bjQ || '', lote, extraFiltro: filtroMesBjHtml(b2bConc), reglas: migrado ? '#conciliacion/reglas-abonos' : '', sug: sugBannerHtml('abono', sugAb),
     hecho: hechoBjHtml({ tipo: 'ab', msg: b2bConc.msg, err: b2bConc.error, deshacer: hechoM ? hechoM.id : '', attr: 'data-bj-deshacer-ab', sig: sigM ? sigM.id : '', sigTxt: sigM ? `${pesos(sigM.monto)} · ${sigM.descripcion}`.slice(0, 48) : '' }) });
-  el.innerHTML = cabConc('') + `
+  el.innerHTML = cabConc('') + resumenConcHtml('ab', claseAb) + `
     ${arribaConcHtml('ab', tarjetaConcHtml(d, conf, true), resumenArribaAb(conf))}
     ${favorHtml(porCobrar)}
     <section class="tarjeta bandeja" data-bandeja="ab" aria-label="Abonos de la cartola">${barra}<div class="bj-cuerpo"><div class="bj-lista" data-bj-lista="ab">
@@ -7030,6 +7183,7 @@ function pintarB2bConciliacion(el, sub) {
     ${seccion('revisar', 'Para revisar', grupos.revisar, 'Seguro: se sabe el cliente (RUT, lo aprendido o su nombre), pero el monto no calza exacto o hay más de una forma de calzar. Probable: nada dice quién pagó, pero el monto calza exacto (±$1) con lo que debe ese cliente; nunca se confirma solo: revísalo y confirma.')}
     ${seccion('sin', 'Sin cliente', grupos.sinCliente, 'No se reconoció quién pagó y el monto no calza exacto con lo que debe ningún cliente: no se adivina. Busca la factura en el detalle, elige el cliente (se aprende para la próxima) o márcalo "No es de B2B". Para ver el RUT y el nombre completo de quien transfirió, sube también el archivo "Transferencias recibidas" del banco (mismo botón de arriba).')}
     ${histConcHtml()}</div>${vacioDetBj('ab', kBj)}</div></section>`;
+  conectarResumenConc(el);   // v0.69.3 · Resumen del mes
   // ── Acciones ──
   el.querySelectorAll('.mov-edit').forEach(x => x.addEventListener('focusout', () => setTimeout(() => { if (b2bConc.repintar && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('#v-conciliacion .mov-edit')) && enConc('abonos')) pintarB2bConciliacion(concEl(), ''); }, 0)));
   el.querySelectorAll('details[data-plegar]').forEach(dt => dt.addEventListener('toggle', () => plegar(dt.dataset.plegar, !dt.open)));
@@ -8147,7 +8301,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.69.2')).dbBase(); const FG = await import('./fs-gastos.js?v=0.69.2'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.69.3')).dbBase(); const FG = await import('./fs-gastos.js?v=0.69.3'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }

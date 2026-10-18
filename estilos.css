@@ -1971,3 +1971,85 @@ dialog .reg-det { text-align: left; }
 .ap-medio .pastillas { flex-wrap: wrap; }
 .dlg-sino .botones { flex-wrap: wrap; }
 .cc-resto .botones .btn, .sinb-fila .botones .btn { white-space: normal; max-width: 100%; text-align: left; height: auto; padding-top: 8px; padding-bottom: 8px; }
+
+/* ═══ v0.69.3 · Conciliación → Resumen del mes (arriba, plegable; cifras tabulares, una línea por idea) ═══ */
+.conc-res { border: 1px solid var(--linea); border-radius: 16px; background: var(--tarjeta); min-width: 0; }
+.conc-res > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 12px 18px; border-radius: 16px; min-width: 0; }
+.conc-res > summary::-webkit-details-marker { display: none; }
+.conc-res > summary:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+.conc-res-tit { display: inline-flex; align-items: center; gap: 8px; color: var(--acento); }
+.conc-res-tit::after { content: '›'; display: inline-block; margin-left: 2px; color: var(--suave); font-size: 20px; line-height: 1; transition: transform .15s; }
+.conc-res[open] .conc-res-tit::after { transform: rotate(90deg); }
+.conc-res-tit b { color: var(--texto); font-size: 15px; }
+.conc-res-sr { display: none; }
+.conc-res-linea { font-size: 13px; color: var(--suave); min-width: 0; overflow-wrap: anywhere; }
+.res-num { font-variant-numeric: tabular-nums; }
+.conc-res-cuerpo { padding: 0 18px 14px; display: grid; gap: 10px; min-width: 0; }
+.conc-res-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.res-meses { display: flex; flex-wrap: wrap; gap: 6px; }
+.res-meses .chip-filtro { min-height: 32px; padding: 0 12px; font-size: 12.5px; }
+.res-meses .chip-filtro[aria-pressed="true"] { border-color: var(--acento); background: var(--acento-suave); color: var(--acento); }
+.conc-res-grid { display: grid; gap: 14px 28px; min-width: 0; }
+.res-col { min-width: 0; display: grid; gap: 8px; align-content: start; }
+.res-h { margin: 4px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--suave); }
+.res-sub { margin: 2px 0 0; font-size: 12.5px; font-weight: 600; color: var(--suave); }
+.res-av { display: grid; gap: 4px; min-width: 0; }
+.res-av-l1 { display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; font-size: 13.5px; }
+.res-av-k { font-weight: 700; min-width: 92px; }
+.res-av-n { flex: 1 1 auto; color: var(--texto); }
+.res-av-p { margin-left: auto; font-size: 13.5px; }
+.res-av-l2 { font-size: 12.5px; color: var(--suave); }
+.res-av-sin { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 13.5px; }
+.res-barra { height: 4px; border-radius: 999px; background: var(--linea); overflow: hidden; }
+.res-barra > span { display: block; height: 100%; border-radius: inherit; background: var(--acento); }
+.res-nota { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; margin: -2px 0 0; font-size: 12.5px; color: var(--suave); }
+.res-estados { display: flex; flex-wrap: wrap; gap: 6px; }
+.res-estados .bj-filtro { min-height: 30px; padding: 0 10px; font-size: 12.5px; }
+.res-estados .bj-filtro:disabled { opacity: .55; cursor: default; }
+.res-estados .res-solo { cursor: default; }
+.bj-f-gris .bj-punto { background: var(--bj-gris); }
+.res-ants-dos { display: grid; gap: 8px 18px; min-width: 0; }
+.res-ants { min-width: 0; }
+.res-ants ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; }
+.res-ants .ayuda { margin: 2px 0 0; }
+.res-ant { width: 100%; box-sizing: border-box; display: grid; grid-template-columns: auto 1fr; grid-template-areas: 'm d' 'g g'; align-items: baseline; gap: 0 10px; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; font: inherit; font-size: 13px; color: var(--texto); cursor: pointer; }
+.res-ant:hover { background: var(--fondo); }
+.res-ant:focus-visible { outline: 2px solid var(--acento); outline-offset: 0; }
+.res-ant .res-num { grid-area: m; }
+.res-ant-g { grid-area: g; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--suave); }
+.res-ant-d { grid-area: d; justify-self: end; font-size: 12px; color: var(--amarillo-t); white-space: nowrap; }
+.res-cob { margin: 0; display: grid; gap: 4px; font-size: 13px; }
+.res-cob > div { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; }
+.res-cob dt { color: var(--suave); }
+.res-cob dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.res-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.res-check { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--linea); font-size: 13px; }
+.res-check:last-child { border-bottom: 0; }
+.res-cic { align-self: center; display: inline-flex; }
+.res-c-ok .res-cic { color: var(--verde-t); }
+.res-c-falla .res-cic { color: var(--rojo-t); }
+.res-c-aviso .res-cic { color: var(--amarillo-t); }
+.res-c-sin .res-cic { color: var(--suave); }
+.res-ctx { min-width: 0; display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; }
+.res-ctx b { font-weight: 600; }
+.res-cdet { color: var(--suave); font-size: 12.5px; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.res-cir { font-size: 12.5px; font-weight: 600; color: var(--acento); white-space: nowrap; }
+.res-ircierre { margin: 2px 0 0; }
+.res-senales { list-style: none; margin: 2px 0 0; padding: 8px 0 0; border-top: 1px solid var(--linea); display: grid; gap: 4px; font-size: 13px; }
+.res-senales a { color: var(--texto); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.bj-f-mes { border-color: var(--acento); background: var(--acento-suave); color: var(--acento); }
+.bj-f-mes svg { flex: none; }
+@media (min-width: 1024px) {
+  .conc-res-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .res-ants-dos { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+@media (max-width: 767px) {
+  .conc-res > summary { padding: 12px 14px; }
+  .conc-res-tit b { display: none; }
+  .conc-res-sr { display: block; }
+  .conc-res-linea { color: var(--texto); font-size: 13.5px; font-weight: 600; flex: 1 1 0; }
+  .conc-res-cuerpo { padding: 0 14px 14px; }
+  .res-check { grid-template-columns: 18px minmax(0, 1fr); }
+  .res-cir { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) { .conc-res-tit::after { transition: none; } }

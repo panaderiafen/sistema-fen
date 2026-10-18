@@ -6,11 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.69.2';
-import * as FR from './finanzas-resultados.js?v=0.69.2';
-import * as FE from './finanzas-eerr.js?v=0.69.2';
-import * as FC from './finanzas-costos.js?v=0.69.2';
-import * as SP from './sii-pendientes.js?v=0.69.2';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.69.3';
+import * as FR from './finanzas-resultados.js?v=0.69.3';
+import * as FE from './finanzas-eerr.js?v=0.69.3';
+import * as FC from './finanzas-costos.js?v=0.69.3';
+import * as SP from './sii-pendientes.js?v=0.69.3';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
 const $ = id => document.getElementById(id);
@@ -32,6 +32,8 @@ const mesHoy = () => hoyTxt().slice(0, 7);
 const mesDefecto = () => FE.mesMas(mesHoy(), -1) >= `${FR.ANIO}-01` ? FE.mesMas(mesHoy(), -1) : mesHoy();
 const cerrado = m => !!(ES.cierres && ES.cierres[m] && ES.cierres[m].estado === 'cerrado');
 const mensajes = H => `<p class="ok-texto" id="e-msg" role="status">${H.esc(ES.msg)}</p><p class="error" id="e-err" role="alert">${H.esc(ES.err)}</p>`;
+// v0.69.3 · Conciliación → Resumen del mes: "Ir a Cierre de mes" abre el mismo mes
+export function elegirMes(m) { if (/^\d{4}-\d{2}$/.test(String(m || ''))) { ES.mes = m; ES.msg = ''; ES.err = ''; } }
 export function olvidar() { ES.cierres = null; ES.cartola = null; ES.sii = null; ES.siiPend = null; ES.vivo = {}; ES.checks = {}; ES.conteos = {}; ES.msg = ''; ES.err = ''; F.olvidarMeses(); }
 
 // ── Datos comunes (una vez por entrada a Resultados) ──
@@ -293,7 +295,7 @@ const TXT_CIERRE = 'Lo acordado (Cómo trabajamos): del día 5 al 8 del mes sigu
 async function datosCierre(R, mes) {
   const [e, dm, conteos, sii] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes), ES.sii ? Promise.resolve(ES.sii) : F.cargasSii()]);
   ES.conteos[mes] = conteos; ES.sii = sii;
-  const checks = FE.checksCierre({ mes, cargasSii: sii, ventas: dm.ventasInfo, cargosPorRevisar: ES.cartola.porRevisar.filter(c => FE.mesDe(c.fecha) === mes), conteos, sinClasificar: e.info.sinClasificar,
+  const checks = FE.checksCierre({ mes, cargasSii: sii, ventas: dm.ventasInfo, cargosPorRevisar: FE.cargosPorRevisarDelMes(ES.cartola.porRevisar, mes), conteos, sinClasificar: e.info.sinClasificar,
     ...(ES.siiPend ? { siiPendientes: SP.pendientesDelMes(ES.siiPend, mes) } : {}) });
   return { e, checks };
 }

@@ -12,14 +12,14 @@
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.69.2';
-import * as FC from './finanzas-costos.js?v=0.69.2';
-import * as FS from './finanzas-sii.js?v=0.69.2';
-import * as FM from './finanzas-motor.js?v=0.69.2';
-import * as FV from './finanzas-ventas.js?v=0.69.2';
-import * as FMG from './finanzas-margenes.js?v=0.69.2';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.69.2';
-import * as VR from './vista-finanzas-resultados.js?v=0.69.2';
+import * as F from './finanzas.js?v=0.69.3';
+import * as FC from './finanzas-costos.js?v=0.69.3';
+import * as FS from './finanzas-sii.js?v=0.69.3';
+import * as FM from './finanzas-motor.js?v=0.69.3';
+import * as FV from './finanzas-ventas.js?v=0.69.3';
+import * as FMG from './finanzas-margenes.js?v=0.69.3';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.69.3';
+import * as VR from './vista-finanzas-resultados.js?v=0.69.3';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };

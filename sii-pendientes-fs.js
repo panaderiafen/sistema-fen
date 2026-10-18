@@ -15,19 +15,19 @@
 //  · v0.67.2: un documento cuyos gastos fueron todos anulados vuelve a por clasificar (contexto, una escritura por documento, una
 //    vez) y "Volver a clasificar" (infoVolver, volverAClasificar).
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.69.2';
-import * as M from './gastos-g2.js?v=0.69.2';
-import * as S from './gastos-sii.js?v=0.69.2';
-import * as SP from './sii-pendientes.js?v=0.69.2';
-import * as G3 from './gastos-g3.js?v=0.69.2';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo, abonoParcial } from './gastos-fs.js?v=0.69.2';
-import * as PM from './pagos-mixtos.js?v=0.69.2';   // v0.69.2: documentos pagados en partes con saldo
+import * as FB from './fs-gastos.js?v=0.69.3';
+import * as M from './gastos-g2.js?v=0.69.3';
+import * as S from './gastos-sii.js?v=0.69.3';
+import * as SP from './sii-pendientes.js?v=0.69.3';
+import * as G3 from './gastos-g3.js?v=0.69.3';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo, abonoParcial } from './gastos-fs.js?v=0.69.3';
+import * as PM from './pagos-mixtos.js?v=0.69.3';   // v0.69.2: documentos pagados en partes con saldo
 
 const s = v => String(v == null ? '' : v);
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const ahora = () => M.ahoraChile().texto;
 const hoy = () => M.ahoraChile().dia;
-const SIIF = () => import('./gastos-sii-fs.js?v=0.69.2');
+const SIIF = () => import('./gastos-sii-fs.js?v=0.69.3');
 export const COL_PAGOS = 'sii_pagos';
 
 // ── Configuración (días) ──
@@ -251,7 +251,21 @@ export async function conteosHoy() {
 // Las pestañas de Conciliación (los números junto al nombre): todo desde la memoria
 export async function conteos() {
   const [pend, gs, pg, c, ga, vencs] = await Promise.all([pendientes(), todos('gastos', FB.where('esperaPago', '==', true)).catch(() => []), pagos(), config(), todos('gastos', FB.where('clasificacionAutomatica', '==', true)).catch(() => []), todos('vencimientos').catch(() => [])]);
-  return { porClasificar: pend.filter(v => !v.esNC).length, sinBanco: listaSinBanco(pend, gs, pg, c, vencs).length, automaticas: SP.automaticasDe(ga).length };
+  const lista = listaSinBanco(pend, gs, pg, c, vencs);
+  return { porClasificar: pend.filter(v => !v.esNC).length, sinBanco: lista.length, automaticas: SP.automaticasDe(ga).length, resumen: resumenMemoria(pend, pg, vencs) };
+}
+// v0.69.3 · Conciliación → Resumen del mes: lo mismo que ya se leyó para los números de las pestañas (0 lecturas nuevas).
+//  · siiPorMes: los documentos del SII por clasificar de cada mes (la misma cuenta que el cierre de mes: SP.pendientesDelMes);
+//  · caja: lo pagado en efectivo (Pagos sin banco y la parte en efectivo de los pagos mixtos), con su fecha y de dónde salió;
+//  · partes: los vencimientos con abonos y saldo abierto; vencidas: los documentos con saldo cuya fecha ya pasó (como Pagos sin banco).
+function resumenMemoria(pend, pg, vencs) {
+  const siiPorMes = {};
+  [...new Set((pend || []).map(v => s(v.fecha).slice(0, 7)).filter(Boolean))].forEach(m => { const x = SP.pendientesDelMes(pend, m); siiPorMes[m] = { n: x.n, monto: x.monto }; });
+  const caja = PM.pagosDeCaja([], pg).filter(x => x.medio === 'efectivo').map(x => ({ fecha: x.fecha, monto: x.monto, origen: x.origen }));
+  const partes = (vencs || []).filter(x => x.d && !x.d.quitadoEnPlanilla && G3.abierto(x.d) && Array.isArray(x.d.abonos) && x.d.abonos.length && G3.saldoVenc(x.d) > 1)
+    .map(x => ({ id: x.id, nombre: s(x.d.nombre), saldo: Math.round(G3.saldoVenc(x.d)) }));
+  const vencidas = PM.saldosSinBanco(vencs, hoy()).map(x => ({ id: x.vencId, nombre: x.nombre, monto: x.monto, fecha: x.fecha }));
+  return { siiPorMes, caja, partes, vencidas, porClasificar: (pend || []).filter(v => !v.esNC).length };
 }
 // Cargas del SII → "Por clasificar" y "Revisar automáticas"
 export async function documentos() {
@@ -329,7 +343,7 @@ export async function clasificar(docId, lineas, pago, opc = {}) {
   const SF = await SIIF();
   await SF.importar([f], false, opc.marca || M.marcaNueva(), { formato: v.formato, archivo: v.archivo, cargaId: v.cargaId });
   const sn2 = await FB.getDoc(ref), im = (sn2.exists() && sn2.data().importado) || {};
-  try { import('./finanzas.js?v=0.69.2').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
+  try { import('./finanzas.js?v=0.69.3').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
   return { ok: true, gastos: im.gastos || [], vencimiento: im.vencimiento || '' };
 }
 

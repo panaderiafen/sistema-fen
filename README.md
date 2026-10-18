@@ -1,9 +1,68 @@
-# Sistema Fën · v0.69.2
+# Sistema Fën · v0.69.3
 
-**App:** v0.69.2 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 17 de octubre de 2026
+**App:** v0.69.3 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 17 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.69.3: Resumen del mes en Conciliación (cuánto falta y qué falta para cerrar)
+**Dónde:** Conciliación → Cartola, arriba de todo (el mismo en Abonos y en Cargos). También una línea en Hoy.
+
+### El caso
+Para saber cómo iba el mes había que sumar a mano lo de Cargos, lo de Abonos y revisar en Finanzas → Cierre de mes qué faltaba. Ahora está en una tarjeta arriba de la bandeja.
+
+### Qué cambia en cómo trabajas
+1. **Resumen del mes** (plegable): eliges **el mes de hoy o el anterior**. Arriba dice en una línea "Octubre: 87% conciliado · 12 por revisar · 3 para cerrar".
+2. **Avance** (por la fecha del movimiento en la cartola):
+   - Cargos: "41 de 53 conciliados", la barra y "$3.120.400 de $3.870.000";
+   - Abonos B2B: lo mismo;
+   - los estados de la bandeja del mes: Listo, Revisar, Sin coincidencia y Repetido o ignorado. **Tocar uno filtra la bandeja** a ese estado y a ese mes ("Solo octubre", que se quita con su X). En Cargos, "Repetido o ignorado" abre Ya revisados.
+   - Conciliado = revisado (ya dijiste qué es). Los repetidos no cuentan en el total.
+3. **Lo más antiguo sin revisar:** 3 cargos y 3 abonos, con su edad ("hace 23 días"). Tocar uno lo abre en la bandeja (si es de la otra pestaña, va allá).
+4. **Cobertura:** hasta dónde llega la cartola de cada cuenta, si el mes está completo y hasta dónde llega el SII (lo mismo de "Qué está cubierto").
+5. **Qué falta para cerrar el mes**, cada punto con Listo / Falta / Aviso y su enlace:
+   - cartola hasta el último día del mes;
+   - 0 cargos por revisar del mes (**la misma regla de Cierre de mes**);
+   - 0 abonos B2B por revisar (Cierre de mes no lo revisa: aquí es un aviso);
+   - SII cargado hasta fin de mes y 0 documentos del SII sin clasificar (**las mismas reglas de Cierre de mes**, con el mismo texto);
+   - Previred del mes anterior cargada y pagada;
+   - facturas con saldo vencido (aviso, no impide cerrar).
+   Y el botón **Ir a Cierre de mes** (abre ese mismo mes).
+6. **Señales** (una línea cada una, solo si hay): pagos parciales con saldo abierto, facturas por clasificar, efectivo pagado en el mes ("cobros B2B $X · otro $Y") y reglas sugeridas por revisar.
+7. **Hoy:** "Conciliación de octubre: 87% · faltan 12" lleva al resumen. Sale solo si Conciliación ya se abrió en esa pestaña (usa lo que está en la memoria; si no, no aparece, para no leer nada).
+8. **Celular:** el resumen viene plegado en una línea; se abre al tocarla.
+
+### Lecturas (Spark)
+- Abrir el resumen, plegarlo, cambiar de mes, filtrar y elegir un movimiento: **0 lecturas** (medido). Abrir Conciliación lee exactamente lo mismo que la v0.69.2 (medido: Cargos 50 + 13, Abonos después 0 + 8).
+- Los abonos de B2B ya conciliados no están en la memoria: se cuentan con lo ya leído en la sesión. Si falta una parte del mes aparece **"Contar todo el mes"**: lee solo los días que faltan, una vez por sesión (más o menos 1 lectura por abono; en la prueba, 1). Mientras no se cuente, el % del mes usa solo los cargos (los abonos por revisar sí se suman siempre).
+- En Abonos, si todavía no abriste Cargos en esa pestaña, la parte de Cargos dice "Se cuentan al abrir Cargos" (no se leen para esto).
+
+### Instalación v0.69.3 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.69.3.zip`, con la carpeta `cocina/` (no cambia). Hay un archivo nuevo: `conc-resumen.js`.
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script ni en las reglas de Firestore.** No se escribe nada nuevo.
+
+### Lista de verificación v0.69.3
+- [ ] Abajo a la izquierda dice **v0.69.3**.
+- [ ] Conciliación → Cargos: arriba está **Resumen del mes** con la línea "Octubre: …% conciliado · … por revisar · … para cerrar".
+- [ ] Cambia a Septiembre: cambian los números de Cargos y Abonos.
+- [ ] Toca "Sin coincidencia": la bandeja muestra solo esos, con "Solo octubre". Quítalo con su X.
+- [ ] Toca un cargo de "Lo más antiguo sin revisar": queda abierto en la bandeja.
+- [ ] Con Septiembre elegido, "Ir a Cierre de mes": los puntos SII, Cartola conciliada y Documentos del SII dicen lo mismo que el resumen.
+- [ ] Vuelve a Hoy: aparece "Conciliación de octubre: …% · faltan …".
+- [ ] En el celular el resumen es una línea y se abre al tocarla.
+
+### Si algo sale mal
+Sube de nuevo la v0.69.2. El resumen solo lee: no guarda nada.
+
+**Por dentro:**
+- `conc-resumen.js` (nuevo, puro): avance por mes, estados, lo más antiguo, cobertura, "Qué falta para cerrar el mes", señales y las líneas.
+- `finanzas-eerr.js`: las revisiones de SII cargado, cartola conciliada y documentos del SII sin clasificar quedan como funciones propias (`checkSiiCargado`, `checkCartolaConciliada`, `checkSiiClasificados`, `cargosPorRevisarDelMes`) que usan **Cierre de mes y el resumen**; Cierre de mes da lo mismo que antes.
+- `vista-finanzas-eerr.js` (`elegirMes`), `sii-pendientes-fs.js` (`conteos` entrega también lo del resumen, de lo ya leído), `b2b.js` (`abonosDelMes`, `leerAbonosDelMes`), `app.js` y `estilos.css`. Los demás: solo la versión. `cocina/` y `fermentacion.js` no cambian.
+
 
 ## Novedades de la v0.69.2: pagos mixtos y en partes (un cargo paga una parte de la factura y el resto fue en efectivo, con tarjeta o se debe)
 **Dónde:** Conciliación → Cartola (Cargos), Conciliación → Pagos sin banco y Gastos → Vencimientos ("Registrar abono").

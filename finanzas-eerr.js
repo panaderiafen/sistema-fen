@@ -24,8 +24,8 @@
 //  su margen de contribución y sus fijos, si algún gasto tiene área REVENTA. Las compras de reventa siguen fuera del resultado
 //  (info "compras_reventa"). REVENTA no recibe comunes en el reparto por causa (la vista secundaria es solo de las 4 que producen).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.69.2';
-import * as AR from './areas.js?v=0.69.2';
+import * as FR from './finanzas-resultados.js?v=0.69.3';
+import * as AR from './areas.js?v=0.69.3';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -295,15 +295,42 @@ export function repartirComunes(eerr, claves = {}) {
 // → [{ k, t, ok, nivel: 'ok'|'falla'|'aviso', detalle, ir (ruta para arreglarlo), info }]
 export const VENTANA_CONTEO = 3;
 export function ventanaConteo(mes) { const fin = ultimoDia(mes); return { desde: sumarDias(fin, -(VENTANA_CONTEO - 1)), hasta: sumarDias(fin, VENTANA_CONTEO) }; }
-export function checksCierre(D) {
-  const mes = D.mes, ini = mes + '-01', fin = ultimoDia(mes), out = [];
-  const add = (k, t, ok, detalle, ir, info, nivelFalla = 'falla') => out.push({ k, t, ok: !!ok, nivel: ok ? 'ok' : nivelFalla, detalle, ir, info });
-  // 1. SII del mes cargado: alguna carga cubre hasta el último día del mes
+// v0.69.3 · Las revisiones que también usa Conciliación → Resumen del mes (las mismas reglas, una sola vez): el SII cargado hasta
+// el fin de mes, ningún cargo del mes por revisar y ningún documento del SII del mes sin clasificar. Cada una → el ítem del cierre.
+const itemCheck = (k, t, ok, detalle, ir, info, nivelFalla = 'falla') => ({ k, t, ok: !!ok, nivel: ok ? 'ok' : nivelFalla, detalle, ir, info });
+// Los cargos de la cartola de un mes que siguen por revisar (un "Repetido" nunca cuenta: su estado no es POR_REVISAR)
+export const cargosPorRevisarDelMes = (cargos, mes) => (cargos || []).filter(c => c && c.estado === 'POR_REVISAR' && !c.quitadoEnPlanilla && mesDe(c.fecha) === mes);
+// 1. SII del mes cargado: alguna carga cubre hasta el último día del mes
+export function checkSiiCargado(D) {
+  const mes = D.mes, ini = mes + '-01', fin = ultimoDia(mes);
   const vivas = (D.cargasSii || []).filter(c => c && !s(c.quitada).trim()).map(c => ({ desde: s(c.desde).slice(0, 10) || s(c.hasta).slice(0, 10), hasta: s(c.hasta).slice(0, 10) || s(c.desde).slice(0, 10) })).filter(c => c.desde);
   const tocan = vivas.filter(c => c.desde <= fin && c.hasta >= ini), hasta = tocan.map(c => c.hasta).sort().pop() || '';
-  add('sii', 'SII del mes cargado', tocan.length && hasta >= fin,
+  return itemCheck('sii', 'SII del mes cargado', tocan.length && hasta >= fin,
     !tocan.length ? `No hay ninguna carga del SII con documentos de ${mesTxt(mes)}.` : hasta >= fin ? `Cargado hasta el ${fechaCorta(hasta > fin ? fin : hasta)}.` : `Las cargas llegan solo hasta el ${fechaCorta(hasta)}: falta el resto del mes.`,
     '#conciliacion/sii', 'Que las compras del SII de todo el mes estén cargadas en Conciliación → Cargas del SII (alguna carga cubre hasta el último día del mes). Sin eso faltan facturas en Gastos y el costo de las materias primas no está al día.');
+}
+// 3. Cartola conciliada: ningún cargo del mes por revisar
+export function checkCartolaConciliada(D) {
+  const cr = D.cargosPorRevisar || [];
+  return itemCheck('cartola', 'Cartola conciliada', !cr.length, cr.length ? `${cr.length} ${cr.length === 1 ? 'cargo' : 'cargos'} del mes por revisar (${pesosTxt(cr.reduce((a, c) => a + num(c.monto), 0))}).` : 'Sin cargos por revisar en el mes.',
+    '#conciliacion/cargos', 'Que todos los cargos de la cartola del mes estén revisados en Conciliación → Cargos (pagan un vencimiento, ya están en Gastos, son gasto nuevo, pago de tarjeta o no son gasto).');
+}
+// v0.66.0 · Documentos del SII de ese mes sin clasificar = 0 (su gasto todavía no existe). D.siiPendientes = { n, monto }
+export function checkSiiClasificados(D) {
+  const mes = D.mes, sp = D.siiPendientes || {};
+  return itemCheck('sii_clasif', `Documentos del SII de ${mesTxt(mes)} sin clasificar: ${num(sp.n)}`, !num(sp.n), num(sp.n) ? `${sp.n} ${sp.n === 1 ? 'documento del SII' : 'documentos del SII'} de ${mesTxt(mes)} sin clasificar (${pesosTxt(sp.monto)}): su gasto todavía no existe.` : `Todos los documentos del SII de ${mesTxt(mes)} están clasificados.`,
+    `#conciliacion/sii/porclasificar/${mes}`, 'Los documentos del SII que subiste y no se clasificaron solos (proveedor nuevo o con dudas) no tienen gasto todavía: no están en el estado de resultados. Clasifícalos al conciliar la cartola (el cargo del mismo monto), en Conciliación → Pagos sin banco o en Cargas del SII. Para cerrar igual, escribe el motivo.');
+}
+// Las tres juntas (Conciliación → Resumen del mes las muestra con el mismo texto que el cierre)
+export const CHECKS_CONCILIACION = ['sii', 'cartola', 'sii_clasif'];
+export function checksConciliacion(D) {
+  return [checkSiiCargado(D), checkCartolaConciliada(D)].concat(D.siiPendientes ? [checkSiiClasificados(D)] : []);
+}
+export function checksCierre(D) {
+  const mes = D.mes, out = [];
+  const add = (...a) => out.push(itemCheck(...a));
+  // 1. SII del mes cargado: alguna carga cubre hasta el último día del mes
+  out.push(checkSiiCargado(D));
   // 2. Ventas completas (las dos sucursales y B2B): sin cajas abiertas ni cierres sin resumen
   const v = D.ventas || {};
   add('ventas', 'Ventas completas', !v.abiertas && !v.faltan,
@@ -313,9 +340,7 @@ export function checksCierre(D) {
     num(v.nAinavillo) > 0 ? `${num(v.nAinavillo).toLocaleString('es-CL')} productos vendidos · ${pesosTxt(v.netoAinavillo)} neto.` : 'Ainavillo no tiene ventas registradas en la caja este mes.',
     '#caja/reportes', 'Ainavillo tiene que registrar sus ventas en la caja: si no, su venta no está en el estado de resultados. Es un aviso: no impide cerrar.', 'aviso');
   // 3. Cartola conciliada: ningún cargo del mes por revisar
-  const cr = D.cargosPorRevisar || [];
-  add('cartola', 'Cartola conciliada', !cr.length, cr.length ? `${cr.length} ${cr.length === 1 ? 'cargo' : 'cargos'} del mes por revisar (${pesosTxt(cr.reduce((a, c) => a + num(c.monto), 0))}).` : 'Sin cargos por revisar en el mes.',
-    '#conciliacion/cargos', 'Que todos los cargos de la cartola del mes estén revisados en Conciliación → Cargos (pagan un vencimiento, ya están en Gastos, son gasto nuevo, pago de tarjeta o no son gasto).');
+  out.push(checkCartolaConciliada(D));
   // 4. Conteo de bodega hecho (cada bodega): un conteo en los últimos 3 días del mes o los primeros 3 del siguiente
   const w = ventanaConteo(mes), C = D.conteos || {}, bods = C.bodegas && C.bodegas.length ? C.bodegas : ['PROD', 'CAF'];
   const sinConteo = bods.filter(b => !((C.porBodega || {})[b] || []).some(f => f >= w.desde && f <= w.hasta));
@@ -327,11 +352,7 @@ export function checksCierre(D) {
   add('clasificar', 'Gastos clasificados', !num(sc.n), num(sc.n) ? `${sc.n} ${sc.n === 1 ? 'ítem' : 'ítems'} sin tipo para resultados (${pesosTxt(sc.neto)}).` : 'Todos los gastos del mes tienen tipo.',
     '#finanzas/resultados/clasificacion', 'Cada ítem de gasto del mes con su tipo para resultados (Resultados → Clasificación). Lo sin clasificar no entra al resultado.');
   // v0.66.0 · Documentos del SII de ese mes sin clasificar = 0 (su gasto todavía no existe)
-  if (D.siiPendientes) {
-    const sp = D.siiPendientes;
-    add('sii_clasif', `Documentos del SII de ${mesTxt(mes)} sin clasificar: ${num(sp.n)}`, !num(sp.n), num(sp.n) ? `${sp.n} ${sp.n === 1 ? 'documento del SII' : 'documentos del SII'} de ${mesTxt(mes)} sin clasificar (${pesosTxt(sp.monto)}): su gasto todavía no existe.` : `Todos los documentos del SII de ${mesTxt(mes)} están clasificados.`,
-      `#conciliacion/sii/porclasificar/${mes}`, 'Los documentos del SII que subiste y no se clasificaron solos (proveedor nuevo o con dudas) no tienen gasto todavía: no están en el estado de resultados. Clasifícalos al conciliar la cartola (el cargo del mismo monto), en Conciliación → Pagos sin banco o en Cargas del SII. Para cerrar igual, escribe el motivo.');
-  }
+  if (D.siiPendientes) out.push(checkSiiClasificados(D));
   // 6. Productos vendidos sin asociar < 10 % de la venta
   const pctSin = num(v.netoTotal) > 0 ? num(v.netoSinAsociar) / num(v.netoTotal) * 100 : 0;
   add('asociar', 'Productos vendidos asociados', pctSin < 10, `${String(Math.round(pctSin * 10) / 10).replace('.', ',')} % de la venta neta sin asociar (${pesosTxt(v.netoSinAsociar)}); el límite es menos de 10 %.`,

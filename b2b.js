@@ -8,14 +8,14 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.69.2';
-import * as FB from './firebase-b2b.js?v=0.69.2';
-import * as Apps from './apps.js?v=0.69.2';
-import * as Mem from './fs-memoria.js?v=0.69.2';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.69.2';
-import { distanciaTef } from './feriados-cl.js?v=0.69.2';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.69.2';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.69.2';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.69.3';
+import * as FB from './firebase-b2b.js?v=0.69.3';
+import * as Apps from './apps.js?v=0.69.3';
+import * as Mem from './fs-memoria.js?v=0.69.3';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.69.3';
+import { distanciaTef } from './feriados-cl.js?v=0.69.3';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.69.3';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.69.3';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -2111,6 +2111,31 @@ export function movimientosRecientes(dias = RC.DIAS_SUGERIR) {
   return p;
 }
 export const usoRecientesB2b = () => (recientes ? { dias: recientes.dias, lecturas: recientes.lecturas } : null);
+// v0.69.3 · Conciliación → Resumen del mes: los abonos de un mes con lo que ya está en la memoria (0 lecturas).
+// pendientes: b2b.datos.movimientos (la escucha). Lo resuelto sale de lo leído por rango en esta sesión (repetidos, Ya conciliados,
+// reglas sugeridas o "Contar lo conciliado"). completo: todos los días del mes (hasta hoy) ya se leyeron, así la cuenta es exacta.
+// → { pendientes, resueltos, completo, desde (el primer día del mes ya leído, si no está completo) }
+export function abonosDelMes(mes, pendientes, hoy = hoyTxt()) {
+  const ini = mes + '-01', fin = fechaDe(new Date(Date.UTC(+mes.slice(0, 4), +mes.slice(5, 7), 0)).toISOString()), tope = fin < hoy ? fin : hoy;
+  const pend = (pendientes || []).filter(m => m && !m.quitadoEnPlanilla && String(fechaDe(m.fecha) || '').slice(0, 7) === mes), vivos = new Set(pend.map(m => m.id));
+  const resueltos = [...repMem.docs.values()].filter(m => m && !m.quitadoEnPlanilla && !vivos.has(m.id) && String(fechaDe(m.fecha) || '').slice(0, 7) === mes && (m.estado !== 'pendiente' || m._fuera))
+    .map(m => ({ id: m.id, fecha: fechaDe(m.fecha), monto: Math.round(Number(m.monto) || 0), descripcion: m.descripcion || '', estado: m.estado === 'pendiente' ? 'resuelto' : m.estado }));
+  let completo = tope >= ini, desde = '';
+  for (let f = ini; f <= tope; f = masDiasB(f, 1)) { if (!cubierto(f)) { completo = false; } else if (!desde) desde = f; }
+  return { pendientes: pend, resueltos, completo, desde };
+}
+// "Contar lo conciliado de <mes>": lee por fecha solo los días del mes que faltan (una vez por sesión; queda en la memoria)
+export async function leerAbonosDelMes(mes, hoy = hoyTxt()) {
+  const ini = mes + '-01', fin = fechaDe(new Date(Date.UTC(+mes.slice(0, 4), +mes.slice(5, 7), 0)).toISOString()), tope = fin < hoy ? fin : hoy, faltan = [];
+  for (let f = ini; f <= tope; f = masDiasB(f, 1)) if (!cubierto(f)) faltan.push(f);
+  if (!faltan.length) return { lecturas: 0, consultas: 0 };
+  const db = await dbOk(), tramos = []; let lecturas = 0;
+  faltan.forEach(x => { const t = tramos[tramos.length - 1]; if (t && masDiasB(t[1], 1) === x) t[1] = x; else tramos.push([x, x]); });
+  // una sola consulta si los huecos están cerca (menos pedidos); como máximo 3
+  while (tramos.length > 3) { tramos.splice(0, 2, [tramos[0][0], tramos[1][1]]); }
+  for (const [a, b] of tramos) lecturas += (await leerRango(db, a, b)).lecturas;
+  return { lecturas, consultas: tramos.length };
+}
 // Lo conocido de esos días con lo resuelto en esta sesión (repMem guarda lo que se confirmó aquí sin volver a leer)
 export const movsResueltosConocidos = () => [...repMem.docs.values()].filter(m => m.estado && m.estado !== 'pendiente');
 
