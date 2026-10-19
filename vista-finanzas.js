@@ -12,14 +12,14 @@
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.70.1';
-import * as FC from './finanzas-costos.js?v=0.70.1';
-import * as FS from './finanzas-sii.js?v=0.70.1';
-import * as FM from './finanzas-motor.js?v=0.70.1';
-import * as FV from './finanzas-ventas.js?v=0.70.1';
-import * as FMG from './finanzas-margenes.js?v=0.70.1';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.70.1';
-import * as VR from './vista-finanzas-resultados.js?v=0.70.1';
+import * as F from './finanzas.js?v=0.71.0';
+import * as FC from './finanzas-costos.js?v=0.71.0';
+import * as FS from './finanzas-sii.js?v=0.71.0';
+import * as FM from './finanzas-motor.js?v=0.71.0';
+import * as FV from './finanzas-ventas.js?v=0.71.0';
+import * as FMG from './finanzas-margenes.js?v=0.71.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.71.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.71.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -789,6 +789,13 @@ async function pintarMargenes(el, parte, H) {
   } catch (e) { el.innerHTML = base(`<section class="tarjeta">${selectorPeriodo(H)}<p class="error" role="alert">${H.esc(error(e, H))}</p></section>`); conectarPeriodo(el, parte, H); return; }
   if (partes()[1] !== 'margenes') return;
   dibujarMargenes(el, parte, H);
+  // v0.71.0: #finanzas/margenes/asociar/{clave} (desde el Plan de Panadería) abre ese producto para asociarlo
+  const claveAs = parte === 'asociar' && partes()[3] ? decodeURIComponent(partes()[3]) : '';
+  if (claveAs) {
+    const p = productosM().find(x => x.clave === claveAs);
+    if (p) dialogoVinculo(p, el, 'asociar', H);
+    else { const m = $('m-msg'); if (m) m.textContent = 'Ese producto no tiene ventas en el período elegido: cambia el período (arriba) para encontrarlo en la lista.'; }
+  }
 }
 function dibujarMargenes(el, parte, H) {
   const prods = productosM(), sin = prods.filter(p => !p.vinculo);

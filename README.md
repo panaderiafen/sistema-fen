@@ -1,9 +1,58 @@
-# Sistema Fën · v0.70.1
+# Sistema Fën · v0.71.0
 
-**App:** v0.70.1 · **Caja (fen-ventas):** v2.2.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 19 de octubre de 2026
+**App:** v0.71.0 · **Caja (fen-ventas):** v2.2.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 19 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.71.0: Plan de Panadería, Etapa 1 (Producción → Plan de Panadería)
+
+- **Dónde va:** repo **sistema-fen**, raíz. Archivos nuevos: `plan-pan-modelo.js`, `plan-pan.js`, `vista-plan-pan.js`. Cambian `produccion.js` (lectura para el plan), `vista-produccion.js` (la entrada y la ruta), `vista-finanzas.js` (el enlace "Asociar" abre ese producto), `estilos.css`; los demás, solo la versión. `cocina/` y `fermentacion.js` no cambian.
+- **Reglas:** no cambian (fen-ventas v1.3.0, fen-b2b v1.6.0, fen-produccion v1.8.0). **Scripts:** no cambian.
+
+### El caso
+Saber cuánto pan sale de verdad por tipo y tienda, y proponer la producción de la semana siguiente con datos exactos. Decisiones del 19-oct: solo datos exactos (opción A, sin estimar fresco o rebajado por precio); la fecha de la orden B2B es el día de horneado; en el plan de Cocina cada d es el día de amasado (se hornea al día siguiente); Ainavillo, por ahora, con una tabla fija.
+
+### Qué cambia en cómo trabajas
+1. **Producción** tiene arriba "Plan de Panadería" → **Abrir el Plan de Panadería** (`#produccion/plan-pan`). Tres partes:
+2. **Propuesta próxima semana** (lunes a domingo, por día de horneado): por tipo de pan, **B2B estimado | B2C Barros | B2C Ainavillo (fijo) | Total**, con la masa madre del día 0 (19:00) y "De N clientes activos, se esperan M el lunes" (se despliega con cada cliente, sus veces de 4 y su cantidad usual). Cada número se toca y muestra de dónde sale (la semana pasada, las 4 semanas, la misma semana del mes anterior; la del año pasado aparecerá cuando haya datos, desde junio de 2027). Las fórmulas están en los (i).
+3. **Cómo nos fue** (semana a elegir, las dos tiendas o una): recibido, vendido por lote, merma y su %, fresco/rebajado y agotado (solo en los días con la caja v2.2.0), producido (plan de Cocina, d+1), B2B y el costo en $. Tendencia semanal del % de merma y del % rebajado. Lista de **productos sin asociar** con su botón "Asociar" (abre Finanzas → Asociar productos con ese producto).
+4. **Ainavillo y pisos**: la tabla fija de Ainavillo por día y pan (parte en 0) y un piso opcional por tienda, día y pan. Cada cambio queda en el historial (quién, cuándo, antes → después). El plan avisa cuando los datos sugieren subir o bajar un piso.
+5. **Copiar como texto** (para WhatsApp) e **Imprimir (viernes)**: la semana completa en una hoja.
+6. Todo lo demás es solo lectura: no escribe en Cocina, B2B ni Finanzas.
+
+### Lecturas y escrituras (Spark)
+- **Una vez por sesión** (6 horas en memoria; "Actualizar" vuelve a leer). Cambiar de día, pestaña, semana (dentro de las 6 leídas) o tienda: 0 lecturas.
+- **fen-ventas:** resúmenes de cierre (1 por cierre), ingresos de stock (solo los ingresos: la consulta por `fechaKey` no trae las ventas), merma registrada, el stock de cada pan (1 por producto y tienda) y la configuración (1). Con datos de prueba de 6 semanas: 334. Con la operación real se estima ≈ 1.000 a 2.200 la primera vez de la sesión (la mayor parte son los ingresos de stock de todas las áreas; de 50.000 al día).
+- **fen-b2b:** las órdenes de las 6 semanas (≈ 350 a 700). **fen-produccion y fen-gastos:** lo que ya está en la memoria compartida con Producción y Finanzas (casi siempre 0 a 30).
+- **Escrituras:** solo al guardar la tabla de Ainavillo o los pisos (1 por guardado, en `config/planPanaderia` de fen-ventas, más 1 en el historial de Sistema Fën).
+
+### Instalación v0.71.0 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.71.0.zip`, con la carpeta `cocina/` (no cambia).
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script ni en las reglas de Firestore.**
+
+### Lista de verificación v0.71.0
+- [ ] Abajo a la izquierda dice **v0.71.0**.
+- [ ] Producción → **Abrir el Plan de Panadería**: carga la propuesta del lunes siguiente con sus cuatro columnas y la masa madre del sábado.
+- [ ] Toca un número de B2C Barros: se ven sus referencias; "Hace un año" no aparece (todavía no hay datos).
+- [ ] Cómo nos fue → la semana pasada: recibido, vendido y merma por pan. Si la caja v2.2.0 ya está instalada, aparecen fresco/rebajado y agotado; si no, la nota.
+- [ ] Productos sin asociar: "Asociar" abre Finanzas con ese producto.
+- [ ] Ainavillo y pisos: pon una cantidad para Ainavillo un día, guarda, y revisa el historial y la propuesta.
+- [ ] Copiar como texto e Imprimir (viernes) funcionan.
+- [ ] En el celular se ve bien (sin moverse de lado).
+
+### Si algo sale mal
+Sube de nuevo la v0.70.1. La configuración de Ainavillo y pisos (`config/planPanaderia`) queda guardada y la v0.70.1 la ignora.
+
+**Por dentro:**
+- `plan-pan-modelo.js` (puro, sin imports): lotes exactos (vendido = recibido − merma del lote − lo que queda; la merma enviada sin registrar cuenta; si una merma pasa de lo que tenía su lote, se corre al siguiente), tarjetas por lote (solo `porTarjeta` de la caja v2.2.0), producido d+1, B2B por frecuencia, B2C por mediana con ajustes, Ainavillo y pisos con historial, masa madre con `pieMasaMadre` de Cocina (todos los días como elaboración, sin reserva y sin el pie: así da la masa madre del amasado del día siguiente) y el texto para copiar.
+- `plan-pan.js`: lecturas de las cuatro bases con `fs-memoria.js` y conteo de lecturas por base; escribe solo `config/planPanaderia` (transacción).
+- `produccion.js`: `datosPlanPan(desde, hasta)` (recetas, materias primas, configuración, ajustes, planes y días de Panadería, con la memoria de siempre).
+- `cocina/` y `fermentacion.js`: byte a byte iguales a la v0.70.1.
 
 ## Novedades de la v0.70.1: Sistema Fën lee las tarjetas y el agotado de la caja v2.2.0
 

@@ -24,8 +24,8 @@
 //  su margen de contribución y sus fijos, si algún gasto tiene área REVENTA. Las compras de reventa siguen fuera del resultado
 //  (info "compras_reventa"). REVENTA no recibe comunes en el reparto por causa (la vista secundaria es solo de las 4 que producen).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.70.1';
-import * as AR from './areas.js?v=0.70.1';
+import * as FR from './finanzas-resultados.js?v=0.71.0';
+import * as AR from './areas.js?v=0.71.0';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
