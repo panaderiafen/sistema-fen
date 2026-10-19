@@ -2100,3 +2100,6 @@ dialog .reg-det { text-align: left; }
 .bs-intereses .grilla-montos select { min-height: 44px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--borde); background: #fff; min-width: 0; max-width: 100%; }
 .lz-fila .txt select { min-height: 42px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; margin-top: 4px; max-width: 100%; }
 @media (max-width: 600px) { .bs-datos { grid-template-columns: 1fr 1fr; } .botones-obl { justify-content: flex-start; } }
+
+/* ── v0.70.1 · Reportes de caja: "agotado HH:MM" (caja v2.2.0) en su propia línea, bajo el producto ── */
+.fila-prod .agotado-hora { display: block; margin-top: 2px; }

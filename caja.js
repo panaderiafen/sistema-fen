@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — lógica de administración de la caja  v0.2.0
-//  Copia fiel de lo que hace la caja v2.1.1 (index.html) para cerrar cajas,
+//  Sistema Fën — lógica de administración de la caja  v0.3.0
+//  Copia fiel de lo que hace la caja v2.2.0 (index.html) para cerrar cajas,
 //  pasar cierres a la planilla, corregir arqueos y resolver anulaciones.
 //  Si se cambia algo aquí, revisar lo mismo en la caja (y al revés).
 //  Diferencias a propósito:
@@ -13,7 +13,7 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
-} from './firebase.js?v=0.70.0';
+} from './firebase.js?v=0.70.1';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -70,6 +70,8 @@ export async function guardarResumenCaja(cajaDocId, cajaData, ventasDocs) {
       porMedio: { efectivo: 0, debito: 0, credito: 0, transferencia: 0 },
       porArea: {}, porProducto: {}, version: 1, actualizado: Timestamp.now()
     };
+    r.versionCaja = '2.2.0'; // v0.70.1: mismo formato que la caja v2.2.0 (porTarjeta, agotadoHoy)
+    const tarj = {}, agot = {}, reagot = {};
     r.mes = (r.fecha || '').slice(0, 7);
     ventasDocs.forEach(d => {
       const v = d.data();
@@ -87,9 +89,28 @@ export async function guardarResumenCaja(cajaDocId, cajaData, ventasDocs) {
         pp.cantidad += cant; pp.bruto += bruto; pp.neto += neto(bruto);
         const pa = r.porArea[info.area] || (r.porArea[info.area] = { cantidad: 0, bruto: 0, neto: 0 });
         pa.cantidad += cant; pa.bruto += bruto; pa.neto += neto(bruto);
+        // v0.70.1 (caja v2.2.0): por tarjeta y hora en que se agotó el lote de hoy
+        if (l.tarjeta) {
+          const t = (tarj[key] = tarj[key] || {});
+          const tt = t[l.tarjeta] || (t[l.tarjeta] = { cant: 0, monto: 0 });
+          tt.cant += cant; tt.monto += bruto;
+        }
+        if (l.agotado && (!agot[key] || l.agotado < agot[key])) agot[key] = l.agotado;
+        if (l.reagotado && (!reagot[key] || l.reagotado > reagot[key])) reagot[key] = l.reagotado;
       });
     });
     r.totalNeto = neto(r.totalBruto);
+    // porTarjeta suma lo mismo que cantidad y bruto; lo vendido sin tarjeta anotada va a "sinDato"
+    Object.keys(tarj).forEach(k => {
+      const pp = r.porProducto[k]; if (!pp) return;
+      let sc = 0, sm = 0;
+      Object.values(tarj[k]).forEach(x => { sc += x.cant; sm += x.monto; });
+      const fc = Math.round((pp.cantidad - sc) * 1000) / 1000, fm = pp.bruto - sm;
+      if (fc || fm) tarj[k].sinDato = { cant: fc, monto: fm };
+      pp.porTarjeta = tarj[k];
+    });
+    Object.keys(agot).forEach(k => { if (r.porProducto[k]) r.porProducto[k].agotadoHoy = agot[k]; });
+    Object.keys(reagot).forEach(k => { if (r.porProducto[k]) r.porProducto[k].reagotadoHoy = reagot[k]; });
     const porProducto = {};
     Object.keys(r.porProducto).forEach(k => { porProducto[k.startsWith('sin-id:') ? 'sin-id-' + encodeURIComponent(k.slice(7)).replace(/[.%]/g, '_') : k] = r.porProducto[k]; });
     r.porProducto = porProducto;
@@ -322,6 +343,14 @@ async function devolverStockVenta(ventaId, venta) {
   for (const l of (venta.lineas || [])) {
     const prod = prods.find(p => p.id === l.id);
     if (prod && prod.controlStock === false) continue;
+    if (l.lotes && typeof l.lotes === 'object' && Object.keys(l.lotes).length) {
+      // v0.70.1 (caja v2.2.0): la línea trae los lotes exactos de los que salió
+      for (const [k, c] of Object.entries(l.lotes)) {
+        try { await updateDoc(doc(db, 'stock', `${suc}_${l.id}`), { [`entradas.${k}`]: increment(c) }); }
+        catch (e) { sinDevolver.push(`${l.nombre} × ${c}`); }
+      }
+      continue;
+    }
     const key = (prod && prod.autoEliminar === false) ? 'permanente' : (l.loteFecha || '');
     if (!key) { sinDevolver.push(`${l.nombre} × ${l.cantidad}`); continue; }
     try {
@@ -401,6 +430,61 @@ export async function rechazarAnulacion(solicitudId) {
 export async function leerResumenes(desde, hasta) {
   const sn = await getDocs(query(collection(db, 'resumenes_caja'), where('fecha', '>=', desde)));
   return sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => (r.fecha || '') <= hasta);
+}
+
+// ── v0.70.1: tarjetas de rotación y agotado (caja v2.2.0), para el Plan de Panadería ──
+// Cada resumen de una caja v2.2.0 trae, por producto con stock:
+//   porTarjeta: { hoy: { cant, monto }, ayer, antesayer, cuartoDia, ultimaOferta, sinDato }
+//   agotadoHoy: 'HH:MM' (primera vez que el lote de hoy llegó a 0 por una venta), reagotadoHoy: 'HH:MM'
+// Resúmenes antiguos no los traen: registrado = false y todo lo vendido queda en sinDato.
+// 0 lecturas: trabaja sobre lo que ya devolvió leerResumenes.
+export const TARJETAS = ['hoy', 'ayer', 'antesayer', 'cuartoDia', 'ultimaOferta'];
+const ALIAS_TARJETA = { dia4: 'cuartoDia', cuartodia: 'cuartoDia', oferta: 'ultimaOferta', ultimaoferta: 'ultimaOferta' };
+export function normalizarTarjeta(t) {
+  if (TARJETAS.includes(t) || t === 'sinDato') return t;
+  return ALIAS_TARJETA[String(t || '').toLowerCase()] || 'sinDato';
+}
+const numT = v => Number(v) || 0;
+// Un producto de un resumen → { registrado, porTarjeta (las 5 + sinDato, siempre), fresco, rebajado, agotadoHoy, reagotadoHoy }
+export function tarjetasProducto(pp) {
+  const out = {};
+  [...TARJETAS, 'sinDato'].forEach(t => { out[t] = { cant: 0, monto: 0 }; });
+  const pt = pp && pp.porTarjeta && typeof pp.porTarjeta === 'object' ? pp.porTarjeta : null;
+  if (pt) Object.entries(pt).forEach(([t, v]) => { const k = normalizarTarjeta(t); out[k].cant += numT(v && v.cant); out[k].monto += numT(v && v.monto); });
+  else if (pp) { out.sinDato.cant = numT(pp.cantidad); out.sinDato.monto = numT(pp.bruto); }
+  const rebajado = ['ayer', 'antesayer', 'cuartoDia', 'ultimaOferta'].reduce((a, t) => ({ cant: a.cant + out[t].cant, monto: a.monto + out[t].monto }), { cant: 0, monto: 0 });
+  return {
+    registrado: !!pt, porTarjeta: out, fresco: { ...out.hoy }, rebajado,
+    agotadoHoy: (pp && typeof pp.agotadoHoy === 'string' && pp.agotadoHoy) || '',
+    reagotadoHoy: (pp && typeof pp.reagotadoHoy === 'string' && pp.reagotadoHoy) || ''
+  };
+}
+// Resúmenes → filas por día, sucursal y producto: { fecha, sucursal, productoId, nombre, area, idRecetaFen, cantidad, bruto, ...tarjetasProducto }
+// Dos cierres del mismo día y sucursal se suman; agotadoHoy queda con la hora más temprana y reagotadoHoy con la más tardía.
+export function tarjetasDeResumenes(resumenes) {
+  const F2 = {};
+  (resumenes || []).forEach(r => {
+    if (!r) return;
+    Object.entries(r.porProducto || {}).forEach(([pid, pp]) => {
+      if (!pp) return;
+      const k = `${r.fecha || ''}|${r.sucursal || ''}|${pid}`;
+      const t = tarjetasProducto(pp);
+      const x = F2[k];
+      if (!x) {
+        F2[k] = { fecha: r.fecha || '', sucursal: r.sucursal || '', productoId: pid, nombre: pp.nombre || pid, area: pp.area || '', idRecetaFen: pp.idRecetaFen || '',
+          cantidad: numT(pp.cantidad), bruto: numT(pp.bruto), ...t };
+        return;
+      }
+      x.cantidad += numT(pp.cantidad); x.bruto += numT(pp.bruto);
+      x.registrado = x.registrado && t.registrado;
+      Object.keys(x.porTarjeta).forEach(tk => { x.porTarjeta[tk].cant += t.porTarjeta[tk].cant; x.porTarjeta[tk].monto += t.porTarjeta[tk].monto; });
+      x.fresco = { ...x.porTarjeta.hoy };
+      x.rebajado = { cant: x.rebajado.cant + t.rebajado.cant, monto: x.rebajado.monto + t.rebajado.monto };
+      if (t.agotadoHoy && (!x.agotadoHoy || t.agotadoHoy < x.agotadoHoy)) x.agotadoHoy = t.agotadoHoy;
+      if (t.reagotadoHoy && (!x.reagotadoHoy || t.reagotadoHoy > x.reagotadoHoy)) x.reagotadoHoy = t.reagotadoHoy;
+    });
+  });
+  return Object.values(F2);
 }
 
 // Cajas abiertas en el rango (por fecha de apertura) para saber cuáles no tienen resumen.

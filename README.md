@@ -1,9 +1,48 @@
-# Sistema Fën · v0.70.0
+# Sistema Fën · v0.70.1
 
-**App:** v0.70.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 18 de octubre de 2026
+**App:** v0.70.1 · **Caja (fen-ventas):** v2.2.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 19 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.70.1: Sistema Fën lee las tarjetas y el agotado de la caja v2.2.0
+
+- **Dónde va:** repo **sistema-fen**, raíz. No hay archivos nuevos. No cambian scripts ni reglas.
+- Va junto con la **caja v2.2.0** (zip aparte, repo **fen-ventas**, raíz). El orden da lo mismo: esta versión funciona igual con resúmenes antiguos.
+
+### El caso
+Para medir la sobreproducción de pan hace falta saber cuánto pan se vendió fresco (tarjeta Hoy) y cuánto rebajado (Ayer, Antes de ayer, 4° día, Última oferta), y a qué hora se agotó. Desde la v2.2.0 la caja lo anota en cada venta y en el resumen de cada cierre. Esta versión deja esos datos listos para el **Plan de Panadería** (próxima etapa); todavía no hay pantallas nuevas.
+
+### Qué cambia en cómo trabajas
+1. **Caja → Reportes, un solo día** (por ejemplo "Ayer"): junto a cada pan que se agotó dice **"agotado 11:40"** (y "y de nuevo 16:05" si se volvió a ingresar y se agotó otra vez). Con las dos sucursales, dice en cuál. El (i) junto a "Producto" lo explica. Con varios días no se muestra.
+2. **Cerrar cajas, reenviar cierres, generar resúmenes y anular desde Sistema Fën** escriben el resumen con el mismo formato de la caja v2.2.0 (`porTarjeta`, `agotadoHoy`), así un resumen rehecho aquí no pierde esos datos. Al anular una venta, si faltara su movimiento de stock, el stock vuelve a los lotes guardados en la venta.
+3. Todo lo demás queda igual: los totales de ventas, Finanzas, Hoy y Producción leen los mismos números que antes.
+
+### Lecturas y escrituras (Spark)
+- **0 lecturas nuevas:** los datos vienen dentro de los mismos resúmenes de cierre que ya se leen (un documento por cierre).
+- **0 escrituras nuevas:** el resumen se escribe en el mismo documento de siempre.
+
+### Instalación v0.70.1 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.70.1.zip`, con la carpeta `cocina/` (no cambia).
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script ni en las reglas de Firestore.**
+
+### Lista de verificación v0.70.1
+- [ ] Abajo a la izquierda dice **v0.70.1**.
+- [ ] Caja → Reportes → Ayer y Este mes: los totales son los mismos que con la v0.70.0.
+- [ ] Después del primer cierre con la caja v2.2.0: Caja → Reportes → ese día. Si algún pan se agotó, dice "agotado HH:MM" bajo su nombre, y el (i) junto a "Producto" lo explica.
+- [ ] En el celular se ve bien (la hora va en su propia línea, sin scroll hacia el lado).
+
+### Si algo sale mal
+Sube de nuevo la v0.70.0. Los resúmenes que ya tienen `porTarjeta` siguen funcionando igual con la v0.70.0 (los ignora); si la v0.70.0 rehace un resumen, ese cierre pierde el detalle por tarjeta (se recupera rehaciéndolo con la v0.70.1).
+
+**Por dentro:**
+- `caja.js`: `guardarResumenCaja` con `porTarjeta`, `agotadoHoy` y `reagotadoHoy` (igual que la caja v2.2.0; lo vendido sin tarjeta va a `sinDato`, así `porTarjeta` suma lo mismo que el total); `devolverStockVenta` usa los lotes de la línea si falta el movimiento. Nuevo, para el Plan de Panadería (puro, 0 lecturas): `TARJETAS`, `normalizarTarjeta` (acepta también `dia4` y `oferta`), `tarjetasProducto(pp)` → `{ registrado, porTarjeta, fresco, rebajado, agotadoHoy, reagotadoHoy }` y `tarjetasDeResumenes(resumenes)` → filas por día, sucursal y producto.
+- `app.js`: `sumarResumenes` junta `porTarjeta` y las horas de agotado; Reportes muestra "agotado HH:MM" en un día. `estilos.css`: la hora en su propia línea.
+- Los demás: solo la versión. `cocina/` y `fermentacion.js` no cambian (byte a byte iguales a la v0.70.0).
 
 ## Novedades de la v0.70.0: Cuentas recurrentes y Por pagar, el canal B2C y las boletas de luz y agua en PDF
 
