@@ -2059,3 +2059,44 @@ dialog .reg-det { text-align: left; }
   .res-cir { grid-column: 2; }
 }
 @media (prefers-reduced-motion: reduce) { .conc-res-tit::after { transition: none; } }
+
+/* ── v0.70.0 · Cuentas recurrentes y Por pagar: boletas de luz y agua, origen de cada por pagar, esperando boleta y corte ── */
+.nota-modelo { margin: 0 0 10px; }
+.avisos-corte { display: flex; flex-direction: column; gap: 6px; margin: 0 0 10px; }
+.aviso-corte { display: flex; gap: 6px; align-items: flex-start; background: var(--rojo); color: var(--rojo-t); margin: 0; }
+.aviso-corte svg { flex: 0 0 auto; margin-top: 2px; }
+.aviso-corte b { font-weight: 700; }
+.fila-caja .txt .chip-origen-pp { align-self: flex-start; margin-top: 2px; font-size: 11px; padding: 3px 8px; }
+.fila-caja .txt .pp-boleta { font-size: 12px; overflow-wrap: anywhere; }
+.fila-estimado { border-style: dashed; }
+.chip-punteado { border: 1px dashed var(--borde); background: transparent; color: var(--suave); }
+.chip-estimado { border: 1px dashed var(--borde); background: transparent; }
+.ok-msg { margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: var(--verde); color: var(--verde-t); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.botones-obl { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+.ob-boleta { padding: 10px 12px; border: 1px solid var(--linea); border-radius: 12px; }
+.ob-boleta legend { padding: 0 4px; }
+/* La vista previa de la boleta */
+.form-boleta { max-width: 640px; }
+.bs-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px 14px; margin: 0 0 8px; }
+.bs-datos > div { min-width: 0; }
+.bs-datos dt { font-size: 12px; color: var(--suave); }
+.bs-datos dd { margin: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.bs-datos dd input { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; max-width: 100%; }
+.bs-datos dd .ayuda { display: block; font-weight: 400; }
+.bs-cruce { margin: 4px 0 8px; padding: 6px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.bs-cruce svg { vertical-align: -3px; }
+.bs-ok { background: var(--verde); color: var(--verde-t); }
+.bs-mal { background: var(--rojo); color: var(--rojo-t); }
+.bs-errores { background: var(--rojo); color: var(--rojo-t); }
+.bs-errores p { margin: 0 0 4px; }
+.bs-cuenta { margin: 6px 0; font-size: 14px; }
+.bs-gasto { margin: 8px 0; font-size: 13px; }
+.bs-gasto p { margin: 0 0 4px; }
+.bs-gasto ul, .po-plan { margin: 0; padding-left: 18px; font-size: 13px; color: var(--texto); }
+.bs-saldo { margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: var(--amarillo); color: var(--amarillo-t); font-size: 13px; }
+.bs-saldo.bs-ok { background: var(--verde); color: var(--verde-t); }
+.bs-saldo p { margin: 0 0 6px; }
+.bs-saldo .check-linea { color: var(--texto); }
+.bs-intereses .grilla-montos select { min-height: 44px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--borde); background: #fff; min-width: 0; max-width: 100%; }
+.lz-fila .txt select { min-height: 42px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; margin-top: 4px; max-width: 100%; }
+@media (max-width: 600px) { .bs-datos { grid-template-columns: 1fr 1fr; } .botones-obl { justify-content: flex-start; } }

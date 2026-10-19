@@ -214,7 +214,7 @@ export function propuestaGasto(c, grupos) {
 }
 
 // ═══ v0.64.0 · "Ya está en Gastos": filtros por origen y días entre la compra y el cargo ═══
-export const FILTROS_ORIGEN = [['todos', 'Todos'], ['sii_detalle', 'SII con detalle'], ['rcv', 'Registro de compras (RCV)'], ['mano', 'A mano'], ['vencimiento', 'Vencimientos'], ['planilla', 'Planilla antigua']];
+export const FILTROS_ORIGEN = [['todos', 'Todos'], ['sii_detalle', 'SII con detalle'], ['rcv', 'Registro de compras (RCV)'], ['mano', 'A mano'], ['vencimiento', 'Por pagar'], ['planilla', 'Planilla antigua']];
 // El grupo de origen de un candidato (candidatosGastos)
 export function grupoOrigen(x) {
   if (!x) return 'mano';

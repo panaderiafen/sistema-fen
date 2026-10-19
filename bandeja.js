@@ -7,7 +7,7 @@
 //  · las facturas de un cliente de B2B (abiertas y pagadas recientes) y la búsqueda de facturas.
 //  Todo es puro: sale de lo que la pantalla ya tiene leído (0 lecturas).
 // ═══════════════════════════════════════════════
-import * as PM from './pagos-mixtos.js?v=0.69.5';   // v0.69.2: el historial de pagos de un documento pagado en partes
+import * as PM from './pagos-mixtos.js?v=0.70.0';   // v0.69.2: el historial de pagos de un documento pagado en partes
 const s = v => String(v == null ? '' : v);
 const n = v => Number(v) || 0;
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -61,7 +61,7 @@ export function coincide(q, x) {
 
 // ═══ Cargos: la propuesta en una línea, qué es y por qué ═══
 const POR_CARGO = { aprendido: 'lo aprendiste al conciliar esta glosa antes', rut: 'mismo RUT del proveedor y monto exacto', proveedor: 'el proveedor reconocido y monto exacto', monto: 'solo calza el monto: nada dice quién es',
-  'monto fijo': 'monto fijo exacto de la obligación', documento: 'mismo monto del documento (boleta o factura)', glosa: 'la glosa lo dice', saldo: 'es el saldo exacto de un vencimiento con abonos',
+  'monto fijo': 'monto fijo exacto de la cuenta recurrente', documento: 'mismo monto del documento (boleta o factura)', glosa: 'la glosa lo dice', saldo: 'es el saldo exacto de un vencimiento con abonos',
   sii: 'la factura del SII ya está registrada y es del mismo monto', combinacion: 'mismo proveedor y la suma calza exacto', regla: 'lo dice una regla tuya' };
 export function resumenCargo(p, c) {
   if (c && c.repetidoProp && (c.repetidoProp.candidatos || []).length) return 'Parece repetido de otra cartola';

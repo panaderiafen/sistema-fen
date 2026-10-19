@@ -19,22 +19,22 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.69.5';
-import * as M from './gastos-g2.js?v=0.69.5';
-import * as G3 from './gastos-g3.js?v=0.69.5';
-import * as G3D from './gastos-g3d.js?v=0.69.5';
-import * as C from './gastos-cartola.js?v=0.69.5';
-import * as B from './gastos-banco.js?v=0.69.5';
-import { huella } from './gastos-modelo.js?v=0.69.5';
-import * as FS from './gastos-fs.js?v=0.69.5';
-import * as GB from './gastos-base.js?v=0.69.5';
-import * as TE from './tef-enviadas.js?v=0.69.5';
-import * as P from './proveedores.js?v=0.69.5';
-import * as SP from './sii-pendientes.js?v=0.69.5';   // v0.66.0: documentos del SII por clasificar
-import { registradosGastos } from './bandeja.js?v=0.69.5';   // v0.68.0: lo registrado con su estado (Buscar en Gastos)
-import * as RC from './reglas-conc.js?v=0.69.5';   // v0.69.0: las reglas de conciliación (conc_reglas)
-import * as PT from './puntaje.js?v=0.69.5';      // v0.69.0: el ritmo de pago de cada proveedor
-import * as PM from './pagos-mixtos.js?v=0.69.5';  // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as FB from './fs-gastos.js?v=0.70.0';
+import * as M from './gastos-g2.js?v=0.70.0';
+import * as G3 from './gastos-g3.js?v=0.70.0';
+import * as G3D from './gastos-g3d.js?v=0.70.0';
+import * as C from './gastos-cartola.js?v=0.70.0';
+import * as B from './gastos-banco.js?v=0.70.0';
+import { huella } from './gastos-modelo.js?v=0.70.0';
+import * as FS from './gastos-fs.js?v=0.70.0';
+import * as GB from './gastos-base.js?v=0.70.0';
+import * as TE from './tef-enviadas.js?v=0.70.0';
+import * as P from './proveedores.js?v=0.70.0';
+import * as SP from './sii-pendientes.js?v=0.70.0';   // v0.66.0: documentos del SII por clasificar
+import { registradosGastos } from './bandeja.js?v=0.70.0';   // v0.68.0: lo registrado con su estado (Buscar en Gastos)
+import * as RC from './reglas-conc.js?v=0.70.0';   // v0.69.0: las reglas de conciliación (conc_reglas)
+import * as PT from './puntaje.js?v=0.70.0';      // v0.69.0: el ritmo de pago de cada proveedor
+import * as PM from './pagos-mixtos.js?v=0.70.0';  // v0.69.2: pagos mixtos (un documento pagado en partes)
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -102,7 +102,7 @@ export async function lista(diasP) {
   // v0.67.4 · Los gastos sin cargo y, aparte, las notas de crédito sin cargo (con su referencia): solo se suman con su factura
   const grupos = B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon))), { conNC: true });
   const rNC = refsNC(ab.siiDocs), ncs = grupos.filter(g => g.monto < 0).map(g => (rNC[g.siiDocId] ? { ...g, refs: rNC[g.siiDocId] } : g));
-  const SPF = await import('./sii-pendientes-fs.js?v=0.69.5');
+  const SPF = await import('./sii-pendientes-fs.js?v=0.70.0');
   const siiPendientes = await SPF.pendientes().catch(async () => SP.pendientesDe(await todos('sii_docs').catch(() => []))), siiRegistrados = await SPF.registrados().catch(() => []);
   // v0.69.0 · El ritmo de pago de cada proveedor (factura → cargo del banco), de los gastos de 12 meses que ya están en la memoria (0 lecturas)
   const ritmos = await ritmosProveedores(hoy, todosC).catch(() => ({}));
@@ -493,8 +493,10 @@ async function resolverVencimientos(d, ref, c0, pagos, marca, tr, hora) {
   // Compras a crédito y facturas del SII: los gastos que ya existen se completan con la fecha de pago (todas las líneas de la factura)
   const creditos = {};
   for (const { v } of rp.pedidos) {
-    if (v.plantillaId || v.suelto) continue;
     const vd = (ab.vencs.find(x => x.id === v.id) || {}).d || {};
+    // v0.70.0 · Lo nacido de su boleta: sus gastos son los guardados en él (ya existen, del mes del período)
+    if (G3.esDevengado(vd)) { creditos[v.id] = vd.gastosDoc.slice(0, 40).map(s); continue; }
+    if (v.plantillaId || v.suelto) continue;
     let l = [];
     if (v.folio) l = (await todos('gastos', FB.where('folio', '==', v.folio))).filter(x => x.d.estado === 'vigente' && !s(x.d.fechaPago) && ['proveedor', 'tarjeta'].includes(s(x.d.formaPago)) && (!v.razon || C.norm(x.d.razonSocial) === C.norm(v.razon)));
     if (!l.length && v.item) {
@@ -513,14 +515,30 @@ async function resolverVencimientos(d, ref, c0, pagos, marca, tr, hora) {
     const R = await leerRegla(tx, d, c0.clave, c0);
     let n = 1;
     const pagados = [];
-    rp.pedidos.forEach(({ v: v0, monto }, i) => {
+    rp.pedidos.forEach(({ v: v0, monto, abono }, i) => {
       if (!snV[i].exists()) throw error('Un vencimiento ya no existe. Recarga la lista.', 'datos');
       const a = snV[i].data(), eb = G3.estadoBase(a);
+      // v0.70.0 · Lo nacido de su boleta pagado en partes (lo más antiguo primero): un abono con su saldo; el último lo deja pagado
+      // y les pone la fecha de pago a sus gastos (que ya existían). Nunca se crean gastos aquí.
+      if (abono) {
+        if (!G3.esDevengado(a)) throw error(`"${s(a.nombre)}" no se puede pagar en partes desde aquí. Recarga la lista.`, 'datos');
+        const x = G3.abonoParcial(a, { monto, fecha: c0.fecha, origen: 'cartola', cargoId: c0.id, medio: 'banco', clave: clave + 'v' + i, por: quien(), en: ahora() });
+        if (x.repetido) return;
+        if (x.error) throw error(`${s(a.nombre)}: ${x.error}`, 'datos');
+        const ids = [];
+        if (x.final) (snC[v0.id] || []).forEach(({ ref: rg, sn: sg }) => {
+          if (!sg.exists()) return; const g = sg.data(); if (g.fechaPago || g.estado !== 'vigente') return;
+          tx.update(rg, cambio(g, 'pagó con la cartola (último abono)', { fechaPago: x.campos.fechaPago || c0.fecha, cartola: tr, cartolaCargo: c0.id }, { vencimiento: v0.id })); ids.push(rg.id); n++;
+        });
+        tx.update(refsV[i], cambio(a, x.final ? 'último abono con la cartola (pagado)' : 'abono con la cartola', x.campos, { monto, cargo: c0.id }));
+        pagados.push({ id: v0.id, multiAntes: null, nombre: s(a.nombre), monto, plantillaId: v0.plantillaId, folio: v0.folio, razon: v0.razon, rut: v0.rut, filas: ids.length, gastos: ids, conLineas: false, abono: true, final: !!x.final, saldo: x.saldo });
+        return;
+      }
       if (!['esperando_documento', 'por_pagar'].includes(eb)) throw error(`"${s(a.nombre)}" ya no está por pagar (${G3.NOMBRE_ESTADO[eb] || eb}). Recarga la lista.`, 'pagado');
       const v = M.vistaVencimiento(v0.id, a), extra = {};
       let ids = [];
-      const conLineas = !!(v.plantillaId || v.suelto);
-      const multi = v.plantillaId ? C.repartoPago(a.multiArea, monto) : [];
+      const conLineas = G3.conLineas(a);   // v0.70.0: lo nacido de su boleta ya tiene sus gastos (no crea líneas)
+      const multi = conLineas && v.plantillaId ? C.repartoPago(a.multiArea, monto) : [];
       if (multi.length) { extra.multiArea = JSON.stringify(multi); v.multiArea = multi; }
       if (conLineas) {
         // v0.51.0: con el certificado de Previred, un gasto por trabajador (y con la factura del SII, su RUT y folio)
@@ -686,7 +704,7 @@ async function resolverPagoParcial(d, ref, c0, p, marca, tr) {
     refV = FB.doc(d, 'vencimientos', s(p.vencId));
     const sv = await FB.getDoc(refV);
     if (!sv.exists() || sv.data().quitadoEnPlanilla) throw error('Ese vencimiento ya no existe', 'datos');
-    if (!PM.esDeDocumento(sv.data())) throw error('El resto solo se registra así en facturas y compras. En una obligación, registra el abono y después el resto en Vencimientos.', 'datos');
+    if (!PM.esDeDocumento(sv.data())) throw error('El resto solo se registra así en facturas y compras. En una cuenta recurrente, registra el abono y después el resto en Por pagar.', 'datos');
     gs0 = await FS.gastosDelDocumento(refV.id, sv.data());
   }
   const gSii = gs0.find(g => g.d.siiDoc && g.d.siiDoc.id), siiId = gSii ? s(gSii.d.siiDoc.id) : '';
@@ -1005,6 +1023,13 @@ export async function deshacer(id, motivoP, opc = {}) {
     if (c.accion === 'vencimientos') (det.vencimientos || []).forEach((x, i) => {
       const s0 = snV[i]; if (!s0 || !s0.exists()) { avisos.push(`"${x.nombre}" ya no existe: no se tocó.`); return; }
       const a = s0.data();
+      // v0.70.0 · Un abono de este cargo (lo nacido de su boleta, pagado en partes): sale (queda en abonosQuitados)
+      if (x.abono) {
+        const q = G3.quitarAbonoParcial(a, c.id, { por, en: t, motivo });
+        if (q.error) { avisos.push(`El abono ya no estaba en "${x.nombre}": no se tocó.`); return; }
+        tx.update(refsV[i], cambio(a, 'abono deshecho (cartola)', q.campos, { motivo })); n++;
+        return;
+      }
       if (G3.estadoBase(a) !== 'pagado' || !(s(a.cartolaCargo) === c.id || s(a.cartola).includes(refTxt))) { avisos.push(`"${x.nombre}" ya no estaba pagado con este cargo: no se tocó.`); return; }
       const espera = s(a.tipoObligacion) === 'documento' && !a.documento;
       tx.update(refsV[i], cambio(a, 'pago deshecho (cartola)', { estado: espera ? 'esperando_documento' : 'por_pagar', fechaPago: '', montoPago: '', cartola: '', cartolaCargo: '', pago: null,
@@ -1016,7 +1041,7 @@ export async function deshacer(id, motivoP, opc = {}) {
     // Abono: sale del vencimiento (queda en abonosQuitados)
     if (c.accion === 'abono' && snV[0] && snV[0].exists()) {
       const a = snV[0].data();
-      if (G3.estadoBase(a) === 'pagado') throw error(`"${s(a.nombre)}" ya se cerró: déjalo por pagar de nuevo en Vencimientos y vuelve a deshacer.`, 'datos');
+      if (G3.estadoBase(a) === 'pagado') throw error(`"${s(a.nombre)}" ya se cerró: déjalo por pagar de nuevo en Por pagar y vuelve a deshacer.`, 'datos');
       const l = Array.isArray(a.abonos) ? a.abonos : [], fuera = l.filter(y => y.cargoId === c.id), quedan = l.filter(y => y.cargoId !== c.id);
       if (fuera.length) {
         tx.update(refsV[0], cambio(a, 'abono deshecho (cartola)', { abonos: quedan, estado: quedan.length ? 'con_abonos' : 'por_pagar',

@@ -8,10 +8,10 @@
 //  Reglas puras en finanzas-resultados.js; datos en finanzas.js (fen-gastos). No cambia ningún gasto.
 //  ctx = { cab, error, conexion, sinBase } de vista-finanzas.js; H = ayudas de app.js.
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.69.5';
-import * as FR from './finanzas-resultados.js?v=0.69.5';
-import * as FC from './finanzas-costos.js?v=0.69.5';
-import * as VE from './vista-finanzas-eerr.js?v=0.69.5';
+import * as F from './finanzas.js?v=0.70.0';
+import * as FR from './finanzas-resultados.js?v=0.70.0';
+import * as FC from './finanzas-costos.js?v=0.70.0';
+import * as VE from './vista-finanzas-eerr.js?v=0.70.0';
 
 const RS = { datos: null, filtro: 'todos', q: '', msg: '', err: '', sel: null, anioDep: '' };
 const $ = id => document.getElementById(id);
@@ -83,7 +83,7 @@ const avisoMsg = (txt) => { RS.msg = txt; RS.err = ''; };
 
 // ═══════════════ Clasificación ═══════════════
 const TXT_AREAS = 'Cada gasto tiene un código de área (el que se eligió al registrarlo). Aquí dices a qué parte del estado de resultados va:\n· Área propia (Panadería, Bollería, Pastelería, Cafetería o Reventa): sus fijos y sueldos son "fijos propios" de esa área.\n· Común: Administración, Ventas y lo demás. Va al resultado del negocio sin repartir.\nLos gastos prorrateados ya se guardan en una línea por área (con su %), así que cada parte va a su área. Si una línea antigua dice "PRORRATEADO" con sus %, se reparte con esos %.\nPor defecto, las cuatro de producción y REVENTA son propias y el resto común. Las compras de reventa no son fijos: el ítem "PRODUCTOS DE REVENTA" se clasifica como "Compras de productos de reventa" (fuera del resultado).';
-const TXT_CANAL = 'B2B es el código de los costos del canal B2B (atención de clientes, órdenes y despacho). Su lugar en el estado de resultados es una fila "costo de canal" del canal B2B, que todavía no existe: llega con F3. Mientras tanto va a Común (sin repartir), igual que Administración y Ventas.';
+const TXT_CANAL = 'B2B y B2C son códigos de costo de canal: lo que cuesta atender a los clientes de ese canal, no lo que cuesta producir. B2B: atención de clientes, órdenes y despacho. B2C: la parte de los costos de las tiendas que es de la venta (por ejemplo, la parte de la luz y el agua de la sala de venta).\nSu lugar en el estado de resultados es una fila "costo de canal" de cada canal, que todavía no existe: llega con F3. Mientras tanto van a Común (sin repartir), igual que Administración y Ventas.\nB2C nunca entra sola en un reparto: solo si la eliges tú. No está en Cocina ni en Producción.';
 const TXT_TIPOS = 'Un tipo para cada ítem de gasto, para armar el estado de resultados (todo en neto):\n· Compras de materias primas o de reventa: no son una línea de gasto (su costo ya está en el costo directo); se usan para la desviación.\n· Remuneraciones y gastos fijos: van al área del gasto (propio) o a común, según el mapa de áreas.\n· Ya en el margen: comisiones de tarjeta y despacho B2B (no se cuentan dos veces).\n· Financiero: intereses, multas (por ejemplo, las de Previred) y banco.\n· Fuera del resultado: capital de las cuotas (el interés va a financiero con la tabla del crédito), F29/IVA/PPM, inversiones (entran como depreciación), retiros y otros con motivo.\nLa propuesta sale de palabras del nombre del ítem y de su subtipo en Gastos (INVERSIÓN, FINANCIERO, PASIVO). Nada se guarda solo: tú aplicas o eliges.\nUn ítem con subtipo FINANCIERO en Gastos (Gastos → Ítems) que no clasificaste aquí ya cuenta como Financiero en el estado de resultados y en Previred (salvo que su nombre diga crédito, cuota o préstamo). Lo que eliges aquí siempre manda.';
 function htmlClasificacion(H) {
   const areas = FR.areasDeGastos(RS.datos.gastos, FR.ANIO, mapaAreas());
@@ -219,7 +219,7 @@ function conectarClasificacion(el, H, ctx, volver) {
 }
 
 // ═══════════════ Créditos ═══════════════
-const TXT_CRED = 'Cada cuota de un crédito tiene dos partes: el interés (gasto financiero, entra al resultado) y el capital (devolver el préstamo: fuera del resultado, va al flujo de caja).\nAquí anotas cada crédito con su obligación de Gastos (la que genera los vencimientos de las cuotas): con el monto, la tasa mensual y el número de cuotas se calcula la tabla (sistema francés: cuota fija, el interés es el saldo × la tasa, al peso; la última cuota ajusta el redondeo). Si el banco te dio la tabla, pégala tal cual (tabla manual).\nCada vencimiento pagado de la obligación marca su cuota (la del mismo mes). Después, Resultados usa por mes: interés → financiero, capital → fuera.';
+const TXT_CRED = 'Cada cuota de un crédito tiene dos partes: el interés (gasto financiero, entra al resultado) y el capital (devolver el préstamo: fuera del resultado, va al flujo de caja).\nAquí anotas cada crédito con su cuenta recurrente de Gastos (la que genera los vencimientos de las cuotas): con el monto, la tasa mensual y el número de cuotas se calcula la tabla (sistema francés: cuota fija, el interés es el saldo × la tasa, al peso; la última cuota ajusta el redondeo). Si el banco te dio la tabla, pégala tal cual (tabla manual).\nCada vencimiento pagado de la cuenta recurrente marca su cuota (la del mismo mes). Después, Resultados usa por mes: interés → financiero, capital → fuera.';
 function filasCredito(c) {
   const pagos = FR.pagosDeObligacion(c.obligacionId, RS.datos.vencimientos, RS.datos.gastos);
   return FR.marcarPagos(c.tabla || [], pagos);
@@ -235,7 +235,7 @@ function htmlCreditos(H) {
   const fila = c => {
     const r = filasCredito(c).resumen;
     return `<div class="fin-compra fin-rcred" data-r-cred="${H.esc(c.id)}">
-      <div><b>${H.esc(c.nombre)}</b><span class="ayuda">${c.obligacionNombre ? `Obligación: ${H.esc(c.obligacionNombre)}` : 'Sin obligación vinculada'}${c.estado === 'archivado' ? ' · archivado' : ''}</span></div>
+      <div><b>${H.esc(c.nombre)}</b><span class="ayuda">${c.obligacionNombre ? `Cuenta recurrente: ${H.esc(c.obligacionNombre)}` : 'Sin cuenta recurrente vinculada'}${c.estado === 'archivado' ? ' · archivado' : ''}</span></div>
       <div><span>${pesos(c.monto)} · ${c.tasa !== null && c.tasa !== undefined ? pct(c.tasa, 2) + ' mensual' : 'tasa de la tabla'}</span><span class="ayuda">${nf(c.n)} cuotas de ${pesos(c.cuota)} · ${c.modo === 'manual' ? 'tabla manual' : 'sistema francés'}</span></div>
       <div><span><b>${nf(r.pagadas)} de ${nf(c.n)}</b> pagadas</span><span class="ayuda">Interés ${pesos(r.interes)} · capital ${pesos(r.capital)} · saldo ${pesos(r.saldo)}</span></div>
       <div class="acciones fin-c-acc"><a class="btn-sec" href="#finanzas/resultados/creditos/${encodeURIComponent(c.id)}">${ic('tabla', 16)} Ver tabla</a></div></div>`;
@@ -246,7 +246,7 @@ function htmlCreditos(H) {
     ${mensajes(H)}
     ${fuente(H)}
     <div class="fin-compras" id="r-creditos">${cs.length ? cs.map(fila).join('') : '<div class="vacio">Todavía no hay créditos anotados.</div>'}</div>
-    ${sug.length ? `<div class="fin-mcat fin-rsug"><span>${nf(sug.length)} ${sug.length === 1 ? 'obligación parece' : 'obligaciones parecen'} un crédito: ${sug.map(o => `<b>${H.esc(o.nombre)}</b>`).join(', ')}. ${H.info('Obligaciones que parecen créditos', 'Obligaciones de Gastos cuyo nombre o ítem dice crédito, préstamo, cuota, leasing o Fondo Esperanza y que todavía no tienen su crédito anotado aquí.')}</span>
+    ${sug.length ? `<div class="fin-mcat fin-rsug"><span>${nf(sug.length)} ${sug.length === 1 ? 'cuenta recurrente parece' : 'cuentas recurrentes parecen'} un crédito: ${sug.map(o => `<b>${H.esc(o.nombre)}</b>`).join(', ')}. ${H.info('Cuentas recurrentes que parecen créditos', 'Cuentas recurrentes de Gastos cuyo nombre o ítem dice crédito, préstamo, cuota, leasing o Fondo Esperanza y que todavía no tienen su crédito anotado aquí.')}</span>
       <div class="acciones">${sug.slice(0, 4).map(o => `<button type="button" class="btn-sec" data-r-cr-de="${H.esc(o.id || '')}">Anotar ${H.esc(o.nombre)}</button>`).join('')}</div></div>` : ''}
   </section>
   ${meses.length ? `<section class="tarjeta" aria-labelledby="t-r-crmes"><div class="titulo-fila fin-titulo"><h2 id="t-r-crmes">Cuotas pagadas por mes ${H.info('Cuotas por mes', 'Por mes de pago, de todos los créditos activos: el interés irá a gasto financiero y el capital queda fuera del resultado.')}</h2></div>
@@ -269,12 +269,12 @@ function htmlCredito(id, H) {
     <a class="btn-sec fin-volver" href="#finanzas/resultados/creditos">${ic('atras', 16)} Volver a Créditos</a>
     <div class="titulo-fila fin-titulo"><h2 id="t-r-c1">${H.esc(c.nombre)} ${H.info('Tabla del crédito', TXT_CRED)}</h2>
       <div class="acciones fin-racc"><button type="button" class="btn-sec" id="r-c-editar">${ic('editar', 16)} Editar</button><button type="button" class="btn-sec" id="r-c-arch">${ic('archivo', 16)} ${c.estado === 'archivado' ? 'Reactivar' : 'Archivar'}</button></div></div>
-    <p class="ayuda">${c.obligacionNombre ? `Obligación: <b>${H.esc(c.obligacionNombre)}</b>` : 'Sin obligación vinculada: las cuotas no se marcan solas.'} · ${c.modo === 'manual' ? 'Tabla manual' : 'Sistema francés'}${c.cuotaManual ? ' con la cuota del banco' : ''}${c.nota ? ` · ${H.esc(c.nota)}` : ''}</p>
+    <p class="ayuda">${c.obligacionNombre ? `Cuenta recurrente: <b>${H.esc(c.obligacionNombre)}</b>` : 'Sin cuenta recurrente vinculada: las cuotas no se marcan solas.'} · ${c.modo === 'manual' ? 'Tabla manual' : 'Sistema francés'}${c.cuotaManual ? ' con la cuota del banco' : ''}${c.nota ? ` · ${H.esc(c.nota)}` : ''}</p>
     ${mensajes(H)}
     <div class="cifras fin-dcifras">
       ${cifra('Monto', pesos(c.monto))}${cifra('Cuota', pesos(c.cuota), `${nf(c.n)} cuotas${c.tasa !== null && c.tasa !== undefined ? ' · ' + pct(c.tasa, 2) + ' mensual' : ''}`)}
       ${cifra('Pagadas', `${nf(r.pagadas)} de ${nf(c.n)}`)}${cifra('Interés pagado', pesos(r.interes), 'gasto financiero')}${cifra('Capital pagado', pesos(r.capital), 'fuera del resultado')}${cifra('Saldo', pesos(r.saldo))}</div>
-    ${m.sobran ? `<p class="aviso">${nf(m.sobran)} ${m.sobran === 1 ? 'pago' : 'pagos'} de la obligación no calzan con ninguna cuota (hay más pagos que cuotas): revisa la tabla.</p>` : ''}
+    ${m.sobran ? `<p class="aviso">${nf(m.sobran)} ${m.sobran === 1 ? 'pago' : 'pagos'} de la cuenta recurrente no calzan con ninguna cuota (hay más pagos que cuotas): revisa la tabla.</p>` : ''}
     ${r.pagadas && Math.abs(r.dif) > r.pagadas * 2 ? `<p class="aviso">Lo pagado difiere de las cuotas de la tabla en ${pesos(r.dif)} en total (por ejemplo, intereses de mora o seguro). ${H.info('Diferencia con lo pagado', 'La tabla dice cuánto es interés y capital de cada cuota. Si pagaste más (mora, seguros, comisiones), esa diferencia no está en la tabla: más adelante se podrá clasificar aparte.')}</p>` : ''}
     <div class="tabla-b2b" style="margin-top:12px"><table class="tabla-tiempos tabla-cel-tarjetas fin-rtab" id="r-tabla"><thead><tr><th scope="col">N°</th><th scope="col">Fecha</th><th scope="col" style="text-align:right">Cuota</th><th scope="col" style="text-align:right">Interés</th><th scope="col" style="text-align:right">Capital</th><th scope="col" style="text-align:right">Saldo</th><th scope="col">Pago</th></tr></thead><tbody>
       ${m.filas.map(f => `<tr class="${f.pago ? 'fin-rpag' : ''}"><td>${nf(f.n)}</td><td data-et="Fecha">${fechaTxt(f.fecha)}</td><td data-et="Cuota" style="text-align:right">${pesos(f.cuota)}</td><td data-et="Interés" style="text-align:right">${pesos(f.interes)}</td><td data-et="Capital" style="text-align:right">${pesos(f.capital)}</td><td data-et="Saldo" style="text-align:right">${f.saldo === null ? '—' : pesos(f.saldo)}</td>
@@ -307,8 +307,8 @@ function dialogoCredito(c, H, ctx, volver, pre) {
   const d = H.dialogo(`<form class="form-dialogo" id="r-cf" novalidate>
     <h2>${c ? 'Editar crédito' : 'Nuevo crédito'}</h2>
     <div class="campo"><label for="r-c-nom">Nombre</label><input id="r-c-nom" type="text" maxlength="120" value="${val(v.nombre)}" placeholder="Crédito Banco Estado 2026"></div>
-    <div class="campo"><label for="r-c-obl">Obligación de Gastos ${H.info('Obligación vinculada', 'La obligación que genera los vencimientos de las cuotas (por ejemplo, CREDITO PAC BANCO ESTADO o FONDO ESPERANZA). Cada vencimiento pagado marca su cuota en la tabla.')}</label>
-      <select id="r-c-obl"><option value="">Sin obligación</option>${obls.map(o => `<option value="${H.esc(o.id || '')}" ${(o.id || '') === v.obligacionId ? 'selected' : ''}>${H.esc(o.nombre)}${pareceCred.has(o.id) ? ' · crédito' : ''}${String(o.estado || '').toUpperCase() === 'ARCHIVADA' ? ' (archivada)' : ''}</option>`).join('')}</select></div>
+    <div class="campo"><label for="r-c-obl">Cuenta recurrente de Gastos ${H.info('Cuenta recurrente vinculada', 'La cuenta recurrente que genera los vencimientos de las cuotas (por ejemplo, CREDITO PAC BANCO ESTADO o FONDO ESPERANZA). Cada vencimiento pagado marca su cuota en la tabla.')}</label>
+      <select id="r-c-obl"><option value="">Sin cuenta recurrente</option>${obls.map(o => `<option value="${H.esc(o.id || '')}" ${(o.id || '') === v.obligacionId ? 'selected' : ''}>${H.esc(o.nombre)}${pareceCred.has(o.id) ? ' · crédito' : ''}${String(o.estado || '').toUpperCase() === 'ARCHIVADA' ? ' (archivada)' : ''}</option>`).join('')}</select></div>
     <fieldset class="fin-as-tipo"><legend class="sr">Cómo se arma la tabla</legend>
       <label class="check"><input type="radio" name="r-c-modo" value="frances" ${modo0 === 'frances' ? 'checked' : ''}> Calcular (cuota fija, sistema francés)</label>
       <label class="check"><input type="radio" name="r-c-modo" value="manual" ${modo0 === 'manual' ? 'checked' : ''}> Pegar la tabla del banco</label></fieldset>

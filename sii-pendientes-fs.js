@@ -15,19 +15,19 @@
 //  · v0.67.2: un documento cuyos gastos fueron todos anulados vuelve a por clasificar (contexto, una escritura por documento, una
 //    vez) y "Volver a clasificar" (infoVolver, volverAClasificar).
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.69.5';
-import * as M from './gastos-g2.js?v=0.69.5';
-import * as S from './gastos-sii.js?v=0.69.5';
-import * as SP from './sii-pendientes.js?v=0.69.5';
-import * as G3 from './gastos-g3.js?v=0.69.5';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo, abonoParcial } from './gastos-fs.js?v=0.69.5';
-import * as PM from './pagos-mixtos.js?v=0.69.5';   // v0.69.2: documentos pagados en partes con saldo
+import * as FB from './fs-gastos.js?v=0.70.0';
+import * as M from './gastos-g2.js?v=0.70.0';
+import * as S from './gastos-sii.js?v=0.70.0';
+import * as SP from './sii-pendientes.js?v=0.70.0';
+import * as G3 from './gastos-g3.js?v=0.70.0';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo, abonoParcial } from './gastos-fs.js?v=0.70.0';
+import * as PM from './pagos-mixtos.js?v=0.70.0';   // v0.69.2: documentos pagados en partes con saldo
 
 const s = v => String(v == null ? '' : v);
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const ahora = () => M.ahoraChile().texto;
 const hoy = () => M.ahoraChile().dia;
-const SIIF = () => import('./gastos-sii-fs.js?v=0.69.5');
+const SIIF = () => import('./gastos-sii-fs.js?v=0.70.0');
 export const COL_PAGOS = 'sii_pagos';
 
 // ── Configuración (días) ──
@@ -189,7 +189,7 @@ export async function infoVolver(docId) {
   const { docs, idx, vencs } = await contexto(), x = docs.find(y => y.id === s(docId));
   if (!x || x.d.quitadoEnPlanilla) return { ok: false, motivoNo: 'Esta factura no está en los documentos del SII de la base nueva: súbela en Conciliación → Subir archivo. Si quieres sacar su gasto, anúlalo.', gastos: [], bloqueos: [] };
   if (s(x.d.tipo) === '61') return { ok: false, motivoNo: 'Las notas de crédito se corrigen desde su carga.', gastos: [], bloqueos: [] };
-  if (x.d.importado && (x.d.importado.aVencimiento || x.d.importado.pendienteId)) return { ok: false, motivoNo: 'Esta factura fue al vencimiento de su obligación (según documento): se corrige en Gastos → Vencimientos.', gastos: [], bloqueos: [] };
+  if (x.d.importado && (x.d.importado.aVencimiento || x.d.importado.pendienteId)) return { ok: false, motivoNo: 'Esta factura fue al vencimiento de su cuenta recurrente (según documento): se corrige en Gastos → Por pagar.', gastos: [], bloqueos: [] };
   const doc = { id: x.id, razonSocial: s(x.d.razonSocial), folio: s(x.d.folio), total: Number((x.d.importado || {}).total || (x.d.porClasificar || {}).total) || 0, fecha: s((x.d.porClasificar || {}).fecha || (x.d.importado || {}).fechaDocto || x.d.fecha) };
   if (SP.esPendiente(x.d)) return { ok: false, yaPendiente: true, doc, motivoNo: 'Ya está por clasificar.', gastos: [], bloqueos: [] };
   const r = SP.revisarVuelta(x.id, x.d, idx), vig = r.vigentes;
@@ -343,7 +343,7 @@ export async function clasificar(docId, lineas, pago, opc = {}) {
   const SF = await SIIF();
   await SF.importar([f], false, opc.marca || M.marcaNueva(), { formato: v.formato, archivo: v.archivo, cargaId: v.cargaId });
   const sn2 = await FB.getDoc(ref), im = (sn2.exists() && sn2.data().importado) || {};
-  try { import('./finanzas.js?v=0.69.5').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
+  try { import('./finanzas.js?v=0.70.0').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
   return { ok: true, gastos: im.gastos || [], vencimiento: im.vencimiento || '' };
 }
 
@@ -437,7 +437,7 @@ export async function reagendar(vencId, fecha) {
     const sn = await tx.get(ref); if (!sn.exists()) throw error('Ese vencimiento ya no existe', 'datos');
     const v = sn.data();
     if (!G3.abierto(v)) throw error('Ese vencimiento ya no está por pagar', 'datos');
-    if (G3.estadoBase(v) === 'con_abonos') throw error('Tiene abonos: usa "Reagendar saldo" en Gastos → Vencimientos', 'datos');
+    if (G3.estadoBase(v) === 'con_abonos') throw error('Tiene abonos: usa "Reagendar saldo" en Gastos → Por pagar', 'datos');
     tx.update(ref, cambio(v, 'reagendó', { fechaVencimiento: fecha, periodoKey: fecha.slice(0, 7) }));
   });
   await despues(1);

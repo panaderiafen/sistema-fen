@@ -16,11 +16,12 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.69.5';
-import * as B from './gastos-banco.js?v=0.69.5';
-import { habilesEntre } from './feriados-cl.js?v=0.69.5';
-import * as D3 from './gastos-g3d.js?v=0.69.5';   // v0.67.0: total del plan de Previred con multas e intereses
-import * as PM from './pagos-mixtos.js?v=0.69.5';   // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as G3 from './gastos-g3.js?v=0.70.0';
+import * as B from './gastos-banco.js?v=0.70.0';
+import { habilesEntre } from './feriados-cl.js?v=0.70.0';
+import * as D3 from './gastos-g3d.js?v=0.70.0';   // v0.67.0: total del plan de Previred con multas e intereses
+import * as PM from './pagos-mixtos.js?v=0.70.0';   // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as BO from './boletas.js?v=0.70.0';   // v0.70.0: boletas de luz y agua (el total a pagar paga todo lo que cubre, lo más antiguo primero)
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
@@ -305,7 +306,9 @@ export function vencimientosAbiertos(vencs, plantillas, siiRut, hoy) {
       folio: m ? m[2] : s(d.folio), razon: m ? m[1].trim() : s(d.razonSocial).trim(), rut: (siiRut && siiRut[id]) || (d.documento && d.documento.tipo === 'sii' ? rutNorm(d.documento.rut) : '') || rutNorm(d.rutProveedor), sii: '',
       // v0.69.2: las partes ya pagadas (medio, fecha, cargo u origen) y si es un documento pagado en partes
       partes: PM.partesDe(d), enPartes: !!d.pagoEnPartes, deDocumento: PM.esDeDocumento(d),
-      fechaDoc: dia(d.fechaCompra) || (d.documento && dia(d.documento.fecha)) || '' });   // v0.69.0: la fecha de la factura (para el ritmo de pago)
+      fechaDoc: dia(d.fechaCompra) || (d.documento && dia(d.documento.fecha)) || '',   // v0.69.0: la fecha de la factura (para el ritmo de pago)
+      // v0.70.0 · Nació de su boleta (luz, agua): sus gastos ya existen; la boleta dice qué cubre (su saldo anterior) y de qué empresa es
+      devengado: G3.esDevengado(d), boleta: d.boleta && typeof d.boleta === 'object' ? d.boleta : null, mesBoleta: s(d.boleta && d.boleta.mes) || s(d.periodoKey), empresa: s((o && o.empresa) || (d.boleta && d.boleta.empresa)), cuentaNombre: o ? s(o.nombre) : '' });
   });
   return out.sort((a, b) => s(a.fecha).localeCompare(s(b.fecha)) || a.id.localeCompare(b.id));
 }
@@ -354,6 +357,10 @@ export function proponer(c, D) {
     const ap = fijos.find(v => v.plantillaId === aprendidoP) || fijos[0];
     return { ...pagoDe(c, ap, 'monto fijo', false), opciones: fijos.map(opcion), duda: `Hay ${fijos.length} vencimientos de monto fijo de ${fmt(c.monto)}: revisa cuál es.` };
   }
+  // v0.70.0 · Boleta de luz o agua: un cargo igual al total a pagar de una boleta paga todo lo que cubre (su saldo anterior y la
+  // boleta del mes), lo más antiguo primero; uno igual al saldo anterior paga solo lo de antes. Listo si la glosa dice la empresa.
+  const pBol = BO.propuestaBoleta(c, vencs, regla);
+  if (pBol) return pBol;
   // 2) Según documento: por el monto del documento (boleta o SII), ya llegado
   const docs = vencs.filter(v => v.plantillaId && v.tipoObligacion === 'documento');
   const conMonto = docs.filter(v => v.montoDocumento > 0 && v.montoDocumento === c.monto && enVentana(c, v));
@@ -427,6 +434,10 @@ export function proponer(c, D) {
   // 8) Un vencimiento sin clasificar con el monto exacto: a revisar (el tipo "monto fijo" lo deja seguro)
   const ex = vencs.filter(v => v.tipoObligacion !== 'libre' && v.tipoObligacion !== 'documento' && v.monto === c.monto && enVentana(c, v));
   if (ex.length === 1) return pagoDe(c, ex[0], 'monto', false);
+  // 8b) v0.70.0 · Un cargo de una cuenta de boleta reconocida (la glosa dice CGE o ESSBIO, o lo aprendido) que no calza con un total:
+  //     paga lo más antiguo primero y lo que no alcanza queda como abono (siempre se revisa)
+  const pOrd = BO.propuestaOrden(c, vencs, regla);
+  if (pOrd) return pOrd;
   // 9) v0.69.2 · Pago parcial: el proveedor del cargo está reconocido y tiene un documento abierto MAYOR que el cargo (nunca Listo)
   if (D.fuente === 'base') { const pp = PM.propuestaParcial(c, D.gastos || [], vencs, provCargo(c, D), B); if (pp) return pp; }
   return null;
@@ -652,6 +663,11 @@ export function revisarPagos(pagos, c, vs) {
     const v = vs[id];
     if (!v) return { error: 'Un vencimiento ya no está por pagar. Recarga la lista.', code: 'pagado' };
     if (v.tipoObligacion === 'libre') return { error: `"${v.nombre}" es de tipo libre: asígnale el cargo como abono.` };
+    // v0.70.0 · Lo nacido de su boleta: se paga completo o en partes (abono con su saldo), lo más antiguo primero
+    if (v.devengado) {
+      if (monto > v.saldo + 1) return { error: `"${v.nombre}" tiene ${v.saldo} por pagar y este cargo le asigna ${monto}.` };
+      out.push({ v, monto, abono: v.estadoBase === 'con_abonos' || monto < v.saldo }); suma += monto; continue;
+    }
     if (v.estadoBase === 'con_abonos') return { error: `"${v.nombre}" tiene abonos: agrega otro abono o ciérralo.` };
     if (!v.plantillaId && !v.suelto && v.monto && Math.abs(v.monto - monto) > 1) return { error: `"${v.nombre}" es de ${v.monto}: una factura o compra a crédito se paga completa (este cargo le asigna ${monto}).` };
     out.push({ v, monto }); suma += monto;

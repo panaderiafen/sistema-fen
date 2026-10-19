@@ -25,17 +25,18 @@
 //    salió: tipo, quién, cuándo y lo propio de cada origen); "origen" sigue siendo el texto de siempre (el script lo usa).
 //    Hoy: "Esperan cartola". detalleGasto(ids): las líneas y su origen, para el detalle del gasto.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.69.5';
-import * as FB from './fs-gastos.js?v=0.69.5';
-import * as GB from './gastos-base.js?v=0.69.5';
-import * as GP from './gastos-planilla.js?v=0.69.5';
-import * as M from './gastos-g2.js?v=0.69.5';
-import * as G3 from './gastos-g3.js?v=0.69.5';
-import * as G3D from './gastos-g3d.js?v=0.69.5';
-import * as B from './gastos-banco.js?v=0.69.5';
-import { dia } from './gastos-modelo.js?v=0.69.5';
-import * as AB from './gastos-abono.js?v=0.69.5';
-import * as PM from './pagos-mixtos.js?v=0.69.5';   // v0.69.2: pagos mixtos (partes de un documento)
+import { auth as authSF } from './firebase.js?v=0.70.0';
+import * as FB from './fs-gastos.js?v=0.70.0';
+import * as GB from './gastos-base.js?v=0.70.0';
+import * as GP from './gastos-planilla.js?v=0.70.0';
+import * as M from './gastos-g2.js?v=0.70.0';
+import * as G3 from './gastos-g3.js?v=0.70.0';
+import * as G3D from './gastos-g3d.js?v=0.70.0';
+import * as B from './gastos-banco.js?v=0.70.0';
+import { dia } from './gastos-modelo.js?v=0.70.0';
+import * as AB from './gastos-abono.js?v=0.70.0';
+import * as PM from './pagos-mixtos.js?v=0.70.0';   // v0.69.2: pagos mixtos (partes de un documento)
+import * as BO from './boletas.js?v=0.70.0';      // v0.70.0: boletas de luz y agua (CGE, ESSBIO) y cuentas que nacen de su boleta
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';
@@ -86,7 +87,8 @@ export { db as dbBase, todos, catalogo, nuevo, cambio, despues, limpio, correo, 
 const AUTO = 'Sistema Fën (automático)';
 async function alDia(plantillas, vencs) {
   const hoy = M.ahoraChile().dia, d = await db();
-  const g = M.generarVencimientos(plantillas, vencs, hoy, { antelacion: p => (G3.tipoDe(p) === 'documento' ? G3.ANTELACION_DOCUMENTO : 0) }), est = M.cambiosDeEstado(vencs, hoy);
+  // v0.70.0: las cuentas de boleta (luz, agua) no se crean solas cada mes: nacen de su boleta (mientras, "Esperando boleta", estimado)
+  const g = M.generarVencimientos(plantillas.filter(x => !BO.naceDelDocumento(x.d)), vencs, hoy, { antelacion: p => (G3.tipoDe(p) === 'documento' ? G3.ANTELACION_DOCUMENTO : 0) }), est = M.cambiosDeEstado(vencs, hoy);
   const oblDe = x => { const p = plantillas.find(y => y.id === x.plantillaDocId); return p ? p.d : null; };
   if (!g.nuevos.length && !est.length && !g.archivar.length) return false;
   const escritos = await FB.runTransaction(d, async tx => {
@@ -115,8 +117,14 @@ export async function datos() {
   const { vencs, cat } = await vencimientosAlDia();
   const activos = cat.lista.filter(i => !i.archivado);
   const sp = B.mapaSePaga(cat.plantillas);   // v0.63.1: cómo se paga cada vencimiento (el de su obligación)
-  const vencimientos = M.vencimientosVisibles(vencs, M.ahoraChile().dia).map(v => ({ ...v, sePagaPor: B.sePagaVenc(v, sp) }));
-  return { ok: true, vencimientos, items: activos.filter(i => !i.esObligacionRecurrente), itemsSii: activos, areas: M.AREAS.slice(), fuente: 'base' };
+  // v0.70.0 · De dónde viene cada por pagar (Fijo, Boleta, Factura SII, Archivo, Tabla…) y su cuenta recurrente; las cuentas de boleta
+  // sin la boleta del mes ("Esperando boleta", un estimado que no es gasto) y los avisos de corte. Todo de lo ya leído: 0 lecturas.
+  const hoy = M.ahoraChile().dia, pl = {}; cat.plantillas.forEach(x => { pl[s(x.d.id) || x.id] = x.d; });
+  const crudo = {}; vencs.forEach(x => { crudo[x.id] = x.d; });
+  const vencimientos = M.vencimientosVisibles(vencs, hoy).map(v => { const p = pl[v.plantillaId] || null;
+    return { ...v, sePagaPor: B.sePagaVenc(v, sp), origenPor: BO.origenDe(crudo[v.id] || v, p), cuentaNombre: p ? s(p.nombre) : '', cuentaEmpresa: p ? s(p.empresa) : '', cuentaLocal: p ? s(p.local) : '' }; });
+  return { ok: true, vencimientos, items: activos.filter(i => !i.esObligacionRecurrente), itemsSii: activos, areas: M.AREAS.slice(), fuente: 'base',
+    esperandoBoleta: BO.esperandoBoleta(cat.plantillas, vencs, hoy), cortes: BO.avisosCorte(vencs, cat.plantillas), luzAgua: BO.planCuentas(cat.plantillas, activos).filter(f => f.existe).length };
 }
 // Para Hoy: atrasados y próximos 7 días (como sfPendientes del script), con los vencimientos al día
 // v0.63.1: más "Esperan cartola" (vencimientos de banco atrasados sin cargo y gastos que esperan su cargo). Los de banco que ya
@@ -128,6 +136,9 @@ export async function pendientesHoy() {
   const ec = B.esperanCartola({ vencs, plantillas: cat.plantillas, gastos: espera, hoy });
   const ya = new Set(ec.vencimientos.map(v => v.id));
   const l = M.pendientesHoy(vencs.filter(x => !ya.has(x.id)), hoy);
+  // v0.70.0 · Corte de luz o agua en trámite (lo dice la boleta): urgente hasta que se pague lo que cubre. Sin lecturas nuevas.
+  const cortes = BO.avisosCorte(vencs, cat.plantillas);
+  if (cortes.length) l.push({ clave: 'cortes', cantidad: cortes.length, avisos: cortes });
   return ec.total ? l.concat([{ clave: 'esperan_cartola', cantidad: ec.total, vencimientos: ec.vencimientos, gastos: ec.gastos, lineas: B.lineasEsperan(ec) }]) : l;
 }
 
@@ -219,7 +230,7 @@ export async function anular(filas, motivo) {
 }
 
 // ── Pagar un vencimiento (sfGastosPagar + registrarPagoVencimiento), todo en una transacción ──
-const conLineas0 = v => !!(v.plantillaId || v.suelto);
+const conLineas0 = v => !G3.esDevengado(v) && !!(v.plantillaId || v.suelto);   // v0.70.0: lo nacido de su boleta ya tiene sus gastos
 export async function pagar(p, marca, subir) {
   const id = String(p.id || ''), monto = M.n(p.montoPago);
   if (!id) throw error('Falta el vencimiento', 'datos');
@@ -241,13 +252,15 @@ export async function pagar(p, marca, subir) {
   }
   if (v0.estado === 'ANULADO') throw error('Ese vencimiento fue anulado. Recarga para ver el estado actual.', 'anulado');
   if (G3.estadoBase(sn0.data()) === 'con_abonos') throw error('Este vencimiento tiene abonos: agrega otro abono o ciérralo.', 'abonos');
-  const conLineas = !!(v0.plantillaId || v0.suelto);   // v0.49.0: un vencimiento suelto se paga como una obligación
+  const conLineas = conLineas0(v0);   // v0.49.0: un vencimiento suelto se paga como una obligación
   // Comprobante a Drive ("Comprobantes de pago / <año del pago>"), privado
   let url = '';
   if (p.imageData) url = (await subir({ tipo: 'comprobante', fecha: p.fechaPago, imageData: p.imageData, mimeType: p.mimeType || 'image/jpeg', fileName: String(p.fileName || 'comprobante.jpg').slice(0, 120) })).url || '';
   // Compra a crédito: el gasto ya existe (se creó al comprar); se le completa la fecha de pago y el comprobante
   let credito = [];
-  if (!conLineas && v0.item) {
+  // v0.70.0 · Lo nacido de su boleta: sus gastos son los guardados en él (gastosDoc)
+  if (G3.esDevengado(v0)) credito = await gastosDelDocumento(id, sn0.data());
+  else if (!conLineas && v0.item) {
     const delItem = (await todos('gastos', FB.where('itemGasto', '==', v0.item)))
       .sort((a, b) => (b.d.fecha || '').localeCompare(a.d.fecha || '') || (b.d.hora || '').localeCompare(a.d.hora || '') || b.id.localeCompare(a.id));
     credito = M.gastosDelCredito(v0, delItem);
@@ -335,8 +348,20 @@ export async function guardarObligacion(p, marca) {
   const d = await db(), hoy = M.ahoraChile().dia, id0 = p && p.id ? String(p.id) : '';
   const cat = await catalogo();
   const ex = id0 ? cat.plantillas.find(x => (s(x.d.id) || x.id) === id0 && !x.d.quitadoEnPlanilla) : null;
-  const r = M.obligacionDesdeForm(p || {}, ex ? M.vistaPlantilla(ex.id, ex.d, [], hoy) : null, cat.lista.filter(i => !i.archivado));
+  // v0.70.0 · Cuenta de boleta (luz, agua): empresa, local y reparto en % (el reparto manda sobre el área del ítem)
+  let bol = null;
+  if (p && p.boleta && typeof p.boleta === 'object') {
+    const emp = s(p.boleta.empresa);
+    if (emp) {
+      if (!BO.EMPRESAS[emp]) throw error('Empresa no válida', 'datos');
+      const rv = BO.validarReparto(p.boleta.repartoPct, M.AREAS); if (rv.error) throw error(rv.error, 'datos');
+      bol = { empresa: emp, servicio: BO.EMPRESAS[emp].servicio, local: M.texto(p.boleta.local, 40), repartoPct: rv.reparto };
+    } else if (ex && s(ex.d.empresa)) bol = { empresa: '' };
+  }
+  const itemsF = cat.lista.filter(i => !i.archivado).map(i => (bol && bol.empresa && i.item === s(p.item) ? { ...i, area: 'ADMIN' } : i));
+  const r = M.obligacionDesdeForm(p || {}, ex ? M.vistaPlantilla(ex.id, ex.d, [], hoy) : null, itemsF);
   if (r.error) throw error(r.error, 'datos');
+  if (bol && bol.empresa) Object.assign(r.d, { area: '', multiArea: null, pArea1: '', pPct1: '', pArea2: '', pPct2: '', pArea3: '', pPct3: '' });
   // v0.49.0: tipo (fijo, documento, libre), identificador y aviso, si el formulario los trae
   const clasif = p && p.tipoObligacion !== undefined ? G3.clasificacionDesdeForm(p) : null;
   if (clasif && clasif.error) throw error(clasif.error, 'datos');
@@ -348,24 +373,24 @@ export async function guardarObligacion(p, marca) {
     const recl = clasif && clasif.campos.tipoObligacion !== s(ex.d.tipoObligacion) || (clasif && clasif.campos.tipoObligacion === 'documento' && String(clasif.campos.diasAviso) !== String(ex.d.diasAviso))
       ? G3.reclasificar(await todos('vencimientos'), pid, clasif.campos) : [];
     const n = await FB.runTransaction(d, async tx => {
-      const sn = await tx.get(ref); if (!sn.exists()) throw error('Esa obligación ya no existe', 'datos');
+      const sn = await tx.get(ref); if (!sn.exists()) throw error('Esa cuenta recurrente ya no existe', 'datos');
       const refsV = recl.map(x => FB.doc(d, 'vencimientos', x.id)), snV = [];
       for (const rv of refsV) snV.push(await tx.get(rv));
-      const a = sn.data(), campos = { ...M.camposPlantilla(r.d), ...(clasif ? clasif.campos : {}), ...extraSp };
+      const a = sn.data(), campos = { ...M.camposPlantilla(r.d), ...(clasif ? clasif.campos : {}), ...extraSp, ...(bol || {}), ...(bol && bol.empresa ? { tipoObligacion: 'documento' } : {}) };
       let k = 0;
       if (Object.keys(M.diferencias(a, campos)).length) { tx.update(ref, cambio(a, clasif && clasif.campos.tipoObligacion !== s(a.tipoObligacion) ? 'clasificó' : 'editó', campos)); k++; }
-      recl.forEach((x, i) => { if (snV[i].exists() && !snV[i].data().documento) { tx.update(refsV[i], cambio(snV[i].data(), 'tomó el tipo de su obligación', x.campos)); k++; } });
+      recl.forEach((x, i) => { if (snV[i].exists() && !snV[i].data().documento) { tx.update(refsV[i], cambio(snV[i].data(), 'tomó el tipo de su cuenta recurrente', x.campos)); k++; } });
       return k;
     });
     await despues(n);
     return { ok: true, id: pid };
   }
   const id = M.idPlantilla(marca), ref = FB.doc(d, 'obligaciones', id), clave = marca.t + marca.r;
-  const docNuevo = { ...M.docPlantillaNueva(id, r.d, hoy), clave, ...(clasif ? clasif.campos : {}), ...extraSp };
+  const docNuevo = { ...M.docPlantillaNueva(id, r.d, hoy), clave, ...(clasif ? clasif.campos : {}), ...extraSp, ...(bol || {}), ...(bol && bol.empresa ? { tipoObligacion: 'documento' } : {}) };
   const cuotas = r.d.frecuencia === 'cuponera' ? M.vencimientosCuponera(id, r.d, hoy) : [];
   const n = await FB.runTransaction(d, async tx => {
     const sn = await tx.get(ref);
-    if (sn.exists()) { if (sn.data().clave === clave) return 0; throw error('Se cruzó con otra obligación creada en el mismo instante: vuelve a guardar.', 'datos'); }
+    if (sn.exists()) { if (sn.data().clave === clave) return 0; throw error('Se cruzó con otra cuenta recurrente creada en el mismo instante: vuelve a guardar.', 'datos'); }
     const refsV = cuotas.map(x => FB.doc(d, 'vencimientos', x.id)), snV = [];
     for (const rv of refsV) snV.push(await tx.get(rv));
     tx.set(ref, nuevo(docNuevo, 'mano'));
@@ -481,7 +506,7 @@ async function planCompletar(obl, doc, vencs, hoy, vencIdPedido) {
   const ids = new Set(vencs.map(y => y.id));
   let fecha = M.esIso(vp.proximaFecha) ? vp.proximaFecha : doc.fechaVencimiento, nv = M.docVencDeObligacion(pid, obl.d, fecha, 'PENDIENTE');
   if (ids.has(nv.id)) { fecha = doc.fechaVencimiento; nv = M.docVencDeObligacion(pid, obl.d, fecha, 'PENDIENTE'); }
-  if (ids.has(nv.id)) throw error('No se encontró un vencimiento por completar de esa obligación', 'datos');
+  if (ids.has(nv.id)) throw error('No se encontró un vencimiento por completar de esa cuenta recurrente', 'datos');
   return { id: nv.id, crear: G3.alCrear(nv.d, { ...obl.d, tipoObligacion: 'documento' }) };
 }
 function aplicarCompletar(tx, d, plan, snV, doc, obl, snO) {
@@ -531,7 +556,7 @@ export async function subirBoleta(p, marca, subir) {
   } else {
     const l = G3.obligacionesDe(ps, doc.cliente);
     if (l.length === 1) obl = l[0];
-    else motivo = !doc.cliente ? 'Sin N° de cliente' : l.length ? 'Hay ' + l.length + ' obligaciones con ese N° de cliente' : 'Ninguna obligación tiene ese N° de cliente';
+    else motivo = !doc.cliente ? 'Sin N° de cliente' : l.length ? 'Hay ' + l.length + ' cuentas recurrentes con ese N° de cliente' : 'Ninguna cuenta recurrente tiene ese N° de cliente';
   }
   if (!obl && !vencId) {
     const ref = FB.doc(d, 'documentos_pendientes', idP);
@@ -584,10 +609,10 @@ export async function resolverPendiente(id, accion, datos = {}) {
   }
   if (accion !== 'asignar') throw error('Acción no válida', 'datos');
   const ps = await todos('obligaciones'), obl = ps.find(o => (s(o.d.id) || o.id) === String(datos.obligacionId || '') && !o.d.quitadoEnPlanilla);
-  if (!obl) throw error('Elige la obligación', 'datos');
+  if (!obl) throw error('Elige la cuenta recurrente', 'datos');
   const doc = { tipo: x.tipo || 'boleta', cliente: s(x.cliente), monto: x.monto, fechaVencimiento: s(x.fechaVencimiento), url: (x.archivo || {}).url || '', nombreArchivo: (x.archivo || {}).nombre || '', numero: s(x.numero), clave: s(x.clave), pendienteId: String(id),
     rut: s(x.rut), razonSocial: s(x.razonSocial), siiDocId: s(x.siiDocId), ...(x.montosSii && typeof x.montosSii === 'object' ? x.montosSii : {}) };   // v0.50.0: una factura del SII trae su RUT y razón social (v0.53.0: y sus montos)
-  const r = await completarCon(obl, doc, '', { ref, que: 'asignó a una obligación', campos: vid => ({ estado: 'asignado', resultado: { obligacionId: s(obl.d.id) || obl.id, vencimientoId: vid, por: quien, en } }) });
+  const r = await completarCon(obl, doc, '', { ref, que: 'asignó a una cuenta recurrente', campos: vid => ({ estado: 'asignado', resultado: { obligacionId: s(obl.d.id) || obl.id, vencimientoId: vid, por: quien, en } }) });
   return { ok: true, ...r };
 }
 
@@ -784,6 +809,119 @@ export async function crearSuelto(p, marca) {
   });
   await despues(n);
   return { ok: true, id, repetido: !n };
+}
+
+// ═══════════════════════════════════════════════
+//  v0.70.0 · Boletas de luz y agua (CGE, ESSBIO): el por pagar del período nace de su boleta, con sus gastos (reglas en boletas.js)
+// ═══════════════════════════════════════════════
+// Lo que la vista previa necesita, todo de la memoria (0 lecturas en una sesión ya abierta): cuentas, por pagar, ítems y los ítems
+// financieros para los intereses (como las multas de Previred).
+export async function datosBoleta() {
+  const [vencs, cat, fin] = await Promise.all([todos('vencimientos'), catalogo(), todos('fin_items').catch(() => [])]);
+  const finM = {}; fin.forEach(x => { finM[x.id] = x.d; });
+  const items = cat.lista.filter(i => !i.archivado);
+  return { ok: true, vencs, plantillas: cat.plantillas, items, recargos: { ...G3D.itemsRecargos(items, finM), area: G3D.areaRecargos(), avisos: G3D.avisosRecargos(items, finM) } };
+}
+// Registrar una boleta. p = { boleta (lo leído y revisado en pantalla), cuentaId, item, itemIntereses, areaIntereses,
+//   saldoSinBoleta: { registrar, mes, item }, imageData, mimeType, fileName }. marca: fija por envío (un reintento no duplica).
+// Una transacción: el por pagar del período (o el que esperaba su boleta), sus gastos (del mes del período; intereses aparte), el
+// saldo anterior sin boleta (si se pidió), el reemplazo de un saldo sin boleta de ese mes y el N° aprendido en la cuenta.
+export async function registrarBoletaServicio(p, marca, subir) {
+  const b = BO.revisarBoleta(p && p.boleta);
+  if (b.bloquea) throw error(b.errores[0], 'datos');
+  const d = await db(), hoy = M.ahoraChile().dia, por = correo() || 'Sistema Fën', en = M.ahoraChile().texto;
+  const [vencs, cat] = await Promise.all([todos('vencimientos'), catalogo()]);
+  const items = cat.lista.filter(i => !i.archivado);
+  const cuenta = cat.plantillas.find(x => (s(x.d.id) || x.id) === s(p.cuentaId) && !x.d.quitadoEnPlanilla);
+  if (!cuenta) throw error('Elige la cuenta recurrente de esta boleta', 'datos');
+  if (s(cuenta.d.empresa) && s(cuenta.d.empresa) !== b.empresa) throw error(`Esa cuenta es de ${s(cuenta.d.empresa)} y la boleta es de ${b.empresa}`, 'datos');
+  const pid = s(cuenta.d.id) || cuenta.id, k = G3.normIdent(cuenta.d.identificador);
+  if (k && k !== G3.normIdent(b.cliente)) throw error(`La cuenta "${s(cuenta.d.nombre)}" tiene el N° ${s(cuenta.d.identificador)} y la boleta dice ${b.cliente}`, 'datos');
+  // ¿Ya está? (otra pestaña, un reintento o la misma boleta subida otra vez)
+  const pre = BO.planBoleta(b, cuenta, vencs, items, { ...opBoleta(p), por, en });
+  if (pre.repetido) return { ok: true, repetido: true, id: pre.id, nombre: s(pre.venc && pre.venc.nombre) };
+  if (pre.error) throw error(pre.error, 'datos');
+  // El que esperaba su boleta (una cuenta de antes, de tipo documento): se completa ese, no se crea otro
+  const esp = vencs.filter(x => !x.d.quitadoEnPlanilla && s(x.d.plantillaID) === pid && G3.estadoBase(x.d) === 'esperando_documento' && !x.d.documento && !(Array.isArray(x.d.abonos) && x.d.abonos.length))
+    .map(x => { const dd = B.diasEntre(dia(x.d.fechaEstimada) || dia(x.d.fechaVencimiento), BO.fechaPagoDe(b)); return { x, dist: isFinite(dd) ? Math.abs(dd) : 999 }; }).filter(y => y.dist <= 45).sort((a1, a2) => a1.dist - a2.dist)[0];
+  // El PDF a Drive (Fën · Gastos / Boletas y facturas / año), privado, con el camino de siempre
+  let url = '';
+  const nombreArchivo = String(p.fileName || `boleta-${b.empresa}-${b.numero || b.mes}.pdf`).slice(0, 120);
+  if (p.imageData && subir) url = (await subir({ tipo: 'boleta', fecha: BO.dma(BO.fechaPagoDe(b)), imageData: p.imageData, mimeType: p.mimeType || 'application/pdf', fileName: nombreArchivo })).url || '';
+  const plan = BO.planBoleta(b, cuenta, vencs, items, { ...opBoleta(p), url, nombreArchivo, hora: M.ahoraChile().hora, por, en, vencIdEspera: esp ? esp.x.id : '' });
+  if (plan.repetido) return { ok: true, repetido: true, id: plan.id };
+  if (plan.error) throw error(plan.error, 'datos');
+  const ids = M.idsLineas('gb', marca, plan.lineas.length);
+  const idsB = [], idsSA = [];
+  plan.lineas.forEach((l, i) => (l.para === 'sa' ? idsSA : idsB).push(ids[i]));
+  const refV = FB.doc(d, 'vencimientos', plan.id), refSA = plan.sa ? FB.doc(d, 'vencimientos', plan.sa.id) : null, refO = FB.doc(d, 'obligaciones', cuenta.id);
+  const refsAn = plan.anular.map(x => FB.doc(d, 'vencimientos', x.id)), refsAnG = plan.anular.flatMap(x => x.gastos.slice(0, 20).map(g => FB.doc(d, 'gastos', s(g))));
+  const r = await FB.runTransaction(d, async tx => {
+    const snG0 = await tx.get(FB.doc(d, 'gastos', ids[0]));
+    if (snG0.exists()) return { repetido: true };
+    const snV = await tx.get(refV), snSA = refSA ? await tx.get(refSA) : null, snO = await tx.get(refO), snAn = [], snAnG = [];
+    for (const rf of refsAn) snAn.push(await tx.get(rf));
+    for (const rf of refsAnG) snAnG.push(await tx.get(rf));
+    if (!snO.exists()) throw error('Esa cuenta recurrente ya no existe', 'datos');
+    const od = { tipo: 'boleta', empresa: b.empresa, numero: b.numero, vencimientoId: plan.id, por, en };
+    let k2 = 0;
+    // El por pagar del período: nuevo, o el que esperaba su boleta
+    if (esp && plan.id === esp.x.id) {
+      if (!snV.exists()) throw error('Se cruzó con otra pestaña: vuelve a intentarlo', 'cambio');
+      const a = snV.data(); if (a.documento || G3.estadoBase(a) !== 'esperando_documento') throw error('Ese por pagar ya recibió su documento. Recarga.', 'cambio');
+      tx.update(refV, cambio(a, 'recibió su boleta', { ...plan.venc, gastosDoc: idsB }, { boleta: b.clave }));
+    } else {
+      if (snV.exists()) return { repetido: true };
+      tx.set(refV, nuevo({ ...plan.venc, id: plan.id, gastosDoc: idsB }, 'boleta'));
+    }
+    k2++;
+    if (refSA) { if (snSA.exists()) throw error('El saldo anterior de esta boleta ya estaba registrado. Recarga.', 'cambio'); tx.set(refSA, nuevo({ ...plan.sa.venc, id: plan.sa.id, gastosDoc: idsSA }, 'boleta')); k2++; }
+    plan.lineas.forEach((l, i) => { tx.set(FB.doc(d, 'gastos', ids[i]), nuevo({ ...l.d, origenDetalle: od }, 'boleta')); k2++; });
+    // Un saldo sin boleta de este mismo mes (registrado antes con otra boleta): queda anulado y reemplazado (nunca dos veces)
+    const motivo = `Reemplazado por la boleta${b.numero ? ' N° ' + b.numero : ''} de ${BO.nombreMes(b.mes)}`;
+    snAn.forEach((sx, i) => { if (!sx.exists()) return; const a = sx.data(); if (G3.estadoBase(a) !== 'por_pagar') throw error('El saldo anterior que esta boleta reemplaza ya tiene pagos. Recarga.', 'cambio');
+      tx.update(refsAn[i], cambio(a, 'reemplazado por su boleta', { estado: 'anulado', anulado: { por, en, motivo }, boleta: { ...(a.boleta || {}), reemplazadoPor: plan.id } }, { motivo })); k2++; });
+    snAnG.forEach((sg, i) => { if (!sg.exists() || sg.data().estado !== 'vigente') return; tx.update(refsAnG[i], cambio(sg.data(), 'anuló', { estado: 'anulado', anulado: { el: en, en, por, motivo, filaOriginal: '' } }, { motivo })); k2++; });
+    // La cuenta aprende su N° y su empresa (así la próxima boleta se reconoce sola)
+    const o = snO.data(), co = {};
+    if (!G3.normIdent(o.identificador)) co.identificador = s(b.cliente).slice(0, 40);
+    if (!s(o.empresa)) Object.assign(co, { empresa: b.empresa, servicio: b.servicio, tipoObligacion: 'documento' });
+    if (Object.keys(co).length) { tx.update(refO, cambio(o, 'aprendió los datos de su boleta', co)); k2++; }
+    return { n: k2 };
+  });
+  if (r.repetido) return { ok: true, repetido: true, id: plan.id };
+  await despues(r.n);
+  return { ok: true, id: plan.id, sa: plan.sa ? plan.sa.id : '', anulados: plan.anular.map(x => x.id), gastos: ids, total: plan.total, comparacion: { estado: plan.comparacion.estado, dif: plan.comparacion.dif, periodos: plan.comparacion.periodos }, url, escrituras: r.n };
+}
+const opBoleta = p => ({ item: s(p.item), itemIntereses: s(p.itemIntereses), areaIntereses: s(p.areaIntereses), saldoSinBoleta: p.saldoSinBoleta && typeof p.saldoSinBoleta === 'object' ? { registrar: p.saldoSinBoleta.registrar === true, mes: s(p.saldoSinBoleta.mes), item: s(p.saldoSinBoleta.item) } : null });
+// "Crear cuentas de luz y agua" (una vez): elecciones [{ clave, accion: 'crear' | 'usar' | 'nada', usarId, item }]. Las que ya existen
+// (misma empresa y local) no se tocan: nunca se duplica. "Usar" una cuenta de luz o agua que ya había la deja como cuenta de boleta
+// (con su historial); nunca se borra nada. Los N° de cliente no se escriben aquí: los aprende la primera boleta.
+export async function crearCuentasLuzAgua(elecciones, marca) {
+  const d = await db(), hoy = M.ahoraChile().dia, cat = await catalogo(), items = cat.lista.filter(i => !i.archivado);
+  const plan = BO.planCuentas(cat.plantillas, items), E = {}; (Array.isArray(elecciones) ? elecciones : []).forEach(x => { E[s(x && x.clave)] = x; });
+  const pasos = [];
+  plan.forEach(f => {
+    const e = E[f.def.clave] || { accion: 'crear' }; if (f.existe || e.accion === 'nada') return;
+    const it = items.find(i => i.item === s(e.item || f.item)) || null;
+    if (e.accion === 'usar') { const o = cat.plantillas.find(x => (s(x.d.id) || x.id) === s(e.usarId) && !x.d.quitadoEnPlanilla); if (!o) throw error('La cuenta que elegiste usar ya no existe', 'datos'); pasos.push({ tipo: 'usar', f, it, ref: FB.doc(d, 'obligaciones', o.id) }); }
+    else pasos.push({ tipo: 'crear', f, it, id: (M.idPlantilla(marca) + '-' + f.def.clave).replace(/[^A-Za-z0-9-]/g, '') });
+  });
+  if (pasos.filter(x => x.tipo === 'usar').map(x => x.ref.id).some((v, i, a) => a.indexOf(v) !== i)) throw error('Una misma cuenta no puede ser dos de las cuatro', 'datos');
+  const clave = marca.t + marca.r;
+  const r = await FB.runTransaction(d, async tx => {
+    const sns = [];
+    for (const x of pasos) sns.push(await tx.get(x.tipo === 'usar' ? x.ref : FB.doc(d, 'obligaciones', x.id)));
+    let creadas = 0, usadas = 0;
+    pasos.forEach((x, i) => {
+      if (x.tipo === 'crear') { if (sns[i].exists()) return; tx.set(FB.doc(d, 'obligaciones', x.id), nuevo(BO.docCuentaNueva(x.id, x.f.def, x.it, hoy, clave), 'mano')); creadas++; }
+      else { if (!sns[i].exists()) throw error('Esa cuenta ya no existe', 'datos'); const a = sns[i].data(); const c = BO.camposCuenta(x.f.def, x.it);
+        tx.update(x.ref, cambio(a, 'usada como ' + x.f.def.nombre + ' (Crear cuentas de luz y agua)', c)); usadas++; }
+    });
+    return { creadas, usadas };
+  });
+  await despues(r.creadas + r.usadas);
+  return { ok: true, ...r, yaEstaban: plan.filter(f => f.existe).map(f => f.def.nombre) };
 }
 
 // ═══════════════════════════════════════════════

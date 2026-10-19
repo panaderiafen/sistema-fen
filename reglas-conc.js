@@ -184,7 +184,7 @@ export function revisar(p) {
   if (!T[res.tipo]) return { error: 'Elige qué hacer con los movimientos que calzan.' };
   if (res.tipo === 'nuevo' && !res.item) return { error: 'Elige el ítem del gasto.' };
   if (res.tipo === 'abono' && !res.plantillaId) return { error: 'Elige a quién va el abono de sueldo.' };
-  if (res.tipo === 'vencimiento' && !res.vencimiento) return { error: 'Elige la obligación que paga.' };
+  if (res.tipo === 'vencimiento' && !res.vencimiento) return { error: 'Elige la cuenta recurrente que paga.' };
   if (res.tipo === 'cliente' && !res.clienteId) return { error: 'Elige el cliente.' };
   return { regla: { lado, nivel: p.nivel === 'listos' ? 'listos' : 'proponer', cond: { tipo, ...(tipo === 'exacta' ? { clave: s(k.clave) } : { palabras }), no, montoMin: a, montoMax: b, cuenta: ['cc', 'chequera'].includes(k.cuenta) ? k.cuenta : '', rut }, res } };
 }

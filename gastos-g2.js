@@ -16,9 +16,9 @@
 //  generarVencimientos acepta la antelación por obligación (tipo documento: antes, para esperar la boleta).
 //  Sin red: se prueba sola. Fechas y horas en hora de Chile (America/Santiago).
 // ═══════════════════════════════════════════════
-import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.69.5';
-import * as G3 from './gastos-g3.js?v=0.69.5';
-import * as AR from './areas.js?v=0.69.5';
+import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.70.0';
+import * as G3 from './gastos-g3.js?v=0.70.0';
+import * as AR from './areas.js?v=0.70.0';
 
 // v0.63.1: B2B (costos del canal B2B: atención de clientes, órdenes y despacho)
 // v0.69.1: REVENTA (lo que se compra hecho y se vende tal cual). La lista sale de areas.js (una sola para toda la app).
@@ -60,7 +60,7 @@ export function limpiarItems(items, catalogo) {
   const limpios = [];
   for (const x0 of items || []) {
     const x = x0 || {}, ref = lista[x.item];
-    if (!ref) return { error: recurrentes[x.item] ? `"${x.item}" es una obligación recurrente: se paga desde sus vencimientos` : `El ítem "${x.item}" no está en la lista de ítems` };
+    if (!ref) return { error: recurrentes[x.item] ? `"${x.item}" es una cuenta recurrente: se paga desde sus vencimientos` : `El ítem "${x.item}" no está en la lista de ítems` };
     const it = { item: ref.item, categoria: ref.categoria, tipo: ref.tipo, subTipo: ref.subTipo, area: ref.area, esHarina: !!x.esHarina && ref.item === 'MATERIA PRIMA', areas: [], prorrateo: null, montoTotal: 0 };
     if (ref.area === 'PRORRATEADO') {
       const q = x.prorrateo || {}, pct = v => Math.round(n(v));
@@ -266,7 +266,7 @@ export function cambiosDeEstado(vencs, hoy) {
 const json = v => { if (Array.isArray(v) || (v && typeof v === 'object')) return v; try { return v ? JSON.parse(v) : null; } catch (e) { return null; } };
 // v0.49.0: "estado" para las pantallas de siempre (lo nuevo se traduce; lo de la planilla queda tal cual) y, si el
 // vencimiento ya usa lo nuevo, sus datos: estadoBase, tipo de la obligación, documento, abonos, fecha estimada.
-const G3_CAMPOS = ['tipoObligacion', 'montoDocumento', 'fechaDocumento', 'documento', 'abonos', 'fechaEstimada', 'suelto', 'cerrado', 'diasAviso'];
+const G3_CAMPOS = ['tipoObligacion', 'montoDocumento', 'fechaDocumento', 'documento', 'abonos', 'fechaEstimada', 'suelto', 'cerrado', 'diasAviso', 'boleta'];
 export function vistaVencimiento(id, d, hoy) {
   const nuevo = G3.ESTADOS.includes(s(d.estado)) || G3_CAMPOS.some(k => d[k] !== undefined && d[k] !== '');
   const v = vistaVencimiento0(id, d);
@@ -274,7 +274,9 @@ export function vistaVencimiento(id, d, hoy) {
   return { ...v, estado: G3.estadoVista(d, hoy || ahoraChile().dia), estadoBase: G3.estadoBase(d), fecha: G3.fechaReal(d), fechaEstimada: dia(d.fechaEstimada) || '',
     tipoObligacion: s(d.tipoObligacion), montoDocumento: d.montoDocumento === undefined ? '' : s(d.montoDocumento), fechaDocumento: dia(d.fechaDocumento) || '',
     documento: d.documento && typeof d.documento === 'object' ? d.documento : null, abonos: Array.isArray(d.abonos) ? d.abonos : [], suelto: d.suelto === true,
-    cerrado: d.cerrado || null, diasAviso: d.diasAviso === undefined ? '' : d.diasAviso, fechaSaldo: dia(d.fechaSaldo) || '' };   // v0.64.0: saldo reagendado
+    cerrado: d.cerrado || null, diasAviso: d.diasAviso === undefined ? '' : d.diasAviso, fechaSaldo: dia(d.fechaSaldo) || '',   // v0.64.0: saldo reagendado
+    // v0.70.0 · Nació de su boleta (luz, agua): sus gastos ya existen (devengado) y sus datos de la boleta
+    ...(d.boleta && typeof d.boleta === 'object' ? { boleta: d.boleta, devengado: d.devengado === true, gastosDoc: Array.isArray(d.gastosDoc) ? d.gastosDoc : [], origenPorPagar: s(d.origenPorPagar) } : {}) };
 }
 function vistaVencimiento0(id, d) {
   return { id, plantillaId: s(d.plantillaID), nombre: s(d.nombre), item: s(d.item), periodoKey: s(d.periodoKey), fecha: dia(d.fechaVencimiento) || s(d.fechaVencimiento),
@@ -442,7 +444,9 @@ export function vistaPlantilla(docId, d, vencs, hoy) {
     // v0.49.0: tipo e identificador (solo si ya está clasificada: lo copiado de la planilla se ve igual que antes)
     ...(d.tipoObligacion !== undefined ? { tipoObligacion: s(d.tipoObligacion), identificador: s(d.identificador), diasAviso: d.diasAviso === undefined ? '' : d.diasAviso } : {}),
     // v0.63.1: cómo se paga (sin el campo = banco: se ve como "banco" pero no se guarda hasta que se edite)
-    ...(d.sePagaPor !== undefined ? { sePagaPor: s(d.sePagaPor) } : {}) };
+    ...(d.sePagaPor !== undefined ? { sePagaPor: s(d.sePagaPor) } : {}),
+    // v0.70.0 · Cuenta de boleta (luz, agua): su empresa, servicio, local y reparto en %
+    ...(d.empresa !== undefined ? { empresa: s(d.empresa), servicio: s(d.servicio), local: s(d.local), repartoPct: Array.isArray(d.repartoPct) ? d.repartoPct : [] } : {}) };
 }
 export const plantillasVista = (plantillas, vencs, hoy) => (plantillas || []).filter(x => vivo(x.d)).map(x => vistaPlantilla(x.id, x.d, vencs, hoy)).filter(p => p.id);
 
@@ -465,7 +469,7 @@ export function obligacionDesdeForm(p, existente, items) {
   const frec = String(p.frecuencia || '');
   if (!FRECUENCIAS.includes(frec)) return { error: 'Elige la frecuencia' };
   const id = p.id ? String(p.id) : '';
-  if (id && !existente) return { error: 'Esa obligación ya no existe' };
+  if (id && !existente) return { error: 'Esa cuenta recurrente ya no existe' };
   if (existente && (existente.frecuencia === 'cuponera') !== (frec === 'cuponera')) return { error: 'Una cuponera no se puede cambiar a otra frecuencia (ni al revés): crea una nueva' };
   const d = { id: id || null, nombre, frecuencia: frec, dia: '', fechaEsp: '', obs: texto(p.obs, 300), item: '', area: '', categoria: '', tipo: '', subTipo: '',
     pArea1: '', pPct1: '', pArea2: '', pPct2: '', pArea3: '', pPct3: '', multiArea: null, cuotas: null,
@@ -537,7 +541,7 @@ export function vencimientosCuponera(pid, d, hoy) {
 // Archivar / reactivar (archivarPlantilla / activarPlantilla). Reactivar deja la fecha de creación en hoy
 // (el script lo hace así; si ya tenía vencimientos, sigue desde el día siguiente al último, igual que el script).
 export function estadoPlantilla(id, activar, hoy) {
-  if (!/^[A-Za-z0-9_-]{2,64}$/.test(String(id || ''))) return { error: 'Falta la obligación' };
+  if (!/^[A-Za-z0-9_-]{2,64}$/.test(String(id || ''))) return { error: 'Falta la cuenta recurrente' };
   return { campos: activar ? { estado: 'ACTIVA', fechaCreacion: hoy } : { estado: 'ARCHIVADA' } };
 }
 

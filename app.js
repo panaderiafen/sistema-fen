@@ -9,51 +9,52 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.69.5';
-import * as Caja from './caja.js?v=0.69.5';
-import * as Stock from './stock.js?v=0.69.5';
-import * as Ajustes from './ajustes.js?v=0.69.5';
-import * as Apps from './apps.js?v=0.69.5';
-import * as Agenda from './agenda.js?v=0.69.5';
-import * as Gastos from './gastos.js?v=0.69.5';
-import * as G3 from './gastos-g3.js?v=0.69.5';
-import * as G3D from './gastos-g3d.js?v=0.69.5';
-import * as GBanco from './gastos-banco.js?v=0.69.5';
-import * as TE from './tef-enviadas.js?v=0.69.5';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.69.5';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.69.5';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.69.5';
-import * as AR from './areas.js?v=0.69.5';   // v0.69.1: una sola lista de áreas (con REVENTA)
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.69.5';
-import * as Sii from './sii.js?v=0.69.5';
-import * as GSii from './gastos-sii.js?v=0.69.5';
-import * as SP from './sii-pendientes.js?v=0.69.5';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.69.5');
-import * as Previred from './previred.js?v=0.69.5';
-import * as B2b from './b2b.js?v=0.69.5';
-import * as Cartola from './cartola.js?v=0.69.5';
-import * as RD from './registro-detalle.js?v=0.69.5';   // v0.67.7: "Ver el registro" (B2B y Gastos)
-import * as BJ from './bandeja.js?v=0.69.5';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
-import * as RC from './reglas-conc.js?v=0.69.5';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
-import * as PT from './puntaje.js?v=0.69.5';       // v0.69.0: el puntaje explicado de cada propuesta
-import * as PM from './pagos-mixtos.js?v=0.69.5';  // v0.69.2: pagos mixtos (un documento pagado en partes)
-import * as CR from './conc-resumen.js?v=0.69.5';  // v0.69.3: Conciliación → Resumen del mes (de la memoria)
-import * as SiiFactura from './sii-factura.js?v=0.69.5';
-import * as PdfOrden from './pdf-orden.js?v=0.69.5';
-import * as Prod from './produccion.js?v=0.69.5';
-import * as Mem from './fs-memoria.js?v=0.69.5';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.69.5';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.70.0';
+import * as Caja from './caja.js?v=0.70.0';
+import * as Stock from './stock.js?v=0.70.0';
+import * as Ajustes from './ajustes.js?v=0.70.0';
+import * as Apps from './apps.js?v=0.70.0';
+import * as Agenda from './agenda.js?v=0.70.0';
+import * as Gastos from './gastos.js?v=0.70.0';
+import * as G3 from './gastos-g3.js?v=0.70.0';
+import * as G3D from './gastos-g3d.js?v=0.70.0';
+import * as GBanco from './gastos-banco.js?v=0.70.0';
+import * as TE from './tef-enviadas.js?v=0.70.0';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.70.0';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.70.0';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.70.0';
+import * as AR from './areas.js?v=0.70.0';   // v0.69.1: una sola lista de áreas (con REVENTA)
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.70.0';
+import * as Sii from './sii.js?v=0.70.0';
+import * as GSii from './gastos-sii.js?v=0.70.0';
+import * as SP from './sii-pendientes.js?v=0.70.0';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.70.0');
+import * as Previred from './previred.js?v=0.70.0';
+import * as B2b from './b2b.js?v=0.70.0';
+import * as Cartola from './cartola.js?v=0.70.0';
+import * as RD from './registro-detalle.js?v=0.70.0';   // v0.67.7: "Ver el registro" (B2B y Gastos)
+import * as BJ from './bandeja.js?v=0.70.0';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
+import * as RC from './reglas-conc.js?v=0.70.0';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
+import * as PT from './puntaje.js?v=0.70.0';       // v0.69.0: el puntaje explicado de cada propuesta
+import * as PM from './pagos-mixtos.js?v=0.70.0';  // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as CR from './conc-resumen.js?v=0.70.0';  // v0.69.3: Conciliación → Resumen del mes (de la memoria)
+import * as BO from './boletas.js?v=0.70.0';      // v0.70.0: boletas de luz y agua, cuentas recurrentes y por pagar
+import * as SiiFactura from './sii-factura.js?v=0.70.0';
+import * as PdfOrden from './pdf-orden.js?v=0.70.0';
+import * as Prod from './produccion.js?v=0.70.0';
+import * as Mem from './fs-memoria.js?v=0.70.0';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.70.0';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.0';
-import * as VistaProd from './vista-produccion.js?v=0.69.5';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.69.5';
+import * as VistaProd from './vista-produccion.js?v=0.70.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B } from './b2b-modelo.js?v=0.70.0';
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.69.5');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.70.0');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.69.5');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.70.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.69.5')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.70.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -363,7 +364,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.69.5" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.70.0" alt="Fën"><span>Sistema de administración</span></div>
     <a class="nav-item" href="#hoy" data-vista="hoy">${icono('hoy')}Hoy</a>
     <a class="nav-item" href="#agenda" data-vista="agenda">${icono('calendario')}Agenda</a>
     <a class="nav-item" href="#gastos" data-vista="gastos">${icono('boleta')}Gastos</a>
@@ -634,14 +635,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.69.5').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.70.0').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.69.5').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.70.0').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -771,7 +772,7 @@ async function pintarAgendaMes() {
   const [y, m] = agMes.split('-').map(Number);
   const primero = new Date(y, m - 1, 1), ultimo = new Date(y, m, 0);
   const desde = Caja.diaLocal(primero), hasta = Caja.diaLocal(ultimo);
-  el.innerHTML = `<div class="cabecera"><div><h1 id="t-agenda">Agenda ${info('Agenda', 'Fën: lo del negocio (lo ve la administración). Personal: solo tú lo ves y no entra en los informes de Fën.\nToca un día para agregar algo ese día, o algo ya agendado para cambiarlo, marcarlo hecho o quitarlo. Quitar no lo borra: queda guardado como quitado.\nCada cosa puede tener una etiqueta con color (se crean al agregar), durar varios días o repetirse cada semana o cada mes.\nAparecen solos, cada uno con su color: los pagos de Gastos (los vencidos sin pago en rojo suave y los próximos de cada obligación con borde punteado; con la base nueva, solo los vencimientos ya creados y el recordatorio "Subir boleta" de los que esperan su boleta), los cobros de B2B (el día que le toca pagar a cada cliente según su frecuencia de pago), facturar, los días de conciliar y el análisis de cada lunes. Con los botones de "Mostrar" escondes lo que no quieras ver.\nLo que marques "Copiar a Google Calendar" queda en tu calendario "Fën" con su aviso.')}</h1><p>${esc(MESES_LARGOS[m - 1].replace(/^./, c => c.toUpperCase()))} ${y}</p></div>
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-agenda">Agenda ${info('Agenda', 'Fën: lo del negocio (lo ve la administración). Personal: solo tú lo ves y no entra en los informes de Fën.\nToca un día para agregar algo ese día, o algo ya agendado para cambiarlo, marcarlo hecho o quitarlo. Quitar no lo borra: queda guardado como quitado.\nCada cosa puede tener una etiqueta con color (se crean al agregar), durar varios días o repetirse cada semana o cada mes.\nAparecen solos, cada uno con su color: los pagos de Gastos (los vencidos sin pago en rojo suave y los próximos de cada cuenta recurrente con borde punteado; con la base nueva, solo los por pagar ya creados, el recordatorio "Subir boleta" de los que esperan su boleta y, en las cuentas de luz y agua, "Esperando boleta" con un estimado: el promedio de las últimas 3 boletas, con borde punteado, que no es un gasto), los cobros de B2B (el día que le toca pagar a cada cliente según su frecuencia de pago), facturar, los días de conciliar y el análisis de cada lunes. Con los botones de "Mostrar" escondes lo que no quieras ver.\nLo que marques "Copiar a Google Calendar" queda en tu calendario "Fën" con su aviso.')}</h1><p>${esc(MESES_LARGOS[m - 1].replace(/^./, c => c.toUpperCase()))} ${y}</p></div>
       <div class="mes-nav"><button type="button" class="btn-icono" id="mes-ant" aria-label="Mes anterior">${icono('izq', 18)}</button><button type="button" class="btn-sec btn-chico" id="mes-hoy">Hoy</button><button type="button" class="btn-icono" id="mes-sig" aria-label="Mes siguiente">${icono('flecha', 18)}</button></div></div>
     <div class="filtros"><div class="chips" role="group" aria-label="Qué mostrar">${['todo', 'fen', 'personal'].map(f => `<button type="button" class="chip-filtro" data-ag-filtro="${f}" aria-pressed="${agFiltro() === f}">${{ todo: 'Todo', fen: 'Fën', personal: 'Personal' }[f]}</button>`).join('')}</div>
       <div class="botones-ag"><button type="button" class="btn-sec btn-chico" id="ag-etiquetas">Etiquetas</button><button type="button" class="btn" id="mes-agregar">${icono('mas', 16)} Agregar</button></div></div>
@@ -791,12 +792,14 @@ async function pintarAgendaMes() {
   // v0.49.0: con Gastos en la base nueva, solo los vencimientos que existen (sin proyectar las obligaciones) y los
   // recordatorios "Subir boleta" (se calculan de los vencimientos que esperan su boleta). Con la planilla, como antes.
   const autoPromesa = enMemoria ? Promise.resolve(enMemoria) : agFiltro() === 'personal' ? Promise.resolve([]) : Promise.all([
-    Gastos.datos().then(d => d.vencimientos || []).catch(() => null),
+    Gastos.datos().then(d => d || null).catch(() => null),
     Gastos.enBase().then(b => (b ? null : Gastos.plantillasAgenda().then(r => r.plantillas || []))).catch(() => []),
     B2b.datosAgenda().catch(() => null),
     Gastos.avisosPrevired().catch(() => [])   // v0.67.0: vencimiento de Previred (de la memoria)
-  ]).then(([vencs, plantillas, b2bD, pvAg]) => {
-    if (plantillas === null) return (vencs ? G3.agendaBase(vencs, desde, hasta, hoy) : []).concat(B2b.itemsAgendaB2b(b2bD, desde, hasta, hoy).map(x => ({ ...x, tipo: 'fen' })), itemsPrevired(pvAg, desde, hasta, hoy));
+  ]).then(([dg, plantillas, b2bD, pvAg]) => {
+    const vencs = dg ? dg.vencimientos || [] : null;
+    // v0.70.0 · Con la base nueva, también las cuentas de boleta sin la boleta del mes: un estimado (borde punteado), no un pago ni un gasto
+    if (plantillas === null) return (vencs ? G3.agendaBase(vencs, desde, hasta, hoy) : []).concat(BO.agendaEsperando(dg && dg.esperandoBoleta, desde, hasta), B2b.itemsAgendaB2b(b2bD, desde, hasta, hoy).map(x => ({ ...x, tipo: 'fen' })), itemsPrevired(pvAg, desde, hasta, hoy));
     const pagos = (vencs || []).filter(v => v.fecha >= desde && v.fecha <= hasta).map(v => ({ auto: true, cat: 'pago', tipo: 'fen', fecha: v.fecha, hora: '', titulo: `Pago de ${v.nombre}`,
       origen: v.estado === 'PAGADO' ? 'Desde Gastos · pagado' : 'Desde Gastos', monto: Number(v.montoPago || v.montoEstimado) || 0, vencId: v.id, pagado: v.estado === 'PAGADO', vencido: v.estado !== 'PAGADO' && v.fecha < hoy }));
     const proy = vencs ? Agenda.proyectarObligaciones(plantillas, vencs, desde, hasta).map(x => ({ ...x, tipo: 'fen' })) : [];
@@ -1013,12 +1016,12 @@ function refrescarAgenda() { Object.keys(agAuto).forEach(k => delete agAuto[k]);
 // ── Gastos ─────────────────────────────────────────
 // v0.63.1: + B2B (costos del canal B2B). v0.69.1: + REVENTA. La misma lista que M.AREAS de gastos-g2.js (sale de areas.js)
 const AREAS_GASTO = AR.GASTO;
-const TXT_AREAS_GASTO = 'BOL Bollería · PAN Panadería · CAF Cafetería · PAS Pastelería · ADMIN Administración · VENTAS Ventas · B2B: costos del canal B2B: atención de clientes, órdenes y despacho · REVENTA: lo que se compra hecho y se vende tal cual (chocolates, té, infusiones, Magia…).\nSELECCIONAR: el área se elige en cada gasto. PRORRATEADO: se reparte en % entre áreas. REVENTA nunca entra sola en un reparto: solo si la eliges tú.\nREVENTA es solo un área de margen: no está en Cocina ni en Producción (bodegas, jefas, recetas).\nEn Finanzas cada código va a un área propia o a Común (Resultados → Clasificación).';
+const TXT_AREAS_GASTO = 'BOL Bollería · PAN Panadería · CAF Cafetería · PAS Pastelería · ADMIN Administración · VENTAS Ventas · B2B: costos del canal B2B: atención de clientes, órdenes y despacho · B2C: costos del canal B2C: lo que cuesta atender a los clientes de las tiendas (por ejemplo, la parte de la luz y el agua de la sala de venta) · REVENTA: lo que se compra hecho y se vende tal cual (chocolates, té, infusiones, Magia…).\nSELECCIONAR: el área se elige en cada gasto. PRORRATEADO: se reparte en % entre áreas. REVENTA nunca entra sola en un reparto: solo si la eliges tú. B2C tampoco.\nREVENTA es solo un área de margen: no está en Cocina ni en Producción (bodegas, jefas, recetas). B2C es un costo de canal: tampoco está ahí.\nEn Finanzas cada código va a un área propia o a Común (Resultados → Clasificación).';
 const montoV = v => (Number(v.montoDocumento) > 0 ? Number(v.montoDocumento) : v.multiArea && v.multiArea.length ? v.multiArea.reduce((s, a) => s + (Number(a.monto) || 0), 0) : Number(String(v.montoEstimado || '').replace(/[^0-9]/g, '')) || 0);
 // v0.23.0: en el orden del trabajo (lo diario primero, la configuración al final); la cartola pasó a Conciliación
 // v0.43.0: "Base nueva" (fen-gastos, etapa G1): copia y control; Gastos sigue con la planilla
 // v0.64.0: Cargas del SII y Previred están en Conciliación (con la cartola y los proveedores)
-const SUBS_GASTOS = [['', 'Vencimientos'], ['registrar', 'Registrar'], ['registrados', 'Registrados'], ['analisis', 'Análisis'], ['obligaciones', 'Obligaciones'], ['items', 'Ítems'], ['base', 'Base nueva']];
+const SUBS_GASTOS = [['', 'Por pagar'], ['registrar', 'Registrar'], ['registrados', 'Registrados'], ['analisis', 'Análisis'], ['obligaciones', 'Cuentas recurrentes'], ['items', 'Ítems'], ['base', 'Base nueva']];
 function pestanasGastos(sub) {
   // v0.51.0: "Clasificar obligaciones" (#gastos/clasificar) es parte de Obligaciones
   const actual = sub === 'clasificar' ? 'obligaciones' : SUBS_GASTOS.some(([k]) => k && k === sub) ? sub : '';
@@ -1030,9 +1033,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.69.5').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.70.0').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.69.5').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.70.0').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -1083,18 +1086,24 @@ function pintarVencimientos(el, sub, d) {
     <div class="cifras cifras-4">
       <div class="tarjeta cifra"><span class="rotulo">Atrasado</span><span class="valor">${pesos(grupos[0].l.reduce((s, v) => s + montoV(v), 0))}</span><span class="nota">${grupos[0].l.length} ${grupos[0].l.length === 1 ? 'pago' : 'pagos'}</span></div>
       <div class="tarjeta cifra"><span class="rotulo">Próximos 7 días</span><span class="valor">${pesos(grupos[1].l.reduce((s, v) => s + montoV(v), 0))}</span><span class="nota">${grupos[1].l.length} ${grupos[1].l.length === 1 ? 'pago' : 'pagos'}</span></div>
-      <div class="tarjeta cifra"><span class="rotulo">Resto del mes ${info('Montos de los vencimientos', 'Es el monto estimado de cada vencimiento (el de su obligación o el de la compra a crédito). Al pagar escribes el monto real.\nLas cuponeras aparecen cuota por cuota, cada una en su fecha.')}</span><span class="valor">${pesos(grupos[2].l.reduce((s, v) => s + montoV(v), 0))}</span><span class="nota">${grupos[2].l.length} ${grupos[2].l.length === 1 ? 'pago' : 'pagos'}</span></div>
+      <div class="tarjeta cifra"><span class="rotulo">Resto del mes ${info('Montos de los vencimientos', 'Es el monto estimado de cada vencimiento (el de su cuenta recurrente o el de la compra a crédito). Al pagar escribes el monto real.\nLas cuponeras aparecen cuota por cuota, cada una en su fecha.')}</span><span class="valor">${pesos(grupos[2].l.reduce((s, v) => s + montoV(v), 0))}</span><span class="nota">${grupos[2].l.length} ${grupos[2].l.length === 1 ? 'pago' : 'pagos'}</span></div>
     </div>
     ${grupos.filter(g => g.l.length).map((g, i) => `<section class="tarjeta" aria-labelledby="t-venc-${i}"><div class="titulo-fila"><h2 id="t-venc-${i}">${g.t}</h2><span>${g.l.length}</span></div>
-      <div data-colapsar="6">${g.l.map(v => fila(v, g.rojo)).join('')}</div></section>`).join('') || '<section class="tarjeta"><div class="vacio">No hay vencimientos por pagar.</div></section>'}
+      <div data-colapsar="6">${g.l.map(v => fila(v, g.rojo)).join('')}</div></section>`).join('') || '<section class="tarjeta"><div class="vacio">No hay nada por pagar.</div></section>'}
     ${pagados.length ? `<section class="tarjeta" aria-labelledby="t-venc-pag"><div class="titulo-fila"><h2 id="t-venc-pag">Pagados ${infoDrive()}</h2><span>Últimos 7 días</span></div>
       <div data-colapsar="3">${pagados.map(v => `<div class="fila-caja"><div class="txt"><b>${esc(v.nombre)}</b><span>Pagado el ${esc(fechaCaja(v.fechaPago))}${v.urlComprobante ? ' · <a href="' + esc(v.urlComprobante) + '" target="_blank" rel="noopener">comprobante</a>' : ''}</span>${v.abonos && v.abonos.length ? `<span class="nota">${esc(G3.textoAbonos(v.abonos, pesos))}</span>` : ''}</div>
         <div class="acciones"><span class="chip c-verde">${esc(pesos(Number(v.montoPago) || 0))}</span></div></div>`).join('')}</div></section>` : ''}
-    ${base ? `<section class="tarjeta" aria-labelledby="t-bandeja" id="vb-bandeja-sec"><div class="titulo-fila"><h2 id="t-bandeja">Documentos sin obligación ${info('Documentos sin obligación', TXT_BANDEJA)}</h2><span id="vb-bandeja-n"></span></div><div id="vb-bandeja"><p class="ayuda">Cargando…</p></div></section>` : ''}
-    <p class="nota-i">(i) Pagar aquí hace lo mismo que en la app de Gastos: marca el vencimiento pagado, crea el gasto (o completa el de la compra a crédito) y genera el siguiente si es recurrente. El historial de pagos y las reglas están en Obligaciones. Anular un vencimiento no lo borra: queda ANULADO con su motivo.${base ? ' Los que dicen "Se paga desde la cartola" se pagan en el banco y se registran solos al conciliar la cartola: aquí solo te recuerdan pagarlos.' : ''}</p>`;
+    ${base ? `<section class="tarjeta" aria-labelledby="t-bandeja" id="vb-bandeja-sec"><div class="titulo-fila"><h2 id="t-bandeja">Documentos sin cuenta recurrente ${info('Documentos sin cuenta recurrente', TXT_BANDEJA)}</h2><span id="vb-bandeja-n"></span></div><div id="vb-bandeja"><p class="ayuda">Cargando…</p></div></section>` : ''}
+    ${base ? esperandoHtml(d) + enOrdenHtml(d) : ''}
+    <p class="nota-i">(i) Pagar aquí hace lo mismo que en la app de Gastos: marca el vencimiento pagado, crea el gasto (o completa el de la compra a crédito) y genera el siguiente si es recurrente. El historial de pagos y las reglas están en Cuentas recurrentes. Anular un vencimiento no lo borra: queda ANULADO con su motivo.${base ? ' Los que dicen "Se paga desde la cartola" se pagan en el banco y se registran solos al conciliar la cartola: aquí solo te recuerdan pagarlos.' : ''}</p>`;
   if (base) {
-    el.querySelector('.cifras').insertAdjacentHTML('afterend', `<div class="botones-venc"><button type="button" class="btn" id="vb-boleta">${icono('mas', 16)} Subir boleta</button>${info('Subir boleta', TXT_SUBIR_BOLETA)}<button type="button" class="btn-sec" id="vb-suelto">Vencimiento suelto</button>${info('Vencimiento suelto', TXT_SUELTO)}</div>`);
+    // v0.70.0 · El modelo (i), los avisos de corte y "Crear cuentas de luz y agua" (mientras falte alguna de las 4)
+    el.querySelector('.cifras').insertAdjacentHTML('beforebegin', `<p class="nota-i nota-modelo" id="vb-modelo">(i) ${esc(BO.TXT_MODELO)}</p>${cortesHtml(d)}`);
+    el.querySelector('.cifras').insertAdjacentHTML('afterend', `<div class="botones-venc"><button type="button" class="btn" id="vb-boleta">${icono('mas', 16)} Subir boleta</button>${info('Subir boleta', TXT_SUBIR_BOLETA)}<button type="button" class="btn-sec" id="vb-suelto">Pago suelto</button>${info('Pago suelto', TXT_SUELTO)}${(d.luzAgua || 0) < BO.CUENTAS_LUZ_AGUA.length ? `<button type="button" class="btn-sec" id="vb-luz-agua">${icono('boleta', 16)} Crear cuentas de luz y agua</button>${info('Crear cuentas de luz y agua', TXT_LUZ_AGUA)}` : ''}</div>`);
     $('vb-boleta').onclick = () => abrirSubirBoleta(null, d);
+    if ($('vb-luz-agua')) $('vb-luz-agua').onclick = () => abrirCuentasLuzAgua();
+    el.querySelectorAll('[data-eb-subir]').forEach(b => b.addEventListener('click', () => abrirSubirBoleta(null, d)));
+    el.querySelectorAll('[data-en-orden]').forEach(b => b.addEventListener('click', () => abrirPagarEnOrden(b.dataset.enOrden, d)));
     $('vb-suelto').onclick = () => abrirSuelto(d);
     el.querySelectorAll('[data-boleta-v]').forEach(b => b.addEventListener('click', () => abrirSubirBoleta((d.vencimientos || []).find(v => v.id === b.dataset.boletaV), d)));
     el.querySelectorAll('[data-abono-v]').forEach(b => b.addEventListener('click', () => abrirAbono((d.vencimientos || []).find(v => v.id === b.dataset.abonoV))));
@@ -1107,6 +1116,9 @@ function pintarVencimientos(el, sub, d) {
     el.querySelectorAll('[data-abono-parcial]').forEach(b => b.addEventListener('click', () => { const m = b.closest('details'); if (m) m.open = false; abrirAbonoParcial((d.vencimientos || []).find(v => v.id === b.dataset.abonoParcial)); }));
     el.querySelectorAll('[data-reagendar]').forEach(b => b.addEventListener('click', () => { const m = b.closest('details'); if (m) m.open = false; abrirReagendar((d.vencimientos || []).find(v => v.id === b.dataset.reagendar)); }));
     pintarBandeja(d);
+    if (vbMsg) { el.querySelector('.cifras').insertAdjacentHTML('beforebegin', `<p class="ok-msg" id="vb-msg" role="status">${esc(vbMsg)}</p>`); vbMsg = ''; }
+    // v0.70.0 · Una boleta subida en Conciliación → Subir archivo: se abre aquí su vista previa
+    if (boletaPendiente) { const bp = boletaPendiente; boletaPendiente = null; abrirBoletaServicio(bp.lineas, bp.f); }
   }
   el.querySelectorAll('[data-pagar]').forEach(b => b.addEventListener('click', () => abrirPago((d.vencimientos || []).find(v => v.id === b.dataset.pagar))));
   el.querySelectorAll('[data-anular-v]').forEach(b => b.addEventListener('click', () => anularVencimientoUI((d.vencimientos || []).find(v => v.id === b.dataset.anularV))));
@@ -1137,6 +1149,8 @@ function abrirPago(v, opc = {}) {
   const usaAreas = !prevPlan && ((v.multiArea && v.multiArea.length) || v.area === 'MULTI');
   // v0.53.0: con la factura del SII y sus montos, el neto y el IVA salen de la factura (sin chips de tipo de monto)
   const docF = !prevPlan && G3.conNetoFactura(v.documento) ? v.documento : null;
+  // v0.70.0 · Nació de su boleta: su gasto ya está (del mes del período); pagar solo le pone la fecha de pago, por el total
+  const dev = !!(v.devengado && v.boleta);
   const hoy = Caja.diaLocal();
   const partes = v.area === 'PRORRATEADO' ? [[v.pArea1, v.pPct1], [v.pArea2, v.pPct2], [v.pArea3, v.pPct3]].filter(([a, p]) => a && p) : [];
   const d = dialogo(`<form class="form-dialogo" novalidate>
@@ -1145,10 +1159,11 @@ function abrirPago(v, opc = {}) {
     <p class="ayuda"><b>${esc(v.nombre)}</b>${v.item ? ' · ' + esc(v.item) : ''} · vence ${esc(fechaCaja(v.fecha))}${v.fecha < hoy ? ' <span class="chip c-rojo chip-chico">Atrasado</span>' : ''}</p>
     ${prevPlan ? `<p class="ayuda" id="pg-previred">${prevPlan.recargos ? 'Comprobante' : 'Certificado'} de Previred ${esc(G3D.nombreMes(prevPlan.periodo))}: se registra un gasto por trabajador (${(prevPlan.trabajadores || []).length}), sin IVA, con su área e ítem${prevPlan.recargos ? ` y uno de multas e intereses (${pesos(prevPlan.recargos.monto)})` : ''}. El monto es el total ${prevPlan.recargos ? 'pagado según el comprobante' : 'del certificado'}.</p>` : partes.length ? `<p class="ayuda">Se reparte: ${partes.map(([a, p]) => `${esc(a)} ${esc(p)}%`).join(' · ')}</p>` : v.area && v.area !== 'MULTI' ? `<p class="ayuda">Área: ${esc(v.area)}</p>` : ''}
     ${docF ? `<p class="ayuda pg-factura" id="pg-factura">Neto ${pesos(docF.neto)} · IVA ${pesos(docF.iva)}${docF.exento ? ' · Exento ' + pesos(docF.exento) : ''}${docF.otroImpuesto ? ' · Otros impuestos ' + pesos(docF.otroImpuesto) : ''} · Total ${pesos(docF.total)} — de la factura N° ${esc(docF.folio)} ${info('Montos de la factura', 'Este vencimiento tiene su factura del SII: el gasto toma el neto y el IVA exactos de la factura (no se calculan con el 19%), por eso no hay que elegir el tipo de monto.\nSi pagas el total, el neto es el de la factura. Si pagas otro monto (parcial o distinto), el neto se calcula en la misma proporción y queda anotado en la observación del gasto.')}</p>` : ''}
-    <div class="campo ${prevPlan || docF ? 'oculto' : ''}"><span class="etiqueta">Tipo de monto</span>${chipsTipoMonto('pg-tipo', prevPlan ? 'siniva' : docF ? 'bruto' : v.tipoMonto || 'bruto')}</div>
-    ${usaAreas ? `<div class="campo"><span class="etiqueta">Monto por área ${info('Monto por área', 'Este pago se reparte entre varias áreas. Escribe lo real de este mes en cada una: el total del pago es la suma.')}</span><div id="pg-areas">${(v.multiArea && v.multiArea.length ? v.multiArea : [{}]).map(a => filaArea('pg', a.area || '', a.monto || '')).join('')}</div>
+    ${dev ? `<p class="ayuda" id="pg-devengado">El gasto ya está registrado desde la boleta (en ${esc(BO.nombreMes(v.boleta.mes))}): pagar solo le pone la fecha de pago. Se paga completo; para pagar una parte usa "Abono".</p>` : ''}
+    <div class="campo ${prevPlan || docF || dev ? 'oculto' : ''}"><span class="etiqueta">Tipo de monto</span>${chipsTipoMonto('pg-tipo', prevPlan || dev ? 'siniva' : docF ? 'bruto' : v.tipoMonto || 'bruto')}</div>
+    ${usaAreas && !dev ? `<div class="campo"><span class="etiqueta">Monto por área ${info('Monto por área', 'Este pago se reparte entre varias áreas. Escribe lo real de este mes en cada una: el total del pago es la suma.')}</span><div id="pg-areas">${(v.multiArea && v.multiArea.length ? v.multiArea : [{}]).map(a => filaArea('pg', a.area || '', a.monto || '')).join('')}</div>
       <button type="button" class="btn-sec btn-chico" id="pg-mas-area">Agregar área</button></div>` : ''}
-    <div class="grilla-montos"><div class="campo"><label for="pg-monto">Monto pagado</label><input id="pg-monto" type="number" inputmode="numeric" min="0" step="1" value="${montoV(v) || ''}" ${usaAreas || prevPlan ? 'readonly' : ''}></div>
+    <div class="grilla-montos"><div class="campo"><label for="pg-monto">Monto pagado</label><input id="pg-monto" type="number" inputmode="numeric" min="0" step="1" value="${montoV(v) || ''}" ${usaAreas || prevPlan || dev ? 'readonly' : ''}></div>
       <div class="campo"><label for="pg-fecha">Fecha de pago</label><input id="pg-fecha" type="date" value="${hoy}" max="${hoy}"></div></div>
     <div class="desglose" id="pg-desglose"></div>
     <div class="campo"><label for="pg-archivo">Comprobante (opcional)</label><input id="pg-archivo" type="file" accept="image/*,application/pdf"></div>
@@ -1159,6 +1174,7 @@ function abrirPago(v, opc = {}) {
   const tipo = () => d.querySelector('input[name="pg-tipo"]:checked').value;
   const areas = () => [...d.querySelectorAll('#pg-areas .fila-area')].map(f => ({ area: f.querySelector('.pg-area').value, monto: Number(f.querySelector('.pg-monto').value) || 0 })).filter(a => a.area && a.monto > 0);
   const recalcular = () => {
+    if (dev) { d.querySelector('#pg-desglose').innerHTML = `<b>Total ${pesos(montoV(v))}</b>`; return; }
     if (usaAreas) d.querySelector('#pg-monto').value = areas().reduce((s, a) => s + a.monto, 0) || '';
     if (docF) {
       const m = Math.round(Number(d.querySelector('#pg-monto').value) || 0), r = m ? G3.netoFactura(docF, m) : null, otros = docF.exento || docF.otroImpuesto;
@@ -1170,7 +1186,7 @@ function abrirPago(v, opc = {}) {
   };
   d.addEventListener('input', recalcular); d.addEventListener('change', recalcular);
   d.addEventListener('click', e => { if (e.target.closest('[data-quitar-area]')) { e.target.closest('.fila-area').remove(); recalcular(); } });
-  if (usaAreas) d.querySelector('#pg-mas-area').onclick = () => { d.querySelector('#pg-areas').insertAdjacentHTML('beforeend', filaArea('pg')); };
+  if (usaAreas && !dev) d.querySelector('#pg-mas-area').onclick = () => { d.querySelector('#pg-areas').insertAdjacentHTML('beforeend', filaArea('pg')); };
   recalcular();
   d.querySelector('#pg-cancelar').onclick = () => d.close();
   let idem = 'pago-' + Gastos.nuevaClave();
@@ -1183,7 +1199,7 @@ function abrirPago(v, opc = {}) {
     const b = d.querySelector('#pg-guardar'); b.disabled = true; b.textContent = 'Guardando…';
     try {
       const archivo = await Gastos.prepararArchivo(d.querySelector('#pg-archivo').files[0]);
-      await Gastos.pagar({ id: v.id, montoPago: monto, fechaPago: fecha, tipoMonto: tipo(), obsPago: d.querySelector('#pg-obs').value, multiArea: usaAreas ? areas() : [], ...(aMano ? { esperaCargo: true } : {}), ...(archivo || {}) }, idem);
+      await Gastos.pagar({ id: v.id, montoPago: monto, fechaPago: fecha, tipoMonto: tipo(), obsPago: d.querySelector('#pg-obs').value, multiArea: usaAreas && !dev ? areas() : [], ...(aMano ? { esperaCargo: true } : {}), ...(archivo || {}) }, idem);
       registrar(aMano ? 'Pagó a mano un vencimiento de banco' : 'Pagó un vencimiento', `${v.nombre} · ${pesos(monto)} · ${fechaCaja(fecha)}`);
       d.close(); refrescarAgenda();
     } catch (er) {
@@ -1209,15 +1225,15 @@ function pintarRegistrarGasto(el, sub, d) {
       <div class="desglose desglose-grande" id="gs-total"></div>
       <div class="campo"><span class="etiqueta">Forma de pago ${info('Forma de pago', 'Efectivo: lo pagaste con plata en mano; se registra aquí.\nTransferencia o banco: lo pagaste desde la cuenta. Eso llega con la cartola y se registra en Conciliación → Cargos ("Gasto nuevo"), con la fecha del banco. Si igual lo registras aquí, queda esperando su cargo: cuando subas la cartola elige "Ya está en Gastos" para no duplicarlo.\nTarjeta de crédito o crédito del proveedor: se paga después; queda un vencimiento.')}</span><div class="chips" role="radiogroup" aria-label="Forma de pago">${(d.fuente === 'base' ? [['efectivo', 'Efectivo'], ['banco', 'Transferencia o banco'], ['tarjeta', 'Tarjeta de crédito'], ['proveedor', 'Crédito proveedor']] : [['contado', 'Contado'], ['tarjeta', 'Tarjeta de crédito'], ['proveedor', 'Crédito proveedor']]).map(([k, t], i) => `<label class="chip-radio"><input type="radio" name="gs-forma" value="${k}" ${i === 0 ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div>
         <p class="aviso-cc oculto" id="gs-aviso-banco" role="status">${icono('banco', 16)} ${esc(TXT_BANCO_REG)} <a href="#conciliacion/cargos">Ir a Conciliación</a></p></div>
-      <div class="campo oculto" id="gs-campo-fpago"><label for="gs-fpago">Fecha de pago ${info('Crédito', 'Con tarjeta o crédito de proveedor se crea un vencimiento en esa fecha, para pagarlo después desde Vencimientos.')}</label><input id="gs-fpago" type="date" min="${hoy}"></div>
-      ${pre ? `<div class="campo"><span class="etiqueta">Boleta</span><p class="ayuda" id="gs-pre">Desde "Documentos sin obligación": la boleta ya está en Drive${pre.urlArchivo ? ` (<a href="${esc(pre.urlArchivo)}" target="_blank" rel="noopener">ver</a>)` : ''}${pre.monto ? ' · total ' + esc(pesos(pre.monto)) : ''}. Elige el ítem y escribe el monto.</p></div>`
+      <div class="campo oculto" id="gs-campo-fpago"><label for="gs-fpago">Fecha de pago ${info('Crédito', 'Con tarjeta o crédito de proveedor se crea un vencimiento en esa fecha, para pagarlo después desde Por pagar.')}</label><input id="gs-fpago" type="date" min="${hoy}"></div>
+      ${pre ? `<div class="campo"><span class="etiqueta">Boleta</span><p class="ayuda" id="gs-pre">Desde "Documentos sin cuenta recurrente": la boleta ya está en Drive${pre.urlArchivo ? ` (<a href="${esc(pre.urlArchivo)}" target="_blank" rel="noopener">ver</a>)` : ''}${pre.monto ? ' · total ' + esc(pesos(pre.monto)) : ''}. Elige el ítem y escribe el monto.</p></div>`
         : `<div class="campo"><label for="gs-archivo">Foto o archivo de la boleta</label><input id="gs-archivo" type="file" accept="image/*,application/pdf" capture="environment"><span class="ayuda">Obligatoria, como en la app de Gastos. Se guarda en Drive, carpeta "Boletas Gastos".</span></div>`}
       <div class="campo"><label for="gs-obs">Observación (opcional)</label><input id="gs-obs" type="text" maxlength="300" value="${esc(pre ? pre.obs || '' : '')}"></div>
       <div class="error" id="gs-error" role="alert"></div>
       <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn" id="gs-guardar">Registrar gasto</button></div>
     </form>
     <p class="nota-i">(i) Lo que compras hecho para venderlo tal cual (bebidas, chocolates, té, infusiones…) va al ítem "PRODUCTOS DE REVENTA" con el área REVENTA ${info('Productos de reventa', TXT_REVENTA)}.</p>
-    <p class="nota-i">(i) Arriendo, luz y las demás obligaciones recurrentes no aparecen aquí: se pagan desde Vencimientos. Para corregir o anular un gasto ya registrado, ve a Registrados. Las facturas del SII se importan en Cargas del SII.</p>`;
+    <p class="nota-i">(i) Arriendo, luz y las demás cuentas recurrentes no aparecen aquí: se pagan desde Por pagar. Para corregir o anular un gasto ya registrado, ve a Registrados. Las facturas del SII se importan en Cargas del SII.</p>`;
   let n = 0;
   const seccion = () => { const id = ++n; return `<fieldset class="item-gasto" data-sec="${id}"><legend class="sr">Ítem ${id}</legend>
     <div class="fila-item"><div class="campo" style="flex:1"><label for="gs-item-${id}">Ítem</label><select id="gs-item-${id}" class="gs-item"><option value="">Elige un ítem</option>${items.map(i => `<option value="${esc(i.item)}">${esc(i.item)}</option>`).join('')}</select></div>
@@ -1630,7 +1646,7 @@ function cabTrabajoSii() {
       ${sii.aviso ? `<div class="aviso">${esc(sii.aviso)}</div>` : ''}${sii.sinSugerencias ? `<p class="ayuda">${esc(sii.sinSugerencias)}</p>` : ''}
       <div class="desglose desglose-grande"><span>Por importar <b>${pend.length}</b></span><span>Total <b>${pesos(pend.reduce((s, f) => s + f.total, 0))}</b></span>${F.length - pend.length ? `<span>Ya en Gastos <b>${F.length - pend.length}</b></span>` : ''}${nc ? `<span>Notas de crédito <b>${nc}</b> (restan)</span>` : ''}${harina ? `<span>Con impuesto a la harina <b>${harina}</b></span>` : ''}</div>
       ${pend.length ? `<div class="sii-lote">
-          <span class="etiqueta">Aplicar a todas ${info('Aplicar a todas', 'Marca de una vez todas las facturas como pagadas o pendientes, o les pone la misma fecha. Después puedes cambiar cualquiera una por una.\nPagada: el gasto queda pagado en esa fecha.\nPendiente: el gasto queda a crédito y se crea un vencimiento en esa fecha, para pagarlo desde Vencimientos.\nLas notas de crédito no llevan estado: se registran con su fecha.')}</span>
+          <span class="etiqueta">Aplicar a todas ${info('Aplicar a todas', 'Marca de una vez todas las facturas como pagadas o pendientes, o les pone la misma fecha. Después puedes cambiar cualquiera una por una.\nPagada: el gasto queda pagado en esa fecha.\nPendiente: el gasto queda a crédito y se crea un vencimiento en esa fecha, para pagarlo desde Por pagar.\nLas notas de crédito no llevan estado: se registran con su fecha.')}</span>
           <div class="chips"><button type="button" class="chip-filtro" data-todas="pagada">Todas pagadas</button><button type="button" class="chip-filtro" data-todas="pendiente">Todas pendientes</button></div>
           <div class="fila-lote"><label for="sii-fecha-lote">Fecha a todas</label><input type="date" id="sii-fecha-lote"><button type="button" class="btn-sec" data-fecha-todas>Aplicar</button></div>
         </div>
@@ -1713,7 +1729,7 @@ function tarjetaSii(f, i) {
   // v0.50.0 (base nueva): la factura de una obligación "según documento" (internet, gas, teléfono) va a su vencimiento
   const ocupada = f.importando ? ' inert aria-busy="true"' : '';   // v0.63.7: mientras se importa sola, no se puede cambiar
   if (f.aVencimiento && f.total > 0) return `<article class="tarjeta doc-sii" id="sii-doc-${i}" data-i="${i}"${ocupada}>${cab}
-    <div class="sii-a-venc"><b>${esc(f.aVencimiento.texto)}</b> ${info('Factura de una obligación', f.aVencimiento.bandeja ? 'El RUT de este proveedor es el de más de una obligación "según documento". Al importar, la factura queda en Vencimientos → "Documentos sin obligación" para que elijas a cuál va.' : 'El RUT de este proveedor es el identificador de una obligación "según documento". Al importar, la factura no crea un gasto: completa el vencimiento de ese período con el total de la factura y su fecha de vencimiento (o 30 días después de emitida).\nEl gasto se registra al pagarlo (con la cartola o con Pagar), con el ítem y las áreas de la obligación, y el RUT y el folio de la factura.')}</div>
+    <div class="sii-a-venc"><b>${esc(f.aVencimiento.texto)}</b> ${info('Factura de una cuenta recurrente', f.aVencimiento.bandeja ? 'El RUT de este proveedor es el de más de una cuenta recurrente "según documento". Al importar, la factura queda en Por pagar → "Documentos sin cuenta recurrente" para que elijas a cuál va.' : 'El RUT de este proveedor es el identificador de una cuenta recurrente "según documento". Al importar, la factura no crea un gasto: completa el vencimiento de ese período con el total de la factura y su fecha de vencimiento (o 30 días después de emitida).\nEl gasto se registra al pagarlo (con la cartola o con Pagar), con el ítem y las áreas de la cuenta recurrente, y el RUT y el folio de la factura.')}</div>
     ${bloqueNotaSii(f, i)}${pieImportarSii(f, i)}</article>`;
   Sii.prepararLineas(f, sii.items);
   const emis = Sii.fechaDDMMYYYYaISO(f.fecha);
@@ -1970,7 +1986,7 @@ function idemSii(listas, omitir) {
   if (!sii.idems) sii.idems = {};
   return { firma, idem: sii.idems[firma] || (sii.idems[firma] = 'sii-' + Gastos.nuevaClave()) };
 }
-const textoImportadoSii = r => `Importado: ${r.facturas} ${r.facturas === 1 ? 'documento' : 'documentos'} · ${r.filas} ${r.filas === 1 ? 'línea' : 'líneas'} de gasto${r.vencimientos ? ` · ${r.vencimientos} ${r.vencimientos === 1 ? 'vencimiento' : 'vencimientos'}` : ''}${r.detalle ? ` · ${r.detalle} productos en Detalle Compras` : ''}${r.aVencimientos ? ` · ${r.aVencimientos} ${r.aVencimientos === 1 ? 'factura completó el vencimiento de su obligación' : 'facturas completaron el vencimiento de su obligación'}` : ''}${r.aBandeja ? ` · ${r.aBandeja} en "Documentos sin obligación"` : ''}`;
+const textoImportadoSii = r => `Importado: ${r.facturas} ${r.facturas === 1 ? 'documento' : 'documentos'} · ${r.filas} ${r.filas === 1 ? 'línea' : 'líneas'} de gasto${r.vencimientos ? ` · ${r.vencimientos} ${r.vencimientos === 1 ? 'vencimiento' : 'vencimientos'}` : ''}${r.detalle ? ` · ${r.detalle} productos en Detalle Compras` : ''}${r.aVencimientos ? ` · ${r.aVencimientos} ${r.aVencimientos === 1 ? 'factura completó el vencimiento de su cuenta recurrente' : 'facturas completaron el vencimiento de su cuenta recurrente'}` : ''}${r.aBandeja ? ` · ${r.aBandeja} en "Documentos sin cuenta recurrente"` : ''}`;
 // v0.57.0 · Finanzas: los precios de las materias primas desde estas facturas (llega después, sin frenar); poner(html) lo muestra
 function preciosTrasImportarSii(r, poner, id) {
   if (!r || !r.precios || typeof r.precios.then !== 'function') return;
@@ -2043,7 +2059,7 @@ async function importarUnaSii(i) {
     sdoc.d = null; setTimeout(() => { cargarDocsSii(); refrescarCuentasConc(true); }, 0);
     delete sii.idems[firma];
     f.importando = false; f.yaImportada = true; f.importadaAhora = true;
-    f.resultado = `<p class="sii-ok">Importada: ${r.filas} ${r.filas === 1 ? 'línea' : 'líneas'} de gasto${r.vencimientos ? ` · ${r.vencimientos === 1 ? '1 vencimiento' : r.vencimientos + ' vencimientos'}` : ''}${r.detalle ? ` · ${r.detalle} productos en Detalle Compras` : ''}${r.aVencimientos ? ' · completó el vencimiento de su obligación' : ''}${r.aBandeja ? ' · quedó en "Documentos sin obligación"' : ''}</p>`;
+    f.resultado = `<p class="sii-ok">Importada: ${r.filas} ${r.filas === 1 ? 'línea' : 'líneas'} de gasto${r.vencimientos ? ` · ${r.vencimientos === 1 ? '1 vencimiento' : r.vencimientos + ' vencimientos'}` : ''}${r.detalle ? ` · ${r.detalle} productos en Detalle Compras` : ''}${r.aVencimientos ? ' · completó el vencimiento de su cuenta recurrente' : ''}${r.aBandeja ? ' · quedó en "Documentos sin cuenta recurrente"' : ''}</p>`;
     registrar('Importó documentos del SII', `${f.razonSocial} F.${f.folio} · ${sii.nombre}`);
     preciosTrasImportarSii(r, t => { f.resultado += t; const el = aqui() && $('sii-res-' + i); if (el && !el.querySelector('.sii-precios')) el.insertAdjacentHTML('beforeend', t); }, 'sii-precios-' + i);
     Sii.olvidarClasificacion();
@@ -2213,7 +2229,7 @@ function pedirMotivo(titulo, detalleHtml, boton) {
 
 async function anularVencimientoUI(v) {
   const motivo = await pedirMotivo('Anular vencimiento', `<p class="ayuda"><b>${esc(v.nombre)}</b> · vence ${esc(fechaCaja(v.fecha))}${montoV(v) ? ' · ' + esc(pesos(montoV(v))) : ''}</p>
-    <p class="ayuda">No se borra: queda como ANULADO en la hoja Vencimientos, con el motivo, y deja de aparecer y de avisar por correo. Úsalo cuando ese pago no corresponde (por ejemplo, un mes que no se cobró). La obligación sigue generando los meses siguientes.</p>`, 'Anular');
+    <p class="ayuda">No se borra: queda como ANULADO en la hoja Vencimientos, con el motivo, y deja de aparecer y de avisar por correo. Úsalo cuando ese pago no corresponde (por ejemplo, un mes que no se cobró). La cuenta recurrente sigue generando los meses siguientes.</p>`, 'Anular');
   if (!motivo) return;
   try { await Gastos.anularVencimiento(v.id, motivo); registrar('Anuló un vencimiento', `${v.nombre} · ${fechaCaja(v.fecha)} · ${motivo}`); refrescarAgenda(); }
   catch (e) { alert(e.message || mensajeError(e)); }
@@ -2221,13 +2237,13 @@ async function anularVencimientoUI(v) {
 
 // ═══ v0.49.0 · Gastos con la base nueva (etapa G3, segunda parte): tipos de obligación, boletas, bandeja, abonos y sueltos ═══
 const TXT_TIPOS = 'Monto fijo: siempre el mismo monto (arriendo, cuotas de un crédito). Se paga con Pagar.\nSegún documento del mes: el monto y la fecha real vienen de la boleta (luz, agua) o de la factura del SII (internet, gas, teléfono). Su vencimiento espera el documento y, unos días antes de la fecha estimada, la Agenda recuerda "Subir boleta". Para reconocer la boleta sola, anota el N° de cliente (o el RUT del proveedor si llega por el SII).\nLibre (abonos): sin monto de antes; se paga con varias transferencias (sueldos líquidos). Cada abono queda como gasto y al final se cierra.\nLas que vienen de la planilla dicen "Sin clasificar": funcionan como monto fijo hasta que les elijas un tipo.';
-const TXT_BANDEJA = 'Boletas que subiste y no calzaron con ninguna obligación (el N° de cliente no está en ninguna, o está en más de una).\nAsignar: la pasa al vencimiento de esa obligación y le guarda el N° de cliente si no lo tenía.\nRegistrar como gasto: para un gasto de una vez (abre Registrar con la boleta ya en Drive).\nCrear obligación: si es un pago que se repite cada mes.\nDescartar no borra: queda guardado con quién y cuándo.';
-const TXT_SUBIR_BOLETA = 'Sube el PDF o la foto de la boleta de luz, agua u otra cuenta. Queda en Drive (Fën · Gastos / Boletas y facturas / año, privada).\nDe un PDF se leen solos el N° de cliente, el total a pagar y la fecha de vencimiento: revísalos antes de guardar. De una foto se escriben a mano.\nCon el N° de cliente se busca la obligación y se completa su vencimiento del mes (monto y fecha real). Si no calza con ninguna, queda en "Documentos sin obligación".';
-const TXT_SUELTO = 'Un pago de una sola vez, sin obligación: una patente, un permiso, una multa. Queda en Vencimientos y en la Agenda hasta que lo pagues (al pagar se registra el gasto con su ítem y áreas).';
+const TXT_BANDEJA = 'Boletas que subiste y no calzaron con ninguna cuenta recurrente (el N° de cliente no está en ninguna, o está en más de una).\nAsignar: la pasa al vencimiento de esa cuenta recurrente y le guarda el N° de cliente si no lo tenía.\nRegistrar como gasto: para un gasto de una vez (abre Registrar con la boleta ya en Drive).\nCrear cuenta recurrente: si es un pago que se repite cada mes.\nDescartar no borra: queda guardado con quién y cuándo.';
+const TXT_SUBIR_BOLETA = 'Sube el PDF o la foto de la boleta de luz, agua u otra cuenta. Queda en Drive (Fën · Gastos / Boletas y facturas / año, privada).\nDe un PDF se leen solos el N° de cliente, el total a pagar y la fecha de vencimiento: revísalos antes de guardar. De una foto se escriben a mano.\nCon el N° de cliente se busca la cuenta recurrente y se completa su vencimiento del mes (monto y fecha real). Si no calza con ninguna, queda en "Documentos sin cuenta recurrente".';
+const TXT_SUELTO = 'Un pago de una sola vez, sin cuenta recurrente: una patente, un permiso, una multa. Queda en Por pagar y en la Agenda hasta que lo pagues (al pagar se registra el gasto con su ítem y áreas).';
 const NOMBRE_EB = { esperando_documento: ['Esperando boleta', 'c-amarillo'], con_abonos: ['Con abonos', 'c-azul'] };
 // v0.63.1 · Lo que se paga por banco llega con la cartola
-const TXT_SE_PAGA = 'Cómo pagas esta obligación:\n• Banco (cartola): transferencia, cargo automático o pago desde la cuenta. No se registra a mano: el pago llega con la cartola (Conciliación → Cargos) y ahí queda registrado. El vencimiento te recuerda pagarlo.\n• Efectivo: se paga con "Pagar" en Vencimientos (no pasa por el banco).\n• Tarjeta de crédito: se paga con "Pagar"; el pago de la tarjeta llega después en la cartola como "Pago de tarjeta".\nLas obligaciones de antes, sin este dato, cuentan como banco.';
-const TXT_CHIP_CARTOLA = 'Esta obligación se paga por banco: págala en el banco cuando corresponda y no la registres aquí. Cuando subas la cartola, el cargo aparece en Conciliación → Cargos y ahí se registra el pago (con la fecha del banco).\nSi igual necesitas registrarlo antes (por ejemplo, para tener el comprobante), usa el menú del vencimiento → "Registrar pago a mano": cuando llegue la cartola, elige "Ya está en Gastos" para no duplicarlo.';
+const TXT_SE_PAGA = 'Cómo pagas esta cuenta recurrente:\n• Banco (cartola): transferencia, cargo automático o pago desde la cuenta. No se registra a mano: el pago llega con la cartola (Conciliación → Cargos) y ahí queda registrado. El vencimiento te recuerda pagarlo.\n• Efectivo: se paga con "Pagar" en Por pagar (no pasa por el banco).\n• Tarjeta de crédito: se paga con "Pagar"; el pago de la tarjeta llega después en la cartola como "Pago de tarjeta".\nLas cuentas recurrentes de antes, sin este dato, cuentan como banco.';
+const TXT_CHIP_CARTOLA = 'Esta cuenta recurrente se paga por banco: págala en el banco cuando corresponda y no la registres aquí. Cuando subas la cartola, el cargo aparece en Conciliación → Cargos y ahí se registra el pago (con la fecha del banco).\nSi igual necesitas registrarlo antes (por ejemplo, para tener el comprobante), usa el menú del vencimiento → "Registrar pago a mano": cuando llegue la cartola, elige "Ya está en Gastos" para no duplicarlo.';
 const TXT_A_MANO = 'Este vencimiento se paga por banco: el cargo va a llegar con la cartola. Si lo registras ahora, cuando subas la cartola elige "Ya está en Gastos" en ese cargo (aparece primero en la lista) para no duplicarlo. Mientras tanto, Hoy lo muestra en "Esperan cartola".';
 const TXT_BANCO_REG = 'Lo que pagas por banco llega con la cartola; regístralo desde Conciliación para no duplicarlo.';
 function filaVencBase(v, rojo) {
@@ -2239,7 +2255,7 @@ function filaVencBase(v, rojo) {
   // v0.64.0 · Pagos parciales (abonos) de vencimientos que no son libres: "Con abonos · saldo $X", "Registrar abono" y "Reagendar saldo"
   const previred = !!(doc && doc.tipo === 'previred'), parcialOk = !libre && !previred && !espera && montoV(v) > 0, conAb = eb === 'con_abonos' && !libre;
   const saldo = conAb ? Math.max(0, montoV(v) - G3.totalAbonos(v)) : 0;
-  const chipE = conAb ? `<span class="chip c-azul chip-chico">Con abonos · saldo ${esc(pesos(saldo))}</span>` : NOMBRE_EB[eb] ? `<span class="chip ${NOMBRE_EB[eb][1]} chip-chico">${NOMBRE_EB[eb][0]}</span>` : '';
+  const chipE = conAb ? `<span class="chip c-azul chip-chico">Con abonos · saldo ${esc(pesos(saldo))}</span>` : espera ? `<span class="chip c-amarillo chip-chico">Esperando boleta${/^\d{4}-\d{2}$/.test(v.periodoKey || '') ? ' de ' + esc(BO.soloMes(v.periodoKey)) : ''}</span>` : NOMBRE_EB[eb] ? `<span class="chip ${NOMBRE_EB[eb][1]} chip-chico">${NOMBRE_EB[eb][0]}</span>` : '';
   const monto = libre ? G3.totalAbonos(v) : conAb ? saldo : montoV(v);
   const itemsParcial = parcialOk ? `<button type="button" class="menu-item" data-abono-parcial="${esc(v.id)}">Registrar abono (pago parcial)</button>${conAb ? `<button type="button" class="menu-item" data-reagendar="${esc(v.id)}">Reagendar saldo</button>` : ''}` : '';
   const chipBanco = `<span class="grupo-banco"><span class="chip c-azul chip-banco" data-cartola-v="${esc(v.id)}">${icono('banco', 14)} Se paga desde la cartola</span>${info('Se paga desde la cartola', TXT_CHIP_CARTOLA)}</span>`;
@@ -2252,8 +2268,12 @@ function filaVencBase(v, rojo) {
       : (libre ? `<button type="button" class="btn-sec" data-abono-v="${esc(v.id)}">Agregar abono</button>${(v.abonos || []).length ? `<button type="button" class="btn-sec" data-cerrar-v="${esc(v.id)}">Cerrar</button>` : ''}`
         : (conAb ? `<button type="button" class="btn-sec" data-abono-parcial="${esc(v.id)}">Abonar</button><button type="button" class="btn-sec btn-chico" data-reagendar="${esc(v.id)}">Reagendar saldo</button>`
           : `<button type="button" class="btn-sec" data-pagar="${esc(v.id)}">Pagar</button>${parcialOk ? `<button type="button" class="btn-sec btn-chico" data-abono-parcial="${esc(v.id)}">Abono</button>` : ''}`)) + anular);
-  return `<div class="fila-caja" data-venc-fila="${esc(v.id)}"><div class="txt"><b>${esc(v.nombre)}</b> ${chipE}<span>${det}</span>
-    ${doc && doc.tipo === 'previred' ? `<span>Certificado de Previred${doc.previred ? ' ' + esc(G3D.nombreMes(doc.previred.periodo)) + ' · ' + (doc.previred.trabajadores || []).length + ' trabajadores (un gasto por trabajador al pagar)' : ''}${doc.url ? ` · <a href="${esc(doc.url)}" target="_blank" rel="noopener">ver PDF</a>` : ''}</span>` : doc ? `<span>${doc.tipo === 'sii' ? `Factura del SII${doc.folio ? ' F.' + esc(doc.folio) : ''}${doc.razonSocial ? ' · ' + esc(doc.razonSocial) : ''}` : `Boleta${doc.cliente ? ' N° cliente ' + esc(doc.cliente) : ''}`} · vence ${esc(fechaCaja(v.fechaDocumento || v.fecha))}${doc.url ? ` · <a href="${esc(doc.url)}" target="_blank" rel="noopener">ver boleta</a>` : ''}</span>` : ''}
+  // v0.70.0 · De dónde viene (Fijo, Boleta, Factura SII, Archivo, Tabla…) y, si nació de su boleta, su período y el mes de su gasto
+  const ori = v.origenPor ? `<span class="chip c-gris chip-chico chip-origen-pp" data-origen-por="${esc(v.origenPor)}" title="${esc(BO.AYUDA_ORIGEN[v.origenPor] || '')}">${esc(BO.ORIGENES[v.origenPor] || '')}</span>` : '';
+  const bo = v.boleta && v.boleta.esSaldo !== true ? `<span class="pp-boleta">${esc(`Boleta ${v.boleta.empresa}${v.boleta.numero ? ' N° ' + v.boleta.numero : ''} · período ${v.boleta.desde ? BO.dma(v.boleta.desde).slice(0, 5) + ' al ' : ''}${BO.dma(v.boleta.hasta || v.boleta.emision)} · gasto de ${BO.nombreMes(v.boleta.mes)} (ya registrado)`)}${doc && doc.url ? ` · <a href="${esc(doc.url)}" target="_blank" rel="noopener">ver boleta</a>` : ''}</span>`
+    : v.boleta ? `<span class="pp-boleta">${esc(`Saldo anterior sin boleta · gasto de ${BO.nombreMes(v.boleta.mes)} (ya registrado)`)}</span>` : '';
+  return `<div class="fila-caja" data-venc-fila="${esc(v.id)}"${v.origenPor ? ` data-origen="${esc(v.origenPor)}"` : ''}><div class="txt"><b>${esc(v.nombre)}</b> ${chipE}${ori}<span>${det}</span>${bo}
+    ${v.boleta ? '' : doc && doc.tipo === 'previred' ? `<span>Certificado de Previred${doc.previred ? ' ' + esc(G3D.nombreMes(doc.previred.periodo)) + ' · ' + (doc.previred.trabajadores || []).length + ' trabajadores (un gasto por trabajador al pagar)' : ''}${doc.url ? ` · <a href="${esc(doc.url)}" target="_blank" rel="noopener">ver PDF</a>` : ''}</span>` : doc ? `<span>${doc.tipo === 'sii' ? `Factura del SII${doc.folio ? ' F.' + esc(doc.folio) : ''}${doc.razonSocial ? ' · ' + esc(doc.razonSocial) : ''}` : `Boleta${doc.cliente ? ' N° cliente ' + esc(doc.cliente) : ''}`} · vence ${esc(fechaCaja(v.fechaDocumento || v.fecha))}${doc.url ? ` · <a href="${esc(doc.url)}" target="_blank" rel="noopener">ver boleta</a>` : ''}</span>` : ''}
     ${(v.abonos || []).length ? `<span class="nota">${esc(G3.textoAbonos(v.abonos, pesos))}${conAb ? ` de ${esc(pesos(montoV(v)))}${v.fechaSaldo ? ' · saldo reagendado al ' + esc(fechaCaja(v.fechaSaldo)) : ''}` : ''}</span>` : ''}${v.obs ? `<span class="nota">${esc(v.obs)}</span>` : ''}</div>
     <div class="acciones"><span class="chip ${rojo ? 'c-rojo' : 'c-gris'}">${monto ? esc(pesos(monto)) : libre ? 'Sin abonos' : espera ? 'Falta la boleta' : 'Sin monto'}</span>${acciones}</div></div>`;
 }
@@ -2266,7 +2286,7 @@ function abrirAbonoParcial(v) {
   const total = montoV(v), ya = G3.totalAbonos(v), saldo = Math.max(0, total - ya), hoy = Caja.diaLocal();
   const dlg = dialogo(`<form class="form-dialogo" novalidate>
     <h2>Registrar abono ${info('Pago parcial (abono)', TXT_ABONO_PARCIAL)}</h2>
-    ${v.sePagaPor === 'banco' ? `<p class="aviso-cc">${icono('banco', 16)} Lo que pagas por banco se registra desde la cartola (Conciliación → Cargos → Paga vencimientos: un cargo menor que el total queda como abono). Aquí, solo lo que pagas en efectivo.</p>` : ''}
+    ${v.sePagaPor === 'banco' ? `<p class="aviso-cc">${icono('banco', 16)} Lo que pagas por banco se registra desde la cartola (Conciliación → Cargos → Paga cuentas por pagar: un cargo menor que el total queda como abono). Aquí, solo lo que pagas en efectivo.</p>` : ''}
     <p class="ayuda"><b>${esc(v.nombre)}</b> · total ${pesos(total)}${ya ? ` · abonado ${pesos(ya)}` : ''} · <b>saldo ${pesos(saldo)}</b></p>
     <div class="grilla-montos"><div class="campo"><label for="ap-monto">Monto del abono</label><input id="ap-monto" type="number" inputmode="numeric" min="1" step="1" max="${saldo}" value=""></div>
       <div class="campo"><label for="ap-fecha">Fecha</label><input id="ap-fecha" type="date" value="${hoy}" max="${hoy}"></div></div>
@@ -2350,7 +2370,10 @@ function abrirSubirBoleta(v, d) {
     if (!/pdf$/i.test(archivo.type) && !/\.pdf$/i.test(archivo.name || '')) { msg.textContent = 'Es una foto: escribe el N° de cliente, el total y la fecha de vencimiento.'; return; }
     msg.textContent = 'Leyendo el PDF…';
     try {
-      const r = G3.parsearBoleta((await Previred.lineasDelPdf(archivo)).join('\n'));
+      const lineas = await Previred.lineasDelPdf(archivo);
+      // v0.70.0 · Una boleta de luz o agua (CGE, ESSBIO): la vista previa completa (cuenta, período, intereses, saldo anterior, corte)
+      if (BO.esBoletaServicio(lineas)) { dlg.close(); abrirBoletaServicio(lineas, archivo); return; }
+      const r = G3.parsearBoleta(lineas.join('\n'));
       if (r.cliente) q('#sb-cliente').value = r.cliente;
       if (r.monto) q('#sb-monto').value = r.monto;
       if (r.fechaVencimiento) q('#sb-fecha').value = r.fechaVencimiento;
@@ -2372,12 +2395,213 @@ function abrirSubirBoleta(v, d) {
       const r = await Gastos.subirBoleta({ ...datos, ...a }, idem);
       registrar('Subió una boleta', `${datos.empresa || datos.cliente || 'Boleta'} · ${pesos(datos.monto)} · ${fechaCaja(datos.fechaVencimiento)}`);
       dlg.close();
-      alert(r.destino === 'bandeja' ? `${r.motivo || 'No calzó con una obligación'}: la boleta quedó en "Documentos sin obligación" (abajo en Vencimientos).` : `Listo: la boleta completó el vencimiento${r.obligacion ? ' de ' + r.obligacion : ''} (${pesos(datos.monto)}, vence ${fechaCaja(datos.fechaVencimiento)}).`);
+      alert(r.destino === 'bandeja' ? `${r.motivo || 'No calzó con una cuenta recurrente'}: la boleta quedó en "Documentos sin cuenta recurrente" (abajo en Por pagar).` : `Listo: la boleta completó el vencimiento${r.obligacion ? ' de ' + r.obligacion : ''} (${pesos(datos.monto)}, vence ${fechaCaja(datos.fechaVencimiento)}).`);
       refrescarAgenda();
     } catch (er) {
       if (er.code && er.code !== 'en_curso') idem = 'boleta-' + Gastos.nuevaClave();
       err.textContent = (er.message || mensajeError(er)) + (er.code ? '' : ' Si vuelves a tocar Guardar no se duplica.');
       b.disabled = false; b.textContent = 'Guardar boleta';
+    }
+  });
+}
+
+// ═══ v0.70.0 · Cuentas recurrentes y Por pagar: boletas de luz y agua (CGE, ESSBIO), esperando boleta, corte y pagar en orden ═══
+const TXT_LUZ_AGUA = 'Crea una vez las 4 cuentas recurrentes de luz y agua, con su reparto:\n• Luz Ainavillo y Agua Ainavillo: PAN 40 %, BOL 40 %, PAS 10 %, B2C 10 %.\n• Luz Barros Arana: CAF 70 %, B2C 30 %.\n• Agua Barros Arana: CAF 80 %, B2C 20 %.\nSe pagan por banco. Los N° de cliente no se escriben aquí: los aprende la primera boleta que subas (o los escribes tú al editar la cuenta).\nSi ya tenías una cuenta de luz o agua, puedes usarla en vez de crear otra: queda como cuenta de boleta, con su historial. Nunca se borra nada.\nLas que ya existen no se vuelven a crear. Todo se puede editar después en Cuentas recurrentes.';
+const TXT_ESPERANDO = 'Una cuenta de boleta (luz, agua) no se crea sola cada mes: nace de su boleta. Mientras no subas la boleta del mes, aquí sale un estimado (el promedio de las últimas 3 boletas de esa cuenta) con la fecha en que suele vencer, para que la Agenda y el flujo de caja no queden a ciegas.\nEs solo un estimado: no es un gasto ni se paga desde aquí. Cuando subes la boleta, el estimado desaparece y queda el por pagar real.';
+const TXT_EN_ORDEN = 'Cuando una cuenta tiene varias boletas por pagar, un pago se aplica a lo más antiguo primero. Si no alcanza para todo, lo que falta queda como abono en la más antigua que sigue abierta, con su saldo.\nLo que pagas por banco llega con la cartola y se reparte igual, solo (Conciliación → Cargos). Aquí, solo lo que pagas en efectivo o con tarjeta.';
+const TXT_SALDO_SB = 'No es un gasto de este mes: es lo que se debía de antes y que no tiene su boleta en Gastos. Su gasto queda en el mes que elijas (por defecto, el anterior), con el ítem que elijas y el reparto de la cuenta. Queda por pagar como "Boleta (saldo anterior)".\nSi después subes la boleta de ese mes, la reemplaza: no se cuenta dos veces.';
+let vbMsg = '', boletaPendiente = null;
+function cortesHtml(d) {
+  const l = d.cortes || [];
+  return l.length ? `<div class="avisos-corte" id="vb-cortes">${l.map(a => `<p class="aviso-cc aviso-corte" data-corte="${esc(a.cuentaId)}">${icono('alerta', 16)} <span><b>${esc(a.titulo)}</b> ${esc(a.detalle)}</span></p>`).join('')}</div>` : '';
+}
+function esperandoHtml(d) {
+  const l = d.esperandoBoleta || [];
+  if (!l.length) return '';
+  return `<section class="tarjeta" aria-labelledby="t-esperando" id="vb-esperando"><div class="titulo-fila"><h2 id="t-esperando">Esperando boleta ${info('Esperando boleta', TXT_ESPERANDO)}</h2><span>${l.length}</span></div>
+    ${l.map(x => `<div class="fila-caja fila-estimado" data-eb="${esc(x.id)}"><div class="txt"><b>${esc(x.nombre)}</b> <span class="chip c-gris chip-chico chip-estimado">Estimado</span><span>${esc(x.texto)} · cerca del ${esc(fechaCaja(x.fecha))}</span><span class="nota">${esc(x.detalle)} · no es un gasto</span></div>
+      <div class="acciones"><span class="chip c-gris chip-punteado">${x.estimado ? esc(pesos(x.estimado)) : 'Sin estimado'}</span><button type="button" class="btn-sec btn-chico" data-eb-subir="${esc(x.cuentaId)}">Subir boleta</button></div></div>`).join('')}</section>`;
+}
+// Las cuentas con varias boletas por pagar: "Pagar en orden" (lo más antiguo primero)
+function abiertosDeCuenta(d, pid) {
+  return (d.vencimientos || []).filter(v => v.plantillaId === pid && v.devengado && ['por_pagar', 'con_abonos'].includes(v.estadoBase)).map(v => ({ v, saldo: Math.max(0, montoV(v) - G3.totalAbonos(v)) })).filter(x => x.saldo > 0);
+}
+function enOrdenHtml(d) {
+  const pids = [...new Set((d.vencimientos || []).filter(v => v.devengado && v.plantillaId).map(v => v.plantillaId))].map(pid => ({ pid, l: abiertosDeCuenta(d, pid) })).filter(x => x.l.length > 1);
+  if (!pids.length) return '';
+  return `<section class="tarjeta" aria-labelledby="t-en-orden" id="vb-en-orden"><div class="titulo-fila"><h2 id="t-en-orden">Varias boletas por pagar ${info('Pagar en orden', TXT_EN_ORDEN)}</h2></div>
+    ${pids.map(x => `<div class="fila-caja" data-en-orden-fila="${esc(x.pid)}"><div class="txt"><b>${esc(x.l[0].v.cuentaNombre || x.l[0].v.nombre)}</b><span>${x.l.length} por pagar · ${x.l.map(y => esc(BO.soloMes((y.v.boleta || {}).mes || y.v.periodoKey))).join(', ')}</span></div>
+      <div class="acciones"><span class="chip c-gris">${esc(pesos(x.l.reduce((a, y) => a + y.saldo, 0)))}</span><button type="button" class="btn-sec btn-chico" data-en-orden="${esc(x.pid)}">Pagar en orden</button></div></div>`).join('')}</section>`;
+}
+function abrirPagarEnOrden(pid, d) {
+  const l = abiertosDeCuenta(d, pid); if (!l.length) return;
+  const total = l.reduce((a, y) => a + y.saldo, 0), hoy = Caja.diaLocal(), st = { origen: {}, origenTx: {} };
+  const dlg = dialogo(`<form class="form-dialogo" novalidate><h2>Pagar en orden ${info('Pagar en orden', TXT_EN_ORDEN)}</h2>
+    <p class="ayuda"><b>${esc(l[0].v.cuentaNombre || l[0].v.nombre)}</b> · ${l.length} por pagar · total ${pesos(total)}</p>
+    ${l[0].v.sePagaPor === 'banco' ? `<p class="aviso-cc">${icono('banco', 16)} ${esc(TXT_BANCO_REG)}</p>` : ''}
+    <div class="grilla-montos"><div class="campo"><label for="po-monto">Monto pagado</label><input id="po-monto" type="number" inputmode="numeric" min="1" step="1" max="${total}" value="${total}"></div>
+      <div class="campo"><label for="po-fecha">Fecha</label><input id="po-fecha" type="date" value="${hoy}" max="${hoy}"></div></div>
+    <fieldset class="campo"><legend>Medio</legend><div class="pastillas" role="group" aria-label="Medio">${[['efectivo', 'Efectivo'], ['tarjeta', 'Tarjeta']].map(([k, t]) => `<button type="button" class="pastilla" data-po-medio="${k}" aria-pressed="${k === 'efectivo'}">${t}</button>`).join('')}</div></fieldset>
+    <div id="po-origen"></div>
+    <ul class="po-plan" id="po-plan" role="status"></ul>
+    <div class="error" id="po-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="po-cancelar">Cancelar</button><button type="submit" class="btn" id="po-guardar">Registrar pago</button></div></form>`);
+  const q = x => dlg.querySelector(x);
+  let medio = 'efectivo';
+  const pintarOrigen = () => { const o = q('#po-origen'); o.innerHTML = medio === 'efectivo' ? origenEfectivoHtml(pid, 'po', st) : '';
+    o.querySelectorAll('[data-po-origen]').forEach(i => i.addEventListener('change', () => { st.origen[pid] = i.value; pintarOrigen(); }));
+    o.querySelectorAll('[data-po-ortx]').forEach(i => i.addEventListener('input', () => { st.origenTx[pid] = i.value; })); };
+  dlg.querySelectorAll('[data-po-medio]').forEach(b => b.addEventListener('click', () => { medio = b.dataset.poMedio; dlg.querySelectorAll('[data-po-medio]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); pintarOrigen(); }));
+  pintarOrigen();
+  const plan = () => BO.planOrden(l.map(y => ({ id: y.v.id, mes: (y.v.boleta || {}).mes || y.v.periodoKey, fecha: y.v.fecha, saldo: y.saldo })), Math.round(Number(q('#po-monto').value) || 0));
+  const nombres = Object.fromEntries(l.map(y => [y.v.id, y.v.nombre]));
+  const verPlan = () => { const p = plan(); q('#po-plan').innerHTML = p.pagos.map(x => `<li data-po-item="${esc(x.id)}">${esc(nombres[x.id])}: ${x.completo ? `<b>pagado</b> ${pesos(x.monto)}` : `<b>abono</b> ${pesos(x.monto)} · queda ${pesos(x.saldo - x.monto)}`}</li>`).join('') + (p.sobra ? `<li class="error">Sobran ${pesos(p.sobra)}: es más que lo por pagar.</li>` : ''); };
+  q('#po-monto').addEventListener('input', verPlan); verPlan();
+  q('#po-cancelar').onclick = () => dlg.close();
+  const idem = 'orden-' + Gastos.nuevaClave();
+  q('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = q('#po-error'), p = plan(), fecha = q('#po-fecha').value; err.textContent = '';
+    if (!p.pagos.length) { err.textContent = 'Escribe el monto pagado.'; return; }
+    if (p.sobra) { err.textContent = `Es más que lo por pagar (${pesos(total)}).`; return; }
+    if (!fecha) { err.textContent = 'Elige la fecha.'; return; }
+    const org = medio === 'efectivo' ? { origenEfectivo: st.origen[pid] || SP.ORIGEN_B2B, origenTexto: st.origenTx[pid] || '' } : {};
+    if (medio === 'efectivo') { const rv = PM.revisarResto({ medio, fecha, origen: org.origenEfectivo, origenTexto: org.origenTexto }, 1); if (rv.error) { err.textContent = rv.error + '.'; return; } }
+    const b = q('#po-guardar'); b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      for (let i = 0; i < p.pagos.length; i++) await Gastos.abonoParcial(p.pagos[i].id, { monto: p.pagos[i].monto, fecha, origen: 'mano', medio, ...org, obs: 'Pago en orden (lo más antiguo primero)' }, idem + '-' + i);
+      registrar('Pagó en orden una cuenta recurrente', `${l[0].v.cuentaNombre || l[0].v.nombre} · ${pesos(p.pagos.reduce((a, x) => a + x.monto, 0))} · ${PM.NOMBRE_MEDIO[medio]}`);
+      vbMsg = `Listo: ${BO.textoOrden(p, nombres)}.`; dlg.close(); refrescarAgenda();
+    } catch (er) { err.textContent = (er.message || mensajeError(er)) + ' Si vuelves a tocar Registrar pago no se duplica.'; b.disabled = false; b.textContent = 'Registrar pago'; }
+  });
+}
+// "Crear cuentas de luz y agua" (una vez). alListo: después de crear (desde la vista previa de una boleta, para seguir)
+async function abrirCuentasLuzAgua(alListo) {
+  let D; try { D = await Gastos.datosBoleta(); } catch (e) { alert(e.message || mensajeError(e)); return; }
+  const plan = BO.planCuentas(D.plantillas, D.items);
+  const dlg = dialogo(`<form class="form-dialogo form-luz-agua" novalidate><h2>Crear cuentas de luz y agua ${info('Crear cuentas de luz y agua', TXT_LUZ_AGUA)}</h2>
+    <p class="ayuda">Se pagan por banco. Los N° de cliente se aprenden de la primera boleta.</p>
+    ${plan.map(f => `<div class="fila-caja lz-fila" data-lz="${esc(f.def.clave)}"><div class="txt"><b>${esc(f.def.nombre)}</b><span>${esc(f.def.empresa)} · ${esc(BO.textoReparto(f.def.reparto))}</span>
+      ${f.existe ? `<span class="chip c-verde chip-chico">Ya existe: ${esc(f.existe.nombre)}</span>` : `<label class="sr" for="lz-acc-${esc(f.def.clave)}">Qué hacer</label><select id="lz-acc-${esc(f.def.clave)}" data-lz-accion="${esc(f.def.clave)}"><option value="crear">Crear nueva</option>${f.candidatas.map(c => `<option value="usar:${esc(c.id)}">Usar "${esc(c.nombre)}"</option>`).join('')}<option value="nada">No crear</option></select>
+      <label class="sr" for="lz-it-${esc(f.def.clave)}">Ítem</label><select id="lz-it-${esc(f.def.clave)}" data-lz-item="${esc(f.def.clave)}"><option value="">Elegir el ítem después</option>${D.items.map(i => `<option value="${esc(i.item)}" ${i.item === f.item ? 'selected' : ''}>${esc(i.item)}</option>`).join('')}</select>
+      ${f.candidatas.length ? `<span class="ayuda">Ya tienes ${f.candidatas.length === 1 ? 'una cuenta' : f.candidatas.length + ' cuentas'} de ${esc(f.def.servicio)}: puedes usarla en vez de crear otra.</span>` : ''}`}</div></div>`).join('')}
+    <div class="error" id="lz-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="lz-cancelar">Cancelar</button><button type="submit" class="btn" id="lz-guardar" ${plan.every(f => f.existe) ? 'disabled' : ''}>Crear</button></div></form>`);
+  const q = x => dlg.querySelector(x);
+  q('#lz-cancelar').onclick = () => dlg.close();
+  const idem = 'luzagua-' + Gastos.nuevaClave();
+  q('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const el = plan.filter(f => !f.existe).map(f => { const a = q(`[data-lz-accion="${f.def.clave}"]`).value; return { clave: f.def.clave, accion: a.startsWith('usar:') ? 'usar' : a, usarId: a.startsWith('usar:') ? a.slice(5) : '', item: q(`[data-lz-item="${f.def.clave}"]`).value }; });
+    const b = q('#lz-guardar'); b.disabled = true; b.textContent = 'Creando…';
+    try {
+      const r = await Gastos.crearCuentasLuzAgua(el, idem);
+      registrar('Creó las cuentas de luz y agua', `${r.creadas} nuevas · ${r.usadas} usadas`);
+      vbMsg = `Listo: ${r.creadas} ${r.creadas === 1 ? 'cuenta nueva' : 'cuentas nuevas'}${r.usadas ? ` y ${r.usadas} que ya tenías` : ''}. Los N° de cliente se aprenden con la primera boleta.`;
+      dlg.close(); if (alListo) alListo(); else refrescarAgenda();
+    } catch (er) { q('#lz-error').textContent = er.message || mensajeError(er); b.disabled = false; b.textContent = 'Crear'; }
+  });
+}
+// La vista previa de una boleta de luz o agua (leída del PDF). Nada se guarda hasta "Guardar boleta".
+async function abrirBoletaServicio(lineas, archivo) {
+  const b0 = BO.leerBoleta(lineas), emp = BO.EMPRESAS[b0.empresa] || { nombre: '', servicio: '' };
+  const dlg = dialogo(`<form class="form-dialogo form-boleta" novalidate><h2>Boleta de ${esc((BO.NOMBRE_SERVICIO[emp.servicio] || 'servicio').toLowerCase())} ${esc(emp.nombre)} ${info('El mes de una boleta', BO.TXT_MES_BOLETA)}</h2>
+    <div id="bs-cuerpo"><p class="ayuda">Revisando…</p></div><div class="error" id="bs-error" role="alert"></div>
+    <div class="botones"><button type="button" class="btn-sec" id="bs-cancelar">Cancelar</button><button type="submit" class="btn" id="bs-guardar" disabled>Guardar boleta</button></div></form>`);
+  const q = x => dlg.querySelector(x);
+  q('#bs-cancelar').onclick = () => dlg.close();
+  let D = null;
+  const st = { cuentaId: '', item: '', itemI: '', areaI: '', sa: false, saMes: '', saItem: '', vence: b0.vence || BO.fechaPagoDe(b0) };
+  const cargar = async () => { try { D = await Gastos.datosBoleta(); } catch (e) { q('#bs-cuerpo').innerHTML = `<p class="error">${esc(e.message || mensajeError(e))}</p>`; return false; } return true; };
+  const fila = (k, v, id) => `<div><dt>${k}</dt><dd${id ? ` id="${id}"` : ''}>${v}</dd></div>`;
+  const pintar = () => {
+    const b = b0.bloquea ? b0 : { ...BO.revisarBoleta({ ...b0, vence: st.vence }), saldoDetalle: b0.saldoDetalle, avisos: b0.avisos };
+    const m = b.bloquea ? null : BO.cuentaDeBoleta(D.plantillas, b.empresa, b.cliente);
+    if (m && m.cuenta && !st.cuentaId) st.cuentaId = m.cuenta.d.id || m.cuenta.id;
+    const cuenta = st.cuentaId ? D.plantillas.find(x => (x.d.id || x.id) === st.cuentaId) : null;
+    if (cuenta && !st.item) st.item = cuenta.d.item || BO.itemPara(D.items, b.servicio);
+    if (!st.itemI) st.itemI = D.recargos.propuesto || '';
+    if (!st.areaI) st.areaI = D.recargos.area || 'ADMIN';
+    if (!st.saMes && b.mes) st.saMes = BO.mesAnterior(b.mes);
+    if (!st.saItem) st.saItem = st.item;
+    const plan = cuenta && !b.bloquea ? BO.planBoleta(b, cuenta, D.vencs, D.items, { item: st.item, itemIntereses: st.itemI, areaIntereses: st.areaI, saldoSinBoleta: { registrar: st.sa, mes: st.saMes, item: st.saItem } }) : null;
+    const cruce = b.boleta && b.totalPagar ? `Boleta del período ${pesos(b.boleta)} + saldo anterior ${pesos(b.saldoAnterior)}${b.ajuste ? ` + ajustes ${pesos(b.ajuste)}` : ''} = total a pagar ${pesos(b.totalPagar)}` : '';
+    const optItems = sel => D.items.map(i => `<option value="${esc(i.item)}" ${i.item === sel ? 'selected' : ''}>${esc(i.item)}</option>`).join('');
+    const per = b.desde ? `${BO.dma(b.desde)} al ${BO.dma(b.hasta)}` : b.hasta ? `hasta el ${BO.dma(b.hasta)}` : 'no se leyó';
+    let h = `<dl class="bs-datos" id="bs-datos">${fila('Empresa', `${esc(emp.nombre)}${b0.rutEmisor ? ' · RUT ' + esc(b0.rutEmisor) : ''}`)}${fila(emp.servicio === 'agua' ? 'N° de servicio' : 'N° de cliente', esc(b.cliente || '—'), 'bs-cliente')}${fila('N° de boleta', esc(b.numero || '—'))}
+      ${fila('Emisión', esc(b.emision ? BO.dma(b.emision) : '—'))}${fila('Período', esc(per), 'bs-periodo')}
+      <div><dt><label for="bs-vence">Vence</label></dt><dd><input id="bs-vence" type="date" value="${esc(st.vence)}">${b0.vence ? '' : `<span class="ayuda">${b0.corte && b0.corte.enTramite ? 'La boleta no trae fecha (corte en trámite): se usa la emisión. Cámbiala si quieres.' : 'La boleta no trae fecha: se usa la emisión.'}</span>`}</dd></div>
+      ${fila('Boleta del período', esc(pesos(b.boleta)), 'bs-boleta')}${b.intereses ? fila('de eso, intereses', esc(pesos(b.intereses)), 'bs-int') : ''}${fila('Saldo anterior', esc(pesos(b.saldoAnterior)), 'bs-sa-monto')}${b.ajuste ? fila('Ajustes', esc(pesos(b.ajuste))) : ''}
+      ${fila('Total a pagar', `<b>${esc(pesos(b.totalPagar))}</b>`, 'bs-total')}</dl>
+      ${cruce ? `<p class="bs-cruce ${b.bloquea ? 'bs-mal' : 'bs-ok'}" id="bs-cruce">${b.bloquea ? '' : icono('check', 16)} ${esc(cruce)}</p>` : ''}
+      ${b.errores.length ? `<div class="aviso-cc bs-errores" id="bs-errores" role="alert">${b.errores.map(x => `<p>${esc(x)}</p>`).join('')}</div>` : ''}
+      ${(b.avisos || []).length ? `<div class="ayuda" id="bs-avisos">${b.avisos.map(x => `<p>${esc(x)}</p>`).join('')}</div>` : ''}`;
+    if (!b.bloquea) {
+      // La cuenta recurrente
+      if (m.cuenta) h += `<p class="bs-cuenta" id="bs-cuenta">Cuenta: <b>${esc(m.cuenta.d.nombre)}</b> (por el N° ${esc(b.cliente)})</p>`;
+      else if (m.opciones) h += `<div class="campo" id="bs-elegir"><label for="bs-cuenta-sel">Cuenta recurrente ${m.como === 'sin_numero' ? info('Cuenta sin N° todavía', `Estas cuentas de ${emp.nombre} todavía no tienen su N°. Elige la de esta boleta: se le guarda el N° ${b.cliente} y la próxima boleta se reconoce sola.`) : ''}</label>
+        <select id="bs-cuenta-sel"><option value="">Elige la cuenta…</option>${m.opciones.map(x => `<option value="${esc(x.d.id || x.id)}" ${(x.d.id || x.id) === st.cuentaId ? 'selected' : ''}>${esc(x.d.nombre)}${x.d.local ? ' · ' + esc(x.d.local) : ''}</option>`).join('')}</select>${m.duda ? `<span class="ayuda">${esc(m.duda)}</span>` : ''}</div>`;
+      else h += `<div class="aviso-cc" id="bs-sin-cuenta"><p>No hay una cuenta recurrente de ${esc(emp.nombre)} con el N° ${esc(b.cliente)}.</p><div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" id="bs-crear-cuentas">Crear cuentas de luz y agua</button><button type="button" class="btn-sec btn-chico" id="bs-nueva-cuenta">Nueva cuenta recurrente</button></div></div>`;
+      if (cuenta) {
+        h += `<div class="campo"><label for="bs-item">Ítem de gasto</label><select id="bs-item"><option value="">Elige el ítem…</option>${optItems(st.item)}</select></div>`;
+        if (b.intereses > 0) h += `<div class="campo bs-intereses" id="bs-intereses"><span class="etiqueta">Intereses ${esc(pesos(b.intereses))}: van aparte, como gasto financiero ${info('Intereses de la boleta', 'Los intereses que trae la boleta (por pagar atrasado) no son luz ni agua: son un gasto financiero. Van en una línea aparte, con un ítem de tipo financiero (como las multas de Previred), en el mismo mes que la boleta.')}</span>
+          <div class="grilla-montos"><label class="sr" for="bs-item-int">Ítem de los intereses</label><select id="bs-item-int"><option value="">Elige el ítem…</option>${D.recargos.lista.map(i => `<option value="${esc(i.item)}" ${i.item === st.itemI ? 'selected' : ''}>${esc(i.item)}${i.financiero ? ' · financiero' : ''}</option>`).join('')}</select>
+          <label class="sr" for="bs-area-int">Área de los intereses</label><select id="bs-area-int">${AREAS_GASTO.map(a => `<option ${a === st.areaI ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
+          ${D.recargos.avisos[st.itemI] ? `<span class="ayuda">${esc(D.recargos.avisos[st.itemI])}</span>` : ''}</div>`;
+        if (plan && plan.error) h += `<p class="error" id="bs-plan-error">${esc(plan.error)}</p>`;
+        if (plan && plan.repetido) h += `<p class="aviso-cc" id="bs-ya">Esta boleta ya está registrada (${esc(plan.venc ? plan.venc.nombre : plan.id)}). No se guarda dos veces.</p>`;
+        if (plan && !plan.error && !plan.repetido) {
+          const cmp = plan.comparacion, lb = plan.lineas.filter(x => x.para === 'boleta');
+          h += `<div class="bs-gasto" id="bs-gasto"><p><b>Gasto de ${esc(BO.nombreMes(b.mes))}</b> (con fecha ${esc(BO.dma(b.fechaGasto))}) ${info('El mes de una boleta', BO.TXT_MES_BOLETA)}</p>
+            <ul>${lb.map(x => `<li>${esc(x.d.itemGasto)} · ${esc(x.d.area)} · ${esc(pesos(x.d.montoFinal))}${x.d.boleta.parte === 'intereses' ? ' (intereses, financiero)' : ''}</li>`).join('')}</ul></div>`;
+          if (cmp.estado === 'calza') h += `<p class="bs-saldo bs-ok" id="bs-saldo">${icono('check', 16)} ${esc(BO.textoCalza(cmp))}</p>`;
+          if (cmp.estado === 'no_calza') {
+            h += `<div class="bs-saldo" id="bs-saldo"><p>${esc(BO.textoNoCalza(b, cmp))}</p>`;
+            if (cmp.dif > 0) {
+              const meses = []; let mm = BO.mesAnterior(b.mes); for (let i = 0; i < 6; i++) { meses.push(mm); mm = BO.mesAnterior(mm); }
+              h += `<label class="check-linea"><input type="checkbox" id="bs-sa" ${st.sa ? 'checked' : ''}> Registrar saldo anterior sin boleta (${esc(pesos(cmp.dif))}) ${info('Saldo anterior sin boleta', TXT_SALDO_SB)}</label>
+                ${st.sa ? `<div class="grilla-montos"><div class="campo"><label for="bs-sa-mes">Es del mes</label><select id="bs-sa-mes">${meses.map(x => `<option value="${x}" ${x === st.saMes ? 'selected' : ''}>${esc(BO.nombreMes(x))}</option>`).join('')}</select></div>
+                  <div class="campo"><label for="bs-sa-item">Ítem</label><select id="bs-sa-item">${optItems(st.saItem)}</select></div></div>` : ''}`;
+            } else h += '<p class="ayuda">Hay más por pagar en Gastos que lo que dice la boleta: revisa si alguno ya se pagó.</p>';
+            h += '</div>';
+          }
+          if (b.corte && (b.corte.enTramite || b.corte.desde)) h += `<p class="aviso-cc aviso-corte" id="bs-corte">${icono('alerta', 16)} Corte ${b.corte.desde ? 'desde el ' + esc(BO.diaCorto(b.corte.desde)) : 'en trámite'}: sale en Hoy como urgente hasta que se pague.</p>`;
+          h += `<p class="ayuda bs-resultado" id="bs-resultado">Queda por pagar: <b>${esc(plan.venc.nombre)}</b> ${esc(pesos(plan.total))} · vence ${esc(fechaCaja(plan.venc.fechaVencimiento))}${plan.cubre.length ? ` · con lo de antes, el total a pagar ${esc(pesos(b.totalPagar))} se paga con un solo cargo (lo más antiguo primero)` : ''}.</p>`;
+        }
+      }
+    }
+    q('#bs-cuerpo').innerHTML = h;
+    q('#bs-guardar').disabled = !(plan && !plan.error && !plan.repetido);
+    const ev = (sel, fn) => { const x = q(sel); if (x) x.addEventListener('change', fn); };
+    ev('#bs-vence', e => { st.vence = e.target.value; pintar(); });
+    ev('#bs-cuenta-sel', e => { st.cuentaId = e.target.value; st.item = ''; pintar(); });
+    ev('#bs-item', e => { st.item = e.target.value; pintar(); });
+    ev('#bs-item-int', e => { st.itemI = e.target.value; pintar(); });
+    ev('#bs-area-int', e => { st.areaI = e.target.value; pintar(); });
+    ev('#bs-sa', e => { st.sa = e.target.checked; pintar(); });
+    ev('#bs-sa-mes', e => { st.saMes = e.target.value; pintar(); });
+    ev('#bs-sa-item', e => { st.saItem = e.target.value; pintar(); });
+    const bc = q('#bs-crear-cuentas'); if (bc) bc.onclick = () => abrirCuentasLuzAgua(async () => { if (await cargar()) pintar(); });
+    const bn = q('#bs-nueva-cuenta'); if (bn) bn.onclick = () => { dlg.close(); abrirObligacion(null, { itemsSii: D.items, fuente: 'base' }, { nombre: `${BO.NOMBRE_SERVICIO[emp.servicio] || ''} `.trim(), identificador: b.cliente, empresa: b.empresa, monto: b.boleta, fecha: st.vence }); };
+    st.b = b;
+  };
+  if (!(await cargar())) return;
+  pintar();
+  let idem = 'boleta-servicio-' + Gastos.nuevaClave();
+  q('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = q('#bs-error'); err.textContent = '';
+    const bt = q('#bs-guardar'); bt.disabled = true; bt.textContent = 'Guardando…';
+    try {
+      const a = archivo ? await Gastos.prepararArchivo(archivo) : null;
+      const r = await Gastos.registrarBoletaServicio({ boleta: st.b, cuentaId: st.cuentaId, item: st.item, itemIntereses: st.itemI, areaIntereses: st.areaI, saldoSinBoleta: { registrar: st.sa, mes: st.saMes, item: st.saItem }, ...(a || {}) }, idem);
+      registrar('Subió una boleta de ' + (BO.NOMBRE_SERVICIO[emp.servicio] || '').toLowerCase(), `${emp.nombre} ${st.b.numero || ''} · ${pesos(st.b.totalPagar)} · ${BO.nombreMes(st.b.mes)}`);
+      vbMsg = r.repetido ? 'Esta boleta ya estaba registrada: no se guardó dos veces.' : `Listo: la boleta de ${BO.nombreMes(st.b.mes)} quedó por pagar (${pesos(r.total)}), con su gasto en ${BO.nombreMes(st.b.mes)}${r.sa ? ' y el saldo anterior sin boleta' : ''}.${r.url ? '' : ' El PDF no se guardó en Drive: quedan los datos leídos.'}`;
+      dlg.close(); refrescarAgenda();
+    } catch (er) {
+      if (er.code && er.code !== 'en_curso') idem = 'boleta-servicio-' + Gastos.nuevaClave();
+      err.textContent = (er.message || mensajeError(er)) + (er.code ? '' : ' Si vuelves a tocar Guardar no se duplica.');
+      bt.disabled = false; bt.textContent = 'Guardar boleta';
     }
   });
 }
@@ -2392,9 +2616,9 @@ async function pintarBandeja(d) {
   cont.innerHTML = L.length ? L.map(x => `<div class="fila-caja" id="dp-${esc(x.id)}"><div class="txt"><b>${esc(x.empresa || (x.tipo === 'sii' ? 'Factura del SII' : 'Boleta'))}</b>
       <span>${[x.tipo === 'sii' ? `Factura del SII F.${x.folio} · RUT ${x.rut}` : x.cliente ? 'N° cliente ' + x.cliente : 'Sin N° de cliente', x.monto ? pesos(x.monto) : '', x.fechaVencimiento ? 'vence ' + fechaCaja(x.fechaVencimiento) : ''].filter(Boolean).map(esc).join(' · ')}</span>
       <span class="nota">${esc(x.motivo || '')}${x.archivo && x.archivo.url ? ` · <a href="${esc(x.archivo.url)}" target="_blank" rel="noopener">ver archivo</a>` : ''}</span></div>
-    <div class="acciones acciones-bandeja"><button type="button" class="btn-sec btn-chico" data-dp-asignar="${esc(x.id)}">Asignar a una obligación</button>${x.tipo === 'sii' ? '' : `<button type="button" class="btn-sec btn-chico" data-dp-gasto="${esc(x.id)}">Registrar como gasto</button>`}
-      <button type="button" class="btn-sec btn-chico" data-dp-obl="${esc(x.id)}">Crear obligación</button><button type="button" class="btn-sec btn-chico btn-peligro" data-dp-descartar="${esc(x.id)}">Descartar</button></div></div>`).join('')
-    : '<div class="vacio">No hay documentos sin obligación.</div>';
+    <div class="acciones acciones-bandeja"><button type="button" class="btn-sec btn-chico" data-dp-asignar="${esc(x.id)}">Asignar a una cuenta recurrente</button>${x.tipo === 'sii' ? '' : `<button type="button" class="btn-sec btn-chico" data-dp-gasto="${esc(x.id)}">Registrar como gasto</button>`}
+      <button type="button" class="btn-sec btn-chico" data-dp-obl="${esc(x.id)}">Crear cuenta recurrente</button><button type="button" class="btn-sec btn-chico btn-peligro" data-dp-descartar="${esc(x.id)}">Descartar</button></div></div>`).join('')
+    : '<div class="vacio">No hay documentos sin cuenta recurrente.</div>';
   const de = id => L.find(x => x.id === id);
   cont.querySelectorAll('[data-dp-asignar]').forEach(b => b.onclick = () => asignarPendiente(de(b.dataset.dpAsignar)));
   cont.querySelectorAll('[data-dp-gasto]').forEach(b => b.onclick = () => { const x = de(b.dataset.dpGasto); prefillRegistro = { pendienteId: x.id, urlArchivo: (x.archivo || {}).url || '', nombreArchivo: (x.archivo || {}).nombre || '', monto: x.monto, obs: [x.empresa, x.cliente ? 'N° cliente ' + x.cliente : ''].filter(Boolean).join(' · ') }; location.hash = '#gastos/registrar'; });
@@ -2409,17 +2633,17 @@ async function pintarBandeja(d) {
 async function asignarPendiente(x) {
   let P;
   try { P = ((await Gastos.plantillas()).plantillas || []).filter(p => p.estado === 'ACTIVA').sort((a, b) => a.nombre.localeCompare(b.nombre)); } catch (e) { alert(e.message || mensajeError(e)); return; }
-  const dlg = dialogo(`<form class="form-dialogo" novalidate><h2>Asignar a una obligación</h2>
+  const dlg = dialogo(`<form class="form-dialogo" novalidate><h2>Asignar a una cuenta recurrente</h2>
     <p class="ayuda"><b>${esc(x.empresa || 'Boleta')}</b> · ${esc(x.cliente ? 'N° cliente ' + x.cliente : 'sin N° de cliente')} · ${esc(pesos(x.monto || 0))} · vence ${esc(fechaCaja(x.fechaVencimiento))}</p>
-    <div class="campo"><label for="as-obl">Obligación</label><select id="as-obl"><option value="">Elige</option>${P.map(p => `<option value="${esc(p.id)}">${esc(p.nombre)}${p.identificador ? ' · ' + esc(p.identificador) : ''}</option>`).join('')}</select></div>
-    <p class="ayuda">Completa su vencimiento del mes (o lo crea). Si la obligación no tiene N° de cliente, se le guarda este.</p>
+    <div class="campo"><label for="as-obl">Cuenta recurrente</label><select id="as-obl"><option value="">Elige</option>${P.map(p => `<option value="${esc(p.id)}">${esc(p.nombre)}${p.identificador ? ' · ' + esc(p.identificador) : ''}</option>`).join('')}</select></div>
+    <p class="ayuda">Completa su vencimiento del mes (o lo crea). Si la cuenta recurrente no tiene N° de cliente, se le guarda este.</p>
     <div class="error" id="as-error" role="alert"></div>
     <div class="botones"><button type="button" class="btn-sec" id="as-cancelar">Cancelar</button><button type="submit" class="btn" id="as-guardar">Asignar</button></div></form>`);
   dlg.querySelector('#as-cancelar').onclick = () => dlg.close();
   dlg.querySelector('form').addEventListener('submit', async e => {
     e.preventDefault();
     const id = dlg.querySelector('#as-obl').value, err = dlg.querySelector('#as-error'); err.textContent = '';
-    if (!id) { err.textContent = 'Elige la obligación.'; return; }
+    if (!id) { err.textContent = 'Elige la cuenta recurrente.'; return; }
     const b = dlg.querySelector('#as-guardar'); b.disabled = true;
     try { const r = await Gastos.resolverPendiente(x.id, 'asignar', { obligacionId: id }); registrar('Asignó un documento', `${x.empresa || x.cliente || 'Boleta'} → ${r.obligacion}`); dlg.close(); refrescarAgenda(); }
     catch (er) { err.textContent = er.message || mensajeError(er); b.disabled = false; }
@@ -2429,7 +2653,7 @@ async function asignarPendiente(x) {
 // ── v0.63.1 · "Área de este abono" (obligación libre): una área o un reparto en %, para la cartola y el abono a mano ──
 // st = { areas: [{ area, pct }], fuente: recordado | previred | obligacion | elegido, texto }. Cada caja es independiente
 // (data-ab-areas="clave"); al cambiarla se repinta solo esa caja. La propuesta: lo recordado → Previred → la obligación.
-const TXT_AREA_ABONO = 'El gasto de este abono va al área que elijas aquí, no a la de la obligación: el sueldo de una persona va a su área (por ejemplo, PAN), o se reparte en % si trabaja en dos (PAN 60 % y B2B 40 %: quedan dos líneas de gasto).\nLa propuesta sale, en este orden, de:\n1. lo que elegiste la última vez para este destinatario (el RUT o la glosa del banco; a mano, "Para quién"),\n2. el área de Previred del trabajador, si el nombre o el RUT calza,\n3. el área (o el reparto) de la obligación.\nLo que eliges queda recordado para la próxima vez. El abono no se marca seguro solo: igual lo confirmas tú.';
+const TXT_AREA_ABONO = 'El gasto de este abono va al área que elijas aquí, no a la de la cuenta recurrente: el sueldo de una persona va a su área (por ejemplo, PAN), o se reparte en % si trabaja en dos (PAN 60 % y B2B 40 %: quedan dos líneas de gasto).\nLa propuesta sale, en este orden, de:\n1. lo que elegiste la última vez para este destinatario (el RUT o la glosa del banco; a mano, "Para quién"),\n2. el área de Previred del trabajador, si el nombre o el RUT calza,\n3. el área (o el reparto) de la cuenta recurrente.\nLo que eliges queda recordado para la próxima vez. El abono no se marca seguro solo: igual lo confirmas tú.';
 const abAreas = {};
 function propuestaAbono(v, x, datos) {
   const dt = datos || {}, dest = AB.claveDestinatario({ rut: x.rut, descripcion: x.descripcion, nombre: x.nombre });
@@ -2448,7 +2672,7 @@ function htmlAreasAbono(k, monto) {
   const suma = l.reduce((t, a) => t + (Number(a.pct) || 0), 0), uno = l.length === 1, mt = montosAreas(l, monto);
   const etq = st.etiqueta || 'Área de este abono', quien = st.nombre ? ' de ' + st.nombre : ' del abono';
   return `<div class="campo ab-areas-caja${uno ? ' ab-uno' : ''}"><span class="etiqueta">${esc(etq)} ${info(st.infoTit || 'Área de este abono', st.infoTxt || TXT_AREA_ABONO)}</span>
-    <p class="ayuda ab-fuente">${st.fuente === 'elegido' ? 'Elegido por ti' : 'Propuesta: ' + esc(st.texto || '')}${st.fuente !== 'elegido' && !st.areas.length ? ' ' + esc(st.sinArea || '(la obligación no tiene área: elige una)') : ''}</p>
+    <p class="ayuda ab-fuente">${st.fuente === 'elegido' ? 'Elegido por ti' : 'Propuesta: ' + esc(st.texto || '')}${st.fuente !== 'elegido' && !st.areas.length ? ' ' + esc(st.sinArea || '(la cuenta recurrente no tiene área: elige una)') : ''}</p>
     ${l.map((a, i) => `<div class="fila-area"><select data-ab-area="${i}"${uno && st.idSel !== undefined ? ` data-area="${esc(st.idSel)}"` : ''} aria-label="${uno && st.nombre ? 'Área de ' + esc(st.nombre) : `Área ${i + 1}${esc(quien)}`}"><option value="">Área</option>${AREAS_GASTO.map(x => `<option ${x === a.area ? 'selected' : ''}>${x}</option>`).join('')}</select>
       ${uno ? '' : `<input type="number" inputmode="numeric" min="1" max="100" step="1" data-ab-pct="${i}" value="${esc(a.pct || '')}" aria-label="Porcentaje del área ${i + 1}" placeholder="%"><span class="ab-pct-monto">${mt[i]}</span>
       <button type="button" class="btn-sec btn-chico" data-ab-quitar="${i}" aria-label="Quitar el área ${i + 1}">Quitar</button>`}</div>`).join('')}
@@ -2513,7 +2737,7 @@ function abrirAbono(v, opc = {}) {
     <div data-ab-areas="mano"></div>
     <div class="campo"><label for="ab-archivo">Comprobante (opcional)</label><input id="ab-archivo" type="file" accept="image/*,application/pdf"></div>
     <div class="campo"><label for="ab-obs">Observación (opcional)</label><input id="ab-obs" type="text" maxlength="300"></div>
-    <p class="ayuda">Cada abono queda como un gasto con el ítem de la obligación y el área de arriba. Cuando esté todo pagado, toca Cerrar.</p>
+    <p class="ayuda">Cada abono queda como un gasto con el ítem de la cuenta recurrente y el área de arriba. Cuando esté todo pagado, toca Cerrar.</p>
     <div class="error" id="ab-error" role="alert"></div>
     <div class="botones"><button type="button" class="btn-sec" id="ab-cancelar">Cancelar</button><button type="submit" class="btn" id="ab-guardar">Agregar abono</button></div></form>`);
   const q = s => dlg.querySelector(s);
@@ -2562,7 +2786,7 @@ async function cerrarVencUI(v) {
 function abrirSuelto(d) {
   const items = d.itemsSii || d.items || [], hoy = Caja.diaLocal();
   const selArea = (c, v) => `<select class="${c}" aria-label="Área"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === v ? 'selected' : ''}>${a}</option>`).join('')}</select>`;
-  const dlg = dialogo(`<form class="form-dialogo" novalidate><h2>Vencimiento suelto ${info('Vencimiento suelto', TXT_SUELTO)}</h2>
+  const dlg = dialogo(`<form class="form-dialogo" novalidate><h2>Pago suelto ${info('Pago suelto', TXT_SUELTO)}</h2>
     <div class="campo"><label for="vs-nombre">Nombre</label><input id="vs-nombre" type="text" maxlength="80" placeholder="Ej: Patente municipal 2° semestre"></div>
     <div class="campo"><label for="vs-item">Ítem de gasto</label><select id="vs-item"><option value="">Elige un ítem</option>${items.map(i => `<option value="${esc(i.item)}">${esc(i.item)}</option>`).join('')}</select></div>
     <div id="vs-areas"></div>
@@ -2589,7 +2813,7 @@ function abrirSuelto(d) {
       areas: [...dlg.querySelectorAll('#vs-multi .fila-area')].map(f => ({ area: f.querySelector('.vs-area').value, monto: Number(f.querySelector('.vs-monto').value) || 0 })) };
     [1, 2, 3].forEach(k => { const a = q('.vs-pa' + k); if (a) { p['pArea' + k] = a.value; p['pPct' + k] = q('.vs-pp' + k).value; } });
     const b = q('#vs-guardar'); b.disabled = true;
-    try { await Gastos.crearSuelto(p, idem); registrar('Creó un vencimiento suelto', `${p.nombre} · ${fechaCaja(p.fecha)}`); dlg.close(); refrescarAgenda(); }
+    try { await Gastos.crearSuelto(p, idem); registrar('Creó un pago suelto', `${p.nombre} · ${fechaCaja(p.fecha)}`); dlg.close(); refrescarAgenda(); }
     catch (er) { if (er.code && er.code !== 'en_curso') idem = 'suelto-' + Gastos.nuevaClave(); err.textContent = er.message || mensajeError(er); b.disabled = false; }
   });
 }
@@ -2597,7 +2821,7 @@ let prefillRegistro = null;   // "Registrar como gasto" desde la bandeja: la bol
 
 // ── Obligaciones (reglas) ──
 async function pintarObligaciones(el, sub, d) {
-  el.innerHTML = cabGastos(sub) + `<div class="tarjeta"><div class="vacio" style="border:0">Cargando obligaciones…</div></div>`;
+  el.innerHTML = cabGastos(sub) + `<div class="tarjeta"><div class="vacio" style="border:0">Cargando cuentas recurrentes…</div></div>`;
   let P;
   try { P = (await Gastos.plantillas()).plantillas || []; } catch (e) { errorGastos(el.querySelector('.tarjeta'), e); return; }
   if (vistaDesdeHash() !== 'gastos' || subVista() !== 'obligaciones') return;
@@ -2609,28 +2833,34 @@ async function pintarObligaciones(el, sub, d) {
   // v0.49.0 (base nueva): el tipo de cada obligación; las que vienen de la planilla dicen "Sin clasificar"
   const chipTipo = p => (!base ? '' : (G3.sinClasificar(p) ? ' <span class="chip c-amarillo chip-chico">Sin clasificar</span>' : ` <span class="chip c-gris chip-chico">${esc(G3.NOMBRE_TIPO[p.tipoObligacion])}</span>`)
     + ` <span class="chip ${GBanco.sePagaPor(p) === 'banco' ? 'c-azul' : 'c-gris'} chip-chico">${esc(GBanco.sePagaPor(p) === 'banco' ? 'Por banco' : GBanco.NOMBRE_SE_PAGA[GBanco.sePagaPor(p)])}</span>`);
-  const fila = (p, activa) => `<div class="fila-caja"><div class="txt"><b>${esc(p.nombre)}</b>${chipTipo(p)}<span>${detalle(p)}</span>${base && p.identificador ? `<span>${/^previred$/i.test(p.identificador) ? 'Identificador: Previred (certificado de cotizaciones)' : 'N° cliente / RUT: ' + esc(p.identificador)}</span>` : ''}${activa && p.proximaFecha ? `<span>Próxima: ${esc(fechaIso(p.proximaFecha))}</span>` : ''}${p.obs ? `<span class="nota">${esc(p.obs)}</span>` : ''}</div>
+  // v0.70.0 · Una cuenta de boleta (luz, agua): nace de su boleta (no se crea sola cada mes), con su empresa, local y reparto en %
+  const deBol = p => !!(p.empresa && BO.EMPRESAS[p.empresa]);
+  const detalleB = p => [BO.EMPRESAS[p.empresa].nombre, p.local, p.item, BO.textoReparto(p.repartoPct)].filter(Boolean).map(esc).join(' · ');
+  const fila = (p, activa) => `<div class="fila-caja" data-cuenta="${esc(p.id)}"><div class="txt"><b>${esc(p.nombre)}</b>${chipTipo(p)}${deBol(p) ? ' <span class="chip c-lila chip-chico">Nace de su boleta</span>' : ''}<span>${deBol(p) ? detalleB(p) : detalle(p)}</span>${base && p.identificador ? `<span>${/^previred$/i.test(p.identificador) ? 'Identificador: Previred (certificado de cotizaciones)' : 'N° cliente / RUT: ' + esc(p.identificador)}</span>` : ''}${activa && p.proximaFecha ? `<span>Próxima: ${esc(fechaIso(p.proximaFecha))}</span>` : ''}${p.obs ? `<span class="nota">${esc(p.obs)}</span>` : ''}</div>
     <div class="acciones"><button type="button" class="btn-sec btn-chico" data-editar-obl="${esc(p.id)}">Editar</button><button type="button" class="btn-sec btn-chico" data-archivar-obl="${esc(p.id)}" data-archivar="${activa ? '1' : ''}">${activa ? 'Archivar' : 'Reactivar'}</button></div></div>`;
   const hoy = new Date();
   el.innerHTML = cabGastos(sub) + `
-    <section class="tarjeta" aria-labelledby="t-obl"><div class="titulo-fila"><h2 id="t-obl">Obligaciones activas ${info('Obligaciones', 'Son las reglas que crean los vencimientos: arriendo, luz, sueldos, cuotas… Cada una genera su vencimiento 3 días antes de la fecha y aparece en Vencimientos para pagarlo.\nArchivar deja de generar vencimientos nuevos; lo ya generado y pagado queda igual. Reactivar vuelve a generar desde hoy (no los meses que pasaron).\nEn Sistema Fën no se borran: se archivan.')}${base ? ' ' + info('Tipos de obligación', TXT_TIPOS) : ''}</h2>
-      <button type="button" class="btn" id="obl-nueva">${icono('mas', 16)} Nueva obligación</button></div>
-      ${base ? `<div class="fila-caja fila-compacta" id="obl-clasificar"><div class="txt"><b>Clasificar obligaciones</b><span>${(n => n ? `${n} ${n === 1 ? 'obligación sin clasificar' : 'obligaciones sin clasificar'}` : 'Todas clasificadas')(activas.filter(p => G3.sinClasificar(p)).length)} · propuesta de tipo y N° de cliente para cada una</span></div><div class="acciones"><a class="btn-sec" href="#gastos/clasificar">Revisar y clasificar</a></div></div>` : ''}
-      <div data-colapsar="12">${activas.map(p => fila(p, true)).join('') || '<div class="vacio">No hay obligaciones activas.</div>'}</div></section>
+    <section class="tarjeta" aria-labelledby="t-obl"><div class="titulo-fila"><h2 id="t-obl">Cuentas recurrentes activas ${info('Cuentas recurrentes', 'Son las reglas que crean los vencimientos: arriendo, luz, sueldos, cuotas… Cada una genera su vencimiento 3 días antes de la fecha y aparece en Por pagar para pagarlo.\nArchivar deja de generar vencimientos nuevos; lo ya generado y pagado queda igual. Reactivar vuelve a generar desde hoy (no los meses que pasaron).\nEn Sistema Fën no se borran: se archivan.')}${base ? ' ' + info('Tipos de cuenta recurrente', TXT_TIPOS) : ''}</h2>
+      <span class="botones-obl"><button type="button" class="btn-sec" id="obl-luz-agua">${icono('boleta', 16)} Crear cuentas de luz y agua</button>${info('Crear cuentas de luz y agua', TXT_LUZ_AGUA)}<button type="button" class="btn" id="obl-nueva">${icono('mas', 16)} Nueva cuenta recurrente</button></span></div>
+      ${base ? `<p class="nota-i" id="obl-modelo">(i) ${esc(BO.TXT_MODELO)}</p>` : ''}
+      ${base ? `<div class="fila-caja fila-compacta" id="obl-clasificar"><div class="txt"><b>Clasificar cuentas recurrentes</b><span>${(n => n ? `${n} ${n === 1 ? 'cuenta recurrente sin clasificar' : 'cuentas recurrentes sin clasificar'}` : 'Todas clasificadas')(activas.filter(p => G3.sinClasificar(p)).length)} · propuesta de tipo y N° de cliente para cada una</span></div><div class="acciones"><a class="btn-sec" href="#gastos/clasificar">Revisar y clasificar</a></div></div>` : ''}
+      <div data-colapsar="12">${activas.map(p => fila(p, true)).join('') || '<div class="vacio">No hay cuentas recurrentes activas.</div>'}</div></section>
     ${archivadas.length ? `<section class="tarjeta" aria-labelledby="t-obl-arch"><div class="titulo-fila"><h2 id="t-obl-arch">Archivadas</h2><span>${archivadas.length}</span></div><div data-colapsar="3">${archivadas.map(p => fila(p, false)).join('')}</div></section>` : ''}
-    <section class="tarjeta" aria-labelledby="t-hist-pagos"><div class="titulo-fila"><h2 id="t-hist-pagos">Historial de pagos ${info('Historial de pagos', 'Los vencimientos pagados, con su fecha de pago y monto real. Vencimientos muestra solo los pagados de los últimos 7 días; aquí están todos.')} ${infoDrive()}</h2></div>
+    <section class="tarjeta" aria-labelledby="t-hist-pagos"><div class="titulo-fila"><h2 id="t-hist-pagos">Historial de pagos ${info('Historial de pagos', 'Los vencimientos pagados, con su fecha de pago y monto real. Por pagar muestra solo los pagados de los últimos 7 días; aquí están todos.')} ${infoDrive()}</h2></div>
       <div class="filtros"><select id="hp-mes" aria-label="Mes">${MESES_LARGOS.map((m, i) => `<option value="${i + 1}" ${i === hoy.getMonth() ? 'selected' : ''}>${m.replace(/^./, c => c.toUpperCase())}</option>`).join('')}</select>
         <select id="hp-anio" aria-label="Año">${[0, 1, 2].map(k => `<option>${hoy.getFullYear() - k}</option>`).join('')}</select>
         <button type="button" class="btn-sec" id="hp-ver">Ver</button><button type="button" class="btn-sec" id="hp-todo">Ver todo</button></div>
       <div id="hp-lista"></div></section>`;
   colapsar(el);
   $('obl-nueva').onclick = () => abrirObligacion(null, d);
+  if (!base || P.filter(p => p.estado === 'ACTIVA' && p.empresa && BO.EMPRESAS[p.empresa] && p.local).length >= BO.CUENTAS_LUZ_AGUA.length) { const x = $('obl-luz-agua'); if (x) { x.nextElementSibling && x.nextElementSibling.classList.contains('btn-info') && x.nextElementSibling.remove(); x.remove(); } }
+  else $('obl-luz-agua').onclick = () => abrirCuentasLuzAgua(() => pintarGastos('obligaciones'));
   el.querySelectorAll('[data-editar-obl]').forEach(b => b.onclick = () => abrirObligacion(P.find(p => p.id === b.dataset.editarObl), d));
   el.querySelectorAll('[data-archivar-obl]').forEach(b => b.onclick = async () => {
     const p = P.find(x => x.id === b.dataset.archivarObl), archivar = !!b.dataset.archivar;
     if (!confirm(archivar ? `¿Archivar "${p.nombre}"?\n\nDeja de generar vencimientos nuevos. Los ya generados y el historial quedan igual.` : `¿Reactivar "${p.nombre}"?\n\nVuelve a generar vencimientos desde hoy.`)) return;
     b.disabled = true;
-    try { await Gastos.archivarObligacion(p.id, archivar); registrar(archivar ? 'Archivó una obligación' : 'Reactivó una obligación', p.nombre); pintarGastos('obligaciones'); }
+    try { await Gastos.archivarObligacion(p.id, archivar); registrar(archivar ? 'Archivó una cuenta recurrente' : 'Reactivó una cuenta recurrente', p.nombre); pintarGastos('obligaciones'); }
     catch (e) { alert(e.message || mensajeError(e)); b.disabled = false; }
   });
   const verHist = async filtro => {
@@ -2650,11 +2880,22 @@ async function pintarObligaciones(el, sub, d) {
 
 // v0.51.0 · Clasificar obligaciones (solo con la base nueva): propuesta de tipo e identificador para cada una
 async function pintarClasificar(el, sub, d) {
-  if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar obligaciones se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las obligaciones no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Obligaciones</a></p></section>'; return; }
+  if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar cuentas recurrentes se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las cuentas recurrentes no tienen tipo.</p><p><a href="#gastos/obligaciones">Volver a Cuentas recurrentes</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.69.5')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.70.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
+// v0.70.0 · En el formulario de la cuenta: si es de boleta (luz o agua), su empresa, local y reparto en %
+const TXT_OB_BOLETA = 'Si esta cuenta es de luz (CGE) o agua (ESSBIO), elige la empresa: así su boleta en PDF se reconoce sola (por la empresa y el N° de cliente) y la cuenta nace de su boleta: no se crea sola cada mes.\nEl reparto en % dice cómo se reparte cada boleta entre áreas (manda sobre el área del ítem). Por ejemplo, PAN 40 %, BOL 40 %, PAS 10 % y B2C 10 % (B2C es lo que cuesta atender a los clientes de la tienda).';
+const filaRepPct = (area = '', pct = '') => `<div class="fila-area"><select class="ob-rep-area" aria-label="Área"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === area ? 'selected' : ''}>${a}</option>`).join('')}</select><input class="ob-rep-pct" type="number" min="0" max="100" step="1" placeholder="%" value="${esc(pct)}" aria-label="Porcentaje"><button type="button" class="btn-icono" data-quitar-area aria-label="Quitar área">×</button></div>`;
+function obBoletaHtml(p, pre) {
+  const emp = (p && p.empresa) || (pre && pre.empresa) || '', rep = p && Array.isArray(p.repartoPct) && p.repartoPct.length ? p.repartoPct : [{}, {}];
+  return `<fieldset class="campo ob-boleta" id="ob-c-boleta"><legend>Boleta de luz o agua ${info('Boleta de luz o agua', TXT_OB_BOLETA)}</legend>
+    <div class="grilla-montos"><div class="campo"><label for="ob-empresa">Empresa</label><select id="ob-empresa"><option value="">No es de boleta</option>${Object.values(BO.EMPRESAS).map(e => `<option value="${e.id}" ${e.id === emp ? 'selected' : ''}>${e.nombre} (${e.servicio})</option>`).join('')}</select></div>
+      <div class="campo"><label for="ob-local">Local</label><input id="ob-local" type="text" maxlength="40" value="${esc((p && p.local) || '')}" placeholder="Ej: Ainavillo"></div></div>
+    <div id="ob-c-rep" class="oculto"><span class="etiqueta">Reparto (%)</span><div id="ob-rep-filas">${rep.map(x => filaRepPct(x.area || '', x.pct || '')).join('')}</div>
+      <button type="button" class="btn-sec btn-chico" id="ob-rep-mas">Agregar área</button> <span class="ayuda" id="ob-rep-suma"></span></div></fieldset>`;
+}
 function abrirObligacion(p, d, pre) {
   const items = d.itemsSii || d.items || [], base = d.fuente === 'base';
   // v0.49.0: "Crear obligación" desde un documento de la bandeja (tipo documento, con su N° de cliente)
@@ -2664,21 +2905,22 @@ function abrirObligacion(p, d, pre) {
   const it0 = p && p.item ? items.find(i => i.item === p.item) : null;
   const selArea = (c, v) => `<select class="${c}" aria-label="Área"><option value="">Área</option>${AREAS_GASTO.map(a => `<option ${a === v ? 'selected' : ''}>${a}</option>`).join('')}</select>`;
   const dlg = dialogo(`<form class="form-dialogo form-obl" novalidate>
-    <h2>${p ? 'Editar obligación' : 'Nueva obligación'}</h2>
+    <h2>${p ? 'Editar cuenta recurrente' : 'Nueva cuenta recurrente'}</h2>
     <div class="campo"><label for="ob-nombre">Nombre</label><input id="ob-nombre" type="text" maxlength="80" value="${esc(p ? p.nombre : pre ? pre.nombre : '')}" placeholder="Ej: Arriendo sala producción"></div>
-    ${base ? `<div class="campo"><span class="etiqueta">Tipo ${info('Tipos de obligación', TXT_TIPOS)}</span><div class="chips" role="radiogroup" aria-label="Tipo de obligación">${G3.TIPOS_OBLIGACION.map(k => `<label class="chip-radio"><input type="radio" name="ob-tobl" value="${k}" ${tObl === k ? 'checked' : ''}><span>${esc(G3.NOMBRE_TIPO[k])}</span></label>`).join('')}</div>${p && !p.tipoObligacion ? '<span class="ayuda">Sin clasificar: funciona como monto fijo hasta que elijas un tipo.</span>' : ''}</div>
+    ${base ? `<div class="campo"><span class="etiqueta">Tipo ${info('Tipos de cuenta recurrente', TXT_TIPOS)}</span><div class="chips" role="radiogroup" aria-label="Tipo de cuenta recurrente">${G3.TIPOS_OBLIGACION.map(k => `<label class="chip-radio"><input type="radio" name="ob-tobl" value="${k}" ${tObl === k ? 'checked' : ''}><span>${esc(G3.NOMBRE_TIPO[k])}</span></label>`).join('')}</div>${p && !p.tipoObligacion ? '<span class="ayuda">Sin clasificar: funciona como monto fijo hasta que elijas un tipo.</span>' : ''}</div>
     <div class="grilla-montos" id="ob-c-doc"><div class="campo"><label for="ob-ident">N° de cliente o RUT del proveedor</label><input id="ob-ident" type="text" maxlength="40" value="${esc(p && !/^previred$/i.test(p.identificador || '') ? p.identificador || '' : !p && pre ? pre.identificador : '')}" autocomplete="off">
-        <label class="check-linea"><input type="checkbox" id="ob-previred" ${p && /^previred$/i.test(p.identificador || '') ? 'checked' : ''}> Es Previred (cotizaciones) ${info('Identificador Previred', 'Márcalo en la obligación de las cotizaciones previsionales (tipo según documento).\nAl subir el certificado de Previred (Gastos → Previred), se completa el vencimiento de esta obligación con el total del certificado.\nLos gastos por trabajador (con su área e ítem) se crean al pagar el vencimiento, con Pagar o con la cartola.')}</label></div>
+        <label class="check-linea"><input type="checkbox" id="ob-previred" ${p && /^previred$/i.test(p.identificador || '') ? 'checked' : ''}> Es Previred (cotizaciones) ${info('Identificador Previred', 'Márcalo en la cuenta recurrente de las cotizaciones previsionales (tipo según documento).\nAl subir el certificado de Previred (Gastos → Previred), se completa el vencimiento de esta cuenta recurrente con el total del certificado.\nLos gastos por trabajador (con su área e ítem) se crean al pagar el vencimiento, con Pagar o con la cartola.')}</label></div>
       <div class="campo"><label for="ob-aviso">Recordar "Subir boleta" (días antes)</label><input id="ob-aviso" type="number" min="0" max="60" step="1" value="${esc(p && p.diasAviso !== '' && p.diasAviso != null ? p.diasAviso : G3.DIAS_AVISO)}"></div></div>
+    ${obBoletaHtml(p, pre)}
     <div class="campo"><span class="etiqueta">Se paga por ${info('Se paga por', TXT_SE_PAGA)}</span><div class="chips" role="radiogroup" aria-label="Se paga por">${GBanco.SE_PAGA.map(k => `<label class="chip-radio"><input type="radio" name="ob-sepaga" value="${k}" ${(p ? GBanco.sePagaPor(p) : 'banco') === k ? 'checked' : ''}><span>${esc(GBanco.NOMBRE_SE_PAGA[k])}</span></label>`).join('')}</div>${p && !GBanco.sePagaPorOk(p.sePagaPor) ? '<span class="ayuda">Sin elegir todavía: cuenta como banco.</span>' : ''}</div>` : ''}
-    <div class="campo"><label for="ob-item">Ítem de gasto ${info('Ítem', 'Al pagar, el gasto se registra con este ítem (categoría, tipo y área salen del ítem). Si el ítem se reparte entre áreas, aquí defines cómo; al pagar puedes ajustar los montos del mes.\nSin ítem, la obligación solo avisa.')}</label>
+    <div class="campo"><label for="ob-item">Ítem de gasto ${info('Ítem', 'Al pagar, el gasto se registra con este ítem (categoría, tipo y área salen del ítem). Si el ítem se reparte entre áreas, aquí defines cómo; al pagar puedes ajustar los montos del mes.\nSin ítem, la cuenta recurrente solo avisa.')}</label>
       <select id="ob-item"><option value="">Sin ítem</option>${items.map(i => `<option value="${esc(i.item)}" ${p && p.item === i.item ? 'selected' : ''}>${esc(i.item)}</option>`).join('')}${p && p.item && !it0 ? `<option selected value="${esc(p.item)}">${esc(p.item)} (ya no está en la lista)</option>` : ''}</select></div>
     <div id="ob-areas"></div>
     <div class="grilla-montos"><div class="campo"><label for="ob-frec">Frecuencia</label><select id="ob-frec">${p ? '' : '<option value="">Elige</option>'}${Object.entries(FRECUENCIAS).filter(([k]) => !p || (k === 'cuponera') === (p.frecuencia === 'cuponera')).map(([k, t]) => `<option value="${k}" ${(p && p.frecuencia === k) || (!p && pre && k === 'mensual_dia') ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
       <div class="campo" id="ob-c-dia"><label for="ob-dia">Día del mes</label><input id="ob-dia" type="number" min="1" max="31" step="1" value="${esc(p ? p.dia : diaPre)}"></div>
       <div class="campo" id="ob-c-fecha"><label for="ob-fecha">Fecha</label><input id="ob-fecha" type="date" value="${esc(p ? p.fechaEsp : '')}"></div></div>
-    <div id="ob-c-cuotas" class="campo"><span class="etiqueta">Cuotas ${info('Cuponera', 'Cada cuota crea su vencimiento de inmediato, con su fecha y monto. Una cuponera ya creada no cambia sus cuotas aquí: si una cuota no corresponde, anúlala en Vencimientos.')}</span>
-      ${p ? '<p class="ayuda">Las cuotas de esta cuponera ya están creadas: para cambiar una, anúlala en Vencimientos.</p>' : `<div id="ob-cuotas"></div><button type="button" class="btn-sec btn-chico" id="ob-mas-cuota">Agregar cuota</button>`}</div>
+    <div id="ob-c-cuotas" class="campo"><span class="etiqueta">Cuotas ${info('Cuponera', 'Cada cuota crea su vencimiento de inmediato, con su fecha y monto. Una cuponera ya creada no cambia sus cuotas aquí: si una cuota no corresponde, anúlala en Por pagar.')}</span>
+      ${p ? '<p class="ayuda">Las cuotas de esta cuponera ya están creadas: para cambiar una, anúlala en Por pagar.</p>' : `<div id="ob-cuotas"></div><button type="button" class="btn-sec btn-chico" id="ob-mas-cuota">Agregar cuota</button>`}</div>
     <div class="grilla-montos"><div class="campo"><label for="ob-monto">Monto estimado (opcional)</label><input id="ob-monto" type="number" inputmode="numeric" min="0" step="1" value="${esc(p ? p.montoEstimado : pre && pre.monto ? pre.monto : '')}"></div>
       <div class="campo"><span class="etiqueta">Tipo de monto al pagar</span><div class="chips" role="radiogroup" aria-label="Tipo de monto">${[['', 'Sin definir'], ['bruto', 'Bruto'], ['neto', 'Neto'], ['siniva', 'Sin IVA']].map(([k, t]) => `<label class="chip-radio"><input type="radio" name="ob-tipo" value="${k}" ${(p ? p.tipoMonto || '' : '') === k ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div></div></div>
     <div class="campo"><label for="ob-obs">Observación (opcional)</label><input id="ob-obs" type="text" maxlength="300" value="${esc(p ? p.obs : '')}"></div>
@@ -2698,12 +2940,17 @@ function abrirObligacion(p, d, pre) {
     } else c.innerHTML = `<p class="ayuda">${[it.categoria, it.tipo, it.subTipo].filter(Boolean).map(esc).join(' · ')} · Área ${esc(it.area)}</p>`;
   };
   const pintarTipo = () => { if (!base) return; const tsel = q('input[name="ob-tobl"]:checked'); q('#ob-c-doc').classList.toggle('oculto', !tsel || tsel.value !== 'documento'); q('#ob-ident').disabled = q('#ob-previred').checked; };
+  // v0.70.0 · Boleta de luz o agua: con empresa, la cuenta es "según documento", nace de su boleta y su reparto en % manda
+  const pintarBoleta = () => { const e = q('#ob-empresa'); if (!e) return; const con = !!e.value; q('#ob-c-rep').classList.toggle('oculto', !con); q('#ob-areas').classList.toggle('oculto', con);
+    if (con) { const r = q('input[name="ob-tobl"][value="documento"]'); if (r && !r.checked) { r.checked = true; pintarTipo(); } }
+    const t = [...dlg.querySelectorAll('#ob-rep-filas .fila-area')].reduce((a, f) => a + (Number(f.querySelector('.ob-rep-pct').value) || 0), 0); q('#ob-rep-suma').textContent = con ? `Suma ${t} %${t === 100 ? '' : ' (debe ser 100 %)'}` : ''; };
+  if (q('#ob-empresa')) { q('#ob-empresa').addEventListener('change', pintarBoleta); dlg.addEventListener('input', e => { if (e.target.closest('#ob-rep-filas')) pintarBoleta(); }); q('#ob-rep-mas').onclick = () => { q('#ob-rep-filas').insertAdjacentHTML('beforeend', filaRepPct()); pintarBoleta(); }; }
   if (base) q('#ob-previred').addEventListener('change', pintarTipo);
   if (base) { dlg.querySelectorAll('input[name="ob-tobl"]').forEach(r => r.addEventListener('change', pintarTipo)); pintarTipo(); }
   const pintarFrec = () => { const f = q('#ob-frec').value; q('#ob-c-dia').classList.toggle('oculto', f !== 'mensual_dia'); q('#ob-c-fecha').classList.toggle('oculto', f !== 'variable'); q('#ob-c-cuotas').classList.toggle('oculto', f !== 'cuponera'); };
   const filaCuota = () => `<div class="fila-area"><input type="date" class="ob-cf" aria-label="Fecha de la cuota"><input type="number" class="ob-cm" min="0" step="1" placeholder="$" aria-label="Monto de la cuota"><button type="button" class="btn-icono" data-quitar-area aria-label="Quitar cuota">×</button></div>`;
   if (!p) { q('#ob-cuotas').innerHTML = filaCuota() + filaCuota(); q('#ob-mas-cuota').onclick = () => q('#ob-cuotas').insertAdjacentHTML('beforeend', filaCuota()); }
-  pintarAreas(true); pintarFrec();
+  pintarAreas(true); pintarFrec(); pintarBoleta();
   q('#ob-item').addEventListener('change', () => pintarAreas(false));
   q('#ob-frec').addEventListener('change', pintarFrec);
   dlg.addEventListener('click', async e => {
@@ -2734,6 +2981,9 @@ function abrirObligacion(p, d, pre) {
     const tsel = base && q('input[name="ob-tobl"]:checked');
     if (tsel) Object.assign(datos, { tipoObligacion: tsel.value, identificador: tsel.value === 'documento' ? (q('#ob-previred').checked ? 'previred' : q('#ob-ident').value.trim()) : '', diasAviso: q('#ob-aviso').value });
     if (base) datos.sePagaPor = (q('input[name="ob-sepaga"]:checked') || {}).value || 'banco';   // v0.63.1
+    // v0.70.0 · Boleta de luz o agua: empresa, local y reparto en %
+    if (base && q('#ob-empresa') && (q('#ob-empresa').value || (p && p.empresa))) datos.boleta = { empresa: q('#ob-empresa').value, local: q('#ob-local').value.trim(),
+      repartoPct: [...dlg.querySelectorAll('#ob-rep-filas .fila-area')].map(f => ({ area: f.querySelector('.ob-rep-area').value, pct: Number(f.querySelector('.ob-rep-pct').value) || 0 })).filter(x => x.area || x.pct) };
     if (pre && pre.pendienteId) datos.pendienteId = pre.pendienteId;
     const it = items.find(i => i.item === datos.item);
     if (it && it.area === 'SELECCIONAR') datos.multiArea = [...dlg.querySelectorAll('#ob-multi .fila-area')].map(f => ({ area: f.querySelector('.ob-area').value, monto: Number(f.querySelector('.ob-monto').value) || 0 })).filter(a => a.area && a.monto > 0);
@@ -2742,9 +2992,9 @@ function abrirObligacion(p, d, pre) {
     const b = q('#ob-guardar'); b.disabled = true; b.textContent = 'Guardando…';
     try {
       const r = await Gastos.guardarObligacion(datos, idem);
-      registrar(p ? 'Editó una obligación' : 'Creó una obligación', `${datos.nombre} · ${FRECUENCIAS[datos.frecuencia]}${datos.tipoObligacion ? ' · ' + G3.NOMBRE_TIPO[datos.tipoObligacion] : ''}`);
+      registrar(p ? 'Editó una cuenta recurrente' : 'Creó una cuenta recurrente', `${datos.nombre} · ${FRECUENCIAS[datos.frecuencia]}${datos.tipoObligacion ? ' · ' + G3.NOMBRE_TIPO[datos.tipoObligacion] : ''}`);
       dlg.close();
-      if (r && r.avisoPendiente) alert('La obligación quedó creada, pero el documento sigue en la bandeja: ' + r.avisoPendiente);
+      if (r && r.avisoPendiente) alert('La cuenta recurrente quedó creada, pero el documento sigue en la bandeja: ' + r.avisoPendiente);
       if (pre) refrescarAgenda(); else pintarGastos('obligaciones');
     } catch (er) {
       if (er.code && er.code !== 'en_curso') idem = 'obl-' + Gastos.nuevaClave();
@@ -2775,12 +3025,12 @@ const cart = { d: null, cargando: false, err: '', msg: '', subiendo: false, ocup
 const ESTADO_CC = ['modo', 'montos', 'gasto', 'nuevo', 'ign', 'buscarV', 'sel', 'abonoV', 'tarj', 'tras', 'abNom', 'prev', 'forig', 'spSel', 'spDet', 'varios', 'multi', 'altSel', 'resto'];
 // v0.69.2 · El resto de un pago parcial, por cargo: { medio, fecha }; de dónde salió el efectivo (como en Pagos sin banco)
 const ccr = { origen: {}, origenTx: {} };
-const ACC_CC = { vencimientos: 'Paga vencimientos', gasto: 'Ya está en Gastos', nuevo: 'Gasto nuevo', ignorar: 'No es gasto' };
+const ACC_CC = { vencimientos: 'Paga cuentas por pagar', gasto: 'Ya está en Gastos', nuevo: 'Gasto nuevo', ignorar: 'No es gasto' };
 // v0.50.0 · Con la base nueva, un cargo también puede ser un abono a un vencimiento de tipo libre (sueldo líquido)
 // v0.62.0 · y un pago de la tarjeta de crédito (no es gasto: movimiento de flujo; las compras con tarjeta ya entraron por el SII)
 // v0.63.1 · y un traspaso entre cuentas propias (chequera ↔ cuenta corriente): tampoco es gasto
 // v0.64.0 · y el pago de Previred en varios cargos (AFP, IPS, Fonasa, isapre, caja, mutual)
-const ACC_CC_BASE = { vencimientos: 'Paga vencimientos', abono: 'Abono (sueldo)', previred: 'Pago de Previred (cotizaciones)', gasto: 'Ya está en Gastos', nuevo: 'Gasto nuevo', pago_tarjeta: 'Pago de tarjeta', traspaso: 'Traspaso entre cuentas propias', ignorar: 'No es gasto' };
+const ACC_CC_BASE = { vencimientos: 'Paga cuentas por pagar', abono: 'Abono (sueldo)', previred: 'Pago de Previred (cotizaciones)', gasto: 'Ya está en Gastos', nuevo: 'Gasto nuevo', pago_tarjeta: 'Pago de tarjeta', traspaso: 'Traspaso entre cuentas propias', ignorar: 'No es gasto' };
 const NOMBRE_ACC = { ...ACC_CC_BASE, abono_parcial: 'Abono (pago parcial)', previred_planilla: 'Unido a la planilla de Previred', repetido: 'Repetido de otra cartola' };
 const accCc = () => (cart.d && cart.d.fuente === 'base' ? ACC_CC_BASE : ACC_CC);
 const MOTIVOS_IGN0 = ['Traspaso entre mis cuentas', 'Retiro de socios', 'Devolución o reverso'];
@@ -2794,7 +3044,7 @@ function cargarCartolaGastos(forzar) {
 const cuentaCc = c => `${c.cuenta === 'cc' ? 'Cta. Cte.' : 'Chequera'}${c.cuentaN ? ' ···' + c.cuentaN : ''}`;
 function textoProp(p) {
   if (!p) return '';
-  const por = { regla: 'por tu regla', aprendido: 'aprendido', rut: 'por el RUT', proveedor: 'por el proveedor', monto: 'por el monto', 'monto fijo': 'monto fijo exacto', documento: 'por el monto del documento', glosa: 'por la glosa', saldo: 'el monto del saldo' }[p.por] || '';
+  const por = { regla: 'por tu regla', aprendido: 'aprendido', rut: 'por el RUT', proveedor: 'por el proveedor', monto: 'por el monto', 'monto fijo': 'monto fijo exacto', documento: 'por el monto del documento', glosa: 'por la glosa', saldo: 'el monto del saldo', boleta: 'por la boleta' }[p.por] || '';
   // v0.50.0 (base nueva): opciones sin propuesta automática y abonos
   if (p.sinPropuesta) return `<span class="prop-duda">${esc(p.duda || 'Elige cuál paga')}</span> <small>(${esc((p.opciones || []).map(o => `${o.nombre}${o.conDocumento ? ' ' + pesos(o.monto) : ' · sin documento'}`).join(' · '))})</small>`;
   // v0.67.1 · El documento del SII ya está registrado (unido a su gasto): pagar su compra a crédito o "Ya está en Gastos"
@@ -2864,7 +3114,7 @@ function editorCargo(c, p, dg) {
     cuerpo = `${p && p.duda ? `<p class="aviso-cc">${esc(p.duda)}</p>` : ''}${sinImp ? `<p class="aviso-cc">${esc(sinImp.razon || 'Este proveedor')} tiene ${sinImp.folios.length} ${sinImp.folios.length === 1 ? 'documento' : 'documentos'} del SII sin importar (F.${sinImp.folios.slice(0, 5).map(esc).join(', F.')}${sinImp.folios.length > 5 ? '…' : ''}). Impórtalos en <a href="#conciliacion/sii">Cargas del SII</a> como pendientes y aparecerán aquí para pagarlos.</p>` : ''}
       <div class="buscar-b2b"><input type="search" data-cc-buscar="${esc(c.id)}" value="${esc(cart.buscarV[c.id] || '')}" placeholder="Buscar vencimiento por nombre" aria-label="Buscar vencimiento"></div>
       ${vis.length ? `<div class="mov-folios">${vis.map(v => { const on = v.id in sel; return `<div class="mov-folio${on ? ' mov-folio-on' : ''}"><button type="button" class="mov-folio-btn" data-cc-venc="${esc(v.id)}" data-cc="${esc(c.id)}" aria-pressed="${on}"><b>${esc(v.nombre)}</b><small>vence ${esc(diaTexto(v.fecha))}${v.monto ? ' · ' + pesos(v.monto) : ' · sin monto'}${v.estadoBase === 'con_abonos' && v.tipoObligacion !== 'libre' ? ' · con abonos · saldo ' + pesos(v.saldo) : ''}${v.estado === 'VENCIDA' ? ' · atrasado' : ''}${rutP && v.rut === rutP ? ' · de este proveedor' : ''}</small>${v.deDocumento && (v.partes || []).length ? `<small class="cc-partes">${esc(PM.textoPagado(v.partes, v.total, ccFecha))}</small>` : ''}</button>
-        <input inputmode="numeric" data-cc-monto="${esc(c.id)}" data-venc="${esc(v.id)}" value="${on && sel[v.id] ? Number(sel[v.id]).toLocaleString('es-CL') : ''}" placeholder="0" aria-label="Monto para ${esc(v.nombre)}"></div>`; }).join('')}</div>` : '<p class="ayuda">No hay vencimientos por pagar.</p>'}
+        <input inputmode="numeric" data-cc-monto="${esc(c.id)}" data-venc="${esc(v.id)}" value="${on && sel[v.id] ? Number(sel[v.id]).toLocaleString('es-CL') : ''}" placeholder="0" aria-label="Monto para ${esc(v.nombre)}"></div>`; }).join('')}</div>` : '<p class="ayuda">No hay nada por pagar.</p>'}
       <p class="mov-suma ${dif < 0 ? 'error' : ''}" data-cc-suma="${esc(c.id)}">Asignado ${pesos(suma)} de ${pesos(c.monto)}${dif > 0 ? ` · faltan ${pesos(dif)}` : dif < 0 ? ` · te pasaste en ${pesos(-dif)}` : ' · calza exacto'}</p>
       ${(() => {
         // v0.64.0 · Pago parcial: un solo vencimiento (no libre ni Previred) y el cargo es menos que lo que falta → abono
@@ -2890,7 +3140,7 @@ function editorCargo(c, p, dg) {
       <div class="lista-gastos-cc">${libres.map(v => `<label class="opcion-cc"><input type="radio" name="cc-ab-${esc(c.id)}" data-cc-abono="${esc(c.id)}" value="${esc(v.id)}" ${v.id === elegido ? 'checked' : ''}><span><b>${esc(v.nombre)}</b> · <b>${esc(CB.nombrePeriodo(v.periodo))}</b> · vence ${esc(diaTexto(v.fecha))}${porFecha && porFecha.id === v.id ? ' <span class="chip c-azul chip-chico">Por la fecha del cargo</span>' : ''}${v.abonos.length ? `<small>${esc(G3.textoAbonos(v.abonos, pesos))}</small>` : '<small>sin abonos todavía</small>'}</span></label>`).join('')}</div>
       ${elegido ? areasAbonoCargo(c, libres.find(v => v.id === elegido)) : ''}
       <div class="botones" style="justify-content:flex-start"><button type="button" class="btn btn-chico" data-cc-ok="abono" data-cc="${esc(c.id)}" ${elegido && !cart.ocupado ? '' : 'disabled'}>Agregar abono de ${pesos(c.monto)}</button></div>`
-      : '<p class="ayuda">No hay vencimientos de tipo libre abiertos (Obligaciones → tipo "Libre (abonos)").</p>';
+      : '<p class="ayuda">No hay vencimientos de tipo libre abiertos (Cuentas recurrentes → tipo "Libre (abonos)").</p>';
   } else if (m === 'previred') {
     cuerpo = editorPrevired(c, p);
   } else if (m === 'sii_pend') {
@@ -3100,7 +3350,7 @@ function editorSiiPend(c) {
 
 // ── Conciliación → Pagos sin banco ──
 const sinb = { d: null, cargando: false, err: '', msg: '', ocupado: '', abierto: '', fecha: {}, medio: {}, origen: {}, origenTx: {}, mes: '', ver: 'lista' };
-const TXT_SINB = 'Lo primero es pagar desde el banco: así el pago llega con la cartola y queda conciliado solo. Esta pestaña es para las EXCEPCIONES.\nAparecen las facturas del SII (clasificadas o por clasificar) sin un pago del banco unido: las de contado desde N días después de la factura (10 si no lo cambias); las a crédito solo cuando ya pasó su vencimiento (antes no).\nPara cada una dices cómo se pagó:\n• Pagada en efectivo: fecha del pago y de dónde salió el efectivo (por defecto "Efectivo de cobros B2B": lo que te pagan en efectivo los clientes B2B, que nunca pasa por el banco; u "Otro", con una nota). Si está por clasificar, eliges ítem y área primero.\n• Pagada con tarjeta de crédito: igual; el pago de la tarjeta llega después en la cartola ("Pago de tarjeta", no es gasto).\n• Todavía por pagar: queda a crédito con la fecha en que esperas pagarla (la del XML si es a crédito): un vencimiento en Vencimientos, Agenda y Hoy, que se puede reagendar.\nEl gasto siempre queda con la fecha de la FACTURA (su mes). Nunca se marca pagada en efectivo sola. Lo que marcas queda guardado como pago (para el flujo de caja).';
+const TXT_SINB = 'Lo primero es pagar desde el banco: así el pago llega con la cartola y queda conciliado solo. Esta pestaña es para las EXCEPCIONES.\nAparecen las facturas del SII (clasificadas o por clasificar) sin un pago del banco unido: las de contado desde N días después de la factura (10 si no lo cambias); las a crédito solo cuando ya pasó su vencimiento (antes no).\nPara cada una dices cómo se pagó:\n• Pagada en efectivo: fecha del pago y de dónde salió el efectivo (por defecto "Efectivo de cobros B2B": lo que te pagan en efectivo los clientes B2B, que nunca pasa por el banco; u "Otro", con una nota). Si está por clasificar, eliges ítem y área primero.\n• Pagada con tarjeta de crédito: igual; el pago de la tarjeta llega después en la cartola ("Pago de tarjeta", no es gasto).\n• Todavía por pagar: queda a crédito con la fecha en que esperas pagarla (la del XML si es a crédito): un vencimiento en Por pagar, Agenda y Hoy, que se puede reagendar.\nEl gasto siempre queda con la fecha de la FACTURA (su mes). Nunca se marca pagada en efectivo sola. Lo que marcas queda guardado como pago (para el flujo de caja).';
 const TXT_EFECTIVO = 'Efectivo en mano estimado del mes = lo que cobraste en efectivo a clientes B2B (pagos y abonos registrados "Efectivo" en Ventas B2B → Por cobrar, en ese mes) menos las facturas que marcaste aquí pagadas con "Efectivo de cobros B2B", en ese mes (lo pagado con efectivo de otro origen no descuenta).\nEs una estimación: no cuenta la caja de las tiendas, retiros ni depósitos. Si sale negativo, falta registrar un cobro en efectivo o algún pago no fue en efectivo.';
 async function pintarSinBanco(el, d) {
   sinb.dg = d;
@@ -3159,7 +3409,7 @@ function filaSinBancoHtml(x) {
       <div class="pastillas" role="group" aria-label="Cómo se pagó">${[['efectivo', 'Pagada en efectivo'], ['tarjeta', 'Pagada con tarjeta de crédito'], ['porpagar', 'Todavía por pagar']].map(([m, t]) => `<button type="button" class="pastilla" data-sinb-medio="${m}" data-sinb-doc="${k}" aria-pressed="${medio === m}">${t}</button>`).join('')}</div>
       ${medio ? `<div class="campo"><label for="sinb-f-${k}">${medio === 'porpagar' ? 'Fecha en que esperas pagarla' : 'Fecha del pago'}</label><input id="sinb-f-${k}" type="date" data-sinb-fecha="${k}" value="${esc(f)}"></div>
         ${medio === 'porpagar' && x.fechaVenc ? `<p class="ayuda">El XML dice que vence el ${esc(diaTexto(x.fechaVenc))}.</p>` : ''}
-        ${medio === 'porpagar' ? `<p class="ayuda">${x.saldo ? 'El saldo queda con esa fecha nueva (Reagendar saldo): sale en Vencimientos, Agenda y Hoy.' : 'Queda a crédito con esa fecha: sale en Vencimientos, Agenda y Hoy.'}</p>` : ''}
+        ${medio === 'porpagar' ? `<p class="ayuda">${x.saldo ? 'El saldo queda con esa fecha nueva (Reagendar saldo): sale en Por pagar, Agenda y Hoy.' : 'Queda a crédito con esa fecha: sale en Por pagar, Agenda y Hoy.'}</p>` : ''}
         ${x.saldo && medio && medio !== 'porpagar' ? `<p class="ayuda">Es la última parte: el documento queda pagado (${esc(PM.textoPagado(x.partes.concat([{ monto: x.monto, medio, fecha: f, origenEfectivo: sinb.origen[x.docId] || SP.ORIGEN_B2B, origenTexto: sinb.origenTx[x.docId] || '' }]), x.total, ccFecha))}).</p>` : ''}
         ${medio === 'efectivo' ? origenEfectivoHtml(x.docId) : ''}
         ${x.porClasificar ? `<p class="ayuda">Clasifícala (el gasto queda con la fecha de la factura, ${esc(SP.nombreMes(x.fecha))}):</p>${htmlClasifSp(key, x.total)}` : ''}
@@ -3178,7 +3428,7 @@ function origenEfectivoHtml(id, pre = 'sinb', st = sinb) {
 }
 function porPagarHtml(D) {
   if (!D.porPagar.length) return '';
-  return `<section class="tarjeta" aria-labelledby="t-sinb-pp"><div class="titulo-fila"><h2 id="t-sinb-pp">Todavía por pagar ${info('Todavía por pagar', 'Las facturas que marcaste "todavía por pagar": cada una es un vencimiento con la fecha en que esperas pagarla (sale en Agenda y en Hoy). Cuando la pagues por banco, el cargo de la cartola la paga ("Paga vencimientos"). Si cambia la fecha, reagéndala.')}</h2><span>${D.porPagar.length}</span></div>
+  return `<section class="tarjeta" aria-labelledby="t-sinb-pp"><div class="titulo-fila"><h2 id="t-sinb-pp">Todavía por pagar ${info('Todavía por pagar', 'Las facturas que marcaste "todavía por pagar": cada una es un vencimiento con la fecha en que esperas pagarla (sale en Agenda y en Hoy). Cuando la pagues por banco, el cargo de la cartola la paga ("Paga cuentas por pagar"). Si cambia la fecha, reagéndala.')}</h2><span>${D.porPagar.length}</span></div>
     ${D.porPagar.map(v => `<div class="fila-caja sinb-pp"><div class="txt"><b>${esc(v.nombre)}</b><span>${pesos(v.monto)} · esperada el ${esc(diaTexto(v.fecha))}</span></div>
       <div class="acciones"><label class="sr" for="sinb-re-${esc(v.id)}">Fecha nueva</label><input id="sinb-re-${esc(v.id)}" type="date" data-sinb-re="${esc(v.id)}" value="${esc(v.fecha)}"><button type="button" class="btn-sec btn-chico" data-sinb-reok="${esc(v.id)}">Reagendar</button></div></div>`).join('')}</section>`;
 }
@@ -3218,8 +3468,8 @@ function conectarSinBanco(el, d) {
 // v0.64.0 · Cómo funciona la reventa (Gastos → Registrar e Ítems; también en Finanzas → Cómo trabajamos)
 const TXT_REVENTA = 'Reventa: lo que compras hecho para venderlo tal cual (bebidas, jugos, chocolates, té e infusiones, Magia…).\n• En Gastos, su compra va al ítem "PRODUCTOS DE REVENTA", con el área REVENTA (en Gastos → Ítems, ponle área fija REVENTA). En Finanzas → Resultados → Clasificación ese ítem es "Compras de productos de reventa" (se propone solo si el nombre dice reventa, chocolate, infusión, té o Magia).\n• Esa compra no es una línea de gasto del mes: lo que entra al estado de resultados es el costo de lo VENDIDO = costo de compra neto de cada producto (Finanzas → Márgenes → Asociar productos, tipo "Reventa", área REVENTA, su costo de compra neto) × unidades vendidas. Así la reventa tiene su propia columna REVENTA, con sus ventas, su costo y su margen.\n• REVENTA es solo un área de margen: no está en Cocina ni en Producción, y no entra sola en un reparto (PRORRATEADO): solo si la eliges tú.\n• Pendiente: que ese costo de compra se actualice solo con cada factura del SII. Por ahora se escribe a mano al asociar el producto.';
 // ═══ v0.64.0 · Conciliación de cargos: textos y piezas nuevas ═══
-const TXT_ABONO_PARCIAL = 'Cuando pagas una factura, una boleta o una cuota en partes, cada pago es un abono.\nEl gasto es el documento completo (lo que se debe), no lo pagado:\n• Factura del SII o compra a crédito: su gasto ya está en Gastos; los abonos solo anotan cada pago y el último le pone la fecha de pago.\n• Obligación de monto fijo o según documento: el gasto completo (con su ítem y sus áreas) se crea con el PRIMER abono.\nEl vencimiento queda "Con abonos · saldo $X" y el último abono lo deja pagado. "Reagendar saldo" (Gastos → Vencimientos) le pone fecha nueva a lo que falta, para la Agenda y Hoy.\nCada abono guarda su fecha, monto y cargo (para el flujo de caja).\nPrevired y los sueldos (obligaciones libres) tienen su propia forma.';
-const TXT_ABONO_MES = 'Aparecen todos los vencimientos de tipo libre abiertos, de cualquier mes, el más nuevo primero, con su período.\nLos sueldos de un mes se pagan a inicios del siguiente: si el cargo es del día 15 o antes, se propone el del mes anterior (si sigue abierto); si no, el del mes del cargo. Puedes elegir otro.\nEl cargo se agrega como un abono (crea su gasto con el ítem de la obligación y el área que elijas abajo, con la fecha del banco). El vencimiento no se cierra solo: ciérralo en Vencimientos cuando estén todos los abonos. Lo que eliges se aprende para proponerlo la próxima vez (sin marcarlo seguro).';
+const TXT_ABONO_PARCIAL = 'Cuando pagas una factura, una boleta o una cuota en partes, cada pago es un abono.\nEl gasto es el documento completo (lo que se debe), no lo pagado:\n• Factura del SII o compra a crédito: su gasto ya está en Gastos; los abonos solo anotan cada pago y el último le pone la fecha de pago.\n• Cuenta recurrente de monto fijo o según documento: el gasto completo (con su ítem y sus áreas) se crea con el PRIMER abono.\nEl vencimiento queda "Con abonos · saldo $X" y el último abono lo deja pagado. "Reagendar saldo" (Gastos → Por pagar) le pone fecha nueva a lo que falta, para la Agenda y Hoy.\nCada abono guarda su fecha, monto y cargo (para el flujo de caja).\nPrevired y los sueldos (cuentas recurrentes libres) tienen su propia forma.';
+const TXT_ABONO_MES = 'Aparecen todos los vencimientos de tipo libre abiertos, de cualquier mes, el más nuevo primero, con su período.\nLos sueldos de un mes se pagan a inicios del siguiente: si el cargo es del día 15 o antes, se propone el del mes anterior (si sigue abierto); si no, el del mes del cargo. Puedes elegir otro.\nEl cargo se agrega como un abono (crea su gasto con el ítem de la cuenta recurrente y el área que elijas abajo, con la fecha del banco). El vencimiento no se cierra solo: ciérralo en Por pagar cuando estén todos los abonos. Lo que eliges se aprende para proponerlo la próxima vez (sin marcarlo seguro).';
 const TXT_PREV_CARTOLA = 'Previred se paga en varios cargos el mismo día (o con un día de diferencia): AFP, Instituto de Seguridad Laboral o IPS, Fonasa, isapre, caja de compensación, mutual.\nMarca todos los cargos del pago: se suman y se comparan con el total del certificado del vencimiento de Cotizaciones.\n• Si calzan (±$10): se paga el vencimiento como siempre, con un gasto por trabajador con su área e ítem, y todos los cargos quedan conciliados juntos.\n• Si no calzan: ves la diferencia; escribe el motivo para confirmar igual (queda guardado) o cancela.\nSe aprende: la próxima vez estos cargos se proponen como pago de Previred y se marcan juntos los del mismo día.\nDeshacer uno deshace el pago completo (todos los cargos vuelven a revisar).';
 const TXT_ESPERA_FACTURA = 'Para este mes todavía no hay ninguna carga del SII. Si la compra tiene factura, llegará en una carga del SII posterior.\nAl registrarla como Gasto nuevo queda "esperando factura": cuando cargues el SII, una factura del mismo monto (±$1) de 5 días antes hasta 30 días después del cargo aparece en esa carga como "Ya está en Gastos (desde la cartola)" para vincularla en vez de crear otro gasto. Nunca se duplica solo.';
 const TXT_ORIGEN_CARGO = 'De qué archivo salió este cargo y cuándo lo subiste.\nLa cartola histórica llega cada 36 movimientos (trae N° y la glosa completa). La cartola en línea sirve para los días que todavía no tienen histórica, pero corta la glosa.\nLa consulta de transferencias enviadas dice a quién pagaste (nombre, RUT, banco y concepto): con ella se reconoce el proveedor.';
@@ -3375,7 +3625,7 @@ const filaCombCc = (c, elegido, k) => { const v = 'cmb:' + k.clave;
 const grupoCc = k => ((cart.d && cart.d.gastos) || []).concat((cart.d && cart.d.notasCredito) || []).find(x => claveG(x) === k);
 const filaR = (c, g) => { const dist = GBanco.diasEntre(g.fecha, c.fecha), dif = Math.abs(g.monto - c.monto); return { g, dist, dif, exacto: g.monto > 0 && dif <= g.filas.length }; };
 // ═══ v0.69.2 · Pagos mixtos: "Este cargo paga $X de $Y. ¿Y el resto ($Z)?" ═══
-const TXT_RESTO = 'Cuando un cargo paga solo una parte de una factura o de un gasto, dices qué pasó con el resto:\n• Lo pagué en efectivo: la fecha y de dónde salió el efectivo. "Efectivo de cobros B2B" baja el "Efectivo en mano estimado"; "Otro" no. Queda como un pago en efectivo, igual que en Pagos sin banco (también para el flujo de caja).\n• Lo pagué con tarjeta: la fecha. El pago de la tarjeta llega después en la cartola ("Pago de tarjeta", no es gasto).\n• Todavía lo debo: queda el saldo por pagar. Una factura a crédito sigue en Vencimientos "Con abonos · saldo"; una al contado pasa a por pagar con la fecha que eliges (Vencimientos, Agenda y Hoy). El siguiente cargo de ese saldo exacto se propone solo.\nEl gasto no se duplica: su monto sigue siendo el total del documento. Cada pago queda como una parte (medio, fecha y cargo u origen) y, cuando las partes suman el total, el documento queda pagado con la fecha de la última.\nDeshacer el cargo quita la parte del banco; si el resto se registró junto con el cargo, te pregunta si lo quitas también.';
+const TXT_RESTO = 'Cuando un cargo paga solo una parte de una factura o de un gasto, dices qué pasó con el resto:\n• Lo pagué en efectivo: la fecha y de dónde salió el efectivo. "Efectivo de cobros B2B" baja el "Efectivo en mano estimado"; "Otro" no. Queda como un pago en efectivo, igual que en Pagos sin banco (también para el flujo de caja).\n• Lo pagué con tarjeta: la fecha. El pago de la tarjeta llega después en la cartola ("Pago de tarjeta", no es gasto).\n• Todavía lo debo: queda el saldo por pagar. Una factura a crédito sigue en Por pagar "Con abonos · saldo"; una al contado pasa a por pagar con la fecha que eliges (Por pagar, Agenda y Hoy). El siguiente cargo de ese saldo exacto se propone solo.\nEl gasto no se duplica: su monto sigue siendo el total del documento. Cada pago queda como una parte (medio, fecha y cargo u origen) y, cuando las partes suman el total, el documento queda pagado con la fecha de la última.\nDeshacer el cargo quita la parte del banco; si el resto se registró junto con el cargo, te pregunta si lo quitas también.';
 // La fecha de un cargo por su id (de la memoria), para "banco (cargo dd-mm)"
 const ccFecha = id => { const o = ccPorId(id); return o ? o.fecha : ''; };
 // En qué pestaña del detalle se abre una propuesta que no se confirma tal cual
@@ -3391,7 +3641,7 @@ function restoCcHtml(c, doc) {
   const fecha = conFecha ? `<div class="campo cc-resto-f"><label for="ccr-f-${k}">${m === 'debo' ? 'Fecha en que esperas pagar el resto' : 'Fecha del pago del resto'}</label><input id="ccr-f-${k}" type="date" data-cc-resto-fecha="${k}" value="${esc(f)}"></div>` : '';
   const resto = m && m !== 'debo' ? { monto: falta, medio: m, fecha: f, origenEfectivo: ccr.origen[c.id] || SP.ORIGEN_B2B, origenTexto: ccr.origenTx[c.id] || '' } : null;
   const partes = (doc.partes || []).concat([{ monto: c.monto, medio: 'banco', fecha: c.fecha, cargoId: c.id }], resto ? [resto] : []);
-  const queda = m === 'debo' ? (doc.credito ? `<p class="ayuda cc-resto-txt">Queda en Vencimientos "Con abonos · saldo ${pesos(falta)}".</p>` : `<p class="ayuda cc-resto-txt">Queda por pagar ${pesos(falta)} con esa fecha: sale en Vencimientos, Agenda y Hoy (y en Pagos sin banco si pasa la fecha). El siguiente cargo de ${pesos(falta)} se propone solo.</p>`)
+  const queda = m === 'debo' ? (doc.credito ? `<p class="ayuda cc-resto-txt">Queda en Por pagar "Con abonos · saldo ${pesos(falta)}".</p>` : `<p class="ayuda cc-resto-txt">Queda por pagar ${pesos(falta)} con esa fecha: sale en Por pagar, Agenda y Hoy (y en Pagos sin banco si pasa la fecha). El siguiente cargo de ${pesos(falta)} se propone solo.</p>`)
     : m ? `<p class="ayuda cc-resto-prev">${esc(PM.textoPagado(partes, doc.total, ccFecha))}. El documento queda pagado (fecha de pago: la de la última parte).</p>` : '<p class="ayuda">Elige qué pasó con el resto. Nada se registra solo.</p>';
   return `<div class="cc-resto" data-cc-resto-box="${k}"><p class="aviso-cc cc-parcial cc-parcial-doc"><b>${esc(PM.preguntaResto(c.monto, doc.pendiente))}</b> ${info('El resto', TXT_RESTO)}${m === 'debo' && doc.credito && doc.debo ? ` <span class="cc-parcial-sub">${doc.debo}</span>` : ''}</p>
     ${(doc.partes || []).length ? `<p class="ayuda cc-partes">Ya tiene: ${esc(doc.partes.map(x => PM.textoParte(x, ccFecha)).join(' + '))}</p>` : ''}
@@ -3620,7 +3870,7 @@ function pintarCartola(el, sub, dg) {
     + seccion('revisar', 'Para revisar', fNota(revisar), 'Ábrelo y elige qué es: los vencimientos por pagar más cercanos a la fecha aparecen primero.')
     + histCcHtml(cart.conNota ? hechos.filter(c => c.nota) : hechos, base) + `</div>${vacioDetBj('cc', kBj)}</div></section>`
     + avisosCcHtml(D, props) + (base && D.concMigrado ? reglasRedirHtml('cargo', D.reglasConc) : reglasCcHtml(D))
-    + `<p class="nota-i">(i) Pagar un vencimiento aquí hace lo mismo que en Vencimientos (crea el gasto o completa el de la compra a crédito), con la fecha del banco. Cada gasto y cada vencimiento queda con la columna "Cartola" en la planilla: de qué cartola, cuenta y operación salió el pago, cuándo se subió y, si era una factura del SII, de qué carga venía. Deshacer no borra nada: el cargo vuelve a revisar, el vencimiento queda por pagar y un gasto creado aquí pasa a "Gastos anulados".</p>`;
+    + `<p class="nota-i">(i) Pagar un vencimiento aquí hace lo mismo que en Por pagar (crea el gasto o completa el de la compra a crédito), con la fecha del banco. Cada gasto y cada vencimiento queda con la columna "Cartola" en la planilla: de qué cartola, cuenta y operación salió el pago, cuándo se subió y, si era una factura del SII, de qué carga venía. Deshacer no borra nada: el cargo vuelve a revisar, el vencimiento queda por pagar y un gasto creado aquí pasa a "Gastos anulados".</p>`;
   conectarArriba(); conectarCartola(el, dg, props, listos, pedibles); conectarCobDos(el); conectarBandeja(el, 'cc'); conectarResumenConc(el); conectarSug(el, () => pintarCartola(concEl(), 'cargos', cart.dg));
 }
 // ── v0.29.0 · Cobertura de la cartola y de las cargas del SII, lado a lado (Conciliación → Cargos) ──
@@ -3783,7 +4033,7 @@ const fechaLargaBj = f => (/^\d{4}-\d{2}-\d{2}/.test(String(f || '')) ? `${diaTe
 const nombreCuentaBj = k => (k === 'cc' ? 'cuenta corriente' : k === 'chequera' ? 'Chequera Electrónica' : String(k || ''));
 const TXT_BANDEJA_CONC = 'Cada movimiento pendiente es una fila, con su estado escrito, su color y su puntaje (de 0 a 100):\n• Listo (verde): 85 o más, sin choque entre reglas o documentos, y la propuesta se puede confirmar sin dudas. Son los mismos de "Listos para confirmar"; confirmar siempre es tu clic.\n• Revisar (amarillo): la propuesta es probable o tiene dudas, parece repetido de otra cartola o lo aprendido no calza exacto. Ábrelo y decide.\n• Sin coincidencia (rojo): nada calza. Búscalo en el detalle o elige qué es.\n• Gris: ya revisado (repetido, no es gasto o ignorado), en la lista de ya revisados.\nLos botones de arriba filtran la lista y el buscador encuentra por monto (con o sin $), glosa, proveedor o cliente.\nEn el PC: ↑ y ↓ para moverte, Enter para abrir el detalle a la derecha y Esc para cerrarlo. Después de confirmar se abre solo el siguiente de la lista.\nMoverte, abrir y buscar no gasta lecturas: todo sale de lo que la pantalla ya tiene leído.';
 const TXT_EN_GASTOS = 'Lo que ya está registrado en Gastos y tiene que ver con este cargo, con su estado real:\n• "Espera su cargo": el gasto o la factura está registrado y todavía no tiene un cargo de la cartola.\n• "Por pagar": el vencimiento (o la factura a crédito) sigue abierto.\n• "Pagado con el cargo…": ya está conciliado con otro movimiento del banco (si este es el mismo, puede ser un repetido).\n• "Pagado en efectivo" o "con tarjeta": se pagó sin banco (Pagos sin banco).\nTambién avisa si hay algo del mismo monto ya pagado en esos días, para que no se registre dos veces.';
-const TXT_BUSCAR_G = 'Busca en lo que la lista ya tiene leído de Gastos (los últimos 150 días): gastos registrados, vencimientos y facturas del SII por clasificar. Escribe un monto (con o sin $), el proveedor, el folio o el ítem.\nSin escribir nada muestra lo del mismo monto que el cargo.\nCada resultado dice si ya está pagado y con qué. Lo que todavía espera su pago se puede elegir: "Es este gasto" (Ya está en Gastos), "Pagar con este cargo" (Paga vencimientos) o "Clasificar y conciliar" (Factura por clasificar).\nNo gasta lecturas.';
+const TXT_BUSCAR_G = 'Busca en lo que la lista ya tiene leído de Gastos (los últimos 150 días): gastos registrados, vencimientos y facturas del SII por clasificar. Escribe un monto (con o sin $), el proveedor, el folio o el ítem.\nSin escribir nada muestra lo del mismo monto que el cargo.\nCada resultado dice si ya está pagado y con qué. Lo que todavía espera su pago se puede elegir: "Es este gasto" (Ya está en Gastos), "Pagar con este cargo" (Paga cuentas por pagar) o "Clasificar y conciliar" (Factura por clasificar).\nNo gasta lecturas.';
 // Los filtros (por estado), el buscador, el botón de confirmar varios y la línea de confirmación (con Deshacer y, en el celular, Siguiente)
 function barraBjHtml(o) {
   const tot = o.k.listo + o.k.revisar + o.k.sin;
@@ -3827,7 +4077,7 @@ function candCargoHtml(c, p) {
   const D = cart.d || {}, cards = [];
   const venc = (id, monto) => { const v = (D.vencimientos || []).find(x => x.id === id); if (!v) return;
     cards.push({ titulo: BJ.limpio(v.nombre), monto: v.estadoBase === 'con_abonos' && v.saldo ? v.saldo : v.monto, tono: 'amarillo', sub: [v.fecha ? 'vence el ' + fechaLargaBj(v.fecha) : '', v.item, v.area].filter(Boolean).join(' · '),
-      estado: v.folio ? `Factura F.${v.folio} registrada en Gastos a crédito: por pagar${v.estado === 'VENCIDA' ? ' (atrasada)' : ''}` : `En Vencimientos: por pagar${v.estado === 'VENCIDA' ? ' (atrasado)' : ''}${v.estadoBase === 'con_abonos' ? ' · tiene abonos' : ''}`,
+      estado: v.folio ? `Factura F.${v.folio} registrada en Gastos a crédito: por pagar${v.estado === 'VENCIDA' ? ' (atrasada)' : ''}` : `En Por pagar: por pagar${v.estado === 'VENCIDA' ? ' (atrasado)' : ''}${v.estadoBase === 'con_abonos' ? ' · tiene abonos' : ''}`,
       extra: (monto && Math.round(monto) !== Math.round(v.monto) ? `<p class="bj-card-sub">Este cargo paga ${pesos(monto)}${v.deDocumento && monto < (v.estadoBase === 'con_abonos' ? v.saldo : v.monto) ? ` de ${pesos(v.estadoBase === 'con_abonos' ? v.saldo : v.monto)} · falta ${pesos((v.estadoBase === 'con_abonos' ? v.saldo : v.monto) - monto)}` : ''}.</p>` : '') + historialBjHtml(v.partes, v.total) }); };
   // v0.69.2 · Pago parcial de un gasto sin cargo (el documento es mayor que el cargo)
   const parcialG = (g, pp) => { const e = BJ.estadoTxt({ estado: 'sin_cargo', clase: g.clase });
@@ -4055,7 +4305,7 @@ function conectarResumenConc(el) {
     resConc.contando = false; refrescarResumenConc();
   });
   const ic = R0.querySelector('[data-res-cierre]');
-  if (ic) ic.addEventListener('click', async ev => { ev.preventDefault(); const m = ic.dataset.resCierre; try { (await import('./vista-finanzas-eerr.js?v=0.69.5')).elegirMes(m); } catch (e) {} location.hash = '#finanzas/resultados/cierre'; });
+  if (ic) ic.addEventListener('click', async ev => { ev.preventDefault(); const m = ic.dataset.resCierre; try { (await import('./vista-finanzas-eerr.js?v=0.70.0')).elegirMes(m); } catch (e) {} location.hash = '#finanzas/resultados/cierre'; });
 }
 // La bandeja filtrada por el mes del resumen: "Solo octubre" con su X
 const filtroMesBjHtml = st => (st.bjMes ? `<button type="button" class="bj-filtro bj-f-mes" data-bj-mes-quitar aria-pressed="true" title="Mostrar todos los meses"><span>Solo ${esc(CR.mesCorto(st.bjMes))}</span>${icono('anular', 14)}</button>` : '');
@@ -4430,7 +4680,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
       const r = await F.clasificar(k.v.id, lin, k.parcial ? { estado: 'pendiente', fechaEstado: venceEn } : { estado: 'pagada', fechaEstado: c.fecha, esperaPago: true }, { detalle: det });
       Gastos.olvidarTodo(); olvidarSp(key);
       registrar('Clasificó una factura del SII al conciliar', `${SP.textoDoc(k.v)} · ${lin.map(l => l.item + (l.area ? ' ' + l.area : '')).join(' + ')}`);
-      if (k.parcial) { if (!r.vencimiento) throw new Error('La factura quedó clasificada, pero sin su vencimiento: registra el abono en "Paga vencimientos".'); await enviar(c, { accion: 'abono_parcial', vencId: r.vencimiento }); }
+      if (k.parcial) { if (!r.vencimiento) throw new Error('La factura quedó clasificada, pero sin su vencimiento: registra el abono en "Paga cuentas por pagar".'); await enviar(c, { accion: 'abono_parcial', vencId: r.vencimiento }); }
       else { if (!r.gastos.length) throw new Error('La factura quedó clasificada: búscala en "Ya está en Gastos".'); await enviar(c, { accion: 'gasto', filas: r.gastos.map(id => ({ id })) }); }
       cart.msg = `Listo: ${esc(SP.textoDoc(k.v))} clasificada (gasto de ${esc(SP.nombreMes(k.v.fecha))}) y ${k.parcial ? `abono de ${pesos(c.monto)} registrado` : `pagada con el cargo de ${pesos(c.monto)}`}.`;
     });
@@ -4447,7 +4697,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
       : c.accion === 'previred' ? '<p>Se deshace el pago de Previred completo: todos sus cargos vuelven a "Para revisar", el vencimiento de Cotizaciones queda por pagar y los gastos por trabajador pasan a "Gastos anulados".</p>'
       : c.accion === 'abono_parcial' && c.detalle && (c.detalle.resto || c.detalle.creoVencimiento) ? '<p>Sale solo la parte del banco (este cargo; queda anotada). El documento vuelve a quedar con su saldo: el gasto no cambia de monto. Si el resto se registró junto con este cargo, después te pregunto si lo quitas también.</p>'
       : c.accion === 'abono_parcial' ? '<p>El abono sale del vencimiento (queda anotado). Si era el primero, el gasto del documento que se creó con él pasa a "Gastos anulados"; si era el último, el vencimiento vuelve a quedar con saldo.</p>'
-      : c.accion === 'vencimientos' ? '<p>Los vencimientos vuelven a quedar por pagar. Si el pago creó un gasto (una obligación), ese gasto pasa a "Gastos anulados"; si era una compra a crédito o una factura del SII, su gasto queda sin fecha de pago.</p>'
+      : c.accion === 'vencimientos' ? '<p>Los vencimientos vuelven a quedar por pagar. Si el pago creó un gasto (una cuenta recurrente), ese gasto pasa a "Gastos anulados"; si era una compra a crédito o una factura del SII, su gasto queda sin fecha de pago.</p>'
       : c.accion === 'nuevo' ? '<p>El gasto que se creó pasa a "Gastos anulados" (no se borra).</p>' : c.accion === 'abono' ? '<p>El abono sale del vencimiento (queda anotado) y su gasto pasa a "Gastos anulados".</p>' : c.accion === 'gasto' ? (c.detalle && c.detalle.combinacion ? '<p>Los gastos de la combinación quedan igual; a todos se les quita la cartola (si esperaban su cargo, vuelven a esperarlo).</p>' : '<p>El gasto queda igual; solo se le quita la cartola (si esperaba su cargo, vuelve a esperarlo).</p>') : c.accion === 'pago_tarjeta' ? '<p>Deja de contar como pago de tarjeta (no había gasto: no cambia nada en Gastos).</p>' : c.accion === 'traspaso' ? '<p>Deja de contar como traspaso (no había gasto: no cambia nada en Gastos).</p>' : '<p>No cambia nada en Gastos.</p>';
     const motivo = await pedirMotivo('Deshacer', `<p class="ayuda">${pesos(c.monto)} · ${esc(c.descripcion)} (${esc(diaTexto(c.fecha))}) · ${esc(resumenHecho(c))}</p>${que}<p class="ayuda">El cargo vuelve a "Para revisar" y lo aprendido de él se olvida.</p>`, 'Deshacer');
     if (!motivo) return;
@@ -4688,11 +4938,11 @@ async function pintarItems(el, sub) {
   try { I = (await Gastos.itemsTodos()).items || []; } catch (e) { errorGastos(el.querySelector('.tarjeta'), e); return; }
   if (vistaDesdeHash() !== 'gastos' || subVista() !== 'items') return;
   const activos = I.filter(i => !i.archivado), archivados = I.filter(i => i.archivado);
-  const fila = (i, k, n) => `<div class="fila-caja"><div class="txt"><b>${esc(i.item)}</b><span>${[i.categoria, i.tipo, i.subTipo, i.area].filter(Boolean).map(esc).join(' · ')}</span>${i.esObligacionRecurrente ? '<span>Se paga desde Obligaciones</span>' : ''}</div>
+  const fila = (i, k, n) => `<div class="fila-caja"><div class="txt"><b>${esc(i.item)}</b><span>${[i.categoria, i.tipo, i.subTipo, i.area].filter(Boolean).map(esc).join(' · ')}</span>${i.esObligacionRecurrente ? '<span>Se paga desde Cuentas recurrentes</span>' : ''}</div>
     <div class="acciones">${n ? `<button type="button" class="btn-icono" data-mover="${esc(i.item)}" data-dir="arriba" ${k === 0 ? 'disabled' : ''} aria-label="Subir ${esc(i.item)}">${icono('arriba', 16)}</button><button type="button" class="btn-icono" data-mover="${esc(i.item)}" data-dir="abajo" ${k === n - 1 ? 'disabled' : ''} aria-label="Bajar ${esc(i.item)}">${icono('abajo', 16)}</button>` : ''}
       <button type="button" class="btn-sec btn-chico" data-editar-item="${esc(i.item)}">Editar</button><button type="button" class="btn-sec btn-chico" data-archivar-item="${esc(i.item)}" data-archivar="${i.archivado ? '' : '1'}">${i.archivado ? 'Reactivar' : 'Archivar'}</button></div></div>`;
   el.innerHTML = cabGastos(sub) + `<div id="gx-items">
-    <section class="tarjeta" aria-labelledby="t-items"><div class="titulo-fila"><h2 id="t-items">Ítems de gasto ${info('Productos de reventa', TXT_REVENTA)} ${info('Ítems', 'La lista con la que se clasifica cada gasto, en el orden en que aparece al registrar.\nÁrea: una fija (el gasto va entero ahí), SELECCIONAR (se elige el área y el monto al registrar) o PRORRATEADO (se reparte en % entre áreas).\nArchivar lo saca de las listas para registrar; los gastos que ya lo usan no cambian. En Sistema Fën los ítems no se borran.\nCambiar el nombre no cambia los gastos ya registrados ni las obligaciones que lo usan: esos siguen con el nombre anterior.')}</h2>
+    <section class="tarjeta" aria-labelledby="t-items"><div class="titulo-fila"><h2 id="t-items">Ítems de gasto ${info('Productos de reventa', TXT_REVENTA)} ${info('Ítems', 'La lista con la que se clasifica cada gasto, en el orden en que aparece al registrar.\nÁrea: una fija (el gasto va entero ahí), SELECCIONAR (se elige el área y el monto al registrar) o PRORRATEADO (se reparte en % entre áreas).\nArchivar lo saca de las listas para registrar; los gastos que ya lo usan no cambian. En Sistema Fën los ítems no se borran.\nCambiar el nombre no cambia los gastos ya registrados ni las cuentas recurrentes que lo usan: esos siguen con el nombre anterior.')}</h2>
       <button type="button" class="btn" id="item-nuevo">${icono('mas', 16)} Nuevo ítem</button></div>
       ${activos.map((i, k) => fila(i, k, activos.length)).join('') || '<div class="vacio">No hay ítems.</div>'}</section>
     ${archivados.length ? `<section class="tarjeta" aria-labelledby="t-items-arch"><div class="titulo-fila"><h2 id="t-items-arch">Archivados</h2><span>${archivados.length}</span></div><div data-colapsar="3">${archivados.map(i => fila(i, 0, 0)).join('')}</div></section>` : ''}</div>`;
@@ -4704,7 +4954,7 @@ async function pintarItems(el, sub) {
     else if (b.dataset.mover) { b.disabled = true; try { await Gastos.moverItem(b.dataset.mover, b.dataset.dir); pintarItems(el, sub); } catch (er) { alert(er.message || mensajeError(er)); b.disabled = false; } }
     else if (b.dataset.archivarItem) {
       const archivar = !!b.dataset.archivar, nombre = b.dataset.archivarItem;
-      if (archivar && !confirm(`¿Archivar "${nombre}"?\n\nDeja de aparecer para registrar gastos, obligaciones y el SII. Los gastos que ya lo usan no cambian.`)) return;
+      if (archivar && !confirm(`¿Archivar "${nombre}"?\n\nDeja de aparecer para registrar gastos, cuentas recurrentes y el SII. Los gastos que ya lo usan no cambian.`)) return;
       b.disabled = true;
       try { await Gastos.archivarItem(nombre, archivar); registrar(archivar ? 'Archivó un ítem' : 'Reactivó un ítem', nombre); pintarItems(el, sub); }
       catch (er) { alert(er.message || mensajeError(er)); b.disabled = false; }
@@ -4716,7 +4966,7 @@ function editarItem(i) {
   const sel = (id, opciones, v) => `<select id="${id}"><option value="">Elige</option>${opciones.map(o => `<option ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
   const d = dialogo(`<form class="form-dialogo" novalidate><h2>${i ? 'Editar ítem' : 'Nuevo ítem'}</h2>
     <div class="campo"><label for="it-nombre">Nombre</label><input id="it-nombre" type="text" maxlength="60" value="${esc(i ? i.item : '')}" style="text-transform:uppercase"></div>
-    ${i ? '<p class="ayuda">Si cambias el nombre, los gastos ya registrados y las obligaciones que lo usan siguen con el nombre anterior.</p>' : ''}
+    ${i ? '<p class="ayuda">Si cambias el nombre, los gastos ya registrados y las cuentas recurrentes que lo usan siguen con el nombre anterior.</p>' : ''}
     <div class="grilla-montos"><div class="campo"><label for="it-cat">Categoría</label>${sel('it-cat', ['FIJO', 'VARIABLE'], i && i.categoria)}</div><div class="campo"><label for="it-tipo">Tipo</label>${sel('it-tipo', ['DIRECTO', 'INDIRECTO'], i && i.tipo)}</div></div>
     <div class="grilla-montos"><div class="campo"><label for="it-sub">Subtipo</label>${sel('it-sub', ['OPERATIVO', 'COMERCIAL', 'INVERSIÓN', 'FINANCIERO', 'PASIVO'], i && i.subTipo)}</div><div class="campo"><label for="it-area">Área ${info('Áreas', TXT_AREAS_GASTO)}</label>${sel('it-area', ['SELECCIONAR', 'PRORRATEADO', ...AREAS_GASTO], i && i.area)}</div></div>
     <p class="nota-i oculto" id="it-rev">(i) Lo que se compra hecho para venderlo tal cual (chocolates, té, infusiones, Magia…) va con área fija <b>REVENTA</b>. Así su margen se ve aparte en Finanzas. ${info('Productos de reventa', TXT_REVENTA)}</p>
@@ -4778,7 +5028,7 @@ function guiaPreviredHtml() {
 async function pintarPrevired(el, sub, d) {
   const items = d.itemsSii || d.items || [];
   el.innerHTML = cabConc('previred') + guiaPreviredHtml() + `
-    <section class="tarjeta" aria-labelledby="t-prev"><div class="titulo-fila"><h2 id="t-prev">Cotizaciones de Previred ${info('Cotizaciones de Previred', 'Sube el PDF de Previred: el "Comprobante de pago" (recomendado) o el "Certificado de Pagos de Cotizaciones Previsionales" (de un trabajador o el lote con todos). Se lee aquí mismo, en tu equipo, y se reconoce solo.\nSe registra un gasto por trabajador (sin IVA, pagado al contado en la fecha de pago de Previred), con el área y el ítem que elijas: se recuerdan para el mes siguiente. Con el comprobante, además un gasto de multas e intereses (si los hay).\nEl detalle (AFP, salud, AFC y lo que paga la empresa) queda en la hoja "Cotizaciones" de la planilla, y el PDF en Drive.\nEl mismo mes no se puede cargar dos veces.\nCon la base nueva: si existe la obligación de Cotizaciones (según documento, con identificador Previred), el PDF completa su vencimiento y los gastos se crean al pagarlo (con Pagar o con la cartola).')}</h2></div>
+    <section class="tarjeta" aria-labelledby="t-prev"><div class="titulo-fila"><h2 id="t-prev">Cotizaciones de Previred ${info('Cotizaciones de Previred', 'Sube el PDF de Previred: el "Comprobante de pago" (recomendado) o el "Certificado de Pagos de Cotizaciones Previsionales" (de un trabajador o el lote con todos). Se lee aquí mismo, en tu equipo, y se reconoce solo.\nSe registra un gasto por trabajador (sin IVA, pagado al contado en la fecha de pago de Previred), con el área y el ítem que elijas: se recuerdan para el mes siguiente. Con el comprobante, además un gasto de multas e intereses (si los hay).\nEl detalle (AFP, salud, AFC y lo que paga la empresa) queda en la hoja "Cotizaciones" de la planilla, y el PDF en Drive.\nEl mismo mes no se puede cargar dos veces.\nCon la base nueva: si existe la cuenta recurrente de Cotizaciones (según documento, con identificador Previred), el PDF completa su vencimiento y los gastos se crean al pagarlo (con Pagar o con la cartola).')}</h2></div>
       <div class="campo"><label for="prev-archivo">Archivo de Previred (comprobante de pago en PDF, CSV de la nómina o certificado)</label><input id="prev-archivo" type="file" accept="application/pdf,.pdf,.csv,text/csv,.txt"></div>
       <p class="nota-i" id="prev-nota-docs">(i) Recomendado: el comprobante de pago. Trae todo lo que pagó la empresa, con multas e intereses; el certificado es la mirada del trabajador y no los trae. ${info('Certificado o comprobante', TXT_PREV_DOCS)}</p>
       <div id="prev-msg" class="ayuda" role="status">${esc(prev.mensaje || '')}</div></section>
@@ -4949,7 +5199,7 @@ function pintarPrevCsv(items, d) {
     ${caso}
     ${comparacion}
     ${faltanAfp.length && !cargado ? `<div class="aviso" id="prev-afp-falta">${faltanAfp.length === 1 ? 'Un trabajador no tiene' : `${faltanAfp.length} trabajadores no tienen`} AFP en meses anteriores (el CSV no la dice): elígela una vez y queda recordada.</div>` : ''}
-    ${aVenc ? `<div class="prev-a-venc" id="prev-a-venc"><b>Va al vencimiento de ${esc(aVenc.nombre)} (${esc(fechaIso(aVenc.fecha))})</b> ${info('El CSV completa un vencimiento', 'Existe la obligación de Cotizaciones (según documento). Al guardar, el CSV completa su vencimiento con el total del CSV. Los gastos por trabajador se crean al pagarlo (con la cartola o con Pagar).')}</div>` : ''}
+    ${aVenc ? `<div class="prev-a-venc" id="prev-a-venc"><b>Va al vencimiento de ${esc(aVenc.nombre)} (${esc(fechaIso(aVenc.fecha))})</b> ${info('El CSV completa un vencimiento', 'Existe la cuenta recurrente de Cotizaciones (según documento). Al guardar, el CSV completa su vencimiento con el total del CSV. Los gastos por trabajador se crean al pagarlo (con la cartola o con Pagar).')}</div>` : ''}
     ${notaVenc ? `<div class="aviso" id="prev-nota">${esc(notaVenc)}: se registran los gastos por trabajador ahora, como siempre.</div>` : ''}
     <h3 class="sub-cc">Trabajadores</h3>
     ${filas}
@@ -5028,8 +5278,8 @@ function pintarPrevTrabajo(items, d) {
     ${r.porComprobante ? `<div class="aviso aviso-rojo" id="prev-por-comp">${r.porCsv ? 'Este mes ya se registró con el CSV de la nómina (el detalle exacto por trabajador): el certificado no agrega nada. Para las multas e intereses, sube el comprobante de pago.' : 'Este mes ya se registró con el comprobante de pago (que trae todo lo pagado): el certificado no agrega nada.'} Míralo en "Meses cargados".</div>`
       : cargado ? `<div class="aviso aviso-rojo">Este mes ya estaba cargado completo: no hay nada nuevo que guardar. Míralo en "Meses cargados".</div>` : ''}
     ${parcial ? `<div class="aviso">${r.yaCargadasN} ${r.yaCargadasN === 1 ? 'línea ya estaba cargada' : 'líneas ya estaban cargadas'} de este mes: se dejan fuera y se registra solo lo nuevo (lo que ves abajo).</div>` : ''}
-    ${aVenc ? `<div class="prev-a-venc" id="prev-a-venc"><b>Va al vencimiento de ${esc(aVenc.nombre)} (${esc(fechaIso(aVenc.fecha))})</b> ${info('El certificado completa un vencimiento', 'Existe la obligación de Cotizaciones (según documento). Al guardar, el certificado completa su vencimiento: monto = total del certificado y el PDF queda como su documento. Todavía no se registra ningún gasto.\nAl pagar ese vencimiento (con la cartola o con Pagar) se crea un gasto por trabajador, sin IVA, con el área y el ítem que elijas aquí y la fecha del gasto de abajo.')}</div>` : ''}
-    ${notaVenc ? `<div class="aviso" id="prev-nota">${esc(notaVenc)}: se registran los gastos por trabajador ahora, como siempre. Sugerencia: crea en Obligaciones la obligación "Cotizaciones" (según documento, marca "Es Previred") para que el próximo certificado complete su vencimiento y los gastos se creen al pagarlo.</div>` : ''}
+    ${aVenc ? `<div class="prev-a-venc" id="prev-a-venc"><b>Va al vencimiento de ${esc(aVenc.nombre)} (${esc(fechaIso(aVenc.fecha))})</b> ${info('El certificado completa un vencimiento', 'Existe la cuenta recurrente de Cotizaciones (según documento). Al guardar, el certificado completa su vencimiento: monto = total del certificado y el PDF queda como su documento. Todavía no se registra ningún gasto.\nAl pagar ese vencimiento (con la cartola o con Pagar) se crea un gasto por trabajador, sin IVA, con el área y el ítem que elijas aquí y la fecha del gasto de abajo.')}</div>` : ''}
+    ${notaVenc ? `<div class="aviso" id="prev-nota">${esc(notaVenc)}: se registran los gastos por trabajador ahora, como siempre. Sugerencia: crea en Cuentas recurrentes la cuenta recurrente "Cotizaciones" (según documento, marca "Es Previred") para que el próximo certificado complete su vencimiento y los gastos se creen al pagarlo.</div>` : ''}
     ${r.bloquea ? '<div class="aviso aviso-rojo">Hay líneas del PDF que no se pudieron leer (ver arriba): no se puede guardar porque los totales quedarían incompletos. Prueba con el PDF de ese trabajador por separado o avísame.</div>' : ''}
     ${cargado ? '' : filasPrevTrab(r, items, true)}
     <div class="grilla-montos ${cargado ? 'oculto' : ''}"><div class="campo"><label for="prev-fecha">Fecha del gasto ${info('Fecha del gasto', 'El mes al que corresponde el costo. Por defecto, el último día del mes de las remuneraciones (así queda junto a los sueldos de ese mes en el análisis). La fecha de pago es la de Previred.')}</label><input id="prev-fecha" type="date" value="${esc(prev.fecha)}"></div>
@@ -5138,7 +5388,7 @@ function pintarPrevComprobante(items, d) {
     ${notaCsv}${notaDif}
     ${tabla}
     ${comparacion}
-    ${aVenc ? `<div class="prev-a-venc" id="prev-a-venc"><b>Va al vencimiento de ${esc(aVenc.nombre)} (${esc(fechaIso(aVenc.fecha))})</b> ${info('El comprobante completa un vencimiento', 'Existe la obligación de Cotizaciones (según documento). Al guardar, el comprobante completa su vencimiento: monto = lo pagado (cotizaciones + multas e intereses). Todavía no se registra ningún gasto.\nAl pagar ese vencimiento (con la cartola o con Pagar) se crean los gastos por trabajador y el de multas e intereses, al mismo tiempo.')}</div>` : ''}
+    ${aVenc ? `<div class="prev-a-venc" id="prev-a-venc"><b>Va al vencimiento de ${esc(aVenc.nombre)} (${esc(fechaIso(aVenc.fecha))})</b> ${info('El comprobante completa un vencimiento', 'Existe la cuenta recurrente de Cotizaciones (según documento). Al guardar, el comprobante completa su vencimiento: monto = lo pagado (cotizaciones + multas e intereses). Todavía no se registra ningún gasto.\nAl pagar ese vencimiento (con la cartola o con Pagar) se crean los gastos por trabajador y el de multas e intereses, al mismo tiempo.')}</div>` : ''}
     ${notaVenc ? `<div class="aviso" id="prev-nota">${esc(notaVenc)}: se registran los gastos ahora, como siempre.</div>` : ''}
     <h3 class="sub-cc">Trabajadores</h3>
     ${filasPrevTrab(r, items, !cargado)}
@@ -5332,11 +5582,14 @@ function pendientesApps(estados) {
   ((pv && pv.avisos) || []).forEach((a, i) => L.push({ orden: (a.estado === 'pronto' ? 1.4 : 0.15) + i / 100, color: a.estado === 'pronto' ? 'amarillo' : 'rojo', icono: a.estado === 'pronto' ? 'reloj' : 'alerta',
     chip: a.estado === 'atrasado' ? 'Atrasado' : a.estado === 'hoy' ? 'Vence hoy' : 'Pagar', url: '#conciliacion/previred', origen: 'Previred', titulo: a.titulo, detalle: a.detalle, id: 'pend-previred-' + a.periodo, clase: a.estado === 'pronto' ? '' : 'pend-urgente',
     nota: a.cierre || '' }));   // v0.69.5: "Es lo que falta para cerrar <mes>" (solo si ese mes no está cerrado y se sabe sin leer)
+  // v0.70.0 · con la base nueva: corte de luz o agua en trámite (lo dice la boleta), urgente y arriba hasta que se pague
+  const cortesG = de('gastos', 'cortes');
+  ((cortesG && cortesG.avisos) || []).forEach((a, i) => L.push({ orden: 0.05 + i / 100, color: 'rojo', icono: 'alerta', chip: 'Urgente', url: '#gastos', origen: 'Gastos', titulo: a.titulo, detalle: a.detalle, id: 'pend-corte-' + a.cuentaId, clase: 'pend-urgente' }));
   // v0.63.1 · con la base nueva: lo que se paga por banco y todavía no aparece en la cartola
   const ec = de('gastos', 'esperan_cartola');
   if (ec && ec.cantidad > 0) {
     const lineas = ec.lineas || [], enl = [];
-    if ((ec.vencimientos || []).length) enl.push(['#gastos', 'Ver Vencimientos']);
+    if ((ec.vencimientos || []).length) enl.push(['#gastos', 'Ver Por pagar']);
     enl.push(['#conciliacion/cargos', 'Ir a Conciliación']);
     L.push({ orden: 2.55, color: 'amarillo', icono: 'banco', chip: 'Revisar', id: 'pend-esperan-cartola', origen: 'Gastos', titulo: `Esperan cartola: ${ec.cantidad}`,
       lineas: lineas.slice(0, 6).concat(lineas.length > 6 ? [`y ${lineas.length - 6} más`] : []), detalle: '¿Subiste la cartola o falta pagarlo?', enlaces: enl });
@@ -6608,7 +6861,7 @@ const tabConc = sub => (['sii', 'sinbanco', 'previred', 'proveedores'].includes(
 const concEl = () => $('v-conciliacion');
 const enConc = t => vistaDesdeHash() === 'conciliacion' && (t === 'cargos' ? subVista() === 'cargos' : t === 'abonos' ? !subVista() : subVista() === t);
 const conc = { subiendo: false, msg: '', err: '', pendiente: null, ultimaSubida: null, avisosVistos: [] };
-const TXT_SUBIR_CONC = 'Un solo botón para todos los archivos. Se reconoce solo:\n• Cartola de BancoEstado (.xlsx), histórica o en línea: los abonos van a B2B y los cargos a Gastos.\n• Transferencias recibidas (.xlsx): el RUT y el nombre de quien te pagó.\n• Transferencias enviadas (.xlsx, "TefSimpleConsultaEnviadas…"): a quién pagaste (nombre, RUT, banco, concepto), para reconocer cada cargo y su proveedor.\n• Archivo del SII (XML, XLS o CSV): se abre en Cargas del SII.\n• PDF de Previred: el comprobante de pago (recomendado: trae las multas e intereses) o el certificado de cotizaciones. Se abre en Previred.\n• CSV de la nómina de Previred (filas con ";" y unos 105 campos por trabajador): se abre en Previred.\nCada archivo va a su pestaña y ahí sigues el trabajo.';
+const TXT_SUBIR_CONC = 'Un solo botón para todos los archivos. Se reconoce solo:\n• Cartola de BancoEstado (.xlsx), histórica o en línea: los abonos van a B2B y los cargos a Gastos.\n• Transferencias recibidas (.xlsx): el RUT y el nombre de quien te pagó.\n• Transferencias enviadas (.xlsx, "TefSimpleConsultaEnviadas…"): a quién pagaste (nombre, RUT, banco, concepto), para reconocer cada cargo y su proveedor.\n• Archivo del SII (XML, XLS o CSV): se abre en Cargas del SII.\n• PDF de Previred: el comprobante de pago (recomendado: trae las multas e intereses) o el certificado de cotizaciones. Se abre en Previred.\n• PDF de una boleta de luz (CGE) o agua (ESSBIO): se abre en Gastos → Por pagar, con su cuenta, su período y su saldo anterior.\n• CSV de la nómina de Previred (filas con ";" y unos 105 campos por trabajador): se abre en Previred.\nCada archivo va a su pestaña y ahí sigues el trabajo.';
 // v0.66.0 · Los números de las pestañas: cargos por revisar (Cartola), documentos por clasificar y automáticas por revisar (Cargas
 // del SII) y facturas sin pago del banco (Pagos sin banco). Lo del SII sale de la memoria de fs-gastos (sin lecturas nuevas).
 function tabsConcHtml(tab, nCart) {
@@ -6673,7 +6926,12 @@ async function subirArchivoConc(f) {
   const ext = (String(f.name || '').toLowerCase().match(/\.([a-z0-9]+)$/) || [])[1] || '';
   conc.msg = ''; conc.err = '';
   const ir = (sub, tipo) => { conc.pendiente = { tipo, f }; if (subVista() === sub && vistaDesdeHash() === 'conciliacion') pintarConciliacion(sub); else location.hash = '#conciliacion/' + sub; };
-  if (ext === 'pdf' || f.type === 'application/pdf') { conc.msg = `PDF de Previred: ${esc(f.name)}`; return ir('previred', 'previred'); }
+  if (ext === 'pdf' || f.type === 'application/pdf') {
+    // v0.70.0 · Una boleta de luz o agua (CGE, ESSBIO) va a Gastos → Por pagar con su vista previa; los demás PDF, a Previred
+    let lineas = null; try { lineas = await Previred.lineasDelPdf(f); } catch (e) { lineas = null; }
+    if (lineas && BO.esBoletaServicio(lineas)) { boletaPendiente = { lineas, f }; conc.msg = `Boleta de luz o agua: ${esc(f.name)}`; if (vistaDesdeHash() === 'gastos' && !subVista()) pintarGastos(''); else location.hash = '#gastos'; return; }
+    conc.msg = `PDF de Previred: ${esc(f.name)}`; return ir('previred', 'previred');
+  }
   // v0.67.3 · El CSV de la nómina de Previred (filas con ";" y unos 105 campos, con RUT y período) va a Previred; los demás CSV, al SII
   if (['csv', 'txt'].includes(ext) && f.size <= 8 * 1024 * 1024) {
     let esNom = false; try { esNom = Previred.esCsvNomina(Previred.textoDeArchivo(await f.arrayBuffer())); } catch (e) { esNom = false; }
@@ -6940,9 +7198,9 @@ function resCamposHtml(b) {
   if (r.tipo === 'pago_tarjeta') return `<div class="campo"><label for="rc-tj">Tarjeta (opcional)</label><input id="rc-tj" data-rc-res="tarjeta" maxlength="80" value="${esc(r.tarjeta || '')}"></div>`;
   if (r.tipo === 'traspaso') return `<div class="campo"><label for="rc-tr">Nota (opcional)</label><input id="rc-tr" data-rc-res="nota" maxlength="80" value="${esc(r.nota || '')}"></div>`;
   if (r.tipo === 'abono') { const l = oblsConc(true); if (r.plantillaId && !l.some(o => o.id === r.plantillaId)) l.unshift({ id: r.plantillaId, nombre: r.nombre || r.plantillaId });
-    return `<div class="campo"><label for="rc-ab">A quién (sueldo líquido)</label><select id="rc-ab" data-rc-res="plantillaId">${opt('', l.length ? 'Elige…' : 'No hay obligaciones de tipo libre abiertas', r.plantillaId)}${l.map(o => opt(o.id, o.nombre, r.plantillaId)).join('')}</select></div>`; }
+    return `<div class="campo"><label for="rc-ab">A quién (sueldo líquido)</label><select id="rc-ab" data-rc-res="plantillaId">${opt('', l.length ? 'Elige…' : 'No hay cuentas recurrentes de tipo libre abiertas', r.plantillaId)}${l.map(o => opt(o.id, o.nombre, r.plantillaId)).join('')}</select></div>`; }
   if (r.tipo === 'vencimiento') { const l = oblsConc(false), v = String(r.vencimiento || ''); if (v && !l.some(o => 'p:' + o.id === v)) l.unshift({ id: v.replace(/^p:/, ''), nombre: r.nombre || v, raw: v });
-    return `<div class="campo"><label for="rc-ve">La obligación que paga</label><select id="rc-ve" data-rc-res="vencimiento">${opt('', l.length ? 'Elige…' : 'No hay vencimientos abiertos', v)}${l.map(o => opt(o.raw || 'p:' + o.id, o.nombre, v)).join('')}</select></div>`; }
+    return `<div class="campo"><label for="rc-ve">La cuenta recurrente que paga</label><select id="rc-ve" data-rc-res="vencimiento">${opt('', l.length ? 'Elige…' : 'No hay vencimientos abiertos', v)}${l.map(o => opt(o.raw || 'p:' + o.id, o.nombre, v)).join('')}</select></div>`; }
   return '';
 }
 function editorReglaHtml(b) {
@@ -8304,7 +8562,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.69.5')).dbBase(); const FG = await import('./fs-gastos.js?v=0.69.5'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.70.0')).dbBase(); const FG = await import('./fs-gastos.js?v=0.70.0'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }

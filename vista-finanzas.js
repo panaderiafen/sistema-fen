@@ -12,14 +12,14 @@
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.69.5';
-import * as FC from './finanzas-costos.js?v=0.69.5';
-import * as FS from './finanzas-sii.js?v=0.69.5';
-import * as FM from './finanzas-motor.js?v=0.69.5';
-import * as FV from './finanzas-ventas.js?v=0.69.5';
-import * as FMG from './finanzas-margenes.js?v=0.69.5';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.69.5';
-import * as VR from './vista-finanzas-resultados.js?v=0.69.5';
+import * as F from './finanzas.js?v=0.70.0';
+import * as FC from './finanzas-costos.js?v=0.70.0';
+import * as FS from './finanzas-sii.js?v=0.70.0';
+import * as FM from './finanzas-motor.js?v=0.70.0';
+import * as FV from './finanzas-ventas.js?v=0.70.0';
+import * as FMG from './finanzas-margenes.js?v=0.70.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.70.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.70.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -116,7 +116,7 @@ function comoTrabajamos(H) {
   return `
   <section class="tarjeta" aria-labelledby="t-fin-metodo">
     <h2 id="t-fin-metodo">La forma de trabajar ${H.info('Cómo trabajamos', 'Es el método acordado el 12 de octubre de 2026 para mirar los números de Fën. Cada pantalla de Finanzas sigue estas reglas.\nSolo tú ves estos números, y solo en Sistema Fën: las jefas no ven nada de esto.')}</h2>
-    <p class="ayuda">Todo se mira en dos ejes: el <b>área que produce</b> (Panadería, Bollería, Pastelería, Cafetería) y el <b>canal donde se vende</b> (caja Barros Arana, caja Ainavillo, B2B). Cada venta va al área del producto; cada canal tiene sus propios costos (cajeras, despacho, comisiones). Lo que se compra hecho y se vende tal cual va al área <b>Reventa</b>, que solo existe para ver su margen (no produce: no está en Cocina ni en Producción).</p>
+    <p class="ayuda">Todo se mira en dos ejes: el <b>área que produce</b> (Panadería, Bollería, Pastelería, Cafetería) y el <b>canal donde se vende</b> (caja Barros Arana, caja Ainavillo, B2B). Cada venta va al área del producto; cada canal tiene sus propios costos (cajeras, despacho, comisiones). Lo que se compra hecho y se vende tal cual va al área <b>Reventa</b>, que solo existe para ver su margen (no produce: no está en Cocina ni en Producción). Los costos de atender a cada canal van a su código de canal: <b>B2B</b> y <b>B2C</b> (los clientes de las tiendas).</p>
     <ol class="fin-pasos">
       ${paso(1, 'dia', 'Todos los días', '', '<p>El costo directo de cada producto se actualiza con cada compra. En <b>Hoy</b>: la venta del mes contra la meta y el punto de equilibrio.</p>')}
       ${paso(2, 'cierre', 'Cierre del mes', 'después de Previred, hasta el día 13', `<p>Se cierra después de pagar y cargar el Previred de ese mes, a más tardar el día 13 del mes siguiente. Orden recomendado:</p>
@@ -138,7 +138,7 @@ function comoTrabajamos(H) {
     </div>
   </section>
   <section class="tarjeta" aria-labelledby="t-fin-pagos" id="fin-pagos">
-    <h2 id="t-fin-pagos">Cómo se registran los pagos ${H.info('Cómo se registran los pagos', 'Acordado el 13 de octubre de 2026: cada peso que sale por el banco se registra una sola vez y desde la cartola, con la fecha del banco. Así Gastos y la cartola siempre cuadran y nada queda duplicado.\nLas obligaciones dicen cómo se pagan (Obligaciones → Editar → "Se paga por"): banco, efectivo o tarjeta de crédito.')}</h2>
+    <h2 id="t-fin-pagos">Cómo se registran los pagos ${H.info('Cómo se registran los pagos', 'Acordado el 13 de octubre de 2026: cada peso que sale por el banco se registra una sola vez y desde la cartola, con la fecha del banco. Así Gastos y la cartola siempre cuadran y nada queda duplicado.\nLas cuentas recurrentes dicen cómo se pagan (Cuentas recurrentes → Editar → "Se paga por"): banco, efectivo o tarjeta de crédito.')}</h2>
     <div class="fin-reglas">
       <div class="fin-regla">${ic('banco', 22)}<div><b>Lo que pagas por banco lo registra la cartola</b><span>Transferencias, cargos automáticos y pagos desde la cuenta: al subir la cartola, en Conciliación → Cargos dices qué es cada cargo y ahí queda el gasto.</span></div></div>
       <div class="fin-regla">${ic('efectivo', 22)}<div><b>Solo el efectivo se registra a mano</b><span>En Gastos → Registrar (forma de pago Efectivo) o con "Pagar" en un vencimiento que se paga en efectivo.</span></div></div>
@@ -168,6 +168,8 @@ function comoTrabajamos(H) {
       ${def('Punto de equilibrio', 'La venta neta que cubre los fijos: fijos ÷ % de margen de contribución.', 'Ejemplo: fijos $3.000.000 al mes y margen 60 % → hay que vender $5.000.000 netos en el mes.')}
       ${def('Tarjeta de crédito', '<b>Compras con tarjeta</b>: son gasto el día de la compra (entran por el SII, con su factura). <b>Pago de la tarjeta</b>: queda fuera del resultado, es solo flujo de caja (en la cartola se marca "Pago de tarjeta": no crea gasto). <b>Mantención e intereses de la tarjeta</b>: gasto financiero, se registran a mano en Gastos.', 'Ejemplo: compras $100.000 en harina con la tarjeta el 10 de marzo → gasto de marzo. El 5 de abril pagas la tarjeta: ese cargo no es gasto (ya se contó en marzo). La comisión de mantención de $3.000 sí es gasto financiero de abril.')}
       ${def('Productos de reventa', 'Lo que compras hecho para venderlo tal cual (bebidas, jugos, chocolates, té e infusiones, Magia…). <b>En Gastos</b> la compra va al ítem "PRODUCTOS DE REVENTA" con el <b>área REVENTA</b> (en Gastos → Ítems, área fija REVENTA). En Resultados → Clasificación ese ítem es "Compras de productos de reventa" (se propone solo por el nombre: reventa, chocolate, infusión, té, Magia): <b>no es una línea de gasto</b>. Lo que entra al resultado es el costo de lo <b>vendido</b>: el costo de compra neto de cada producto (Márgenes → Asociar productos, tipo Reventa) × las unidades vendidas. En Asociar productos, el tipo Reventa propone el <b>área Reventa</b>: así el estado de resultados tiene su columna <b>Reventa</b> (aparece solo si el mes tiene algo), con sus ventas, su costo, su margen de contribución y sus fijos, si algún gasto tiene área REVENTA. Reventa es solo un área de margen: no está en Cocina ni en Producción, no entra sola en un reparto (solo si la eliges) y no recibe comunes en la vista repartida por causa. <b>Pendiente:</b> que ese costo se actualice solo con cada factura del SII; por ahora se escribe a mano.', 'Ejemplo: compras 24 chocolates a $500 netos c/u ($12.000) y vendes 10 en el mes → al resultado entran $5.000 de costo; los 14 que quedan no son gasto todavía.')}
+      ${def('Costo de canal B2C', 'Lo que cuesta <b>atender a los clientes de las tiendas</b> (B2C), no lo que cuesta producir: por ejemplo, la parte de la luz y el agua de la sala de venta, o lo de las cajeras. En Gastos es el área <b>B2C</b>, igual que <b>B2B</b> es lo que cuesta atender a los clientes B2B. No es un área que produce ni de margen: no está en Cocina ni en Producción, y nunca entra sola en un reparto (solo si la eliges tú). En el estado de resultados va como B2B: a Común, con su nota de costo de canal, hasta que exista la fila de costo de canal. Cada gasto guarda su local o su cuenta, así más adelante se puede ver por tienda. Es la base para calcular después <b>cuánto cuesta conseguir y atender a un cliente</b>.', 'Ejemplo: la luz de Barros Arana se reparte 70 % Cafetería (lo que produce) y 30 % B2C (la sala de venta).')}
+      ${def('Boletas de luz y agua', 'Cada boleta (CGE, ESSBIO) se sube como PDF en Gastos → Por pagar (o en Conciliación → Subir archivo). Su gasto es del <b>mes en que termina el período</b> de la boleta, con fecha del último día de ese mes: 16 ago – 15 sep es de septiembre; 8 sep – 7 oct es de octubre. Una boleta no da crédito de IVA: su costo es el total. Los intereses que trae van aparte, como gasto financiero. El "saldo anterior" no es un gasto nuevo: son las boletas de antes que siguen por pagar.')}
       ${def('Qué queda fuera del resultado', 'No son gasto del mes, van al flujo de caja: el <b>capital</b> de las cuotas de crédito (solo el interés es gasto), el pago de IVA (<b>F29</b>), las <b>inversiones</b> (entran al resultado como depreciación mensual según su vida útil) y los <b>retiros</b>. El sueldo empresarial sí es costo (fijo común).')}
     </dl>
   </section>`;

@@ -98,7 +98,9 @@ function quienCargo(c, p) {
   if (p && p.saldoDoc && p.quien === 'rut') return { k: 'quien', pts: PESOS.quien.rut, txt: c.rutDe === 'tef' ? 'mismo RUT del documento (transferencia enviada)' : 'mismo RUT del documento' };
   if (p && p.saldoDoc && p.quien === 'proveedor') return { k: 'quien', pts: PESOS.quien.nombre, txt: 'proveedor reconocido' + (c.proveedor && c.proveedor.nombre ? ` (${c.proveedor.nombre})` : '') };
   if (p && p.saldoDoc) return { k: 'quien', pts: PESOS.quien.parcial, txt: 'nada dice que sea de ese proveedor', malo: true };
-  if (p && (p.por === 'monto fijo' || p.por === 'documento' || p.por === 'saldo')) return { k: 'quien', pts: PESOS.quien.obligacion, txt: 'obligación conocida' };
+  // v0.70.0 · Boleta de luz o agua: la glosa dice la empresa (CGE, ESSBIO) o es una cuenta recurrente conocida
+  if (p && p.por === 'boleta') return p.empresaEnGlosa ? { k: 'quien', pts: PESOS.quien.rut, txt: `la glosa dice ${p.empresa}` } : { k: 'quien', pts: PESOS.quien.obligacion, txt: 'cuenta recurrente conocida' };
+  if (p && (p.por === 'monto fijo' || p.por === 'documento' || p.por === 'saldo')) return { k: 'quien', pts: PESOS.quien.obligacion, txt: 'cuenta recurrente conocida' };
   if (p && p.por === 'regla') return { k: 'quien', pts: PESOS.quien.glosa, txt: 'la glosa calza con tu regla' };
   if (p && p.por === 'glosa') return { k: 'quien', pts: PESOS.quien.glosa, txt: 'la glosa dice Previred' };
   return { k: 'quien', pts: PESOS.quien.nada, txt: 'nada dice a quién se pagó', malo: true };
@@ -106,8 +108,10 @@ function quienCargo(c, p) {
 function montoCargo(c, p, ctx) {
   const D = ctx.D || {}, r = ctx.regla, vs = D.vencimientos || [];
   if (p.tipo === 'vencimientos' && p.sinPropuesta) return (p.opciones || []).some(o => Math.abs(n(o.monto) - c.monto) <= 1) ? { k: 'monto', pts: PESOS.monto.exacto, txt: 'monto exacto' } : { k: 'monto', pts: PESOS.monto.sinReferencia, txt: 'falta el documento con el monto' };
+  // v0.70.0 · El total a pagar (o el saldo anterior) exacto de una boleta; un pago en partes no calza con un total
+  if (p.tipo === 'vencimientos' && p.por === 'boleta') return p.que === 'orden' ? { k: 'monto', pts: PESOS.monto.lejos, txt: 'paga una parte: lo más antiguo primero', malo: true } : { k: 'monto', pts: PESOS.monto.exacto, txt: p.que === 'saldo' ? 'el saldo anterior exacto de la boleta' : 'el total a pagar exacto de la boleta' };
   if (p.tipo === 'vencimientos') {
-    if ((p.pagos || []).length > 1) return { k: 'monto', pts: PESOS.monto.combinacion, txt: `${p.pagos.length} vencimientos suman exacto` };
+    if ((p.pagos || []).length > 1) return { k: 'monto', pts: PESOS.monto.combinacion, txt: `${p.pagos.length} por pagar suman exacto` };
     const v = vs.find(x => x.id === (p.pagos || [])[0].id), m = v ? (v.estadoBase === 'con_abonos' && v.saldo ? v.saldo : v.monto) : 0;
     if (!m) return { k: 'monto', pts: PESOS.monto.sinReferencia, txt: 'el vencimiento no tiene monto' };
     const dif = Math.abs(m - c.monto);
@@ -133,6 +137,12 @@ function fechaCargo(c, p, ctx) {
     const g = p.gasto, rr = (g.rut && R[g.rut]) || (c.rut && R[c.rut]) || null, dist = diasEntre(g.fecha, c.fecha);
     return factorFecha(g.fecha, c.fecha, g.clase === 'sii' || g.folio ? rr : null, B && B.enVentanaExacta && dist !== null ? B.enVentanaExacta(dist, g) : true, g.folio ? 'de la factura' : 'del gasto');
   }
+  // v0.70.0 · Boleta: contra la fecha de pago de esa boleta (su vencimiento o, sin él, su emisión)
+  if (p.tipo === 'vencimientos' && p.por === 'boleta' && p.boletaId) {
+    const v = vs.find(x => x.id === p.boletaId), f = v && v.boleta ? (v.boleta.vence || v.boleta.emision || v.fecha) : ''; if (!f) return null;
+    const d = diasEntre(f, c.fecha); if (d === null) return null;
+    return d >= -20 && d <= 40 ? { k: 'fecha', pts: PESOS.fecha.ritmo, txt: d === 0 ? 'el mismo día que vence la boleta' : `a ${dd(Math.abs(d))} ${d > 0 ? 'después' : 'antes'} del vencimiento de la boleta` } : { k: 'fecha', pts: PESOS.fecha.fuera, txt: 'lejos de la fecha de la boleta', malo: true };
+  }
   if (p.tipo === 'vencimientos' && !p.sinPropuesta && (p.pagos || []).length) {
     const v = vs.find(x => x.id === p.pagos[0].id); if (!v) return null;
     const rr = v.rut && R[v.rut] && v.fechaDoc ? R[v.rut] : null;
@@ -157,7 +167,7 @@ function fechaCargo(c, p, ctx) {
   }
   return null;
 }
-const FUENTE_TXT = { 'monto fijo': 'monto fijo de la obligación', documento: 'monto del documento de la obligación', rut: 'factura del proveedor por pagar', saldo: 'el saldo de un vencimiento con abonos', monto: 'solo calza el monto', glosa: 'la glosa' };
+const FUENTE_TXT = { 'monto fijo': 'monto fijo de la cuenta recurrente', documento: 'monto del documento de la cuenta recurrente', rut: 'factura del proveedor por pagar', saldo: 'el saldo de un por pagar con abonos', monto: 'solo calza el monto', glosa: 'la glosa', boleta: 'la boleta de la cuenta (lo más antiguo primero)' };
 function fuenteCargo(c, p) {
   const nr = p.nivelRegla;
   if (p.por === 'regla') return { k: 'fuente', pts: nr === 'listos' ? PESOS.fuente.reglaListos : PESOS.fuente.reglaProponer, txt: `tu regla (${nr === 'listos' ? 'pasa a Listos' : 'solo propone'})` };
@@ -168,7 +178,7 @@ function fuenteCargo(c, p) {
   if (p.tipo === 'abono_parcial' && p.saldoDoc) return { k: 'fuente', pts: PESOS.fuente.documento, txt: 'el saldo de un documento que ya tiene pagos' };
   if (p.tipo === 'pago_parcial') return { k: 'fuente', pts: PESOS.fuente.documento, txt: 'documento del proveedor por pagar, mayor que el cargo' };
   if (p.registrado) return { k: 'fuente', pts: PESOS.fuente.documento, txt: 'factura del SII ya registrada' };
-  if (p.tipo === 'vencimientos' && p.sinPropuesta) return { k: 'fuente', pts: PESOS.fuente.documento, txt: 'vencimientos de la obligación' };
+  if (p.tipo === 'vencimientos' && p.sinPropuesta) return { k: 'fuente', pts: PESOS.fuente.documento, txt: 'por pagar de la cuenta recurrente' };
   if (p.por === 'monto') return { k: 'fuente', pts: PESOS.fuente.monto, txt: FUENTE_TXT.monto };
   if (p.por === 'glosa') return { k: 'fuente', pts: PESOS.fuente.aprendidaProponer, txt: 'la glosa dice Previred' };
   return { k: 'fuente', pts: PESOS.fuente.documento, txt: FUENTE_TXT[p.por] || 'documento del mismo monto' };
@@ -181,6 +191,7 @@ function topeCargo(p) {
   if (p.tipo === 'sii_pend') return 'la factura se clasifica antes';
   if (p.tipo === 'abono_parcial') return p.saldoDoc ? 'el proveedor del cargo no se reconoce como el del documento' : 'el abono parcial se revisa';
   if (p.tipo === 'pago_parcial') return 'un pago parcial se revisa siempre';
+  if (p.por === 'boleta') return p.que === 'orden' ? 'un pago en partes se revisa siempre' : 'la glosa no dice la empresa de la boleta';
   if ((p.por === 'regla' || p.por === 'aprendido') && p.nivelRegla === 'proponer') return 'la regla solo propone';
   return 'probable: confírmalo tú';
 }

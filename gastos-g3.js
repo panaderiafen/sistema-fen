@@ -17,7 +17,7 @@
 //    toma el neto de la factura (netoFactura / conNetoSii).
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import { dia } from './gastos-modelo.js?v=0.69.5';
+import { dia } from './gastos-modelo.js?v=0.70.0';
 
 export const TIPOS_OBLIGACION = ['fijo', 'documento', 'libre'];
 export const NOMBRE_TIPO = { fijo: 'Monto fijo', documento: 'Según documento del mes', libre: 'Libre (abonos)' };
@@ -44,7 +44,7 @@ export const diasAvisoDe = p => { const x = parseInt(p && p.diasAviso, 10); retu
 // Lo del formulario de la obligación (solo con la base nueva). Devuelve { error } o { campos }
 export function clasificacionDesdeForm(p) {
   const tipo = s(p.tipoObligacion);
-  if (!TIPOS_OBLIGACION.includes(tipo)) return { error: 'Elige el tipo de la obligación' };
+  if (!TIPOS_OBLIGACION.includes(tipo)) return { error: 'Elige el tipo de la cuenta recurrente' };
   let ident = s(p.identificador).replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40).replace(/^[=+\-@\s]+/, '');
   // v0.51.0: "previred" marca la obligación de Cotizaciones (la completa el certificado de Previred)
   if (/^previred$/i.test(ident)) ident = 'previred';
@@ -227,10 +227,13 @@ export const saldoVenc = d => Math.max(0, totalVenc(d) - totalAbonos(d));
 export const esLibre = d => s(d && d.tipoObligacion) === 'libre';
 export const esPrevired = d => !!(d && d.documento && d.documento.tipo === 'previred');
 // ¿Crea sus gastos al pagarse? (obligación o suelto). Las facturas del SII y compras a crédito ya tienen su gasto.
-export const conLineas = d => !!(s(d && (d.plantillaID || d.plantillaId)) || (d && d.suelto === true));
+// v0.70.0 · Un por pagar "devengado" (nació de su boleta: luz, agua) ya tiene sus gastos desde que se subió la boleta (del mes del
+// período): al pagarlo no se crean líneas, solo se les pone la fecha de pago (como una factura del SII). Nunca se cuenta dos veces.
+export const esDevengado = d => !!(d && d.devengado === true && Array.isArray(d.gastosDoc) && d.gastosDoc.length);
+export const conLineas = d => !esDevengado(d) && !!(s(d && (d.plantillaID || d.plantillaId)) || (d && d.suelto === true));
 // a = { monto, fecha, origen, cargoId, clave, por, en, gastoIds }. Devuelve { error } | { repetido } | { campos, abono, final, saldo, total, primero }
 export function abonoParcial(d, a) {
-  if (esLibre(d)) return { error: 'Es una obligación libre: usa "Agregar abono"' };
+  if (esLibre(d)) return { error: 'Es una cuenta recurrente libre: usa "Agregar abono"' };
   if (esPrevired(d)) return { error: 'Previred se paga completo (el total del certificado): en la cartola usa "Pago de Previred".' };
   const e = estadoBase(d);
   if (e === 'pagado') return { error: 'Ese vencimiento ya está pagado' };

@@ -24,13 +24,13 @@
 //    ya cargado (y, si se pide, en los otros meses del trabajador) por el camino de siempre: corregir con historial y versión,
 //    anular lo que sobra y crear lo que falta. Un mes cerrado en Finanzas (fin_cierres) bloquea.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.69.5';
-import * as M from './gastos-g2.js?v=0.69.5';
-import * as G3 from './gastos-g3.js?v=0.69.5';
-import * as D from './gastos-g3d.js?v=0.69.5';
-import * as C from './gastos-cartola.js?v=0.69.5';
-import * as AB from './gastos-abono.js?v=0.69.5';
-import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.69.5';
+import * as FB from './fs-gastos.js?v=0.70.0';
+import * as M from './gastos-g2.js?v=0.70.0';
+import * as G3 from './gastos-g3.js?v=0.70.0';
+import * as D from './gastos-g3d.js?v=0.70.0';
+import * as C from './gastos-cartola.js?v=0.70.0';
+import * as AB from './gastos-abono.js?v=0.70.0';
+import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.70.0';
 
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const s = v => String(v == null ? '' : v);
@@ -454,18 +454,18 @@ export async function clasificar(lista, avance = () => {}) {
     k++; avance(k, lista.length);
     try {
       const o = ps.find(y => (s(y.d.id) || y.id) === s(x.id) && !y.d.quitadoEnPlanilla);
-      if (!o) throw error('Esa obligación ya no existe', 'datos');
+      if (!o) throw error('Esa cuenta recurrente ya no existe', 'datos');
       const c = G3.clasificacionDesdeForm({ tipoObligacion: x.tipoObligacion, identificador: x.identificador, diasAviso: x.diasAviso, sePagaPor: x.sePagaPor });
       if (c.error) throw error(c.error, 'datos');
       const pid = s(o.d.id) || o.id, ref = FB.doc(d, 'obligaciones', o.id);
       const recl = c.campos.tipoObligacion !== s(o.d.tipoObligacion) || (c.campos.tipoObligacion === 'documento' && String(c.campos.diasAviso) !== String(o.d.diasAviso)) ? G3.reclasificar(vencs, pid, c.campos) : [];
       const n = await FB.runTransaction(d, async tx => {
-        const sn = await tx.get(ref); if (!sn.exists()) throw error('Esa obligación ya no existe', 'datos');
+        const sn = await tx.get(ref); if (!sn.exists()) throw error('Esa cuenta recurrente ya no existe', 'datos');
         const refsV = recl.map(v => FB.doc(d, 'vencimientos', v.id)), snV = [];
         for (const rv of refsV) snV.push(await tx.get(rv));
         const a = sn.data(); let j = 0;
         if (Object.keys(M.diferencias(a, c.campos)).length) { tx.update(ref, cambio(a, 'clasificó', c.campos)); j++; }
-        recl.forEach((v, i) => { if (snV[i].exists() && !snV[i].data().documento) { tx.update(refsV[i], cambio(snV[i].data(), 'tomó el tipo de su obligación', v.campos)); j++; } });
+        recl.forEach((v, i) => { if (snV[i].exists() && !snV[i].data().documento) { tx.update(refsV[i], cambio(snV[i].data(), 'tomó el tipo de su cuenta recurrente', v.campos)); j++; } });
         return j;
       });
       await despues(n);
@@ -495,7 +495,7 @@ export async function aplicarSiniva(ids, avance = () => {}) {
         if (!sn.exists()) return;
         const g = sn.data(), c = D.camposSiniva(g);
         if (!c || g.estado !== 'vigente') return;
-        tx.update(refs[j], cambio(g, 'ajuste siniva', c, { motivo: 'Pago de una obligación sin IVA registrado como bruto: el neto es el monto final' }));
+        tx.update(refs[j], cambio(g, 'ajuste siniva', c, { motivo: 'Pago de una cuenta recurrente sin IVA registrado como bruto: el neto es el monto final' }));
         h++; t += c.montoNeto - M.n(g.montoNeto);
       });
       return { h, t };

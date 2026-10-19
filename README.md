@@ -1,9 +1,97 @@
-# Sistema Fën · v0.69.5
+# Sistema Fën · v0.70.0
 
-**App:** v0.69.5 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 18 de octubre de 2026
+**App:** v0.70.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 18 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.70.0: Cuentas recurrentes y Por pagar, el canal B2C y las boletas de luz y agua en PDF
+
+- **Dónde va:** repo **sistema-fen**, raíz. Hay un archivo nuevo: `boletas.js`. No cambian scripts ni reglas.
+
+### El caso
+- "Obligaciones" y "Vencimientos" se confundían: una es la ficha de algo que pagas seguido y la otra cada cobro con su fecha y su monto. Ahora se llaman así en la pantalla. Los datos son los mismos.
+- Las boletas de luz (CGE) y agua (ESSBIO) traen el consumo del período, a veces intereses, un "saldo anterior" (lo que no se pagó antes) y, si hay deuda, un aviso de corte. Antes había que escribir el monto a mano y el saldo anterior se podía contar dos veces.
+- Lo que cuesta atender a los clientes de las tiendas (por ejemplo, la parte de la luz y el agua de la sala de venta) no tenía dónde ir.
+
+### Qué cambia en cómo trabajas
+1. **Nombres nuevos, mismos datos:** en Gastos, la pestaña "Vencimientos" ahora es **Por pagar** y "Obligaciones" es **Cuentas recurrentes**. También en los botones, las ayudas (i), Agenda, Hoy y la conciliación ("Paga vencimientos" ahora es **Paga cuentas por pagar**). "Vencimiento suelto" ahora es **Pago suelto**.
+   - (i) arriba de Por pagar y de Cuentas recurrentes: "Cuenta recurrente = la ficha de algo que pagas seguido. Por pagar = cada cobro, con su fecha y monto. Los arriendos (sin documento) se crean solos cada mes; luz, agua, internet, Previred y créditos nacen de su documento o tabla."
+   - Las direcciones de siempre siguen funcionando (por ejemplo, `#gastos/obligaciones`). En la base y en la planilla las colecciones y columnas no cambian de nombre.
+2. **De dónde viene cada por pagar:** cada uno dice **Fijo** (monto fijo cada mes: arriendos), **Boleta** (su PDF), **Factura SII**, **Archivo** (Previred: comprobante o CSV; más adelante el de remuneraciones) o **Tabla** (cuotas de un crédito o cuponera). Además: Boleta (saldo anterior), Compra a crédito y Suelto.
+3. **Esperando boleta de <mes>:** una cuenta de luz o agua no se crea sola cada mes: nace de su boleta. Mientras no subas la boleta del mes, Por pagar y la Agenda muestran **"Esperando boleta de octubre"** con un **estimado** (el promedio de las últimas 3 boletas de esa cuenta) y la fecha en que suele vencer. Es solo un estimado, con borde punteado: **nunca es un gasto** ni se paga desde ahí.
+4. **Canal B2C:** un código nuevo de **costo de canal**, como B2B: lo que cuesta atender a los clientes de las tiendas.
+   - Aparece en todas las listas de área de Gastos. **Nunca entra solo en un reparto** (solo si lo eliges tú) y **no está en Cocina ni en Producción**.
+   - En el estado de resultados va como B2B hoy: a **Común**, con su nota de costo de canal (Resultados → Clasificación), hasta que exista la fila de costo de canal.
+   - Cada gasto de boleta guarda su cuenta y su local, para poder ver más adelante por tienda. "Cómo trabajamos" lo explica: es la base para calcular después cuánto cuesta conseguir y atender a un cliente.
+5. **Crear cuentas de luz y agua** (una vez, en Por pagar o en Cuentas recurrentes): crea las 4 cuentas, que se pagan por banco y que puedes editar después:
+
+   | Cuenta | Empresa | Reparto |
+   |---|---|---|
+   | Luz Ainavillo | CGE | PAN 40, BOL 40, PAS 10, B2C 10 |
+   | Agua Ainavillo | ESSBIO | PAN 40, BOL 40, PAS 10, B2C 10 |
+   | Luz Barros Arana | CGE | CAF 70, B2C 30 |
+   | Agua Barros Arana | ESSBIO | CAF 80, B2C 20 |
+
+   - El ítem: el que se llame LUZ / ELECTRICIDAD o AGUA, si existe; si no, lo eliges (o después).
+   - Si ya tenías una cuenta de luz o agua, te ofrece **usarla** en vez de crear otra (queda como cuenta de boleta, con su historial). Nunca se borra nada. Las que ya existen no se vuelven a crear.
+   - **Los N° de cliente no se escriben aquí:** los aprende la primera boleta (o los escribes tú al editar la cuenta).
+6. **Subir la boleta en PDF** (Por pagar → Subir boleta, o Conciliación → Subir archivo: se reconoce sola y se abre en Por pagar). La vista previa muestra todo lo leído y nada se guarda hasta "Guardar boleta":
+   - **Lo leído:** empresa (por su RUT o su nombre), N° de cliente o de servicio, N° de boleta, emisión, período, vencimiento (si no trae, la emisión; se puede cambiar), boleta del período, intereses, saldo anterior, ajustes y total a pagar.
+   - **El cruce:** boleta del período + saldo anterior + ajustes chicos (hasta $100) = total a pagar. Si no cuadra, **no deja guardar** y dice exactamente qué no cuadra.
+   - **La cuenta:** se encuentra sola por la empresa y el N° de cliente. Si la cuenta todavía no tiene su N°, eliges cuál es (y lo aprende). Si no hay ninguna, te ofrece crearla.
+   - **El gasto es del mes en que termina el período**, con fecha del último día de ese mes: 16 ago – 15 sep es de **septiembre**; 8 sep – 7 oct es de **octubre** (está en un (i)). Una boleta no da crédito de IVA: el costo es el total.
+   - **Los intereses van aparte**, como gasto financiero (eliges el ítem, como las multas de Previred). El resto va al ítem de la cuenta, con su reparto.
+   - **El saldo anterior** se compara con lo que sigue por pagar de esa cuenta: si calza (±$100) dice "El saldo anterior son: julio, agosto" (no es un gasto nuevo). Si no calza, dice la diferencia y ofrece **"Registrar saldo anterior sin boleta"**: queda por pagar como "Boleta (saldo anterior)", con su gasto en el mes que eliges (por defecto el anterior) y el ítem que eliges. Si después subes la boleta de ese mes, la reemplaza: **nunca se cuenta dos veces**.
+   - **Corte:** si la boleta dice "Corte en trámite" (y, si viene, la fecha de corte), Hoy lo muestra arriba y en rojo, por ejemplo "Agua Ainavillo: corte desde el 12 nov si no se paga $14.380", hasta que se pague lo que la boleta cubre.
+   - **La misma boleta dos veces** no se duplica: la vista previa dice "ya está registrada".
+   - **El PDF** va a Drive por el camino de siempre (Fën · Gastos / Boletas y facturas).
+7. **Pagar: lo más antiguo primero.**
+   - En la cartola, un cargo igual al **total a pagar** de una boleta propone pagar todo lo que cubre en una sola acción (su saldo anterior y la boleta del mes), lo más antiguo primero; queda **Listo** si la glosa dice la empresa (CGE o ESSBIO). Un cargo igual al **saldo anterior** paga solo lo de antes.
+   - Un cargo menor (pago parcial) paga lo más antiguo y lo que no alcanza queda como **abono** en el más antiguo que sigue abierto, con su saldo (siempre a revisar).
+   - En efectivo o con tarjeta: **"Pagar en orden"** (Por pagar → Varias boletas por pagar) hace lo mismo.
+   - Deshacer, como siempre.
+
+### Lecturas y escrituras (Spark)
+- **Abrir la vista previa de una boleta:** 0 lecturas con la sesión abierta (los ítems de Finanzas se leen una vez por sesión: en la prueba, 3 lecturas la primera vez).
+- **Guardar una boleta con saldo anterior sin boleta:** 8 lecturas y 13 escrituras (medido: 9 líneas de gasto, 2 por pagar, la cuenta que aprende su N° y el contador de siempre). Una boleta sin saldo anterior: unas 8 escrituras.
+- **Pagar con la cartola el total a pagar (2 por pagar, 9 gastos):** 30 lecturas y 15 escrituras (incluye la lista que se refresca); deshacer, parecido.
+- **"Crear cuentas de luz y agua":** una vez, 9 lecturas y 5 escrituras.
+- **Esperando boleta, origen de cada por pagar, avisos de corte en Hoy y la Agenda:** 0 lecturas nuevas (salen de lo ya leído).
+
+### Instalación v0.70.0 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.70.0.zip`, con la carpeta `cocina/` (no cambia). Hay un archivo nuevo: `boletas.js`.
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC).
+
+**Nada en Apps Script ni en las reglas de Firestore.** El script de Gastos v2.18.0 copia a la planilla las columnas que conoce: un gasto con área B2C, un por pagar de boleta y una cuenta con reparto en % pasan tal cual (probado con el script real, como REVENTA en la v0.69.1). Las reglas de fen-gastos v0.1.0 no enumeran áreas.
+**A mano (opcional):** si tienes una validación de datos en la columna Área de la planilla, o un filtro fijo en Looker Studio, agrega B2C.
+
+### Lista de verificación v0.70.0
+- [ ] Abajo a la izquierda dice **v0.70.0**.
+- [ ] Gastos: las pestañas dicen **Por pagar** y **Cuentas recurrentes**, y arriba está el (i) "Cuenta recurrente = …".
+- [ ] Por pagar: cada uno dice de dónde viene (Fijo, Boleta, Factura SII, Archivo o Tabla).
+- [ ] Por pagar → **Crear cuentas de luz y agua**: las 4 con su reparto. Si ya tenías una de luz o agua, elige "Usar" o "Crear nueva". Revisa en Cuentas recurrentes que digan "Nace de su boleta" y su reparto.
+- [ ] Sube la boleta de luz de Ainavillo (PDF): revisa período, total, el cruce en verde, la cuenta (elige Luz Ainavillo la primera vez), el ítem, los intereses (ítem financiero) y "Gasto de <mes>". Si el saldo anterior no calza, decide si registrarlo sin boleta.
+- [ ] Sube la de agua desde **Conciliación → Subir archivo**: se abre en Por pagar con su vista previa.
+- [ ] Hoy: si la boleta dice corte, el aviso sale arriba en rojo.
+- [ ] Sube otra vez la misma boleta: dice "ya está registrada" y no deja guardar.
+- [ ] Conciliación → Cargos: el cargo del total a pagar propone pagar todo, lo más antiguo primero (Listo si la glosa dice CGE o ESSBIO).
+- [ ] Por pagar → "Esperando boleta de <mes>" con su estimado en las cuentas que esperan su boleta (no suma a los gastos).
+- [ ] Finanzas → Resultados → Clasificación: B2C aparece como "Canal B2C (costo de canal): por ahora a Común".
+- [ ] En el celular se ve bien (Por pagar, la vista previa de la boleta, Cuentas recurrentes).
+
+### Si algo sale mal
+Sube de nuevo la v0.69.5. Lo guardado con la v0.70.0 queda: los por pagar de boleta se ven como por pagar normales (con su monto y fecha) y sus gastos ya están en su mes; las 4 cuentas siguen como cuentas recurrentes (con la v0.69.5 se crean solas cada mes, como las de antes).
+
+**Por dentro:**
+- `boletas.js` (nuevo, puro): el lector de boletas (`leerBoleta`, un solo lector por etiquetas), `revisarBoleta` (el cruce otra vez al guardar), `planBoleta` (el por pagar, sus gastos, el saldo anterior y los reemplazos), `esperandoBoleta` y `agendaEsperando`, `avisosCorte`, `planOrden`, `propuestaBoleta` y `propuestaOrden` (cartola), `origenDe`, `planCuentas` y `CUENTAS_LUZ_AGUA`.
+- `areas.js`: B2C (CANAL, SOLO_A_MANO). `finanzas-resultados.js` y `vista-finanzas-resultados.js`: B2C a Común como costo de canal. `vista-finanzas.js`: Cómo trabajamos.
+- `gastos-fs.js`: `datosBoleta`, `registrarBoletaServicio` (una transacción), `crearCuentasLuzAgua`; las cuentas de boleta no se generan solas; `datos()` trae el origen, "Esperando boleta" y los cortes; Hoy, el corte. `gastos-g3.js` (`esDevengado`: lo nacido de su boleta no crea gastos al pagarse), `gastos-g2.js` (vista con la boleta y la cuenta con su empresa y reparto), `gastos.js`.
+- `gastos-cartola.js` y `gastos-cartola-fs.js`: la propuesta de la boleta, lo más antiguo primero y el abono dentro de "Paga cuentas por pagar" (y su deshacer). `puntaje.js`: el puntaje de la boleta.
+- `app.js` y `estilos.css`: nombres, Por pagar, vista previa, Crear cuentas de luz y agua, Pagar en orden, formulario de la cuenta (empresa, local, reparto), Agenda y Hoy. Textos de otros módulos: solo los nombres visibles.
+- Los demás: solo la versión. `cocina/` y `fermentacion.js` no cambian.
 
 ## Novedades de la v0.69.5: el Previred del mes es parte del cierre de ese mes
 
@@ -2153,7 +2241,7 @@ Sube de nuevo los archivos de la v0.51.0: no se guardó nada nuevo en la base.
 
 - **Previred con la base nueva.** Se sube igual (Gastos → Previred): se lee el PDF en el equipo, se recuerdan el área y el ítem de cada trabajador y el mismo mes no se carga dos veces. El PDF va a Drive (**Fën · Gastos / Previred / año**, privado) y el detalle a la base (pasa solo a la hoja **Cotizaciones**). **La regla acordada:** si existe la obligación **Cotizaciones** (según documento, con identificador **Previred**), el certificado dice **"Va al vencimiento de Cotizaciones … (fecha)"** (con su (i)) y al guardar **completa ese vencimiento** (monto = total del certificado; el PDF queda como su documento). **Los gastos por trabajador se crean al pagarlo** (con la cartola, que lo propone por el monto exacto, o con Pagar): uno por trabajador, sin IVA, con su área e ítem. Si no existe esa obligación o su vencimiento, funciona como hoy (los gastos al guardar) y una nota sugiere crear la obligación.
 - **"Es Previred"** (Obligaciones → Editar, tipo según documento, con su (i)): marca la obligación de las cotizaciones.
-- **Clasificar obligaciones** (Gastos → Obligaciones → **Revisar y clasificar**, y desde Base nueva): cada obligación activa con su ítem, su monto, sus últimos pagos y una **propuesta** de tipo: **monto fijo** si los últimos 3 pagos fueron iguales; **según documento** si es luz, agua, gas, internet o teléfono, o si el SII tiene facturas de un proveedor con ese nombre; **libre** si es un sueldo o los montos cambian mucho. Y de **identificador**: el número del nombre ("LUZ AINAVILLO 2020220 / 1945063" → 2020220; con varios eliges tú), el RUT del proveedor del SII o Previred. Nada se guarda solo: **Guardar** en cada una o marca varias y **Aplicar propuestas** (sus vencimientos abiertos toman el tipo nuevo, como en Editar).
+- **Clasificar obligaciones** (Gastos → Obligaciones → **Revisar y clasificar**, y desde Base nueva): cada obligación activa con su ítem, su monto, sus últimos pagos y una **propuesta** de tipo: **monto fijo** si los últimos 3 pagos fueron iguales; **según documento** si es luz, agua, gas, internet o teléfono, o si el SII tiene facturas de un proveedor con ese nombre; **libre** si es un sueldo o los montos cambian mucho. Y de **identificador**: el número del nombre ("LUZ AINAVILLO 1112223 / 9990001" → 1112223; con varios eliges tú), el RUT del proveedor del SII o Previred. Nada se guarda solo: **Guardar** en cada una o marca varias y **Aplicar propuestas** (sus vencimientos abiertos toman el tipo nuevo, como en Editar).
 - **Arreglo "sin IVA"** (opcional, una vez, en Base nueva después del cambio): los gastos de 2026 nacidos de pagar una obligación **Sin IVA** que la app antigua guardó como bruto (neto = monto / 1,19) quedan con neto = monto final. Primero muestra la lista y la diferencia total; solo se aplica si confirmas. Cada gasto guarda "ajuste siniva" en su historial y pasa a la planilla.
 - **El cambio**: además de la copia final y el control de totales, al terminar muestra **lo que queda justo después** (clasificar, identificadores, arreglo sin IVA, fichas de proveedores, dejar privados los archivos, revisar la planilla y Looker). **Volver a la planilla** sigue igual: solo si todavía no se hizo nada en la base nueva.
 - **Copia a la planilla** (script v2.17.0): **Cotizaciones** y **Cotizaciones Trabajadores** con su "ID base" (lo copiado en G1 se reconoce por su Clave / RUT; nunca se borran filas). Con la base nueva, el script rechaza `cot_registrar` (la app antigua y versiones anteriores no escriben Previred en la planilla).

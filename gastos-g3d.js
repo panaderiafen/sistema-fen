@@ -18,13 +18,13 @@
 //    vencimiento lo lleva (los gastos nacen partidos al pagarlo). "Cambiar reparto" de un mes ya cargado: planCambioReparto.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as B from './gastos-banco.js?v=0.69.5';
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.69.5';
-import * as M from './gastos-g2.js?v=0.69.5';
-import * as G3 from './gastos-g3.js?v=0.69.5';
-import { FERIADOS } from './feriados-cl.js?v=0.69.5';
-import * as FR from './finanzas-resultados.js?v=0.69.5';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
-import * as AB from './gastos-abono.js?v=0.69.5';   // v0.67.5: el reparto en % (el mismo de los abonos)
+import * as B from './gastos-banco.js?v=0.70.0';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.70.0';
+import * as M from './gastos-g2.js?v=0.70.0';
+import * as G3 from './gastos-g3.js?v=0.70.0';
+import { FERIADOS } from './feriados-cl.js?v=0.70.0';
+import * as FR from './finanzas-resultados.js?v=0.70.0';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
+import * as AB from './gastos-abono.js?v=0.70.0';   // v0.67.5: el reparto en % (el mismo de los abonos)
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -160,11 +160,11 @@ export function obligacionCotizaciones(plantillas) {
   const act = (plantillas || []).filter(x => x.d && !x.d.quitadoEnPlanilla && s(x.d.estado || 'ACTIVA') === 'ACTIVA');
   const conId = act.filter(x => esIdentPrevired(x.d.identificador));
   if (conId.length === 1) return { obl: conId[0] };
-  if (conId.length > 1) return { motivo: `Hay ${conId.length} obligaciones con identificador Previred` };
+  if (conId.length > 1) return { motivo: `Hay ${conId.length} cuentas recurrentes con identificador Previred` };
   const porNombre = act.filter(x => s(x.d.tipoObligacion) === 'documento' && pareceCotiz(x.d));
   if (porNombre.length === 1) return { obl: porNombre[0] };
-  if (porNombre.length > 1) return { motivo: `Hay ${porNombre.length} obligaciones de cotizaciones según documento` };
-  return { motivo: 'No hay una obligación de Cotizaciones según documento' };
+  if (porNombre.length > 1) return { motivo: `Hay ${porNombre.length} cuentas recurrentes de cotizaciones según documento` };
+  return { motivo: 'No hay una cuenta recurrente de Cotizaciones según documento' };
 }
 export const DIAS_VENTANA = 45;   // el vencimiento debe estar a menos de 45 días de la fecha de pago del certificado
 // El vencimiento que completa el certificado: abierto, sin documento ni abonos, el más cercano a la fecha de pago
@@ -405,7 +405,7 @@ const RE_SERVICIO = /\bLUZ\b|\bAGUA\b|\bGAS\b|INTERNET|TELEFON|CELULAR|\bCGE\b|E
 // Palabras que no sirven para reconocer un proveedor
 const GENERICAS = new Set(['SPA', 'LTDA', 'LIMITADA', 'SOCIEDAD', 'EMPRESA', 'EMPRESAS', 'CHILE', 'SERVICIOS', 'SERVICIO', 'COMERCIAL', 'COMERCIALIZADORA', 'INVERSIONES', 'ANONIMA', 'DISTRIBUIDORA', 'DISTRIBUCION', 'PAGO', 'CUENTA', 'MENSUAL', 'PRUEBA', 'CUOTA', 'DE', 'DEL', 'LA', 'LAS', 'LOS', 'EL', 'Y', 'S', 'A', 'SA', 'EIRL']);
 const palabras = t => mayus(t).replace(/[^A-Z0-9 ]+/g, ' ').split(/\s+/).filter(w => w.length >= 4 && !GENERICAS.has(w) && !/^\d+$/.test(w));
-// Números del nombre que parecen N° de cliente (5 o más dígitos; "2.020.220" cuenta como 2020220)
+// Números del nombre que parecen N° de cliente (5 o más dígitos; "1.112.223" cuenta como 1112223)
 export function numerosDelNombre(nombre) {
   const out = [];
   (s(nombre).match(/\d[\d.\-]{3,}\d/g) || []).forEach(x => { const d = x.replace(/[.\-]/g, ''); if (d.length >= 5 && d.length <= 20 && !out.includes(d)) out.push(d); });

@@ -520,7 +520,7 @@ export function bloqueosVolver(r, vencs, cargos, d) {
   (r.vigentes || []).forEach(({ id, d: g }) => {
     if (s(g.cartolaCargo)) una('cc|' + g.cartolaCargo, ccTxt(g.cartolaCargo, g.fechaPago));
     if (g.pagoSinBanco && g.pagoSinBanco.medio) una('sb|' + id, `Tiene su pago ${g.pagoSinBanco.medio === 'tarjeta' ? 'con tarjeta' : 'en efectivo'} del ${fCorta(g.pagoSinBanco.fecha) || fCorta(g.fechaPago)} (Pagos sin banco): anula sus gastos en Gastos → Registrados; la factura vuelve sola a Por clasificar.`);
-    if (/^gp-/.test(s(id)) || s(g.origen) === 'obligacion') una('gp|' + id, `Es el pago de un vencimiento: deshazlo primero (el cargo en la cartola o el pago en Gastos → Vencimientos).`);
+    if (/^gp-/.test(s(id)) || s(g.origen) === 'obligacion') una('gp|' + id, `Es el pago de un vencimiento: deshazlo primero (el cargo en la cartola o el pago en Gastos → Por pagar).`);
   });
   const vids = new Set((r.vigentes || []).map(x => s(x.d.vencimientoId)).filter(Boolean));
   if (d && d.importado && s(d.importado.vencimiento)) vids.add(s(d.importado.vencimiento));
@@ -529,9 +529,9 @@ export function bloqueosVolver(r, vencs, cargos, d) {
     const v = V.get(vid); if (!v || v.quitadoEnPlanilla) return;
     const e = estadoV(v), nom = s(v.nombre).replace(/^\S*📋\s*/u, '').trim() || 'de la compra';
     if (e === 'anulado') return;
-    if (e === 'pagado') una('v|' + vid, s(v.cartolaCargo) ? ccTxt(v.cartolaCargo, v.fechaPago) : `Primero deshaz el pago del vencimiento ${nom} (pagado el ${fCorta(v.fechaPago) || '—'}) en Gastos → Vencimientos.`);
-    else if (e === 'con_abonos') una('v|' + vid, `Primero deshaz los abonos del vencimiento ${nom} en Gastos → Vencimientos.`);
-    else una('v|' + vid, `Primero anula su vencimiento ${nom} (vence el ${fCorta(v.fechaVencimiento) || '—'}) en Gastos → Vencimientos.`);
+    if (e === 'pagado') una('v|' + vid, s(v.cartolaCargo) ? ccTxt(v.cartolaCargo, v.fechaPago) : `Primero deshaz el pago del vencimiento ${nom} (pagado el ${fCorta(v.fechaPago) || '—'}) en Gastos → Por pagar.`);
+    else if (e === 'con_abonos') una('v|' + vid, `Primero deshaz los abonos del vencimiento ${nom} en Gastos → Por pagar.`);
+    else una('v|' + vid, `Primero anula su vencimiento ${nom} (vence el ${fCorta(v.fechaVencimiento) || '—'}) en Gastos → Por pagar.`);
   });
   return out;
 }
