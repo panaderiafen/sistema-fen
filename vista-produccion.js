@@ -5,10 +5,10 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.71.0';
+import * as P from './produccion.js?v=0.71.1';
 import * as K from './cocina/consumo.js?v=0.17.0';
-import { conBuscador, coincide } from './buscador.js?v=0.71.0';
-import * as FBQ from './fermentacion.js?v=0.71.0';
+import { conBuscador, coincide } from './buscador.js?v=0.71.1';
+import * as FBQ from './fermentacion.js?v=0.71.1';
 
 const st = { fb: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -45,9 +45,9 @@ const cab = H => `<div class="cabecera"><div><h1 id="t-produccion">Producción</
   <div class="botones" style="margin:0;align-items:center"><button type="button" class="btn-sec btn-chico" id="prod-actualizar">Actualizar</button>${H.info('Actualizar', 'Lo que Sistema Fën lee de la base de Cocina (recetas, materias primas, configuración, bodega, días de Cocina) queda 10 minutos en memoria: así no gasta la cuota de las tablets de las jefas cada vez que abres Hoy, Producción o Finanzas.\nLo que cambias aquí se ve al tiro. Lo que cambian las jefas en Cocina puede tardar hasta 10 minutos en verse; "Actualizar" lo vuelve a leer ahora.')}</div></div>`;
 
 export async function pintar(el, sub, H) {
-  // v0.71.0: Plan de Panadería (Etapa 1) en su propia pantalla
+  // v0.71.1: Plan de Panadería (Etapa 1) en su propia pantalla
   // (se carga recién al abrirlo: trae Finanzas y B2B, que el resto de la app carga solo cuando se usan)
-  if (sub === 'plan-pan') { const VPP = await import('./vista-plan-pan.js?v=0.71.0'); VPP.fijarH(H); return VPP.pintar(el, H); }
+  if (sub === 'plan-pan') { const VPP = await import('./vista-plan-pan.js?v=0.71.1'); VPP.fijarH(H); return VPP.pintar(el, H); }
   // v0.63.3: un solo escuchador para el botón Actualizar (la cabecera se vuelve a dibujar en cada pantalla)
   if (!el.dataset.actualizar) { el.dataset.actualizar = '1'; el.addEventListener('click', ev => { if (ev.target.closest('#prod-actualizar')) { P.olvidarMemoria(); st.bodega.calc = null; st.merma.datos = null; pintar(el, '', H); } }); }
   el.innerHTML = cab(H) + '<section class="tarjeta"><div class="vacio" style="border:0">Conectando…</div></section>';

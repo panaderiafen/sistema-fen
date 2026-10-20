@@ -1,9 +1,26 @@
-# Sistema Fën · v0.71.0
+# Sistema Fën · v0.71.1
 
-**App:** v0.71.0 · **Caja (fen-ventas):** v2.2.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 19 de octubre de 2026
+**App:** v0.71.1 · **Caja (fen-ventas):** v2.2.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 20 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.71.1: Producción en el menú del celular
+
+- **Arreglo:** en el celular, el Menú no mostraba **Producción** (en el computador sí). Ahora los dos menús salen de una misma lista, para que no vuelva a pasar que una sección aparezca en uno y no en el otro.
+- **Dónde va:** repo **sistema-fen**, raíz. Cambia `app.js`; los demás archivos, solo la versión. `cocina/` y `fermentacion.js` no cambian.
+- **Reglas y scripts:** no cambian. **Lecturas y escrituras:** sin cambios.
+
+### Instalación v0.71.1 (unos 2 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.71.1.zip`, con la carpeta `cocina/` (no cambia).
+3. **Commit changes**.
+4. Espera 1 o 2 minutos. En el celular, cierre la app y vuelva a abrirla (si sigue la versión anterior, recargue la página).
+
+### Lista de verificación v0.71.1
+- [ ] En el Menú del celular, abajo, dice **v0.71.1**.
+- [ ] Menú (celular) → **Producción** aparece entre Ventas B2B y Ventas de caja, y abre Producción.
+- [ ] En el computador el menú de la izquierda sigue igual.
 
 ## Novedades de la v0.71.0: Plan de Panadería, Etapa 1 (Producción → Plan de Panadería)
 

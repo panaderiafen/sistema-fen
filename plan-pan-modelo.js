@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Plan de Panadería, Etapa 1: cálculos (sin Firebase ni pantalla)  v0.71.0
+//  Sistema Fën — Plan de Panadería, Etapa 1: cálculos (sin Firebase ni pantalla)  v0.71.1
 //  Todo es función pura: recibe lo ya leído y devuelve tablas. Sin imports (Cocina se pasa como parámetro
 //  en la masa madre), así se prueba en Node tal cual.
 //
@@ -20,7 +20,7 @@
 //    La merma enviada en la caja y todavía no registrada (entradas.merma_AAAAMMDD) cuenta como merma de ese lote.
 // ═══════════════════════════════════════════════
 
-export const VERSION = '0.71.0';
+export const VERSION = '0.71.1';
 export const SUCS = ['barros', 'ainavillo'];
 export const NOMBRE_SUC = { barros: 'Barros Arana', ainavillo: 'Ainavillo' };
 export const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];

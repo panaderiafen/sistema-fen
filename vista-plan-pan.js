@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Producción → Plan de Panadería (Etapa 1)  v0.71.0
+//  Sistema Fën — Producción → Plan de Panadería (Etapa 1)  v0.71.1
 //  Rutas: #produccion/plan-pan (Propuesta próxima semana) · #produccion/plan-pan/como (Cómo nos fue) · #produccion/plan-pan/fijos
 //  (Ainavillo y pisos). Solo administración. Solo lectura, salvo la tabla fija de Ainavillo y los pisos (config/planPanaderia
 //  en fen-ventas, con historial). "Copiar como texto" y la hoja para imprimir (viernes).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as PP from './plan-pan.js?v=0.71.0';
-import * as PM from './plan-pan-modelo.js?v=0.71.0';
+import * as PP from './plan-pan.js?v=0.71.1';
+import * as PM from './plan-pan-modelo.js?v=0.71.1';
 
 const S = { D: null, prop: null, dia: 0, semana: '', suc: 'todas', abiertos: new Set(), msg: '', err: '', editSuc: 'barros', cargando: false, extra: [] };
 const $ = id => document.getElementById(id);

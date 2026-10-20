@@ -2104,7 +2104,7 @@ dialog .reg-det { text-align: left; }
 /* ── v0.70.1 · Reportes de caja: "agotado HH:MM" (caja v2.2.0) en su propia línea, bajo el producto ── */
 .fila-prod .agotado-hora { display: block; margin-top: 2px; }
 
-/* ── v0.71.0 · Producción → Plan de Panadería (Etapa 1): mismo lenguaje que la bandeja (pastillas, etiquetas, filas sobrias) ── */
+/* ── v0.71.1 · Producción → Plan de Panadería (Etapa 1): mismo lenguaje que la bandeja (pastillas, etiquetas, filas sobrias) ── */
 .pp-entrada { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .pp-entrada h2 { margin: 0 0 4px; }
 .pp-entrada .ayuda { margin: 0; max-width: 60ch; }

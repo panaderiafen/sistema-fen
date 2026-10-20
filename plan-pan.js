@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Plan de Panadería, Etapa 1: lectura de datos  v0.71.0
+//  Sistema Fën — Plan de Panadería, Etapa 1: lectura de datos  v0.71.1
 //  Solo lee (salvo la tabla fija de Ainavillo y los pisos). Junta lo de las cuatro bases y lo pasa a plan-pan-modelo.js:
 //   · fen-ventas (la caja): resúmenes de cada cierre (porTarjeta, agotado: caja v2.2.0), ingresos a las tiendas
 //     (stockMovimientos con fechaKey: solo los ingresos tienen ese campo, así la consulta no trae las ventas), merma registrada
@@ -9,16 +9,16 @@
 //   · fen-gastos (Finanzas): vínculos producto → receta (fin_productos) y costo por unidad (costos_recetas).
 //  Lecturas: una vez por sesión (6 horas en memoria; "Actualizar" vuelve a leer). Cada consulta usa un solo campo (índices simples).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.71.0';
-import * as Caja from './caja.js?v=0.71.0';
-import * as P from './produccion.js?v=0.71.0';
-import * as B from './b2b.js?v=0.71.0';
-import * as F from './finanzas.js?v=0.71.0';
-import * as M from './fs-memoria.js?v=0.71.0';
-import * as Cuota from './fs-cuota.js?v=0.71.0';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.71.1';
+import * as Caja from './caja.js?v=0.71.1';
+import * as P from './produccion.js?v=0.71.1';
+import * as B from './b2b.js?v=0.71.1';
+import * as F from './finanzas.js?v=0.71.1';
+import * as M from './fs-memoria.js?v=0.71.1';
+import * as Cuota from './fs-cuota.js?v=0.71.1';
 import * as CM from './cocina/modelo.js?v=0.11.0';
 import * as K from './cocina/consumo.js?v=0.17.0';
-import * as PM from './plan-pan-modelo.js?v=0.71.0';
+import * as PM from './plan-pan-modelo.js?v=0.71.1';
 
 export const CONFIG_ID = 'planPanaderia';     // fen-ventas config/planPanaderia (reglas v1.3.0: solo administración la crea y cambia)
 const TTL = 6 * 3600e3;
