@@ -5,12 +5,12 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.72.0';
-import * as K from './cocina/consumo.js?v=0.17.0';
-import { conBuscador, coincide } from './buscador.js?v=0.72.0';
-import * as FBQ from './fermentacion.js?v=0.72.0';
+import * as P from './produccion.js?v=0.72.1';
+import * as K from './cocina/consumo.js?v=0.17.4';
+import { conBuscador, coincide } from './buscador.js?v=0.72.1';
+import * as FBQ from './fermentacion.js?v=0.72.1';
 
-const st = { fb: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
+const st = { fb: null, sab: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
 const n = v => Number(v || 0).toLocaleString('es-CL');
 
@@ -47,7 +47,7 @@ const cab = H => `<div class="cabecera"><div><h1 id="t-produccion">Producción</
 export async function pintar(el, sub, H) {
   // v0.71.1: Plan de Panadería (Etapa 1) en su propia pantalla
   // (se carga recién al abrirlo: trae Finanzas y B2B, que el resto de la app carga solo cuando se usan)
-  if (sub === 'plan-pan') { const VPP = await import('./vista-plan-pan.js?v=0.72.0'); VPP.fijarH(H); return VPP.pintar(el, H); }
+  if (sub === 'plan-pan') { const VPP = await import('./vista-plan-pan.js?v=0.72.1'); VPP.fijarH(H); return VPP.pintar(el, H); }
   // v0.63.3: un solo escuchador para el botón Actualizar (la cabecera se vuelve a dibujar en cada pantalla)
   if (!el.dataset.actualizar) { el.dataset.actualizar = '1'; el.addEventListener('click', ev => { if (ev.target.closest('#prod-actualizar')) { P.olvidarMemoria(); st.bodega.calc = null; st.merma.datos = null; pintar(el, '', H); } }); }
   el.innerHTML = cab(H) + '<section class="tarjeta"><div class="vacio" style="border:0">Conectando…</div></section>';
@@ -308,7 +308,7 @@ function seccionConfig(cfgs, H) {
     </form>`;
   };
   return `<p class="ayuda">Cómo calcula Cocina en cada área ${H.info('Configuración de Producción', 'Lo que define cómo calcula Cocina en cada área: amasadora, tandas por día, merma, congeladores, días del pie de masa madre.\nLa cambias tú; las jefas la ven en Cocina sin poder cambiarla. Una configuración que guardas aquí no se pisa al volver a copiar desde la planilla.')}</p>
-    ${bloque('PAN')}${bloqueFB(cfgs.PAN || {}, H)}${bloque('BOL')}${bloque('CAF')}`;
+    ${bloque('PAN')}${bloqueFB(cfgs.PAN || {}, H)}<div class="cfg-area" id="prod-sab" style="margin-top:14px">${bloqueSab(H)}</div>${bloque('BOL')}${bloque('CAF')}`;
 }
 
 // ── v0.66.0 · Fermentación en bloque (Panadería): config/PAN.fermentacionBloque = { recetaId | subId: minutos } ──
@@ -338,7 +338,27 @@ function listaFBHtml(c, H) {
     <p class="ayuda" id="prod-fb-nada" hidden>Sin resultados</p>
     <small class="ayuda" id="prod-fb-formato">Formato h:mm (por ejemplo 2:00). Vacío = sin f.b.</small>`;
 }
+// ── v0.72.1 · Ajuste de sábado (Cocina v0.17.4): solo para mirar; las jefas lo ponen, pausan o saltan en Cocina ──
+const INFO_SAB = 'Cocina → Hoy → Ajustar harina / agua → "Todos los sábados (masa para el lunes)": un ajuste de % que vale todos los sábados (lo amasado el sábado se hornea el lunes).\nLas jefas lo pausan (guarda los valores), lo saltan un sábado ("Este sábado no") o lo usan solo un día (antes de un feriado: los feriados no son automáticos).\nQué vale un día: un ajuste "Solo el …" de ese día; si no, los sábados, el de sábado; si no, el último ajuste que cubre el día. La bodega y el Plan de Panadería calculan con la misma regla.';
+function bloqueSab(H) {
+  const L = st.sab;
+  const cab = `<h3 style="margin:0 0 6px">Ajuste de sábado · Panadería ${H.info('Ajuste de sábado', INFO_SAB)}</h3>`;
+  if (!L) return cab + '<p class="ayuda">Cargando…</p>';
+  if (L.error) return cab + `<p class="error">${H.esc(L.error)}</p>`;
+  if (!L.length) return cab + '<p class="ayuda">Ninguna receta tiene ajuste de sábado (se pone en Cocina).</p>';
+  const fc = f => f ? `${f.slice(8, 10)}/${f.slice(5, 7)}` : '';
+  return cab + `<ul class="lista-sab">${L.map(x => `<li data-sab-receta="${H.esc(x.recetaId)}"><div><b>${H.esc(x.nombre)}</b> <span class="chip ${x.activo ? 'c-verde' : 'c-gris'}">${x.activo ? 'Activo' : 'En pausa'}</span>${x.activo && x.saltaProximo ? ` <span class="chip c-gris">no el sáb ${H.esc(fc(x.proximo))}</span>` : ''}</div>
+      <span class="ayuda">${H.esc(x.texto || 'sin cambios')} · ${x.activo ? `desde el ${H.esc(fc(x.desde))}` : `en pausa desde el ${H.esc(fc(x.pausadoDesde))}`}${x.por ? ` · ${H.esc(x.por)}` : ''}</span></li>`).join('')}</ul>
+    <p class="ayuda">Solo para mirar: se cambia en Cocina.</p>`;
+}
+async function cargarSab(H) {
+  if (st.sab && !st.sab.error) return;
+  const h = new Date(), hoy = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
+  try { st.sab = await P.ajustesSabado('PAN', hoy); } catch (e) { st.sab = { error: error(e, H) }; }
+  const caja = $('prod-sab'); if (caja) caja.innerHTML = bloqueSab(H);
+}
 async function cargarFB(el, H, cfgs) {
+  cargarSab(H);
   if (st.fb && !st.fb.error) return;
   st.fb = null;
   try { st.fb = await P.recetasFB('PAN'); } catch (e) { st.fb = { error: error(e, H) }; }

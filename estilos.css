@@ -2252,3 +2252,7 @@ body.cat-ocupado #v-catalogo button { pointer-events: none; opacity: .7; }
   .cat-resumen .cat-btn-sug { margin-left: 0; }
   .cat-filtros .fin-buscar { flex: 1 1 100%; }
 }
+/* v0.72.1 · Producción → Configuración: ajuste de sábado de Cocina (solo para mirar) */
+.lista-sab { list-style: none; margin: 6px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.lista-sab li { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--linea, #ECE6DE); min-width: 0; overflow-wrap: anywhere; }
+.lista-sab li:last-child { border-bottom: 0; }

@@ -6,8 +6,8 @@
 //  lecturas y escrituras en catalogo.js. Queda espacio para las próximas pestañas del catálogo (una sola lista de productos).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as C from './catalogo.js?v=0.72.0';
-import * as CM from './catalogo-modelo.js?v=0.72.0';
+import * as C from './catalogo.js?v=0.72.1';
+import * as CM from './catalogo-modelo.js?v=0.72.1';
 
 const st = { D: null, filtro: 'por_decidir', q: '', msg: '', err: '', cargando: false, ocupado: false };
 export const estado = st;

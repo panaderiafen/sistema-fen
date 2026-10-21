@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — cálculos (sin pantalla)  v0.11.0
+//  fën · Cocina — cálculos (sin pantalla)  v0.17.4 (ajuste de sábado: ajusteDelDia)
 //  Semanas por fechas, escalado de recetas, ajuste de harina/agua del día,
 //  tandas, elaboraciones previas (sub recetas), insumos y pie de masa madre.
 //  Todo es función pura: recibe los datos y devuelve el resultado.
@@ -10,7 +10,7 @@
 //             pasos: [texto], procedimiento, mpId (si es sub receta: su ID en materias primas) }
 //   mp:     { id, nombre, tipo, areas: [] }
 //   plan:   { area, lunes: 'AAAA-MM-DD', filas: { recetaId: { d0..d6: unidades } } }
-//   ajuste: { harina (g, base 100 %), pct: { ingId: % } }   (por receta y día)
+//   ajuste: { harina (g, base 100 %), pct: { ingId: % } }   (por receta y día; cuál vale un día: ajusteDelDia)
 // ═══════════════════════════════════════════════
 
 export const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -107,6 +107,100 @@ export function ingredientesAjustados(r, ajuste) {
   });
 }
 export function tieneAjuste(a) { return !!(a && (num(a.harina) > 0 || Object.keys(a.pct || {}).length)); }
+
+// ── v0.17.4 · Qué ajuste de harina/agua vale un día (Cocina y Sistema Fën usan esta misma función) ──
+// doc = ajustes/{AREA}_{recetaId}:
+//   periodos: [{ harina|null, pct: { ingId: % }, desde, hasta|null, por, en, deSabado? }]   (como siempre)
+//   sabado:   { harina|null, pct, activo, desde, por, en,                 ← "Todos los sábados (masa para el lunes)"
+//               pausadoDesde|null, pausadoPor, pausadoEn,                 ← "Pausar" (guarda los valores)
+//               saltar: ['AAAA-MM-DD'],                                   ← "Este sábado no" (los últimos 12)
+//               antes: [{ harina, pct, desde, hasta, por, en }] }         ← tramos anteriores (lo pasado sigue igual; los últimos 12)
+// Precedencia para el día f:
+//   1. un período "solo este día" (desde = hasta = f; el último guardado);
+//   2. si f es sábado: el ajuste de sábado que valía ese sábado (no si está en saltar; en pausa, solo los sábados antes de la pausa);
+//   3. el último período que cubre f (los "hasta que lo quite" incluidos).
+// Un sábado, el ajuste de sábado gana a uno "hasta que lo quite"; "Este sábado no" o la pausa dejan ese sábado con lo normal.
+// Devuelve una copia con origen: 'dia' | 'sabado' | 'periodo' (o null). Los feriados NO son automáticos.
+export const SABADO = 5;
+export const esSabado = f => indiceDia(f) === SABADO;
+const conOrigen = (p, origen) => ({ ...p, pct: { ...(p.pct || {}) }, origen });
+// Firestore mezcla los mapas al guardar con merge: un % que se quita del sábado se guarda en null. Aquí se limpian.
+export const pctLimpio = pct => { const o = {}; Object.entries(pct || {}).forEach(([k, v]) => { if (v !== null && v !== undefined && v !== '') o[k] = num(v); }); return o; };
+const tieneSab = x => !!x && tieneAjuste({ harina: x.harina, pct: pctLimpio(x.pct) });
+export function sabadoDe(sab, f) {
+  if (!sab || !f || !esSabado(f) || (sab.saltar || []).includes(f)) return null;
+  const valores = x => ({ harina: num(x.harina) > 0 ? num(x.harina) : null, pct: pctLimpio(x.pct), desde: f, hasta: f, por: x.por || '', en: x.en || '', origen: 'sabado' });
+  const vale = sab.desde && sab.desde <= f && (sab.activo !== false || (sab.pausadoDesde && f < sab.pausadoDesde));
+  if (vale && tieneSab(sab)) return valores(sab);
+  const antes = sab.antes || [];
+  for (let i = antes.length - 1; i >= 0; i--) { const a = antes[i]; if (a && a.desde <= f && (!a.hasta || f <= a.hasta) && tieneSab(a)) return valores(a); }
+  return null;
+}
+export function ajusteDelDia(doc, f) {
+  if (!doc) return null;
+  const ps = doc.periodos || [];
+  for (let i = ps.length - 1; i >= 0; i--) { const p = ps[i]; if (tieneAjuste(p) && p.desde === f && p.hasta === f) return conOrigen(p, 'dia'); }
+  const s = sabadoDe(doc.sabado, f); if (s) return s;
+  for (let i = ps.length - 1; i >= 0; i--) { const p = ps[i]; if (tieneAjuste(p) && p.desde <= f && (!p.hasta || f <= p.hasta)) return conOrigen(p, 'periodo'); }
+  return null;
+}
+// docs: { cualquierClave: doc } → { recetaId: ajuste } (los que tienen ajuste ese día)
+export function ajustesDelDia(docs, f) {
+  const r = {};
+  Object.values(docs || {}).forEach(a => { if (!a || !a.recetaId) return; const v = ajusteDelDia(a, f); if (v) r[a.recetaId] = v; });
+  return r;
+}
+// Estado del ajuste de sábado para mostrarlo (Cocina y Sistema Fën), el día f
+export function estadoSabado(doc, f) {
+  const sab = doc && doc.sabado;
+  if (!tieneSab(sab)) return { hay: false };
+  const activo = sab.activo !== false, sabadoHoy = !!f && esSabado(f);
+  const saltado = sabadoHoy && (sab.saltar || []).includes(f);
+  const vale = ajusteDelDia(doc, f);
+  return { hay: true, activo, pausado: !activo, sabadoHoy, saltado, aplica: !!(vale && vale.origen === 'sabado'), tapadoPorDia: sabadoHoy && !!(vale && vale.origen === 'dia') && !!sabadoDe(sab, f),
+    harina: num(sab.harina) > 0 ? num(sab.harina) : null, pct: pctLimpio(sab.pct), desde: sab.desde || '', por: sab.por || '', en: sab.en || '',
+    pausadoDesde: activo ? '' : (sab.pausadoDesde || ''), pausadoPor: activo ? '' : (sab.pausadoPor || ''), saltar: (sab.saltar || []).slice() };
+}
+// Cambios (puros) del ajuste de sábado: devuelven el objeto sabado nuevo, sin tocar el que reciben
+const MAX_TRAMOS = 12;
+const tramoAnterior = (sab, hasta) => (sab && sab.desde && tieneSab(sab) && hasta >= sab.desde
+  ? [{ harina: num(sab.harina) > 0 ? num(sab.harina) : null, pct: pctLimpio(sab.pct), desde: sab.desde, hasta, por: sab.por || '', en: sab.en || '' }] : []);
+// Hasta cuándo valió el tramo actual si se reemplaza el día f: el día antes de f (o de la pausa, si fue antes)
+const finDe = (sab, f) => { const a = sumarDias(f, -1); if (sab.activo !== false || !sab.pausadoDesde) return a; const b = sumarDias(sab.pausadoDesde, -1); return b < a ? b : a; };
+export function sabadoGuardar(sab, { harina, pct }, f, por, en) {
+  const previo = sab || {};
+  const antes = [...(previo.antes || []), ...(previo.desde && previo.desde < f ? tramoAnterior(previo, finDe(previo, f)) : [])].slice(-MAX_TRAMOS);
+  return { harina: num(harina) > 0 ? num(harina) : null, pct: pctLimpio(pct), activo: true, desde: f, por, en,
+    pausadoDesde: null, pausadoPor: null, pausadoEn: null, saltar: (previo.saltar || []).slice(-MAX_TRAMOS), antes };
+}
+export function sabadoPausar(sab, f, por, en) {
+  if (!sab || sab.activo === false) return sab;
+  return { ...sab, activo: false, pausadoDesde: f, pausadoPor: por, pausadoEn: en };
+}
+export function sabadoReactivar(sab, f, por, en) {
+  if (!sab || sab.activo !== false) return sab;
+  const antes = [...(sab.antes || []), ...(sab.desde && sab.desde < f ? tramoAnterior(sab, sumarDias(sab.pausadoDesde || f, -1)) : [])].slice(-MAX_TRAMOS);
+  return { ...sab, activo: true, desde: f, por, en, pausadoDesde: null, pausadoPor: null, pausadoEn: null, antes };
+}
+// "Este sábado no" (saltar = true) o volver a usarlo (false). Quedan los 12 sábados más recientes.
+export function sabadoSaltar(sab, f, saltar = true) {
+  if (!sab) return sab;
+  const set = new Set(sab.saltar || []); if (saltar) set.add(f); else set.delete(f);
+  return { ...sab, saltar: [...set].sort().slice(-MAX_TRAMOS) };
+}
+// Feriado u otro día: el ajuste de sábado solo ese día (un período de un día con sus valores)
+export function periodoDesdeSabado(sab, f, por, en) {
+  if (!tieneSab(sab)) return null;
+  return { harina: num(sab.harina) > 0 ? num(sab.harina) : null, pct: pctLimpio(sab.pct), desde: f, hasta: f, por, en, deSabado: true };
+}
+
+// Lo que se escribe en Firestore (setDoc con merge): el sábado nuevo, con null en los % que ya no van
+export function sabadoParaGuardar(nuevo, anterior) {
+  if (!nuevo) return nuevo;
+  const pct = { ...pctLimpio(nuevo.pct) };
+  Object.keys((anterior && anterior.pct) || {}).forEach(k => { if (!(k in pct)) pct[k] = null; });
+  return { ...nuevo, pct };
+}
 
 // Una receta escalada a N unidades (con el ajuste del día si lo hay). El % se muestra solo si la receta tiene harina propia.
 export function escalar(r, cantidad, ajuste, ctx = {}) {

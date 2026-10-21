@@ -1,24 +1,24 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Plan de Panadería, Etapa 1: lectura de datos  v0.71.1
+//  Sistema Fën — Plan de Panadería, Etapa 1: lectura de datos  v0.72.1
 //  Solo lee (salvo la tabla fija de Ainavillo y los pisos). Junta lo de las cuatro bases y lo pasa a plan-pan-modelo.js:
 //   · fen-ventas (la caja): resúmenes de cada cierre (porTarjeta, agotado: caja v2.2.0), ingresos a las tiendas
 //     (stockMovimientos con fechaKey: solo los ingresos tienen ese campo, así la consulta no trae las ventas), merma registrada
 //     y el stock actual de los panes ingresados (lo que aún queda de cada lote). Configuración: config/planPanaderia.
-//   · fen-b2b: órdenes por fecha (= día de entrega = día de horneado).
+//   · fen-b2b: órdenes por fecha (= día de entrega = día de horneado; v0.72.1: el lunes se amasa el sábado, el domingo no se hornea).
 //   · fen-produccion (Cocina): recetas, materias primas, configuración de Panadería, ajustes, planes y días (lo hecho).
 //   · fen-gastos (Finanzas): vínculos producto → receta (fin_productos) y costo por unidad (costos_recetas).
 //  Lecturas: una vez por sesión (6 horas en memoria; "Actualizar" vuelve a leer). Cada consulta usa un solo campo (índices simples).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.72.0';
-import * as Caja from './caja.js?v=0.72.0';
-import * as P from './produccion.js?v=0.72.0';
-import * as B from './b2b.js?v=0.72.0';
-import * as F from './finanzas.js?v=0.72.0';
-import * as M from './fs-memoria.js?v=0.72.0';
-import * as Cuota from './fs-cuota.js?v=0.72.0';
-import * as CM from './cocina/modelo.js?v=0.11.0';
-import * as K from './cocina/consumo.js?v=0.17.0';
-import * as PM from './plan-pan-modelo.js?v=0.72.0';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.72.1';
+import * as Caja from './caja.js?v=0.72.1';
+import * as P from './produccion.js?v=0.72.1';
+import * as B from './b2b.js?v=0.72.1';
+import * as F from './finanzas.js?v=0.72.1';
+import * as M from './fs-memoria.js?v=0.72.1';
+import * as Cuota from './fs-cuota.js?v=0.72.1';
+import * as CM from './cocina/modelo.js?v=0.17.4';
+import * as K from './cocina/consumo.js?v=0.17.4';
+import * as PM from './plan-pan-modelo.js?v=0.72.1';
 
 export const CONFIG_ID = 'planPanaderia';     // fen-ventas config/planPanaderia (reglas v1.3.0: solo administración la crea y cambia)
 const TTL = 6 * 3600e3;
@@ -113,7 +113,7 @@ export async function cargar({ hoy = hoyTxt(), forzar = false, lunesExtra = [] }
   const v = PM.ventana(lunesProx, hoy);
   const desde = [v.desde, ...lunesExtra].sort()[0], hasta = hoy;
   const [fin, coc, res, ing, mer, ord, cfg] = await Promise.all([
-    finanzas(forzar), cocina(PM.sumarDias(desde, -1), hasta), resumenes(desde, hasta, forzar), ingresos(desde, forzar), mermas(desde, forzar), ordenes(desde, PM.sumarDias(lunesProx, 6), forzar), leerConfig(forzar)
+    finanzas(forzar), cocina(PM.sumarDias(desde, -2), hasta), resumenes(desde, hasta, forzar), ingresos(desde, forzar), mermas(desde, forzar), ordenes(desde, PM.sumarDias(lunesProx, 6), forzar), leerConfig(forzar)
   ]);
   const mapa = PM.mapaProductos(fin.vinculos);
   // Stock actual: los productos de pan (asociados) ingresados en la ventana, por sucursal tal como la escribe la caja

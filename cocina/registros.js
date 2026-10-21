@@ -9,7 +9,7 @@
 //  · registrosPendientes = true → el script copia a "Registro_merma" y "CAF_registros" (sin duplicar).
 //  Nada se borra: se anula. Sistema Fën valoriza la merma con los costos de la planilla.
 // ═══════════════════════════════════════════════
-import * as M from './modelo.js?v=0.11.0';
+import * as M from './modelo.js?v=0.17.4';
 
 export const MOTIVOS = {
   derrame_error: 'Derrame o error', quemado: 'Quemado o mal horneado', vencimiento: 'Vencimiento',

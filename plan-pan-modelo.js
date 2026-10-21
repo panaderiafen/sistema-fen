@@ -1,13 +1,15 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Plan de Panadería, Etapa 1: cálculos (sin Firebase ni pantalla)  v0.71.1
+//  Sistema Fën — Plan de Panadería, Etapa 1: cálculos (sin Firebase ni pantalla)  v0.72.1
 //  Todo es función pura: recibe lo ya leído y devuelve tablas. Sin imports (Cocina se pasa como parámetro
 //  en la masa madre), así se prueba en Node tal cual.
 //
 //  Decisiones del dueño (19-oct-2026):
 //  · Opción A: solo datos exactos. Fresco y rebajado SOLO en los días con caja v2.2.0 (porTarjeta). Nunca se estima por precio.
 //  · B2B: la fecha de la orden es el día de entrega = día de horneado.
-//  · Plan de Cocina (planes/PAN_{lunes}.filas.{recetaId}.d0..d6): cada d es el día de AMASADO; se hornea al día siguiente (d+1).
-//  · Masa madre: día 0 a las 19:00 para lo que se amasa el día 1 y se hornea el día 2.
+//  · Plan de Cocina (planes/PAN_{lunes}.filas.{recetaId}.d0..d6): cada d es el día de AMASADO; se hornea al día siguiente (d+1),
+//    SALVO el sábado: lo amasado el sábado se hornea el LUNES (el domingo no hay producción). v0.72.1 (horneoDe / amasadoDe).
+//  · Masa madre: la tarde antes del amasado, a las 19:00 (para el horneado del lunes, el viernes). El domingo no hay
+//    producción: la del amasado del lunes (horneado del martes) se hace el sábado (masaMadreDe).
 //  · Ainavillo todavía no ingresa a su caja el pan que recibe: tabla fija editable (config con historial).
 //
 //  Tipo de pan = receta de Panadería. Un producto de la caja o de B2B va a su receta por el vínculo de Finanzas
@@ -20,7 +22,7 @@
 //    La merma enviada en la caja y todavía no registrada (entradas.merma_AAAAMMDD) cuenta como merma de ese lote.
 // ═══════════════════════════════════════════════
 
-export const VERSION = '0.71.1';
+export const VERSION = '0.72.1';
 export const SUCS = ['barros', 'ainavillo'];
 export const NOMBRE_SUC = { barros: 'Barros Arana', ainavillo: 'Ainavillo' };
 export const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -111,7 +113,16 @@ export function sinAsociar(fuentes, mapa) {
   return Object.values(out).sort((a, b) => b.cantidad - a.cantidad || a.nombre.localeCompare(b.nombre, 'es'));
 }
 
-// ── Producido (Cocina): plan de Panadería, d = día de amasado → se hornea d+1 ──
+// ── v0.72.1 · Días de Panadería: amasado → horneado (y al revés). El domingo no hay producción. ──
+// Amasado lun–vie → horneado al día siguiente; amasado sábado → horneado lunes. (Si alguna vez hay algo en la columna del
+// domingo de un plan, va al lunes, como el sábado.)
+export const horneoDe = amasado => sumarDias(amasado, indiceDia(amasado) === 5 ? 2 : 1);
+// Horneado → su día de amasado: lunes ← sábado; martes a sábado ← el día anterior; domingo: no se hornea (null)
+export const amasadoDe = horneo => { const i = indiceDia(horneo); return i === 6 ? null : sumarDias(horneo, i === 0 ? -2 : -1); };
+// Masa madre (19:00) para un amasado: la tarde anterior; si esa tarde es domingo, el sábado
+export const masaMadreDe = amasado => { if (!amasado) return null; const t = sumarDias(amasado, -1); return indiceDia(t) === 6 ? sumarDias(t, -1) : t; };
+
+// ── Producido (Cocina): plan de Panadería, d = día de amasado → se hornea d+1 (sábado → lunes) ──
 // planes: [{ id: 'PAN_lunes', area, lunes, filas }]; dias: [{ area, fecha, hechos, cantidades }] (los de PAN)
 // → { fechaHorneo: { recetaId: { cant, hecho } } }
 export function producidoPorDia(planes, dias) {
@@ -124,7 +135,7 @@ export function producidoPorDia(planes, dias) {
         const amasado = sumarDias(p.lunes, i), dia = diaPan[amasado];
         const cant = dia && dia.cantidades && dia.cantidades[rid] !== undefined ? num(dia.cantidades[rid]) : num((ds || {})['d' + i]);
         if (!(cant > 0)) continue;
-        const horneo = sumarDias(amasado, 1), x = (out[horneo] || (out[horneo] = {}));
+        const horneo = horneoDe(amasado), x = (out[horneo] || (out[horneo] = {}));
         x[rid] = { cant: (x[rid] ? x[rid].cant : 0) + cant, hecho: !!(dia && dia.hechos && dia.hechos['rec_' + rid] && dia.hechos['rec_' + rid].por), amasado };
       }
     });
@@ -365,6 +376,11 @@ export function propuestaSemana(lunesProx, datos) {
   const hasta = sumarDias(datos.hoy, -1), dias = semanaDe(lunesProx);
   return dias.map(t => {
     const i = indiceDia(t), b2b = estimarB2B(datos.b2b, t, datos.hoy);
+    // v0.72.1: el domingo no se hornea (lo del sábado se amasa para el lunes). Si hay órdenes B2B con fecha domingo, se avisa.
+    if (!amasadoDe(t)) {
+      const pedidos = Object.values(datos.b2b.porDia[t] || {}).reduce((a, x) => a + num(x), 0);
+      return { fecha: t, indice: i, amasado: null, masaMadre: null, sinProduccion: true, pedidosDomingo: pedidos, b2b, filas: [], total: 0 };
+    }
     const filas = datos.recetas.map(r => {
       const bar = estimarB2C(f => datos.refBarros(r.id, f), t, hasta);
       const pisoB = pisoDe(datos.cfg, 'barros', i, r.id), pisoA = pisoDe(datos.cfg, 'ainavillo', i, r.id);
@@ -375,19 +391,22 @@ export function propuestaSemana(lunesProx, datos) {
       return { receta: r.id, nombre: r.nombre, b2b: b, b2bEstimado: est, b2bPedido: pedido, barros, ainavillo: aina, fijo, total: b + barros + aina, detalleBarros: bar,
         pisoBarros: pisoB, pisoAinavillo: pisoA, porPisoBarros: pisoB !== null && (bar.estimado === null || pisoB > bar.estimado), sugerencia: sugerenciaPiso(pisoB, bar.cuatro) };
     }).filter(f => f.total > 0 || f.detalleBarros.base !== null || f.fijo > 0 || f.pisoBarros !== null);
-    return { fecha: t, indice: i, amasado: sumarDias(t, -1), masaMadre: sumarDias(t, -2), b2b, filas, total: filas.reduce((a, f) => a + f.total, 0) };
+    const amasado = amasadoDe(t);   // v0.72.1: el lunes se amasa el sábado; el domingo no se hornea (null)
+    return { fecha: t, indice: i, amasado, masaMadre: masaMadreDe(amasado), sinProduccion: !amasado, b2b, filas, total: filas.reduce((a, f) => a + f.total, 0) };
   });
 }
 
-// Masa madre del día 0 para lo propuesto (se amasa el día 1 y se hornea el día 2), con la lógica de Cocina sin tocarla:
-// pieMasaMadre de cocina/modelo.js con todos los días como días de elaboración, sin reserva y sin las materias primas de
-// "pie" (así cuenta toda la masa madre, no solo el pie), para el día de amasado (fecha + 1).
+// Masa madre de la tarde antes del amasado para lo propuesto, con la lógica de Cocina sin tocarla: pieMasaMadre de
+// cocina/modelo.js con todos los días como días de elaboración, sin reserva y sin las materias primas de "pie" (así cuenta toda
+// la masa madre, no solo el pie), para el día siguiente a la masa madre. v0.72.1: con los días reales (el horneado del lunes:
+// masa madre el viernes → amasado el sábado; el del martes: masa madre el sábado → amasado el lunes, sin el domingo) y con los
+// ajustes de cada día (el de sábado incluido: ajustesDe = consumo.ajustesDe).
 // CM: { pieMasaMadre }, ajustesDe(fecha) → { recetaId: ajuste }
 export function masaMadre(semana, { recetas, mps, config }, CM, ajustesDe) {
   if (!CM || typeof CM.pieMasaMadre !== 'function') return { disponible: false, porDia: {} };
   const planes = {};
   semana.forEach(d => d.filas.forEach(f => {
-    if (!(f.total > 0)) return;
+    if (!(f.total > 0) || !d.amasado) return;
     const am = d.amasado, lun = lunesDe(am), p = planes[lun] || (planes[lun] = { area: 'PAN', lunes: lun, filas: {} });
     const fila = p.filas[f.receta] || (p.filas[f.receta] = {}); fila['d' + indiceDia(am)] = (fila['d' + indiceDia(am)] || 0) + f.total;
   }));
@@ -396,8 +415,11 @@ export function masaMadre(semana, { recetas, mps, config }, CM, ajustesDe) {
     config: { ...(config || {}), pie_mm: { mm_madura_pct: 20, agua_pct: 90, ...pc, dias_elaboracion: [0, 1, 2, 3, 4, 5, 6], reserva_pct: 0 } } };
   const porDia = {};
   semana.forEach(d => {
+    if (!d.amasado) { porDia[d.fecha] = { fecha: null, blanca: 0, integral: 0 }; return; }
     let r = null;
-    try { r = CM.pieMasaMadre(d.masaMadre, planes, ajustesDe, ctx); } catch (e) { r = null; }
+    // pieMasaMadre cubre "desde mañana hasta el próximo día de elaboración": se le pasa la víspera del amasado (con todos los días
+    // como elaboración cubre justo el amasado). El sábado → lunes: la víspera del lunes es el domingo, pero se hace el sábado.
+    try { r = CM.pieMasaMadre(sumarDias(d.amasado, -1), planes, ajustesDe, ctx); } catch (e) { r = null; }
     porDia[d.fecha] = { fecha: d.masaMadre, blanca: r ? Math.round(r.blanca.total) : 0, integral: r ? Math.round(r.integral.total) : 0 };
   });
   return { disponible: true, porDia };
@@ -448,6 +470,7 @@ export function tendencia(lunesLista, datos) {
 export function textoPropuesta(semana, nombres, mm) {
   const L = [`Propuesta de Panadería · semana del ${semanaTxt(semana[0].fecha)}`];
   semana.forEach(d => {
+    if (!d.amasado) { L.push('', `${fechaLarga(d.fecha)}: sin horneado (el domingo no hay producción)`); return; }
     L.push('', `${fechaLarga(d.fecha)} (se amasa ${fechaCorta(d.amasado)})`);
     if (!d.filas.length) { L.push('  Sin pan propuesto'); return; }
     d.filas.forEach(f => L.push(`  ${nombres[f.receta] || f.nombre || f.receta}: ${f.total} (B2B ${f.b2b} · Barros ${f.barros} · Ainavillo ${f.ainavillo})`));

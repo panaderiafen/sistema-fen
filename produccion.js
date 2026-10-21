@@ -49,17 +49,20 @@
 //    Lo cambiado aquí queda en la memoria con la marca nueva (no se vuelven a leer todas las recetas por un cambio propio).
 //    Copiar desde la planilla, mover de área y aprobar escriben la receta entera: una archivada en Firestore sigue archivada.
 //    La lista de recetas de la f.b. y la de mover de área no muestran las archivadas.
+//  · v0.72.1: AJUSTE DE SÁBADO (Cocina v0.17.4): la bodega y el Plan de Panadería usan cocina/modelo.js → ajusteDelDia (vía
+//    consumo.ajustesDe), la misma regla de Cocina. Configuración muestra el ajuste de sábado de cada receta (solo para mirar,
+//    con los ajustes de la memoria compartida con la bodega).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.72.0';
-import * as FBr from './firebase-produccion.js?v=0.72.0';
-import * as Apps from './apps.js?v=0.72.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.72.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.72.0';
-import * as K from './cocina/consumo.js?v=0.17.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
-import * as CM from './cocina/modelo.js?v=0.11.0';
-import * as M from './fs-memoria.js?v=0.72.0';
-import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.72.0';
-import { produccion as QP, esCuota } from './fs-cuota.js?v=0.72.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.72.1';
+import * as FBr from './firebase-produccion.js?v=0.72.1';
+import * as Apps from './apps.js?v=0.72.1';
+import { armar, AREAS } from './produccion-modelo.js?v=0.72.1';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.72.1';
+import * as K from './cocina/consumo.js?v=0.17.4';      // el cálculo de la bodega es el de Cocina (copia exacta)
+import * as CM from './cocina/modelo.js?v=0.17.4';
+import * as M from './fs-memoria.js?v=0.72.1';
+import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.72.1';
+import { produccion as QP, esCuota } from './fs-cuota.js?v=0.72.1';
 
 // ── v0.63.3: todo pedido a fen-produccion pasa por aquí: se cuenta (Configuración → Uso de la base hoy) y, si Firestore dice
 // "cuota agotada" (resource-exhausted), se muestra el letrero de Producción/Cocina. Cada escritura de Sistema Fën en recetas,
@@ -118,7 +121,7 @@ async function conMarca(col, fn, forzar = false) {
 }
 
 export { AREAS };
-export { resumenPropuesta } from './finanzas-motor.js?v=0.72.0';
+export { resumenPropuesta } from './finanzas-motor.js?v=0.72.1';
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
@@ -380,6 +383,26 @@ export async function recetasFB(area = 'PAN') {
   } catch (e) { if (e && e.code === 'cuota-agotada') throw e; hoy = null; }
   return { lista: listaFB(rs, hoy, area), leyoHoy: hoy !== null };
 }
+// ── v0.72.1 · Ajuste de sábado de Cocina v0.17.4 (ajustes/{AREA}_{receta}.sabado), solo para mirarlo ──
+// → [{ recetaId, nombre, activo, desde, pausadoDesde, por, texto, saltaProximo }] (las recetas del área con ajuste de sábado)
+// El cálculo (cuál vale cada día) es el de Cocina: cocina/modelo.js → estadoSabado / ajusteDelDia.
+export function listaSabado(recetas, ajustes, area = 'PAN', hoy = '') {
+  const porId = {}; (recetas || []).forEach(r => { porId[r.id] = r; });
+  const prox = hoy ? CM.sumarDias(hoy, (CM.SABADO - CM.indiceDia(hoy) + 7) % 7) : '';   // este sábado (o hoy, si es sábado)
+  return (ajustes || []).filter(a => a && a.area === area && a.sabado && a.recetaId && a.recetaId !== '_hoy').map(a => {
+    const r = porId[a.recetaId], e = CM.estadoSabado(a, prox || a.sabado.desde);
+    if (!e.hay) return null;
+    const P = r ? CM.panadero(r) : null, partes = [];
+    if (e.harina && P && Math.abs(e.harina - P.harina) > 0.1) partes.push(`harina base ${Math.round(e.harina).toLocaleString('es-CL')} g`);
+    Object.entries(e.pct).forEach(([id, v]) => { const i = r && (r.ingredientes || []).find(x => x.id === id); partes.push(`${i ? i.nombre : id} ${String(Math.round(v * 100) / 100).replace('.', ',')} %${i && P && P.pct(i) ? ` (receta ${String(Math.round(P.pct(i) * 100) / 100).replace('.', ',')} %)` : ''}`); });
+    return { recetaId: a.recetaId, nombre: r ? (r.nombre || a.recetaId) : a.recetaId, activo: e.activo, desde: e.desde, pausadoDesde: e.pausadoDesde, por: e.activo ? e.por : e.pausadoPor,
+      texto: partes.join(' · '), proximo: prox, saltaProximo: !!prox && e.saltar.includes(prox) };
+  }).filter(Boolean).sort((x, y) => String(x.nombre).localeCompare(String(y.nombre), 'es'));
+}
+export async function ajustesSabado(area = 'PAN', hoy = '') {
+  const [rs, aj] = await Promise.all([recetasMem(), M.memo('prod:ajustes', () => leerCol('ajustes'))]);
+  return listaSabado(rs, aj, area, hoy);
+}
 // valores: { id: minutos | null } (solo los de la lista: null = sin f.b.; los demás que hubiera quedan como estaban)
 export async function guardarFB(area, valores) { await guardarConfigArea(area, { fermentacionBloque: valores }); }
 
@@ -501,7 +524,7 @@ export async function pendientesCocina({ forzar = false } = {}) {
 // (precios de la planilla), como antes. Siempre se sabe si se vende por unidad (Cafetería o vinculada en Finanzas).
 export async function costear(prop) {
   let fin = null;
-  try { fin = await (await import('./finanzas.js?v=0.72.0')).costosPropuesta(prop); } catch (e) { console.warn('Recetas por aprobar: sin el motor de Finanzas', e); fin = null; }
+  try { fin = await (await import('./finanzas.js?v=0.72.1')).costosPropuesta(prop); } catch (e) { console.warn('Recetas por aprobar: sin el motor de Finanzas', e); fin = null; }
   const okFin = fin && fin.propuesta && !(fin.propuesta.sinPrecio || []).length && (!prop.vigente || (fin.vigente && !(fin.vigente.sinPrecio || []).length));
   if (okFin) return fin;
   const recetas = [{ clave: 'propuesta', datos: prop.datos }];
@@ -655,7 +678,7 @@ export async function mermaDelPeriodo({ desde, hasta, fresco = false }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.72.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.72.1')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
   const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';

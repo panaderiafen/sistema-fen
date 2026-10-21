@@ -1,9 +1,54 @@
-# Sistema Fën · v0.72.0
+# Sistema Fën · v0.72.1
 
-**App:** v0.72.0 · **Caja (fen-ventas):** v2.2.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.3 (aparte, repo fen-cocina) · 21 de octubre de 2026
+**App:** v0.72.1 · **Caja (fen-ventas):** v2.2.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.4 (aparte, repo fen-cocina) · 21 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.72.1: ajuste de sábado (masa para el lunes) y Plan de Panadería sábado → lunes
+
+Va con **Cocina v0.17.4**. El sábado se amasa lo que se hornea el **lunes** (el domingo no hay producción) y la masa madre de ese pan se hace el **viernes** en la tarde. Las recetas "48 h" ya no hacen falta: en Cocina, la jefa pone un ajuste de % "Todos los sábados (masa para el lunes)" en la misma receta, que se pausa, se salta un sábado o se usa solo un día (feriados: nunca automáticos). Ver el README de Cocina.
+
+- **Dónde va:** repo **sistema-fen**, raíz. Cambian `plan-pan-modelo.js`, `plan-pan.js`, `vista-plan-pan.js` (sábado → lunes), `produccion.js` y `vista-produccion.js` (el ajuste de sábado, solo para mirar), `estilos.css`, y en `cocina/`: `modelo.js`, `consumo.js`, `bolleria.js`, `registros.js` (copias exactas de Cocina v0.17.4); los demás, solo la versión. `fermentacion.js` no cambia. El Catálogo (v0.72.0) no cambia, salvo la versión.
+- **Reglas y scripts:** no cambian. fen-produccion v1.8.0 ya deja a las jefas escribir `ajustes` (el campo nuevo `sabado` va en el mismo documento) y a la administración leerlos.
+
+### Qué cambia en cómo trabajas
+1. **Plan de Panadería** (Producción → Plan de Panadería): cada día de horneado dice su amasado y su masa madre con los días reales:
+   - **Lunes:** masa madre el **viernes** 19:00 · amasado el **sábado** · horneado el lunes.
+   - **Martes:** masa madre el **sábado** · amasado el lunes (el domingo no hay producción).
+   - Miércoles a sábado: como antes (masa madre la tarde antes del amasado; amasado el día antes).
+   - **Domingo:** "El domingo no hay producción: no se hornea"; sin propuesta (si hay órdenes B2B con fecha domingo, avisa).
+   - La masa madre de cada horneado se calcula con el ajuste que vale el día del amasado (el del lunes, con el **ajuste de sábado**).
+   - **Cómo nos fue:** lo amasado el sábado cuenta como producido del **lunes** (antes caía en el domingo). Las semanas pasadas se ven así también.
+   - "Copiar como texto" y la hoja para imprimir: lo mismo ("Lunes 26 de oct (se amasa Sáb 24 oct)", "Masa madre Vie 23 oct 19:00…", "Domingo …: sin horneado").
+   - La fecha de una orden B2B sigue siendo el día de entrega = día de horneado.
+2. **Bodega y consumo** (Producción → Bodega): calculan con la **misma regla** que Cocina (`cocina/modelo.js` → `ajusteDelDia`): "solo este día" > ajuste de sábado (los sábados) > el último ajuste que cubre el día. Lo pasado no cambia al pausar o cambiar el ajuste de sábado.
+3. **Producción → Configuración de Producción:** nuevo bloque **"Ajuste de sábado · Panadería"** (solo para mirar): cada receta con ajuste de sábado, **Activo** o **En pausa**, sus %, desde cuándo y quién; "no el sáb …" si se saltó este sábado. Se cambia en Cocina.
+
+### Lecturas y escrituras (Spark)
+- Plan de Panadería: lee los días de Cocina desde **2 días** antes de la ventana (antes, 1), para el sábado de un lunes: +1 documento por sesión.
+- "Ajuste de sábado" en Configuración: los `ajustes` de fen-produccion (uno por receta con ajuste; ≈ 10–30), con la misma memoria que la Bodega (si ya calculaste la bodega, 0).
+- Sin escrituras nuevas en Sistema Fën.
+
+### Instalación v0.72.1 (unos 3 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.72.1.zip`, **con la carpeta `cocina/`** (cambia).
+3. **Commit changes**.
+4. Repo **fen-cocina**, raíz: sube el zip `fen-cocina-v0.17.4.zip` (ver su README).
+5. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC; en el celular, cierra y abre la app).
+
+**Nada en Apps Script ni en las reglas de Firestore.**
+
+### Lista de verificación v0.72.1
+- [ ] Abajo a la izquierda dice **v0.72.1**.
+- [ ] Plan de Panadería → Propuesta → **Lunes**: "Masa madre Vie …, 19:00 · Amasado Sáb … · Horneado Lun …". **Martes**: masa madre del sábado. **Domingo**: "no hay producción".
+- [ ] Cómo nos fue: el producido del lunes es lo amasado el sábado.
+- [ ] Con un ajuste de sábado puesto en Cocina: Configuración de Producción → "Ajuste de sábado · Panadería" lo muestra (Activo). Pausado en Cocina → "En pausa" (Actualizar o vuelve a abrir Sistema Fën).
+- [ ] Producción → Bodega → Calcular: sin errores.
+
+**Si algo sale mal:** vuelve a subir la v0.72.0 (y Cocina v0.17.3). No se pierde nada.
+
+**Pruebas:** `pruebas/sistemafen/ajuste-sabado-v0721.test.js` (20/20) y las demás suites (`pruebas/resultados-v0721.txt`, con `pruebas/correr-v0721.sh`). Se ajustaron `plan-pan-v0710` (sábado → lunes es un cambio a propósito), `catalogo-v0720` y `area-reventa-v0691` (los módulos compartidos ya no son iguales a zips anteriores: ahora se exige que sean iguales entre Cocina y Sistema Fën).
 
 ## Novedades de la v0.72.0: Catálogo, Etapa 0 "Qué está vivo"
 

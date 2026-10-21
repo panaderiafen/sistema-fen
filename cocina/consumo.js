@@ -1,6 +1,8 @@
 // ═══════════════════════════════════════════════
-//  fën · Cocina — consumo de materias primas, stock de las bodegas y proyección (sin pantalla)  v0.17.0
+//  fën · Cocina — consumo de materias primas, stock de las bodegas y proyección (sin pantalla)  v0.17.4
 //  La usa Sistema Fën (que lee las cuatro áreas; copia exacta en sistema-fen/cocina/).
+//  v0.17.4 · ajustesDe usa modelo.js → ajustesDelDia (incluye el ajuste de sábado): bodega, proyección y Plan de Panadería
+//    calculan con el mismo ajuste que ven las jefas en Cocina.
 //
 //  v0.17.0 · BODEGAS POR ÁREA RESPONSABLE (decisión de Emmanuel, 14-oct): cuatro bodegas, PAN, BOL, PAS y CAF.
 //    · Cada materia prima crítica de producción tiene UNA bodega responsable (la harina → PAN). Su stock es uno solo y
@@ -77,9 +79,9 @@
 //    v0.10.0: stockmp/{mpId}.envase = { nombre: 'saco', tamano: 25000 (g, ml o un) } → se cuenta y se recibe en sacos
 //    (más lo suelto) y el stock también se muestra en sacos. Sin envase: en kg, litros o unidades.
 // ═══════════════════════════════════════════════
-import * as M from './modelo.js?v=0.11.0';
-import * as B from './bolleria.js?v=0.11.0';
-import * as R from './registros.js?v=0.11.0';
+import * as M from './modelo.js?v=0.17.4';
+import * as B from './bolleria.js?v=0.17.4';
+import * as R from './registros.js?v=0.17.4';
 
 const n0 = v => M.num(v);
 
@@ -352,15 +354,9 @@ export const aBase = (valor, u) => u === 'un' ? n0(valor) : n0(valor) * 1000;
 export const deBase = (valor, u) => u === 'un' ? n0(valor) : n0(valor) / 1000;
 export const unidadEntrada = u => u === 'un' ? 'un' : u === 'ml' ? 'l' : 'kg';
 
-// Ajuste vigente de una receta en un día (el último período que lo cubre)
-export function ajustesDe(ajustes, fecha) {
-  const r = {};
-  Object.values(ajustes || {}).forEach(a => {
-    const ps = (a && a.periodos) || [];
-    for (let i = ps.length - 1; i >= 0; i--) { const p = ps[i]; if (M.tieneAjuste(p) && p.desde <= fecha && (!p.hasta || fecha <= p.hasta)) { r[a.recetaId] = p; break; } }
-  });
-  return r;
-}
+// Ajuste que vale para cada receta un día. v0.17.4: la misma regla que Cocina (modelo.js → ajusteDelDia):
+// "solo este día" > ajuste de sábado (los sábados) > el último período que cubre el día
+export function ajustesDe(ajustes, fecha) { return M.ajustesDelDia(ajustes, fecha); }
 
 // ── Bajar una receta a materias primas ──
 // cantidad en la unidad de la receta (unidades o gramos). out: { mpId: cantidad }; sinId: { nombre: g } (ingredientes sin ID)

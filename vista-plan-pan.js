@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Producción → Plan de Panadería (Etapa 1)  v0.71.1
+//  Sistema Fën — Producción → Plan de Panadería (Etapa 1)  v0.72.1 (sábado → lunes)
 //  Rutas: #produccion/plan-pan (Propuesta próxima semana) · #produccion/plan-pan/como (Cómo nos fue) · #produccion/plan-pan/fijos
 //  (Ainavillo y pisos). Solo administración. Solo lectura, salvo la tabla fija de Ainavillo y los pisos (config/planPanaderia
 //  en fen-ventas, con historial). "Copiar como texto" y la hoja para imprimir (viernes).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as PP from './plan-pan.js?v=0.72.0';
-import * as PM from './plan-pan-modelo.js?v=0.72.0';
+import * as PP from './plan-pan.js?v=0.72.1';
+import * as PM from './plan-pan-modelo.js?v=0.72.1';
 
 const S = { D: null, prop: null, dia: 0, semana: '', suc: 'todas', abiertos: new Set(), msg: '', err: '', editSuc: 'barros', cargando: false, extra: [] };
 const $ = id => document.getElementById(id);
@@ -19,7 +19,7 @@ const TABS = [['', 'Propuesta próxima semana'], ['como', 'Cómo nos fue'], ['fi
 const tabActual = () => { const p = (location.hash || '').split('/'); return ['como', 'fijos'].includes(p[2]) ? p[2] : ''; };
 
 const TXT = {
-  proceso: 'Masa madre: el día 0 a las 19:00 (Panadería). Amasado: el día 1. Horneado y venta: el día 2.\nLa masa madre del día 0 fija el techo de lo que se puede hornear el día 2: el día del amasado las cantidades solo se pueden bajar.\nPor eso la propuesta se mira el viernes: la masa madre del sábado es para el lunes.',
+  proceso: 'Masa madre: la tarde antes del amasado, a las 19:00 (Panadería). Amasado: al día siguiente. Horneado y venta: el día después del amasado.\nEl domingo no hay producción: lo amasado el sábado se hornea el lunes, con la masa madre del viernes en la tarde. El amasado del lunes (para el martes) usa la masa madre del sábado.\nLa masa madre fija el techo de lo que se puede hornear: el día del amasado las cantidades solo se pueden bajar.\nPor eso la propuesta se mira el viernes: esa tarde se hace la masa madre para el lunes.\nEl domingo no se hornea: no lleva propuesta.',
   mm: 'Gramos de masa madre (blanca e integral) que piden las recetas de lo propuesto para ese horneado, con la misma búsqueda que usa Cocina para el pie de masa madre (las sub recetas "masa madre" dentro de cada receta, con los ajustes de harina y agua vigentes).\nEs la masa madre lista para usar en el amasado; el pie para hacerla lo sigue calculando Cocina.',
   b2b: 'Por cliente y tipo de pan, en los 4 mismos días anteriores (los últimos 4 lunes, si es lunes):\n· veces = en cuántos de esos 4 días pidió;\n· cantidad usual = la mediana de lo que pidió los días que pidió.\nEstimado = suma de la cantidad usual de los clientes que pidieron 3 o 4 veces + (veces ÷ 4) × cantidad usual de los demás.\nSi ya hay órdenes para ese día, manda lo pedido cuando es más.\nLa fecha de la orden es el día de entrega, o sea, el día de horneado.\nActivos = clientes que pidieron pan al menos una vez en los últimos 28 días.',
   barros: 'Mediana de lo VENDIDO por lote (recibido − merma − lo que queda) en los 4 mismos días de horneado anteriores.\nAjustes, solo con datos exactos (se suman y quedan entre −20 % y +20 %):\n· merma: mediana del % de merma sobre 10 % → −5 %; sobre 20 % → −10 %;\n· rebajado (días con caja v2.2.0, al menos 2): mediana del % vendido rebajado sobre 15 % → −5 %; sobre 30 % → −10 %;\n· agotado (días con caja v2.2.0): se agotó 2 o más veces → +10 %; 2 o más veces antes de las 13:00 → +15 %.\nSi hay piso para ese día, la propuesta no baja del piso.\nToca un número para ver sus referencias: la semana pasada, las 4 semanas, la misma semana del mes anterior y la misma del año pasado (se muestra cuando haya datos, desde junio de 2027).',
@@ -97,17 +97,19 @@ function htmlPropuesta(H) {
   const sum = k => d.filas.reduce((a, f) => a + f[k], 0);
   const mmTxt = !mm.disponible ? 'sin datos de Cocina' : m && (m.blanca || m.integral) ? [m.blanca ? `blanca <b>${g(m.blanca)}</b>` : '', m.integral ? `integral <b>${g(m.integral)}</b>` : ''].filter(Boolean).join(' · ') : 'no lleva';
   return `<section class="tarjeta pp-tarjeta" aria-labelledby="t-pp-dia">
-    <div class="pp-barra"><span class="ayuda">Semana del ${H.esc(PM.semanaTxt(semana[0].fecha))} · por día de horneado</span>${pastillasDias(semana.map(x => x.fecha), i => n(semana[i].total))}</div>
+    <div class="pp-barra"><span class="ayuda">Semana del ${H.esc(PM.semanaTxt(semana[0].fecha))} · por día de horneado</span>${pastillasDias(semana.map(x => x.fecha), i => semana[i].sinProduccion ? '—' : n(semana[i].total))}</div>
     <div class="pp-cuerpo">
       <h2 id="t-pp-dia">${H.esc(PM.fechaLarga(d.fecha))}</h2>
-      <p class="pp-pasos">${H.icono('reloj', 16)} Masa madre ${H.esc(PM.fechaCorta(d.masaMadre))}, 19:00 · Amasado ${H.esc(PM.fechaCorta(d.amasado))} · Horneado ${H.esc(PM.fechaCorta(d.fecha))} ${H.info('Proceso', TXT.proceso)}</p>
-      <p class="pp-mm" id="pp-mm">Masa madre del ${H.esc(PM.fechaCorta(d.masaMadre))}: ${mmTxt} ${H.info('Masa madre', TXT.mm)}</p>
-      <details class="pp-clientes" id="pp-clientes" ${S.abiertos.has('clientes') ? 'open' : ''}><summary>De ${n(b.activos)} ${b.activos === 1 ? 'cliente activo' : 'clientes activos'}, se ${b.esperados === 1 ? 'espera' : 'esperan'} ${n(b.esperados)} el ${H.esc(PM.DIAS[d.indice].toLowerCase())} ${H.info('B2B estimado', TXT.b2b)}</summary>
+      ${d.sinProduccion ? `<p class="pp-pasos">${H.icono('reloj', 16)} El domingo no hay producción: no se hornea. Lo amasado el sábado se hornea el lunes. ${H.info('Proceso', TXT.proceso)}</p>
+      ${d.pedidosDomingo ? `<p class="aviso" role="status">Hay órdenes B2B con fecha domingo (${n(d.pedidosDomingo)} panes). Revisa su fecha de entrega en Ventas B2B.</p>` : ''}`
+      : `<p class="pp-pasos">${H.icono('reloj', 16)} Masa madre ${H.esc(PM.fechaCorta(d.masaMadre))}, 19:00 · Amasado ${H.esc(PM.fechaCorta(d.amasado))} · Horneado ${H.esc(PM.fechaCorta(d.fecha))} ${H.info('Proceso', TXT.proceso)}</p>
+      <p class="pp-mm" id="pp-mm">Masa madre del ${H.esc(PM.fechaCorta(d.masaMadre))}: ${mmTxt} ${H.info('Masa madre', TXT.mm)}</p>`}
+      ${d.sinProduccion ? '' : `<details class="pp-clientes" id="pp-clientes" ${S.abiertos.has('clientes') ? 'open' : ''}><summary>De ${n(b.activos)} ${b.activos === 1 ? 'cliente activo' : 'clientes activos'}, se ${b.esperados === 1 ? 'espera' : 'esperan'} ${n(b.esperados)} el ${H.esc(PM.DIAS[d.indice].toLowerCase())} ${H.info('B2B estimado', TXT.b2b)}</summary>
         ${b.clientes.length ? `<ul class="pp-lista">${b.clientes.map(c => `<li><div><b>${H.esc(c.nombre)}</b> <span class="bj-et ${c.seguro ? 'bj-et-listo' : ''}">${c.veces} de 4</span></div><span class="ayuda">${c.recetas.map(r => `${nombre(r.receta)}: usual ${n(r.usual)}${r.veces < 3 ? ` → ${(Math.round(r.estimado * 10) / 10).toLocaleString('es-CL')}` : ''}`).join(' · ')}</span></li>`).join('')}</ul>` : '<p class="ayuda">Ningún cliente pidió pan estos días.</p>'}
-        <p class="ayuda">Días mirados: ${b.refs.map(f => H.esc(PM.fechaCorta(f))).join(', ')}.</p></details>
+        <p class="ayuda">Días mirados: ${b.refs.map(f => H.esc(PM.fechaCorta(f))).join(', ')}.</p></details>`}
       ${d.filas.length ? `<div class="tabla-b2b pp-tw"><table class="tabla-tiempos pp-tabla pp-fija" id="pp-tabla"><colgroup><col class="pp-c-pan"><col><col><col><col class="pp-c-tot"></colgroup><thead><tr><th scope="col">Pan</th><th scope="col"><span class="pp-larga">B2B estimado</span><span class="pp-corta" aria-hidden="true">B2B</span> ${H.info('B2B estimado', TXT.b2b)}</th><th scope="col"><span class="pp-larga">B2C Barros</span><span class="pp-corta" aria-hidden="true">Barros</span> ${H.info('B2C Barros', TXT.barros)}</th><th scope="col"><span class="pp-larga">B2C Ainavillo (fijo)</span><span class="pp-corta" aria-hidden="true">Ainav. fijo</span> ${H.info('B2C Ainavillo', TXT.aina)}</th><th scope="col">Total</th></tr></thead>
         <tbody>${filas}</tbody><tfoot><tr><th scope="row">Total</th><td>${n(sum('b2b'))}</td><td>${n(sum('barros'))}</td><td>${n(sum('ainavillo'))}</td><td class="pp-tot">${n(d.total)}</td></tr></tfoot></table></div>`
-        : '<div class="vacio">Sin pan para este día: no hay ventas ni pedidos en las 4 semanas anteriores, ni cantidades fijas.</div>'}
+        : d.sinProduccion ? '' : '<div class="vacio">Sin pan para este día: no hay ventas ni pedidos en las 4 semanas anteriores, ni cantidades fijas.</div>'}
       <p class="ayuda">Ainavillo aún no registra ventas: cantidades fijas. ${S.D.lotesInfo.corridas ? `· ${n(S.D.lotesInfo.corridas)} ${S.D.lotesInfo.corridas === 1 ? 'merma se corrió' : 'mermas se corrieron'} al lote siguiente ${H.info('Lotes', TXT.lote)}` : ''}</p>
     </div></section>`;
 }
@@ -171,7 +173,7 @@ function htmlComo(H) {
       ${T.reg ? '' : '<p class="ayuda pp-nota" id="pp-nota-tarjetas">Fresco y rebajado se separan desde que la caja v2.2.0 está instalada. Antes, solo los datos exactos por lote: recibido, vendido y merma.</p>'}
       ${S.suc !== 'barros' && !filas.some(x => x.f.tot.tiendas.ainavillo.recibido) ? '<p class="ayuda">Ainavillo aún no ingresa en su caja el pan que recibe: no tiene datos de lotes.</p>' : ''}
       ${tabla}
-      <p class="ayuda">Producido: el plan de Cocina de Panadería (lo amasado un día se hornea al siguiente); "hecho" cuando la jefa lo marcó terminado.</p></div></section>
+      <p class="ayuda">Producido: el plan de Cocina de Panadería (lo amasado un día se hornea al siguiente; lo del sábado, el lunes); "hecho" cuando la jefa lo marcó terminado.</p></div></section>
     <section class="tarjeta" aria-labelledby="t-pp-tend"><h2 id="t-pp-tend">Tendencia semanal ${H.info('Tendencia', '% de merma = merma ÷ recibido en las dos tiendas, por semana (lotes recibidos esa semana).\n% rebajado = lo vendido rebajado ÷ lo vendido, solo en los días con caja v2.2.0.')}</h2>
       <div class="tabla-b2b"><table class="tabla-tiempos pp-tend" id="pp-tend"><thead><tr><th scope="col">Semana</th><th scope="col">% merma</th><th scope="col">% rebajado</th></tr></thead><tbody>
       ${tend.slice().reverse().map(t => `<tr><th scope="row">${H.esc(PM.semanaTxt(t.lunes))}</th><td><span class="pp-barra-h" style="--w:${t.mermaPct === null ? 0 : Math.min(100, t.mermaPct / maxM * 100)}%"></span>${t.recibido ? pct(t.mermaPct) : '<span class="ayuda">sin datos</span>'}</td><td>${t.rebajadoPct === null ? '<span class="ayuda">—</span>' : pct(t.rebajadoPct)}</td></tr>`).join('')}</tbody></table></div></section>
@@ -248,7 +250,7 @@ async function copiar(H, btn) {
 export function htmlImprimir(H) {
   const { semana, mm } = S.prop, nombre = r => H.esc(S.D.nombres[r] || r);
   return `<div class="pp-hoja"><h1>Plan de Panadería · semana del ${H.esc(PM.semanaTxt(semana[0].fecha))}</h1><p>Propuesta (Etapa 1) · impreso el ${H.esc(PM.fechaLarga(S.D.hoy))} · Ainavillo: cantidades fijas</p>
-    ${semana.map(d => { const m = mm.porDia[d.fecha]; return `<section class="pp-hoja-dia"><h2>${H.esc(PM.fechaLarga(d.fecha))} <small>amasado ${H.esc(PM.fechaCorta(d.amasado))} · masa madre ${H.esc(PM.fechaCorta(d.masaMadre))} 19:00${m && (m.blanca || m.integral) ? `: ${m.blanca ? 'blanca ' + g(m.blanca) : ''}${m.blanca && m.integral ? ' · ' : ''}${m.integral ? 'integral ' + g(m.integral) : ''}` : ''}</small></h2>
+    ${semana.map(d => { const m = mm.porDia[d.fecha]; if (d.sinProduccion) return `<section class="pp-hoja-dia"><h2>${H.esc(PM.fechaLarga(d.fecha))} <small>sin horneado (el domingo no hay producción)</small></h2></section>`; return `<section class="pp-hoja-dia"><h2>${H.esc(PM.fechaLarga(d.fecha))} <small>amasado ${H.esc(PM.fechaCorta(d.amasado))} · masa madre ${H.esc(PM.fechaCorta(d.masaMadre))} 19:00${m && (m.blanca || m.integral) ? `: ${m.blanca ? 'blanca ' + g(m.blanca) : ''}${m.blanca && m.integral ? ' · ' : ''}${m.integral ? 'integral ' + g(m.integral) : ''}` : ''}</small></h2>
       ${d.filas.length ? `<table><thead><tr><th>Pan</th><th>B2B</th><th>Barros</th><th>Ainavillo</th><th>Total</th></tr></thead><tbody>${d.filas.map(f => `<tr><td>${nombre(f.receta)}</td><td>${n(f.b2b)}</td><td>${n(f.barros)}</td><td>${n(f.ainavillo)}</td><td><b>${n(f.total)}</b></td></tr>`).join('')}</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td><b>${n(d.total)}</b></td></tr></tfoot></table>` : '<p>Sin pan propuesto.</p>'}</section>`; }).join('')}</div>`;
 }
 function imprimir(H) {

@@ -20,8 +20,8 @@
 //   · Costo por unidad = costo del lote ÷ porciones (rendimiento). Si la receta rinde gramos, es por gramo (se lee por kg).
 //  Se prueba solo: pruebas/sistemafen/finanzas-f1c.test.js.
 // ═══════════════════════════════════════════════
-import * as M from './cocina/modelo.js?v=0.11.0';
-import * as B from './cocina/bolleria.js?v=0.11.0';
+import * as M from './cocina/modelo.js?v=0.17.4';
+import * as B from './cocina/bolleria.js?v=0.17.4';
 
 export const UMBRAL_HIST = 0.5;     // % de cambio que deja una entrada en el historial
 export const ALZA_DEFECTO = 5;      // % de alza contra el mes anterior que avisa en Hoy
