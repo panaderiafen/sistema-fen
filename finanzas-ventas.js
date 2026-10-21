@@ -13,7 +13,7 @@
 //  v0.69.1: área REVENTA (solo de margen) para lo que se compra hecho. AREAS = las de margen (las 4 de producción + REVENTA);
 //  AREAS_PRODUCCION = las que producen (la de una receta o del catálogo). Las listas salen de areas.js.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.73.0';
+import * as AR from './areas.js?v=0.74.0';
 
 export const AREAS = AR.MARGEN;
 export const AREAS_PRODUCCION = AR.PRODUCCION;
@@ -90,18 +90,25 @@ export function lineasDeResumenes(resumenes, prods = {}) {
       const neto = pp.neto !== undefined && pp.neto !== null ? num(pp.neto) : netoDeBruto(pp.bruto);
       const x = L[k] || (L[k] = { suc, productoId: pid, nombre: s(p.nombre || pp.nombre) || pid, cantidad: 0, neto: 0, recetaCatalogo: s(p.idRecetaFen || pp.idRecetaFen), areaCatalogo: areaDe(p.area || pp.area) });
       x.cantidad += num(pp.cantidad); x.neto += neto;
+      const f = fotoDeLinea(pp); if (f && !x.foto) x.foto = f;   // v0.74.0: la caja 2b guardará la foto en cada venta
     });
   });
   return Object.values(L).map(x => ({ ...x, cantidad: red(x.cantidad), neto: Math.round(x.neto) }));
 }
 // Órdenes B2B (sin anuladas ni quitadas) → líneas por producto. Los precios de B2B son netos.
 export function idProductoB2b(l) { return s(l.productoId) || 'n-' + slug(l.producto); }
+// v0.74.0 · La foto de la venta (línea de una orden B2B, guardada al crearla): { catalogoId, tipo, area, recetaId, reventaId, unidadesPorVenta }
+export function fotoDeLinea(l) {
+  if (!l || !s(l.catalogoId) || !s(l.tipo)) return null;
+  return { catalogoId: s(l.catalogoId), tipo: s(l.tipo), area: s(l.area), recetaId: s(l.recetaId), reventaId: s(l.reventaId), unidadesPorVenta: num(l.unidadesPorVenta) > 0 ? num(l.unidadesPorVenta) : 1 };
+}
+const llaveFoto = f => (f ? `|${f.catalogoId}|${f.tipo}|${f.recetaId || f.reventaId}|${f.unidadesPorVenta}` : '');
 export function lineasDeOrdenes(ordenes, prods = {}) {
   const L = {};
   (ordenes || []).filter(o => o && o.estado !== 'anulada' && !o.quitadoEnPlanilla).forEach(o => (o.lineas || []).forEach(l => {
-    const pid = idProductoB2b(l), p = prods[pid] || {};
+    const pid = idProductoB2b(l), p = prods[pid] || {}, foto = fotoDeLinea(l), k = pid + llaveFoto(foto);
     const cant = num(l.cantidad), neto = l.neto !== undefined && l.neto !== null && l.neto !== '' ? num(l.neto) : Math.round(cant * num(l.precio));
-    const x = L[pid] || (L[pid] = { suc: 'b2b', productoId: pid, nombre: s(p.nombre || l.producto) || pid, cantidad: 0, neto: 0, recetaCatalogo: s(p.idReceta), areaCatalogo: areaDe(p.area || p.categoria) });
+    const x = L[k] || (L[k] = { suc: 'b2b', productoId: pid, nombre: s(p.nombre || l.producto) || pid, cantidad: 0, neto: 0, recetaCatalogo: s(p.idReceta), areaCatalogo: areaDe(p.area || p.categoria), ...(foto ? { foto } : {}) });
     x.cantidad += cant; x.neto += neto;
   }));
   return Object.values(L).map(x => ({ ...x, cantidad: red(x.cantidad), neto: Math.round(x.neto) }));
@@ -111,7 +118,7 @@ export function juntar(...listas) {
   const L = {};
   listas.flat().forEach(l => {
     if (!l) return;
-    const k = l.suc + '|' + l.productoId;
+    const k = l.suc + '|' + l.productoId + llaveFoto(l.foto);
     const x = L[k] || (L[k] = { ...l, cantidad: 0, neto: 0 });
     x.cantidad += num(l.cantidad); x.neto += num(l.neto);
     if (!x.recetaCatalogo && l.recetaCatalogo) x.recetaCatalogo = l.recetaCatalogo;
@@ -160,7 +167,30 @@ export function proponer(item, recetas) {
 }
 
 // ── Vínculos ──
-export const decidido = v => !!(v && (v.tipo === 'receta' || v.tipo === 'reventa' || v.tipo === 'ignorar'));
+// v0.74.0: 'cargo' (despacho: un ingreso aparte del canal B2B, sin margen de producto) viene del Catálogo
+export const decidido = v => !!(v && (v.tipo === 'receta' || v.tipo === 'reventa' || v.tipo === 'ignorar' || v.tipo === 'cargo'));
+export const esCargo = v => !!(v && v.tipo === 'cargo');
+// v0.74.0 · El vínculo de una línea de venta: 1) su foto (la venta guarda su receta o reventa); 2) el maestro del Catálogo por el
+// catalogoId del producto del canal, desde el mes en que se armó (vigenteDesde: los meses antiguos siguen como estaban);
+// 3) fin_productos (lo asociado a mano). maestro: { vinc: { clave: vínculo }, desde: 'AAAA-MM', lista } (finanzas.maestroFinanzas) o null.
+export function vinculoDeFoto(f, l, base) {
+  if (!f) return null;
+  const b = base || {}, u = num(f.unidadesPorVenta) > 0 ? num(f.unidadesPorVenta) : 1;
+  const comun = { canal: canalDeSuc(l && l.suc), productoId: s(l && l.productoId), nombre: s(l && l.nombre), catalogoId: f.catalogoId, area: f.area, unidadesPorVenta: u, origen: 'foto',
+    costoExtraNeto: b.costoExtraNeto !== undefined ? b.costoExtraNeto : null, receta: null, recetaNombre: '', reventa: false, costoReventaNeto: null, ignorar: false };
+  if (f.tipo === 'receta' && f.recetaId) return { ...comun, tipo: 'receta', receta: f.recetaId, recetaNombre: b.tipo === 'receta' && b.receta === f.recetaId ? s(b.recetaNombre) : s(b.recetaNombre) || s(l && l.nombre) };
+  if (f.tipo === 'reventa') return { ...comun, tipo: 'reventa', reventa: true, reventaId: f.reventaId, area: f.area || REVENTA, costoReventaNeto: b.costoReventaNeto !== undefined ? b.costoReventaNeto : null };
+  if (f.tipo === 'cargo') return { ...comun, tipo: 'cargo', unidadesPorVenta: 1 };
+  return null;
+}
+export function vinculoDeLinea(l, vinculos = {}, maestro = null, mes = '') {
+  const clave = claveProducto(canalDeSuc(l.suc), l.productoId);
+  const deMaestro = maestro && maestro.vinc && maestro.vinc[clave] && (!maestro.desde || !mes || mes >= maestro.desde) ? maestro.vinc[clave] : null;
+  const f = l.foto ? vinculoDeFoto(l.foto, l, deMaestro || (maestro && maestro.vinc && maestro.vinc[clave]) || vinculos[clave]) : null;
+  return f || deMaestro || vinculos[clave] || null;
+}
+// Vínculos por producto (Ventas por producto, Asociar): el maestro encima de fin_productos
+export const vinculosEfectivos = (vinculos, maestro) => (maestro && maestro.vinc ? { ...(vinculos || {}), ...maestro.vinc } : (vinculos || {}));
 export const upv = v => (v && num(v.unidadesPorVenta) > 0 ? num(v.unidadesPorVenta) : 1);
 // datos: { canal, productoId, nombre, tipo, receta, unidadesPorVenta, costoReventaNeto, area, conIva, nota } → { doc, hist }
 export function armarVinculo(prev, datos, { recetas = [], hoy = '', por = '' } = {}) {
@@ -200,6 +230,7 @@ export function armarVinculo(prev, datos, { recetas = [], hoy = '', por = '' } =
 export function textoVinculo(v) {
   if (!v) return 'Sin asociar';
   if (v.tipo === 'ignorar') return 'No es un producto (no suma)';
+  if (v.tipo === 'cargo') return `Cargo${v.catalogoId ? ' ' + v.catalogoId : ''} (ingreso aparte del canal B2B)`;
   const u = upv(v) !== 1 ? ` × ${String(upv(v)).replace('.', ',')} un` : '';
   if (v.tipo === 'reventa') return `Reventa${v.reventaId ? ' ' + v.reventaId : ''}${areaVinculo(v) === REVENTA ? '' : ' · ' + (NOMBRE_AREA[v.area] || v.area)}${v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? ` · costo $${Math.round(v.costoReventaNeto).toLocaleString('es-CL')} neto` : ''}${u}`;
   const ex = v.costoExtraNeto > 0 ? ` · envase $${Math.round(v.costoExtraNeto).toLocaleString('es-CL')}` : '';
@@ -232,7 +263,7 @@ export function tablaVentas(productos, { canal = 'todos' } = {}) {
   const F = {};
   (productos || []).forEach(p => {
     const v = p.vinculo;
-    if (v && v.tipo === 'ignorar') return;
+    if (v && (v.tipo === 'ignorar' || v.tipo === 'cargo')) return;
     const sucs = Object.keys(p.porSuc).filter(sc => canal === 'todos' || sc === canal);
     if (!sucs.length) return;
     const tipo = v ? v.tipo : 'sin';
@@ -253,15 +284,16 @@ export function tablaVentas(productos, { canal = 'todos' } = {}) {
 }
 // Totales del período (sobre los productos vendidos): por área, por canal (sucursal), sin asociar, ignorado y cobertura
 export function totales(productos, { canal = 'todos' } = {}) {
-  const t = { total: 0, porArea: Object.fromEntries(AREAS.map(a => [a, 0])), porSuc: { barros: 0, ainavillo: 0, b2b: 0 }, sinAsociar: 0, ignorado: 0, reventa: 0, todo: 0, decidido: 0, nSinAsociar: 0 };
+  const t = { total: 0, porArea: Object.fromEntries(AREAS.map(a => [a, 0])), porSuc: { barros: 0, ainavillo: 0, b2b: 0 }, sinAsociar: 0, ignorado: 0, cargos: 0, reventa: 0, todo: 0, decidido: 0, nSinAsociar: 0 };
   (productos || []).forEach(p => {
     const v = p.vinculo;
     let neto = 0;
-    Object.entries(p.porSuc).forEach(([sc, x]) => { if (canal !== 'todos' && sc !== canal) return; neto += x.neto; if (!v || v.tipo !== 'ignorar') t.porSuc[sc] = (t.porSuc[sc] || 0) + x.neto; });
+    Object.entries(p.porSuc).forEach(([sc, x]) => { if (canal !== 'todos' && sc !== canal) return; neto += x.neto; if (!v || (v.tipo !== 'ignorar' && v.tipo !== 'cargo')) t.porSuc[sc] = (t.porSuc[sc] || 0) + x.neto; });
     if (!neto && !Object.keys(p.porSuc).some(sc => canal === 'todos' || sc === canal)) return;
     t.todo += neto;
     if (v) t.decidido += neto;
     if (v && v.tipo === 'ignorar') { t.ignorado += neto; return; }
+    if (v && v.tipo === 'cargo') { t.cargos += neto; return; }   // v0.74.0: el despacho cobrado es un ingreso aparte (no es venta de un producto)
     t.total += neto;
     if (!v) { t.sinAsociar += neto; t.nSinAsociar++; return; }
     if (v.tipo === 'reventa') t.reventa += neto;
@@ -279,7 +311,7 @@ export function cobertura(decididoNeto, todoNeto) {
 // ¿Se puede guardar? Mes cerrado (día 8 del mes siguiente) y, en la caja, sin cajas abiertas ni cierres sin resumen.
 export function guardable(mes, hoy, { abiertas = 0, faltan = 0 } = {}) { return mesCerrado(mes, hoy) && !abiertas && !faltan; }
 export function docMes(mes, canal, lineas, extra = {}) {
-  return { mes, canal, lineas: (lineas || []).map(l => ({ suc: l.suc, productoId: s(l.productoId), nombre: s(l.nombre).slice(0, 200), cantidad: red(num(l.cantidad)), neto: Math.round(num(l.neto)), recetaCatalogo: s(l.recetaCatalogo), areaCatalogo: s(l.areaCatalogo) })),
+  return { mes, canal, lineas: (lineas || []).map(l => ({ suc: l.suc, productoId: s(l.productoId), nombre: s(l.nombre).slice(0, 200), cantidad: red(num(l.cantidad)), neto: Math.round(num(l.neto)), recetaCatalogo: s(l.recetaCatalogo), areaCatalogo: s(l.areaCatalogo), ...(l.foto ? { foto: l.foto } : {}) })),
     neto: Math.round((lineas || []).reduce((a, l) => a + num(l.neto), 0)), version: 1, ...extra };
 }
 // Lecturas estimadas de leer un mes sin caché: caja ≈ cierres (resúmenes) + cajas del mes; B2B ≈ órdenes del mes. Con caché: 1.

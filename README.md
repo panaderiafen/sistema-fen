@@ -1,9 +1,83 @@
-# Sistema Fën · v0.73.0
+# Sistema Fën · v0.74.0
 
-**App:** v0.73.0 · **Caja (fen-ventas):** v2.2.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.4 (sin cambios, aparte, repo fen-cocina) · 21 de octubre de 2026
+**App:** v0.74.0 · **Caja (fen-ventas):** v2.2.0 (sin cambios; cambia en la entrega 2b) · **Reglas de Firestore (fen-ventas):** v1.4.0 (nueva, opcional hasta la caja 2b) · **Reglas de fen-b2b:** v1.7.0 (nueva) · **Reglas de fen-produccion:** v1.8.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Logística (fen-logistica):** v1.3.0 · **Cocina:** v0.17.4 (sin cambios) · **Apps Script:** ninguno cambia · 21 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
-Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.74.0: Catálogo, Etapa 2 (un solo catálogo de productos)
+
+Decisiones tuyas (plan de coherencia): un dueño por cosa; unir por ID, nunca por nombre; se crea en un solo lugar y los demás piden; una sola lista de áreas (`areas.js`); la venta guarda su foto; nada se borra (se archiva). **Los productos se crean solo aquí, por ti**, siempre desde una **receta aprobada** de Cocina, una **reventa** (Catálogo → Reventa) o como **cargo** (Despacho, que se cobra solo a B2B). Tú habilitas cada producto en la caja y/o en B2B con su precio; la caja y logística **solo piden**. El tipo "armado" (varias recetas con sus gramos) queda en el modelo, sin pantalla (Pastelería en pausa).
+
+- **Dónde va:** repo **sistema-fen**, raíz. Archivos nuevos: `catalogo-productos-modelo.js` (reglas puras), `catalogo-productos.js` (lecturas y escrituras), `vista-productos.js` (pestañas Productos y Armar el catálogo). Cambian `vista-catalogo.js` (pestañas; un producto unido se archiva en Productos), `catalogo-modelo.js`, `caja.js` (copia del producto en la caja, pestañas de la caja, pedidos de la caja), `b2b.js` (copia en B2B, lista para logística, pedidos; ya no crea productos sueltos), `app.js` (Hoy, Ventas B2B → Productos y Solicitudes, ícono "más"), `finanzas.js`, `finanzas-ventas.js`, `finanzas-margenes.js`, `finanzas-eerr.js`, `vista-finanzas.js`, `vista-finanzas-eerr.js` (foto → maestro → fin_productos; despacho aparte), `plan-pan.js`, `plan-pan-modelo.js` (maestro, foto y la clave `n-…`), `estilos.css`, `firestore-b2b.rules` (v1.7.0), `firestore.rules` (v1.4.0); los demás, solo la versión. `cocina/` y `fermentacion.js` **no cambian**.
+- **Logística v1.3.0:** repo **fen-logistica**, zip `fen-logistica-v1.3.0.zip` (ver su README).
+- **Apps Script:** ninguno cambia.
+
+### Qué cambia en cómo trabajas
+1. **Catálogo → Armar el catálogo** (`#catalogo/armar`, **una sola vez**): propone grupos con lo vivo de la caja y de B2B (un producto de la caja y uno de B2B que llevan a la misma receta o reventa, con las mismas unidades por venta, quedan juntos: primero por Finanzas → Asociar productos; si no, por el ID de receta de la caja o de B2B). Revisas cada grupo (nombre, de dónde sale, unidades por venta), puedes **Separar** caja y B2B o **Juntar con** otro. Lo que no tiene receta aprobada ni reventa queda "Falta" y hay que resolverlo (receta, reventa, cargo o **Archivar**) antes de **Guardar el catálogo**. Los precios no cambian (se copian tal cual).
+2. **Catálogo → Productos** (`#catalogo/productos`): la lista (Activos, En la caja, En B2B, **Sin canal**, Archivados), filtros por estado, canal y de dónde sale, y buscador. **Nuevo producto**: eliges de dónde sale (solo recetas aprobadas: una en revisión o en prueba no aparece; una sub receta solo si "vende directo"), y en cada canal: **la caja** (pestaña, categoría, control de stock con precio por tarjeta o precio único, excepción horaria, se elimina solo) y **B2B** (precio base neto, categoría). **Cambiar**, **Archivar** (sale de los dos canales) y **Reactivar** (vuelve sin canales: lo habilitas con su precio). `#catalogo/productos/PR0003` abre ese producto.
+3. **Pedidos de productos** (arriba en Productos, y en **Hoy**: "N productos pedidos"): lo que pide logística y (desde la caja 2b) la caja. **Habilitar** / **Crear** abre el diálogo con lo pedido (precio incluido); al guardar, el pedido queda aprobado y le llega la respuesta. **Rechazar** pide un motivo.
+4. **Ventas B2B → Productos:** ya no está "Nuevo producto" (está "Crear en el Catálogo"). Los productos unidos dicen su PR… y se cambian en el Catálogo ("Cambiar en el Catálogo"); los que no están unidos (antes de armar) se cambian ahí como siempre. **Solicitudes:** un producto nuevo dice "Resolver en el Catálogo".
+5. **Logística v1.3.0:** "Producto nuevo" pide **de la lista del Catálogo** (los productos activos que todavía no están en B2B), con su `catalogoId` (ya no lee la planilla). Cada línea de una orden guarda su **foto** (catalogoId, de dónde sale, área, receta o reventa). La **copia a la planilla está apagada**.
+6. **Finanzas:** la receta de cada venta sale de **1) la foto de la línea, 2) el producto del Catálogo** (desde el mes en que lo armaste) y **3) Asociar productos** (lo antiguo y lo no unido). Asociar productos tiene su (i) "Asociar y el Catálogo"; un producto unido dice "Catálogo PR…" con "Ver en el Catálogo" y "Meses anteriores". **Despacho** (cargo) es una fila aparte en el estado de resultados: **"Despacho cobrado (canal B2B)"**, en Común, que suma al margen de contribución pero no a las ventas ni al margen de un producto. Los meses cerrados no cambian (se ven como quedaron).
+7. **Plan de Panadería:** también toma la receta del Catálogo y de la foto. **Arreglo:** una línea B2B sin productoId (copiada de la planilla) ahora usa la misma clave que Finanzas (`n-nombre`), así su vínculo se encuentra.
+8. **Áreas:** la copia en B2B guarda el área como **código** (PAN, BOL, REVENTA, B2B…); los nombres salen de `areas.js`.
+9. **Qué está vivo:** un producto de la caja o de B2B unido al Catálogo ya no se archiva ahí (ni se sugiere archivar): dice **"En Productos (PR…)"** y se archiva en Productos, para que el catálogo y el canal no se separen.
+
+### Cómo armar el catálogo (mini guía)
+1. Conecta en este equipo las cuatro bases (Gastos → Base nueva, Producción, Ventas B2B; la caja ya está).
+2. Antes, en Catálogo → **Reventa**, deja la reventa con su ID (si no lo hiciste en la v0.73.0) y, en **Qué está vivo**, archiva lo que ya no se vende.
+3. Catálogo → **Armar el catálogo**. Arriba: Listos / Por resolver / A archivar / Nombres repetidos.
+4. Primero los "Falta" (arriba): elige receta, reventa, cargo o "Archivar".
+5. Revisa los repetidos: si la Hogaza de la caja y la de B2B quedaron separadas, usa **Juntar con**; si una caja y un B2B no son lo mismo, **Separar**.
+6. Corrige los nombres (el del catálogo; en B2B el nombre antiguo no cambia).
+7. **Guardar el catálogo** → confirma. Queda "Armado el … por …". Si algo se corta, aparece **Terminar de unir**.
+8. En **Productos** revisa los "Sin canal" y los precios. Desde ahí, todo producto nuevo se crea en Productos.
+
+### Cómo queda guardado (para el que venga)
+- **fen-gastos** `cat_productos/{PR0001}` = `{ id, nombre, tipo 'receta'|'reventa'|'cargo'|'armado', recetaId | reventaId | componentes [{ recetaId, gramos }], area (código), unidadesPorVenta, estado 'activo'|'archivado', canales: { caja: { habilitado, docId, controlStock, precios { hoy, ayer, antesayer, cuartoDia, ultimaOferta } | null, precioUnico, excepcionHoraria, autoEliminar, categoria, areaCaja }, b2b: { habilitado, docId, precioBase, categoria } }, historial [40], creadoEn/Por, editadoEn/Por, origen 'manual'|'migracion'|'solicitud' }`.
+- **fen-gastos** `cat_config/productos` = `{ siguiente, armadoEn, armadoPor, vigenteDesde 'AAAA-MM', n, historial }`.
+- **fen-ventas** `productos/{docId}`: los campos de siempre (nombre, area, categoria, activo, precio, precioHoy…precioUltimaOferta, controlStock, excepcionHoraria, autoEliminar, idRecetaFen) + `catalogoId, tipo, reventaId`. Uno nuevo usa el ID del maestro; los que existían conservan el suyo. Deshabilitar = `activo: false`.
+- **fen-b2b** `productos/{docId}`: nombre (solo al crear), precioBase (con historialPrecios), categoria, idReceta, area (código), estado + `catalogoId, tipo, reventaId`. Deshabilitar = `estado: 'archivado'`.
+- **fen-b2b** `config/catalogoDisponible` = `{ productos [{ id, nombre, area, tipo }], n, en, por }` (lo activo que no está en B2B).
+- **fen-b2b** `solicitudes` tipo `producto`: + `catalogoId` (logística v1.3.0); al resolver: `estado 'aprobada'|'rechazada', catalogoId, productoId, precioAprobado, respuesta, resuelta`.
+- **fen-ventas** `solicitudes_producto/{id}` (la escribe la caja 2b) = `{ tipo 'producto', nombre, catalogoId | recetaId | reventaId, sucursal, precioSugerido, nota, estado 'pendiente', por, en }`; al resolver: `estado, catalogoId, productoId, respuesta, resuelta`.
+- **Línea de una orden B2B** (logística v1.3.0): + `catalogoId, tipo, area, recetaId, reventaId, unidadesPorVenta`. `fin_ventas_mes` guarda esa foto (`foto`) en sus líneas.
+- **fen-gastos** `fin_productos/{canal}_{docId}`: se crea con `origen 'catalogo_maestro', catalogoId` solo donde no había uno decidido; uno distinto se deja (vale para los meses antes de `vigenteDesde`). Tipo nuevo `cargo`.
+
+### Lecturas y escrituras (Spark)
+- **Productos al abrir** (medido con datos ficticios, después de armar: 4 productos del catálogo, 5 de la caja, 4 de B2B): Gastos y Finanzas **12**, caja **7**, B2B **6**, Cocina **1**. Con la operación real: el catálogo y la reventa (≈ 20–60, después la memoria de fs-gastos: solo lo que cambió), los productos de la caja y de B2B una vez por sesión (≈ 40–80, los mismos de Finanzas), las pestañas de la caja (4), los pedidos pendientes (1 + 1 si no hay), recetas de la memoria compartida (0). Filtrar y buscar: 0.
+- **Armar el catálogo al abrir** (medido): Gastos y Finanzas **9**, caja **7**, B2B **6**, Cocina **1**. **Guardar:** 1 lectura (contador) + 1 lote en fen-gastos (productos + vínculos + su historial + contador) + 1 escritura por documento de la caja + 1 transacción por documento de B2B (lee y escribe) + 1 de la lista para logística.
+- **Crear un producto:** 1 transacción en fen-gastos (2 lecturas, 2 escrituras) + por canal 1–2 (lee que el ID esté libre y escribe) + 1 lote de vínculos (2 por canal) + 1 de la lista. **Cambiar:** 1 transacción + 1 por canal + 1 de la lista si cambia lo disponible.
+- **Finanzas / Cierre / Plan:** + 1 lectura de `cat_config/productos` cada 2 minutos (+1 de la regla); si ya hay catálogo, `cat_productos` y `cat_reventa` de la memoria. **Hoy:** + 1 lectura de `solicitudes_producto` (fen-ventas).
+- **Logística:** 1 lectura de `config/catalogoDisponible` al abrir "Producto nuevo" (antes, el CSV); ya no llama al script ni marca para la planilla.
+
+### Reglas de Firestore
+- **fen-b2b v1.7.0 (obligatoria, antes de subir logística v1.3.0):** logística lee `config/catalogoDisponible` y crea órdenes con `planillaPendiente` true o false. Nada más cambia.
+- **fen-ventas v1.4.0 (opcional ahora; obligatoria con la caja 2b):** `solicitudes_producto` (la cajera crea y lee los suyos; la administración lee y resuelve; nada se borra). Sin ella, Sistema Fën sigue igual: en Productos dice "Pedidos de la caja (i)" y Hoy no los cuenta.
+
+### Instalación v0.74.0 (unos 10 minutos, en este orden)
+1. **Reglas de fen-b2b:** consola de Firebase → proyecto **fen-b2b** → Firestore → **Reglas** → pega `firestore-b2b.rules` (v1.7.0) → **Publicar**.
+2. *(Opcional ahora)* **Reglas de fen-ventas:** proyecto **fen-ventas** → Firestore → Reglas → pega `firestore.rules` (v1.4.0) → Publicar.
+3. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.74.0.zip` (con la carpeta `cocina/`, que no cambia) → **Commit changes**.
+4. GitHub, repo **fen-logistica**, raíz → sube los archivos del zip `fen-logistica-v1.3.0.zip` → Commit.
+5. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC; en el celular, cierra y abre la app). En el celular de logística, cerrar y abrir la app.
+6. Sistema Fën → Catálogo → **Armar el catálogo** (ver la mini guía).
+
+### Lista de verificación v0.74.0
+- [ ] Abajo a la izquierda dice **v0.74.0**; Catálogo tiene **Qué está vivo · Productos · Armar el catálogo · Reventa**.
+- [ ] Armar el catálogo: los grupos se ven; lo que falta no deja guardar; al guardar dice "Listo: N productos…" y "Armado el …".
+- [ ] En la caja (app de la caja) los productos se ven igual y se venden igual (mismos precios).
+- [ ] Ventas B2B → Productos: cada uno dice su PR…; "Cambiar en el Catálogo" abre ese producto.
+- [ ] Productos → Nuevo producto: la lista de recetas solo trae aprobadas; créalo en la caja → aparece en la caja con su precio.
+- [ ] Logística (v1.3.0): Solicitudes → "Producto nuevo del catálogo" muestra la lista; manda uno → en Hoy aparece "1 producto pedido" → Productos → Pedidos → Habilitar con su precio → en logística aparece para las órdenes.
+- [ ] Logística: arriba dice "Copia a la planilla apagada"; una orden nueva se guarda sin error.
+- [ ] Finanzas → Resultados del mes en curso: si hubo despacho, la fila "Despacho cobrado (canal B2B)". Un mes cerrado se ve igual que antes.
+- [ ] Finanzas → Márgenes → Asociar productos: los unidos dicen "Catálogo PR…".
+
+**Si algo sale mal:** vuelve a subir la v0.73.0 (y logística v1.2.1). No se pierde nada: el catálogo (`cat_productos`) queda guardado, y los documentos de la caja y de B2B solo ganaron campos (`catalogoId`, `tipo`, `reventaId`); la caja y B2B siguen funcionando con sus mismos IDs. Las reglas v1.7.0 de fen-b2b sirven también para logística v1.2.1.
+
+**Pruebas:** `pruebas/sistemafen/catalogo-v0740.test.js` (11) y las demás suites (`pruebas/resultados-v0740.txt`, con `pruebas/correr-v0740.sh`). Capturas en `pruebas/capturas/catalogo-v0740/` (Productos, el diálogo del producto y Armar el catálogo a 390 y 1280). Se ajustaron (cambio a propósito, no regresión): `etapa1-v0730` y `catalogo-v0720` (pestañas del Catálogo; versión y reglas posteriores), `plan-pan-v0710` (reglas fen-ventas v1.4.0 y fen-b2b v1.7.0), `b2b-v012` (logística: copia apagada, lista del Catálogo, el producto nuevo se resuelve en el Catálogo), `b2b-v013` (sin "Nuevo producto" en Ventas B2B), `cierre-previred-v0695` (+2 lecturas al abrir Cierre: ¿hay catálogo?). El simulador de fen-b2b aplica las reglas v1.7.0.
 
 ## Novedades de la v0.73.0: Etapa 1 (la base de Cocina es la maestra, Reventa, copias a planillas apagadas, respaldo mensual)
 

@@ -45,21 +45,22 @@
 //   guarda porMedio y el de B2B ordenesValidas. costos_config/finanzas.margenes (comisión por medio de pago, mezcla de la caja, despacho B2B,
 //   margen objetivo por área, redondeo) + historialMargenes. fin_productos.costoExtraNeto (envase por venta, neto).
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.73.0';
-import * as FB from './fs-gastos.js?v=0.73.0';
-import * as GB from './gastos-base.js?v=0.73.0';
-import * as P from './produccion.js?v=0.73.0';
-import * as FC from './finanzas-costos.js?v=0.73.0';
-import * as FS from './finanzas-sii.js?v=0.73.0';
-import * as FM from './finanzas-motor.js?v=0.73.0';
-import * as FV from './finanzas-ventas.js?v=0.73.0';
-import * as FMG from './finanzas-margenes.js?v=0.73.0';
-import * as FR from './finanzas-resultados.js?v=0.73.0';
-import * as FE from './finanzas-eerr.js?v=0.73.0';
-import * as Caja from './caja.js?v=0.73.0';
-import * as B from './b2b.js?v=0.73.0';
-import * as FBB from './firebase-b2b.js?v=0.73.0';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.73.0';
+import { auth as authSF } from './firebase.js?v=0.74.0';
+import * as FB from './fs-gastos.js?v=0.74.0';
+import * as GB from './gastos-base.js?v=0.74.0';
+import * as P from './produccion.js?v=0.74.0';
+import * as FC from './finanzas-costos.js?v=0.74.0';
+import * as FS from './finanzas-sii.js?v=0.74.0';
+import * as FM from './finanzas-motor.js?v=0.74.0';
+import * as FV from './finanzas-ventas.js?v=0.74.0';
+import * as FMG from './finanzas-margenes.js?v=0.74.0';
+import * as FR from './finanzas-resultados.js?v=0.74.0';
+import * as FE from './finanzas-eerr.js?v=0.74.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.74.0';
+import * as Caja from './caja.js?v=0.74.0';
+import * as B from './b2b.js?v=0.74.0';
+import * as FBB from './firebase-b2b.js?v=0.74.0';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.74.0';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -415,6 +416,30 @@ export async function leerVinculos() { return leerColeccion('fin_productos'); }
 // v0.72.0 · Catálogo: los mismos catálogos (caja y B2B, una lectura por sesión) y saber si fen-gastos está conectada
 export async function catalogosVenta() { return catalogos(); }
 export function olvidarCatalogoB2b() { catB2b = null; }
+// v0.74.0 · Catálogo (Etapa 2): el maestro de productos (fen-gastos cat_productos, con la memoria de fs-gastos) y el vínculo
+// producto → receta que sale de él. Lo usan Finanzas (márgenes, estado de resultados) y el Plan de Panadería.
+// → { lista, config, desde (vigenteDesde 'AAAA-MM'), vinc { clave: vínculo } } | null (sin maestro o sin la base conectada)
+export async function leerMaestro() {
+  const db = await dbG();
+  const [sn, cfg] = await Promise.all([FB.getDocs(FB.collection(db, 'cat_productos')), FB.getDoc(FB.doc(db, 'cat_config', 'productos')).catch(() => null)]);
+  return { lista: sn.docs.map(d => ({ ...d.data(), id: d.id })), config: cfg && cfg.exists() ? cfg.data() : null };
+}
+let maestroMem = null;
+export const olvidarMaestro = () => { maestroMem = null; };
+export async function maestroFinanzas(forzar = false) {
+  if (maestroMem && !forzar && Date.now() - maestroMem.t < 120000) return maestroMem.v;
+  let v = null;
+  try {
+    // Sin catálogo todavía (cat_config/productos no existe): 1 lectura, y nada más hasta que se arme o se cree un producto
+    const db = await dbG(), cfg = await FB.getDoc(FB.doc(db, 'cat_config', 'productos')).catch(() => null);
+    if (!cfg || !cfg.exists()) { maestroMem = { t: Date.now(), v: null }; return null; }
+    const [lista, recetas, rev, fin] = await Promise.all([FB.getDocs(FB.collection(db, 'cat_productos')).then(sn => sn.docs.map(d => ({ ...d.data(), id: d.id }))), recetasVenta().catch(() => []), leerColeccion('cat_reventa').catch(() => ({})), leerVinculos().catch(() => ({}))]);
+    const m = { lista, config: cfg.data() };
+    if (m.lista.length) v = { lista: m.lista, config: m.config, desde: (m.config && m.config.vigenteDesde) || '', vinc: CPM.vinculosMaestro(m.lista, { recetas, reventa: Object.values(rev), fin }) };
+  } catch (e) { v = null; }
+  maestroMem = { t: Date.now(), v };
+  return v;
+}
 
 // Un mes de la caja, sin caché: los resúmenes de sus cierres + las cajas del mes (para saber si falta alguno o hay abiertas)
 async function cajaDelMes(mes, hoy) {
@@ -691,14 +716,14 @@ export async function cargosCartola() {
 // v0.66.0 · Documentos del SII por clasificar (subidos, sin gasto todavía), de la memoria: para el cierre y el estado de resultados
 // v0.67.1: lo mismo que Conciliación (sin lo que ya tiene su gasto registrado: eso no se cuenta en el cierre)
 export async function siiPorClasificar() {
-  try { return await (await import('./sii-pendientes-fs.js?v=0.73.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
-  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.73.0');
+  try { return await (await import('./sii-pendientes-fs.js?v=0.74.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
+  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.74.0');
   const sn = await FB.getDocs(FB.collection(db, 'sii_docs'));
   return SP.pendientesDe(sn.docs.map(d => ({ id: d.id, d: d.data() })));
 }
 // v0.69.5 · Las planillas de Previred para Cierre de mes (de la memoria de la sesión; lo que falte se lee). null si no se puede.
 export async function planillasPrevired() {
-  try { return await (await import('./gastos-cartola-fs.js?v=0.73.0')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
+  try { return await (await import('./gastos-cartola-fs.js?v=0.74.0')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
 }
 export async function cargasSii() {
   const db = await dbG();
@@ -720,9 +745,10 @@ const mesCache = {};
 export const olvidarMeses = () => { Object.keys(mesCache).forEach(k => delete mesCache[k]); };
 export async function datosMes(mes, { forzar = false } = {}) {
   if (mesCache[mes] && !forzar) return mesCache[mes];
-  const [ventas, vinculos, costos, merma] = await Promise.all([ventasPeriodo({ meses: [mes] }, { forzar }), leerVinculos(), leerProductos(), mermaMes(mes)]);
+  const [ventas, vinculos, costos, merma, maestro] = await Promise.all([ventasPeriodo({ meses: [mes] }, { forzar }), leerVinculos(), leerProductos(), mermaMes(mes), maestroFinanzas()]);
   const hoy = hoyTxt(), cfg = FMG.configMargenes(costos.config && costos.config.margenes);
-  const margen = FMG.calcularMargenes(ventas.porMes || [], vinculos || {}, costos, cfg, { hoy, modo: 'mes' });
+  // v0.74.0: foto de la venta → maestro (desde vigenteDesde) → fin_productos; los cargos (despacho) van aparte
+  const margen = FMG.calcularMargenes(ventas.porMes || [], vinculos || {}, costos, cfg, { hoy, modo: 'mes', maestro });
   const info = (ventas.meses || [])[0] || {};
   const lAin = (ventas.lineas || []).filter(l => l.suc === 'ainavillo');
   const netoTotal = margen.filas.reduce((a, f) => a + f.neto, 0), netoSin = margen.filas.filter(f => f.tipo === 'sin').reduce((a, f) => a + f.neto, 0);

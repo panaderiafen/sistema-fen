@@ -24,8 +24,8 @@
 //  su margen de contribución y sus fijos, si algún gasto tiene área REVENTA. Las compras de reventa siguen fuera del resultado
 //  (info "compras_reventa"). REVENTA no recibe comunes en el reparto por causa (la vista secundaria es solo de las 4 que producen).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.73.0';
-import * as AR from './areas.js?v=0.73.0';
+import * as FR from './finanzas-resultados.js?v=0.74.0';
+import * as AR from './areas.js?v=0.74.0';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -41,6 +41,8 @@ export const mesTxt = m => { const [y, n] = String(m).split('-'); return `${MESE
 // (todas | areas = solo las 4 áreas | comun = solo Común), y si es un resultado (en negrita)
 export const FILAS = [
   { k: 'ventas', t: 'Ventas netas', piso: 1, signo: '', cols: 'todas', abre: true },
+  // v0.74.0: lo cobrado como cargo (despacho, solo a clientes B2B para recuperar la bencina): un ingreso aparte del canal B2B, en Común
+  { k: 'cargos', t: 'Despacho cobrado (canal B2B)', piso: 1, signo: '+', cols: 'comun' },
   { k: 'costoDirecto', t: 'Costo directo de lo vendido', piso: 1, signo: '−', cols: 'todas' },
   { k: 'costosVenta', t: 'Costos de venta (comisión de tarjeta, despacho)', piso: 1, signo: '−', cols: 'todas' },
   { k: 'merma', t: 'Merma valorizada', piso: 1, signo: '−', cols: 'todas' },
@@ -122,7 +124,7 @@ export function armarEERR(E) {
   const mes = E.mes, F = {}, D = {}, avisos = [];
   const fila = k => F[k] || (F[k] = vacia());
   const det = (k, col, ref) => { const kk = k + '.' + col; (D[kk] || (D[kk] = [])).push(ref); };
-  ['ventas', 'costoDirecto', 'costosVenta', 'merma', 'rem', 'fijos', 'dep', 'remComun', 'fijosComun', 'depComun', 'financieros'].forEach(fila);
+  ['ventas', 'cargos', 'costoDirecto', 'costosVenta', 'merma', 'rem', 'fijos', 'dep', 'remComun', 'fijosComun', 'depComun', 'financieros'].forEach(fila);
   const canal = Object.fromEntries(SUCS.map(x => [x, vacia()]));
   const costosUsados = {};
   let sinCostoNeto = 0, nSinCosto = 0, sinAsocNeto = 0;
@@ -140,6 +142,9 @@ export function armarEERR(E) {
     else if (!f.ok) { sinCostoNeto += num(f.neto); nSinCosto++; }
     if (f.tipo === 'receta' && f.receta) costosUsados[f.receta] = { nombre: s(f.nombre), costoUnit: f.costoUnit === null || f.costoUnit === undefined ? null : Math.round(num(f.costoUnit) * 100) / 100, lectura: f.lectura || 'un', fuente: (f.fuenteCosto || []).join(',') };
   });
+  // v0.74.0 · Cargos (tipo 'cargo' del Catálogo: despacho): ingreso del canal B2B, no es venta de un producto
+  const CG = (E.margen && E.margen.cargos) || null;
+  ((CG && CG.lineas) || []).forEach(x => { F.cargos.comun += num(x.neto); det('cargos', 'comun', { tipo: 'cargo', nombre: s(x.nombre), suc: x.suc, neto: r0(x.neto), unidades: Math.round(num(x.cantidad) * 1000) / 1000, catalogoId: s(x.catalogoId) }); });
   if (sinAsocNeto) avisos.push({ k: 'sin_asociar', texto: `Ventas de productos sin asociar: ${pesosTxt(sinAsocNeto)} (en Común, sin costo directo). Asócialos en Márgenes → Asociar productos.` });
   if (nSinCosto) avisos.push({ k: 'sin_costo', texto: `${nSinCosto} ${nSinCosto === 1 ? 'producto' : 'productos'} con costo incompleto o sin costo (${pesosTxt(sinCostoNeto)} de venta): su costo directo va con lo que sí tiene costo.` });
   // Merma valorizada (neto)
@@ -183,7 +188,7 @@ export function armarEERR(E) {
   // Redondeo por celda y filas derivadas
   Object.keys(F).forEach(k => { F[k] = conTotal(F[k]); });
   SUCS.forEach(x => { canal[x] = conTotal(canal[x]); });
-  F.mc = conTotal(Object.fromEntries(COLS.map(c => [c, F.ventas[c] - F.costoDirecto[c] - F.costosVenta[c] - F.merma[c]])));
+  F.mc = conTotal(Object.fromEntries(COLS.map(c => [c, F.ventas[c] + F.cargos[c] - F.costoDirecto[c] - F.costosVenta[c] - F.merma[c]])));
   F.ma = conTotal(Object.fromEntries(COLS.map(c => [c, F.mc[c] - F.rem[c] - F.fijos[c] - F.dep[c]])));
   const comunes = F.remComun.total + F.fijosComun.total + F.depComun.total;
   F.resOp = { ...vacia(), total: F.ma.total - comunes };

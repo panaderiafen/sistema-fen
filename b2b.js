@@ -8,14 +8,14 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.73.0';
-import * as FB from './firebase-b2b.js?v=0.73.0';
-import * as Apps from './apps.js?v=0.73.0';
-import * as Mem from './fs-memoria.js?v=0.73.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.73.0';
-import { distanciaTef } from './feriados-cl.js?v=0.73.0';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.73.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.73.0';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.74.0';
+import * as FB from './firebase-b2b.js?v=0.74.0';
+import * as Apps from './apps.js?v=0.74.0';
+import * as Mem from './fs-memoria.js?v=0.74.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.74.0';
+import { distanciaTef } from './feriados-cl.js?v=0.74.0';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.74.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.74.0';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -575,15 +575,9 @@ export async function aprobarSolicitud(s, precio, respuesta) {
       const previo = (cs.data().precios || []).find(x => (x.productoId && x.productoId === s.productoId) || String(x.producto).toLowerCase() === String(s.producto).toLowerCase());
       tx.update(cref, { precios: lista, historialPrecios: [...(cs.data().historialPrecios || []), { producto: s.producto, antes: previo ? previo.precio : null, despues: p, en: ahoraTxt(), por: authSF.currentUser.email, solicitud: s.id }].slice(-200), planillaPendiente: false, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
     } else {
-      // Producto nuevo: id a partir del nombre (sin pisar uno que exista)
-      let id = slugB2B(s.producto), i = 2;
-      while (true) {
-        const ps = await tx.get(FB.doc(db, 'productos', id));
-        if (!ps.exists()) break;
-        if (String(ps.data().nombre || '').trim().toLowerCase() === String(s.producto || '').trim().toLowerCase()) throw new Error(`Ya existe el producto "${ps.data().nombre}". Si hay que cambiar su precio, hazlo en Productos y rechaza esta solicitud.`);
-        id = slugB2B(s.producto) + '-' + i++;
-      }
-      tx.set(FB.doc(db, 'productos', id), { nombre: s.producto, precioBase: p, categoria: '', idReceta: s.idReceta || '', area: s.area || '', estado: 'activo', extra: {}, origen: { app: 'solicitud', solicitud: s.id }, quitadoEnPlanilla: false, planillaPendiente: false, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
+      // v0.74.0 (Catálogo, Etapa 2): un producto nuevo ya no se crea suelto en B2B. Se resuelve en Catálogo → Productos → Pedidos:
+      // se crea (o se habilita) el producto del maestro desde su receta o reventa, y el maestro escribe la copia en B2B.
+      throw new Error('Los productos nuevos se resuelven en Catálogo → Productos (Pedidos): ahí se crea el producto desde su receta y llega solo a B2B.');
     }
     tx.update(sref, { estado: 'aprobada', precioAprobado: s.tipo === 'anulacion' ? null : p, respuesta: String(respuesta || '').trim() || null, resuelta: { por: authSF.currentUser.email, en: FB.serverTimestamp() } });
   });
@@ -703,6 +697,8 @@ export async function precioEspecial(clienteId, producto, precio) {
 }
 export async function guardarProducto(id, datos) {
   const db = await dbOk();
+  // v0.74.0: los productos se crean SOLO en Catálogo → Productos (desde una receta aprobada, una reventa o un cargo)
+  if (!id) throw new Error('Los productos se crean en Catálogo → Productos (desde una receta aprobada, una reventa o un cargo).');
   if (!id) {
     const nombre = String(datos.nombre || '').trim();
     if (nombre.length < 2) throw new Error('Escribe el nombre del producto.');
@@ -739,6 +735,55 @@ export async function archivarProducto(id, archivar) {
   const db = await dbOk();
   await FB.updateDoc(FB.doc(db, 'productos', id), { estado: archivar ? 'archivado' : 'activo', planillaPendiente: false, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
   uso.escrituras++;
+}
+
+// ── v0.74.0 · Catálogo (Etapa 2): la copia del producto en B2B la escribe SOLO Sistema Fën (Catálogo → Productos) ──
+// crear = documento nuevo (su ID es el del maestro, PR####); si no, cambia solo los campos dados. El nombre de un producto que ya
+// existía no se cambia (las órdenes y los precios especiales antiguos lo usan). Un cambio de precio base queda en su historial.
+export async function escribirProducto(id, campos, { crear = false } = {}) {
+  const db = await dbOk(), por = authSF.currentUser.email;
+  const ref = FB.doc(db, 'productos', id);
+  await FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref); uso.lecturas++;
+    const a = sn.exists() ? sn.data() : null;
+    if (a && crear && a.catalogoId && a.catalogoId !== campos.catalogoId) throw new Error(`En B2B ya hay un producto con el ID ${id} de otro producto del catálogo.`);
+    if (!a) {
+      if (!crear) throw new Error('Ese producto ya no está en B2B. Toca Actualizar.');
+      tx.set(ref, { ...campos, extra: {}, origen: { app: 'sistema-fen', catalogo: campos.catalogoId || '' }, quitadoEnPlanilla: false, planillaPendiente: false, creadoEn: FB.serverTimestamp(), creadoPor: por });
+      return;
+    }
+    const c = { ...campos };
+    if (!crear) delete c.nombre;
+    if ('precioBase' in c && Number(c.precioBase) !== Number(a.precioBase)) c.historialPrecios = [...(a.historialPrecios || []), { antes: Number(a.precioBase) || null, despues: Number(c.precioBase), en: ahoraTxt(), por, catalogo: true }].slice(-200);
+    tx.update(ref, { ...c, planillaPendiente: false, cambiadoEn: FB.serverTimestamp(), cambiadoPor: por });
+  });
+  uso.escrituras++;
+}
+// La lista que lee logística para pedir un producto nuevo: config/catalogoDisponible = { productos [{ id, nombre, area, tipo }], n, en, por }
+// (los activos del maestro que no están en B2B). Necesita las reglas de fen-b2b v1.7.0 para que logística la lea.
+export async function publicarCatalogoDisponible(productos) {
+  const db = await dbOk();
+  await FB.setDoc(FB.doc(db, 'config', 'catalogoDisponible'), { productos: productos || [], n: (productos || []).length, en: FB.serverTimestamp(), por: authSF.currentUser.email });
+  uso.escrituras++;
+}
+// Un pedido de producto de logística, resuelto desde el Catálogo: aprobada (con el producto del maestro y su documento en B2B) o rechazada
+export async function resolverSolicitudProducto(id, { aprobada, catalogoId = null, productoId = null, precio = null, respuesta = '' }) {
+  const db = await dbOk(), sref = FB.doc(db, 'solicitudes', id);
+  await FB.runTransaction(db, async tx => {
+    const ss = await tx.get(sref); uso.lecturas++;
+    if (!ss.exists() || ss.data().estado !== 'pendiente') throw new Error('Ese pedido ya se resolvió.');
+    tx.update(sref, aprobada
+      ? { estado: 'aprobada', precioAprobado: precio, catalogoId, productoId, respuesta: String(respuesta || '').trim() || null, resuelta: { por: authSF.currentUser.email, en: FB.serverTimestamp() } }
+      : { estado: 'rechazada', respuesta: String(respuesta || '').trim() || null, resuelta: { por: authSF.currentUser.email, en: FB.serverTimestamp() } });
+  });
+  uso.escrituras++;
+}
+// Las solicitudes pendientes (para el Catálogo, aunque la base nueva todavía no esté "en uso")
+export async function solicitudesPendientes() {
+  const cx = await conexion(); if (cx.estado !== 'ok') return null;
+  const sn = await FB.getDocs(FB.query(FB.collection(cx.db, 'solicitudes'), FB.where('estado', '==', 'pendiente')));
+  uso.lecturas += Math.max(1, sn.size);
+  return sn.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 // ── Estado de cuenta ───────────────────────────────

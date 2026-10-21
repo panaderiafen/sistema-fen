@@ -59,17 +59,17 @@
 //    se escribe desde la pantalla (decisión del dueño, 21-oct-2026): la lista publicada (CSV) que leen la caja y logística no recibe
 //    las recetas nuevas hasta la etapa 2. preparar/copiar quedan en el código, sin botón. El costo de una propuesta sale solo de Finanzas.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.73.0';
-import * as FBr from './firebase-produccion.js?v=0.73.0';
-import * as Apps from './apps.js?v=0.73.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.73.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.73.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.74.0';
+import * as FBr from './firebase-produccion.js?v=0.74.0';
+import * as Apps from './apps.js?v=0.74.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.74.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.74.0';
 import * as K from './cocina/consumo.js?v=0.17.4';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.17.4';
-import * as M from './fs-memoria.js?v=0.73.0';
-import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.73.0';
-import * as RM from './recetas-maestro.js?v=0.73.0';
-import { produccion as QP, esCuota } from './fs-cuota.js?v=0.73.0';
+import * as M from './fs-memoria.js?v=0.74.0';
+import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.74.0';
+import * as RM from './recetas-maestro.js?v=0.74.0';
+import { produccion as QP, esCuota } from './fs-cuota.js?v=0.74.0';
 
 // ── v0.63.3: todo pedido a fen-produccion pasa por aquí: se cuenta (Configuración → Uso de la base hoy) y, si Firestore dice
 // "cuota agotada" (resource-exhausted), se muestra el letrero de Producción/Cocina. Cada escritura de Sistema Fën en recetas,
@@ -128,7 +128,7 @@ async function conMarca(col, fn, forzar = false) {
 }
 
 export { AREAS };
-export { resumenPropuesta } from './finanzas-motor.js?v=0.73.0';
+export { resumenPropuesta } from './finanzas-motor.js?v=0.74.0';
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
@@ -542,7 +542,7 @@ export async function pendientesCocina({ forzar = false } = {}) {
 // la planilla quedaron como estaban). Lo que no está en la base de Cocina va en "faltan" (no se puede aprobar).
 export async function costear(prop) {
   const [fin, base] = await Promise.all([
-    import('./finanzas.js?v=0.73.0').then(F => F.costosPropuesta(prop)),
+    import('./finanzas.js?v=0.74.0').then(F => F.costosPropuesta(prop)),
     mpsYRecetas().catch(() => null)
   ]);
   if (!fin || !fin.propuesta) { const e = new Error('Para ver el costo, conecta la base de Gastos y Finanzas (Gastos → Base nueva): los precios están en Finanzas → Costos.'); e.code = 'sin_gastos'; throw e; }
@@ -674,7 +674,7 @@ export async function resolverSolicitud(sol, datos = {}) {
   const rep = mps.find(m => String(m.nombre || '').trim().toLowerCase() === nombre.toLowerCase());
   if (rep) { const e = new Error(`Ya existe "${nombre}" (${rep.id}). Habilítala en vez de crearla.`); e.code = 'existe'; e.datos = { id: rep.id }; throw e; }
   // El precio va a Finanzas: sin fen-gastos conectada no se crea (así nunca queda una materia prima sin su precio por error)
-  const F = await import('./finanzas.js?v=0.73.0');
+  const F = await import('./finanzas.js?v=0.74.0');
   if (!(await F.gastosConectada())) throw new Error('Para crearla con su precio, conecta la base de Gastos y Finanzas en este equipo (Gastos → Base nueva).');
   const doc = RM.docMp({ nombre, tipo, categoria: datos.categoria, unidad, area: sol.area }, { solicitud: sol.docId, por, hoy });
   // ID = el mayor + 1 del prefijo; si justo existe (otro equipo), se prueba el siguiente
@@ -779,7 +779,7 @@ export async function mermaDelPeriodo({ desde, hasta, fresco = false }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.73.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.74.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
   const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';

@@ -12,14 +12,14 @@
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.73.0';
-import * as FC from './finanzas-costos.js?v=0.73.0';
-import * as FS from './finanzas-sii.js?v=0.73.0';
-import * as FM from './finanzas-motor.js?v=0.73.0';
-import * as FV from './finanzas-ventas.js?v=0.73.0';
-import * as FMG from './finanzas-margenes.js?v=0.73.0';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.73.0';
-import * as VR from './vista-finanzas-resultados.js?v=0.73.0';
+import * as F from './finanzas.js?v=0.74.0';
+import * as FC from './finanzas-costos.js?v=0.74.0';
+import * as FS from './finanzas-sii.js?v=0.74.0';
+import * as FM from './finanzas-motor.js?v=0.74.0';
+import * as FV from './finanzas-ventas.js?v=0.74.0';
+import * as FMG from './finanzas-margenes.js?v=0.74.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.74.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.74.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -753,7 +753,9 @@ const pesosM = v => FC.pesos(Math.round(Number(v) || 0));
 const cantM = v => (Math.round((Number(v) || 0) * 100) / 100).toLocaleString('es-CL');
 const NOMBRE_MES = m => { const [y, n] = String(m).split('-'); return `${['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][Number(n) - 1] || n} ${y}`; };
 const perActual = () => FV.periodo(MS.per, hoyTxt(), MS.desde, MS.hasta);
-const productosM = () => MS.datos ? FV.productosVendidos(MS.datos.lineas, MS.vinc, MS.recetas) : [];
+// v0.74.0: el vínculo de un producto sale del maestro del Catálogo (si está unido); si no, de lo asociado aquí (fin_productos)
+const vincEf = () => FV.vinculosEfectivos(MS.vinc, MS.maestro);
+const productosM = () => MS.datos ? FV.productosVendidos(MS.datos.lineas, vincEf(), MS.recetas) : [];
 const PI2 = { caja: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V4h8v3M3 12h18"/>', camion: '<path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/>', recargar: PI.revisar };
 const icM = (n, t = 18) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${PI2[n] || PI[n] || ''}</svg>`;
 
@@ -784,8 +786,8 @@ async function pintarMargenes(el, parte, H) {
     if (!st.cx || st.cx.gastos.estado !== 'ok') st.cx = await F.conexiones();
     if (st.cx.gastos.estado !== 'ok') return sinBase(el, 'margenes', H);
     if (MS.clave !== clave || !MS.datos) {
-      const [d, v, r] = await Promise.all([F.ventasPeriodo(per, { avance: m => { const x = $('m-leyendo'); if (x) x.textContent = `Leyendo las ventas de ${NOMBRE_MES(m)}…`; } }), F.leerVinculos(), F.recetasVenta()]);
-      MS.datos = d; MS.vinc = v; MS.recetas = r; MS.clave = clave;
+      const [d, v, r, m] = await Promise.all([F.ventasPeriodo(per, { avance: m => { const x = $('m-leyendo'); if (x) x.textContent = `Leyendo las ventas de ${NOMBRE_MES(m)}…`; } }), F.leerVinculos(), F.recetasVenta(), F.maestroFinanzas()]);
+      MS.datos = d; MS.vinc = v; MS.recetas = r; MS.maestro = m; MS.clave = clave;
     }
     // v0.60.0: costos (último cálculo guardado + historial) y ajustes de márgenes; una vez por visita a Márgenes
     if (!MS.costos) MS.costos = await F.leerProductos();
@@ -938,6 +940,7 @@ function conectarVentas(el, prods, H) {
 const canalTxt = p => (p.canal === 'b2b' ? 'B2B' : 'Caja');
 const ventaTxt = p => Object.entries(p.porSuc).map(([sc, x]) => `${FV.NOMBRE_SUC[sc]}: ${cantM(x.cantidad)} · ${pesosM(x.neto)}`).join(' · ');
 const propuestaTxt = p => !p.propuesta ? '' : p.propuesta.receta ? `${p.propuesta.recetaNombre}${p.propuesta.origen === 'catalogo' ? (p.canal === 'b2b' ? ' (del catálogo de B2B)' : ' (del catálogo de la caja)') : ' (nombre parecido)'}` : '';
+const TXT_ASOC_CAT = 'Desde la v0.74.0 los productos se crean en el Catálogo (Catálogo → Productos), siempre desde una receta aprobada, una reventa o un cargo: el vínculo producto → receta sale de ahí, y cada orden B2B nueva guarda su receta al crearse.\nAsociar productos queda para lo que no está unido al Catálogo: los meses antiguos (antes de armar el catálogo) y algún producto que todavía no se une. Un mes ya cerrado no cambia.';
 const TXT_PASAR_REV = 'Desde la v0.69.1 lo que se compra hecho y se vende tal cual (chocolates, té, infusiones, Magia…) tiene su propia área, Reventa: así su venta, su costo y su margen se ven aparte en el estado de resultados.\nEstos productos ya estaban asociados como reventa a otra área (por ejemplo Cafetería). No se cambian solos: con este botón pasan todos de una vez al área Reventa, después de que confirmes.\nSolo cambia el área: el costo de compra, las unidades por venta y el envase quedan iguales. Cada cambio queda en el historial del producto. Un mes ya cerrado no cambia (se ve como quedó al cerrarlo).';
 function htmlAsociar(prods, H) {
   const t = FV.totales(prods), sin = prods.filter(p => !p.vinculo), asoc = prods.filter(p => p.vinculo);
@@ -946,13 +949,13 @@ function htmlAsociar(prods, H) {
   const fila = (p, conCambio) => `<div class="fin-compra fin-masoc" data-m-prod="${H.esc(p.clave)}">
     <div><b>${H.esc(p.nombre)}</b><span class="ayuda">${canalTxt(p)} · ${H.esc(p.productoId)}</span></div>
     <div><span><b>${pesosM(p.neto)}</b> neto · ${cantM(p.cantidad)} ${p.cantidad === 1 ? 'vendido' : 'vendidos'}</span><span class="ayuda">${H.esc(ventaTxt(p))}</span></div>
-    <div>${conCambio ? `<span class="fin-asoc">${ic('enlace', 16)}<b>${H.esc(FV.textoVinculo(p.vinculo))}</b></span><span class="ayuda">${H.esc(p.vinculo.area ? FV.NOMBRE_AREA[p.vinculo.area] || p.vinculo.area : '')}${p.vinculo.por ? ` · ${H.esc(p.vinculo.por)} · ${fechaTxt(p.vinculo.fecha)}` : ''}</span>`
+    <div>${conCambio ? `<span class="fin-asoc">${ic('enlace', 16)}<b>${H.esc(FV.textoVinculo(p.vinculo))}</b>${p.vinculo.origen === 'catalogo' ? ` <span class="chip chip-chico c-verde" data-m-cat="${H.esc(p.vinculo.catalogoId)}">Catálogo ${H.esc(p.vinculo.catalogoId)}</span>` : ''}</span><span class="ayuda">${H.esc(p.vinculo.area ? FV.NOMBRE_AREA[p.vinculo.area] || p.vinculo.area : '')}${p.vinculo.por ? ` · ${H.esc(p.vinculo.por)} · ${fechaTxt(p.vinculo.fecha)}` : ''}</span>`
       : p.propuesta && p.propuesta.receta ? `<span>Sugerencia: <b>${H.esc(propuestaTxt(p))}</b></span><span class="ayuda">${H.esc(FV.NOMBRE_AREA[p.propuesta.area] || p.propuesta.area || '')}</span>`
       : `<span class="ayuda">Sin sugerencia${p.propuesta && p.propuesta.aviso ? ': ' + H.esc(p.propuesta.aviso) : ''}</span>`}</div>
     <div class="acciones fin-c-acc">${!conCambio && p.propuesta && p.propuesta.receta ? `<button type="button" class="btn" data-m-confirmar="${H.esc(p.clave)}">${ic('check', 16)} Confirmar</button>` : ''}
-      <button type="button" class="btn-sec" data-m-asociar="${H.esc(p.clave)}">${conCambio ? 'Cambiar' : 'Asociar…'}</button></div></div>`;
+      ${conCambio && p.vinculo.origen === 'catalogo' ? `<a class="btn-sec" href="#catalogo/productos/${H.esc(p.vinculo.catalogoId)}">Ver en el Catálogo</a>` : ''}<button type="button" class="btn-sec" data-m-asociar="${H.esc(p.clave)}">${conCambio ? (p.vinculo.origen === 'catalogo' ? 'Meses anteriores' : 'Cambiar') : 'Asociar…'}</button></div></div>`;
   return `<section class="tarjeta" aria-labelledby="t-m-asoc">
-    <div class="titulo-fila fin-titulo"><h2 id="t-m-asoc">Asociar productos ${H.info('Asociar productos', 'Cada producto que se vende en la caja o en B2B se asocia a la receta que lo produce: de ahí sale su área, su costo y su margen.\nReventa: algo que se compra hecho y se vende tal cual (bebidas, chocolates, té, Magia…). Va al área Reventa (se propone sola; puedes elegir otra) y anotas su costo de compra neto (por ahora a mano).\nNo es un producto: propinas, cargos de despacho, ajustes… no suman en la venta por producto.\nUnidades por venta: cuántas unidades de la receta lleva una venta (una "caja de 6" = 6).\nLa sugerencia sale primero del ID de receta que ya tiene el producto en el catálogo de la caja o de B2B; si no, de un nombre parecido. Nada se asocia solo: tú confirmas.\nCada cambio queda en el historial. Se guarda en Finanzas (fen-gastos): no cambia nada en la caja ni en B2B.')}</h2>
+    <div class="titulo-fila fin-titulo"><h2 id="t-m-asoc">Asociar productos ${H.info('Asociar y el Catálogo', TXT_ASOC_CAT)} ${H.info('Asociar productos', 'Cada producto que se vende en la caja o en B2B se asocia a la receta que lo produce: de ahí sale su área, su costo y su margen.\nReventa: algo que se compra hecho y se vende tal cual (bebidas, chocolates, té, Magia…). Va al área Reventa (se propone sola; puedes elegir otra) y anotas su costo de compra neto (por ahora a mano).\nNo es un producto: propinas, cargos de despacho, ajustes… no suman en la venta por producto.\nUnidades por venta: cuántas unidades de la receta lleva una venta (una "caja de 6" = 6).\nLa sugerencia sale primero del ID de receta que ya tiene el producto en el catálogo de la caja o de B2B; si no, de un nombre parecido. Nada se asocia solo: tú confirmas.\nCada cambio queda en el historial. Se guarda en Finanzas (fen-gastos): no cambia nada en la caja ni en B2B.')}</h2>
       <span class="chip ${sin.length ? 'c-amarillo' : 'c-verde'}">${nf(sin.length)} sin asociar</span></div>
     ${selectorPeriodo(H)}
     <p class="ok-texto" id="m-msg" role="status">${H.esc(MS.msg)}</p><p class="error" id="m-err" role="alert">${H.esc(MS.err)}</p>
@@ -1019,7 +1022,9 @@ function dialogoPasarReventa(el, H) {
   });
 }
 function dialogoVinculo(p, el, volver, H) {
-  const v = p.vinculo, recetas = MS.recetas || [];
+  // v0.74.0: si el producto está unido al Catálogo, su vínculo sale del maestro; aquí se cambia solo lo de los meses antes del catálogo
+  const delCat = p.vinculo && p.vinculo.origen === 'catalogo' ? p.vinculo : null;
+  const v = delCat ? ((MS.vinc || {})[p.clave] || null) : p.vinculo, recetas = MS.recetas || [];
   const sug = FV.sugerirRecetas(p.nombre, recetas), idsSug = new Set(sug.map(x => x.id));
   const tipo0 = v ? v.tipo : 'receta';
   const recSel = v && v.receta ? v.receta : p.propuesta && p.propuesta.receta ? p.propuesta.receta : '';
@@ -1034,6 +1039,7 @@ function dialogoVinculo(p, el, volver, H) {
   const d = H.dialogo(`<form class="form-dialogo" id="m-vf" novalidate>
     <h2>${v ? 'Cambiar asociación' : 'Asociar producto'}</h2>
     <p class="fin-actual"><b>${H.esc(p.nombre)}</b> · ${canalTxt(p)}</p>
+    ${delCat ? `<p class="aviso" id="m-v-delcat">Este producto está en el Catálogo (${H.esc(delCat.catalogoId)}): desde ${H.esc(MS.maestro && MS.maestro.desde ? NOMBRE_MES(MS.maestro.desde) : 'que se armó el catálogo')} su receta sale de ahí (<a href="#catalogo/productos/${H.esc(delCat.catalogoId)}">ver en el Catálogo</a>). Lo que guardes aquí vale solo para los meses anteriores. ${H.info('Asociar y el Catálogo', TXT_ASOC_CAT)}</p>` : ''}
     <p class="ayuda">${H.esc(ventaTxt(p))} en el período${p.recetaCatalogo ? ` · ID de receta en el catálogo: ${H.esc(p.recetaCatalogo)}${catRec ? '' : ' (no está en Producción)'}` : ''}</p>
     <fieldset class="fin-as-tipo"><legend class="sr">Qué es</legend>
       <label class="check"><input type="radio" name="m-vt" value="receta" ${tipo0 === 'receta' ? 'checked' : ''}> Se hace con una receta</label>
@@ -1065,7 +1071,7 @@ function dialogoVinculo(p, el, volver, H) {
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
   // v0.73.0: la lista de reventa (cat_reventa, de la memoria de fs-gastos): activas, más la que ya tenía este producto
   const selRev = d.querySelector('#m-v-revid');
-  import('./reventa.js?v=0.73.0').then(R => R.leer()).then(({ lista }) => {
+  import('./reventa.js?v=0.74.0').then(R => R.leer()).then(({ lista }) => {
     MS.reventa = lista;
     const ofrecer = lista.filter(x => x.estado !== 'archivado' || (v && v.reventaId === x.id)).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
     selRev.innerHTML = `<option value="">${ofrecer.length ? 'Elige…' : 'La lista de reventa está vacía (Catálogo → Reventa)'}</option>` + ofrecer.map(x => `<option value="${H.esc(x.id)}" data-costo="${x.costoNeto ?? ''}" data-nombre="${H.esc(x.nombre)}" ${v && v.reventaId === x.id ? 'selected' : ''}>${H.esc(x.nombre)} · ${H.esc(x.id)} · $${(Math.round(Number(x.costoNeto || 0) * 100) / 100).toLocaleString('es-CL')} / ${H.esc(x.unidad || 'un')}${x.estado === 'archivado' ? ' · archivada' : ''}</option>`).join('');
@@ -1097,7 +1103,7 @@ function dialogoVinculo(p, el, volver, H) {
 // Reglas puras en finanzas-margenes.js. Usa el último costo guardado de cada receta (costos_recetas) y su historial (costo del mes).
 Object.assign(MS, { modo: 'mes', mcCanal: 'todos', mcArea: 'todas', mcOrden: 'mc', mxArea: '', prArea: 'todas', ajMsg: '' });
 const cfgM = () => FMG.configMargenes(MS.costos && MS.costos.config && MS.costos.config.margenes);
-const calcM = (canal = MS.mcCanal) => FMG.calcularMargenes(MS.datos ? MS.datos.porMes || [] : [], MS.vinc || {}, MS.costos || {}, cfgM(), { hoy: hoyTxt(), modo: MS.modo, canal });
+const calcM = (canal = MS.mcCanal) => FMG.calcularMargenes(MS.datos ? MS.datos.porMes || [] : [], MS.vinc || {}, MS.costos || {}, cfgM(), { hoy: hoyTxt(), modo: MS.modo, canal, maestro: MS.maestro || null });
 const pctM = (v, d = 1) => (v === null || v === undefined || !isFinite(v) ? '—' : `${(Math.round(v * 10 ** d) / 10 ** d).toLocaleString('es-CL')}\u00a0%`);
 const pctF = v => pctM(v * 100);
 const unidTxt = f => `${cantM(f.unidadesL)}${f.lectura === 'kg' ? ' kg' : ''}`;
@@ -1255,7 +1261,7 @@ function badgeDif(c) {
 }
 function htmlPrecios(H) {
   const cfg = cfgM(), r = calcM('todos'), k = FMG.costosVentaPeriodo(r.totales, cfg);
-  const filas = FMG.tablaPrecios(FMG.conListas(r.filas, MS.datos && MS.datos.catalogo ? MS.datos.catalogo.caja : {}), (MS.costos && MS.costos.docs) || {}, cfg, { ...k, vinculos: MS.vinc || {} });
+  const filas = FMG.tablaPrecios(FMG.conListas(r.filas, MS.datos && MS.datos.catalogo ? MS.datos.catalogo.caja : {}), (MS.costos && MS.costos.docs) || {}, cfg, { ...k, vinculos: vincEf() });
   const conRev = filas.some(f => f.area === FV.REVENTA) || MS.prArea === FV.REVENTA;   // v0.69.1: Reventa solo si tiene productos
   const areasPr = FV.AREAS.filter(a => a !== FV.REVENTA || conRev);
   const areas = areasPr.filter(a => MS.prArea === 'todas' || a === MS.prArea);

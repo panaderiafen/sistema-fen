@@ -1,7 +1,10 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.3.0 (2026-10-04)
+//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.4.0 (2026-10-21)
+//  v1.4.0: (Sistema Fën v0.74.0, para la caja de la entrega 2b) pedidos de productos de la caja:
+//          solicitudes_producto. La cajera crea un pedido suyo (pendiente) y lo lee; la administración
+//          los lee y los resuelve (aprobada o rechazada). Nada se borra. Todo lo demás queda igual.
 //  v1.3.0: agenda de Sistema Fën: agenda (lo de Fën, administración) y
 //          agenda_personal (lo personal: solo lo ve y cambia quien lo creó).
 //          Nada se borra: se marca "quitado". Todo lo demás queda igual.
@@ -226,6 +229,17 @@ service cloud.firestore {
       allow read: if conSesion() && resource.data.uid == request.auth.uid;
       allow create: if esAdmin() && request.resource.data.uid == request.auth.uid;
       allow update: if conSesion() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ── v1.4.0 · Pedidos de productos de la caja (los resuelve Sistema Fën → Catálogo → Productos) ──
+    match /solicitudes_producto/{id} {
+      allow read: if esAdmin() || (opera() && resource.data.por == request.auth.token.email);
+      allow create: if (esAdmin() || opera())
+                    && request.resource.data.estado == 'pendiente'
+                    && request.resource.data.por == request.auth.token.email
+                    && request.resource.data.nombre is string && request.resource.data.nombre.size() > 0;
+      allow update: if esAdmin() && request.resource.data.estado in ['aprobada', 'rechazada'];
       allow delete: if false;
     }
 

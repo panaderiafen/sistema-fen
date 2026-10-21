@@ -6,11 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.73.0';
-import * as FR from './finanzas-resultados.js?v=0.73.0';
-import * as FE from './finanzas-eerr.js?v=0.73.0';
-import * as FC from './finanzas-costos.js?v=0.73.0';
-import * as SP from './sii-pendientes.js?v=0.73.0';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.74.0';
+import * as FR from './finanzas-resultados.js?v=0.74.0';
+import * as FE from './finanzas-eerr.js?v=0.74.0';
+import * as FC from './finanzas-costos.js?v=0.74.0';
+import * as SP from './sii-pendientes.js?v=0.74.0';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
 const $ = id => document.getElementById(id);
@@ -114,7 +114,8 @@ function htmlEERR(H, e, prev, R) {
   const congel = e.congelado ? ES.cierres[ES.mes] : null;
   const filasT = [];
   let pisoAnt = 0;
-  const filasVer = FE.FILAS.slice();
+  // v0.74.0: la fila del despacho cobrado (cargos del Catálogo) solo cuando el mes (o el anterior) tiene algo
+  const filasVer = FE.FILAS.filter(f => f.k !== 'cargos' || valorFila(e, 'cargos', 'total') || (prev && valorFila(prev, 'cargos', 'total')));
   const fila = (f, cls = '') => {
     const cmp = ES.comparar ? (() => { const a = prev ? valorFila(prev, f.k, 'total') : null, b = valorFila(e, f.k, 'total'); return `<td class="fin-enum fin-ecmp">${a === null ? '—' : f.signo === '−' ? (a ? '−' + pesos(a) : '—') : pesos(a)}</td><td class="fin-enum fin-ecmp">${a === null ? '—' : varTxt(b, a, f)}</td>`; })() : '';
     return `<tr class="${f.resultado ? 'fin-eres' : ''} ${cls}" data-e-fila="${f.k}"><th scope="row">${f.signo && f.signo !== '' ? `<span class="fin-esig" aria-hidden="true">${f.signo}</span>` : ''}${H.esc(f.t)}${f.abre ? ` <button type="button" class="fin-eabre" id="e-abre-canal" aria-expanded="${!!ES.abiertas.canal}" aria-controls="e-canal">${ic('abajo', 14)}<span class="sr">Ver por canal</span></button>` : ''}</th>${cols.map(c => celda(H, e, f, c)).join('')}<td class="fin-epres" hidden>sin presupuesto</td>${cmp}</tr>`;
@@ -236,6 +237,7 @@ function dialogoDetalle(H, e, k, col) {
   const linea = r => {
     if (r.tipo === 'venta') { const v = k === 'costoDirecto' ? r.costo : k === 'costosVenta' ? r.costoVenta : r.neto; return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(FE.NOMBRE_SUC[r.suc] || r.suc)}</div><span class="ayuda">${nf(r.unidades)} un · venta ${pesos(r.neto)} · costo ${pesos(r.costo)} · costos de venta ${pesos(r.costoVenta)}${r.ok ? '' : ` · ${H.esc(r.motivo || 'sin costo')}`}</span><b class="fin-edval">${pesos(v)}</b></li>`; }
     if (r.tipo === 'gasto') return `<li><div><b>${H.esc(r.item)}</b> · ${fechaTxt(r.fecha)} · ${H.esc(r.area)}</div><span class="ayuda">${H.esc([r.proveedor, r.obs].filter(Boolean).join(' · ') || '—')} · ${H.esc(FR.textoTipo(r.tipoRes))}</span><span class="fin-edacc"><b class="fin-edval">${pesos(r.neto)}</b><button type="button" class="fin-mlink" data-e-ver="${H.esc(r.item)}" data-e-vermes="${H.esc(String(r.fecha).slice(0, 7))}">Ver en Gastos</button></span></li>`;
+    if (r.tipo === 'cargo') return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(FE.NOMBRE_SUC[r.suc] || r.suc)}${r.catalogoId ? ` · ${H.esc(r.catalogoId)}` : ''}</div><span class="ayuda">${nf(r.unidades)} cobrados · cargo del Catálogo (no es venta de un producto)</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
     if (r.tipo === 'merma') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">${r.cantidad ? `${nf(r.cantidad)} ${H.esc(r.unidad || '')} · ` : ''}merma de Producción, neto</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
     if (r.tipo === 'credito') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">Interés de ${nf(r.cuotas)} ${r.cuotas === 1 ? 'cuota pagada' : 'cuotas pagadas'} en el mes (capital ${pesos(r.capital)}, fuera del resultado) · tabla del crédito</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
     if (r.tipo === 'depreciacion') return `<li><div><b>${H.esc(r.item)}</b> · compra del ${fechaTxt(r.fecha)}</div><span class="ayuda">${pesos(r.valor)} ÷ ${nf(r.meses)} meses${r.area ? ' · ' + H.esc(r.area) : ''}</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;

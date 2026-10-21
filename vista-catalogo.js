@@ -6,8 +6,8 @@
 //  lecturas y escrituras en catalogo.js. Queda espacio para las próximas pestañas del catálogo (una sola lista de productos).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as C from './catalogo.js?v=0.73.0';
-import * as CM from './catalogo-modelo.js?v=0.73.0';
+import * as C from './catalogo.js?v=0.74.0';
+import * as CM from './catalogo-modelo.js?v=0.74.0';
 
 const st = { D: null, filtro: 'por_decidir', q: '', msg: '', err: '', cargando: false, ocupado: false };
 export const estado = st;
@@ -25,15 +25,19 @@ const TXT_REVENTA = 'Reventa es lo que se compra hecho para venderlo tal cual. D
 const TXT_LECTURAS = 'Lo que se leyó de cada base al abrir esta pantalla (documentos). Las ventas de 60 días (resúmenes de cierre de la caja y órdenes de B2B) quedan resumidas 6 horas, también en este navegador; las recetas, los productos y los vínculos usan la misma memoria de Producción y Finanzas.\nCambiar el filtro o buscar: 0 lecturas. "Actualizar" vuelve a leer todo.';
 
 let pestana = '';
-const cab = () => `<div class="cabecera"><div><h1 id="t-catalogo">Catálogo</h1><p>Recetas, productos y reventa de Fën</p></div>
-  ${pestana === 'reventa' ? '' : `<div class="botones" style="margin:0;align-items:center"><button type="button" class="btn-sec btn-chico" id="cat-actualizar">Actualizar</button>${H.info('Actualizar', TXT_LECTURAS)}</div>`}</div>
-  <nav class="pestanas" role="tablist" aria-label="Partes del Catálogo"><a role="tab" href="#catalogo" aria-selected="${pestana !== 'reventa'}">Qué está vivo</a><a role="tab" href="#catalogo/reventa" aria-selected="${pestana === 'reventa'}">Reventa</a></nav>`;
+// v0.74.0: pestañas Productos (el catálogo único) y Armar el catálogo (una vez), además de Qué está vivo y Reventa
+const PESTANAS = [['', '#catalogo', 'Qué está vivo'], ['productos', '#catalogo/productos', 'Productos'], ['armar', '#catalogo/armar', 'Armar el catálogo'], ['reventa', '#catalogo/reventa', 'Reventa']];
+const cab = (extra = '') => `<div class="cabecera"><div><h1 id="t-catalogo">Catálogo</h1><p>Recetas, productos y reventa de Fën</p></div>
+  ${pestana === '' ? `<div class="botones" style="margin:0;align-items:center"><button type="button" class="btn-sec btn-chico" id="cat-actualizar">Actualizar</button>${H.info('Actualizar', TXT_LECTURAS)}</div>` : extra}</div>
+  <nav class="pestanas" role="tablist" aria-label="Partes del Catálogo">${PESTANAS.map(([k, href, t]) => `<a role="tab" href="${href}" aria-selected="${pestana === k}">${t}</a>`).join('')}</nav>`;
 
 export async function pintar(el, sub, h) {
   H = h;
-  pestana = sub === 'reventa' ? 'reventa' : '';
+  pestana = ['reventa', 'productos', 'armar'].includes(sub) ? sub : '';
   // v0.73.0: pestaña Reventa (cat_reventa en fen-gastos). Usa lo que "Qué está vivo" ya tiene en memoria (vínculos y productos) si está.
-  if (pestana === 'reventa') { const VR = await import('./vista-reventa.js?v=0.73.0'); return VR.pintar(el, h, { cab, datos: () => st.D }); }
+  if (pestana === 'reventa') { const VR = await import('./vista-reventa.js?v=0.74.0'); return VR.pintar(el, h, { cab, datos: () => st.D }); }
+  // v0.74.0: Productos y Armar el catálogo (vista-productos.js)
+  if (pestana === 'productos' || pestana === 'armar') { const VP = await import('./vista-productos.js?v=0.74.0'); return VP.pintar(el, pestana, h, { cab }); }
   if (!el.dataset.catEventos) { el.dataset.catEventos = '1'; conectar(el); }
   // Cada apertura arma con lo que está en memoria (las ventas de 60 días quedan 6 horas; lo demás, la memoria de siempre)
   el.innerHTML = cab() + '<section class="tarjeta"><div class="vacio" style="border:0">Leyendo recetas, productos y ventas de 60 días…</div></section>';
@@ -84,6 +88,7 @@ const chipSug = f => f.sugerido ? `<span class="chip chip-chico c-naranja">Suger
 const vendido = (cant, ultima, unidad = '') => cant > 0 ? `<b>${nf(cant)}</b>${unidad}${ultima ? ` · última ${H.esc(fechaTxt(ultima))}` : ''}` : '<span class="ayuda">0 en 60 días</span>';
 function acciones(f) {
   const nom = H.esc(f.nombre);
+  if (f.catalogoId) return `<a class="btn-sec btn-chico" href="#catalogo/productos/${H.esc(f.catalogoId)}" aria-label="Ver ${nom} en Productos">En Productos (${H.esc(f.catalogoId)})</a>`;   // v0.74.0
   if (f.archivado) return `<button type="button" class="btn-sec btn-chico" data-cat-react="${H.esc(f.clave)}" aria-label="Reactivar ${nom}">Reactivar</button>`;
   const sinGastos = st.D.estados.gastos !== 'ok';
   return `${f.decision ? '' : `<button type="button" class="btn-sec btn-chico" data-cat-vivo="${H.esc(f.clave)}" aria-label="Marcar vivo: ${nom}" ${sinGastos ? 'disabled' : ''}>${H.icono('check', 16)} Vivo</button>`}

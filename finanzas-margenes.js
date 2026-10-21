@@ -20,7 +20,7 @@
 //     despacho: { modo: 'pct'|'orden', valor }, margenObjetivo: { PAN, BOL, PAS, CAF, REVENTA } (% o null), redondeo: 10|50|100 }
 //  v0.69.1: área REVENTA (las de margen salen de areas.js): una reventa sin área cuenta en REVENTA; la elegida se respeta.
 // ═══════════════════════════════════════════════
-import { AREAS, NOMBRE_AREA, SUCS, canalDeSuc, claveProducto, upv, mesDe, ultimoDia, areaVinculo } from './finanzas-ventas.js?v=0.73.0';
+import { AREAS, NOMBRE_AREA, SUCS, canalDeSuc, claveProducto, upv, mesDe, ultimoDia, areaVinculo, vinculoDeLinea } from './finanzas-ventas.js?v=0.74.0';
 
 export const IVA = 0.19;
 export const TOLERANCIA = 5;           // % de diferencia con el precio sugerido que todavía es "OK"
@@ -141,21 +141,33 @@ export function costoReceta(recetaId, mes, docs, hpr, { hoy, modo = 'mes' } = {}
 // meses: [{ mes, lineas: [líneas de venta], medios: { barros: {…}, ainavillo: {…} } | null, ordenes: n B2B válidas }]
 // vinculos: fin_productos; costos: { docs, hist }; cfg: configMargenes(); opciones: { hoy, modo: 'mes'|'hoy', canal: 'todos'|suc }
 // → { filas, totales, fuentesCosto, comision: { porMes } }
-export function calcularMargenes(meses, vinculos, costos, cfg, { hoy, modo = 'mes', canal = 'todos' } = {}) {
+// v0.74.0: opciones.maestro (finanzas.maestroFinanzas): el vínculo de cada línea sale de su foto → del maestro (desde vigenteDesde)
+// → de fin_productos (finanzas-ventas.vinculoDeLinea). Los cargos (tipo 'cargo': despacho) no son margen de un producto: van aparte
+// en cargos { total, porSuc, lineas } (el estado de resultados los muestra como un ingreso del canal B2B).
+export function calcularMargenes(meses, vinculos, costos, cfg, { hoy, modo = 'mes', canal = 'todos', maestro = null } = {}) {
   const docs = (costos && costos.docs) || {}, hpr = histPorReceta(costos && costos.hist);
   const F = {}, fuentes = { hoy: 0, mes: 0, hoy_sin_hist: 0 }, tasas = [];
+  const cargos = { total: 0, porSuc: {}, lineas: [] };
+  vinculos = vinculos || {};
   (meses || []).forEach(M => {
     const lineas = (M.lineas || []);
-    // Venta neta B2B del mes (sin "no es un producto"), para repartir el despacho por orden
-    const netoB2b = lineas.filter(l => l.suc === 'b2b').filter(l => { const v = vinculos[claveProducto('b2b', l.productoId)]; return !(v && v.tipo === 'ignorar'); }).reduce((a, l) => a + num(l.neto), 0);
+    const vDe = l => vinculoDeLinea(l, vinculos, maestro, M.mes);
+    // Venta neta B2B del mes (sin "no es un producto" ni cargos), para repartir el despacho por orden
+    const netoB2b = lineas.filter(l => l.suc === 'b2b').filter(l => { const v = vDe(l); return !(v && (v.tipo === 'ignorar' || v.tipo === 'cargo')); }).reduce((a, l) => a + num(l.neto), 0);
     const despachoMes = cfg.despacho.modo === 'orden' ? cfg.despacho.valor * num(M.ordenes) : 0;
     const tasaSuc = {};
     ['barros', 'ainavillo'].forEach(sc => { tasaSuc[sc] = tasaComision(M.medios && M.medios[sc], cfg); });
     tasas.push({ mes: M.mes, barros: tasaSuc.barros, ainavillo: tasaSuc.ainavillo });
     lineas.forEach(l => {
       if (canal !== 'todos' && l.suc !== canal) return;
-      const cn = canalDeSuc(l.suc), clave = claveProducto(cn, l.productoId), v = vinculos[clave];
+      const cn = canalDeSuc(l.suc), clave = claveProducto(cn, l.productoId), v = vDe(l);
       if (v && v.tipo === 'ignorar') return;
+      if (v && v.tipo === 'cargo') {
+        const n = num(l.neto); cargos.total += n; cargos.porSuc[l.suc] = (cargos.porSuc[l.suc] || 0) + n;
+        const x = cargos.lineas.find(y => y.clave === clave && y.suc === l.suc);
+        if (x) { x.neto += n; x.cantidad += num(l.cantidad); } else cargos.lineas.push({ clave, suc: l.suc, nombre: s(l.nombre), catalogoId: s(v.catalogoId), neto: n, cantidad: num(l.cantidad) });
+        return;
+      }
       const tipo = v && (v.tipo === 'receta' || v.tipo === 'reventa') ? v.tipo : 'sin';
       const k = tipo === 'receta' ? 'r:' + v.receta : (tipo === 'reventa' ? 'v:' : 's:') + clave;
       const u = upv(v), cant = num(l.cantidad), unidades = cant * u, neto = num(l.neto);
@@ -199,7 +211,7 @@ export function calcularMargenes(meses, vinculos, costos, cfg, { hoy, modo = 'me
   }).filter(f => f.neto !== 0 || f.cantidad !== 0);
   const conCosto = filas.filter(f => f.ok), mcTotal = conCosto.reduce((a, f) => a + f.mc, 0);
   filas.forEach(f => { f.pctMcTotal = f.ok && mcTotal ? f.mc / mcTotal * 100 : null; });
-  return { filas, totales: totalesMargen(filas), fuentes, tasas };
+  return { filas, totales: totalesMargen(filas), fuentes, tasas, cargos };
 }
 const vacioT = () => ({ neto: 0, costo: 0, comision: 0, despacho: 0, costoVenta: 0, mc: 0, mcPct: null, n: 0 });
 const cerrar = t => ({ ...t, costoVenta: t.comision + t.despacho, mc: t.neto - t.costo - t.comision - t.despacho, mcPct: t.neto > 0 ? (t.neto - t.costo - t.comision - t.despacho) / t.neto * 100 : null });

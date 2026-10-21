@@ -22,7 +22,7 @@
 //    La merma enviada en la caja y todavía no registrada (entradas.merma_AAAAMMDD) cuenta como merma de ese lote.
 // ═══════════════════════════════════════════════
 
-export const VERSION = '0.73.0';
+export const VERSION = '0.74.0';
 export const SUCS = ['barros', 'ainavillo'];
 export const NOMBRE_SUC = { barros: 'Barros Arana', ainavillo: 'Ainavillo' };
 export const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -95,6 +95,13 @@ export function mapaProductos(vinculos) {
 }
 const idDoc = t => s(t).replace(/\//g, '_').replace(/^\.+$/, '_').slice(0, 300) || '_';
 export const claveProducto = (canal, pid) => `${canal}_${idDoc(pid)}`;
+// v0.74.0 · Una línea B2B sin productoId (copiada de la planilla) lleva la MISMA clave que en Finanzas: 'n-' + el nombre en minúsculas
+// sin tildes ni signos (finanzas-ventas.idProductoB2b). Antes aquí quedaba 'b2b__' y su vínculo de Finanzas no se encontraba.
+const normalizarFV = t => s(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ').trim();
+const slugFV = t => normalizarFV(t).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'sin-nombre';
+export const idProductoB2b = l => s(l && l.productoId).trim() || 'n-' + slugFV(l && l.producto);
+// v0.74.0 · La foto de la venta (línea B2B guardada al crear la orden: catalogoId, tipo, area, recetaId, unidadesPorVenta) manda
+export const fotoPan = l => (l && s(l.catalogoId) && s(l.tipo) ? { pan: l.tipo === 'receta' && s(l.area).toUpperCase() === 'PAN' && !!s(l.recetaId), receta: s(l.recetaId), upv: num(l.unidadesPorVenta) > 0 ? num(l.unidadesPorVenta) : 1 } : null);
 
 // Productos sin asociar que parecen de Panadería: de la caja con área PAN en su catálogo (vendidos o ingresados en la ventana)
 // y de B2B pedidos en la ventana (B2B no trae área: todo lo pedido sin vínculo).
@@ -257,9 +264,11 @@ export function b2bPorDia(ordenes, mapa) {
     const f = s(o.fecha).slice(0, 10), cli = s(o.clienteId) || s(o.cliente) || 'sin-cliente';
     nombres[cli] = s(o.cliente) || nombres[cli] || cli;
     (o.lineas || []).forEach(l => {
-      const v = mapa.pan[claveProducto('b2b', l.productoId)], c = num(l.cantidad);
+      const pid = idProductoB2b(l), c = num(l.cantidad), foto = fotoPan(l), k = claveProducto('b2b', pid);
       if (!(c > 0)) return;
-      if (!v) { sin.push({ productoId: s(l.productoId), nombre: s(l.producto), cantidad: c }); return; }
+      if (foto && !foto.pan) return;   // la foto dice que no es pan (otra área, reventa o cargo)
+      const v = foto ? { receta: foto.receta, upv: foto.upv } : mapa.pan[k];
+      if (!v) { if (!mapa.otros.has(k)) sin.push({ productoId: pid, nombre: s(l.producto), cantidad: c }); return; }
       const u = c * v.upv;
       const d = porDia[f] || (porDia[f] = {}); d[v.receta] = (d[v.receta] || 0) + u;
       const pc = ((porCliente[f] || (porCliente[f] = {}))[cli] || (porCliente[f][cli] = {})); pc[v.receta] = (pc[v.receta] || 0) + u;

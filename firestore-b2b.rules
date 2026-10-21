@@ -1,8 +1,12 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.6.0 (2026-10-08)
+//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.7.0 (2026-10-21)
 //
+//  v1.7.0: (Sistema Fën v0.74.0 · logística v1.3.0) logística lee config/catalogoDisponible (la lista
+//          de productos del Catálogo que todavía no están en B2B, la escribe Sistema Fën) y
+//          crea órdenes sin marcarlas para la planilla (planillaPendiente false: la copia está apagada).
+//          Todo lo demás queda igual.
 //  v1.6.0: cobranza/{clienteId}: compromisos de pago, "dice que ya pagó" y gestiones de cobranza;
 //          solo administración; las gestiones solo se agregan (nunca se quitan).
 //  v1.5.0: conciliación: deshacer (un abono resuelto vuelve a "pendiente" solo sumando 1 a
@@ -68,7 +72,8 @@ service cloud.firestore {
           && nuevo().estadoPago == 'PENDIENTE' && nuevo().fechaPago == null
           && nuevo().estado == 'activa' && nuevo().archivada == false
           && nuevo().quitadoEnPlanilla == false
-          && nuevo().planillaPendiente == true;
+          // v1.7.0: true (logística hasta la v1.2.1) o false (v1.3.0: copia a la planilla apagada)
+          && nuevo().planillaPendiente is bool;
     }
     // El contador sube exactamente 1 en la misma escritura, y n es el valor que tenía
     function tomaElNumero(n) {
@@ -181,8 +186,8 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /config/{id} {
-      // logística lee si la base nueva ya está en uso (config/b2b)
-      allow read: if esAdmin() || (esLogistica() && id == 'b2b');
+      // logística lee si la base nueva ya está en uso (config/b2b) y, v1.7.0, la lista del Catálogo (config/catalogoDisponible)
+      allow read: if esAdmin() || (esLogistica() && id in ['b2b', 'catalogoDisponible']);
       allow create, update: if esAdmin();
       allow delete: if false;
     }

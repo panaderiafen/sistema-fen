@@ -150,7 +150,8 @@ export function armar(datos) {
     return {
       grupo: canal, id: p.id, clave: claveRevision(canal, p.id), nombre: s(p.nombre) || p.id, area: areaDe(p.area || p.categoria), areaTxt: s(p.area || p.categoria),
       vinculo: vin, vinculoTxt: textoVinculo(vin, porId), reventa: vin.tipo === 'reventa', cantidad, ultima: ventas ? ventas.ultima : '',
-      archivado, decision: viv, estado: estadoFila(archivado, viv), sugerido: !archivado && !viv && cantidad <= 0,
+      // v0.74.0: un producto unido al Catálogo (catalogoId) se archiva en Catálogo → Productos (así el maestro y el canal no se separan)
+      catalogoId: s(p.catalogoId), archivado, decision: viv, estado: estadoFila(archivado, viv), sugerido: !archivado && !viv && cantidad <= 0 && !s(p.catalogoId),
       archivadoInfo: canal === 'b2b' ? (archivado ? { en: p.cambiadoEn || null, por: s(p.cambiadoPor) } : null) : null
     };
   };

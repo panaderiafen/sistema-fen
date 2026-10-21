@@ -13,7 +13,7 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
-} from './firebase.js?v=0.73.0';
+} from './firebase.js?v=0.74.0';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -43,6 +43,32 @@ export function olvidarProductos() { _prods = null; }
 export async function cambiarActivoProducto(id, activo) {
   await updateDoc(doc(db, 'productos', id), { activo: !!activo });
   const p = (_prods || []).find(x => x.id === id); if (p) p.activo = !!activo;
+}
+// v0.74.0 · Catálogo (Etapa 2): la copia del producto en la caja la escribe SOLO Sistema Fën (Catálogo → Productos).
+// crear = documento nuevo (su ID es el del maestro, PR####); si no, cambia solo los campos dados (los que ya existían conservan su ID:
+// la historia de ventas está guardada con él). Reglas fen-ventas v1.3.0: productos create/update de la administración (sin cambio).
+export async function escribirProducto(id, campos, { crear = false } = {}) {
+  if (crear) {
+    const sn = await getDoc(doc(db, 'productos', id)); lecturasProductos++;
+    if (sn.exists() && sn.data().catalogoId && sn.data().catalogoId !== campos.catalogoId) throw new Error(`En la caja ya hay un producto con el ID ${id} de otro producto del catálogo.`);
+    if (sn.exists()) await updateDoc(doc(db, 'productos', id), campos); else await setDoc(doc(db, 'productos', id), campos);
+  } else await updateDoc(doc(db, 'productos', id), campos);
+  if (_prods) { const p = _prods.find(x => x.id === id); if (p) Object.assign(p, campos); else _prods.push({ id, ...campos }); }
+}
+// Las pestañas (áreas) de la caja: fen-ventas areas (las 4 de siempre si no hay)
+export async function areasCaja() { return [...(await areas())]; }
+// v0.74.0 · Pedidos de productos de la caja (los escribe la caja desde la entrega 2b): fen-ventas solicitudes_producto
+// { tipo 'producto', nombre, catalogoId | recetaId | reventaId, sucursal, precioSugerido, nota, estado 'pendiente', por, en }.
+// Necesita las reglas de fen-ventas v1.4.0 (ver README); sin ellas → { estado: 'sin_reglas', lista: [] } (no corta nada).
+export async function solicitudesProducto() {
+  try {
+    const sn = await getDocs(query(collection(db, 'solicitudes_producto'), where('estado', '==', 'pendiente')));
+    lecturasProductos += Math.max(1, sn.docs.length);
+    return { estado: 'ok', lista: sn.docs.map(d => ({ id: d.id, ...d.data() })) };
+  } catch (e) { if (e && e.code === 'permission-denied') return { estado: 'sin_reglas', lista: [] }; throw e; }
+}
+export async function resolverSolicitudProducto(id, cambios) {
+  await updateDoc(doc(db, 'solicitudes_producto', id), { ...cambios, resuelta: { por: (auth.currentUser && auth.currentUser.email) || '', en: Timestamp.now() } });
 }
 async function areas() {
   if (!_areas) { try { _areas = (await getDocs(collection(db, 'areas'))).docs.map(d => d.id); } catch (e) { _areas = []; } }
