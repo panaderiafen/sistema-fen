@@ -12,10 +12,10 @@
 //  arreglo "sin IVA" opcional con su vista previa, fichas de proveedores, dejar privados los archivos y revisar la planilla).
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as GB from './gastos-base.js?v=0.72.1';
-import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.72.1';
-import * as Gastos from './gastos.js?v=0.72.1';
-import * as GP from './gastos-planilla.js?v=0.72.1';
+import * as GB from './gastos-base.js?v=0.73.0';
+import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.73.0';
+import * as Gastos from './gastos.js?v=0.73.0';
+import * as GP from './gastos-planilla.js?v=0.73.0';
 
 const st = { prep: null, ctrl: null, msg: '', copiando: false, leyendo: false, controlando: false,
   prov: { datos: null, corriendo: false, msg: '', err: '' },
@@ -70,7 +70,7 @@ export async function pintar(el, cab, H) {
         ? '<p class="ayuda" id="gb-copia-cerrada">Gastos ya trabaja con la base nueva: la copia desde la planilla ya no se usa (copiaría de vuelta lo que la base pasó a la planilla). Ahora es al revés: mira "Copia a la planilla".</p>'
         : seccionCopia(H)) : ''}
       ${ok ? pliegue('control', 'Control de totales', resCtrl, seccionControl(H)) : ''}
-      ${ok ? pliegue('planilla', 'Copia a la planilla', `<span id="gb-planilla-chip">${chipPlanilla()}</span>`, seccionPlanilla(H)) : ''}
+      ${ok ? pliegue('planilla', 'Copia a la planilla', '<span class="chip c-gris" id="gb-planilla-chip">Apagada</span>', `<p class="ayuda" id="gb-planilla-estado">Apagada desde la v0.73.0 ${H.info('Copia a la planilla apagada', TXT_APAGADA)}</p>`) : ''}
       ${ok ? pliegue('proveedores', 'Proveedores', `<span id="gb-prov-res">${resumenProv(H)}</span>`, `<div id="gb-prov">${seccionProv(H)}</div>`) : ''}
       ${ok ? pliegue('cambio', 'Cambio a la base nueva', fuente.fuente === 'base' ? '<span class="chip c-verde">Gastos en la base nueva</span>' : '<span class="chip c-gris">Gastos en la planilla</span>', `<div id="gb-cambio">${seccionCambio(fuente, H)}</div>`) : ''}
       ${pliegue('drive', 'Archivos en Drive', st.drive.listo ? '<span class="chip c-verde">Privados</span>' : '', `<div id="gb-drive">${seccionDrive(H)}</div>`)}
@@ -248,6 +248,8 @@ function chipPlanilla() {
   if (e.pendientes === null || e.corriendo) return '<span class="chip c-gris">Revisando</span>';
   return e.pendientes ? '<span class="chip c-amarillo">Por pasar</span>' : '<span class="chip c-verde">Al día</span>';
 }
+// v0.73.0 (Etapa 1): la copia en vivo a la planilla está apagada
+const TXT_APAGADA = 'Desde la v0.73.0, lo que haces en Gastos ya no se copia a la planilla (Looker Studio salió del plan). La planilla de Gastos queda como estaba, como historial: no se borra nada.\nEn su lugar, una vez al mes bajas el respaldo en Excel (Configuración → Respaldo): trae los gastos, vencimientos, documentos del SII y cargos de la cartola del mes, más B2B, la caja y los catálogos.\nLa copia de la Agenda a Google Calendar sigue igual.';
 function seccionPlanilla(H) {
   const e = GP.estado();
   const u = e.ultima;
@@ -267,6 +269,7 @@ function conectarPlanilla(H) {
     const chip = $('gb-planilla-chip'); if (chip) chip.innerHTML = chipPlanilla();
     const b = $('gb-planilla-pasar'); if (b) b.addEventListener('click', () => GP.pasar());
   };
+  if (GP.APAGADA) return;   // v0.73.0: la copia está apagada (el pliegue solo lo dice)
   soltarPlanilla = GP.alCambiar(repintar);
   repintar();
   GP.revisar().catch(() => {});
@@ -372,7 +375,7 @@ function conectarCambio(f, H, otra) {
 // ── v0.48.0 · Proveedores (etapa G3) ──
 // Con la base nueva, las sugerencias al cargar del SII salen de proveedores/{rut}: lo que se clasificó con cada proveedor
 // y cada producto en los últimos 2 años. Se actualiza solo al importar o vincular; "Armar fichas" las arma desde cero.
-const fsSii = () => import('./gastos-sii-fs.js?v=0.72.1');
+const fsSii = () => import('./gastos-sii-fs.js?v=0.73.0');
 const TXT_PROV = 'Al cargar un archivo del SII, Sistema Fën sugiere cómo clasificar cada documento según cómo clasificaste antes a ese proveedor y a cada uno de sus productos (los últimos 2 años).\nCon la base nueva, eso queda guardado en una ficha por proveedor. Cada importación o vínculo la actualiza sola.\n"Armar fichas de proveedores" las arma desde cero con todo lo que hay en la base nueva (lo copiado de la planilla y lo hecho después). Hazlo una vez, después del cambio a la base nueva. Repetirlo no hace daño.\nNo cambia ningún gasto ni la planilla.';
 function resumenProv(H) {
   const d = st.prov.datos;

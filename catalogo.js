@@ -12,16 +12,17 @@
 //  Escrituras: archivar o reactivar = 1 por receta o producto (+1 de la marca de recetas en fen-produccion); "Vivo" = 1 en
 //  cat_revision. Cada acción deja 1 línea en el historial de Sistema Fën (la escribe la pantalla).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, getDocs, query, where } from './firebase.js?v=0.72.1';
-import * as P from './produccion.js?v=0.72.1';
-import * as Caja from './caja.js?v=0.72.1';
-import * as B from './b2b.js?v=0.72.1';
-import * as F from './finanzas.js?v=0.72.1';
-import * as GB from './gastos-base.js?v=0.72.1';
-import * as FBG from './fs-gastos.js?v=0.72.1';
-import * as M from './fs-memoria.js?v=0.72.1';
-import * as Cuota from './fs-cuota.js?v=0.72.1';
-import * as CM from './catalogo-modelo.js?v=0.72.1';
+import { auth, db, collection, getDocs, query, where } from './firebase.js?v=0.73.0';
+import * as P from './produccion.js?v=0.73.0';
+import * as Caja from './caja.js?v=0.73.0';
+import * as B from './b2b.js?v=0.73.0';
+import * as F from './finanzas.js?v=0.73.0';
+import * as GB from './gastos-base.js?v=0.73.0';
+import * as FBG from './fs-gastos.js?v=0.73.0';
+import * as M from './fs-memoria.js?v=0.73.0';
+import * as Cuota from './fs-cuota.js?v=0.73.0';
+import * as CM from './catalogo-modelo.js?v=0.73.0';
+import * as RV from './reventa-modelo.js?v=0.73.0';
 
 export const TTL_VENTAS = 6 * 3600e3;
 const PRE = 'cat:';
@@ -82,8 +83,9 @@ export async function cargar({ hoy = hoyTxt(), forzar = false } = {}) {
   const gastos = (async () => {
     const cx = await GB.conexion().catch(e => ({ estado: 'error', error: e }));
     if (cx.estado !== 'ok') return { estado: cx.estado, vinculos: {}, revision: {} };
-    const [vinculos, rev] = await Promise.all([F.leerVinculos(), revision()]);
-    return { estado: 'ok', vinculos, revision: rev };
+    // v0.73.0: la reventa (cat_reventa) cuenta en Vivo / Archivado
+    const [vinculos, rev, reventa] = await Promise.all([F.leerVinculos(), revision(), FBG.getDocs(FBG.collection(cx.db, 'cat_reventa')).then(sn => sn.docs.map(d => ({ ...d.data(), id: d.id }))).catch(() => [])]);
+    return { estado: 'ok', vinculos, revision: rev, reventa };
   })();
   const [coc, gas, cat, vc, vb] = await Promise.all([cocina, gastos, F.catalogosVenta(), ventasCaja(desde, hoy, forzar), ventasB2b(desde, hoy, forzar)]);
   uso.cocina = Math.max(0, Cuota.produccion.usoHoy().lecturas - l0.p);
@@ -92,12 +94,17 @@ export async function cargar({ hoy = hoyTxt(), forzar = false } = {}) {
   uso.b2b += cat.lecturas || 0;   // los productos de B2B (si no estaban en la memoria de Finanzas)
   const datos = {
     recetas: coc.recetas || [], caja: Object.values(cat.caja || {}), b2b: cat.b2bEstado === 'ok' ? Object.values(cat.b2b || {}) : [],
-    vinculos: gas.vinculos || {}, revision: gas.revision || {}, ventasCaja: vc || {}, ventasB2b: vb.ventas || {}
+    vinculos: gas.vinculos || {}, revision: gas.revision || {}, ventasCaja: vc || {}, ventasB2b: vb.ventas || {}, reventa: gas.reventa || []
   };
-  return { hoy, desde, estados: { cocina: coc.estado, gastos: gas.estado, b2b: cat.b2bEstado === 'ok' ? vb.estado : cat.b2bEstado }, datos, vista: CM.armar(datos), uso: { ...uso } };
+  return { hoy, desde, estados: { cocina: coc.estado, gastos: gas.estado, b2b: cat.b2bEstado === 'ok' ? vb.estado : cat.b2bEstado }, datos, vista: armarTodo(datos), uso: { ...uso } };
 }
 // Vuelve a armar con lo que ya está en memoria (después de un cambio): 0 lecturas
-export const rearmar = D => ({ ...D, vista: CM.armar(D.datos) });
+// v0.73.0: Vivo y Archivado cuentan también la reventa (activa = viva; archivada = archivada)
+export function armarTodo(datos) {
+  const v = CM.armar(datos), r = RV.resumen(datos.reventa || []);
+  return { ...v, resumen: { ...v.resumen, vivo: v.resumen.vivo + r.activos, archivado: v.resumen.archivado + r.archivados }, reventa: r };
+}
+export const rearmar = D => ({ ...D, vista: armarTodo(D.datos) });
 
 // ── Escrituras ──
 // "Vivo": cat_revision/{tipo}_{id} = { decision: 'vivo', en, por } (con su historial; nada se borra)

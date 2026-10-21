@@ -52,17 +52,24 @@
 //  · v0.72.1: AJUSTE DE SÁBADO (Cocina v0.17.4): la bodega y el Plan de Panadería usan cocina/modelo.js → ajusteDelDia (vía
 //    consumo.ajustesDe), la misma regla de Cocina. Configuración muestra el ajuste de sábado de cada receta (solo para mirar,
 //    con los ajustes de la memoria compartida con la bodega).
+//  · v0.73.0 (ETAPA 1): LA BASE DE COCINA ES LA MAESTRA de recetas y materias primas. Aprobar una propuesta escribe recetas/{id},
+//    versiones/{id}_v{n} y, si es sub receta, su entrada SR… en mps, SOLO en fen-produccion (IDs como los del script: ÁREA + pid;
+//    SR + hora + 2 al azar). Las materias primas pedidas se crean en mps con el ID que sigue (MP### / IN###, el mayor + 1) y su precio
+//    va a fen-gastos costos_mp (finanzas.js crearPrecioMp). Mover de área, también solo aquí. La planilla de Producción ya no se lee ni
+//    se escribe desde la pantalla (decisión del dueño, 21-oct-2026): la lista publicada (CSV) que leen la caja y logística no recibe
+//    las recetas nuevas hasta la etapa 2. preparar/copiar quedan en el código, sin botón. El costo de una propuesta sale solo de Finanzas.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.72.1';
-import * as FBr from './firebase-produccion.js?v=0.72.1';
-import * as Apps from './apps.js?v=0.72.1';
-import { armar, AREAS } from './produccion-modelo.js?v=0.72.1';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.72.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.73.0';
+import * as FBr from './firebase-produccion.js?v=0.73.0';
+import * as Apps from './apps.js?v=0.73.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.73.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.73.0';
 import * as K from './cocina/consumo.js?v=0.17.4';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.17.4';
-import * as M from './fs-memoria.js?v=0.72.1';
-import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.72.1';
-import { produccion as QP, esCuota } from './fs-cuota.js?v=0.72.1';
+import * as M from './fs-memoria.js?v=0.73.0';
+import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.73.0';
+import * as RM from './recetas-maestro.js?v=0.73.0';
+import { produccion as QP, esCuota } from './fs-cuota.js?v=0.73.0';
 
 // ── v0.63.3: todo pedido a fen-produccion pasa por aquí: se cuenta (Configuración → Uso de la base hoy) y, si Firestore dice
 // "cuota agotada" (resource-exhausted), se muestra el letrero de Producción/Cocina. Cada escritura de Sistema Fën en recetas,
@@ -121,7 +128,7 @@ async function conMarca(col, fn, forzar = false) {
 }
 
 export { AREAS };
-export { resumenPropuesta } from './finanzas-motor.js?v=0.72.1';
+export { resumenPropuesta } from './finanzas-motor.js?v=0.73.0';
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
@@ -447,6 +454,17 @@ export async function mpsYRecetas() {
 
 // ═══════════════ v0.72.0 · Catálogo, Etapa 0: archivar y reactivar recetas ═══════════════
 export async function recetasCatalogo(forzar = false) { return recetasMem(forzar); }
+// v0.73.0 · Respaldo: cuánto costaría leer recetas y materias primas (0 si ya están en la memoria compartida; si no, 1 conteo cada una)
+export async function conteoCocina() {
+  const mk = M.ver('prod:marca', DIA) || {};
+  const en = col => M.ver(`prod:${col}@${mk[col] || '0'}`, DIA) !== undefined;
+  const db = await dbOk(), out = { recetas: 0, mps: 0, preguntas: 0 };
+  for (const col of ['recetas', 'mps']) {
+    if (en(col)) continue;
+    out[col] = (await FB.getAggregateFromServer(FB.collection(db, col), { n: FB.count() })).data().n; out.preguntas++;
+  }
+  return out;
+}
 // Lo que hay de archivo en Firestore ahora (para no pisarlo al escribir recetas enteras): las archivadas (1 consulta; cuesta
 // 1 lectura por archivada) y, de la memoria, el historial de archivo de las reactivadas. → { id: receta }
 async function archivoActual(db) {
@@ -519,22 +537,17 @@ export async function pendientesCocina({ forzar = false } = {}) {
     }, { ttl: 2 * 60000, guardar: true, forzar });
   } catch (e) { return null; }
 }
-// Costo por unidad de la propuesta y de la versión vigente (con los precios de la planilla)
-// v0.63.6: primero el costo neto de Finanzas (motor, con el costo por ingrediente); si no está o le falta algún precio, el script
-// (precios de la planilla), como antes. Siempre se sabe si se vende por unidad (Cafetería o vinculada en Finanzas).
+// Costo por unidad de la propuesta y de la versión vigente
+// v0.73.0 (Etapa 1): SOLO el motor de Finanzas (precios de fen-gastos costos_mp, en neto). Ya no se pregunta al script (los precios de
+// la planilla quedaron como estaban). Lo que no está en la base de Cocina va en "faltan" (no se puede aprobar).
 export async function costear(prop) {
-  let fin = null;
-  try { fin = await (await import('./finanzas.js?v=0.72.1')).costosPropuesta(prop); } catch (e) { console.warn('Recetas por aprobar: sin el motor de Finanzas', e); fin = null; }
-  const okFin = fin && fin.propuesta && !(fin.propuesta.sinPrecio || []).length && (!prop.vigente || (fin.vigente && !(fin.vigente.sinPrecio || []).length));
-  if (okFin) return fin;
-  const recetas = [{ clave: 'propuesta', datos: prop.datos }];
-  if (prop.vigente) recetas.push({ clave: 'vigente', datos: datosDeReceta(prop.vigente) });
-  const r = await script('costear', { recetas });
-  const c = r.costos || {}, d = prop.datos || {}, v = prop.vigente || {};
-  const marca = (x, rr, f) => (x ? { ...x, unidad: rr.unidad === 'g' ? 'g' : 'un', porciones: Number(rr.porciones) || 1, lineas: f ? f.lineas : null } : x);
-  let vpu = fin ? fin.vendePorUnidad : null;
-  if (!vpu) { const g = (d.unidad || v.unidad) === 'g'; vpu = { si: g && prop.area === 'CAF', motivo: g && prop.area === 'CAF' ? 'es de Cafetería' : '' }; }
-  return { fuente: 'planilla', propuesta: marca(c.propuesta, d, fin && fin.propuesta), vigente: prop.vigente ? marca(c.vigente, v, fin && fin.vigente) : null, vendePorUnidad: vpu };
+  const [fin, base] = await Promise.all([
+    import('./finanzas.js?v=0.73.0').then(F => F.costosPropuesta(prop)),
+    mpsYRecetas().catch(() => null)
+  ]);
+  if (!fin || !fin.propuesta) { const e = new Error('Para ver el costo, conecta la base de Gastos y Finanzas (Gastos → Base nueva): los precios están en Finanzas → Costos.'); e.code = 'sin_gastos'; throw e; }
+  const faltan = base ? RM.faltantes(prop.datos, base.mps, base.recetas) : [];
+  return { ...fin, propuesta: { ...fin.propuesta, faltan } };
 }
 const paso = (prop, estado, comentario, extra = {}) => ({
   estado, ...extra,
@@ -565,51 +578,126 @@ export async function destrabar(prop) {
   const db = await dbOk();
   await pasar(db, prop.docId, ['aprobando'], 'en_revision', 'La aprobación quedó a medias: vuelve a revisión');
 }
+// La memoria de recetas y mps queda con lo recién escrito (como archivarRecetas): nadie vuelve a leer las ≈ 300 recetas por un cambio propio
+async function memoriaCon(col, docs) {
+  const actual = await (col === 'recetas' ? recetasMem() : mpsMem()).catch(() => null);
+  if (!actual) { M.olvidar(`prod:${col}@`); return; }
+  const porId = new Map(actual.map(x => [x.id, x]));
+  Object.entries(docs).forEach(([id, d]) => porId.set(id, { id, ...d }));
+  const nueva = [...porId.values()];
+  const mk = M.ver('prod:marca', DIA), clave = `prod:${col}@${(mk && mk[col]) || '0'}`;
+  traspaso[col] = nueva;
+  await M.memo(clave, async () => nueva, { guardar: true, forzar: true, ttl: DIA });
+}
+const sinTs = d => JSON.parse(JSON.stringify(d, (k, v) => (v && typeof v === 'object' && (v._methodName || v.__ts !== undefined || typeof v.toMillis === 'function') ? new Date().toISOString() : v)));
+// v0.73.0 (Etapa 1): aprobar escribe SOLO en la base de Cocina (fen-produccion), que es la maestra. La planilla de Producción ya
+// no se escribe: la lista publicada (CSV) que leen la caja y logística no recibe las recetas nuevas hasta la etapa 2.
+//  1) la propuesta pasa a "aprobando" (la jefa ya no la puede cambiar ni retirar; reglas v1.2.0);
+//  2) en un solo lote: la versión anterior en versiones/{id}_v{n}, la receta en recetas/{id} y, si es sub receta, su entrada en mps
+//     (SR…, con recetaOrigen = id; la receta lleva mpId = SR…);
+//  3) la propuesta pasa a "aprobada" con su recetaId.
+// IDs como los del script: receta nueva = ÁREA + pid; sub receta nueva = SR + hora + 2 al azar. Reintentar no duplica (mismo ID).
 export async function aprobar(prop, comentario) {
-  cambio('recetas', 'mps', 'hoy:');   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
+  cambio('hoy:');
   const db = await dbOk();
-  // 1) Se bloquea ("aprobando"): desde aquí la jefa no puede cambiarla ni retirarla (reglas v1.2.0)
   const p = { ...prop, ...(await pasar(db, prop.docId, ['en_revision'], 'aprobando', '')) };
   const volver = async msg => { try { await pasar(db, p.docId, ['aprobando'], 'en_revision', msg); } catch (e) {} };
-  let r, vig = null, version;
+  const por = authSF.currentUser.email, hoy = CM.hoyTxt();
+  let id, vig = null, version, nueva, docR, docM = null, idM = '';
   try {
-    if (p.recetaId) { const x = await FB.getDoc(FB.doc(db, 'recetas', p.recetaId)); vig = x.exists() ? { id: p.recetaId, ...x.data() } : null; }
-    // Una propuesta hecha sobre una versión anterior no pisa un cambio aprobado después
-    if (vig && p.versionBase && Number(vig.version) !== Number(p.versionBase)) {
-      const e = new Error(`La receta vigente cambió desde que se hizo esta propuesta (era v${p.versionBase}, ahora v${vig.version}). Devuélvela para que la rehagan sobre la vigente.`); e.code = 'version'; throw e;
+    const d = p.datos || {};
+    if (!String(d.nombre || '').trim()) throw new Error('La receta no tiene nombre.');
+    if (!AREAS[p.area]) throw new Error('Área no válida.');
+    if (p.recetaId) {
+      id = p.recetaId;
+      const x = await FB.getDoc(FB.doc(db, 'recetas', id)); vig = x.exists() ? { id, ...x.data() } : null;
+      if (!vig) throw new Error(`La receta ${id} ya no está en la base de Cocina.`);
+      // Una propuesta hecha sobre una versión anterior no pisa un cambio aprobado después
+      if (p.versionBase && Number(vig.version) !== Number(p.versionBase)) {
+        const e = new Error(`La receta vigente cambió desde que se hizo esta propuesta (era v${p.versionBase}, ahora v${vig.version}). Devuélvela para que la rehagan sobre la vigente.`); e.code = 'version'; throw e;
+      }
+      version = (Number(vig.version) || 1) + 1; nueva = false;
+    } else {
+      id = RM.idReceta(p.area, p.pid);
+      if (!RM.idValidoReceta(id, p.area)) throw new Error('Falta el ID de la receta nueva.');
+      const x = await FB.getDoc(FB.doc(db, 'recetas', id));
+      if (x.exists() && String(x.data().propuesta || '') !== String(p.pid)) throw new Error(`Ya existe otra receta con el ID ${id}. Avísame: no se aprueba para no pisarla.`);
+      // Reintento de una aprobación a medias: la receta ya quedó; se vuelve a escribir igual (misma versión)
+      vig = x.exists() ? { id, ...x.data() } : null; version = vig ? Number(vig.version) || 1 : 1; nueva = true;
     }
-    version = (vig ? Number(vig.version) || 1 : 0) + 1;
-    r = await script('aprobar', { area: p.area, recetaId: p.recetaId || '', idNuevo: p.recetaId ? '' : (p.area + String(p.pid)).toUpperCase(), datos: p.datos, version, creadaPor: p.creadaPor || '', aprobadaPor: authSF.currentUser.email });
-  } catch (e) { await volver(''); throw e; }
-  // 2) La planilla ya la tiene: se pasa a la base nueva
-  const a = armar(r.hojas, null);
-  const doc = a.docs.recetas[r.id];
-  if (!doc) { await volver('La planilla la aprobó, pero no volvió la receta'); throw new Error('El script aprobó, pero no devolvió la receta. Usa "Leer la planilla" y "Copiar" para traerla.'); }
-  const b = FB.writeBatch(db);
-  if (vig) b.set(FB.doc(db, 'versiones', `${vig.id}_v${Number(vig.version) || 1}`), { ...vig, archivadaEn: FB.serverTimestamp(), reemplazadaPor: version });
-  b.set(FB.doc(db, 'recetas', r.id), { ...conArchivo(doc, vig), propuesta: p.pid, copiadoEn: FB.serverTimestamp() });   // v0.72.0: si estaba archivada, sigue
-  Object.entries(a.docs.mps).forEach(([id, m]) => b.set(FB.doc(db, 'mps', id), { ...m, copiadoEn: FB.serverTimestamp() }));
-  await b.commit();
-  cambio('recetas', 'mps', 'hoy:');
-  await pasar(db, p.docId, ['aprobando'], 'aprobada', comentario, { recetaId: r.id, versionAprobada: version });
-  return { id: r.id, nueva: r.nueva, version, costo: r.costo };
+    const base = await mpsYRecetas();
+    const faltan = RM.faltantes(d, base.mps, base.recetas);
+    if (faltan.length) { const e = new Error('Hay ingredientes que no están en la base de Cocina: ' + faltan.join(', ') + '.'); e.code = 'faltan'; throw e; }
+    const choca = RM.choqueNombre(d, base.mps, id);
+    if (choca) { const e = new Error(`Ya hay una materia prima llamada "${d.nombre}" (${choca.id}). Devuélvela para que le cambien el nombre a la sub receta.`); e.code = 'nombre'; throw e; }
+    if (d.tipo === 'sub_receta') { const prev = RM.srDe(id, vig, base.mps); idM = prev ? prev.id : RM.idSR(); docM = RM.docSR({ area: p.area, nombre: String(d.nombre).trim() }, id, prev); }
+    docR = RM.docReceta(p, vig && !nueva ? vig : (vig || null), { id, version, por, hoy, mpId: idM });
+    const b = FB.writeBatch(db);
+    if (vig && !nueva) b.set(FB.doc(db, 'versiones', `${vig.id}_v${Number(vig.version) || 1}`), { ...vig, archivadaEn: FB.serverTimestamp(), reemplazadaPor: version });
+    b.set(FB.doc(db, 'recetas', id), { ...conArchivo(docR, vig), aprobadaEnTs: FB.serverTimestamp() });   // v0.72.0: si estaba archivada, sigue
+    if (docM) b.set(FB.doc(db, 'mps', idM), { ...docM, actualizadoEn: FB.serverTimestamp() });
+    await b.commit();
+  } catch (e) { await volver(e.code === 'cuota-agotada' ? '' : ''); throw e; }
+  try { await memoriaCon('recetas', { [id]: sinTs(conArchivo(docR, vig)) }); if (docM) await memoriaCon('mps', { [idM]: sinTs(docM) }); } catch (e) { M.olvidar('prod:recetas@', 'prod:mps@'); }
+  versionDatos++;
+  await pasar(db, p.docId, ['aprobando'], 'aprobada', comentario, { recetaId: id, versionAprobada: version });
+  return { id, nueva, version, mpId: idM || null };
 }
 // Materias primas pedidas: crear (con precio neto y unidad de compra) o habilitar una existente
+// v0.73.0 (Etapa 1): SOLO en Firestore. La materia prima va a la base de Cocina (mps/{MP###|IN###}, sin precio) y su precio a
+// fen-gastos costos_mp (Finanzas → Costos: precio neto por la unidad de compra, origen "A mano"). La planilla ya no se escribe.
 export const UNIDAD_COMPRA = /^(\d+([.,]\d+)?)?\s*(kg|g|lt|l|ml|un|unidad|unidades)$/i;
 export async function resolverSolicitud(sol, datos = {}) {
-  cambio('mps', 'hoy:');   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
-  if (!(sol.tipo === 'habilitar' || datos.habilitarId) && !UNIDAD_COMPRA.test(String(datos.unidad || '').trim())) throw new Error(`"${datos.unidad || ''}" no es una unidad de compra válida. Usa por ejemplo: kg, 25kg, g, lt, 500ml, un, 10un.`);
-  const db = await dbOk();
-  const r = sol.tipo === 'habilitar' || datos.habilitarId
-    ? await script('mp_habilitar', { area: sol.area, mpId: datos.habilitarId || sol.mpId })
-    : await script('mp_crear', { area: sol.area, nombre: datos.nombre || sol.nombre, tipo: datos.tipo || (sol.esInsumo ? 'insumo' : 'mp'), categoria: datos.categoria || '', unidad_compra: String(datos.unidad).trim().toLowerCase(), costo_neto: datos.costoNeto });
-  const a = armar({ MP_maestro: r.hojas.MP_maestro }, null);
-  const b = FB.writeBatch(db);
-  Object.entries(a.docs.mps).forEach(([id, m]) => b.set(FB.doc(db, 'mps', id), { ...m, copiadoEn: FB.serverTimestamp() }));
-  b.set(FB.doc(db, 'solicitudes', sol.docId), { estado: 'resuelta', mpId: r.id, resueltaPor: authSF.currentUser.email, resueltaEn: new Date().toISOString() }, { merge: true });
-  await b.commit();
-  cambio('mps', 'hoy:');
-  return r.id;
+  cambio('hoy:');
+  const db = await dbOk(), por = authSF.currentUser.email, hoy = CM.hoyTxt(), en = new Date().toISOString();
+  const mps = await mpsMem();
+  const refSol = FB.doc(db, 'solicitudes', sol.docId), resuelta = mpId => ({ estado: 'resuelta', mpId, resueltaPor: por, resueltaEn: en });
+  if (sol.tipo === 'habilitar' || datos.habilitarId) {
+    const idH = String(datos.habilitarId || sol.mpId || '');
+    const m = mps.find(x => x.id === idH);
+    if (!m) throw new Error(`La materia prima ${idH} no está en la base de Cocina. Toca Actualizar.`);
+    const areas = RM.conArea(m, sol.area);
+    const b = FB.writeBatch(db);
+    b.update(FB.doc(db, 'mps', idH), { areas, actualizadoEn: FB.serverTimestamp() });
+    b.set(refSol, resuelta(idH), { merge: true });
+    await b.commit();
+    const { id: _z, ...resto } = m;
+    await memoriaCon('mps', { [idH]: { ...resto, areas } }).catch(() => M.olvidar('prod:mps@'));
+    versionDatos++;
+    return idH;
+  }
+  const unidad = String(datos.unidad || '').trim().toLowerCase().replace(',', '.');
+  if (!UNIDAD_COMPRA.test(unidad)) throw new Error(`"${datos.unidad || ''}" no es una unidad de compra válida. Usa por ejemplo: kg, 25kg, g, lt, 500ml, un, 10un.`);
+  const nombre = String(datos.nombre || sol.nombre || '').trim(), tipo = datos.tipo === 'insumo' || (!datos.tipo && sol.esInsumo) ? 'insumo' : 'mp';
+  if (!nombre) throw new Error('Falta el nombre.');
+  if (!(Number(datos.costoNeto) > 0)) throw new Error('Escribe el costo neto (sin IVA) de la unidad de compra.');
+  const rep = mps.find(m => String(m.nombre || '').trim().toLowerCase() === nombre.toLowerCase());
+  if (rep) { const e = new Error(`Ya existe "${nombre}" (${rep.id}). Habilítala en vez de crearla.`); e.code = 'existe'; e.datos = { id: rep.id }; throw e; }
+  // El precio va a Finanzas: sin fen-gastos conectada no se crea (así nunca queda una materia prima sin su precio por error)
+  const F = await import('./finanzas.js?v=0.73.0');
+  if (!(await F.gastosConectada())) throw new Error('Para crearla con su precio, conecta la base de Gastos y Finanzas en este equipo (Gastos → Base nueva).');
+  const doc = RM.docMp({ nombre, tipo, categoria: datos.categoria, unidad, area: sol.area }, { solicitud: sol.docId, por, hoy });
+  // ID = el mayor + 1 del prefijo; si justo existe (otro equipo), se prueba el siguiente
+  let idN = '', saltar = [];
+  for (let k = 0; k < 20 && !idN; k++) {
+    const cand = RM.siguienteIdMp(mps, tipo, saltar);
+    try {
+      await FB.runTransaction(db, async tx => {
+        const ref = FB.doc(db, 'mps', cand), sn = await tx.get(ref);
+        if (sn.exists()) { const e = new Error('ocupado'); e.code = 'id-ocupado'; throw e; }
+        tx.set(ref, { ...doc, creadaEnTs: FB.serverTimestamp() });
+        tx.set(refSol, resuelta(cand), { merge: true });
+      });
+      idN = cand;
+    } catch (e) { if (e.code !== 'id-ocupado') throw e; saltar.push(cand); }
+  }
+  if (!idN) throw new Error('No se pudo elegir un ID libre para la materia prima. Toca Actualizar y vuelve a intentar.');
+  marcar('mps');
+  await memoriaCon('mps', { [idN]: doc }).catch(() => M.olvidar('prod:mps@'));
+  versionDatos++;
+  try { await F.crearPrecioMp(idN, { nombre, tipo, unidadCompra: unidad, precioNeto: Number(datos.costoNeto) }); }
+  catch (e) { const x = new Error(`Quedó creada (${idN}) y habilitada para ${AREAS[sol.area] || sol.area}, pero su precio no se guardó en Finanzas (${(e && e.message) || e}). Ponlo en Finanzas → Costos.`); x.code = 'sin_precio'; x.id = idN; throw x; }
+  return idN;
 }
 export async function rechazarSolicitud(sol, motivo) {
   cambio('hoy:pend');
@@ -625,19 +713,32 @@ export async function recetasDeArea(area) {
   return (await recetasMem()).filter(r => r.area === area && r.estado !== 'archivada').map(r => ({ ...r, sugerida: r.tipo === 'sub_receta' && r.clasificacion !== 'masa_base' && (r.clasificacion === 'relleno' || PARECE_PAS.test(r.nombre || '')) }))
     .sort((a, b) => (b.sugerida - a.sugerida) || String(a.nombre).localeCompare(String(b.nombre), 'es'));
 }
+// v0.73.0 (Etapa 1): mover recetas de área SOLO en la base de Cocina (mismo ID): recetas/{id}.area cambia (con movidaDesde, quién y
+// cuándo) y la sub receta suma el área nueva en mps (sigue habilitada para las dos). La planilla ya no se escribe.
 export async function moverRecetas(ids, desde = 'BOL', hacia = 'PAS') {
-  cambio('recetas', 'mps', 'hoy:alertas');   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
-  const db = await dbOk();
-  const r = await script('mover_area', { desde, hacia, ids }, VERSION_MOVER);
-  const a = armar(r.hojas, null), arch = await archivoActual(db);
+  cambio('hoy:alertas');
+  const db = await dbOk(), por = authSF.currentUser.email, en = new Date().toISOString();
+  const [recs, mps] = await Promise.all([recetasMem(), mpsMem()]);
+  const movidas = [], saltadas = [], cR = {}, cM = {};
   const b = FB.writeBatch(db);
-  Object.entries(a.docs.recetas).forEach(([id, d]) => b.set(FB.doc(db, 'recetas', id), { ...conArchivo(d, arch[id]), movidaDesde: desde, copiadoEn: FB.serverTimestamp() }));
-  Object.entries(a.docs.mps).forEach(([id, m]) => b.set(FB.doc(db, 'mps', id), { ...m, copiadoEn: FB.serverTimestamp() }));
-  await b.commit();
-  cambio('recetas', 'mps', 'hoy:alertas');
-  return { movidas: r.movidas, saltadas: r.saltadas };
+  [...new Set(ids || [])].forEach(id => {
+    const r = recs.find(x => x.id === id);
+    if (!r || r.area !== desde) { saltadas.push(id); return; }
+    const { id: _a, ...resto } = r;
+    cR[id] = { ...resto, area: hacia, movidaDesde: desde, movidaPor: por, movidaEn: en };
+    b.update(FB.doc(db, 'recetas', id), { area: hacia, movidaDesde: desde, movidaPor: por, movidaEn: en });
+    const sr = RM.srDe(id, r, mps);
+    if (sr) { const { id: _b, ...m } = sr; cM[sr.id] = { ...m, areas: RM.conArea(sr, hacia) }; b.update(FB.doc(db, 'mps', sr.id), { areas: cM[sr.id].areas }); }
+    movidas.push(id);
+  });
+  if (movidas.length) {
+    await b.commit();
+    await memoriaCon('recetas', cR).catch(() => M.olvidar('prod:recetas@'));
+    if (Object.keys(cM).length) await memoriaCon('mps', cM).catch(() => M.olvidar('prod:mps@'));
+    versionDatos++;
+  }
+  return { movidas, saltadas };
 }
-
 
 
 // ═══════════════ P4b: merma valorizada (Cocina la anota sin precios) ═══════════════
@@ -678,7 +779,7 @@ export async function mermaDelPeriodo({ desde, hasta, fresco = false }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.72.1')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.73.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
   const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';

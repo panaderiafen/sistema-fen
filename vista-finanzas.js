@@ -12,14 +12,14 @@
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.72.1';
-import * as FC from './finanzas-costos.js?v=0.72.1';
-import * as FS from './finanzas-sii.js?v=0.72.1';
-import * as FM from './finanzas-motor.js?v=0.72.1';
-import * as FV from './finanzas-ventas.js?v=0.72.1';
-import * as FMG from './finanzas-margenes.js?v=0.72.1';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.72.1';
-import * as VR from './vista-finanzas-resultados.js?v=0.72.1';
+import * as F from './finanzas.js?v=0.73.0';
+import * as FC from './finanzas-costos.js?v=0.73.0';
+import * as FS from './finanzas-sii.js?v=0.73.0';
+import * as FM from './finanzas-motor.js?v=0.73.0';
+import * as FV from './finanzas-ventas.js?v=0.73.0';
+import * as FMG from './finanzas-margenes.js?v=0.73.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.73.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.73.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -208,15 +208,17 @@ function filtrar(xs, f, q) {
     .filter(m => !normalizar(q) || coincide(`${m.nombre} ${m.id} ${m.unidadCompra || ''}`, q));
   return r.sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'));
 }
+// v0.73.0 (Etapa 1): costos_mp (fen-gastos) es la única fuente de precios
+const TXT_SOLO_FINANZAS = 'Desde la v0.73.0 los precios viven solo aquí (Finanzas → Costos, en la base de Gastos y Finanzas). La planilla de Producción ya no se actualiza, por eso "Traer precios desde la planilla" ya no está.\nUna materia prima nueva (pedida en Cocina) entra con su precio neto cuando la creas en Producción → Desde Cocina. Después, el precio cambia con la última compra del SII o a mano (con motivo).\nEl costo de las recetas por aprobar, la merma y los márgenes salen de estos precios.';
 function htmlMaestro(H) {
   const xs = lista(), activas = xs.filter(m => m.estado !== 'archivada');
   const cuenta = k => k === 'todas' ? activas.length : filtrar(xs, k, '').length;
   const ult = st.datos.ultimaCarga;
   const prodAviso = st.cx.prod.estado !== 'ok' ? '<p class="aviso" style="margin-top:12px">La base de Producción no está conectada: la lista de materias primas y recetas no se puede leer. Conéctala en <a href="#produccion">Producción</a>.</p>' : '';
   return `<section class="tarjeta" aria-labelledby="t-fin-mp">
-    <div class="titulo-fila fin-titulo"><h2 id="t-fin-mp">Maestro de materias primas ${H.info('Maestro de materias primas con costos', 'Cada materia prima o insumo con lo que trae una unidad de compra (contenido en g, ml o unidades) y su precio neto. Con eso sale el precio por kg, l o unidad que usa el costeo.\nLos precios parten de la planilla (MP_maestro). Se actualizan solos con la última compra del SII (Compras del SII), en neto: lo que trae una unidad de la factura se lleva a la unidad de compra de cada materia prima. Lo que cambies a mano queda "A mano" y la planilla no lo vuelve a pisar.\nCada cambio queda en el historial, con fecha, quién y motivo: nada se borra.\nEl impuesto adicional (harina) se guarda, pero no se suma al costo: en la harina es IVA anticipado y se recupera.\nLas sub recetas aparecen en la lista, pero su costo sale de su receta (Costos → Productos).\nSe guarda en la base de Gastos (fen-gastos): las jefas no lo ven.')}</h2>
-      <button type="button" class="${xs.length ? 'btn-sec' : 'btn'}" id="fin-traer">${ic('bajar', 18)} Traer precios desde la planilla</button></div>
-    <p class="ayuda" id="fin-resumen">${xs.length ? `${nf(activas.length)} activas · ${nf(cuenta('problemas'))} con problemas · última carga desde la planilla: ${ult ? `${fechaTxt(ult.fecha)} (${nf(ult.nuevas)} nuevas, ${nf(ult.cambian)} con cambios)` : '—'}` : 'Todavía no hay precios: tráelos desde la planilla (MP_maestro).'}</p>
+    <div class="titulo-fila fin-titulo"><h2 id="t-fin-mp">Maestro de materias primas ${H.info('Maestro de materias primas con costos', 'Cada materia prima o insumo con lo que trae una unidad de compra (contenido en g, ml o unidades) y su precio neto. Con eso sale el precio por kg, l o unidad que usa el costeo.\nLos precios partieron de la planilla (MP_maestro); desde la v0.73.0 viven solo aquí. Se actualizan solos con la última compra del SII (Compras del SII), en neto: lo que trae una unidad de la factura se lleva a la unidad de compra de cada materia prima. Lo que cambies a mano queda "A mano". Una materia prima nueva entra con su precio al crearla en Producción → Desde Cocina.\nCada cambio queda en el historial, con fecha, quién y motivo: nada se borra.\nEl impuesto adicional (harina) se guarda, pero no se suma al costo: en la harina es IVA anticipado y se recupera.\nLas sub recetas aparecen en la lista, pero su costo sale de su receta (Costos → Productos).\nSe guarda en la base de Gastos (fen-gastos): las jefas no lo ven.')}</h2>
+      <span class="ayuda fin-solo-finanzas" id="fin-traer-off">Precios solo de Finanzas ${H.info('Precios solo de Finanzas', TXT_SOLO_FINANZAS)}</span></div>
+    <p class="ayuda" id="fin-resumen">${xs.length ? `${nf(activas.length)} activas · ${nf(cuenta('problemas'))} con problemas · última carga desde la planilla: ${ult ? `${fechaTxt(ult.fecha)} (${nf(ult.nuevas)} nuevas, ${nf(ult.cambian)} con cambios)` : '—'}` : 'Todavía no hay precios. Cada materia prima nueva entra con su precio al crearla en Producción → Desde Cocina; los demás cambios llegan con las compras del SII o a mano.'}</p>
     <p class="ok-texto" id="fin-msg" role="status">${H.esc(st.msg)}</p><p class="error" id="fin-err" role="alert">${H.esc(st.err)}</p>
     ${prodAviso}
     ${xs.length ? `<div class="filtros fin-filtros">
@@ -254,7 +256,8 @@ function conectarMaestro(el, H) {
   }));
   const filas = $('fin-filas');
   if (filas) filas.addEventListener('click', ev => { const b = ev.target.closest('[data-fin-mp]'); if (b) editar(b.dataset.finMp, el, H, 'mp'); });
-  $('fin-traer').addEventListener('click', () => traer(el, H));
+  // v0.73.0: "Traer precios desde la planilla" ya no tiene botón (la planilla no se actualiza); traer() queda sin uso
+  if ($('fin-traer')) $('fin-traer').addEventListener('click', () => traer(el, H));
 }
 
 // ── Traer precios desde la planilla: vista previa → confirmar ──
@@ -1042,6 +1045,7 @@ function dialogoVinculo(p, el, volver, H) {
     <div id="m-v-rev" class="${tipo0 === 'reventa' ? '' : 'oculto'}">
       <div class="campo"><label for="m-v-area">Área ${H.info('Área de la reventa', 'Lo que se compra hecho y se vende tal cual va al área Reventa: así su venta, su costo de compra y su margen se ven aparte en el estado de resultados.\nPuedes elegir otra área si de verdad corresponde. Una reventa que ya tenía otra área la conserva hasta que la cambies aquí (o con "Pasar los productos de reventa al área REVENTA").')}</label><select id="m-v-area"><option value="">Elige…</option>${FV.AREAS.map(a => `<option value="${a}" ${a === area0 ? 'selected' : ''}>${FV.NOMBRE_AREA[a]}</option>`).join('')}</select>
         <span class="ayuda" id="m-v-area-prop">${v && v.tipo === 'reventa' && v.area && v.area !== FV.REVENTA ? `Hoy está en ${H.esc(FV.NOMBRE_AREA[v.area] || v.area)}. Lo propuesto para la reventa es Reventa.` : 'Propuesta: Reventa.'}</span></div>
+      <div class="campo"><label for="m-v-revid">De la lista de reventa ${H.info('Lista de reventa', 'La reventa del Catálogo (pestaña Reventa), con su ID y su costo neto por unidad. Al elegirla, el costo se copia abajo; lo puedes cambiar para este producto.\nSi no está en la lista, agrégala en Catálogo → Reventa. Un vínculo antiguo sin reventa elegida sigue funcionando igual.')}</label><select id="m-v-revid"><option value="">${v && v.reventaId ? H.esc(v.reventaId) : 'Cargando…'}</option></select></div>
       <div class="campo"><label for="m-v-costo">Costo de compra por unidad, neto (opcional) ${H.info('Costo de la reventa', 'Lo que pagas por una unidad, sin IVA. Por ahora se anota a mano; es el costo directo de la reventa en Margen por producto. Si lo copias de una boleta con IVA, marca la casilla.')}</label>
         <input id="m-v-costo" type="number" inputmode="decimal" min="0" step="any" value="${v && v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? H.esc(String(v.costoReventaNeto)) : ''}">
         <label class="check fin-check"><input type="checkbox" id="m-v-iva"> Lo escribo con IVA (19 %)</label></div></div>
@@ -1059,6 +1063,14 @@ function dialogoVinculo(p, el, volver, H) {
   const tipo = () => d.querySelector('input[name="m-vt"]:checked').value;
   const vis = () => { const t = tipo(); d.querySelector('#m-v-rec').classList.toggle('oculto', t !== 'receta'); d.querySelector('#m-v-rev').classList.toggle('oculto', t !== 'reventa'); d.querySelector('#m-v-upv').classList.toggle('oculto', t === 'ignorar'); d.querySelector('#m-v-extra').classList.toggle('oculto', t === 'ignorar'); };
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
+  // v0.73.0: la lista de reventa (cat_reventa, de la memoria de fs-gastos): activas, más la que ya tenía este producto
+  const selRev = d.querySelector('#m-v-revid');
+  import('./reventa.js?v=0.73.0').then(R => R.leer()).then(({ lista }) => {
+    MS.reventa = lista;
+    const ofrecer = lista.filter(x => x.estado !== 'archivado' || (v && v.reventaId === x.id)).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+    selRev.innerHTML = `<option value="">${ofrecer.length ? 'Elige…' : 'La lista de reventa está vacía (Catálogo → Reventa)'}</option>` + ofrecer.map(x => `<option value="${H.esc(x.id)}" data-costo="${x.costoNeto ?? ''}" data-nombre="${H.esc(x.nombre)}" ${v && v.reventaId === x.id ? 'selected' : ''}>${H.esc(x.nombre)} · ${H.esc(x.id)} · $${(Math.round(Number(x.costoNeto || 0) * 100) / 100).toLocaleString('es-CL')} / ${H.esc(x.unidad || 'un')}${x.estado === 'archivado' ? ' · archivada' : ''}</option>`).join('');
+  }).catch(() => { selRev.innerHTML = `<option value="">${v && v.reventaId ? H.esc(v.reventaId) : 'Sin la lista (conecta la base de Gastos y Finanzas)'}</option>`; });
+  selRev.addEventListener('change', () => { const o = selRev.selectedOptions[0]; if (o && o.value && o.dataset.costo !== '') { d.querySelector('#m-v-costo').value = o.dataset.costo; d.querySelector('#m-v-iva').checked = false; } });
   if (v) F.historialVinculo(p.clave).then(hs => {
     const c2 = d.querySelector('#m-v-hist'); if (!c2) return;
     c2.innerHTML = hs.length ? `<ul class="fin-hist-lista">${hs.map(h => `<li><div><b>${fechaTxt(h.fecha)}</b> · ${H.esc(FV.textoVinculo(h.despues))}</div><span class="ayuda">${h.antes ? `Antes: ${H.esc(FV.textoVinculo(h.antes))} · ` : ''}${H.esc(h.por || '')}${h.nota ? ` · ${H.esc(h.nota)}` : ''}</span></li>`).join('')}</ul>` : '<p class="ayuda">Sin cambios.</p>';
@@ -1067,7 +1079,7 @@ function dialogoVinculo(p, el, volver, H) {
     ev.preventDefault();
     const err = d.querySelector('#m-v-err'), b = d.querySelector('#m-v-si'); err.textContent = '';
     const datos = { canal: p.canal, productoId: p.productoId, nombre: p.nombre, tipo: tipo(), receta: d.querySelector('#m-v-receta').value, area: d.querySelector('#m-v-area').value,
-      costoReventaNeto: d.querySelector('#m-v-costo').value, conIva: d.querySelector('#m-v-iva').checked, unidadesPorVenta: d.querySelector('#m-v-u').value, costoExtraNeto: d.querySelector('#m-v-ex').value, nota: d.querySelector('#m-v-nota').value,
+      costoReventaNeto: d.querySelector('#m-v-costo').value, conIva: d.querySelector('#m-v-iva').checked, reventaId: selRev.value, reventaNombre: (selRev.selectedOptions[0] && selRev.selectedOptions[0].dataset.nombre) || '', unidadesPorVenta: d.querySelector('#m-v-u').value, costoExtraNeto: d.querySelector('#m-v-ex').value, nota: d.querySelector('#m-v-nota').value,
       origen: p.propuesta && p.propuesta.receta === d.querySelector('#m-v-receta').value ? p.propuesta.origen : 'manual' };
     try { FV.armarVinculo(v, datos, { recetas }); } catch (e) { err.textContent = e.message; return; }
     b.disabled = true; b.textContent = 'Guardando…';

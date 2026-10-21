@@ -1,9 +1,73 @@
-# Sistema Fën · v0.72.1
+# Sistema Fën · v0.73.0
 
-**App:** v0.72.1 · **Caja (fen-ventas):** v2.2.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.4 (aparte, repo fen-cocina) · 21 de octubre de 2026
+**App:** v0.73.0 · **Caja (fen-ventas):** v2.2.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (sin cambios) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.4 (sin cambios, aparte, repo fen-cocina) · 21 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.73.0: Etapa 1 (la base de Cocina es la maestra, Reventa, copias a planillas apagadas, respaldo mensual)
+
+Decisiones tuyas: nadie usa ya las apps antiguas; la reventa vive en Sistema Fën y la ingresas tú; las copias en vivo a las planillas se apagan (Looker Studio sale) y en su lugar va un respaldo mensual; el domingo haces tú la masa madre del martes. **Cambio de último momento (21-oct):** aprobar recetas y crear materias primas escriben **solo en Firestore**: no se escribe la planilla de Producción y **no cambia ningún Apps Script**.
+
+- **Dónde va:** repo **sistema-fen**, raíz. Archivos nuevos: `recetas-maestro.js` (IDs y documentos de receta, sub receta y materia prima; sin red), `reventa-modelo.js`, `reventa.js`, `vista-reventa.js` (Catálogo → Reventa), `respaldo-modelo.js`, `respaldo.js`, `vista-respaldo.js` (Configuración → Respaldo). Cambian `produccion.js` (aprobar, materias primas, mover de área y costo: solo Firestore y Finanzas), `vista-produccion.js`, `finanzas.js` (precio de una materia prima nueva; sin "Traer precios desde la planilla"), `vista-finanzas.js` (Asociar con la lista de reventa), `finanzas-ventas.js` (`reventaId`), `catalogo.js` y `vista-catalogo.js` (pestaña Reventa; la reventa cuenta en Vivo/Archivado), `gastos-planilla.js`, `gastos-base.js` y `vista-gastos-base.js` (copia apagada), `b2b.js` y `app.js` (copia de B2B apagada; Respaldo en Configuración; recordatorio en la Agenda; ícono "bajar"), `plan-pan-modelo.js` y `vista-plan-pan.js` (masa madre del domingo), `estilos.css`; los demás, solo la versión. `cocina/` y `fermentacion.js` **no cambian** (siguen idénticos a Cocina v0.17.4).
+- **Apps Script:** **ninguno cambia** (Producción v2.11.0, Gastos v2.18.0, B2B v2.8.2). Nada que pegar.
+- **Reglas de Firestore:** no cambian. fen-produccion v1.8.0 ya deja a la administración escribir `recetas`, `mps`, `versiones` y `solicitudes`; fen-gastos v0.1.0 deja todo a la administración (`cat_reventa` y `cat_config` son nuevas, no necesitan reglas); fen-ventas v1.3.0 deja a la administración escribir `config/respaldo`.
+
+### Qué cambia en cómo trabajas
+1. **Producción → Desde Cocina (aprobar):** la receta aprobada queda **solo en la base de Cocina** (la maestra), con su ID de siempre: receta nueva = **ÁREA + id de la propuesta** en mayúsculas (por ejemplo `PANMX7K2AB`); si es sub receta, su entrada para usarla como ingrediente es **SR + hora + 2 letras** (la que ya tenía la conserva). Un cambio a una vigente sube la versión y la anterior queda en `versiones/{id}_v{n}`. Reintentar no duplica. Si falta un ingrediente en la base de Cocina, o una sub receta se llama igual que una materia prima comprada, no deja aprobar (como antes).
+2. **El costo** de cada propuesta sale **solo de Finanzas** (Finanzas → Costos, en neto). Sin la base de Gastos y Finanzas conectada en el equipo, dice que la conectes.
+3. **(i) "Recetas nuevas en la caja y en logística"** (junto a "Recetas por aprobar"): la caja y logística todavía leen la lista publicada desde la planilla; como la planilla ya no recibe recetas nuevas, **una receta aprobada desde ahora llegará a esas listas en la etapa 2**. Mientras, **los productos los creas tú igual** (en la caja y en Ventas B2B) y en Finanzas → Asociar productos eliges la receta (esa lista sí sale de la base de Cocina).
+4. **Materias primas pedidas:** se crean en la base de Cocina con el **ID que sigue** (`MP###` o `IN###`: el mayor de ese prefijo + 1, contado en la base de Cocina) y su **precio neto** por la unidad de compra queda en **Finanzas → Costos** (origen "A mano", con su historial). "Habilitar" suma el área. Si el nombre ya existe, ofrece "Habilitar esa". Sin la base de Gastos y Finanzas conectada no se crea (así nunca queda una materia prima sin precio).
+5. **"Leer la planilla / Copiar"** y "Control de totales" ya no están. En su lugar, el pliegue **"Recetas y materias primas"** con la (i) **"La base de Cocina es la maestra"** y lo que hay en ella. "Pasar recetas de Bollería a Pastelería" también trabaja solo en la base de Cocina (mismo ID).
+6. **Finanzas → Costos:** ya no está **"Traer precios desde la planilla"**; una (i) "Precios solo de Finanzas" explica que `costos_mp` es la única fuente. Los precios siguen cambiando con la última compra del SII o a mano.
+7. **Catálogo → pestaña Reventa** (`#catalogo/reventa`): lo que se compra hecho, con su ID (`REV###`), costo neto por unidad, unidad y proveedor (RUT y razón social, opcional). **Agregar reventa**, **Cambiar**, **Archivar** y **Reactivar** con diálogos en la página (nada se borra; cada cambio queda en su historial). **"Traer reventa de la planilla"** (una sola vez): lee la lista publicada (CSV) y trae las filas con código de área REV **con su mismo ID**, proponiendo el costo desde Finanzas (productos ya asociados como reventa); lo revisas y corriges antes de guardar. En "Qué está vivo", **Vivo** y **Archivado** cuentan también la reventa.
+8. **Finanzas → Asociar productos → "Es reventa":** nuevo campo **"De la lista de reventa"**: al elegirla se copia su costo (lo puedes cambiar para ese producto) y el vínculo guarda `reventaId`. Los vínculos antiguos sin reventa elegida siguen igual.
+9. **Copias a las planillas apagadas (Gastos y B2B):** lo que haces en Sistema Fën ya no se marca para la planilla (`planillaPendiente` queda en `false`) ni se manda al script (`planilla_sync` de Gastos, `b2b_planilla` de B2B). Gastos → Base nueva → "Copia a la planilla" dice **Apagada** con su (i); en Ventas B2B, "Copia a la planilla apagada" reemplaza a "Copia en la planilla / Pasar ahora" (y ya no está "Volver a la app antigua"). **Las planillas quedan como estaban, como historial.** Sigue igual: la copia de la **Agenda a Google Calendar** (script de Gastos) y la **caja** (fen-ventas: sus cierres y merma a la planilla; eso cambia en la etapa 2).
+10. **Configuración → Respaldo** (`#ajustes/respaldo`): **"Descargar respaldo de <mes>"** (por defecto el mes anterior) arma un Excel en el navegador con 13 hojas: Resumen, Gastos del mes, Vencimientos, SII docs del mes, Cartola cargos del mes, B2B órdenes del mes (una fila por producto), Clientes B2B, Productos B2B, Ventas caja del mes (de cada cierre, por producto), Recetas (con su costo neto de Finanzas), Materias primas (con su precio), Reventa y Catálogo vínculos. **"Descargar respaldo completo de catálogos"**: solo los maestros (recetas, materias primas, reventa, vínculos, productos de la caja y de B2B). **Antes de bajar** muestra cuántos documentos va a leer por base. No escribe en ninguna planilla.
+11. **Agenda:** el **día 1 de cada mes**, "Bajar respaldo de <mes anterior>" (gris; queda como hecho cuando ya lo bajaste), con enlace a Configuración → Respaldo. También en la semana de Hoy cuando toca.
+12. **Plan de Panadería:** el horneado del **martes** (amasado del lunes) lleva la **masa madre del domingo en la tarde, que haces tú** ("Masa madre Dom 25 oct, 19:00 (la haces tú)"; en el texto para copiar y la hoja impresa: "(la hace Emmanuel)"). El lunes sigue: masa madre del viernes, amasado del sábado.
+
+### Cómo queda guardado (para el que venga)
+- **fen-produccion** `recetas/{ÁREA+PID}`: los mismos campos que armaba la copia desde la planilla (área, nombre, estado `consolidada`, tipo, porciones, unidad, harinaTotal, ingredientes `{id, nombre, gramos, unidades, pct}`, insumos, pasos, notas, clasificación, pesoUnidad, planificable, vendeDirecto, seCongela, unidadesPorCaja, version, aprobadaPor, aprobadaEn, mpId, creadaPor) + `propuesta` y `origen: { base: 'sistema-fen', propuesta, id }`. Sin costos. Lo que no maneja Cocina (procedimiento, variante, vende directo) queda como estaba; lo archivado sigue archivado.
+- **fen-produccion** `mps/{SR…}` (sub receta): `{ nombre, categoria 'Sub recetas', tipo 'sub_receta', unidad, estado 'activa', areas, recetaOrigen, … }`; `mps/{MP###|IN###}` (pedida): `{ nombre, categoria, tipo 'mp'|'insumo', unidad (la de compra), estado 'activa', areas: [área], solicitadaPor, origen: { base, solicitud }, creadaPor, creadaEn }`.
+- **fen-gastos** `costos_mp/{id}` de una materia prima nueva: `{ nombre, tipo, estado, unidadCompra, contenido, precioNeto, ivaPct 19, impAdicionalPct 0, precioPorBase, origen 'manual', creadaDesde 'cocina', fecha, por }` + `costos_mp_hist`.
+- **fen-gastos** `cat_reventa/{REV###}` = `{ id, nombre, costoNeto, unidad, proveedor { rut, razon } | null, estado 'activo'|'archivado', origen 'planilla'|'manual', creadoEn, creadoPor, editadoEn, editadoPor, historial [30] }`; `cat_config/reventa = { importadoEn, importadoPor, n }`.
+- **fen-gastos** `fin_productos/{canal}_{id}` de reventa: además `reventaId` y `reventaNombre` (los antiguos sin ellos siguen valiendo).
+- **fen-ventas** `config/respaldo = { meses: { 'AAAA-MM' | 'catalogos': { archivo, hojas, filas, en, por } } }`.
+
+### Lecturas y escrituras (Spark)
+- **Aprobar:** 1 lectura de la receta (o del ID nuevo) + 2 de la propuesta (transacciones); recetas y materias primas de la memoria compartida (0; si no estaban, una vez). Escrituras: 1 lote (receta + versión anterior + sub receta) + 2 de la propuesta + 1 de la marca de cambio. **Ya no se pide nada al script** (antes, el script tardaba y releía la planilla).
+- **Materia prima pedida:** 1 lectura (que el ID esté libre) + 1 (su precio en Finanzas). Escrituras: 2 en fen-produccion (materia prima + pedido) + 1 marca + 2 en fen-gastos (precio + historial).
+- **Reventa:** al abrir, la colección `cat_reventa` (≈ 10–40 documentos, después la memoria) + 1 de `cat_config`; los vínculos y productos, de la memoria de Finanzas. 1 escritura por cambio. Traer de la planilla: la lista publicada no cuesta lecturas de Firestore.
+- **Respaldo del mes:** primero cuenta (≈ 10 lecturas: una por pregunta) y te muestra el estimado. Después lee lo que no está en memoria: en fen-gastos la memoria de siempre (con sus paquetes); en la caja los cierres del mes (≈ 60); en B2B las órdenes del mes (≈ 250–500), clientes y productos (≈ 70); Cocina casi siempre 0. Medido con datos ficticios: 21 (Gastos y Finanzas 17 · caja 1 · B2B 3 · Cocina 0). 1 escritura (`config/respaldo`).
+- **Agenda:** 1 lectura de `config/respaldo` cada 6 horas (y solo si la semana o el mes tiene un día 1).
+- **Copias apagadas:** menos lecturas y escrituras en fen-gastos y fen-b2b (el script ya no revisa lo pendiente cada vez).
+
+### Instalación v0.73.0 (unos 3 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.73.0.zip`, con la carpeta `cocina/` (no cambia).
+3. **Commit changes**.
+4. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC; en el celular, cierra y abre la app).
+
+**Nada en Apps Script, ni en las reglas de Firestore, ni en Cocina.**
+
+### Lista de verificación v0.73.0
+- [ ] Abajo a la izquierda dice **v0.73.0**.
+- [ ] Producción: ya no está "Leer la planilla"; el pliegue "Recetas y materias primas" dice "La base de Cocina es la maestra" (i).
+- [ ] Una receta propuesta en Cocina: Revisar → costo de Finanzas → Aprobar. En Cocina aparece al tiro (o al recargar). La (i) de "Recetas por aprobar" explica lo de la caja y logística.
+- [ ] Una materia prima pedida: Crear con su precio → en Cocina sale como "Lista"; en Finanzas → Costos está con su precio (origen "A mano").
+- [ ] Finanzas → Costos: ya no está "Traer precios desde la planilla" (está la (i) "Precios solo de Finanzas").
+- [ ] Catálogo → **Reventa** → "Traer reventa de la planilla": revisa los costos y guarda. Agrega una nueva, archívala y reactívala.
+- [ ] Finanzas → Márgenes → Asociar un producto de reventa: elige de "De la lista de reventa"; el costo se copia.
+- [ ] Gastos → Base nueva: "Copia a la planilla · Apagada". Ventas B2B: "Copia a la planilla apagada".
+- [ ] Configuración → Respaldo → "Descargar respaldo de septiembre 2026": muestra el estimado, baja el Excel y lo abres (13 hojas). Guárdalo en Drive.
+- [ ] Agenda → noviembre: el 1 dice "Bajar respaldo de octubre".
+- [ ] Plan de Panadería → Martes: "Masa madre Dom …, 19:00 (la haces tú)".
+- [ ] Agenda → un evento con "Copiar a mi Google Calendar": sigue llegando a tu calendario.
+
+**Si algo sale mal:** vuelve a subir la v0.72.1. No se pierde nada de la base: lo aprobado en la v0.73.0 queda en la base de Cocina; la reventa y el respaldo quedan guardados (la v0.72.1 no los muestra). Ojo: la v0.72.1 vuelve a encender las copias a las planillas, y lo hecho mientras estuvieron apagadas no se copia solo.
+
+**Pruebas:** `pruebas/sistemafen/etapa1-v0730.test.js` (16) y las demás suites (`pruebas/resultados-v0730.txt`, con `pruebas/correr-v0730.sh`). Capturas en `pruebas/capturas/etapa1-v0730/` (Reventa y Respaldo a 390 y 1280, y el Excel del mes). Se ajustaron (cambio a propósito, no regresión): `plan-pan-v0710` y `ajuste-sabado-v0721` (masa madre del martes: el domingo), `catalogo-v0720` (pestaña Reventa; sin "Leer la planilla"), `cocina-p1` (costo de Finanzas, aprobar y crear sin script, IDs `MP018`), `cocina-pantallas`, `cocina-pan-masas`, `cocina-tandas-bitacora-v0172`, `fb-v0171` y `ajuste-sabado-v0721` (siembran la base de prueba con la copia desde el código, ya sin botón), `finanzas-f1a` (sin el botón de traer precios), y las de la copia a la planilla de Gastos y B2B (`gastos-g2`, `gastos-g2b`, `gastos-g2c`, `gastos-g3a`, `gastos-g3b`, `gastos-g3c`, `gastos-g3d`, `gastos-v063`, `gastos-v0631`, `conciliacion-v064`, `area-reventa-v0691`, `b2b-v012`, `b2b-v013`): ahora comprueban que la copia está apagada. El Firestore simulado de fen-ventas ahora entiende `<=`, `<` y `>` (como Firestore).
 
 ## Novedades de la v0.72.1: ajuste de sábado (masa para el lunes) y Plan de Panadería sábado → lunes
 

@@ -2256,3 +2256,25 @@ body.cat-ocupado #v-catalogo button { pointer-events: none; opacity: .7; }
 .lista-sab { list-style: none; margin: 6px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .lista-sab li { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--linea, #ECE6DE); min-width: 0; overflow-wrap: anywhere; }
 .lista-sab li:last-child { border-bottom: 0; }
+/* v0.73.0 · Etapa 1: Catálogo → Reventa, Configuración → Respaldo, avisos de copia apagada */
+.rev-botones { align-items: center; gap: 8px; flex-wrap: wrap; }
+.rev-lista { margin-top: 6px; }
+.rev-campos { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 480px) { .rev-campos { grid-template-columns: 1fr; } }
+.rev-traer-dlg { max-width: 640px; }
+.rev-traer-lista { display: flex; flex-direction: column; gap: 4px; max-height: 52vh; overflow-y: auto; margin: 8px 0; }
+.rev-traer-fila { display: grid; grid-template-columns: minmax(0, 1fr) 140px; gap: 4px 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--linea); min-width: 0; }
+.rev-traer-fila .campo { margin: 0; }
+.rev-traer-fila .campo label { font-size: 11.5px; }
+.rev-traer-fila small { grid-column: 1 / -1; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .rev-traer-fila { grid-template-columns: 1fr; } }
+.resp-fila { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; margin-top: 8px; }
+.resp-fila .campo { margin: 0; min-width: 0; flex: 0 1 220px; }
+.resp-fila .campo select { width: 100%; }
+.resp-fila .btn { white-space: normal; text-align: left; }
+#respaldo .btn-sec { white-space: normal; text-align: left; }
+.fin-solo-finanzas { display: inline-flex; align-items: center; gap: 4px; }
+.b2b-sin-planilla { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+#prod-maestro-n { overflow-wrap: anywhere; }
+.resp-fila .campo { flex: 0 1 260px; }
+#resp-msg:empty, #resp-err:empty, #rev-msg:empty, #rev-err:empty { margin: 0; min-height: 0; }

@@ -9,11 +9,11 @@
 //    copia (migracion/{coleccion} guarda una huella por documento, como en B2B).
 //  · En G1 nada cambia en el uso: Gastos sigue leyendo y escribiendo la planilla con el script.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.72.1';
-import * as FB from './fs-gastos.js?v=0.72.1';
-import * as Gastos from './gastos.js?v=0.72.1';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.72.1';
-import { armar, cambios, comparar, totalesGastos, COLECCIONES, ANIO } from './gastos-modelo.js?v=0.72.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.73.0';
+import * as FB from './fs-gastos.js?v=0.73.0';
+import * as Gastos from './gastos.js?v=0.73.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.73.0';
+import { armar, cambios, comparar, totalesGastos, COLECCIONES, ANIO } from './gastos-modelo.js?v=0.73.0';
 
 export { ANIO };
 export const VERSION_EXPORTAR = '2.9.0';   // script de Gastos con la op "exportar" (SistemaFen.gs v1.8.0)
@@ -282,7 +282,7 @@ export async function cargarFuente(forzar) {
 export const fuenteGastos = () => (fuenteCache && fuenteCache.fuente) || 'planilla';
 export const olvidarFuente = () => { fuenteCache = null; };
 // Campos que lleva cada documento hecho o cambiado en la base (pasos 3 y 4)
-export const marcaBase = por => ({ planillaPendiente: true, hechoEnBase: true, editado: { en: FB.serverTimestamp(), por: por || (authSF.currentUser && authSF.currentUser.email) || '' } });
+export const marcaBase = por => ({ planillaPendiente: false, hechoEnBase: true, editado: { en: FB.serverTimestamp(), por: por || (authSF.currentUser && authSF.currentUser.email) || '' } });
 export async function notarEscritura(n = 1) {
   const db = await dbOk(), ref = FB.doc(db, 'config', 'gastos');
   await FB.runTransaction(db, async tx => { const sn = await tx.get(ref); const d = sn.exists() ? sn.data() : {}; tx.set(ref, { ...d, escritos: (Number(d.escritos) || 0) + n, ultimaEscritura: FB.serverTimestamp() }); });

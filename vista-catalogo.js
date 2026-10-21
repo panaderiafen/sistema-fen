@@ -6,8 +6,8 @@
 //  lecturas y escrituras en catalogo.js. Queda espacio para las próximas pestañas del catálogo (una sola lista de productos).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as C from './catalogo.js?v=0.72.1';
-import * as CM from './catalogo-modelo.js?v=0.72.1';
+import * as C from './catalogo.js?v=0.73.0';
+import * as CM from './catalogo-modelo.js?v=0.73.0';
 
 const st = { D: null, filtro: 'por_decidir', q: '', msg: '', err: '', cargando: false, ocupado: false };
 export const estado = st;
@@ -21,15 +21,19 @@ let H = null;
 
 const TXT_ETAPA = 'Hoy Fën produce solo lo base (pan, croissant, pan de chocolate y café) y algo de reventa. Pastelería y los croissants rellenos están en pausa.\nEsta etapa es para limpiar antes de armar un solo catálogo de productos: marca "Vivo" lo que sigue y archiva lo demás.\nArchivar esconde la receta o el producto en Cocina, en la caja y en B2B, pero guarda toda su historia (ventas, costos, planes) y se deshace con "Reactivar". Nada se borra.';
 const TXT_SUG = 'Sugerido archivar:\n· un producto que no se vendió en los últimos 60 días;\n· una receta que no usa ninguna receta viva (como ingrediente) y que no se vendió en 60 días por ningún producto. Una sub receta que solo usan recetas también sugeridas, también se sugiere.\nEs solo una sugerencia: revisa la lista y desmarca lo que quieras dejar.';
-const TXT_REVENTA = 'Reventa es lo que se compra hecho para venderlo tal cual. Por ahora se ve con la marca "Reventa" en los productos de la caja y de B2B (el vínculo de Finanzas → Márgenes → Asociar productos).\nEn una próxima etapa la reventa tendrá su propia entrada en el catálogo.';
+const TXT_REVENTA = 'Reventa es lo que se compra hecho para venderlo tal cual. Desde la v0.73.0 tiene su propia pestaña en el Catálogo (Reventa), con su ID, su costo y su proveedor; en los productos de la caja y de B2B se ve con la marca "Reventa" (el vínculo de Finanzas → Márgenes → Asociar productos).\nArriba, Vivo y Archivado cuentan también la reventa (activa = vivo).';
 const TXT_LECTURAS = 'Lo que se leyó de cada base al abrir esta pantalla (documentos). Las ventas de 60 días (resúmenes de cierre de la caja y órdenes de B2B) quedan resumidas 6 horas, también en este navegador; las recetas, los productos y los vínculos usan la misma memoria de Producción y Finanzas.\nCambiar el filtro o buscar: 0 lecturas. "Actualizar" vuelve a leer todo.';
 
+let pestana = '';
 const cab = () => `<div class="cabecera"><div><h1 id="t-catalogo">Catálogo</h1><p>Recetas, productos y reventa de Fën</p></div>
-  <div class="botones" style="margin:0;align-items:center"><button type="button" class="btn-sec btn-chico" id="cat-actualizar">Actualizar</button>${H.info('Actualizar', TXT_LECTURAS)}</div></div>
-  <nav class="pestanas" role="tablist" aria-label="Partes del Catálogo"><a role="tab" href="#catalogo" aria-selected="true">Qué está vivo</a></nav>`;
+  ${pestana === 'reventa' ? '' : `<div class="botones" style="margin:0;align-items:center"><button type="button" class="btn-sec btn-chico" id="cat-actualizar">Actualizar</button>${H.info('Actualizar', TXT_LECTURAS)}</div>`}</div>
+  <nav class="pestanas" role="tablist" aria-label="Partes del Catálogo"><a role="tab" href="#catalogo" aria-selected="${pestana !== 'reventa'}">Qué está vivo</a><a role="tab" href="#catalogo/reventa" aria-selected="${pestana === 'reventa'}">Reventa</a></nav>`;
 
 export async function pintar(el, sub, h) {
   H = h;
+  pestana = sub === 'reventa' ? 'reventa' : '';
+  // v0.73.0: pestaña Reventa (cat_reventa en fen-gastos). Usa lo que "Qué está vivo" ya tiene en memoria (vínculos y productos) si está.
+  if (pestana === 'reventa') { const VR = await import('./vista-reventa.js?v=0.73.0'); return VR.pintar(el, h, { cab, datos: () => st.D }); }
   if (!el.dataset.catEventos) { el.dataset.catEventos = '1'; conectar(el); }
   // Cada apertura arma con lo que está en memoria (las ventas de 60 días quedan 6 horas; lo demás, la memoria de siempre)
   el.innerHTML = cab() + '<section class="tarjeta"><div class="vacio" style="border:0">Leyendo recetas, productos y ventas de 60 días…</div></section>';
@@ -63,6 +67,7 @@ function pintarTodo(el) {
         <div class="fin-buscar">${H.icono('lupa', 18)}<label class="sr" for="cat-q">Buscar por nombre o ID</label><input type="search" id="cat-q" placeholder="Buscar por nombre o ID…" autocomplete="off" spellcheck="false" value="${H.esc(st.q)}"></div>
       </div>
       <p class="ok-texto" id="cat-msg" role="status">${H.esc(st.msg)}</p><p class="error" id="cat-err" role="alert">${H.esc(st.err)}</p>
+      ${V.reventa && (V.reventa.activos || V.reventa.archivados) ? `<p class="ayuda" id="cat-reventa-n">Incluye la reventa: ${nf(V.reventa.activos)} ${V.reventa.activos === 1 ? 'activa' : 'activas'} (vivo) · ${nf(V.reventa.archivados)} ${V.reventa.archivados === 1 ? 'archivada' : 'archivadas'} · <a href="#catalogo/reventa">ver Reventa</a></p>` : ''}
       <p class="ayuda" id="cat-lecturas">Lecturas al abrir: caja ${nf(u.caja)} · B2B ${nf(u.b2b)} · Cocina ${nf(u.cocina)} · Finanzas ${nf(u.finanzas)}</p>
     </section>
     <div id="cat-listas" class="cat-listas"></div>`;

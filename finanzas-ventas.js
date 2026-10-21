@@ -13,7 +13,7 @@
 //  v0.69.1: área REVENTA (solo de margen) para lo que se compra hecho. AREAS = las de margen (las 4 de producción + REVENTA);
 //  AREAS_PRODUCCION = las que producen (la de una receta o del catálogo). Las listas salen de areas.js.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.72.1';
+import * as AR from './areas.js?v=0.73.0';
 
 export const AREAS = AR.MARGEN;
 export const AREAS_PRODUCCION = AR.PRODUCCION;
@@ -182,6 +182,8 @@ export function armarVinculo(prev, datos, { recetas = [], hoy = '', por = '' } =
     if (c !== null && !(c >= 0)) throw new Error('El costo de compra debe ser un número (o déjalo vacío).');
     if (c !== null && datos.conIva) c = red(c / 1.19, 2);
     Object.assign(doc, { reventa: true, area: a, costoReventaNeto: c });
+    // v0.73.0: la reventa de la lista del Catálogo (cat_reventa); los vínculos antiguos sin reventaId siguen igual
+    if (s(datos.reventaId)) Object.assign(doc, { reventaId: s(datos.reventaId), reventaNombre: s(datos.reventaNombre).slice(0, 120) });
   } else doc.ignorar = true;
   // v0.60.0: costo extra por venta, neto (envases que no están en la receta: caja, bolsa, vaso)
   const ex = s(datos.costoExtraNeto).trim();
@@ -190,7 +192,7 @@ export function armarVinculo(prev, datos, { recetas = [], hoy = '', por = '' } =
     if (!(e >= 0)) throw new Error('Costo extra por venta: un número (o déjalo vacío).');
     doc.costoExtraNeto = red(e, 2);
   } else doc.costoExtraNeto = null;
-  const corto = x => x ? { tipo: x.tipo, receta: x.receta || null, recetaNombre: x.recetaNombre || '', unidadesPorVenta: x.unidadesPorVenta ?? 1, area: x.area || '', costoReventaNeto: x.costoReventaNeto ?? null, ...(x.costoExtraNeto !== null && x.costoExtraNeto !== undefined ? { costoExtraNeto: x.costoExtraNeto } : {}) } : null;
+  const corto = x => x ? { tipo: x.tipo, receta: x.receta || null, recetaNombre: x.recetaNombre || '', unidadesPorVenta: x.unidadesPorVenta ?? 1, area: x.area || '', costoReventaNeto: x.costoReventaNeto ?? null, ...(x.costoExtraNeto !== null && x.costoExtraNeto !== undefined ? { costoExtraNeto: x.costoExtraNeto } : {}), ...(x.reventaId ? { reventaId: x.reventaId } : {}) } : null;
   const a = corto(prev), b = corto(doc);
   const igual = JSON.stringify(a) === JSON.stringify(b);
   return { doc, hist: igual ? null : { clave: claveProducto(canal, doc.productoId), nombre: doc.nombre, accion: prev ? 'cambio' : 'nuevo', antes: a, despues: b, origen: doc.origen, nota: doc.nota, fecha: hoy, por } };
@@ -199,7 +201,7 @@ export function textoVinculo(v) {
   if (!v) return 'Sin asociar';
   if (v.tipo === 'ignorar') return 'No es un producto (no suma)';
   const u = upv(v) !== 1 ? ` × ${String(upv(v)).replace('.', ',')} un` : '';
-  if (v.tipo === 'reventa') return `Reventa${areaVinculo(v) === REVENTA ? '' : ' · ' + (NOMBRE_AREA[v.area] || v.area)}${v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? ` · costo $${Math.round(v.costoReventaNeto).toLocaleString('es-CL')} neto` : ''}${u}`;
+  if (v.tipo === 'reventa') return `Reventa${v.reventaId ? ' ' + v.reventaId : ''}${areaVinculo(v) === REVENTA ? '' : ' · ' + (NOMBRE_AREA[v.area] || v.area)}${v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? ` · costo $${Math.round(v.costoReventaNeto).toLocaleString('es-CL')} neto` : ''}${u}`;
   const ex = v.costoExtraNeto > 0 ? ` · envase $${Math.round(v.costoExtraNeto).toLocaleString('es-CL')}` : '';
   return `${v.recetaNombre || v.receta}${u}${ex}`;
 }

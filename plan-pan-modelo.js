@@ -8,8 +8,8 @@
 //  · B2B: la fecha de la orden es el día de entrega = día de horneado.
 //  · Plan de Cocina (planes/PAN_{lunes}.filas.{recetaId}.d0..d6): cada d es el día de AMASADO; se hornea al día siguiente (d+1),
 //    SALVO el sábado: lo amasado el sábado se hornea el LUNES (el domingo no hay producción). v0.72.1 (horneoDe / amasadoDe).
-//  · Masa madre: la tarde antes del amasado, a las 19:00 (para el horneado del lunes, el viernes). El domingo no hay
-//    producción: la del amasado del lunes (horneado del martes) se hace el sábado (masaMadreDe).
+//  · Masa madre: la tarde antes del amasado, a las 19:00 (para el horneado del lunes, el viernes). v0.73.0: la del amasado del lunes
+//    (horneado del martes) se hace el DOMINGO en la tarde y la hace el dueño (masaMadreDe; masaMadrePorDueno). Antes: el sábado.
 //  · Ainavillo todavía no ingresa a su caja el pan que recibe: tabla fija editable (config con historial).
 //
 //  Tipo de pan = receta de Panadería. Un producto de la caja o de B2B va a su receta por el vínculo de Finanzas
@@ -22,7 +22,7 @@
 //    La merma enviada en la caja y todavía no registrada (entradas.merma_AAAAMMDD) cuenta como merma de ese lote.
 // ═══════════════════════════════════════════════
 
-export const VERSION = '0.72.1';
+export const VERSION = '0.73.0';
 export const SUCS = ['barros', 'ainavillo'];
 export const NOMBRE_SUC = { barros: 'Barros Arana', ainavillo: 'Ainavillo' };
 export const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -119,8 +119,12 @@ export function sinAsociar(fuentes, mapa) {
 export const horneoDe = amasado => sumarDias(amasado, indiceDia(amasado) === 5 ? 2 : 1);
 // Horneado → su día de amasado: lunes ← sábado; martes a sábado ← el día anterior; domingo: no se hornea (null)
 export const amasadoDe = horneo => { const i = indiceDia(horneo); return i === 6 ? null : sumarDias(horneo, i === 0 ? -2 : -1); };
-// Masa madre (19:00) para un amasado: la tarde anterior; si esa tarde es domingo, el sábado
-export const masaMadreDe = amasado => { if (!amasado) return null; const t = sumarDias(amasado, -1); return indiceDia(t) === 6 ? sumarDias(t, -1) : t; };
+// Masa madre (19:00) para un amasado: la tarde anterior. v0.73.0: también el domingo (la del amasado del lunes, para el martes):
+// el domingo no hay producción, pero esa masa madre la hace el dueño (decisión del 21-oct-2026; antes se hacía el sábado).
+export const masaMadreDe = amasado => (amasado ? sumarDias(amasado, -1) : null);
+// ¿La hace el dueño? (la del domingo)
+export const masaMadrePorDueno = fecha => !!fecha && indiceDia(fecha) === 6;
+export const QUIEN_DOMINGO = 'la hace Emmanuel';
 
 // ── Producido (Cocina): plan de Panadería, d = día de amasado → se hornea d+1 (sábado → lunes) ──
 // planes: [{ id: 'PAN_lunes', area, lunes, filas }]; dias: [{ area, fecha, hechos, cantidades }] (los de PAN)
@@ -418,7 +422,7 @@ export function masaMadre(semana, { recetas, mps, config }, CM, ajustesDe) {
     if (!d.amasado) { porDia[d.fecha] = { fecha: null, blanca: 0, integral: 0 }; return; }
     let r = null;
     // pieMasaMadre cubre "desde mañana hasta el próximo día de elaboración": se le pasa la víspera del amasado (con todos los días
-    // como elaboración cubre justo el amasado). El sábado → lunes: la víspera del lunes es el domingo, pero se hace el sábado.
+    // como elaboración cubre justo el amasado). Sábado → lunes: la víspera del sábado (viernes); la del lunes, el domingo (el dueño).
     try { r = CM.pieMasaMadre(sumarDias(d.amasado, -1), planes, ajustesDe, ctx); } catch (e) { r = null; }
     porDia[d.fecha] = { fecha: d.masaMadre, blanca: r ? Math.round(r.blanca.total) : 0, integral: r ? Math.round(r.integral.total) : 0 };
   });
@@ -476,7 +480,7 @@ export function textoPropuesta(semana, nombres, mm) {
     d.filas.forEach(f => L.push(`  ${nombres[f.receta] || f.nombre || f.receta}: ${f.total} (B2B ${f.b2b} · Barros ${f.barros} · Ainavillo ${f.ainavillo})`));
     L.push(`  Total: ${d.total}`);
     const m = mm && mm.porDia && mm.porDia[d.fecha];
-    if (m && (m.blanca || m.integral)) L.push(`  Masa madre ${fechaCorta(m.fecha)} 19:00: ${m.blanca ? `blanca ${Math.round(m.blanca).toLocaleString('es-CL')} g` : ''}${m.blanca && m.integral ? ' · ' : ''}${m.integral ? `integral ${Math.round(m.integral).toLocaleString('es-CL')} g` : ''}`);
+    if (m && (m.blanca || m.integral)) L.push(`  Masa madre ${fechaCorta(m.fecha)} 19:00${masaMadrePorDueno(m.fecha) ? ` (${QUIEN_DOMINGO})` : ''}: ${m.blanca ? `blanca ${Math.round(m.blanca).toLocaleString('es-CL')} g` : ''}${m.blanca && m.integral ? ' · ' : ''}${m.integral ? `integral ${Math.round(m.integral).toLocaleString('es-CL')} g` : ''}`);
   });
   return L.join('\n');
 }

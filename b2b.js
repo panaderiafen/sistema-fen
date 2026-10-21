@@ -8,14 +8,14 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.72.1';
-import * as FB from './firebase-b2b.js?v=0.72.1';
-import * as Apps from './apps.js?v=0.72.1';
-import * as Mem from './fs-memoria.js?v=0.72.1';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.72.1';
-import { distanciaTef } from './feriados-cl.js?v=0.72.1';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.72.1';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.72.1';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.73.0';
+import * as FB from './firebase-b2b.js?v=0.73.0';
+import * as Apps from './apps.js?v=0.73.0';
+import * as Mem from './fs-memoria.js?v=0.73.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES } from './b2b-modelo.js?v=0.73.0';
+import { distanciaTef } from './feriados-cl.js?v=0.73.0';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.73.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.73.0';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -412,6 +412,8 @@ export async function cambiarABaseNueva(avance) {
 }
 // Volver a la app antigua: solo si todo lo de la base nueva ya pasó a la planilla
 export async function volverAPlanilla() {
+  // v0.73.0: la copia a la planilla está apagada; volver dejaría fuera lo hecho desde entonces
+  if (PLANILLA_APAGADA) throw new Error('Desde la v0.73.0 la planilla de B2B ya no recibe copia: volver a la app antigua dejaría fuera lo hecho desde entonces.');
   const db = await dbOk();
   const url = await scriptListo();
   await pasarAPlanilla();
@@ -426,7 +428,11 @@ export async function volverAPlanilla() {
 }
 
 // Pasa a la planilla lo pendiente (el script lee la base nueva con esta sesión de fen-b2b)
+// v0.73.0 (Etapa 1): COPIA APAGADA. Lo hecho en Sistema Fën ya no se marca (planillaPendiente = false) ni se manda al script
+// (b2b_planilla). La planilla de B2B queda como estaba (historial). Se deja la función para no romper a quien la llama.
+export const PLANILLA_APAGADA = true;
 export async function pasarAPlanilla() {
+  if (PLANILLA_APAGADA) return { ok: true, apagada: true, ordenes: 0, abonos: 0, ediciones: 0, clientes: 0, productos: 0 };
   const cx = await conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva.');
   const m = await modo();
   const url = m.scriptUrl || (await Apps.leerConexiones()).b2b;
@@ -472,7 +478,7 @@ export async function escuchar(cb) {
   return () => fin.forEach(f => { try { f(); } catch (e) {} });
 }
 
-const marcaCambio = extra => ({ ...extra, planillaPendiente: true, cambiadaEn: FB.serverTimestamp(), cambiadaPor: authSF.currentUser.email });
+const marcaCambio = extra => ({ ...extra, planillaPendiente: false, cambiadaEn: FB.serverTimestamp(), cambiadaPor: authSF.currentUser.email });
 // Asignar un folio a varias órdenes (sin folio) de una vez
 // v0.25.0: totalSii = el TOTAL que leyó el botón en la página del SII (queda como lo que se cobra del folio)
 export async function asignarFolio(ns, folio, fechaFolio, totalSii) {
@@ -527,7 +533,7 @@ export async function registrarAbono(folio, monto, fecha, referencia) {
   const total = totalFolio(os).total;   // v0.25.0: el total de la factura
   const pagado = abonado >= total;
   const b = FB.writeBatch(db);
-  b.set(FB.doc(FB.collection(db, 'abonos')), { folio: String(folio), fecha: fecha || hoyTxt(), monto: m, referencia: String(referencia || '').trim(), extra: {}, quitadoEnPlanilla: false, planillaPendiente: true, por: authSF.currentUser.email, en: FB.serverTimestamp() });
+  b.set(FB.doc(FB.collection(db, 'abonos')), { folio: String(folio), fecha: fecha || hoyTxt(), monto: m, referencia: String(referencia || '').trim(), extra: {}, quitadoEnPlanilla: false, planillaPendiente: false, por: authSF.currentUser.email, en: FB.serverTimestamp() });
   os.filter(o => !/PAGADO/.test(o.estadoPago || '')).forEach(o => b.update(FB.doc(db, 'ordenes', o.id), marcaCambio(pagado ? { estadoPago: 'PAGADO', fechaPago: fecha || hoyTxt() } : { estadoPago: 'PARCIAL' })));
   await b.commit(); olvidarAgendaB2b(); uso.escrituras += os.length + 1;
   return { pagado, saldo: Math.max(0, total - abonado) };
@@ -567,7 +573,7 @@ export async function aprobarSolicitud(s, precio, respuesta) {
       const lista = (cs.data().precios || []).filter(x => !((x.productoId && x.productoId === s.productoId) || String(x.producto).toLowerCase() === String(s.producto).toLowerCase()));
       lista.push({ producto: s.producto, productoId: s.productoId || null, precio: p });
       const previo = (cs.data().precios || []).find(x => (x.productoId && x.productoId === s.productoId) || String(x.producto).toLowerCase() === String(s.producto).toLowerCase());
-      tx.update(cref, { precios: lista, historialPrecios: [...(cs.data().historialPrecios || []), { producto: s.producto, antes: previo ? previo.precio : null, despues: p, en: ahoraTxt(), por: authSF.currentUser.email, solicitud: s.id }].slice(-200), planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
+      tx.update(cref, { precios: lista, historialPrecios: [...(cs.data().historialPrecios || []), { producto: s.producto, antes: previo ? previo.precio : null, despues: p, en: ahoraTxt(), por: authSF.currentUser.email, solicitud: s.id }].slice(-200), planillaPendiente: false, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
     } else {
       // Producto nuevo: id a partir del nombre (sin pisar uno que exista)
       let id = slugB2B(s.producto), i = 2;
@@ -577,7 +583,7 @@ export async function aprobarSolicitud(s, precio, respuesta) {
         if (String(ps.data().nombre || '').trim().toLowerCase() === String(s.producto || '').trim().toLowerCase()) throw new Error(`Ya existe el producto "${ps.data().nombre}". Si hay que cambiar su precio, hazlo en Productos y rechaza esta solicitud.`);
         id = slugB2B(s.producto) + '-' + i++;
       }
-      tx.set(FB.doc(db, 'productos', id), { nombre: s.producto, precioBase: p, categoria: '', idReceta: s.idReceta || '', area: s.area || '', estado: 'activo', extra: {}, origen: { app: 'solicitud', solicitud: s.id }, quitadoEnPlanilla: false, planillaPendiente: true, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
+      tx.set(FB.doc(db, 'productos', id), { nombre: s.producto, precioBase: p, categoria: '', idReceta: s.idReceta || '', area: s.area || '', estado: 'activo', extra: {}, origen: { app: 'solicitud', solicitud: s.id }, quitadoEnPlanilla: false, planillaPendiente: false, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
     }
     tx.update(sref, { estado: 'aprobada', precioAprobado: s.tipo === 'anulacion' ? null : p, respuesta: String(respuesta || '').trim() || null, resuelta: { por: authSF.currentUser.email, en: FB.serverTimestamp() } });
   });
@@ -606,7 +612,7 @@ export async function nuevoCliente(c) {
     }
     const t = k => String(c[k] || '').trim();
     tx.set(FB.doc(db, 'clientes', id), { nombre, rut: t('rut'), razonSocial: t('razonSocial'), giro: t('giro'), direccion: t('direccion'), ciudad: t('ciudad'), correo: t('correo'), telefono: t('telefono'), contacto: t('contacto'),
-      facturacion: c.facturacion || 'Diaria', frecuenciaPago: c.frecuenciaPago || 'Diaria', precios: [], estado: 'activo', extra: {}, origen: { app: 'sistema-fen' }, quitadoEnPlanilla: false, planillaPendiente: true, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
+      facturacion: c.facturacion || 'Diaria', frecuenciaPago: c.frecuenciaPago || 'Diaria', precios: [], estado: 'activo', extra: {}, origen: { app: 'sistema-fen' }, quitadoEnPlanilla: false, planillaPendiente: false, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
     return id;
   });
 }
@@ -669,12 +675,12 @@ export async function guardarCliente(id, datos) {
   if ('grupoWhatsapp' in datos) { if (!grupoWspValido(datos.grupoWhatsapp)) throw new Error('El enlace del grupo debe empezar con https://chat.whatsapp.com/'); cambios.grupoWhatsapp = String(datos.grupoWhatsapp || '').trim(); }
   if (datos.facturacion) { if (!FACTURACION.includes(datos.facturacion)) throw new Error('Facturación no válida.'); cambios.facturacion = datos.facturacion; }
   if (datos.frecuenciaPago) { if (!FRECUENCIA.includes(datos.frecuenciaPago)) throw new Error('Frecuencia no válida.'); cambios.frecuenciaPago = datos.frecuenciaPago; }
-  await FB.updateDoc(FB.doc(db, 'clientes', id), { ...cambios, planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
+  await FB.updateDoc(FB.doc(db, 'clientes', id), { ...cambios, planillaPendiente: false, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
   uso.escrituras++;
 }
 export async function archivarCliente(id, archivar) {
   const db = await dbOk();
-  await FB.updateDoc(FB.doc(db, 'clientes', id), { estado: archivar ? 'archivado' : 'activo', planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
+  await FB.updateDoc(FB.doc(db, 'clientes', id), { estado: archivar ? 'archivado' : 'activo', planillaPendiente: false, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
   uso.escrituras++;
 }
 // Precio especial: precio > 0 lo pone o lo cambia; precio 0 o vacío lo quita (vuelve al precio base)
@@ -691,7 +697,7 @@ export async function precioEspecial(clienteId, producto, precio) {
     if (p > 0) lista.push({ producto: producto.nombre, productoId: producto.id || null, precio: p });
     lista.sort((a, b) => String(a.producto).localeCompare(String(b.producto), 'es'));
     tx.update(ref, { precios: lista, historialPrecios: [...(c.historialPrecios || []), { producto: producto.nombre, antes: previo ? previo.precio : null, despues: p > 0 ? p : null, en: ahoraTxt(), por: authSF.currentUser.email }].slice(-200),
-      planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
+      planillaPendiente: false, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
   });
   uso.escrituras++;
 }
@@ -711,7 +717,7 @@ export async function guardarProducto(id, datos) {
         nid = slugB2B(nombre) + '-' + i++;
       }
       tx.set(FB.doc(db, 'productos', nid), { nombre, precioBase: p, categoria: String(datos.categoria || '').trim(), idReceta: String(datos.idReceta || '').trim(), area: String(datos.area || '').trim(), estado: 'activo', extra: {}, origen: { app: 'sistema-fen' },
-        quitadoEnPlanilla: false, planillaPendiente: true, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
+        quitadoEnPlanilla: false, planillaPendiente: false, creadoEn: FB.serverTimestamp(), creadoPor: authSF.currentUser.email });
       return nid;
     });
   }
@@ -725,13 +731,13 @@ export async function guardarProducto(id, datos) {
       if (!(p > 0)) throw new Error('El precio base debe ser mayor que 0.');
       if (p !== Number(a.precioBase)) { cambios.precioBase = p; cambios.historialPrecios = [...(a.historialPrecios || []), { antes: Number(a.precioBase) || null, despues: p, en: ahoraTxt(), por: authSF.currentUser.email }].slice(-200); }
     }
-    tx.update(ref, { ...cambios, planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
+    tx.update(ref, { ...cambios, planillaPendiente: false, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
   });
   uso.escrituras++;
 }
 export async function archivarProducto(id, archivar) {
   const db = await dbOk();
-  await FB.updateDoc(FB.doc(db, 'productos', id), { estado: archivar ? 'archivado' : 'activo', planillaPendiente: true, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
+  await FB.updateDoc(FB.doc(db, 'productos', id), { estado: archivar ? 'archivado' : 'activo', planillaPendiente: false, cambiadoEn: FB.serverTimestamp(), cambiadoPor: authSF.currentUser.email });
   uso.escrituras++;
 }
 
@@ -1701,7 +1707,7 @@ export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender
       if (a.ordenes && tipo === 'abono') { const sel = os.filter(o => a.ordenes.includes(Number(o.n))); if (sel.length === a.ordenes.length && Math.round(sel.reduce((x, o) => x + (Number(o.total) || 0), 0)) === a.monto) ords = sel.map(o => Number(o.n)).sort((x, y) => x - y); }
       // Pago del saldo completo de un folio sin abonos: queda PAGADO (igual que antes, sin fila en Abonos). Si no, es un abono.
       const aref = tipo === 'abono' ? FB.doc(FB.collection(db, 'abonos')) : null;
-      if (aref) tx.set(aref, { folio: a.folio, fecha: mv.fecha, monto: a.monto, referencia: 'Transferencia · cartola: ' + mv.descripcion + (ords ? ` · ${ords.length === 1 ? 'orden' : 'órdenes'} N° ${ords.join(', ')}` : ''), movimiento: movId, ...(ords ? { ordenes: ords } : {}), extra: {}, quitadoEnPlanilla: false, planillaPendiente: true, por: authSF.currentUser.email, en: FB.serverTimestamp() });
+      if (aref) tx.set(aref, { folio: a.folio, fecha: mv.fecha, monto: a.monto, referencia: 'Transferencia · cartola: ' + mv.descripcion + (ords ? ` · ${ords.length === 1 ? 'orden' : 'órdenes'} N° ${ords.join(', ')}` : ''), movimiento: movId, ...(ords ? { ordenes: ords } : {}), extra: {}, quitadoEnPlanilla: false, planillaPendiente: false, por: authSF.currentUser.email, en: FB.serverTimestamp() });
       const tocadas = os.filter(o => !/PAGADO/.test(o.estadoPago || ''));
       tocadas.forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio(completo ? { estadoPago: 'PAGADO', fechaPago: mv.fecha, medioPago: 'Transferencia (cartola)' } : { estadoPago: 'PARCIAL' })));
       hechas.push({ folio: a.folio, monto: a.monto, tipo: completo ? (tipo === 'pago' ? 'pago' : 'abono final') : 'abono', abono: aref ? aref.id : null, ordenes: tocadas.map(o => o.id), ...(ords ? { pagaOrdenes: ords } : {}) });
@@ -1715,7 +1721,7 @@ export async function aplicarMovimiento(movId, clienteId, asignaciones, aprender
       tx.set(cref, { ...(cs.exists() ? cs.data() : {}), ignorar: c.ignorar, equivalencias: eq.slice(-500), ...(rs ? { [RC.CAMPO_B2B]: rs } : {}) });
     } else if (rs) tx.update(cref, { [RC.CAMPO_B2B]: rs });
     const favor = aFavor ? mv.monto - total : 0;
-    tx.update(mref, { estado: 'conciliado', clienteId, cliente: cliente.nombre || '', asignaciones: hechas, sobra: mv.monto - total, favorInicial: favor, favorDisponible: favor, favorUsos: [], aprendido: !!aprender, resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: true, ...extraMov(opc) });
+    tx.update(mref, { estado: 'conciliado', clienteId, cliente: cliente.nombre || '', asignaciones: hechas, sobra: mv.monto - total, favorInicial: favor, favorDisponible: favor, favorUsos: [], aprendido: !!aprender, resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: false, ...extraMov(opc) });
     fin = { estado: 'conciliado', clienteId, cliente: cliente.nombre || '', asignaciones: hechas, sobra: mv.monto - total, favorInicial: favor, resuelto: { por: authSF.currentUser.email, en: ahoraSeg() } };
   });
   uso.escrituras += asig.length * 2 + 1;
@@ -1764,7 +1770,7 @@ function planDeshacer(f, h, fecha, desde, movId) {
 }
 function aplicarPlan(db, tx, plan, motivo) {
   const quien = authSF.currentUser.email;
-  if (plan.quitado) tx.update(FB.doc(db, 'abonos', plan.quitado.id), { anulado: { en: ahoraTxt(), por: quien, motivo }, quitadoEnPlanilla: true, planillaPendiente: true });
+  if (plan.quitado) tx.update(FB.doc(db, 'abonos', plan.quitado.id), { anulado: { en: ahoraTxt(), por: quien, motivo }, quitadoEnPlanilla: true, planillaPendiente: false });
   plan.tocar.forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio({ estadoPago: plan.nuevo, fechaPago: null, medioPago: null })));
 }
 // Deshacer un abono de la cartola ya resuelto: vuelve a "por revisar". Si estaba conciliado, sus folios vuelven a
@@ -1804,7 +1810,7 @@ export async function deshacerMovimiento(movId, motivo) {
     const antes = { estado: mv.estado, cliente: mv.cliente || '', clienteId: mv.clienteId || null, asignaciones: hechas, favorInicial: mv.favorInicial || 0, nota: mv.nota || null, resuelto: mv.resuelto || null };
     const u = { en: ahoraTxt(), por: authSF.currentUser.email, motivo: mot };
     tx.update(mref, { estado: 'pendiente', deshechos: (mv.deshechos || 0) + 1, ultimoDeshecho: u, deshechosAntes: (mv.deshechosAntes || []).concat([{ ...antes, ...u }]).slice(-10),
-      clienteId: null, cliente: '', asignaciones: [], sobra: null, favorInicial: 0, favorDisponible: 0, favorUsos: [], aprendido: false, nota: null, resuelto: null, planillaPendiente: true });
+      clienteId: null, cliente: '', asignaciones: [], sobra: null, favorInicial: 0, favorDisponible: 0, favorUsos: [], aprendido: false, nota: null, resuelto: null, planillaPendiente: false });
   });
   uso.escrituras += 3;
   anotarLocal(movId, { estado: 'pendiente', clienteId: null, cliente: '', asignaciones: [], nota: null, resuelto: null, deshechos: (m0.deshechos || 0) + 1 });   // v0.67.7
@@ -1854,7 +1860,7 @@ export async function usarFavor(movId, folio, monto) {
     if (vivas.every(o => /PAGADO/.test(o.estadoPago || '')) || saldo <= 0) throw new Error(`El folio ${folio} ya está pagado.`);
     if (m > saldo) throw new Error(`Al folio ${folio} le quedan $${saldo.toLocaleString('es-CL')}.`);
     const completo = m === saldo, aref = FB.doc(FB.collection(db, 'abonos'));
-    tx.set(aref, { folio: String(folio), fecha: mv.fecha, monto: m, referencia: `Saldo a favor · cartola ${fechaDMY(mv.fecha)}: ${mv.descripcion}`, movimiento: movId, favor: true, extra: {}, quitadoEnPlanilla: false, planillaPendiente: true, por: authSF.currentUser.email, en: FB.serverTimestamp() });
+    tx.set(aref, { folio: String(folio), fecha: mv.fecha, monto: m, referencia: `Saldo a favor · cartola ${fechaDMY(mv.fecha)}: ${mv.descripcion}`, movimiento: movId, favor: true, extra: {}, quitadoEnPlanilla: false, planillaPendiente: false, por: authSF.currentUser.email, en: FB.serverTimestamp() });
     const tocadas = vivas.filter(o => !/PAGADO/.test(o.estadoPago || ''));
     tocadas.forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio(completo ? { estadoPago: 'PAGADO', fechaPago: mv.fecha, medioPago: 'Transferencia (saldo a favor)' } : { estadoPago: 'PARCIAL' })));
     tx.update(mref, { favorDisponible: mv.favorDisponible - m, favorUsos: (mv.favorUsos || []).concat([{ folio: String(folio), monto: m, tipo: completo ? 'abono final' : 'abono', abono: aref.id, ordenes: tocadas.map(o => o.id), en: ahoraTxt(), por: authSF.currentUser.email }]) });
@@ -2024,7 +2030,7 @@ export async function marcarMovimiento(movId, estado, nota, patron, cliente, opc
     if (aprender) { const c = configConciliacion(cd), dn = ms.data().descNorm; cd = { ...cd, ignorar: c.ignorar, equivalencias: c.equivalencias.filter(e => e.desc !== dn).concat([{ desc: dn, clienteId: cliente.id, nombre: cliente.nombre || '' }]).slice(-500) }; escribe = true; }
     if (patron) { const c = configConciliacion(cd), p = normCartola(patron); cd = { ...cd, equivalencias: c.equivalencias, ignorar: [...new Set(c.ignorar.concat([p]))] }; escribe = true; }
     if (escribe) tx.set(cref, { ...cd, ...(rs ? { [RC.CAMPO_B2B]: rs } : {}) }); else if (rs) tx.update(cref, { [RC.CAMPO_B2B]: rs });
-    tx.update(mref, { estado, nota: String(nota || '').trim().slice(0, 200) || null, ...(cliente && cliente.id && estado === 'revisado' ? { clienteId: cliente.id, cliente: cliente.nombre || '', aprendido: !!aprender } : {}), resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: estado === 'revisado' || !!ms.data().deshechos, ...extraMov(opc) });   // deshecho antes: su fila del historial se corrige
+    tx.update(mref, { estado, nota: String(nota || '').trim().slice(0, 200) || null, ...(cliente && cliente.id && estado === 'revisado' ? { clienteId: cliente.id, cliente: cliente.nombre || '', aprendido: !!aprender } : {}), resuelto: { por: authSF.currentUser.email, en: FB.serverTimestamp() }, planillaPendiente: false, ...extraMov(opc) });   // deshecho antes: su fila del historial se corrige
   });
   anotarLocal(movId, { estado, nota: String(nota || '').trim().slice(0, 200) || null, ...(cliente && cliente.id && estado === 'revisado' ? { clienteId: cliente.id, cliente: cliente.nombre || '' } : {}), resuelto: { por: authSF.currentUser.email, en: ahoraSeg() } });   // v0.67.7
   uso.escrituras += patron || cliente || opc.regla ? 2 : 1;

@@ -6,17 +6,24 @@
 //  Igual que Cocina (programarPlanilla / pasarPlanilla / revisarPlanilla): si falla, se reintenta solo
 //  (al minuto y después cada 2 minutos). Los pasos 3 y 4 de G2 llaman programar() después de cada escritura.
 // ═══════════════════════════════════════════════
-import * as GB from './gastos-base.js?v=0.72.1';
-import * as Gastos from './gastos.js?v=0.72.1';
-import * as FB from './fs-gastos.js?v=0.72.1';
+//  v0.73.0 (Etapa 1): COPIA APAGADA. Decisión del dueño (20-oct-2026): Looker Studio sale del plan y las copias en vivo a las
+//  planillas se apagan; en su lugar, un respaldo mensual en Excel (Configuración → Respaldo). Lo hecho en fen-gastos ya no se marca
+//  (planillaPendiente = false) y nada llama al script (op planilla_sync). La planilla de Gastos queda como estaba (historial).
+//  Las funciones quedan para no romper a quien las llama, pero no hacen nada.
+// ═══════════════════════════════════════════════
+import * as GB from './gastos-base.js?v=0.73.0';
+import * as Gastos from './gastos.js?v=0.73.0';
+import * as FB from './fs-gastos.js?v=0.73.0';
 
-const E = { t: 0, corriendo: false, error: '', fallos: 0, pendientes: null, ultima: null, oyentes: new Set() };
+export const APAGADA = true;
+const E = { t: 0, corriendo: false, error: '', fallos: 0, pendientes: APAGADA ? 0 : null, ultima: null, oyentes: new Set() };
 const avisar = () => E.oyentes.forEach(fn => { try { fn(estado()); } catch (e) {} });
 export const alCambiar = fn => { E.oyentes.add(fn); return () => E.oyentes.delete(fn); };
 export const estado = () => ({ corriendo: E.corriendo, error: E.error, pendientes: E.pendientes, ultima: E.ultima, programada: !!E.t });
 
 // Texto para la pantalla
 export function texto() {
+  if (APAGADA) return 'Copia a la planilla apagada (v0.73.0): la planilla de Gastos queda como estaba.';
   if (E.error) return `Planilla pendiente: ${E.error}, se reintenta sola`;
   if (E.corriendo) return 'Pasando los cambios a la planilla…';
   if (E.pendientes === null) return 'Revisando la planilla…';
@@ -26,6 +33,7 @@ export function texto() {
 
 // Cuántos documentos esperan pasar a la planilla (una agregación por colección)
 export async function contar() {
+  if (APAGADA) { E.pendientes = 0; return 0; }
   const db = await GB.dbBase();
   const ns = await Promise.all(GB.COLECCIONES_PLANILLA.map(async col => {
     const r = await FB.getAggregateFromServer(FB.query(FB.collection(db, col), FB.where('planillaPendiente', '==', true)), { n: FB.count() });
@@ -40,10 +48,11 @@ export async function contar() {
 // cambios de 20 segundos en una sola pasada (antes 5) y, si algo queda pegado, se espera cada vez más (1, 2, 4… hasta 30 minutos)
 // en vez de reintentar cada minuto todo el día.
 const JUNTAR_MS = 20000, MAX_ESPERA = 1800000;
-export function programar(ms = JUNTAR_MS) { clearTimeout(E.t); E.t = setTimeout(pasar, ms); avisar(); }
+export function programar(ms = JUNTAR_MS) { if (APAGADA) return; clearTimeout(E.t); E.t = setTimeout(pasar, ms); avisar(); }
 const espera = n => Math.min(MAX_ESPERA, 60000 * Math.pow(2, Math.max(0, n - 1)));
 // Al abrir: si hay algo por pasar y no hay una copia en camino, se programa
 export async function revisar() {
+  if (APAGADA) return estado();
   try { await contar(); } catch (e) { return estado(); }
   if (E.pendientes > 0 && !E.t && !E.corriendo) programar(3000);
   return estado();
@@ -51,6 +60,7 @@ export async function revisar() {
 
 export async function pasar() {
   clearTimeout(E.t); E.t = 0;
+  if (APAGADA) return null;
   if (E.corriendo) return;
   if (navigator.onLine === false) { programar(60000); return; }
   E.corriendo = true; avisar();
