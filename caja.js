@@ -1,7 +1,9 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — lógica de administración de la caja  v0.3.0
-//  Copia fiel de lo que hace la caja v2.2.0 (index.html) para cerrar cajas,
-//  pasar cierres a la planilla, corregir arqueos y resolver anulaciones.
+//  Sistema Fën — lógica de administración de la caja  v0.3.0 · v0.75.0
+//  Copia fiel de lo que hace la caja v2.3.0 (index.html) para cerrar cajas,
+//  guardar el resumen de cada cierre, corregir arqueos y resolver anulaciones.
+//  v0.75.0 (Etapa 2b): los cierres ya NO se copian a la planilla ni se llama a ningún Apps Script (como la caja v2.3.0).
+//  Las áreas son las de areas.js (CAJA); "REV" es REVENTA; un área desconocida es "Otros" en el resumen (nunca Bollería).
 //  Si se cambia algo aquí, revisar lo mismo en la caja (y al revés).
 //  Diferencias a propósito:
 //  · al anular una venta con pago dividido en una caja abierta, se descuenta de
@@ -13,7 +15,8 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
-} from './firebase.js?v=0.74.0';
+} from './firebase.js?v=0.75.0';
+import * as AR from './areas.js?v=0.75.0';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -27,11 +30,10 @@ export function normalizarFechaCaja(fecha) {
   const m = String(fecha).match(/^(\d{2})-(\d{2})-(\d{4})$/);
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
 }
-function determinarTurno(fecha) { const h = fecha.getHours(); return h < 13 ? 'Mañana' : h < 18 ? 'Tarde' : 'Noche'; }
 
 // Productos y áreas de la caja: se leen una vez por sesión (para el resumen de cada cierre).
-let _prods = null, _areas = null;
-const AREA_COMPAT = { 'Panadería': 'PAN', 'Bollería': 'BOL', 'Sándwiches': 'PAN', 'Cafetería': 'CAF', 'Pastelería': 'PAS', 'Chocolatería': 'PAS' };
+let _prods = null;
+const AREA_COMPAT = { 'Panadería': 'PAN', 'Bollería': 'BOL', 'Sándwiches': 'PAN', 'Cafetería': 'CAF', 'Pastelería': 'PAS', 'Chocolatería': 'PAS', 'Reventa': 'REVENTA' };
 export let lecturasProductos = 0;   // v0.72.0: cuántos documentos de productos se leyeron en esta sesión (Catálogo lo muestra)
 export async function productos() {
   if (!_prods) { const sn = await getDocs(collection(db, 'productos')); lecturasProductos += Math.max(1, sn.docs.length); _prods = sn.docs.map(d => ({ id: d.id, ...d.data() })); }
@@ -55,8 +57,8 @@ export async function escribirProducto(id, campos, { crear = false } = {}) {
   } else await updateDoc(doc(db, 'productos', id), campos);
   if (_prods) { const p = _prods.find(x => x.id === id); if (p) Object.assign(p, campos); else _prods.push({ id, ...campos }); }
 }
-// Las pestañas (áreas) de la caja: fen-ventas areas (las 4 de siempre si no hay)
-export async function areasCaja() { return [...(await areas())]; }
+// v0.75.0 · Las pestañas (áreas) de la caja: la lista de areas.js (las que producen + REVENTA). La caja ya no tiene la suya.
+export async function areasCaja() { return [...AR.CAJA]; }
 // v0.74.0 · Pedidos de productos de la caja (los escribe la caja desde la entrega 2b): fen-ventas solicitudes_producto
 // { tipo 'producto', nombre, catalogoId | recetaId | reventaId, sucursal, precioSugerido, nota, estado 'pendiente', por, en }.
 // Necesita las reglas de fen-ventas v1.4.0 (ver README); sin ellas → { estado: 'sin_reglas', lista: [] } (no corta nada).
@@ -70,32 +72,24 @@ export async function solicitudesProducto() {
 export async function resolverSolicitudProducto(id, cambios) {
   await updateDoc(doc(db, 'solicitudes_producto', id), { ...cambios, resuelta: { por: (auth.currentUser && auth.currentUser.email) || '', en: Timestamp.now() } });
 }
-async function areas() {
-  if (!_areas) { try { _areas = (await getDocs(collection(db, 'areas'))).docs.map(d => d.id); } catch (e) { _areas = []; } }
-  if (!_areas.length) _areas = ['BOL', 'PAN', 'PAS', 'CAF'];
-  return _areas;
-}
-export async function normalizarArea(a) { const ar = await areas(); return ar.includes(a) ? a : (AREA_COMPAT[a] || ar[0] || 'GEN'); }
+// v0.75.0 · El área de un producto de la caja (como la caja v2.3.0): una de areas.js CAJA; "REV" → REVENTA; desconocida o vacía → ''
+// (async por compatibilidad con quien ya la llamaba con await)
+export function areaDeCaja(a) { const t = String(a == null ? '' : a).trim(), c = AR.deCaja(AREA_COMPAT[t] || t); return c === AR.SIN_AREA ? '' : c; }
+export async function normalizarArea(a) { return areaDeCaja(a); }
 
-// ── Llamada al script de la caja, con la sesión de Sistema Fën ──
-// Igual que la caja: token de Firebase + clave única (idem); si Google desvía el POST, se reintenta por GET.
-export async function llamarScriptCaja(datos, idem, url = F.CAJA_SCRIPT_URL) {
-  const cuerpo = Object.assign({}, datos, {
-    idToken: await auth.currentUser.getIdToken(),
-    idem: (idem || (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10))).replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64)
-  });
-  const texto = JSON.stringify(cuerpo);
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: texto });
-  let d = await res.json();
-  if (d && d.code === 'version') d = await (await fetch(url + '?p=' + encodeURIComponent(texto))).json();
-  return d;
+// v0.75.0 · La foto de un producto de la caja (como la caja v2.3.0): catalogoId, tipo, recetaId / reventaId (idRecetaFen si no hay tipo)
+export function fotoProductoCaja(p) {
+  const x = p || {}, tipo = String(x.tipo || '').trim(), r = String(x.idRecetaFen || '').trim(), rv = tipo === 'reventa' || (!tipo && /^REV\d+$/i.test(r));
+  return { catalogoId: String(x.catalogoId || ''), tipo, recetaId: rv || tipo === 'cargo' ? '' : String(x.recetaId || r), reventaId: rv ? String(x.reventaId || r) : '',
+    unidadesPorVenta: Number(x.unidadesPorVenta) > 0 ? Number(x.unidadesPorVenta) : null };
 }
 
-// ── Resumen de la caja (igual que la caja v2.1) ──
+// ── Resumen de la caja (igual que la caja v2.3.0) ──
 export async function guardarResumenCaja(cajaDocId, cajaData, ventasDocs) {
   try {
     const infoProd = {};
-    for (const p of await productos()) infoProd[p.id] = { area: (await normalizarArea(p.area)) || 'Otros', idRecetaFen: p.idRecetaFen || '' };
+    const areaRes = a => areaDeCaja(a) || 'Otros';
+    for (const p of await productos()) infoProd[p.id] = { area: areaRes(p.area), idRecetaFen: p.idRecetaFen || '', ...fotoProductoCaja(p) };
     const neto = b => Math.round((parseInt(b) || 0) / 1.19);
     const r = {
       cajaId: cajaDocId, sucursal: cajaData.sucursal || '',
@@ -104,7 +98,7 @@ export async function guardarResumenCaja(cajaDocId, cajaData, ventasDocs) {
       porMedio: { efectivo: 0, debito: 0, credito: 0, transferencia: 0 },
       porArea: {}, porProducto: {}, version: 1, actualizado: Timestamp.now()
     };
-    r.versionCaja = '2.2.0'; // v0.70.1: mismo formato que la caja v2.2.0 (porTarjeta, agotadoHoy)
+    r.versionCaja = '2.3.0'; // v0.75.0: mismo formato que la caja v2.3.0 (porProducto con catalogoId, tipo, recetaId, reventaId; porTarjeta, agotadoHoy)
     const tarj = {}, agot = {}, reagot = {};
     r.mes = (r.fecha || '').slice(0, 7);
     ventasDocs.forEach(d => {
@@ -117,9 +111,11 @@ export async function guardarResumenCaja(cajaDocId, cajaData, ventasDocs) {
       else if (v.medioPago) r.porMedio[v.medioPago] = (r.porMedio[v.medioPago] || 0) + total;
       (v.lineas || []).forEach(l => {
         const key = l.id || ('sin-id:' + (l.nombre || ''));
-        const info = infoProd[l.id] || { area: 'Otros', idRecetaFen: '' };
+        const info0 = infoProd[l.id] || { area: 'Otros', idRecetaFen: '', catalogoId: '', tipo: '', recetaId: '', reventaId: '' };
+        // v0.75.0 (caja v2.3.0): la foto de la línea (al vender) manda; si no la tiene (venta anterior), el producto de hoy
+        const info = l.catalogoId || l.tipo ? { ...info0, area: l.area ? areaRes(l.area) : info0.area, catalogoId: l.catalogoId || '', tipo: l.tipo || '', recetaId: l.recetaId || '', reventaId: l.reventaId || '', unidadesPorVenta: Number(l.unidadesPorVenta) > 0 ? Number(l.unidadesPorVenta) : info0.unidadesPorVenta } : info0;
         const bruto = parseInt(l.total) || 0, cant = parseFloat(l.cantidad) || 0;
-        const pp = r.porProducto[key] || (r.porProducto[key] = { nombre: l.nombre || '', area: info.area, idRecetaFen: info.idRecetaFen, cantidad: 0, bruto: 0, neto: 0 });
+        const pp = r.porProducto[key] || (r.porProducto[key] = { nombre: l.nombre || '', area: info.area, idRecetaFen: info.idRecetaFen, catalogoId: info.catalogoId || '', tipo: info.tipo || '', recetaId: info.recetaId || '', reventaId: info.reventaId || '', ...(info.unidadesPorVenta > 0 ? { unidadesPorVenta: info.unidadesPorVenta } : {}), cantidad: 0, bruto: 0, neto: 0 });
         pp.cantidad += cant; pp.bruto += bruto; pp.neto += neto(bruto);
         const pa = r.porArea[info.area] || (r.porArea[info.area] = { cantidad: 0, bruto: 0, neto: 0 });
         pa.cantidad += cant; pa.bruto += bruto; pa.neto += neto(bruto);
@@ -153,66 +149,16 @@ export async function guardarResumenCaja(cajaDocId, cajaData, ventasDocs) {
   } catch (e) { console.error('No se pudo guardar el resumen de la caja', cajaDocId, e); return false; }
 }
 
-// ── Pasar un cierre a la planilla (igual que exportarASheets de la caja v2.1) ──
-// Devuelve { ok, error }. Nunca duplica: el script reconoce un cierre que ya escribió.
-export async function exportarCierre(cajaDocId, cajaData) {
+// ── v0.75.0 · El resumen de un cierre (igual que cerrarResumen de la caja v2.3.0). Ya no se pasa a la planilla. ──
+// Devuelve { ok, error }. Si falla, la caja queda con resumenPendiente: true (la caja y Sistema Fën lo reintentan).
+export async function resumenCierre(cajaDocId, cajaData) {
   try {
     const ventasSnap = await getDocs(query(collection(db, 'ventas'), where('cajaId', '==', cajaDocId)));
-    await guardarResumenCaja(cajaDocId, cajaData, ventasSnap.docs);
-    if (ventasSnap.empty) {
-      await updateDoc(doc(db, 'cajas', cajaDocId), { exportadaSheets: true, sinVentas: true, exportPendiente: false });
-      return { ok: true };
-    }
-    const filas = [];
-    const IVA = 0.19;
-    ventasSnap.docs.forEach(d => {
-      const v = d.data();
-      if (v.anulada === true) return;
-      const fechaVenta = v.fecha && v.fecha.toDate ? v.fecha.toDate() : new Date();
-      const nVenta = d.id.slice(-6).toUpperCase();
-      (v.lineas || []).forEach(l => {
-        const bruto = parseInt(l.totalBruto || l.total) || 0;
-        const iva = Math.round(bruto * IVA / (1 + IVA));
-        filas.push({
-          fecha: fechaVenta.toLocaleDateString('es-CL'), nVenta, producto: l.nombre || '', cantidad: l.cantidad || 1,
-          precioUnit: parseInt(l.precio) || 0, tipoDesc: l.descTipo || '-', descuento: parseInt(l.descMonto) || 0,
-          brutoLinea: bruto, netoLinea: bruto - iva, ivaLinea: iva, medioPago: v.medioPago || '', usuario: v.usuario || '',
-          turno: cajaData.turno || determinarTurno(fechaVenta)
-        });
-      });
-    });
-    const apertura = cajaData.apertura && cajaData.apertura.toDate ? cajaData.apertura.toDate() : null;
-    const cierre = cajaData.cierre && cajaData.cierre.toDate ? cajaData.cierre.toDate() : new Date();
-    const t = cajaData.totales || {};
-    const filaCaja = {
-      fecha: apertura ? apertura.toLocaleDateString('es-CL') : new Date().toLocaleDateString('es-CL'),
-      sucursal: cajaData.sucursal === 'ainavillo' ? 'Ainavillo' : 'Barros Arana',
-      usuario: cajaData.usuario || '',
-      apertura: apertura ? apertura.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : '',
-      cierre: cierre.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
-      montoInicial: ent(cajaData.montoInicial), totalEfectivo: ent(t.efectivo), totalDebito: ent(t.debito),
-      totalCredito: ent(t.credito), totalTransfer: ent(t.transferencia), totalVentas: ent(cajaData.totalVentas),
-      nVentas: ent(cajaData.nVentas), cajaId: cajaDocId,
-      difEfectivo: cajaData.difEfectivo || 0, difTotal: cajaData.difTotal || 0, notaDescuadre: cajaData.notaDescuadre || ''
-    };
-    let resultado = null, ultimo = null;
-    for (let intento = 1; intento <= 3; intento++) {
-      try {
-        resultado = await llamarScriptCaja({ sucursal: cajaData.sucursal, filas, filaCaja }, 'caja-' + cajaDocId);
-        if (resultado && resultado.ok) break;
-        ultimo = new Error((resultado && (resultado.error || resultado.msg)) || 'Respuesta inesperada del servidor');
-        if (resultado && ['sesion', 'permiso', 'formato'].includes(resultado.code)) break;
-      } catch (e) { ultimo = e; }
-      resultado = null;
-      if (intento < 3) await new Promise(r => setTimeout(r, 1500 * intento));
-    }
-    if (resultado && resultado.ok) {
-      await updateDoc(doc(db, 'cajas', cajaDocId), { exportadaSheets: true, exportFecha: Timestamp.now(), exportPendiente: false });
-      return { ok: true };
-    }
-    throw ultimo || new Error('Respuesta inesperada del servidor');
+    if (!(await guardarResumenCaja(cajaDocId, cajaData, ventasSnap.docs))) throw new Error('No se pudo guardar el resumen');
+    if (cajaData && cajaData.resumenPendiente) await updateDoc(doc(db, 'cajas', cajaDocId), { resumenPendiente: false });
+    return { ok: true };
   } catch (err) {
-    try { await updateDoc(doc(db, 'cajas', cajaDocId), { exportPendiente: true, exportError: String(err && err.message || err).slice(0, 200), exportIntento: Timestamp.now() }); } catch (e2) {}
+    try { await updateDoc(doc(db, 'cajas', cajaDocId), { resumenPendiente: true }); } catch (e2) {}
     return { ok: false, error: String(err && err.message || err) };
   }
 }
@@ -228,7 +174,8 @@ export async function leerCierres() {
   const lista = sn => sn.docs.map(d => ({ id: d.id, ...d.data() }));
   return {
     sinCerrar: lista(abiertas).filter(c => (c.fecha || '') < hoy).sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
-    sinPlanilla: lista(recientes).filter(c => c.estado === 'cerrada' && c.exportadaSheets !== true && ent(c.nVentas) > 0)
+    // v0.75.0: los cierres ya no van a la planilla; solo los que quedaron sin resumen (resumenPendiente)
+    sinResumen: lista(recientes).filter(c => c.estado === 'cerrada' && c.resumenPendiente === true)
       .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')),
     evaluaciones: lista(evals).sort((a, b) => ((b.cierre && b.cierre.toMillis && b.cierre.toMillis()) || 0) - ((a.cierre && a.cierre.toMillis && a.cierre.toMillis()) || 0))
   };
@@ -259,13 +206,13 @@ export async function minutosDesdeUltimaVenta(cajaId) {
 }
 
 // Cerrar una caja de un día anterior. montos = null → sin arqueo (solo totales del sistema).
-// A diferencia de la caja, aquí "sin arqueo" también pasa el cierre a la planilla al tiro.
+// v0.75.0: con o sin arqueo, queda el resumen del cierre (ya no la planilla ni el correo de descuadre por Apps Script).
 // La caja y su evaluación se escriben juntas en una transacción: si alguien la cerró
 // recién (desde la caja u otro equipo), no se crea un segundo cierre.
 export async function cerrarCajaAnterior(cajaId, montos, nota) {
   const cajaRef = doc(db, 'cajas', cajaId);
   const evalRef = doc(db, 'evaluacion_caja', 'cierre-' + cajaId);
-  let cajaData, hayDif = false, evaluacion;
+  let cajaData, evaluacion;
   await runTransaction(db, async tx => {
     const sn = await tx.get(cajaRef);
     if (!sn.exists()) throw new Error('La caja ya no existe');
@@ -275,14 +222,12 @@ export async function cerrarCajaAnterior(cajaId, montos, nota) {
     const base = { cajaId, sucursal: cajaData.sucursal || '', usuario: cajaData.usuario || '', fecha: cajaData.fecha || '',
       nVentas: cajaData.nVentas || 0, montoInicial: ent(cajaData.montoInicial), apertura: cajaData.apertura || null, cierre: ahora, cerradoPor: correo(), cerradoDesde: 'Sistema Fën' };
     const extraCaja = {};
-    hayDif = false;
     if (montos) {
       const a = calcularArqueo(cajaData, montos);
       if (a.hayDiferencia && !String(nota || '').trim()) throw new Error('Falta la nota que explica la diferencia');
       const retirado = ent(montos.montoRetirado);
       const saldoSiguiente = retirado > 0 ? a.manEfectivo - retirado : null;
       const { hayDiferencia, ...campos } = a;
-      hayDif = hayDiferencia;
       evaluacion = { ...base, ...campos, ...(hayDiferencia ? { notaDescuadre: String(nota).trim() } : {}), ...(retirado > 0 ? { montoRetirado: retirado, saldoSiguiente } : {}) };
       if (saldoSiguiente !== null) extraCaja.saldoSiguiente = saldoSiguiente;
     } else {
@@ -293,28 +238,15 @@ export async function cerrarCajaAnterior(cajaId, montos, nota) {
     tx.set(evalRef, evaluacion);
     Object.assign(cajaData, { estado: 'cerrada', cierre: ahora, ...extraCaja });
   });
-  if (hayDif) {
-    Object.assign(cajaData, { notaDescuadre: evaluacion.notaDescuadre, difEfectivo: evaluacion.difEfectivo, difTotal: evaluacion.difTotal });
-    avisarDescuadre(cajaId, cajaData, evaluacion);
-  }
-  // La planilla recibe los mismos totales que quedaron en la evaluación (misma lectura).
-  return exportarCierre(cajaId, cajaData);
+  // La diferencia y su nota quedan en la evaluación (Hoy la muestra); el resumen, con la misma lectura de la caja.
+  return resumenCierre(cajaId, cajaData);
 }
 
-// Correo de descuadre, igual que la caja (mismo script de Ventas mensuales). Si falla, no frena el cierre.
-function avisarDescuadre(cajaId, c, e) {
-  if (!F.VENTAS_SCRIPT_URL) return;
-  const f = normalizarFechaCaja(c.fecha) || diaLocal();
-  llamarScriptCaja({ tipo: 'descuadre_caja', filaCaja: {
-    sucursal: c.sucursal === 'ainavillo' ? 'Ainavillo' : 'Barros Arana', fecha: f.split('-').reverse().join('-'),
-    usuario: c.usuario || '', difTotal: e.difTotal, difEfectivo: e.difEfectivo, notaDescuadre: e.notaDescuadre + ' (cerrada desde Sistema Fën por ' + correo() + ')'
-  } }, 'descuadre-' + cajaId, F.VENTAS_SCRIPT_URL).catch(err => console.error('No se pudo enviar el aviso de descuadre', err));
-}
-
+// v0.75.0 · "Generar resumen" de un cierre que quedó sin él (antes "Reenviar" a la planilla)
 export async function reenviarCierre(cajaId) {
   const sn = await getDoc(doc(db, 'cajas', cajaId));
   if (!sn.exists()) return { ok: false, error: 'La caja ya no existe' };
-  return exportarCierre(cajaId, sn.data());
+  return resumenCierre(cajaId, sn.data());
 }
 
 // Corregir el arqueo de un cierre (igual que la caja: queda marcado como corregido).

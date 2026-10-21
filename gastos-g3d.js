@@ -18,13 +18,13 @@
 //    vencimiento lo lleva (los gastos nacen partidos al pagarlo). "Cambiar reparto" de un mes ya cargado: planCambioReparto.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as B from './gastos-banco.js?v=0.74.0';
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.74.0';
-import * as M from './gastos-g2.js?v=0.74.0';
-import * as G3 from './gastos-g3.js?v=0.74.0';
-import { FERIADOS } from './feriados-cl.js?v=0.74.0';
-import * as FR from './finanzas-resultados.js?v=0.74.0';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
-import * as AB from './gastos-abono.js?v=0.74.0';   // v0.67.5: el reparto en % (el mismo de los abonos)
+import * as B from './gastos-banco.js?v=0.75.0';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.75.0';
+import * as M from './gastos-g2.js?v=0.75.0';
+import * as G3 from './gastos-g3.js?v=0.75.0';
+import { FERIADOS } from './feriados-cl.js?v=0.75.0';
+import * as FR from './finanzas-resultados.js?v=0.75.0';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
+import * as AB from './gastos-abono.js?v=0.75.0';   // v0.67.5: el reparto en % (el mismo de los abonos)
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');

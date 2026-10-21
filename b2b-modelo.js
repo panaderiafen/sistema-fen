@@ -313,3 +313,56 @@ export function usoEstimado(docs, hoy, aperturasDia = 10) {
   const lecturasDia = porApertura * aperturasDia + ordenesDia * 20;   // + cambios que llegan a los equipos abiertos
   return { porApertura, ordenesRecientes: ord, aperturasDia, ordenesDia, lecturasDia, escriturasDia: ordenesDia * 3, limiteLecturas: 50000, limiteEscrituras: 20000 };
 }
+
+// ═══════════════ v0.75.0 · Precios especiales unidos al producto por ID (Etapa 2b) ═══════════════
+// Decisión del dueño: cada precio especial va pegado al ID del producto (clientes.precios[].productoId), nunca se busca por nombre.
+// El nombre queda solo como respaldo para un precio antiguo que todavía no tiene ID. La misma regla está en logística (modelo.js).
+// ¿Este precio especial es de este producto? Con ID: solo por el ID. Sin ID (antiguo): por el nombre (sin tildes ni mayúsculas).
+export const precioEsDe = (x, producto) => !!x && !!producto && (texto(x.productoId) ? texto(x.productoId) === texto(producto.id) : clave(x.producto) === clave(producto.nombre));
+export const precioEspecialDe = (cliente, producto) => ((cliente && cliente.precios) || []).find(x => precioEsDe(x, producto)) || null;
+// El producto de un precio especial (para mostrar su base): por su ID; si no tiene, por el nombre (respaldo antiguo)
+export const productoDePrecio = (x, productos) => (texto(x && x.productoId) ? (productos || []).find(p => p.id === x.productoId) || null : (productos || []).find(p => clave(p.nombre) === clave(x && x.producto)) || null);
+// Unir una sola vez: cada precio sin ID (o con un ID que ya no existe) se une al producto de su mismo nombre, primero exacto y después
+// sin tildes ni mayúsculas; si hay varios con el nombre, el que no está archivado. Lo que no calza queda para elegir de la lista.
+// → { auto: [{ clienteId, cliente, idx, producto, precio, productoIdAntes, productoId, como 'exacto'|'normalizado' }],
+//     pendientes: [{ clienteId, cliente, idx, producto, precio, productoIdAntes, motivo 'sin_nombre'|'varios'|'roto', candidatos [ids] }],
+//     unidos (ya tenían su ID), total, clientes (con algún precio) }
+export function planPreciosPorId(clientes, productos) {
+  const prods = (productos || []).filter(p => p && p.id), ids = new Set(prods.map(p => p.id));
+  const exacto = new Map(), norm = new Map();
+  prods.forEach(p => { const e = texto(p.nombre), n = clave(p.nombre); if (!exacto.has(e)) exacto.set(e, []); exacto.get(e).push(p); if (!norm.has(n)) norm.set(n, []); norm.get(n).push(p); });
+  const elegir = l => { if (!l || !l.length) return null; if (l.length === 1) return l[0]; const v = l.filter(p => p.estado !== 'archivado'); return v.length === 1 ? v[0] : null; };
+  const out = { auto: [], pendientes: [], unidos: 0, total: 0, clientes: 0 };
+  (clientes || []).forEach(c => {
+    const ps = Array.isArray(c && c.precios) ? c.precios : [];
+    if (ps.length) out.clientes++;
+    ps.forEach((x, idx) => {
+      out.total++;
+      const pid = texto(x && x.productoId);
+      if (pid && ids.has(pid)) { out.unidos++; return; }
+      const base = { clienteId: c.id, cliente: texto(c.nombre), idx, producto: texto(x && x.producto), precio: Number(x && x.precio) || 0, productoIdAntes: pid || null };
+      const le = exacto.get(texto(x && x.producto)), ln = norm.get(clave(x && x.producto));
+      const pe = elegir(le), pn = pe ? null : elegir(ln);
+      // Un precio que ya tenía un ID que no existe (el producto se cambió de ID) no se une solo: lo eliges tú
+      if ((pe || pn) && !pid) { out.auto.push({ ...base, productoId: (pe || pn).id, como: pe ? 'exacto' : 'normalizado' }); return; }
+      const cand = (le && le.length ? le : ln && ln.length ? ln : []).map(p => p.id);
+      out.pendientes.push({ ...base, motivo: pid ? 'roto' : cand.length ? 'varios' : 'sin_nombre', candidatos: cand });
+    });
+  });
+  return out;
+}
+// Aplica las uniones a la lista de precios de un cliente (en una transacción, sobre lo guardado en ese momento). Solo pone el ID:
+// el nombre y el precio quedan iguales. Un precio que cambió mientras tanto (otro nombre o ya con su ID) no se toca.
+// uniones: [{ idx, producto, productoIdAntes, productoId, como }] → { precios, n }
+export function aplicarUniones(precios, uniones, { por = '', en = '' } = {}) {
+  const lista = (precios || []).map(x => ({ ...x }));
+  let n = 0;
+  (uniones || []).forEach(u => {
+    const ok = i => { const x = lista[i]; return x && clave(x.producto) === clave(u.producto) && (texto(x.productoId) || null) === (u.productoIdAntes || null); };
+    const i = ok(u.idx) ? u.idx : lista.findIndex((x, j) => ok(j));
+    if (i < 0 || !texto(u.productoId)) return;
+    lista[i] = { ...lista[i], productoId: u.productoId, unidoPorId: { como: u.como || 'elegido', por, en, ...(u.productoIdAntes ? { antes: u.productoIdAntes } : {}) } };
+    n++;
+  });
+  return { precios: lista, n };
+}

@@ -10,13 +10,12 @@
 //  Ingresar stock, ajustar cantidades y enviar a merma siguen en la caja.
 //  Diferencias a propósito:
 //  · registrar y rescatar se hacen en una transacción (dos clics o dos equipos no duplican);
-//  · la merma se guarda primero en Firebase y después pasa a la planilla; si la planilla
-//    falla, queda en "Merma sin pasar a planilla" para reenviarla (la caja la perdía);
+//  · la merma se guarda en Firebase (v0.75.0: ya no pasa a la planilla, como la caja v2.3.0);
 //  · rescatar limpia también el registro de envíos (la caja lo dejaba y la próxima
 //    merma de ese producto salía con cantidades y motivos viejos).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, updateDoc, query, where, Timestamp, runTransaction } from './firebase.js?v=0.74.0';
-import { diaLocal, productos, normalizarArea, llamarScriptCaja, haceDias } from './caja.js?v=0.74.0';
+import { auth, db, collection, doc, getDoc, getDocs, updateDoc, query, where, Timestamp, runTransaction } from './firebase.js?v=0.75.0';
+import { diaLocal, productos, normalizarArea } from './caja.js?v=0.75.0';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 export const CATEGORIAS = [
@@ -157,7 +156,7 @@ export async function registrarMerma(stockId) {
         precioOriginal: precio, monto: info.cantidad * precio, fechaIngreso, fechaEnvio: fEnvio, fechaRegistro: hoy, fechaEnvioAprox: aprox,
         diasEnStock: diasEntre(ingresoISO, fEnvio), fecha: Timestamp.now(), usuario: info.usuario || correo(),
         motivo: info.motivos.map(m => `${m.motivo} (${m.cantidad})`).join(' · '), motivos: info.motivos,
-        registradoPor: correo(), registradoDesde: 'Sistema Fën', enPlanilla: false
+        registradoPor: correo(), registradoDesde: 'Sistema Fën'
       };
       tx.set(doc(db, 'merma', id), reg);
       creados.push({ id, ...reg });
@@ -166,27 +165,8 @@ export async function registrarMerma(stockId) {
     lotes.forEach(([k]) => { cambios[`entradas.${k}`] = 0; });
     tx.update(ref, cambios);
   });
-  let malas = 0, error = '';
-  for (const m of creados) { const r = await enviarMermaAPlanilla(m.id, m); if (!r.ok) { malas++; error = r.error; } }
-  return { registros: creados.length, cantidad: creados.reduce((a, m) => a + m.cantidad, 0), monto: creados.reduce((a, m) => a + m.monto, 0), malas, error };
-}
-
-// Pasa un registro de merma a la pestaña "Merma" de la planilla. La clave (idem) es el id del
-// registro: si se reenvía, el script reconoce el envío y no lo duplica.
-export async function enviarMermaAPlanilla(id, m) {
-  try {
-    const r = await llamarScriptCaja({
-      tipo: 'merma', sucursal: m.sucursal, producto: m.nombreProducto, area: m.area, cantidad: m.cantidad,
-      precioOriginal: m.precioOriginal, monto: m.monto, fechaIngreso: m.fechaIngreso, fechaMerma: m.fechaEnvio,
-      fechaRegistro: m.fechaRegistro, diasEnStock: m.diasEnStock, motivo: m.motivo
-    }, ('merma-' + id).replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64));
-    if (!r || !r.ok) throw new Error((r && (r.error || r.msg)) || 'Respuesta inesperada del servidor');
-    await updateDoc(doc(db, 'merma', id), { enPlanilla: true, errorPlanilla: '' });
-    return { ok: true };
-  } catch (e) {
-    try { await updateDoc(doc(db, 'merma', id), { enPlanilla: false, errorPlanilla: String(e.message || e).slice(0, 200) }); } catch (e2) {}
-    return { ok: false, error: String(e.message || e) };
-  }
+  // v0.75.0: la merma queda en Firebase (informe de merma, Finanzas); ya no se copia a la planilla ni se llama al script
+  return { registros: creados.length, cantidad: creados.reduce((a, m) => a + m.cantidad, 0), monto: creados.reduce((a, m) => a + m.monto, 0), malas: 0, error: '' };
 }
 
 // Rescatar: devuelve toda la merma del producto a la categoría elegida (como la caja).
@@ -221,11 +201,4 @@ export async function leerMerma(desde, hasta) {
   return sn.docs.map(x => ({ id: x.id, ...x.data() }))
     .map(r => ({ ...r, dia: norm(r.fechaEnvio) || norm(r.fechaMerma) || (r.fecha && r.fecha.toDate ? diaLocal(r.fecha.toDate()) : '') }))
     .filter(r => r.dia >= desde && r.dia <= hasta);
-}
-
-// Mermas registradas que no llegaron a la planilla (últimos 60 días)
-export async function mermaSinPlanilla() {
-  const sn = await getDocs(query(collection(db, 'merma'), where('enPlanilla', '==', false)));
-  const desde = haceDias(60).toMillis();
-  return sn.docs.map(x => ({ id: x.id, ...x.data() })).filter(r => (r.fecha && r.fecha.toMillis ? r.fecha.toMillis() : 0) >= desde);
 }

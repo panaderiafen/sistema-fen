@@ -9,8 +9,9 @@
 //  la caja mientras tanto, no se pierde su cambio.
 //  La caja lee estos ajustes al abrirse: llegan a cada tablet al recargar la caja.
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, runTransaction } from './firebase.js?v=0.74.0';
-import { diaLocal, productos } from './caja.js?v=0.74.0';
+import { auth, db, collection, doc, getDoc, getDocs, runTransaction } from './firebase.js?v=0.75.0';
+import { diaLocal, productos } from './caja.js?v=0.75.0';
+import * as AR from './areas.js?v=0.75.0';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -22,14 +23,13 @@ export const BASE = {
 };
 
 export async function leerAjustes() {
-  const [snaps, areasSn, prods] = await Promise.all([
+  const [snaps, prods] = await Promise.all([
     Promise.all(DOCS.map(id => getDoc(doc(db, 'config', id)))),
-    getDocs(collection(db, 'areas')).catch(() => ({ docs: [] })),
     productos()
   ]);
   const c = {}; DOCS.forEach((id, i) => { c[id] = snaps[i].exists() ? snaps[i].data() : null; });
-  let areas = areasSn.docs.map(d => ({ id: d.id, nombre: d.data().nombre || d.id }));
-  if (!areas.length) areas = [{ id: 'BOL', nombre: 'Bollería' }, { id: 'PAN', nombre: 'Panadería' }, { id: 'PAS', nombre: 'Pastelería' }, { id: 'CAF', nombre: 'Cafetería' }];
+  // v0.75.0: las áreas de la caja son las de areas.js (las que producen + Reventa); la caja ya no tiene su lista
+  const areas = AR.CAJA.map(id => ({ id, nombre: AR.NOMBRE[id] || id }));
   return { c, areas, productos: prods };
 }
 

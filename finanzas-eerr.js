@@ -23,9 +23,13 @@
 //  v0.69.1: columna REVENTA (lo que se compra hecho y se vende tal cual): sus ventas, su costo (costo de compra × unidades),
 //  su margen de contribución y sus fijos, si algún gasto tiene área REVENTA. Las compras de reventa siguen fuera del resultado
 //  (info "compras_reventa"). REVENTA no recibe comunes en el reparto por causa (la vista secundaria es solo de las 4 que producen).
+//  v0.75.0 (Etapa 2b, decisión del dueño): bloque "Canal B2B" entre el margen del área y los comunes: + despacho cobrado (cargo
+//  del Catálogo, solo a B2B) − costos del canal B2B (remuneraciones y fijos con área B2B, que antes iban en Común) = resultado del
+//  canal B2B. El despacho ya no está en Común ni en el margen de contribución. El resultado operacional y el del mes no cambian.
+//  Un mes cerrado antes de la v0.75.0 se ve como quedó; sus ajustes se comparan en la forma de entonces (sin ruido por el cambio).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.74.0';
-import * as AR from './areas.js?v=0.74.0';
+import * as FR from './finanzas-resultados.js?v=0.75.0';
+import * as AR from './areas.js?v=0.75.0';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -41,8 +45,6 @@ export const mesTxt = m => { const [y, n] = String(m).split('-'); return `${MESE
 // (todas | areas = solo las 4 áreas | comun = solo Común), y si es un resultado (en negrita)
 export const FILAS = [
   { k: 'ventas', t: 'Ventas netas', piso: 1, signo: '', cols: 'todas', abre: true },
-  // v0.74.0: lo cobrado como cargo (despacho, solo a clientes B2B para recuperar la bencina): un ingreso aparte del canal B2B, en Común
-  { k: 'cargos', t: 'Despacho cobrado (canal B2B)', piso: 1, signo: '+', cols: 'comun' },
   { k: 'costoDirecto', t: 'Costo directo de lo vendido', piso: 1, signo: '−', cols: 'todas' },
   { k: 'costosVenta', t: 'Costos de venta (comisión de tarjeta, despacho)', piso: 1, signo: '−', cols: 'todas' },
   { k: 'merma', t: 'Merma valorizada', piso: 1, signo: '−', cols: 'todas' },
@@ -51,6 +53,11 @@ export const FILAS = [
   { k: 'fijos', t: 'Otros fijos propios del área', piso: 2, signo: '−', cols: 'areas' },
   { k: 'dep', t: 'Depreciación del área', piso: 2, signo: '−', cols: 'areas' },
   { k: 'ma', t: 'Margen del área', piso: 2, signo: '=', cols: 'todas', resultado: true, pct: true },
+  // v0.75.0: el canal B2B (cols 'total': una cifra, en Total). El despacho cobrado (cargo del Catálogo, solo a clientes B2B para
+  // recuperar la bencina) va junto a los costos del canal B2B, no en Común.
+  { k: 'cargos', t: 'Despacho cobrado', piso: 'b2b', signo: '+', cols: 'total' },
+  { k: 'canalB2B', t: 'Costos del canal B2B (atención, órdenes y despacho)', piso: 'b2b', signo: '−', cols: 'total' },
+  { k: 'resCanalB2B', t: 'Resultado del canal B2B', piso: 'b2b', signo: '=', cols: 'total', resultado: true },
   { k: 'remComun', t: 'Remuneraciones comunes (incluye sueldo empresarial)', piso: 3, signo: '−', cols: 'comun' },
   { k: 'fijosComun', t: 'Fijos comunes', piso: 3, signo: '−', cols: 'comun' },
   { k: 'depComun', t: 'Depreciación común', piso: 3, signo: '−', cols: 'comun' },
@@ -59,7 +66,8 @@ export const FILAS = [
   { k: 'resultado', t: 'Resultado del mes', piso: 3, signo: '=', cols: 'total', resultado: true, pct: true }
 ];
 export const FILA = Object.fromEntries(FILAS.map(f => [f.k, f]));
-export const NOMBRE_PISO = { 1: 'Piso 1 · Margen de contribución', 2: 'Piso 2 · Margen del área', 3: 'Piso 3 · Comunes y resultado' };
+export const NOMBRE_PISO = { 1: 'Piso 1 · Margen de contribución', 2: 'Piso 2 · Margen del área', b2b: 'Canal B2B · despacho y costos del canal', 3: 'Piso 3 · Comunes y resultado' };
+export const FILAS_B2B = ['cargos', 'canalB2B', 'resCanalB2B'];
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
@@ -124,7 +132,7 @@ export function armarEERR(E) {
   const mes = E.mes, F = {}, D = {}, avisos = [];
   const fila = k => F[k] || (F[k] = vacia());
   const det = (k, col, ref) => { const kk = k + '.' + col; (D[kk] || (D[kk] = [])).push(ref); };
-  ['ventas', 'cargos', 'costoDirecto', 'costosVenta', 'merma', 'rem', 'fijos', 'dep', 'remComun', 'fijosComun', 'depComun', 'financieros'].forEach(fila);
+  ['ventas', 'cargos', 'canalB2B', 'costoDirecto', 'costosVenta', 'merma', 'rem', 'fijos', 'dep', 'remComun', 'fijosComun', 'depComun', 'financieros'].forEach(fila);
   const canal = Object.fromEntries(SUCS.map(x => [x, vacia()]));
   const costosUsados = {};
   let sinCostoNeto = 0, nSinCosto = 0, sinAsocNeto = 0;
@@ -142,7 +150,8 @@ export function armarEERR(E) {
     else if (!f.ok) { sinCostoNeto += num(f.neto); nSinCosto++; }
     if (f.tipo === 'receta' && f.receta) costosUsados[f.receta] = { nombre: s(f.nombre), costoUnit: f.costoUnit === null || f.costoUnit === undefined ? null : Math.round(num(f.costoUnit) * 100) / 100, lectura: f.lectura || 'un', fuente: (f.fuenteCosto || []).join(',') };
   });
-  // v0.74.0 · Cargos (tipo 'cargo' del Catálogo: despacho): ingreso del canal B2B, no es venta de un producto
+  // v0.74.0 · Cargos (tipo 'cargo' del Catálogo: despacho): ingreso del canal B2B, no es venta de un producto.
+  // v0.75.0: va en el bloque del canal B2B (se guarda en la celda comun y se muestra en Total)
   const CG = (E.margen && E.margen.cargos) || null;
   ((CG && CG.lineas) || []).forEach(x => { F.cargos.comun += num(x.neto); det('cargos', 'comun', { tipo: 'cargo', nombre: s(x.nombre), suc: x.suc, neto: r0(x.neto), unidades: Math.round(num(x.cantidad) * 1000) / 1000, catalogoId: s(x.catalogoId) }); });
   if (sinAsocNeto) avisos.push({ k: 'sin_asociar', texto: `Ventas de productos sin asociar: ${pesosTxt(sinAsocNeto)} (en Común, sin costo directo). Asócialos en Márgenes → Asociar productos.` });
@@ -155,11 +164,15 @@ export function armarEERR(E) {
   if (num(M.sinCosto)) avisos.push({ k: 'merma_sin_costo', texto: `${M.sinCosto} ${M.sinCosto === 1 ? 'anotación' : 'anotaciones'} de merma sin costo (no suman).` });
   // Gastos del mes
   const lineas = lineasGastosMes(E.gastos, mes, E.fin, E.mapa, E.items);
-  const info = { compras: { mp: 0, reventa: 0, total: 0 }, enMargen: 0, fuera: { cuotas: 0, capital: 0, impuestos: 0, inversion: 0, retiro: 0, otro: 0, total: 0 }, interes: 0, pagosTarjeta: { n: 0, monto: 0 }, sinClasificar: { n: 0, neto: 0 } };
+  const info = { compras: { mp: 0, reventa: 0, total: 0 }, enMargen: 0, fuera: { cuotas: 0, capital: 0, impuestos: 0, inversion: 0, retiro: 0, otro: 0, total: 0 }, interes: 0, pagosTarjeta: { n: 0, monto: 0 }, sinClasificar: { n: 0, neto: 0 }, canalB2B: { rem: 0, fijos: 0, total: 0 } };
   const refG = l => ({ tipo: 'gasto', id: l.id, fecha: l.fecha, item: l.item, clave: l.clave, tipoRes: l.tipo, area: l.area, neto: r0(l.neto), proveedor: l.proveedor, obs: l.obs });
   const sinClas = {};
   lineas.forEach(l => {
     const t = l.tipo, propio = AREAS.includes(l.col);
+    // v0.75.0: remuneraciones y fijos con área B2B (costo del canal B2B) que irían a Común → el bloque del canal B2B
+    if ((t === 'remuneraciones' || t === 'fijo') && !propio && s(l.area).toUpperCase() === 'B2B') {
+      F.canalB2B.comun += l.neto; info.canalB2B[t === 'remuneraciones' ? 'rem' : 'fijos'] += l.neto; det('canalB2B', 'comun', refG(l)); return;
+    }
     if (t === 'remuneraciones') { if (propio) { F.rem[l.col] += l.neto; det('rem', l.col, refG(l)); } else { F.remComun.comun += l.neto; det('remComun', 'comun', refG(l)); } }
     else if (t === 'fijo') { if (propio) { F.fijos[l.col] += l.neto; det('fijos', l.col, refG(l)); } else { F.fijosComun.comun += l.neto; det('fijosComun', 'comun', refG(l)); } }
     else if (t === 'financiero') { F.financieros.comun += l.neto; det('financieros', 'comun', refG(l)); }
@@ -188,13 +201,16 @@ export function armarEERR(E) {
   // Redondeo por celda y filas derivadas
   Object.keys(F).forEach(k => { F[k] = conTotal(F[k]); });
   SUCS.forEach(x => { canal[x] = conTotal(canal[x]); });
-  F.mc = conTotal(Object.fromEntries(COLS.map(c => [c, F.ventas[c] + F.cargos[c] - F.costoDirecto[c] - F.costosVenta[c] - F.merma[c]])));
+  F.mc = conTotal(Object.fromEntries(COLS.map(c => [c, F.ventas[c] - F.costoDirecto[c] - F.costosVenta[c] - F.merma[c]])));
   F.ma = conTotal(Object.fromEntries(COLS.map(c => [c, F.mc[c] - F.rem[c] - F.fijos[c] - F.dep[c]])));
+  // v0.75.0: el bloque del canal B2B: despacho cobrado − costos del canal B2B
+  F.resCanalB2B = { ...vacia(), total: F.cargos.total - F.canalB2B.total };
   const comunes = F.remComun.total + F.fijosComun.total + F.depComun.total;
-  F.resOp = { ...vacia(), total: F.ma.total - comunes };
+  F.resOp = { ...vacia(), total: F.ma.total + F.resCanalB2B.total - comunes };
   F.resultado = { ...vacia(), total: F.resOp.total - F.financieros.total };
   // Info redondeada
   info.compras.mp = r0(info.compras.mp); info.compras.reventa = r0(info.compras.reventa); info.compras.total = info.compras.mp + info.compras.reventa;
+  info.canalB2B = { rem: r0(info.canalB2B.rem), fijos: r0(info.canalB2B.fijos) }; info.canalB2B.total = F.canalB2B.total;
   info.enMargen = r0(info.enMargen); info.interes = r0(info.interes); info.sinClasificar.neto = r0(info.sinClasificar.neto); info.pagosTarjeta.monto = r0(info.pagosTarjeta.monto);
   ['cuotas', 'impuestos', 'inversion', 'retiro', 'otro'].forEach(k => { info.fuera[k] = r0(info.fuera[k]); });
   info.fuera.capital = info.fuera.cuotas - info.interes;
@@ -213,7 +229,7 @@ const pesosTxt = v => '$' + r0(v).toLocaleString('es-CL');
 export function cuadratura(eerr, gastos) {
   const F = eerr.filas, I = eerr.info;
   const totalGastos = r0((gastos || []).filter(FR.vigente).filter(g => FR.fechaGasto(g).slice(0, 7) === eerr.mes).reduce((a, g) => a + FR.netoGasto(g), 0));
-  const enResultado = F.rem.total + F.fijos.total + F.remComun.total + F.fijosComun.total + (F.financieros.total - I.interes);
+  const enResultado = F.rem.total + F.fijos.total + F.remComun.total + F.fijosComun.total + num((F.canalB2B || {}).total) + (F.financieros.total - I.interes);
   const partes = { enResultado, interesCuotas: I.interes, compras: I.compras.total, enMargen: I.enMargen, fuera: I.fuera.total, sinClasificar: I.sinClasificar.neto };
   const suma = Object.values(partes).reduce((a, v) => a + v, 0);
   return { totalGastos, ...partes, suma, diferencia: totalGastos - suma, cuadra: Math.abs(totalGastos - suma) <= 1 && !I.sinClasificar.n };
@@ -289,8 +305,10 @@ export function repartirComunes(eerr, claves = {}) {
   // v0.69.1: REVENTA no recibe comunes ni tiene columna en esta vista: su margen del área va en Común (así el total sigue
   // siendo el resultado operacional de la vista principal)
   const reventa = num((eerr.filas.ma || {})[REVENTA]);
-  const comunResto = eerr.filas.ma.comun - sin.total + reventa;
-  return { porArea, sinRepartir: sin, resultadoArea, comunResto, reventa, total: AREAS_REPARTO.reduce((x, a) => x + resultadoArea[a], 0) + comunResto, lineas };
+  // v0.75.0: el resultado del canal B2B (despacho − costos del canal) no se reparte: va en Común (así el total sigue siendo el operacional)
+  const canalB2B = num((eerr.filas.resCanalB2B || {}).total);
+  const comunResto = eerr.filas.ma.comun - sin.total + reventa + canalB2B;
+  return { porArea, sinRepartir: sin, resultadoArea, comunResto, reventa, canalB2B, total: AREAS_REPARTO.reduce((x, a) => x + resultadoArea[a], 0) + comunResto, lineas };
 }
 
 // ═══════════════ Cierre de mes: lo que se revisa antes de cerrar ═══════════════
@@ -406,12 +424,25 @@ export function yaInformado(cierres, mesX) {
   Object.values(cierres || {}).forEach(c => { if (!c || c.estado !== 'cerrado' || !c.ajustes || !c.ajustes.porMes) return; const a = c.ajustes.porMes[mesX]; if (!a) return; Object.entries(a.porFila || {}).forEach(([k, v]) => { out[k] = (out[k] || 0) + num(v); }); });
   return out;
 }
+// v0.75.0 · Un cierre de antes del bloque del canal B2B (sin filas.canalB2B): el despacho estaba en Común (dentro del margen de
+// contribución y del margen del área) y los costos del canal B2B en los comunes. El cálculo de hoy se lleva a esa forma para comparar.
+export const formaAntigua = snap => !!(snap && snap.filas && !snap.filas.canalB2B);
+export function filasFormaAntigua(vivo) {
+  const F = vivo.filas, cg = num((F.cargos || {}).total), cb = (vivo.info && vivo.info.canalB2B) || { rem: 0, fijos: 0 };
+  const t = k => num((F[k] || {}).total);
+  const out = {};
+  FILAS.forEach(f => { out[f.k] = { total: t(f.k) }; });
+  out.mc = { total: t('mc') + cg }; out.ma = { total: t('ma') + cg };
+  out.remComun = { total: t('remComun') + num(cb.rem) }; out.fijosComun = { total: t('fijosComun') + num(cb.fijos) };
+  return out;
+}
 // Diferencia de un mes cerrado: cálculo de hoy − snapshot − lo ya informado. Por fila (Total) y los gastos que cambiaron.
 export function ajusteDe(vivo, snap, informado = {}) {
-  const porFila = {};
-  FILAS.forEach(f => { const d = num(vivo.filas[f.k].total) - num((snap.filas[f.k] || {}).total) - num(informado[f.k]); if (Math.abs(d) >= 1) porFila[f.k] = r0(d); });
+  const porFila = {}, antigua = formaAntigua(snap), FV = antigua ? filasFormaAntigua(vivo) : vivo.filas;
+  FILAS.forEach(f => { if (antigua && (f.k === 'canalB2B' || f.k === 'resCanalB2B')) return; const d = num(FV[f.k].total) - num((snap.filas[f.k] || {}).total) - num(informado[f.k]); if (Math.abs(d) >= 1) porFila[f.k] = r0(d); });
   // Gastos que cambiaron (por id): agregados, quitados o con otro monto/tipo/área
-  const mapa = det => { const m = {}; Object.entries(det || {}).forEach(([k, refs]) => (refs || []).forEach(r => { if (r.tipo !== 'gasto') return; const x = m[r.id] || (m[r.id] = { id: r.id, item: r.item, fecha: r.fecha, neto: 0, donde: [] }); x.neto += num(r.neto); x.donde.push(k.split('.')[0]); })); return m; };
+  const donde = (k, r) => (antigua && k === 'canalB2B' ? (r.tipoRes === 'remuneraciones' ? 'remComun' : 'fijosComun') : k);
+  const mapa = det => { const m = {}; Object.entries(det || {}).forEach(([k, refs]) => (refs || []).forEach(r => { if (r.tipo !== 'gasto') return; const x = m[r.id] || (m[r.id] = { id: r.id, item: r.item, fecha: r.fecha, neto: 0, donde: [] }); x.neto += num(r.neto); x.donde.push(donde(k.split('.')[0], r)); })); return m; };
   const a = mapa(snap.detalle), b = mapa(vivo.detalle), gastos = [];
   new Set([...Object.keys(a), ...Object.keys(b)]).forEach(id => {
     const x = a[id], y = b[id];

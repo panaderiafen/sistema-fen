@@ -13,7 +13,7 @@
 //  v0.69.1: área REVENTA (solo de margen) para lo que se compra hecho. AREAS = las de margen (las 4 de producción + REVENTA);
 //  AREAS_PRODUCCION = las que producen (la de una receta o del catálogo). Las listas salen de areas.js.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.74.0';
+import * as AR from './areas.js?v=0.75.0';
 
 export const AREAS = AR.MARGEN;
 export const AREAS_PRODUCCION = AR.PRODUCCION;
@@ -41,8 +41,8 @@ export const claveProducto = (canal, productoId) => `${canal}_${idDoc(productoId
 const AREA_TXT = { pan: 'PAN', panaderia: 'PAN', sandwiches: 'PAN', bol: 'BOL', bolleria: 'BOL', pas: 'PAS', pasteleria: 'PAS', chocolateria: 'PAS', caf: 'CAF', cafeteria: 'CAF' };
 // Solo las de producción: una receta o un catálogo nunca dicen REVENTA
 export const areaDe = a => AREA_TXT[normalizar(a)] || (AREAS_PRODUCCION.includes(s(a).toUpperCase()) ? s(a).toUpperCase() : '');
-// v0.69.1 · El área de margen de un vínculo (acepta REVENTA)
-export const areaMargenDe = a => (normalizar(a) === 'reventa' ? REVENTA : areaDe(a));
+// v0.69.1 · El área de margen de un vínculo (acepta REVENTA). v0.75.0: "REV" (la pestaña antigua de la caja) es REVENTA
+export const areaMargenDe = a => (['reventa', 'rev'].includes(normalizar(a)) ? REVENTA : areaDe(a));
 // v0.69.1 · El área con que cuenta un vínculo: la elegida; una reventa sin área va a REVENTA (lo elegido antes se respeta)
 export const areaVinculo = v => (!v ? '' : s(v.area) ? s(v.area) : v.tipo === 'reventa' ? REVENTA : '');
 // v0.69.1 · Vínculos de reventa que todavía no están en el área REVENTA (para pasarlos de una vez, con su historial)
@@ -88,7 +88,7 @@ export function lineasDeResumenes(resumenes, prods = {}) {
       if (!pp) return;
       const k = suc + '|' + pid, p = prods[pid] || {};
       const neto = pp.neto !== undefined && pp.neto !== null ? num(pp.neto) : netoDeBruto(pp.bruto);
-      const x = L[k] || (L[k] = { suc, productoId: pid, nombre: s(p.nombre || pp.nombre) || pid, cantidad: 0, neto: 0, recetaCatalogo: s(p.idRecetaFen || pp.idRecetaFen), areaCatalogo: areaDe(p.area || pp.area) });
+      const x = L[k] || (L[k] = { suc, productoId: pid, nombre: s(p.nombre || pp.nombre) || pid, cantidad: 0, neto: 0, recetaCatalogo: s(p.idRecetaFen || pp.idRecetaFen), areaCatalogo: areaMargenDe(p.area || pp.area) });
       x.cantidad += num(pp.cantidad); x.neto += neto;
       const f = fotoDeLinea(pp); if (f && !x.foto) x.foto = f;   // v0.74.0: la caja 2b guardará la foto en cada venta
     });
@@ -98,9 +98,12 @@ export function lineasDeResumenes(resumenes, prods = {}) {
 // Órdenes B2B (sin anuladas ni quitadas) → líneas por producto. Los precios de B2B son netos.
 export function idProductoB2b(l) { return s(l.productoId) || 'n-' + slug(l.producto); }
 // v0.74.0 · La foto de la venta (línea de una orden B2B, guardada al crearla): { catalogoId, tipo, area, recetaId, reventaId, unidadesPorVenta }
+// v0.75.0: también la de la caja v2.3.0 (cada venta y el resumen del cierre por producto). Un área que no es de margen ('Otros') queda ''.
+// Sin unidades por venta en la foto (la caja antes de que el Catálogo las escriba): null → las del maestro o del vínculo.
 export function fotoDeLinea(l) {
   if (!l || !s(l.catalogoId) || !s(l.tipo)) return null;
-  return { catalogoId: s(l.catalogoId), tipo: s(l.tipo), area: s(l.area), recetaId: s(l.recetaId), reventaId: s(l.reventaId), unidadesPorVenta: num(l.unidadesPorVenta) > 0 ? num(l.unidadesPorVenta) : 1 };
+  return { catalogoId: s(l.catalogoId), tipo: s(l.tipo), area: s(l.area) === 'Otros' ? '' : areaMargenDe(l.area) === REVENTA ? REVENTA : s(l.area), recetaId: s(l.recetaId), reventaId: s(l.reventaId),
+    unidadesPorVenta: num(l.unidadesPorVenta) > 0 ? num(l.unidadesPorVenta) : null };
 }
 const llaveFoto = f => (f ? `|${f.catalogoId}|${f.tipo}|${f.recetaId || f.reventaId}|${f.unidadesPorVenta}` : '');
 export function lineasDeOrdenes(ordenes, prods = {}) {
@@ -108,7 +111,7 @@ export function lineasDeOrdenes(ordenes, prods = {}) {
   (ordenes || []).filter(o => o && o.estado !== 'anulada' && !o.quitadoEnPlanilla).forEach(o => (o.lineas || []).forEach(l => {
     const pid = idProductoB2b(l), p = prods[pid] || {}, foto = fotoDeLinea(l), k = pid + llaveFoto(foto);
     const cant = num(l.cantidad), neto = l.neto !== undefined && l.neto !== null && l.neto !== '' ? num(l.neto) : Math.round(cant * num(l.precio));
-    const x = L[k] || (L[k] = { suc: 'b2b', productoId: pid, nombre: s(p.nombre || l.producto) || pid, cantidad: 0, neto: 0, recetaCatalogo: s(p.idReceta), areaCatalogo: areaDe(p.area || p.categoria), ...(foto ? { foto } : {}) });
+    const x = L[k] || (L[k] = { suc: 'b2b', productoId: pid, nombre: s(p.nombre || l.producto) || pid, cantidad: 0, neto: 0, recetaCatalogo: s(p.idReceta), areaCatalogo: areaMargenDe(p.area || p.categoria), ...(foto ? { foto } : {}) });
     x.cantidad += cant; x.neto += neto;
   }));
   return Object.values(L).map(x => ({ ...x, cantidad: red(x.cantidad), neto: Math.round(x.neto) }));
@@ -132,7 +135,7 @@ export function conCatalogo(lineas, prodsCaja = {}, prodsB2b = {}) {
     const p = (l.suc === 'b2b' ? prodsB2b : prodsCaja)[l.productoId];
     if (!p) return l;
     const rec = l.suc === 'b2b' ? s(p.idReceta) : s(p.idRecetaFen);
-    return { ...l, nombre: s(p.nombre) || l.nombre, recetaCatalogo: rec || l.recetaCatalogo || '', areaCatalogo: areaDe(p.area) || l.areaCatalogo || '' };
+    return { ...l, nombre: s(p.nombre) || l.nombre, recetaCatalogo: rec || l.recetaCatalogo || '', areaCatalogo: areaMargenDe(p.area) || l.areaCatalogo || '' };
   });
 }
 
@@ -175,7 +178,7 @@ export const esCargo = v => !!(v && v.tipo === 'cargo');
 // 3) fin_productos (lo asociado a mano). maestro: { vinc: { clave: vínculo }, desde: 'AAAA-MM', lista } (finanzas.maestroFinanzas) o null.
 export function vinculoDeFoto(f, l, base) {
   if (!f) return null;
-  const b = base || {}, u = num(f.unidadesPorVenta) > 0 ? num(f.unidadesPorVenta) : 1;
+  const b = base || {}, u = num(f.unidadesPorVenta) > 0 ? num(f.unidadesPorVenta) : num(b.unidadesPorVenta) > 0 ? num(b.unidadesPorVenta) : 1;
   const comun = { canal: canalDeSuc(l && l.suc), productoId: s(l && l.productoId), nombre: s(l && l.nombre), catalogoId: f.catalogoId, area: f.area, unidadesPorVenta: u, origen: 'foto',
     costoExtraNeto: b.costoExtraNeto !== undefined ? b.costoExtraNeto : null, receta: null, recetaNombre: '', reventa: false, costoReventaNeto: null, ignorar: false };
   if (f.tipo === 'receta' && f.recetaId) return { ...comun, tipo: 'receta', receta: f.recetaId, recetaNombre: b.tipo === 'receta' && b.receta === f.recetaId ? s(b.recetaNombre) : s(b.recetaNombre) || s(l && l.nombre) };

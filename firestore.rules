@@ -1,7 +1,12 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.4.0 (2026-10-21)
+//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.5.0 (2026-10-21)
+//  v1.5.0: (caja v2.3.0 y Sistema Fën v0.75.0, Etapa 2b) el catálogo se administra solo en Sistema Fën:
+//          productos los crea, cambia y archiva SOLO la administración (la cajera solo marca tuvoVentas al vender);
+//          areas, solo la administración (la caja ya no las crea). solicitudes_producto: la cajera crea un pedido
+//          suyo, pendiente, con los campos de siempre (tipo 'producto', nombre, sucursal, por, en; precio y nota
+//          opcionales) y lee los suyos; la administración los lee y los resuelve. Todo lo demás queda igual.
 //  v1.4.0: (Sistema Fën v0.74.0, para la caja de la entrega 2b) pedidos de productos de la caja:
 //          solicitudes_producto. La cajera crea un pedido suyo (pendiente) y lo lee; la administración
 //          los lee y los resuelve (aprobada o rechazada). Nada se borra. Todo lo demás queda igual.
@@ -56,12 +61,9 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
     }
 
-    // DECIDIDO (Emmanuel, 1-oct): las cajeras SÍ crean productos (y las áreas,
-    // subcategorías, tipos de leche y motivos de merma que eso requiera) desde
-    // la pestaña Productos, a partir de las recetas que Producción ya liberó con
-    // su ID. Así el flujo no depende del admin. Lo que NO pueden es cambiar
-    // precios ni datos de un producto que ya existe: eso es solo admin.
-    // Si algún día quieres que lo haga solo el admin, cambia `true` por `false`.
+    // v1.5.0: los productos y las áreas ya NO los gestiona la caja (solo Sistema Fën, administración).
+    // Esto queda solo para las listas de config que la caja todavía cambia (tipos de leche y motivos
+    // de merma; subcategorías y recetas ocultas como antes). Para que lo haga solo el admin, cambia `true` por `false`.
     function cajeraGestionaCatalogo() {
       return true;
     }
@@ -80,23 +82,20 @@ service cloud.firestore {
     }
 
     // ── Catálogo ───────────────────────────────────────────────
+    // v1.5.0: los productos se crean, cambian y archivan solo en Sistema Fën (administración).
+    // La caja solo marca tuvoVentas (true) al vender. Nada se borra: se archiva (activo false).
     match /productos/{id} {
       allow read: if conSesion();
-      allow create: if gestionaCatalogo();
-      // Al vender se marca tuvoVentas. Vincular receta, ajustar área o limpiar
-      // subcategoría (panel de sincronización con fën) es parte del catálogo.
-      // Precios, nombre, activo, etc. de un producto existente: solo admin.
+      allow create: if esAdmin();
       allow update: if esAdmin()
-                    || (opera() && soloCambia(['tuvoVentas']))
-                    || (gestionaCatalogo() && soloCambia(['idRecetaFen', 'area', 'categoria']));
+                    || (opera() && soloCambia(['tuvoVentas']) && request.resource.data.tuvoVentas == true);
       allow delete: if esAdmin();
     }
 
+    // v1.5.0: una sola lista de áreas (la de Sistema Fën). La caja ya no las crea.
     match /areas/{id} {
       allow read: if conSesion();
-      // La app crea las 4 áreas base la primera vez que alguien entra.
-      allow create: if gestionaCatalogo() || (opera() && id in ['BOL', 'PAN', 'PAS', 'CAF']);
-      allow update, delete: if esAdmin();
+      allow create, update, delete: if esAdmin();
     }
 
     match /config/{id} {
@@ -232,13 +231,23 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ── v1.4.0 · Pedidos de productos de la caja (los resuelve Sistema Fën → Catálogo → Productos) ──
+    // ── v1.4.0 · v1.5.0 · Pedidos de productos de la caja (los resuelve Sistema Fën → Catálogo → Productos) ──
+    // La caja v2.3.0 escribe { tipo 'producto', nombre, sucursal, precioSugerido | null, nota, estado 'pendiente', por, en }.
+    function pedidoValido(d) {
+      return d.keys().hasOnly(['tipo', 'nombre', 'sucursal', 'precioSugerido', 'nota', 'estado', 'por', 'en', 'catalogoId', 'recetaId', 'reventaId'])
+          && d.keys().hasAll(['tipo', 'nombre', 'sucursal', 'estado', 'por', 'en'])
+          && d.tipo == 'producto'
+          && d.estado == 'pendiente'
+          && d.por == miCorreo()
+          && d.nombre is string && d.nombre.size() >= 2 && d.nombre.size() <= 120
+          && d.sucursal in ['ainavillo', 'barros_arana']
+          && d.en is timestamp
+          && (!('precioSugerido' in d) || d.precioSugerido == null || (d.precioSugerido is number && d.precioSugerido > 0))
+          && (!('nota' in d) || (d.nota is string && d.nota.size() <= 300));
+    }
     match /solicitudes_producto/{id} {
-      allow read: if esAdmin() || (opera() && resource.data.por == request.auth.token.email);
-      allow create: if (esAdmin() || opera())
-                    && request.resource.data.estado == 'pendiente'
-                    && request.resource.data.por == request.auth.token.email
-                    && request.resource.data.nombre is string && request.resource.data.nombre.size() > 0;
+      allow read: if esAdmin() || (opera() && resource.data.por == miCorreo());
+      allow create: if opera() && pedidoValido(request.resource.data);
       allow update: if esAdmin() && request.resource.data.estado in ['aprobada', 'rechazada'];
       allow delete: if false;
     }

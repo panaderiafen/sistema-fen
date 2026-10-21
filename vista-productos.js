@@ -5,9 +5,9 @@
 //  #catalogo/armar: una sola vez, une lo vivo de la caja y de B2B en productos del catálogo (juntando los que llevan a la misma receta).
 //  Datos en catalogo-productos.js; reglas puras en catalogo-productos-modelo.js. H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, dialogo }
 // ═══════════════════════════════════════════════
-import * as C from './catalogo-productos.js?v=0.74.0';
-import * as CPM from './catalogo-productos-modelo.js?v=0.74.0';
-import * as AR from './areas.js?v=0.74.0';
+import * as C from './catalogo-productos.js?v=0.75.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.75.0';
+import * as AR from './areas.js?v=0.75.0';
 
 const st = { D: null, cargando: null, filtro: { estado: 'activo', canal: 'todos', tipo: 'todos', q: '' }, msg: '', err: '', grupos: null, gmsg: '', gerr: '', ocupado: false };
 export const estado = st;
@@ -21,9 +21,9 @@ let H = null, ctx = null, pestana = 'productos';
 
 const TXT_PRODUCTOS = 'El catálogo único de Fën: cada producto que se vende, una sola vez, con su ID (PR…).\nSale siempre de una receta aprobada en Cocina, de una reventa (Catálogo → Reventa) o es un cargo (por ejemplo Despacho, que se cobra solo a B2B para recuperar la bencina).\nTú lo habilitas en cada canal (la caja y/o B2B) con su precio, y Sistema Fën escribe la copia en la caja y en B2B: nadie más crea productos. La caja y logística solo los piden.\nArchivar lo saca de los canales; su historia (ventas, costos) queda y se deshace con "Reactivar". Nada se borra.';
 const TXT_SIN_CANAL = 'Un producto activo que no está habilitado en la caja ni en B2B: nadie lo puede vender. Habilítalo en un canal o archívalo.';
-const TXT_PEDIDOS = 'Lo que piden logística (Solicitudes → Producto nuevo, de la lista que publica el Catálogo) y la caja (desde la entrega 2b de la caja).\nResolver = crear el producto (desde su receta o reventa) o habilitarlo en ese canal, con el precio que decidas. El pedido queda aprobado y le llega la respuesta.\nRechazar pide un motivo, que también le llega.';
-const TXT_REGLAS_CAJA = 'Los pedidos de la caja (fen-ventas solicitudes_producto) llegan con la caja 2b. Para leerlos, publica las reglas de fen-ventas v1.4.0 (ver README). Mientras tanto aquí solo salen los de logística.';
-const TXT_CAJA = 'Lo que ve la cajera. Con control de stock, un precio por tarjeta (hoy, ayer, antes de ayer, 4° día y última oferta; con IVA); si una va en 0, la caja usa la anterior. Sin control de stock, un precio único.\nPestaña: en qué área de la caja aparece (las de la caja: fen-ventas → areas).\nExcepción horaria: el pan de ayer se vende al precio de hoy antes de las 15:00. Se elimina solo: al pasar los días sale de la vitrina (si no, es permanente).';
+const TXT_PEDIDOS = 'Lo que piden logística (Solicitudes → Producto nuevo, de la lista que publica el Catálogo) y la caja (Pedir producto, caja v2.3.0).\nResolver = crear el producto (desde su receta o reventa) o habilitarlo en ese canal, con el precio que decidas. El pedido queda aprobado y le llega la respuesta.\nRechazar pide un motivo, que también le llega.';
+const TXT_REGLAS_CAJA = 'Los pedidos de la caja (fen-ventas solicitudes_producto) los escribe la caja v2.3.0 (Pedir producto). Para leerlos, publica las reglas de fen-ventas v1.5.0 (ver README). Mientras tanto aquí solo salen los de logística.';
+const TXT_CAJA = 'Lo que ve la cajera. Con control de stock, un precio por tarjeta (hoy, ayer, antes de ayer, 4° día y última oferta; con IVA); si una va en 0, la caja usa la anterior. Sin control de stock, un precio único.\nPestaña: en qué área de la caja aparece (Panadería, Bollería, Pastelería, Cafetería o Reventa; las mismas de Sistema Fën). Una reventa va siempre a la pestaña Reventa.\nExcepción horaria: el pan de ayer se vende al precio de hoy antes de las 15:00. Se elimina solo: al pasar los días sale de la vitrina (si no, es permanente).';
 const TXT_B2B = 'El precio base neto (sin IVA) es el que paga un cliente B2B sin precio especial. Los precios especiales se piden y se aprueban como siempre (Ventas B2B → Clientes).\nUn producto de B2B que ya existía conserva su nombre en B2B (las órdenes antiguas y los precios especiales lo usan).';
 const TXT_ORIGEN = 'Receta: solo las aprobadas en Cocina (las que están en revisión o en prueba no se pueden elegir; una sub receta solo si "vende directo").\nReventa: la lista de Catálogo → Reventa.\nCargo: algo que se cobra y no es un producto (Despacho). En el estado de resultados va como un ingreso aparte del canal B2B, no como margen de un producto.';
 const TXT_UPV = 'Cuántas unidades de la receta (o de la reventa) lleva una venta. Casi siempre 1; una "caja de 6" = 6.';
@@ -62,7 +62,7 @@ function saleDe(p) {
 function canalTxt(p, cn) {
   const c = (p.canales || {})[cn] || {};
   if (!CPM.habilitado(p, cn)) return `<span class="ayuda">${c.docId ? 'Deshabilitado' : '—'}</span>`;
-  if (cn === 'caja') { const pr = CPM.preciosCaja(c); return `<b>${pesos(pr.hoy)}</b> <span class="ayuda">con IVA${c.controlStock === false ? ' · precio único' : ''} · ${H.esc(c.areaCaja || '')}</span>`; }
+  if (cn === 'caja') { const pr = CPM.preciosCaja(c), tab = p.tipo === 'reventa' ? AR.REVENTA : c.areaCaja; return `<b>${pesos(pr.hoy)}</b> <span class="ayuda">con IVA${c.controlStock === false ? ' · precio único' : ''} · ${H.esc(tab || '')}</span>`; }
   return `<b>${pesos(c.precioBase)}</b> <span class="ayuda">neto</span>`;
 }
 function fila(p) {
@@ -169,7 +169,7 @@ function formProducto(p, base) {
   const pr = c.precios || {}, stock = c.controlStock !== false;
   const habC = x.canales ? !!c.habilitado && (!p || p.estado !== 'archivado') : false, habB = x.canales ? !!b.habilitado : false;
   const docB = p && p.canales && p.canales.b2b && p.canales.b2b.docId ? st.D.cat.b2b[p.canales.b2b.docId] : null;
-  const areaCaja = c.areaCaja || (AR.PRODUCCION.includes(x.area) ? x.area : '');
+  const areaCaja = (c.areaCaja && c.areaCaja !== AR.REVENTA ? c.areaCaja : '') || (AR.PRODUCCION.includes(x.area) ? x.area : '');
   return `<form class="form-dialogo cat-dialogo pr-dialogo" id="pr-form" novalidate>
     <h2>${p ? `Cambiar ${H.esc(p.nombre)}` : 'Nuevo producto'}</h2>
     ${p ? `<p class="ayuda">ID ${H.esc(p.id)} (no cambia)</p>` : '<p class="ayuda">El ID (PR…) se pone solo: el número que sigue.</p>'}
@@ -182,7 +182,8 @@ function formProducto(p, base) {
     <div class="campo pr-no-cargo ${tipo === 'cargo' ? 'oculto' : ''}"><label for="pr-upv">Unidades por venta ${H.info('Unidades por venta', TXT_UPV)}</label><input id="pr-upv" type="text" inputmode="decimal" value="${H.esc(String(x.unidadesPorVenta ?? 1).replace('.', ','))}"></div>
     <fieldset class="pr-canal" id="pr-c-caja"><legend><label class="check"><input type="checkbox" id="pr-caja" ${habC ? 'checked' : ''}> Se vende en la caja</label> ${H.info('La caja', TXT_CAJA)}</legend>
       <div class="pr-canal-cuerpo ${habC ? '' : 'oculto'}">
-        <div class="fila-campos rev-campos"><div class="campo"><label for="pr-areacaja">Pestaña de la caja</label><select id="pr-areacaja"><option value="">Elige…</option>${(st.D.areasCaja || []).map(a => `<option value="${H.esc(a)}" ${a === areaCaja ? 'selected' : ''}>${H.esc(AR.NOMBRE[a] || a)}</option>`).join('')}</select></div>
+        <div class="fila-campos rev-campos"><div class="campo pr-no-reventa ${tipo === 'reventa' ? 'oculto' : ''}"><label for="pr-areacaja">Pestaña de la caja</label><select id="pr-areacaja"><option value="">Elige…</option>${(st.D.areasCaja || []).filter(a => a !== AR.REVENTA).map(a => `<option value="${H.esc(a)}" ${a === areaCaja ? 'selected' : ''}>${H.esc(AR.NOMBRE[a] || a)}</option>`).join('')}</select></div>
+          <div class="campo pr-si-reventa ${tipo === 'reventa' ? '' : 'oculto'}" id="pr-areacaja-rev"><span class="etiqueta-fija">Pestaña de la caja</span><p class="ayuda" style="margin:6px 0 0"><b>Reventa</b> · una reventa va siempre ahí</p></div>
           <div class="campo"><label for="pr-catcaja">Categoría (opcional)</label><input id="pr-catcaja" list="pr-catcaja-l" maxlength="60" value="${H.esc(c.categoria || '')}"><datalist id="pr-catcaja-l">${categoriasCaja(areaCaja).map(k => `<option value="${H.esc(k)}">`).join('')}</datalist></div></div>
         <label class="check"><input type="checkbox" id="pr-stock" ${stock ? 'checked' : ''}> Con control de stock (precio por tarjeta)</label>
         <div class="pr-precios ${stock ? '' : 'oculto'}" id="pr-precios">${CPM.TARJETAS.map(([k, t]) => `<div class="campo"><label for="pr-p-${k}">${t}</label><input id="pr-p-${k}" type="text" inputmode="numeric" value="${H.esc(vNum(pr[k]))}" placeholder="${k === 'hoy' ? 'con IVA' : 'igual'}"></div>`).join('')}</div>
@@ -215,7 +216,8 @@ function dialogoProducto(el, p, { base = null, titulo = '', onGuardar = null, no
   if (nota) d.querySelector('h2').insertAdjacentHTML('afterend', `<p class="aviso" id="pr-dlg-nota">${nota}</p>`);
   const vis = () => {
     const t = (d.querySelector('input[name="pr-tipo"]:checked') || {}).value;
-    d.querySelector('.pr-si-receta').classList.toggle('oculto', t !== 'receta'); d.querySelector('.pr-si-reventa').classList.toggle('oculto', t !== 'reventa');
+    d.querySelector('.pr-si-receta').classList.toggle('oculto', t !== 'receta'); d.querySelectorAll('.pr-si-reventa').forEach(x => x.classList.toggle('oculto', t !== 'reventa'));
+    d.querySelector('.pr-no-reventa').classList.toggle('oculto', t === 'reventa');   // v0.75.0: la reventa no elige pestaña
     d.querySelector('.pr-si-cargo').classList.toggle('oculto', t !== 'cargo'); d.querySelector('.pr-no-cargo').classList.toggle('oculto', t === 'cargo');
     d.querySelector('#pr-c-caja .pr-canal-cuerpo').classList.toggle('oculto', !d.querySelector('#pr-caja').checked);
     d.querySelector('#pr-c-b2b .pr-canal-cuerpo').classList.toggle('oculto', !d.querySelector('#pr-b2b').checked);

@@ -22,8 +22,8 @@
 //  · v0.41.0: cada crítica puede contarse en envases (saco de 25 kg…): stockmp/{id}.envase.
 //  · v0.37.0 (P5): Bodega — stock de las materias primas críticas (bodega común), consumo por área con lo hecho
 //    en Cocina, proyección con lo planificado y alerta en Hoy. El cálculo es el de Cocina (copia en cocina/).
-//  · v0.58.0: la merma se valoriza con el motor de costeo de Finanzas (costos de fen-gastos); la planilla (op costos_merma)
-//    queda solo para lo que el motor no puede costear ("costo de la planilla"). El café de la bitácora también se valoriza.
+//  · v0.58.0: la merma se valoriza con el motor de costeo de Finanzas (costos de fen-gastos). v0.75.0: SOLO con él (costos_mp):
+//    ya no se piden costos a la planilla (op costos_merma). Lo que el motor no puede costear queda "sin costo". El café también.
 //  · v0.36.0 (P4b): merma de las cuatro áreas (anotada en Cocina) valorizada con los costos de la planilla,
 //    y la bitácora de turno de Cafetería (gramos de café); gramos por shot en la configuración de Cafetería.
 //  · v0.35.0: una cuenta de área puede entrar a varias áreas (cuentas/{uid}.areas; reglas v1.4.0, script v2.6.0).
@@ -59,17 +59,17 @@
 //    se escribe desde la pantalla (decisión del dueño, 21-oct-2026): la lista publicada (CSV) que leen la caja y logística no recibe
 //    las recetas nuevas hasta la etapa 2. preparar/copiar quedan en el código, sin botón. El costo de una propuesta sale solo de Finanzas.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.74.0';
-import * as FBr from './firebase-produccion.js?v=0.74.0';
-import * as Apps from './apps.js?v=0.74.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.74.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.74.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.75.0';
+import * as FBr from './firebase-produccion.js?v=0.75.0';
+import * as Apps from './apps.js?v=0.75.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.75.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.75.0';
 import * as K from './cocina/consumo.js?v=0.17.4';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.17.4';
-import * as M from './fs-memoria.js?v=0.74.0';
-import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.74.0';
-import * as RM from './recetas-maestro.js?v=0.74.0';
-import { produccion as QP, esCuota } from './fs-cuota.js?v=0.74.0';
+import * as M from './fs-memoria.js?v=0.75.0';
+import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.75.0';
+import * as RM from './recetas-maestro.js?v=0.75.0';
+import { produccion as QP, esCuota } from './fs-cuota.js?v=0.75.0';
 
 // ── v0.63.3: todo pedido a fen-produccion pasa por aquí: se cuenta (Configuración → Uso de la base hoy) y, si Firestore dice
 // "cuota agotada" (resource-exhausted), se muestra el letrero de Producción/Cocina. Cada escritura de Sistema Fën en recetas,
@@ -128,11 +128,11 @@ async function conMarca(col, fn, forzar = false) {
 }
 
 export { AREAS };
-export { resumenPropuesta } from './finanzas-motor.js?v=0.74.0';
+export { resumenPropuesta } from './finanzas-motor.js?v=0.75.0';
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
-export const VERSION_MERMA = '2.7.0';    // script con costos_merma (SistemaFen.gs v2.4)
+export const VERSION_MERMA = '2.7.0';    // script con costos_merma (SistemaFen.gs v2.4) · v0.75.0: ya no se usa (la merma se costea solo con costos_mp)
 export const VERSION_BODEGA = '2.8.0';   // script con bodega_adm (SistemaFen.gs v2.5)
 export const VERSION_ALERTAS = '2.9.0';  // script con stock_alerta (correo de bajo el mínimo; SistemaFen.gs v2.6)
 export const VERSION_COSTOS = '2.10.0';  // script con mp_costos (MP_maestro con precios para Finanzas; SistemaFen.gs v2.7)
@@ -542,7 +542,7 @@ export async function pendientesCocina({ forzar = false } = {}) {
 // la planilla quedaron como estaban). Lo que no está en la base de Cocina va en "faltan" (no se puede aprobar).
 export async function costear(prop) {
   const [fin, base] = await Promise.all([
-    import('./finanzas.js?v=0.74.0').then(F => F.costosPropuesta(prop)),
+    import('./finanzas.js?v=0.75.0').then(F => F.costosPropuesta(prop)),
     mpsYRecetas().catch(() => null)
   ]);
   if (!fin || !fin.propuesta) { const e = new Error('Para ver el costo, conecta la base de Gastos y Finanzas (Gastos → Base nueva): los precios están en Finanzas → Costos.'); e.code = 'sin_gastos'; throw e; }
@@ -674,7 +674,7 @@ export async function resolverSolicitud(sol, datos = {}) {
   const rep = mps.find(m => String(m.nombre || '').trim().toLowerCase() === nombre.toLowerCase());
   if (rep) { const e = new Error(`Ya existe "${nombre}" (${rep.id}). Habilítala en vez de crearla.`); e.code = 'existe'; e.datos = { id: rep.id }; throw e; }
   // El precio va a Finanzas: sin fen-gastos conectada no se crea (así nunca queda una materia prima sin su precio por error)
-  const F = await import('./finanzas.js?v=0.74.0');
+  const F = await import('./finanzas.js?v=0.75.0');
   if (!(await F.gastosConectada())) throw new Error('Para crearla con su precio, conecta la base de Gastos y Finanzas en este equipo (Gastos → Base nueva).');
   const doc = RM.docMp({ nombre, tipo, categoria: datos.categoria, unidad, area: sol.area }, { solicitud: sol.docId, por, hoy });
   // ID = el mayor + 1 del prefijo; si justo existe (otro equipo), se prueba el siguiente
@@ -774,27 +774,21 @@ export async function mermaDelPeriodo({ desde, hasta, fresco = false }) {
   const diasCaf = {}; sn.forEach(x => { if (x.area === 'CAF' && x.fecha) diasCaf[x.fecha] = x; });
   const calibraciones = K.calibracionesDiarias({ config: { CAF: cfgCaf }, dias: { CAF: diasCaf }, diasVentaCaf: diasVentaCaf || undefined, hoy: CM.hoyTxt(), desde }, desde, hasta);
   const mpCafe = cfgCaf.mp_cafe || '';
-  // v0.58.0: primero con el motor de costeo de Finanzas (costos de fen-gastos); la planilla (op costos_merma) solo para lo que falte
+  // v0.58.0 · v0.75.0: con el motor de costeo de Finanzas (costos_mp de fen-gastos), y nada más (sin la planilla)
   const k3 = a => (a.tipo === 'mp' ? 'mp' : 'receta') + ':' + a.item + ':' + (a.unidad || 'un');
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.74.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
-  const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
-  const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
-  let costos = {}, errorCostos = '';
-  if (claves.length) {
-    try { costos = (await script('costos_merma', { items: claves.map(k => { const [tipo, ...r] = k.split(':'); return { tipo, id: r.join(':') }; }) }, VERSION_MERMA)).costos || {}; }
-    catch (e) { errorCostos = e.message || String(e); }
-  }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.75.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  // v0.75.0: ya no se piden a la planilla los costos que el motor no tiene (op costos_merma): quedan sin costo o incompletos
+  const costos = {}, errorCostos = '';
   return { desde, hasta, merma, cafe, costos, costosMotor, errorCostos, calibraciones, mpCafe };
 }
-// v0.58.0: costo neto por unidad de un ítem: motor de costeo (Finanzas) → si falta o está incompleto, la planilla → si tampoco, el del motor
-// aunque esté incompleto. → { neto, fuente: 'motor'|'planilla'|'incompleto' } | null
+// v0.58.0 · v0.75.0: costo neto por unidad de un ítem, SOLO con el motor de costeo de Finanzas (costos_mp): completo o, si le falta
+// algo, el del motor marcado incompleto. Ya no hay respaldo con los costos de la planilla. → { neto, fuente: 'motor'|'incompleto' } | null
 export function costoMermaItem(datos, tipo, id, unidad) {
-  const m = (datos.costosMotor || {})[`${tipo}:${id}:${unidad || 'un'}`], c = (datos.costos || {})[tipo + ':' + id];
+  const m = (datos.costosMotor || {})[`${tipo}:${id}:${unidad || 'un'}`];
   if (m && !m.incompleto) return { neto: m.neto, fuente: 'motor' };
-  if (c && !c.falta) return { neto: c.neto, fuente: 'planilla' };
   if (m) return { neto: m.neto, fuente: 'incompleto' };
   return null;
 }
@@ -817,7 +811,7 @@ export function resumenMerma(datos) {
   const cafe = { calibracion: 0, merma: 0, prueba_receta: 0, total: 0 };
   (datos.cafe || []).forEach(a => { const g = Number(a.gramos) || 0; if (a.tipo in cafe) cafe[a.tipo] += g; cafe.total += g; });
   // v0.54.0: calibración diaria (por día: automática o editada), valorizada con el costo neto del café (por gramo)
-  // v0.58.0: el café se valoriza con el precio de la materia prima café (motor de Finanzas; si falta, la planilla)
+  // v0.58.0: el café se valoriza con el precio de la materia prima café (motor de Finanzas; v0.75.0: sin la planilla)
   const cal = datos.calibraciones || [], cc = datos.mpCafe ? costoMermaItem(datos, 'mp', datos.mpCafe, 'g') : null;
   const gCal = cal.reduce((s, x) => s + x.gramos, 0), gBit = cafe.total;
   cafe.calibracionDiaria = { dias: cal.map(x => ({ fecha: x.fecha, shots: x.shots, gramos: x.gramos, auto: x.auto })), shots: cal.reduce((s, x) => s + x.shots, 0), gramos: gCal,
