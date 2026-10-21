@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Áreas: una sola lista para Gastos, Finanzas y la caja  v0.69.1 · v0.70.0 · v0.75.0
+//  Sistema Fën — Áreas: una sola lista para Gastos, Finanzas y la caja  v0.69.1 · v0.70.0 · v0.75.1
 //  Antes cada módulo tenía su copia (gastos-g2.js, app.js, finanzas-ventas.js, finanzas-resultados.js, finanzas-eerr.js).
 //  Ahora todas salen de aquí. Sin red ni pantalla: se prueba sola.
 //
@@ -28,7 +28,7 @@ export const SOLO_A_MANO = [REVENTA, B2C];
 export const esCanal = a => CANAL.includes(String(a || '').toUpperCase());
 // Las áreas que la app puede proponer sola en un reparto (sin las que van solo a mano)
 export const paraRepartir = (lista = GASTO) => (lista || []).filter(a => !SOLO_A_MANO.includes(a));
-// v0.75.0 · Etapa 2b: las pestañas de la caja (fen-ventas) son estas mismas (las que producen + REVENTA); la caja ya no tiene
+// v0.75.1 · Etapa 2b: las pestañas de la caja (fen-ventas) son estas mismas (las que producen + REVENTA); la caja ya no tiene
 // su propia lista. "REV" (la pestaña antigua de reventa de la caja) es el mismo REVENTA: se lee como alias en todas partes
 // (historia de la caja, resúmenes de cierre, Finanzas, caja.js). Un área desconocida o vacía es "Sin área" (nunca Bollería).
 export const CAJA = [...PRODUCCION, REVENTA];

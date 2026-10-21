@@ -5,9 +5,9 @@
 //  #catalogo/armar: una sola vez, une lo vivo de la caja y de B2B en productos del catálogo (juntando los que llevan a la misma receta).
 //  Datos en catalogo-productos.js; reglas puras en catalogo-productos-modelo.js. H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, dialogo }
 // ═══════════════════════════════════════════════
-import * as C from './catalogo-productos.js?v=0.75.0';
-import * as CPM from './catalogo-productos-modelo.js?v=0.75.0';
-import * as AR from './areas.js?v=0.75.0';
+import * as C from './catalogo-productos.js?v=0.75.1';
+import * as CPM from './catalogo-productos-modelo.js?v=0.75.1';
+import * as AR from './areas.js?v=0.75.1';
 
 const st = { D: null, cargando: null, filtro: { estado: 'activo', canal: 'todos', tipo: 'todos', q: '' }, msg: '', err: '', grupos: null, gmsg: '', gerr: '', ocupado: false };
 export const estado = st;
@@ -217,7 +217,7 @@ function dialogoProducto(el, p, { base = null, titulo = '', onGuardar = null, no
   const vis = () => {
     const t = (d.querySelector('input[name="pr-tipo"]:checked') || {}).value;
     d.querySelector('.pr-si-receta').classList.toggle('oculto', t !== 'receta'); d.querySelectorAll('.pr-si-reventa').forEach(x => x.classList.toggle('oculto', t !== 'reventa'));
-    d.querySelector('.pr-no-reventa').classList.toggle('oculto', t === 'reventa');   // v0.75.0: la reventa no elige pestaña
+    d.querySelector('.pr-no-reventa').classList.toggle('oculto', t === 'reventa');   // v0.75.1: la reventa no elige pestaña
     d.querySelector('.pr-si-cargo').classList.toggle('oculto', t !== 'cargo'); d.querySelector('.pr-no-cargo').classList.toggle('oculto', t === 'cargo');
     d.querySelector('#pr-c-caja .pr-canal-cuerpo').classList.toggle('oculto', !d.querySelector('#pr-caja').checked);
     d.querySelector('#pr-c-b2b .pr-canal-cuerpo').classList.toggle('oculto', !d.querySelector('#pr-b2b').checked);

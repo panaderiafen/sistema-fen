@@ -1,9 +1,20 @@
-# Sistema Fën · v0.75.0
+# Sistema Fën · v0.75.1
 
-**App:** v0.75.0 · **Caja (fen-ventas):** v2.3.0 (nueva) · **Reglas de Firestore (fen-ventas):** v1.5.0 (nueva, **obligatoria antes de la caja**) · **Reglas de fen-b2b:** v1.7.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Logística (fen-logistica):** v1.3.1 · **Cocina:** v0.17.5 · **Apps Script:** ninguno cambia (opcional: borrar un activador de B2B) · 21 de octubre de 2026
+**App:** v0.75.1 · **Caja (fen-ventas):** v2.3.0 (nueva) · **Reglas de Firestore (fen-ventas):** v1.5.0 (nueva, **obligatoria antes de la caja**) · **Reglas de fen-b2b:** v1.7.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Logística (fen-logistica):** v1.3.1 · **Cocina:** v0.17.6 · **Apps Script:** ninguno cambia (opcional: borrar un activador de B2B) · 21 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.75.1: habilitar una materia prima inactiva
+
+- **Arreglo:** cuando Cocina pide habilitar una materia prima que estaba **inactiva**, al tocar "Habilitar" en Producción → Materias primas pedidas ahora también se **reactiva** (antes solo se le sumaba el área y seguía sin aparecer en Cocina). Va con Cocina v0.17.6, que ahora ofrece las inactivas para habilitar.
+- **Dónde va:** repo **sistema-fen**, raíz. Cambia `produccion.js`; los demás, solo la versión.
+- **Reglas y Apps Script:** sin cambios.
+
+### Lista de verificación v0.75.1
+- [ ] Abajo dice **v0.75.1**.
+- [ ] Producción → Materias primas pedidas: los pedidos de Cocina aparecen; "Habilitar" en una inactiva la deja activa y con el área.
+- [ ] Hoy muestra las recetas por aprobar y las materias primas pedidas.
 
 ## Novedades de la v0.75.0: Catálogo, Etapa 2b (la caja solo vende y pide; un ID para cada precio especial; sin planillas)
 

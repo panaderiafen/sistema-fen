@@ -23,13 +23,13 @@
 //  v0.69.1: columna REVENTA (lo que se compra hecho y se vende tal cual): sus ventas, su costo (costo de compra × unidades),
 //  su margen de contribución y sus fijos, si algún gasto tiene área REVENTA. Las compras de reventa siguen fuera del resultado
 //  (info "compras_reventa"). REVENTA no recibe comunes en el reparto por causa (la vista secundaria es solo de las 4 que producen).
-//  v0.75.0 (Etapa 2b, decisión del dueño): bloque "Canal B2B" entre el margen del área y los comunes: + despacho cobrado (cargo
+//  v0.75.1 (Etapa 2b, decisión del dueño): bloque "Canal B2B" entre el margen del área y los comunes: + despacho cobrado (cargo
 //  del Catálogo, solo a B2B) − costos del canal B2B (remuneraciones y fijos con área B2B, que antes iban en Común) = resultado del
 //  canal B2B. El despacho ya no está en Común ni en el margen de contribución. El resultado operacional y el del mes no cambian.
-//  Un mes cerrado antes de la v0.75.0 se ve como quedó; sus ajustes se comparan en la forma de entonces (sin ruido por el cambio).
+//  Un mes cerrado antes de la v0.75.1 se ve como quedó; sus ajustes se comparan en la forma de entonces (sin ruido por el cambio).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.75.0';
-import * as AR from './areas.js?v=0.75.0';
+import * as FR from './finanzas-resultados.js?v=0.75.1';
+import * as AR from './areas.js?v=0.75.1';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -53,7 +53,7 @@ export const FILAS = [
   { k: 'fijos', t: 'Otros fijos propios del área', piso: 2, signo: '−', cols: 'areas' },
   { k: 'dep', t: 'Depreciación del área', piso: 2, signo: '−', cols: 'areas' },
   { k: 'ma', t: 'Margen del área', piso: 2, signo: '=', cols: 'todas', resultado: true, pct: true },
-  // v0.75.0: el canal B2B (cols 'total': una cifra, en Total). El despacho cobrado (cargo del Catálogo, solo a clientes B2B para
+  // v0.75.1: el canal B2B (cols 'total': una cifra, en Total). El despacho cobrado (cargo del Catálogo, solo a clientes B2B para
   // recuperar la bencina) va junto a los costos del canal B2B, no en Común.
   { k: 'cargos', t: 'Despacho cobrado', piso: 'b2b', signo: '+', cols: 'total' },
   { k: 'canalB2B', t: 'Costos del canal B2B (atención, órdenes y despacho)', piso: 'b2b', signo: '−', cols: 'total' },
@@ -151,7 +151,7 @@ export function armarEERR(E) {
     if (f.tipo === 'receta' && f.receta) costosUsados[f.receta] = { nombre: s(f.nombre), costoUnit: f.costoUnit === null || f.costoUnit === undefined ? null : Math.round(num(f.costoUnit) * 100) / 100, lectura: f.lectura || 'un', fuente: (f.fuenteCosto || []).join(',') };
   });
   // v0.74.0 · Cargos (tipo 'cargo' del Catálogo: despacho): ingreso del canal B2B, no es venta de un producto.
-  // v0.75.0: va en el bloque del canal B2B (se guarda en la celda comun y se muestra en Total)
+  // v0.75.1: va en el bloque del canal B2B (se guarda en la celda comun y se muestra en Total)
   const CG = (E.margen && E.margen.cargos) || null;
   ((CG && CG.lineas) || []).forEach(x => { F.cargos.comun += num(x.neto); det('cargos', 'comun', { tipo: 'cargo', nombre: s(x.nombre), suc: x.suc, neto: r0(x.neto), unidades: Math.round(num(x.cantidad) * 1000) / 1000, catalogoId: s(x.catalogoId) }); });
   if (sinAsocNeto) avisos.push({ k: 'sin_asociar', texto: `Ventas de productos sin asociar: ${pesosTxt(sinAsocNeto)} (en Común, sin costo directo). Asócialos en Márgenes → Asociar productos.` });
@@ -169,7 +169,7 @@ export function armarEERR(E) {
   const sinClas = {};
   lineas.forEach(l => {
     const t = l.tipo, propio = AREAS.includes(l.col);
-    // v0.75.0: remuneraciones y fijos con área B2B (costo del canal B2B) que irían a Común → el bloque del canal B2B
+    // v0.75.1: remuneraciones y fijos con área B2B (costo del canal B2B) que irían a Común → el bloque del canal B2B
     if ((t === 'remuneraciones' || t === 'fijo') && !propio && s(l.area).toUpperCase() === 'B2B') {
       F.canalB2B.comun += l.neto; info.canalB2B[t === 'remuneraciones' ? 'rem' : 'fijos'] += l.neto; det('canalB2B', 'comun', refG(l)); return;
     }
@@ -203,7 +203,7 @@ export function armarEERR(E) {
   SUCS.forEach(x => { canal[x] = conTotal(canal[x]); });
   F.mc = conTotal(Object.fromEntries(COLS.map(c => [c, F.ventas[c] - F.costoDirecto[c] - F.costosVenta[c] - F.merma[c]])));
   F.ma = conTotal(Object.fromEntries(COLS.map(c => [c, F.mc[c] - F.rem[c] - F.fijos[c] - F.dep[c]])));
-  // v0.75.0: el bloque del canal B2B: despacho cobrado − costos del canal B2B
+  // v0.75.1: el bloque del canal B2B: despacho cobrado − costos del canal B2B
   F.resCanalB2B = { ...vacia(), total: F.cargos.total - F.canalB2B.total };
   const comunes = F.remComun.total + F.fijosComun.total + F.depComun.total;
   F.resOp = { ...vacia(), total: F.ma.total + F.resCanalB2B.total - comunes };
@@ -305,7 +305,7 @@ export function repartirComunes(eerr, claves = {}) {
   // v0.69.1: REVENTA no recibe comunes ni tiene columna en esta vista: su margen del área va en Común (así el total sigue
   // siendo el resultado operacional de la vista principal)
   const reventa = num((eerr.filas.ma || {})[REVENTA]);
-  // v0.75.0: el resultado del canal B2B (despacho − costos del canal) no se reparte: va en Común (así el total sigue siendo el operacional)
+  // v0.75.1: el resultado del canal B2B (despacho − costos del canal) no se reparte: va en Común (así el total sigue siendo el operacional)
   const canalB2B = num((eerr.filas.resCanalB2B || {}).total);
   const comunResto = eerr.filas.ma.comun - sin.total + reventa + canalB2B;
   return { porArea, sinRepartir: sin, resultadoArea, comunResto, reventa, canalB2B, total: AREAS_REPARTO.reduce((x, a) => x + resultadoArea[a], 0) + comunResto, lineas };
@@ -424,7 +424,7 @@ export function yaInformado(cierres, mesX) {
   Object.values(cierres || {}).forEach(c => { if (!c || c.estado !== 'cerrado' || !c.ajustes || !c.ajustes.porMes) return; const a = c.ajustes.porMes[mesX]; if (!a) return; Object.entries(a.porFila || {}).forEach(([k, v]) => { out[k] = (out[k] || 0) + num(v); }); });
   return out;
 }
-// v0.75.0 · Un cierre de antes del bloque del canal B2B (sin filas.canalB2B): el despacho estaba en Común (dentro del margen de
+// v0.75.1 · Un cierre de antes del bloque del canal B2B (sin filas.canalB2B): el despacho estaba en Común (dentro del margen de
 // contribución y del margen del área) y los costos del canal B2B en los comunes. El cálculo de hoy se lleva a esa forma para comparar.
 export const formaAntigua = snap => !!(snap && snap.filas && !snap.filas.canalB2B);
 export function filasFormaAntigua(vivo) {

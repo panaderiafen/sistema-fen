@@ -2315,7 +2315,7 @@ body.cat-ocupado #v-catalogo button { pointer-events: none; opacity: .7; }
 @media (max-width: 560px) { .g-fila { grid-template-columns: minmax(0, 1fr); } }
 #g-pendientes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
-/* v0.75.0 · Etapa 2b: la pestaña fija de la reventa (Catálogo → Productos) y la migración de precios especiales B2B */
+/* v0.75.1 · Etapa 2b: la pestaña fija de la reventa (Catálogo → Productos) y la migración de precios especiales B2B */
 .etiqueta-fija { font-size: 14px; font-weight: 600; }
 .pid-lista { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .pid-lista li { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; border-top: 1px solid var(--linea); overflow-wrap: anywhere; }

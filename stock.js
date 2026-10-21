@@ -10,12 +10,12 @@
 //  Ingresar stock, ajustar cantidades y enviar a merma siguen en la caja.
 //  Diferencias a propósito:
 //  · registrar y rescatar se hacen en una transacción (dos clics o dos equipos no duplican);
-//  · la merma se guarda en Firebase (v0.75.0: ya no pasa a la planilla, como la caja v2.3.0);
+//  · la merma se guarda en Firebase (v0.75.1: ya no pasa a la planilla, como la caja v2.3.0);
 //  · rescatar limpia también el registro de envíos (la caja lo dejaba y la próxima
 //    merma de ese producto salía con cantidades y motivos viejos).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, updateDoc, query, where, Timestamp, runTransaction } from './firebase.js?v=0.75.0';
-import { diaLocal, productos, normalizarArea } from './caja.js?v=0.75.0';
+import { auth, db, collection, doc, getDoc, getDocs, updateDoc, query, where, Timestamp, runTransaction } from './firebase.js?v=0.75.1';
+import { diaLocal, productos, normalizarArea } from './caja.js?v=0.75.1';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 export const CATEGORIAS = [
@@ -165,7 +165,7 @@ export async function registrarMerma(stockId) {
     lotes.forEach(([k]) => { cambios[`entradas.${k}`] = 0; });
     tx.update(ref, cambios);
   });
-  // v0.75.0: la merma queda en Firebase (informe de merma, Finanzas); ya no se copia a la planilla ni se llama al script
+  // v0.75.1: la merma queda en Firebase (informe de merma, Finanzas); ya no se copia a la planilla ni se llama al script
   return { registros: creados.length, cantidad: creados.reduce((a, m) => a + m.cantidad, 0), monto: creados.reduce((a, m) => a + m.monto, 0), malas: 0, error: '' };
 }
 

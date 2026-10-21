@@ -12,7 +12,7 @@
 //     canales: {
 //       caja: { habilitado, docId (fen-ventas productos), controlStock, precios { hoy, ayer, antesayer, cuartoDia, ultimaOferta } | null,
 //               precioUnico | null, excepcionHoraria, autoEliminar, categoria, areaCaja (la pestaña de la caja donde aparece;
-//               v0.75.0: una reventa va siempre a la pestaña REVENTA, sin elegir) },
+//               v0.75.1: una reventa va siempre a la pestaña REVENTA, sin elegir) },
 //       b2b:  { habilitado, docId (fen-b2b productos), precioBase (neto), categoria } },
 //     historial [40], creadoEn, creadoPor, editadoEn, editadoPor, origen 'manual' | 'migracion' | 'solicitud' }
 //   cat_config/productos = { siguiente (el número del próximo PR), armadoEn, armadoPor, vigenteDesde 'AAAA-MM', n, historial }
@@ -30,8 +30,8 @@
 //   3. fin_productos (lo asociado a mano en Finanzas: meses antiguos y productos sin unir);
 //   4. lo de antes (ID de receta del catálogo de la caja o de B2B, nombre parecido) solo como sugerencia.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.75.0';
-// v0.75.0 (Etapa 2b): la caja v2.3.0 ya no crea ni cambia productos; sus pestañas son areas.js CAJA (PAN, BOL, PAS, CAF, REVENTA).
+import * as AR from './areas.js?v=0.75.1';
+// v0.75.1 (Etapa 2b): la caja v2.3.0 ya no crea ni cambia productos; sus pestañas son areas.js CAJA (PAN, BOL, PAS, CAF, REVENTA).
 
 export const TIPOS = { receta: 'Receta', reventa: 'Reventa', cargo: 'Cargo', armado: 'Armado' };
 export const TIPOS_PANTALLA = ['receta', 'reventa', 'cargo'];   // "armado" queda en el modelo, sin pantalla (Pastelería en pausa)
@@ -135,7 +135,7 @@ export function validar(datos, { recetas = [], reventa = [], lista = [], prev = 
   const pc = (prev && prev.canales && prev.canales.caja) || {}, pb = (prev && prev.canales && prev.canales.b2b) || {};
   const caja = { habilitado: !!c.habilitado, docId: s(pc.docId) || null, controlStock: c.controlStock !== false, precios: null, precioUnico: null, excepcionHoraria: !!c.excepcionHoraria,
     autoEliminar: c.autoEliminar !== false, categoria: s(c.categoria).slice(0, 60),
-    // v0.75.0 (Etapa 2b): la reventa va siempre a la pestaña Reventa de la caja (REVENTA; "REV" es el mismo)
+    // v0.75.1 (Etapa 2b): la reventa va siempre a la pestaña Reventa de la caja (REVENTA; "REV" es el mismo)
     areaCaja: tipo === 'reventa' ? AR.REVENTA : areaCodigo(c.areaCaja) || s(c.areaCaja).toUpperCase().slice(0, 20) || '' };
   if (caja.controlStock) {
     caja.precios = Object.fromEntries(TARJETAS.map(([k]) => { const v = entero((c.precios || {})[k]); return [k, v > 0 ? v : 0]; }));
@@ -183,7 +183,7 @@ export function docCaja(p) {
   const out = { nombre: s(p.nombre), area: p.tipo === 'reventa' ? AR.REVENTA : s(c.areaCaja) || (AR.PRODUCCION.includes(p.area) ? p.area : ''), categoria: s(c.categoria), activo: habilitado(p, 'caja'),
     precio: pr.hoy, controlStock: c.controlStock !== false, excepcionHoraria: c.controlStock !== false && !!c.excepcionHoraria, autoEliminar: c.controlStock !== false && c.autoEliminar !== false,
     idRecetaFen: idRecetaCanal(p), catalogoId: s(p.id), tipo: s(p.tipo), reventaId: s(p.reventaId),
-    unidadesPorVenta: Number(p.unidadesPorVenta) > 0 ? Number(p.unidadesPorVenta) : 1 };   // v0.75.0: la caja v2.3.0 lo guarda en la foto de cada venta
+    unidadesPorVenta: Number(p.unidadesPorVenta) > 0 ? Number(p.unidadesPorVenta) : 1 };   // v0.75.1: la caja v2.3.0 lo guarda en la foto de cada venta
   TARJETAS.forEach(([k]) => { out[CAMPO_PRECIO[k]] = pr[k]; });
   return out;
 }

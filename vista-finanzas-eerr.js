@@ -6,11 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.75.0';
-import * as FR from './finanzas-resultados.js?v=0.75.0';
-import * as FE from './finanzas-eerr.js?v=0.75.0';
-import * as FC from './finanzas-costos.js?v=0.75.0';
-import * as SP from './sii-pendientes.js?v=0.75.0';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.75.1';
+import * as FR from './finanzas-resultados.js?v=0.75.1';
+import * as FE from './finanzas-eerr.js?v=0.75.1';
+import * as FC from './finanzas-costos.js?v=0.75.1';
+import * as SP from './sii-pendientes.js?v=0.75.1';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
 const $ = id => document.getElementById(id);
@@ -114,7 +114,7 @@ function htmlEERR(H, e, prev, R) {
   const congel = e.congelado ? ES.cierres[ES.mes] : null;
   const filasT = [];
   let pisoAnt = 0;
-  // v0.75.0: el bloque del canal B2B (despacho cobrado y costos del canal) solo cuando el mes (o el anterior) tiene algo
+  // v0.75.1: el bloque del canal B2B (despacho cobrado y costos del canal) solo cuando el mes (o el anterior) tiene algo
   const conB2B = x => x && (valorFila(x, 'cargos', 'total') || valorFila(x, 'canalB2B', 'total'));
   const filasVer = FE.FILAS.filter(f => !FE.FILAS_B2B.includes(f.k) || conB2B(e) || conB2B(prev));
   const fila = (f, cls = '') => {

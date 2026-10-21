@@ -314,7 +314,7 @@ export function usoEstimado(docs, hoy, aperturasDia = 10) {
   return { porApertura, ordenesRecientes: ord, aperturasDia, ordenesDia, lecturasDia, escriturasDia: ordenesDia * 3, limiteLecturas: 50000, limiteEscrituras: 20000 };
 }
 
-// ═══════════════ v0.75.0 · Precios especiales unidos al producto por ID (Etapa 2b) ═══════════════
+// ═══════════════ v0.75.1 · Precios especiales unidos al producto por ID (Etapa 2b) ═══════════════
 // Decisión del dueño: cada precio especial va pegado al ID del producto (clientes.precios[].productoId), nunca se busca por nombre.
 // El nombre queda solo como respaldo para un precio antiguo que todavía no tiene ID. La misma regla está en logística (modelo.js).
 // ¿Este precio especial es de este producto? Con ID: solo por el ID. Sin ID (antiguo): por el nombre (sin tildes ni mayúsculas).

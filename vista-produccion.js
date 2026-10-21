@@ -5,10 +5,10 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.75.0';
+import * as P from './produccion.js?v=0.75.1';
 import * as K from './cocina/consumo.js?v=0.17.4';
-import { conBuscador, coincide } from './buscador.js?v=0.75.0';
-import * as FBQ from './fermentacion.js?v=0.75.0';
+import { conBuscador, coincide } from './buscador.js?v=0.75.1';
+import * as FBQ from './fermentacion.js?v=0.75.1';
 
 const st = { fb: null, sab: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -47,7 +47,7 @@ const cab = H => `<div class="cabecera"><div><h1 id="t-produccion">Producción</
 export async function pintar(el, sub, H) {
   // v0.71.1: Plan de Panadería (Etapa 1) en su propia pantalla
   // (se carga recién al abrirlo: trae Finanzas y B2B, que el resto de la app carga solo cuando se usan)
-  if (sub === 'plan-pan') { const VPP = await import('./vista-plan-pan.js?v=0.75.0'); VPP.fijarH(H); return VPP.pintar(el, H); }
+  if (sub === 'plan-pan') { const VPP = await import('./vista-plan-pan.js?v=0.75.1'); VPP.fijarH(H); return VPP.pintar(el, H); }
   // v0.63.3: un solo escuchador para el botón Actualizar (la cabecera se vuelve a dibujar en cada pantalla)
   if (!el.dataset.actualizar) { el.dataset.actualizar = '1'; el.addEventListener('click', ev => { if (ev.target.closest('#prod-actualizar')) { P.olvidarMemoria(); st.bodega.calc = null; st.merma.datos = null; pintar(el, '', H); } }); }
   el.innerHTML = cab(H) + '<section class="tarjeta"><div class="vacio" style="border:0">Conectando…</div></section>';
@@ -587,7 +587,7 @@ const UNID = { un: 'un', g: 'g', ml: 'ml' };
 const cantM = (n, u) => `${(Math.round((Number(n) || 0) * 10) / 10).toLocaleString('es-CL')} ${UNID[u] || ''}`;   // solo unidades conocidas (lo demás no se muestra)
 function seccionMerma(H) {
   const m = st.merma, r = m.datos ? P.resumenMerma(m.datos) : null;
-  const cab = `<div class="titulo-fila"><span class="ayuda">Lo perdido por área, valorizado ${H.info('Merma', 'Lo que las áreas anotan en Cocina como perdido (productos, preparaciones o materias primas), con su motivo.\nEl costo es neto (sin IVA) y sale del costo directo de Finanzas (Finanzas → Costos → Productos): recetas y sub recetas con su costo por unidad o por gramo, y materias primas con el precio de su última compra. Si algo no tiene costo ahí, queda "sin costo" (y no suma); si le falta algún precio, dice "costo incompleto". Desde la v0.75.0 ya no se usan los costos de la planilla ni se copia a la hoja "Registro_merma". Las jefas no ven precios.\nLas anotaciones anuladas no cuentan.')}</span>
+  const cab = `<div class="titulo-fila"><span class="ayuda">Lo perdido por área, valorizado ${H.info('Merma', 'Lo que las áreas anotan en Cocina como perdido (productos, preparaciones o materias primas), con su motivo.\nEl costo es neto (sin IVA) y sale del costo directo de Finanzas (Finanzas → Costos → Productos): recetas y sub recetas con su costo por unidad o por gramo, y materias primas con el precio de su última compra. Si algo no tiene costo ahí, queda "sin costo" (y no suma); si le falta algún precio, dice "costo incompleto". Desde la v0.75.1 ya no se usan los costos de la planilla ni se copia a la hoja "Registro_merma". Las jefas no ven precios.\nLas anotaciones anuladas no cuentan.')}</span>
       <div class="fila-campos" style="align-items:flex-end;gap:8px;flex-wrap:nowrap"><select id="prod-merma-per" aria-label="Período">${Object.entries(P.PERIODOS_MERMA).map(([k, t]) => `<option value="${k}" ${m.periodo === k ? 'selected' : ''}>${t}</option>`).join('')}</select><button type="button" class="btn-sec" id="prod-merma-ver" ${m.cargando ? 'disabled' : ''}>${m.cargando ? 'Leyendo…' : m.datos ? 'Actualizar' : 'Ver'}</button></div></div>`;
   if (!r) return cab + (m.msg ? `<p class="error">${H.esc(m.msg)}</p>` : '<p class="ayuda">Elige el período y presiona "Ver".</p>');
   const d = m.datos, rango = `${d.desde.split('-').reverse().slice(0, 2).join('/')} al ${d.hasta.split('-').reverse().slice(0, 2).join('/')}`;

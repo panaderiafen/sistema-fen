@@ -13,7 +13,7 @@
 //  v0.69.1: área REVENTA (solo de margen) para lo que se compra hecho. AREAS = las de margen (las 4 de producción + REVENTA);
 //  AREAS_PRODUCCION = las que producen (la de una receta o del catálogo). Las listas salen de areas.js.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.75.0';
+import * as AR from './areas.js?v=0.75.1';
 
 export const AREAS = AR.MARGEN;
 export const AREAS_PRODUCCION = AR.PRODUCCION;
@@ -41,7 +41,7 @@ export const claveProducto = (canal, productoId) => `${canal}_${idDoc(productoId
 const AREA_TXT = { pan: 'PAN', panaderia: 'PAN', sandwiches: 'PAN', bol: 'BOL', bolleria: 'BOL', pas: 'PAS', pasteleria: 'PAS', chocolateria: 'PAS', caf: 'CAF', cafeteria: 'CAF' };
 // Solo las de producción: una receta o un catálogo nunca dicen REVENTA
 export const areaDe = a => AREA_TXT[normalizar(a)] || (AREAS_PRODUCCION.includes(s(a).toUpperCase()) ? s(a).toUpperCase() : '');
-// v0.69.1 · El área de margen de un vínculo (acepta REVENTA). v0.75.0: "REV" (la pestaña antigua de la caja) es REVENTA
+// v0.69.1 · El área de margen de un vínculo (acepta REVENTA). v0.75.1: "REV" (la pestaña antigua de la caja) es REVENTA
 export const areaMargenDe = a => (['reventa', 'rev'].includes(normalizar(a)) ? REVENTA : areaDe(a));
 // v0.69.1 · El área con que cuenta un vínculo: la elegida; una reventa sin área va a REVENTA (lo elegido antes se respeta)
 export const areaVinculo = v => (!v ? '' : s(v.area) ? s(v.area) : v.tipo === 'reventa' ? REVENTA : '');
@@ -98,7 +98,7 @@ export function lineasDeResumenes(resumenes, prods = {}) {
 // Órdenes B2B (sin anuladas ni quitadas) → líneas por producto. Los precios de B2B son netos.
 export function idProductoB2b(l) { return s(l.productoId) || 'n-' + slug(l.producto); }
 // v0.74.0 · La foto de la venta (línea de una orden B2B, guardada al crearla): { catalogoId, tipo, area, recetaId, reventaId, unidadesPorVenta }
-// v0.75.0: también la de la caja v2.3.0 (cada venta y el resumen del cierre por producto). Un área que no es de margen ('Otros') queda ''.
+// v0.75.1: también la de la caja v2.3.0 (cada venta y el resumen del cierre por producto). Un área que no es de margen ('Otros') queda ''.
 // Sin unidades por venta en la foto (la caja antes de que el Catálogo las escriba): null → las del maestro o del vínculo.
 export function fotoDeLinea(l) {
   if (!l || !s(l.catalogoId) || !s(l.tipo)) return null;

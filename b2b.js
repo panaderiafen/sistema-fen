@@ -8,14 +8,14 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.75.0';
-import * as FB from './firebase-b2b.js?v=0.75.0';
-import * as Apps from './apps.js?v=0.75.0';
-import * as Mem from './fs-memoria.js?v=0.75.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.75.0';
-import { distanciaTef } from './feriados-cl.js?v=0.75.0';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.75.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.75.0';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.75.1';
+import * as FB from './firebase-b2b.js?v=0.75.1';
+import * as Apps from './apps.js?v=0.75.1';
+import * as Mem from './fs-memoria.js?v=0.75.1';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.75.1';
+import { distanciaTef } from './feriados-cl.js?v=0.75.1';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.75.1';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.75.1';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -570,7 +570,7 @@ export async function aprobarSolicitud(s, precio, respuesta) {
     } else if (s.tipo === 'precio') {
       const cref = FB.doc(db, 'clientes', s.clienteId), cs = await tx.get(cref);
       if (!cs.exists()) throw new Error('El cliente ya no existe.');
-      // v0.75.0: el precio especial va por el ID del producto (el nombre solo para un precio antiguo sin ID)
+      // v0.75.1: el precio especial va por el ID del producto (el nombre solo para un precio antiguo sin ID)
       const prodS = { id: s.productoId || null, nombre: s.producto }, igualS = x => precioEsDe(x, prodS);
       const lista = (cs.data().precios || []).filter(x => !igualS(x));
       lista.push({ producto: s.producto, productoId: s.productoId || null, precio: p });
@@ -686,7 +686,7 @@ export async function precioEspecial(clienteId, producto, precio) {
   await FB.runTransaction(db, async tx => {
     const ref = FB.doc(db, 'clientes', clienteId), sn = await tx.get(ref);
     if (!sn.exists()) throw new Error('El cliente ya no existe.');
-    const c = sn.data(), igual = x => precioEsDe(x, producto);   // v0.75.0: por el ID del producto (el nombre solo si el precio no tiene ID)
+    const c = sn.data(), igual = x => precioEsDe(x, producto);   // v0.75.1: por el ID del producto (el nombre solo si el precio no tiene ID)
     const previo = (c.precios || []).find(igual);
     if ((previo ? previo.precio : 0) === p) return;
     const lista = (c.precios || []).filter(x => !igual(x));
@@ -697,7 +697,7 @@ export async function precioEspecial(clienteId, producto, precio) {
   });
   uso.escrituras++;
 }
-// ── v0.75.0 · Precios especiales unidos al producto por ID (una sola vez; ver b2b-modelo.planPreciosPorId) ──
+// ── v0.75.1 · Precios especiales unidos al producto por ID (una sola vez; ver b2b-modelo.planPreciosPorId) ──
 // uniones: [{ clienteId, idx, producto, productoIdAntes, productoId, como }]. Una transacción por cliente (lee lo guardado ahora y solo
 // pone el ID). Después guarda config/preciosPorId = { en, por, unidos, pendientes } (para que la pantalla diga "hecho el …").
 // Lecturas: 1 por cliente con algo que unir. Escrituras: 1 por cliente + 1. Nada se borra; el nombre y el precio no cambian.
