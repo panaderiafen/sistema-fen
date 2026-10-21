@@ -5,10 +5,10 @@
 //  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.71.1';
+import * as P from './produccion.js?v=0.72.0';
 import * as K from './cocina/consumo.js?v=0.17.0';
-import { conBuscador, coincide } from './buscador.js?v=0.71.1';
-import * as FBQ from './fermentacion.js?v=0.71.1';
+import { conBuscador, coincide } from './buscador.js?v=0.72.0';
+import * as FBQ from './fermentacion.js?v=0.72.0';
 
 const st = { fb: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -47,7 +47,7 @@ const cab = H => `<div class="cabecera"><div><h1 id="t-produccion">Producción</
 export async function pintar(el, sub, H) {
   // v0.71.1: Plan de Panadería (Etapa 1) en su propia pantalla
   // (se carga recién al abrirlo: trae Finanzas y B2B, que el resto de la app carga solo cuando se usan)
-  if (sub === 'plan-pan') { const VPP = await import('./vista-plan-pan.js?v=0.71.1'); VPP.fijarH(H); return VPP.pintar(el, H); }
+  if (sub === 'plan-pan') { const VPP = await import('./vista-plan-pan.js?v=0.72.0'); VPP.fijarH(H); return VPP.pintar(el, H); }
   // v0.63.3: un solo escuchador para el botón Actualizar (la cabecera se vuelve a dibujar en cada pantalla)
   if (!el.dataset.actualizar) { el.dataset.actualizar = '1'; el.addEventListener('click', ev => { if (ev.target.closest('#prod-actualizar')) { P.olvidarMemoria(); st.bodega.calc = null; st.merma.datos = null; pintar(el, '', H); } }); }
   el.innerHTML = cab(H) + '<section class="tarjeta"><div class="vacio" style="border:0">Conectando…</div></section>';
@@ -156,7 +156,7 @@ async function pintarBase(el, H, cx) {
       <div class="error" id="prod-cta-err" role="alert"></div>
 `)}
       ${pliegue('copia', 'Copia desde la planilla', ult && ult.ultima ? 'Última: ' + H.esc(H.hace(ult.ultima)) : 'Nunca copiada', `<p class="ayuda">Recetas, materias primas, configuración, planes y personas, desde la planilla ${H.info('Copia desde la planilla', 'Lee la planilla de Producción con el script (v2.3.0) y copia a la base nueva: recetas, materias primas (sin costos), configuración de masa madre y poolish, planes semanales y quién entra a cada área con su PIN.\nSe puede repetir las veces que quieras. Un plan semanal que ya se cambió en la app Cocina no se pisa: desde que un área usa Cocina, su plan manda ahí.\nNada se borra.')}</p>
-      <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="prod-leer">Leer la planilla</button></div>
+      <div class="botones" style="justify-content:flex-start;align-items:center"><button type="button" class="btn" id="prod-leer">Leer la planilla</button>${H.info('Ya nadie usa la app antigua', 'Las jefas trabajan en Cocina y nadie usa ya la app antigua de Producción: copiar desde la planilla solo hace falta si cambiaste algo a mano en la planilla.\nLas recetas archivadas en Catálogo siguen archivadas después de copiar (con su estado anterior, quién y cuándo).')}</div>
       <div id="prod-prep">${p ? resumenPrep(p, H) : ''}</div>
       <div id="prod-avance" class="ayuda" aria-live="polite">${H.esc(st.msg)}</div>
 `)}

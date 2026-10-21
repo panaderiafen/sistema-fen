@@ -13,7 +13,7 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
-} from './firebase.js?v=0.71.1';
+} from './firebase.js?v=0.72.0';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -32,9 +32,17 @@ function determinarTurno(fecha) { const h = fecha.getHours(); return h < 13 ? 'M
 // Productos y áreas de la caja: se leen una vez por sesión (para el resumen de cada cierre).
 let _prods = null, _areas = null;
 const AREA_COMPAT = { 'Panadería': 'PAN', 'Bollería': 'BOL', 'Sándwiches': 'PAN', 'Cafetería': 'CAF', 'Pastelería': 'PAS', 'Chocolatería': 'PAS' };
+export let lecturasProductos = 0;   // v0.72.0: cuántos documentos de productos se leyeron en esta sesión (Catálogo lo muestra)
 export async function productos() {
-  if (!_prods) _prods = (await getDocs(collection(db, 'productos'))).docs.map(d => ({ id: d.id, ...d.data() }));
+  if (!_prods) { const sn = await getDocs(collection(db, 'productos')); lecturasProductos += Math.max(1, sn.docs.length); _prods = sn.docs.map(d => ({ id: d.id, ...d.data() })); }
   return _prods;
+}
+export function olvidarProductos() { _prods = null; }
+// v0.72.0 · Catálogo: archivar un producto de la caja es lo mismo de siempre en la caja: activo false (deja de aparecer para
+// vender; su historia queda). Reactivar: activo true. Solo la administración (reglas v1.3.0: productos update esAdmin).
+export async function cambiarActivoProducto(id, activo) {
+  await updateDoc(doc(db, 'productos', id), { activo: !!activo });
+  const p = (_prods || []).find(x => x.id === id); if (p) p.activo = !!activo;
 }
 async function areas() {
   if (!_areas) { try { _areas = (await getDocs(collection(db, 'areas'))).docs.map(d => d.id); } catch (e) { _areas = []; } }

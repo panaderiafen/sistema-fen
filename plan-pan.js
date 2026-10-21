@@ -9,16 +9,16 @@
 //   · fen-gastos (Finanzas): vínculos producto → receta (fin_productos) y costo por unidad (costos_recetas).
 //  Lecturas: una vez por sesión (6 horas en memoria; "Actualizar" vuelve a leer). Cada consulta usa un solo campo (índices simples).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.71.1';
-import * as Caja from './caja.js?v=0.71.1';
-import * as P from './produccion.js?v=0.71.1';
-import * as B from './b2b.js?v=0.71.1';
-import * as F from './finanzas.js?v=0.71.1';
-import * as M from './fs-memoria.js?v=0.71.1';
-import * as Cuota from './fs-cuota.js?v=0.71.1';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.72.0';
+import * as Caja from './caja.js?v=0.72.0';
+import * as P from './produccion.js?v=0.72.0';
+import * as B from './b2b.js?v=0.72.0';
+import * as F from './finanzas.js?v=0.72.0';
+import * as M from './fs-memoria.js?v=0.72.0';
+import * as Cuota from './fs-cuota.js?v=0.72.0';
 import * as CM from './cocina/modelo.js?v=0.11.0';
 import * as K from './cocina/consumo.js?v=0.17.0';
-import * as PM from './plan-pan-modelo.js?v=0.71.1';
+import * as PM from './plan-pan-modelo.js?v=0.72.0';
 
 export const CONFIG_ID = 'planPanaderia';     // fen-ventas config/planPanaderia (reglas v1.3.0: solo administración la crea y cambia)
 const TTL = 6 * 3600e3;
@@ -140,7 +140,9 @@ export async function cargar({ hoy = hoyTxt(), forzar = false, lunesExtra = [] }
   const nombres = {};
   (coc.recetas || []).forEach(r => { if (r.area === 'PAN') nombres[r.id] = r.nombre || r.id; });
   Object.values(mapa.pan).forEach(v => { if (!nombres[v.receta]) nombres[v.receta] = v.nombre || v.receta; });
-  const recetasPan = [...usadas].map(id => ({ id, nombre: nombres[id] || id })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  // v0.72.0: una receta archivada (Catálogo) no entra en la propuesta; lo que ya pasó (Cómo nos fue) sigue contando
+  const archivadas = new Set((coc.recetas || []).filter(r => r.estado === 'archivada').map(r => r.id));
+  const recetasPan = [...usadas].filter(id => !archivadas.has(id)).map(id => ({ id, nombre: nombres[id] || id })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   // Productos sin asociar: de la caja (área PAN en el catálogo) vendidos o ingresados, y de B2B pedidos
   // (el área y el nombre vienen en los mismos resúmenes: 0 lecturas más)
   const deRes = {}; filasT.forEach(f => { if (!deRes[f.productoId]) deRes[f.productoId] = { nombre: f.nombre, area: f.area }; });

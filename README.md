@@ -1,9 +1,53 @@
-# Sistema Fën · v0.71.1
+# Sistema Fën · v0.72.0
 
-**App:** v0.71.1 · **Caja (fen-ventas):** v2.2.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.1 (sin cambios) · 20 de octubre de 2026
+**App:** v0.72.0 · **Caja (fen-ventas):** v2.2.0 · **Reglas de Firestore (fen-ventas):** v1.3.0 (sin cambios) · **Reglas de fen-b2b:** v1.6.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (de la v0.65.0) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Script de Producción:** v2.11.0 (de la v0.65.0) · **Script de B2B:** v2.8.2 (sin cambios) · **Script de Gastos:** v2.18.0 (sin cambios) · **Cocina:** v0.17.3 (aparte, repo fen-cocina) · 21 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Producción con su PIN, y logística usa su app nueva (fen-logistica).
+
+## Novedades de la v0.72.0: Catálogo, Etapa 0 "Qué está vivo"
+
+Hoy Fën produce solo lo base (pan, croissant, pan de chocolate, café) y algo de reventa; Pastelería y los croissants rellenos están en pausa. Antes de armar un solo catálogo de productos, esta etapa limpia lo que no se usa **sin perder historia**: se marca lo vivo y se archiva el resto (archivar se deshace con "Reactivar"; nada se borra).
+
+- **Dónde va:** repo **sistema-fen**, raíz. Archivos nuevos: `catalogo-modelo.js` (reglas, sin red), `catalogo.js` (lecturas y escrituras), `vista-catalogo.js` (pantalla). Cambian `app.js` (sección Catálogo en el menú, después de Producción), `index.html`, `estilos.css`, `produccion.js` (archivar y reactivar recetas; copiar, mover de área y aprobar conservan lo archivado; f.b. y mover sin archivadas), `vista-produccion.js` (la (i) de "Leer la planilla"), `caja.js` (activo del producto), `finanzas.js`, `finanzas-ventas.js`, `finanzas-motor.js`, `vista-finanzas.js` (no se proponen ni se ofrecen archivadas), `plan-pan.js` (la propuesta sin archivadas); los demás, solo la versión. `cocina/` y `fermentacion.js` no cambian.
+- **Reglas y scripts:** no cambian. fen-produccion v1.8.0 ya deja escribir `recetas` a la administración; fen-gastos v0.1.0 deja todo a la administración (`cat_revision` es nueva, no necesita reglas); fen-ventas v1.3.0 deja cambiar `activo` de un producto a la administración; fen-b2b v1.6.0, archivar un producto como siempre.
+- **Cocina:** instala también **Cocina v0.17.3** (repo fen-cocina): esconde las recetas archivadas. Sin ella, Cocina sigue mostrándolas (como "Archivada" sin traducir) hasta que la subas.
+
+### Qué cambia en cómo trabajas
+1. Menú → **Catálogo** (`#catalogo`), pestaña **Qué está vivo** (queda espacio para las próximas pestañas del catálogo).
+2. Arriba: **Por decidir N · Vivo N · Archivado N**, los filtros (Por decidir / Vivo / Archivado / Todo) y el buscador (nombre o ID, también el SR… de una sub receta).
+3. **Recetas** por área (Panadería, Bollería, Pastelería, Cafetería; las sub recetas dicen "sub receta"): su estado de aprobación, **Se usa en** (recetas vivas que la llevan como ingrediente), **Se vende como** (productos de la caja y de B2B que llevan a ella: vínculo de Finanzas o ID de receta del catálogo) y lo vendido en 60 días en unidades de la receta.
+4. **Productos de la caja** y **Productos B2B**: área, vínculo (la receta, Reventa, No es producto o Sin asociar), unidades vendidas en 60 días y última venta (caja: las dos sucursales; B2B: sin órdenes anuladas), Activo o Archivado. Los de reventa llevan la marca **Reventa** (en una etapa siguiente la reventa tendrá su propia entrada).
+5. **Sugerido archivar:** un producto sin ventas en 60 días; una receta que no usa ninguna receta viva y que no se vendió en 60 días (una sub receta que solo usan recetas también sugeridas, también). **Archivar las N sugeridas** abre la lista con casillas para desmarcar lo que quieras dejar.
+6. Por fila: **Vivo** (queda marcado), **Archivar** y, si está archivado, **Reactivar**. Todo con confirmación en la página.
+7. **Guardias:** una sub receta que usa una receta viva no se archiva sola ("La usa: X, Y — archívalas primero o junto"; se ofrece archivarlas juntas). Al archivar una receta con productos a la venta, avisa y ofrece archivarlos también (los que se vendieron en 60 días vienen sin marcar). Al reactivar una receta con sub recetas archivadas, ofrece reactivarlas.
+8. **Qué hace archivar:** receta → `recetas/{id}`: estado `archivada`, `estadoAntes`, `archivadaEn`, `archivadaPor` e `historialArchivo` (Reactivar vuelve a `estadoAntes` y deja esos campos en null; el historial sigue). Producto de la caja → `activo: false` (lo mismo que "inactivo" en la caja). Producto B2B → `estado: 'archivado'` (lo mismo que archivar en Ventas B2B). "Vivo" → fen-gastos `cat_revision/{recetas|caja|b2b}_{id}` = { decision: 'vivo', en, por }. Lo archivado se lee de las fuentes (no se guarda aparte). Reactivar marca "Vivo". Cada acción queda en el historial de Sistema Fën.
+9. **El resto de Sistema Fën:** una receta archivada no se propone ni se ofrece en Finanzas → Asociar productos (un producto que ya la tenía la sigue mostrando), no sale en Costos → Productos (se sigue costeando con aprobada = false: los meses pasados siguen calculándose), no entra en la propuesta del Plan de Panadería (Cómo nos fue sí la cuenta), ni en la lista de f.b. ni en "Mover recetas". Las ventas de meses pasados asociadas a ella siguen contando.
+10. **Copiar desde la planilla** (Producción) ya no pisa lo archivado: una receta archivada sigue archivada (con su estado anterior, quién y cuándo) y una reactivada conserva su historial. Lo mismo al mover de área o aprobar. Nueva (i) junto a "Leer la planilla": ya nadie usa la app antigua.
+
+### Lecturas y escrituras (Spark)
+- **Al abrir** (medido con datos ficticios: 59 días con cierre en las dos tiendas, 9 órdenes B2B): caja **125** (118 resúmenes de cierre + 7 productos), B2B **13** (9 órdenes + 4 productos), Cocina **0** (recetas de la memoria compartida con Hoy, Producción y Finanzas), Finanzas **6** (vínculos y `cat_revision` con la memoria de fen-gastos).
+- **Con la operación real** (estimado): resúmenes de cierre ≈ 120 a 180 (uno por cierre en 60 días), productos de la caja y de B2B una vez por sesión (los mismos de Finanzas y los cierres), órdenes B2B de 60 días ≈ 500 a 1.000, recetas 0 si ya están en memoria (si no, ≈ 300 una vez al día, más la marca). Total la primera vez: ≈ 700 a 1.500 repartidas entre fen-ventas y fen-b2b (de 50.000 al día cada una).
+- **Volver a abrir** (6 horas, también en este navegador): 0 de resúmenes y órdenes (quedan resumidas por producto); medido: 0 en las cuatro bases. Filtrar y buscar: 0. "Actualizar" vuelve a leer todo.
+- **Escrituras:** 1 por receta o producto archivado o reactivado (las recetas en un solo lote, +1 de la marca de cambio de fen-produccion; las recetas no se vuelven a leer: la memoria queda con lo nuevo), 1 por "Vivo", y 1 línea en el historial por acción.
+
+### Instalación v0.72.0 (unos 3 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files**.
+2. Sube todos los archivos del zip `sistema-fen-v0.72.0.zip`, con la carpeta `cocina/` (no cambia).
+3. **Commit changes**.
+4. Repo **fen-cocina**, raíz: sube el zip `fen-cocina-v0.17.3.zip` (ver su README).
+5. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R en el PC; en el celular, cierra y abre la app).
+
+**Nada en Apps Script ni en las reglas de Firestore.**
+
+### Lista de verificación v0.72.0
+- [ ] Abajo a la izquierda dice **v0.72.0**; en el menú (PC y celular) **Catálogo** está después de Producción.
+- [ ] Catálogo abre con Por decidir / Vivo / Archivado y "Lecturas al abrir".
+- [ ] Una sub receta en uso (por ejemplo, la masa madre) dice "Se usa en …"; Archivar avisa "La usa: … — archívalas primero o junto".
+- [ ] "Archivar las N sugeridas": revisa la lista, desmarca lo que se queda y archiva. Después, filtro **Archivado**: están con "Reactivar".
+- [ ] En Cocina (v0.17.3) la receta archivada ya no aparece en Recetas (sí en "Archivadas (N)") ni para agregar al plan.
+- [ ] Reactivar una: vuelve a su estado y aparece otra vez en Cocina.
+- [ ] Configuración → Historial: cada acción del Catálogo está con tu correo.
 
 ## Novedades de la v0.71.1: Producción en el menú del celular
 

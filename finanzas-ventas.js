@@ -13,7 +13,7 @@
 //  v0.69.1: área REVENTA (solo de margen) para lo que se compra hecho. AREAS = las de margen (las 4 de producción + REVENTA);
 //  AREAS_PRODUCCION = las que producen (la de una receta o del catálogo). Las listas salen de areas.js.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.71.1';
+import * as AR from './areas.js?v=0.72.0';
 
 export const AREAS = AR.MARGEN;
 export const AREAS_PRODUCCION = AR.PRODUCCION;
@@ -137,7 +137,7 @@ const parecidas = (a, b) => a === b || (a.length >= 4 && b.length >= 4 && (a.sta
 export function sugerirRecetas(nombre, recetas, max = 5) {
   const pi = palabras(nombre);
   if (!pi.length) return [];
-  return (recetas || []).filter(r => r && r.tipo !== 'sub_receta' && !/borrador/i.test(s(r.estado))).map(r => {
+  return (recetas || []).filter(r => r && r.tipo !== 'sub_receta' && !/borrador|archivada/i.test(s(r.estado))).map(r => {   // v0.72.0: ni las archivadas
     const pr = palabras(r.nombre);
     if (!pr.length) return null;
     const a = pi.filter(w => pr.some(v => parecidas(w, v))).length, b = pr.filter(v => pi.some(w => parecidas(w, v))).length;
@@ -148,11 +148,13 @@ export function sugerirRecetas(nombre, recetas, max = 5) {
 // Propuesta para un producto sin vínculo: primero el id de receta del catálogo (ID_receta de la caja o de B2B), si existe;
 // si no, la receta de nombre más parecido (puntaje ≥ 0,5). → { receta, recetaNombre, area, origen: 'catalogo'|'nombre', puntaje, aviso }
 export function proponer(item, recetas) {
-  const porId = {}; (recetas || []).forEach(r => { porId[r.id] = r; });
+  // v0.72.0: una receta archivada (Catálogo) no se propone, ni por el catálogo ni por el nombre
+  const porId = {}; (recetas || []).forEach(r => { if (r && s(r.estado) !== 'archivada') porId[r.id] = r; });
   const cat = s(item.recetaCatalogo);
   if (cat && porId[cat]) return { receta: cat, recetaNombre: s(porId[cat].nombre) || cat, area: areaDe(porId[cat].area), origen: 'catalogo', puntaje: 1 };
   const sug = sugerirRecetas(item.nombre, recetas, 1)[0];
-  const aviso = cat ? `El catálogo dice ${cat}, pero esa receta no está en Producción.` : '';
+  const arch = cat && (recetas || []).some(r => r && r.id === cat && s(r.estado) === 'archivada');
+  const aviso = cat ? (arch ? `El catálogo dice ${cat}, pero esa receta está archivada (Catálogo).` : `El catálogo dice ${cat}, pero esa receta no está en Producción.`) : '';
   if (sug && sug.puntaje >= 0.5) return { receta: sug.id, recetaNombre: sug.nombre, area: sug.area, origen: 'nombre', puntaje: sug.puntaje, aviso };
   return aviso ? { receta: null, origen: 'ninguna', aviso } : null;
 }

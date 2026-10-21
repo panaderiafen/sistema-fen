@@ -5,8 +5,8 @@
 //  en fen-ventas, con historial). "Copiar como texto" y la hoja para imprimir (viernes).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as PP from './plan-pan.js?v=0.71.1';
-import * as PM from './plan-pan-modelo.js?v=0.71.1';
+import * as PP from './plan-pan.js?v=0.72.0';
+import * as PM from './plan-pan-modelo.js?v=0.72.0';
 
 const S = { D: null, prop: null, dia: 0, semana: '', suc: 'todas', abiertos: new Set(), msg: '', err: '', editSuc: 'barros', cargando: false, extra: [] };
 const $ = id => document.getElementById(id);

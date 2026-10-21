@@ -44,16 +44,22 @@
 //    lo que consume cualquier área. "Asignar responsables" (una vez) propone por uso y, al confirmar, guarda config/bodegas
 //    { modo: 'responsable', areas, responsables, confirmado, historial }. Sin confirmar: como la v0.54.0. Correo de bajo el
 //    mínimo solo a las jefas del área responsable (script v2.11.0). Las mismas lecturas que antes (config ya se leía).
+//  · v0.72.0: CATÁLOGO, Etapa 0 ("Qué está vivo"): archivar y reactivar recetas (estado 'archivada', con estadoAntes,
+//    archivadaEn, archivadaPor e historialArchivo; las reglas v1.8.0 ya dejan escribir recetas a la administración).
+//    Lo cambiado aquí queda en la memoria con la marca nueva (no se vuelven a leer todas las recetas por un cambio propio).
+//    Copiar desde la planilla, mover de área y aprobar escriben la receta entera: una archivada en Firestore sigue archivada.
+//    La lista de recetas de la f.b. y la de mover de área no muestran las archivadas.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.71.1';
-import * as FBr from './firebase-produccion.js?v=0.71.1';
-import * as Apps from './apps.js?v=0.71.1';
-import { armar, AREAS } from './produccion-modelo.js?v=0.71.1';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.71.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.72.0';
+import * as FBr from './firebase-produccion.js?v=0.72.0';
+import * as Apps from './apps.js?v=0.72.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.72.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.72.0';
 import * as K from './cocina/consumo.js?v=0.17.0';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.11.0';
-import * as M from './fs-memoria.js?v=0.71.1';
-import { produccion as QP, esCuota } from './fs-cuota.js?v=0.71.1';
+import * as M from './fs-memoria.js?v=0.72.0';
+import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.72.0';
+import { produccion as QP, esCuota } from './fs-cuota.js?v=0.72.0';
 
 // ── v0.63.3: todo pedido a fen-produccion pasa por aquí: se cuenta (Configuración → Uso de la base hoy) y, si Firestore dice
 // "cuota agotada" (resource-exhausted), se muestra el letrero de Producción/Cocina. Cada escritura de Sistema Fën en recetas,
@@ -84,6 +90,8 @@ const FB = {
 // (1 lectura de la marca cada 10 minutos en vez de ≈ 300). Igual se relee una vez al día, por si acaso.
 const MARCAS = ['migracion', 'sf_cambios'], DIA = 24 * 3600e3;
 let porMarcar = new Set(), tMarcar = 0;
+// v0.72.0: lo que ya quedó actualizado en la memoria después de un cambio propio (col → lista): pasa a la marca nueva
+const traspaso = {};
 function marcar(...cols) {
   cols.filter(c => COLS_MARCA.includes(c)).forEach(c => porMarcar.add(c));
   if (!porMarcar.size) return;
@@ -95,9 +103,10 @@ async function escribirMarcas() {
   try {
     const cx = await conexion(); if (cx.estado !== 'ok') return;
     await FBr.setDoc(FBr.doc(cx.db, ...MARCAS), { ...datos, en: FBr.serverTimestamp() }, { merge: true }); QP.anotar('migracion', 0, 1, 0);
+    for (const c of cols) if (traspaso[c]) { const l = traspaso[c]; delete traspaso[c]; await M.memo(`prod:${c}@${v}`, async () => l, { guardar: true, forzar: true, ttl: DIA }); }
     const ya = M.ver('prod:marca');
     if (ya) await M.memo('prod:marca', async () => ({ ...ya, ...datos }), { guardar: true, forzar: true }); else M.olvidar('prod:marca');
-  } catch (e) { M.olvidar('prod:marca'); }
+  } catch (e) { cols.forEach(c => { delete traspaso[c]; }); M.olvidar('prod:marca'); }
 }
 const marcas = (forzar = false) => M.memo('prod:marca', async () => { const db = await dbOk(); const x = await FB.getDoc(FB.doc(db, ...MARCAS)); return x.exists() ? x.data() : {}; }, { guardar: true, forzar });
 async function conMarca(col, fn, forzar = false) {
@@ -109,7 +118,7 @@ async function conMarca(col, fn, forzar = false) {
 }
 
 export { AREAS };
-export { resumenPropuesta } from './finanzas-motor.js?v=0.71.1';
+export { resumenPropuesta } from './finanzas-motor.js?v=0.72.0';
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
@@ -289,8 +298,10 @@ export async function copiar(prep, avance) {
   const planes = prep.planesACopiar.filter(id => !editadosAhora.has(id));
   const cfgs = await FB.getDocs(FB.collection(db, 'config'));
   const cfgEditadas = new Set(cfgs.docs.filter(d => d.data().editado).map(d => d.id));
+  // v0.72.0: las recetas archivadas (Catálogo) siguen archivadas; se leen recién, justo antes de escribir
+  const arch = await archivoActual(db);
   const ops = [];
-  ['recetas', 'mps', 'config', 'personas'].forEach(col => Object.entries(prep.docs[col]).forEach(([id, d]) => { if (!(col === 'config' && cfgEditadas.has(id))) ops.push([col, id, d]); }));
+  ['recetas', 'mps', 'config', 'personas'].forEach(col => Object.entries(prep.docs[col]).forEach(([id, d]) => { if (!(col === 'config' && cfgEditadas.has(id))) ops.push([col, id, col === 'recetas' ? conArchivo(d, arch[id]) : d]); }));
   planes.forEach(id => ops.push(['planes', id, prep.docs.planes[id]]));
   let hechos = 0;
   for (let i = 0; i < ops.length; i += LOTE) {
@@ -354,7 +365,7 @@ const normFB = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g,
 export const masaPorDefecto = nombre => { const n = normFB(nombre); return /^masa /.test(n) && !/masa madre|poolish|\bpie\b/.test(n); };
 export function listaFB(recetas, hoyDoc, area = 'PAN') {
   const elegidas = (hoyDoc && hoyDoc.hoy && hoyDoc.hoy.recetasDia) || {};
-  const deArea = (recetas || []).filter(r => r.area === area && !/anulad/.test(normFB(r.estado)));
+  const deArea = (recetas || []).filter(r => r.area === area && !/anulad|archivad/.test(normFB(r.estado)));   // v0.72.0: sin las archivadas
   const prods = deArea.filter(r => r.tipo !== 'sub_receta' && /consolidad|aprobad/.test(normFB(r.estado))).map(r => ({ id: r.id, nombre: r.nombre || r.id, tipo: 'receta' }));
   const subs = deArea.filter(r => r.tipo === 'sub_receta' && r.mpId).filter(r => { const v = elegidas[r.mpId]; return typeof v === 'boolean' ? v : masaPorDefecto(r.nombre); })
     .map(r => ({ id: r.mpId, nombre: r.nombre || r.mpId, tipo: 'sub' }));
@@ -410,6 +421,39 @@ export async function mpsYRecetas() {
   const [mps, recetas] = await Promise.all([mpsMem(), recetasMem()]);
   return { mps, recetas };
 }
+
+// ═══════════════ v0.72.0 · Catálogo, Etapa 0: archivar y reactivar recetas ═══════════════
+export async function recetasCatalogo(forzar = false) { return recetasMem(forzar); }
+// Lo que hay de archivo en Firestore ahora (para no pisarlo al escribir recetas enteras): las archivadas (1 consulta; cuesta
+// 1 lectura por archivada) y, de la memoria, el historial de archivo de las reactivadas. → { id: receta }
+async function archivoActual(db) {
+  const out = {};
+  try { (await recetasMem()).forEach(r => { if (r.historialArchivo || r.estado === 'archivada') out[r.id] = r; }); } catch (e) { if (e && e.code === 'cuota-agotada') throw e; }
+  lista(await FB.getDocs(FB.query(FB.collection(db, 'recetas'), FB.where('estado', '==', 'archivada')))).forEach(r => { out[r.id] = r; });
+  return out;
+}
+// ids: las recetas a archivar (archivar = true) o reactivar (false). Usa la memoria (las recetas solo cambian desde Sistema Fën:
+// reglas v1.7.0). Un solo lote; 1 escritura por receta (+1 de la marca). → [{ id, nombre, antes, despues }] lo que cambió
+export async function archivarRecetas(ids, archivar = true) {
+  const db = await dbOk(), por = (authSF.currentUser && authSF.currentUser.email) || '', en = new Date().toISOString();
+  const recs = await recetasMem(), porId = {}; recs.forEach(r => { porId[r.id] = r; });
+  const cambios = [];
+  [...new Set(ids || [])].forEach(id => {
+    const r = porId[id]; if (!r) throw new Error(`La receta ${id} ya no está en la base de Cocina. Toca Actualizar.`);
+    const c = cambioArchivo(r, archivar, { por, en }); if (c) cambios.push({ id, nombre: r.nombre || id, antes: r.estado || '', despues: c.estado, c });
+  });
+  if (!cambios.length) return [];
+  const b = FB.writeBatch(db);
+  cambios.forEach(x => b.update(FB.doc(db, 'recetas', x.id), { ...x.c, [archivar ? 'archivadaEn' : 'reactivadaEn']: FB.serverTimestamp() }));
+  await b.commit();
+  // La memoria queda con lo nuevo (con la marca de ahora y con la que se escribe enseguida): nadie vuelve a leer las ≈ 300 recetas
+  const nueva = recs.map(r => { const x = cambios.find(y => y.id === r.id); return x ? { ...r, ...x.c, [archivar ? 'archivadaEn' : 'reactivadaEn']: en } : r; });
+  const mk = M.ver('prod:marca', DIA), clave = `prod:recetas@${(mk && mk.recetas) || '0'}`;
+  traspaso.recetas = nueva;
+  await M.memo(clave, async () => nueva, { guardar: true, forzar: true, ttl: DIA });
+  versionDatos++; M.olvidar('prod:hoy:');
+  return cambios.map(({ c, ...x }) => x);
+}
 // Lo que se costea de una receta de la base nueva (mismo formato que una propuesta)
 export function datosDeReceta(r) {
   return {
@@ -457,7 +501,7 @@ export async function pendientesCocina({ forzar = false } = {}) {
 // (precios de la planilla), como antes. Siempre se sabe si se vende por unidad (Cafetería o vinculada en Finanzas).
 export async function costear(prop) {
   let fin = null;
-  try { fin = await (await import('./finanzas.js?v=0.71.1')).costosPropuesta(prop); } catch (e) { console.warn('Recetas por aprobar: sin el motor de Finanzas', e); fin = null; }
+  try { fin = await (await import('./finanzas.js?v=0.72.0')).costosPropuesta(prop); } catch (e) { console.warn('Recetas por aprobar: sin el motor de Finanzas', e); fin = null; }
   const okFin = fin && fin.propuesta && !(fin.propuesta.sinPrecio || []).length && (!prop.vigente || (fin.vigente && !(fin.vigente.sinPrecio || []).length));
   if (okFin) return fin;
   const recetas = [{ clave: 'propuesta', datos: prop.datos }];
@@ -520,7 +564,7 @@ export async function aprobar(prop, comentario) {
   if (!doc) { await volver('La planilla la aprobó, pero no volvió la receta'); throw new Error('El script aprobó, pero no devolvió la receta. Usa "Leer la planilla" y "Copiar" para traerla.'); }
   const b = FB.writeBatch(db);
   if (vig) b.set(FB.doc(db, 'versiones', `${vig.id}_v${Number(vig.version) || 1}`), { ...vig, archivadaEn: FB.serverTimestamp(), reemplazadaPor: version });
-  b.set(FB.doc(db, 'recetas', r.id), { ...doc, propuesta: p.pid, copiadoEn: FB.serverTimestamp() });
+  b.set(FB.doc(db, 'recetas', r.id), { ...conArchivo(doc, vig), propuesta: p.pid, copiadoEn: FB.serverTimestamp() });   // v0.72.0: si estaba archivada, sigue
   Object.entries(a.docs.mps).forEach(([id, m]) => b.set(FB.doc(db, 'mps', id), { ...m, copiadoEn: FB.serverTimestamp() }));
   await b.commit();
   cambio('recetas', 'mps', 'hoy:');
@@ -555,16 +599,16 @@ export async function rechazarSolicitud(sol, motivo) {
 // de crema, ganache, glaseado… Un producto ("Croissant relleno") no se marca: es de Bollería. Tú eliges.
 const PARECE_PAS = /relleno|crema|ganache|glase|glaseado|alm[ií]bar|pastelera|frangipane|caramelo|mermelada|dulce de leche|manjar|cobertura|merengue|chantilly|curd|coulis|ba[ñn]o/i;
 export async function recetasDeArea(area) {
-  return (await recetasMem()).filter(r => r.area === area).map(r => ({ ...r, sugerida: r.tipo === 'sub_receta' && r.clasificacion !== 'masa_base' && (r.clasificacion === 'relleno' || PARECE_PAS.test(r.nombre || '')) }))
+  return (await recetasMem()).filter(r => r.area === area && r.estado !== 'archivada').map(r => ({ ...r, sugerida: r.tipo === 'sub_receta' && r.clasificacion !== 'masa_base' && (r.clasificacion === 'relleno' || PARECE_PAS.test(r.nombre || '')) }))
     .sort((a, b) => (b.sugerida - a.sugerida) || String(a.nombre).localeCompare(String(b.nombre), 'es'));
 }
 export async function moverRecetas(ids, desde = 'BOL', hacia = 'PAS') {
   cambio('recetas', 'mps', 'hoy:alertas');   // v0.63.2: Finanzas vuelve a leer recetas y materias primas
   const db = await dbOk();
   const r = await script('mover_area', { desde, hacia, ids }, VERSION_MOVER);
-  const a = armar(r.hojas, null);
+  const a = armar(r.hojas, null), arch = await archivoActual(db);
   const b = FB.writeBatch(db);
-  Object.entries(a.docs.recetas).forEach(([id, d]) => b.set(FB.doc(db, 'recetas', id), { ...d, movidaDesde: desde, copiadoEn: FB.serverTimestamp() }));
+  Object.entries(a.docs.recetas).forEach(([id, d]) => b.set(FB.doc(db, 'recetas', id), { ...conArchivo(d, arch[id]), movidaDesde: desde, copiadoEn: FB.serverTimestamp() }));
   Object.entries(a.docs.mps).forEach(([id, m]) => b.set(FB.doc(db, 'mps', id), { ...m, copiadoEn: FB.serverTimestamp() }));
   await b.commit();
   cambio('recetas', 'mps', 'hoy:alertas');
@@ -611,7 +655,7 @@ export async function mermaDelPeriodo({ desde, hasta, fresco = false }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.71.1')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.72.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   const falta = it => !costosMotor || !costosMotor[`${it.tipo}:${it.id}:${it.unidad}`] || costosMotor[`${it.tipo}:${it.id}:${it.unidad}`].incompleto;
   const claves = [...new Set(items.filter(it => it.id !== mpCafe || it.tipo !== 'mp' || merma.some(a => a.tipo === 'mp' && a.item === mpCafe) || calibraciones.length).filter(falta).map(it => it.tipo + ':' + it.id))];
   let costos = {}, errorCostos = '';

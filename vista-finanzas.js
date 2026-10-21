@@ -12,14 +12,14 @@
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.71.1';
-import * as FC from './finanzas-costos.js?v=0.71.1';
-import * as FS from './finanzas-sii.js?v=0.71.1';
-import * as FM from './finanzas-motor.js?v=0.71.1';
-import * as FV from './finanzas-ventas.js?v=0.71.1';
-import * as FMG from './finanzas-margenes.js?v=0.71.1';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.71.1';
-import * as VR from './vista-finanzas-resultados.js?v=0.71.1';
+import * as F from './finanzas.js?v=0.72.0';
+import * as FC from './finanzas-costos.js?v=0.72.0';
+import * as FS from './finanzas-sii.js?v=0.72.0';
+import * as FM from './finanzas-motor.js?v=0.72.0';
+import * as FV from './finanzas-ventas.js?v=0.72.0';
+import * as FMG from './finanzas-margenes.js?v=0.72.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.72.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.72.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -1022,10 +1022,12 @@ function dialogoVinculo(p, el, volver, H) {
   const recSel = v && v.receta ? v.receta : p.propuesta && p.propuesta.receta ? p.propuesta.receta : '';
   // v0.69.1: una reventa nueva propone el área REVENTA; una reventa que ya tenía otra área la conserva (no se cambia sola)
   const area0 = v && v.tipo === 'reventa' && v.area ? v.area : FV.REVENTA;
-  const etq = r => `${r.nombre}${r.area ? ' · ' + (FV.NOMBRE_AREA[FV.areaDe(r.area)] || r.area) : ''}${r.tipo === 'sub_receta' ? ' · sub receta' : ''}`;
+  const etq = r => `${r.nombre}${r.area ? ' · ' + (FV.NOMBRE_AREA[FV.areaDe(r.area)] || r.area) : ''}${r.tipo === 'sub_receta' ? ' · sub receta' : ''}${r.estado === 'archivada' ? ' · archivada' : ''}`;
   const opt = (r, extra = '') => `<option value="${H.esc(r.id)}" ${r.id === recSel ? 'selected' : ''}>${H.esc(etq(r) + extra)}</option>`;
-  const catRec = p.recetaCatalogo && recetas.find(r => r.id === p.recetaCatalogo);
-  const ordenadas = [...recetas].sort((a, b) => (a.tipo === 'sub_receta') - (b.tipo === 'sub_receta') || String(a.nombre).localeCompare(String(b.nombre), 'es'));
+  // v0.72.0: las recetas archivadas (Catálogo) no se ofrecen; solo la que ya tenía este producto, para no perderla
+  const ofrecer = r => r && (r.estado !== 'archivada' || (v && v.receta === r.id));
+  const catRec = p.recetaCatalogo && recetas.find(r => r.id === p.recetaCatalogo && ofrecer(r));
+  const ordenadas = [...recetas].filter(ofrecer).sort((a, b) => (a.tipo === 'sub_receta') - (b.tipo === 'sub_receta') || String(a.nombre).localeCompare(String(b.nombre), 'es'));
   const d = H.dialogo(`<form class="form-dialogo" id="m-vf" novalidate>
     <h2>${v ? 'Cambiar asociación' : 'Asociar producto'}</h2>
     <p class="fin-actual"><b>${H.esc(p.nombre)}</b> · ${canalTxt(p)}</p>

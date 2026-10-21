@@ -2210,3 +2210,45 @@ tr.pp-det > td { background: #FBFAF6; padding: 10px 12px; white-space: normal; }
   .pp-hoja th, .pp-hoja td { border: 0.5pt solid #999; padding: 2pt 5pt; text-align: right; }
   .pp-hoja th:first-child, .pp-hoja td:first-child { text-align: left; }
 }
+
+/* ── v0.72.0 · Catálogo, Etapa 0 "Qué está vivo" ─────────────── */
+.c-naranja { background: var(--naranja); color: var(--naranja-t); }
+.cat-resumen { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.cat-resumen .cat-btn-sug { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.cat-resumen .cat-btn-sug:disabled { opacity: .55; cursor: default; }
+.cat-filtros { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
+.cat-filtros .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cat-filtros .fin-buscar { flex: 1 1 240px; }
+.cat-filtros .fin-buscar input[type=search] { width: 100%; height: 40px; }
+.cat-listas { display: flex; flex-direction: column; gap: 24px; }
+.cat-area + .cat-area { margin-top: 18px; }
+.cat-area h3 { margin: 10px 0 2px; font-size: 15px; display: flex; align-items: baseline; gap: 8px; }
+.cat-fila { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr) auto; gap: 8px 20px; align-items: start; padding: 14px 0; border-top: 1px solid var(--linea); }
+.cat-fila.cat-archivada .cat-nombre b { color: var(--suave); }
+.cat-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cat-nombre { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; overflow-wrap: anywhere; }
+.cat-nombre b { font-size: 15px; font-weight: 600; }
+.cat-id { font-size: 11.5px; color: var(--suave); overflow-wrap: anywhere; }
+.cat-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.cat-datos { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 16px; min-width: 0; }
+.cat-datos dt { font-size: 11.5px; font-weight: 600; color: var(--suave); }
+.cat-datos dd { margin: 2px 0 0; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.cat-acc { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.cat-acc .btn-sec { display: inline-flex; align-items: center; gap: 6px; }
+.cat-dialogo h3 { margin: 6px 0 0; font-size: 15px; display: flex; gap: 8px; align-items: baseline; }
+.cat-dlg-grupos { max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.cat-dlg-lista { margin: 0; padding: 0 0 0 2px; display: flex; flex-direction: column; gap: 2px; list-style: none; }
+ul.cat-dlg-lista li { padding: 4px 0; font-size: 14px; overflow-wrap: anywhere; }
+.cat-check { align-items: flex-start; min-height: 36px; padding: 4px 0; }
+.cat-check input { margin-top: 2px; flex: none; }
+.cat-check span { overflow-wrap: anywhere; }
+body.cat-ocupado #v-catalogo button { pointer-events: none; opacity: .7; }
+@media (max-width: 1100px) {
+  .cat-fila { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); }
+  .cat-acc { grid-column: 1 / -1; justify-content: flex-start; }
+}
+@media (max-width: 640px) {
+  .cat-fila { grid-template-columns: minmax(0, 1fr); }
+  .cat-resumen .cat-btn-sug { margin-left: 0; }
+  .cat-filtros .fin-buscar { flex: 1 1 100%; }
+}

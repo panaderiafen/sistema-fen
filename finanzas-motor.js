@@ -180,7 +180,8 @@ export function crearMotor(ctx) {
 // Todas las recetas aprobadas (y las que no, si se piden) → { id: resultado }
 export function costearTodo(ctx, { soloAprobadas = true } = {}) {
   const m = crearMotor(ctx), out = {};
-  (ctx.recetas || []).filter(r => r && r.id && (!soloAprobadas || recetaAprobada(r))).forEach(r => { const x = m.costear(r.id); if (x && !x.ciclo) out[r.id] = x; });
+  // v0.72.0: las archivadas (Catálogo) se siguen costeando (los meses pasados las usan), con aprobada: false (no salen en Productos)
+  (ctx.recetas || []).filter(r => r && r.id && (!soloAprobadas || recetaAprobada(r) || r.estado === 'archivada')).forEach(r => { const x = m.costear(r.id); if (x && !x.ciclo) out[r.id] = x; });
   return out;
 }
 
