@@ -16,12 +16,12 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.80.1';
-import * as B from './gastos-banco.js?v=0.80.1';
-import { habilesEntre } from './feriados-cl.js?v=0.80.1';
-import * as D3 from './gastos-g3d.js?v=0.80.1';   // v0.67.0: total del plan de Previred con multas e intereses
-import * as PM from './pagos-mixtos.js?v=0.80.1';   // v0.69.2: pagos mixtos (un documento pagado en partes)
-import * as BO from './boletas.js?v=0.80.1';   // v0.70.0: boletas de luz y agua (el total a pagar paga todo lo que cubre, lo más antiguo primero)
+import * as G3 from './gastos-g3.js?v=0.80.2';
+import * as B from './gastos-banco.js?v=0.80.2';
+import { habilesEntre } from './feriados-cl.js?v=0.80.2';
+import * as D3 from './gastos-g3d.js?v=0.80.2';   // v0.67.0: total del plan de Previred con multas e intereses
+import * as PM from './pagos-mixtos.js?v=0.80.2';   // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as BO from './boletas.js?v=0.80.2';   // v0.70.0: boletas de luz y agua (el total a pagar paga todo lo que cubre, lo más antiguo primero)
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',

@@ -2599,6 +2599,17 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .pr-foto-fila { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
 .pr-foto-ver { width: 120px; height: 120px; flex: none; border-radius: 14px; overflow: hidden; border: 1px solid var(--linea); background: var(--fondo); }
 .pr-foto-ver img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* v0.80.2 · Encuadre: el marco tiene la forma de la foto de la tarjeta del PDF (338 × 150) */
+.pr-foto-col { flex: 0 1 240px; width: 240px; max-width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.pr-foto-col .pr-foto-ver { width: 100%; height: auto; aspect-ratio: 338 / 150; border-radius: 12px; }
+.pr-foto-ver.con-foto { cursor: grab; touch-action: none; }
+.pr-foto-ver.arrastrando { cursor: grabbing; }
+.pr-foto-ver:focus-visible { outline: 2px solid var(--acento, #2F5A45); outline-offset: 2px; }
+.pr-foto-img { width: 100%; height: 100%; background-repeat: no-repeat; background-color: var(--fondo); user-select: none; -webkit-user-select: none; }
+.pr-encuadre { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pr-zoom { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; color: var(--suave); }
+.pr-zoom input[type=range] { flex: 1; min-width: 0; width: 100%; accent-color: var(--acento); }
+@media (max-width: 520px) { .pr-foto-col { flex: 1 1 100%; width: 100%; } }
 .pr-foto-acc { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .pr-ficha textarea { padding: 10px 14px; border-radius: 12px; border: 1px solid var(--borde); background: #fff; font: inherit; resize: vertical; }
 @media (max-width: 640px) {
