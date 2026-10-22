@@ -13,15 +13,15 @@
 //   1 vínculo en fin_productos por canal nuevo (+1 su historial) + 1 de la lista para logística (config/catalogoDisponible).
 //   Cambiar = 1 en fen-gastos + 1 por canal que cambia. Armar el catálogo = lotes en fen-gastos + 1 por documento de la caja + lotes en fen-b2b.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.80.0';
-import * as GB from './gastos-base.js?v=0.80.0';
-import * as FBG from './fs-gastos.js?v=0.80.0';
-import * as Cuota from './fs-cuota.js?v=0.80.0';
-import * as P from './produccion.js?v=0.80.0';
-import * as Caja from './caja.js?v=0.80.0';
-import * as B from './b2b.js?v=0.80.0';
-import * as F from './finanzas.js?v=0.80.0';
-import * as CPM from './catalogo-productos-modelo.js?v=0.80.0';
+import { auth } from './firebase.js?v=0.80.1';
+import * as GB from './gastos-base.js?v=0.80.1';
+import * as FBG from './fs-gastos.js?v=0.80.1';
+import * as Cuota from './fs-cuota.js?v=0.80.1';
+import * as P from './produccion.js?v=0.80.1';
+import * as Caja from './caja.js?v=0.80.1';
+import * as B from './b2b.js?v=0.80.1';
+import * as F from './finanzas.js?v=0.80.1';
+import * as CPM from './catalogo-productos-modelo.js?v=0.80.1';
 
 const LOTE = 400;
 const yo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -83,6 +83,7 @@ async function copiarCanal(D, p, prev, canal) {
 }
 // fin_productos: el vínculo de un documento nuevo de un canal (si ya hay uno decidido a mano, se deja: vale para los meses antiguos)
 async function vincularFin(D, p) {
+  if (!CPM.conVinculoFin(p)) return 0;   // v0.80.1: receta pendiente: Finanzas lo lee del maestro; el vínculo se escribe al unirlo
   const db = await dbG(), hoy = hoyTxt(), por = yo(), ops = [];
   CPM.CANALES.forEach(cn => {
     const docId = p.canales[cn] && p.canales[cn].docId; if (!docId) return;
@@ -109,7 +110,7 @@ export async function publicarDisponible(D) {
 
 // ── Crear o cambiar un producto (y escribir sus canales) ──
 // datos: lo del diálogo (ver CPM.validar). id: el del producto (o null para crear). → { producto, canales: { caja, b2b }, vinculos }
-export async function guardar(D, datos, id = null, { origen = 'manual', nota = '' } = {}) {
+export async function guardar(D, datos, id = null, { origen = 'manual', nota = '', accion = 'cambio' } = {}) {
   const db = await dbG(), por = yo(), en = new Date().toISOString();
   const prev = id ? D.maestro.find(p => p.id === id) || null : null;
   if (id && !prev) throw new Error('Ese producto ya no está. Toca Actualizar.');
@@ -137,7 +138,7 @@ export async function guardar(D, datos, id = null, { origen = 'manual', nota = '
       CPM.CANALES.forEach(cn => { nuevo.canales[cn].docId = (a.canales && a.canales[cn] && a.canales[cn].docId) || (nuevo.canales[cn].habilitado ? a.id : null); });
       const cambios = CPM.cambiosDe(a, nuevo);
       if (!Object.keys(cambios).length) return a;
-      const d = { ...nuevo, editadoEn: en, editadoPor: por, historial: CPM.conHistorial(a.historial, { accion: 'cambio', por, en, cambios, ...(nota ? { nota } : {}) }) };
+      const d = { ...nuevo, editadoEn: en, editadoPor: por, historial: CPM.conHistorial(a.historial, { accion, por, en, cambios, ...(nota ? { nota } : {}) }) };
       tx.update(ref, d);
       return { ...a, ...d };
     });
@@ -155,6 +156,17 @@ export async function guardar(D, datos, id = null, { origen = 'manual', nota = '
   if (cambiaLista) await publicarDisponible(D);
   if (errores.length) { const e = new Error(`El producto quedó guardado en el Catálogo (${p.id}), pero no se pudo escribir en ${errores.join(' · ')}. Toca Guardar otra vez para reintentar.`); e.producto = p; throw e; }
   return { producto: p, canales, vinculos };
+}
+// v0.80.1 · "Unir con su receta": un producto con la receta pendiente pasa a su receta aprobada. Es el mismo camino que crear un
+// producto desde una receta: el maestro (con su historial: "unido con su receta"), las copias de la caja y de B2B (idRecetaFen / idReceta)
+// y el vínculo de Finanzas (fin_productos, donde no había uno decidido a mano). Desde ahí sus ventas tienen costo y margen.
+export async function unirReceta(D, id, recetaId) {
+  const p = D.maestro.find(x => x.id === id);
+  if (!p) throw new Error('Ese producto ya no está. Toca Actualizar.');
+  if (!CPM.recetaPendiente(p)) throw new Error(`${p.nombre} ya tiene su receta.`);
+  if (!String(recetaId || '').trim()) throw new Error('Elige la receta (solo las aprobadas).');
+  const r = (D.recetas || []).find(x => x.id === recetaId);
+  return guardar(D, CPM.datosUnir(p, recetaId), id, { accion: 'unido con su receta', nota: `${(r && r.nombre) || recetaId} (${recetaId})${p.notaReceta ? ' · faltaba: ' + p.notaReceta : ''}` });
 }
 // Archivar (archivar = true) o reactivar: el producto y sus canales (caja activo false; B2B archivado). Reactivar no vuelve a
 // habilitar los canales: se habilitan en el diálogo, con su precio.

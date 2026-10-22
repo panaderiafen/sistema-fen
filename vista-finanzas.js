@@ -15,15 +15,15 @@
 //  línea" y las 3 más parecidas al asociar. Reglas puras en mp-alta-modelo.js; escribe en la base de Cocina (produccion.js) y aquí.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.80.0';
-import * as FC from './finanzas-costos.js?v=0.80.0';
-import * as FS from './finanzas-sii.js?v=0.80.0';
-import * as FM from './finanzas-motor.js?v=0.80.0';
-import * as FV from './finanzas-ventas.js?v=0.80.0';
-import * as FMG from './finanzas-margenes.js?v=0.80.0';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.80.0';
-import * as VR from './vista-finanzas-resultados.js?v=0.80.0';
-import * as MA from './mp-alta-modelo.js?v=0.80.0';
+import * as F from './finanzas.js?v=0.80.1';
+import * as FC from './finanzas-costos.js?v=0.80.1';
+import * as FS from './finanzas-sii.js?v=0.80.1';
+import * as FM from './finanzas-motor.js?v=0.80.1';
+import * as FV from './finanzas-ventas.js?v=0.80.1';
+import * as FMG from './finanzas-margenes.js?v=0.80.1';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.80.1';
+import * as VR from './vista-finanzas-resultados.js?v=0.80.1';
+import * as MA from './mp-alta-modelo.js?v=0.80.1';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -1126,6 +1126,7 @@ function htmlVentas(prods, H) {
     <div class="fin-prev-cifras fin-mcifras" id="m-areas">
       ${areasVer(t.porArea).map(a => cifra(FV.NOMBRE_AREA[a], t.porArea[a] || 0, '', parte(t.porArea[a] || 0))).join('')}
       ${t.sinAsociar ? cifra('Sin asociar', t.sinAsociar, 'Venta de productos que todavía no tienen receta (ni son reventa): no tienen área. Asócialos en Asociar productos.', parte(t.sinAsociar), 'fin-msin') : ''}</div>
+    ${t.recetaPendiente ? `<p class="ayuda" id="m-pend">Incluye ${pesosM(t.recetaPendiente)} de ${nf(t.nRecetaPendiente)} ${t.nRecetaPendiente === 1 ? 'producto' : 'productos'} con la receta pendiente: en su área, sin costo (receta pendiente). ${H.info('Receta pendiente', TXT_PEND_FIN)} <a href="#catalogo/productos/falta-receta">Unir con su receta</a></p>` : ''}
     ${t.reventa ? `<p class="ayuda">Incluye ${pesosM(t.reventa)} de reventa${t.reventa - (t.porArea[FV.REVENTA] || 0) ? ` (${pesosM(t.reventa - (t.porArea[FV.REVENTA] || 0))} con otra área elegida antes)` : ''}.</p>` : ''}
     <div class="filtros fin-filtros" id="m-filtros-ventas">
       <div class="fin-buscar">${ic('lupa', 18)}<label class="sr" for="m-q">Buscar producto</label><input type="search" id="m-q" placeholder="Buscar producto…" autocomplete="off" spellcheck="false" value="${H.esc(MS.q)}"></div>
@@ -1145,9 +1146,9 @@ function filasVentas(prods) {
 function filaVenta(f, H) {
   const celda = sc => { const x = f.porSuc[sc]; return x ? `${pesosM(x.neto)}<span class="ayuda">${cantM(x.cantidad)} ${x.cantidad === 1 ? 'vendido' : 'vendidos'}</span>` : '<span class="ayuda">—</span>'; };
   const fuentes = f.fuentes.map(x => `${x.nombre} (${x.canal === 'b2b' ? 'B2B' : 'caja'}${x.unidadesPorVenta !== 1 ? ` × ${String(x.unidadesPorVenta).replace('.', ',')}` : ''})`).join(' · ');
-  const area = f.tipo === 'sin' ? '<span class="chip c-amarillo chip-chico">Sin asociar</span>' : `${H.esc(FV.NOMBRE_AREA[f.area] || f.area || '—')}${f.tipo === 'reventa' && f.area !== FV.REVENTA ? ' <span class="chip c-gris chip-chico">Reventa</span>' : ''}`;
+  const area = f.tipo === 'sin' ? '<span class="chip c-amarillo chip-chico">Sin asociar</span>' : `${H.esc(FV.NOMBRE_AREA[f.area] || f.area || '—')}${f.tipo === 'reventa' && f.area !== FV.REVENTA ? ' <span class="chip c-gris chip-chico">Reventa</span>' : ''}${f.tipo === 'pendiente' ? ' <span class="chip c-amarillo chip-chico fin-pend-chip">Receta pendiente</span>' : ''}`;
   return `<div class="fin-mfila" data-m-fila="${H.esc(f.clave)}">
-    <span class="fin-nombre"><b>${H.esc(f.nombre)}</b>${f.tipo === 'receta' ? `<span class="ayuda">${H.esc(fuentes)}</span>` : ''}${f.tipo === 'sin' ? ` <button type="button" class="fin-mlink" data-m-asociar="${H.esc(f.productoClave)}">Asociar</button>` : ''}</span>
+    <span class="fin-nombre"><b>${H.esc(f.nombre)}</b>${f.tipo === 'receta' ? `<span class="ayuda">${H.esc(fuentes)}</span>` : ''}${f.tipo === 'sin' ? ` <button type="button" class="fin-mlink" data-m-asociar="${H.esc(f.productoClave)}">Asociar</button>` : ''}${f.tipo === 'pendiente' ? '<span class="ayuda">Sin costo (receta pendiente) · <a href="#catalogo/productos/falta-receta">Unir con su receta</a></span>' : ''}</span>
     <span><span class="fin-et">Área</span>${area}</span>
     <span><span class="fin-et">Caja Barros</span>${celda('barros')}</span>
     <span><span class="fin-et">Caja Ainavillo</span>${celda('ainavillo')}</span>
@@ -1310,7 +1311,7 @@ function dialogoVinculo(p, el, volver, H) {
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
   // v0.73.0: la lista de reventa (cat_reventa, de la memoria de fs-gastos): activas, más la que ya tenía este producto
   const selRev = d.querySelector('#m-v-revid');
-  import('./reventa.js?v=0.80.0').then(R => R.leer()).then(({ lista }) => {
+  import('./reventa.js?v=0.80.1').then(R => R.leer()).then(({ lista }) => {
     MS.reventa = lista;
     const ofrecer = lista.filter(x => x.estado !== 'archivado' || (v && v.reventaId === x.id)).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
     selRev.innerHTML = `<option value="">${ofrecer.length ? 'Elige…' : 'La lista de reventa está vacía (Catálogo → Reventa)'}</option>` + ofrecer.map(x => `<option value="${H.esc(x.id)}" data-costo="${x.costoNeto ?? ''}" data-nombre="${H.esc(x.nombre)}" ${v && v.reventaId === x.id ? 'selected' : ''}>${H.esc(x.nombre)} · ${H.esc(x.id)} · $${(Math.round(Number(x.costoNeto || 0) * 100) / 100).toLocaleString('es-CL')} / ${H.esc(x.unidad || 'un')}${x.estado === 'archivado' ? ' · archivada' : ''}</option>`).join('');
@@ -1348,6 +1349,8 @@ const pctF = v => pctM(v * 100);
 const unidTxt = f => `${cantM(f.unidadesL)}${f.lectura === 'kg' ? ' kg' : ''}`;
 const porTxt = f => (f.lectura === 'kg' ? ' / kg' : '');
 const mcCls = v => (v === null || v === undefined ? '' : v < 0 ? 'fin-neg' : '');
+// v0.80.1 · Receta pendiente (Catálogo)
+const TXT_PEND_FIN = 'Productos del Catálogo que se venden con la "Receta pendiente": su receta todavía no está aprobada en Cocina (o no existe). Cuentan como asociados y su venta va a su área, pero no tienen costo directo: no entran en el margen (están en "Sin costo o incompleto").\nEs temporal: aprueba o crea la receta en Cocina y toca "Unir con su receta" en Catálogo → Productos. Desde ahí tienen costo y margen.';
 const MOTIVO = m => m.replace(/^sin costo calculado$/, 'la receta no tiene costo calculado (ábrela en Costos)').replace(/^costo 0$/, 'costo 0');
 
 // Aviso "falta configurar" (solo aquí, no en Hoy)
@@ -1404,7 +1407,7 @@ function htmlMargen(H) {
   ${fuera.length ? `<section class="tarjeta" aria-labelledby="t-m-fuera" id="m-fuera">
     <h2 id="t-m-fuera">Sin costo o incompleto <span class="chip c-amarillo chip-chico">${nf(fuera.length)}</span> ${H.info('Sin costo o incompleto', 'Productos vendidos que no entran en el margen: sin asociar a una receta, receta sin costo calculado o con costo incompleto (le falta precio a algún ingrediente), o reventa sin costo de compra.\nSu venta no se cuenta en los totales ni en los % de arriba. Complétalos en Asociar productos o en Costos.')}</h2>
     <ul class="fin-mfuera">${fuera.map(f => `<li data-mc-fuera="${H.esc(f.clave)}"><div><b>${H.esc(f.nombre)}</b> <span class="ayuda">${H.esc(FV.NOMBRE_AREA[f.area] || 'Sin área')}</span><span class="ayuda">${H.esc(f.motivos.map(MOTIVO).join(' · '))}</span></div>
-      <div class="fin-mfuera-d"><span>${pesosM(f.neto)} <span class="ayuda">neto</span></span>${f.tipo === 'receta' ? `<a href="#finanzas/costos/productos/r/${encodeURIComponent(f.receta)}">Ver costo</a>` : '<a href="#finanzas/margenes/asociar">Asociar</a>'}</div></li>`).join('')}</ul></section>` : ''}`;
+      <div class="fin-mfuera-d"><span>${pesosM(f.neto)} <span class="ayuda">neto</span></span>${f.tipo === 'receta' ? `<a href="#finanzas/costos/productos/r/${encodeURIComponent(f.receta)}">Ver costo</a>` : f.tipo === 'pendiente' ? `<a href="#catalogo/productos/falta-receta" data-mc-pend="${H.esc(f.catalogoId || '')}">Unir con su receta</a>` : '<a href="#finanzas/margenes/asociar">Asociar</a>'}</div></li>`).join('')}</ul></section>` : ''}`;
 }
 function filaMC(f, H) {
   const fuentes = f.fuentes.map(x => `${x.nombre} (${x.canal === 'b2b' ? 'B2B' : 'caja'}${x.unidadesPorVenta !== 1 ? ` × ${String(x.unidadesPorVenta).replace('.', ',')}` : ''})`).join(' · ');

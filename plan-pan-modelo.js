@@ -84,14 +84,18 @@ export const sucDe = x => (/ainavillo/i.test(s(x)) ? 'ainavillo' : 'barros');
 // ── Vínculos de Finanzas → tipo de pan ──
 // vinculos: { clave: doc } (fin_productos). → { 'caja_pid' | 'b2b_pid': { receta, upv, nombre } } solo los de Panadería;
 // otros: claves con vínculo a otra cosa (otra área, reventa, "no es un producto"): no son pan.
+// v0.80.1 · pendientes: productos del Catálogo con la receta pendiente y área Panadería (pan sin tipo: no entran en el plan, se
+// listan con los "sin asociar" y una nota). Con la receta pendiente de otra área: otros (no son pan).
 export function mapaProductos(vinculos) {
-  const pan = {}, otros = new Set();
+  const pan = {}, otros = new Set(), pendientes = {};
   Object.entries(vinculos || {}).forEach(([clave, v]) => {
     if (!v) return;
-    if (v.tipo === 'receta' && v.receta && s(v.area).toUpperCase() === 'PAN') pan[clave] = { receta: s(v.receta), upv: num(v.unidadesPorVenta) > 0 ? num(v.unidadesPorVenta) : 1, nombre: s(v.nombre) };
+    const esPan = s(v.area).toUpperCase() === 'PAN';
+    if (v.tipo === 'receta' && v.receta && esPan) pan[clave] = { receta: s(v.receta), upv: num(v.unidadesPorVenta) > 0 ? num(v.unidadesPorVenta) : 1, nombre: s(v.nombre) };
+    else if (v.tipo === 'receta' && (v.recetaPendiente === true || !v.receta) && esPan) pendientes[clave] = { nombre: s(v.nombre), catalogoId: s(v.catalogoId) };
     else otros.add(clave);
   });
-  return { pan, otros };
+  return { pan, otros, pendientes };
 }
 const idDoc = t => s(t).replace(/\//g, '_').replace(/^\.+$/, '_').slice(0, 300) || '_';
 export const claveProducto = (canal, pid) => `${canal}_${idDoc(pid)}`;
@@ -101,17 +105,19 @@ const normalizarFV = t => s(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').
 const slugFV = t => normalizarFV(t).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'sin-nombre';
 export const idProductoB2b = l => s(l && l.productoId).trim() || 'n-' + slugFV(l && l.producto);
 // v0.74.0 · La foto de la venta (línea B2B guardada al crear la orden: catalogoId, tipo, area, recetaId, unidadesPorVenta) manda
-export const fotoPan = l => (l && s(l.catalogoId) && s(l.tipo) ? { pan: l.tipo === 'receta' && s(l.area).toUpperCase() === 'PAN' && !!s(l.recetaId), receta: s(l.recetaId), upv: num(l.unidadesPorVenta) > 0 ? num(l.unidadesPorVenta) : 1 } : null);
+// v0.80.1: pendiente = receta de Panadería sin recetaId (receta pendiente en el Catálogo): pan sin tipo
+export const fotoPan = l => (l && s(l.catalogoId) && s(l.tipo) ? { pan: l.tipo === 'receta' && s(l.area).toUpperCase() === 'PAN' && !!s(l.recetaId), pendiente: l.tipo === 'receta' && s(l.area).toUpperCase() === 'PAN' && !s(l.recetaId), receta: s(l.recetaId), upv: num(l.unidadesPorVenta) > 0 ? num(l.unidadesPorVenta) : 1, catalogoId: s(l.catalogoId) } : null);
 
 // Productos sin asociar que parecen de Panadería: de la caja con área PAN en su catálogo (vendidos o ingresados en la ventana)
 // y de B2B pedidos en la ventana (B2B no trae área: todo lo pedido sin vínculo).
 // fuentes: { caja: [{ productoId, nombre, area, cantidad }], b2b: [{ productoId, nombre, cantidad }] }
+// v0.80.1: también los de Panadería con la receta pendiente (pendiente: true, catalogoId), aunque la caja no diga PAN
 export function sinAsociar(fuentes, mapa) {
-  const out = {};
+  const out = {}, pend = mapa.pendientes || {};
   const ver = (canal, x, esPan) => {
-    const clave = claveProducto(canal, x.productoId);
-    if (mapa.pan[clave] || mapa.otros.has(clave) || !esPan) return;
-    const o = out[clave] || (out[clave] = { clave, canal, productoId: s(x.productoId), nombre: s(x.nombre) || s(x.productoId), cantidad: 0 });
+    const clave = claveProducto(canal, x.productoId), p = pend[clave] || (x.pendiente ? { catalogoId: s(x.catalogoId) } : null);
+    if (mapa.pan[clave] || (!p && (mapa.otros.has(clave) || !esPan))) return;
+    const o = out[clave] || (out[clave] = { clave, canal, productoId: s(x.productoId), nombre: s(x.nombre) || s(x.productoId), cantidad: 0, ...(p ? { pendiente: true, catalogoId: s(p.catalogoId) } : {}) });
     o.cantidad += num(x.cantidad);
     if (!o.nombre && x.nombre) o.nombre = s(x.nombre);
   };
@@ -266,6 +272,9 @@ export function b2bPorDia(ordenes, mapa) {
     (o.lineas || []).forEach(l => {
       const pid = idProductoB2b(l), c = num(l.cantidad), foto = fotoPan(l), k = claveProducto('b2b', pid);
       if (!(c > 0)) return;
+      // v0.80.1: pan con la receta pendiente (la foto o el maestro): pan sin tipo, va con los "sin asociar" (con su nota)
+      const pend = (foto && foto.pendiente) || (!foto && (mapa.pendientes || {})[k]);
+      if (pend) { sin.push({ productoId: pid, nombre: s(l.producto), cantidad: c, pendiente: true, catalogoId: s((foto && foto.catalogoId) || pend.catalogoId) }); return; }
       if (foto && !foto.pan) return;   // la foto dice que no es pan (otra área, reventa o cargo)
       const v = foto ? { receta: foto.receta, upv: foto.upv } : mapa.pan[k];
       if (!v) { if (!mapa.otros.has(k)) sin.push({ productoId: pid, nombre: s(l.producto), cantidad: c }); return; }

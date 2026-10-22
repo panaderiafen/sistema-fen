@@ -47,22 +47,22 @@
 //  v0.76.0: materias primas e insumos nuevos desde Finanzas → Costos (crearMateriaPrima, crearDesdeLinea): costos_mp con origen 'manual'
 //   (o 'sii' si el precio es el de la línea de factura), creadaDesde 'sistema-fen' y su historial; datosMpEnCostos copia nombre y estado.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.80.0';
-import * as FB from './fs-gastos.js?v=0.80.0';
-import * as GB from './gastos-base.js?v=0.80.0';
-import * as P from './produccion.js?v=0.80.0';
-import * as FC from './finanzas-costos.js?v=0.80.0';
-import * as FS from './finanzas-sii.js?v=0.80.0';
-import * as FM from './finanzas-motor.js?v=0.80.0';
-import * as FV from './finanzas-ventas.js?v=0.80.0';
-import * as FMG from './finanzas-margenes.js?v=0.80.0';
-import * as FR from './finanzas-resultados.js?v=0.80.0';
-import * as FE from './finanzas-eerr.js?v=0.80.0';
-import * as CPM from './catalogo-productos-modelo.js?v=0.80.0';
-import * as Caja from './caja.js?v=0.80.0';
-import * as B from './b2b.js?v=0.80.0';
-import * as FBB from './firebase-b2b.js?v=0.80.0';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.80.0';
+import { auth as authSF } from './firebase.js?v=0.80.1';
+import * as FB from './fs-gastos.js?v=0.80.1';
+import * as GB from './gastos-base.js?v=0.80.1';
+import * as P from './produccion.js?v=0.80.1';
+import * as FC from './finanzas-costos.js?v=0.80.1';
+import * as FS from './finanzas-sii.js?v=0.80.1';
+import * as FM from './finanzas-motor.js?v=0.80.1';
+import * as FV from './finanzas-ventas.js?v=0.80.1';
+import * as FMG from './finanzas-margenes.js?v=0.80.1';
+import * as FR from './finanzas-resultados.js?v=0.80.1';
+import * as FE from './finanzas-eerr.js?v=0.80.1';
+import * as CPM from './catalogo-productos-modelo.js?v=0.80.1';
+import * as Caja from './caja.js?v=0.80.1';
+import * as B from './b2b.js?v=0.80.1';
+import * as FBB from './firebase-b2b.js?v=0.80.1';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.80.1';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -316,6 +316,18 @@ export async function porConfirmarParaHoy() {
   const sn = await FB.getDocs(FB.query(FB.collection(cx.db, 'costos_por_confirmar'), FB.where('estado', '==', 'pendiente')));
   return sn.docs.map(d => d.data().mpNombre || d.data().mp);
 }
+// v0.80.1 · Hoy: los productos del Catálogo que se venden con la receta pendiente (1 consulta; 1 lectura si no hay ninguno)
+// 2 minutos en memoria (volver a Hoy: 0 lecturas); cualquier cambio del Catálogo la olvida (olvidarMaestro)
+let pendHoyMem = null;
+export async function recetaPendienteParaHoy() {
+  if (pendHoyMem && Date.now() - pendHoyMem.t < 120000) return pendHoyMem.v;
+  const cx = await GB.conexion().catch(() => null);
+  if (!cx || cx.estado !== 'ok') return null;
+  const sn = await FB.getDocs(FB.query(FB.collection(cx.db, 'cat_productos'), FB.where('recetaPendiente', '==', true)));
+  const v = sn.docs.map(d => ({ ...d.data(), id: d.id })).filter(p => p.estado !== 'archivado' && p.tipo === 'receta').map(p => p.nombre || p.id).sort((a, b) => String(a).localeCompare(String(b), 'es'));
+  pendHoyMem = { t: Date.now(), v };
+  return v;
+}
 
 // ═══════════════ v0.58.0 · Costo directo por producto (motor de costeo) ═══════════════
 // Recetas, materias primas y configuración de fen-produccion (sin costos) + el maestro de costos de fen-gastos
@@ -484,7 +496,7 @@ export async function leerMaestro() {
   return { lista: sn.docs.map(d => ({ ...d.data(), id: d.id })), config: cfg && cfg.exists() ? cfg.data() : null };
 }
 let maestroMem = null;
-export const olvidarMaestro = () => { maestroMem = null; };
+export const olvidarMaestro = () => { maestroMem = null; pendHoyMem = null; };   // v0.80.1: + lo de Hoy (receta pendiente)
 export async function maestroFinanzas(forzar = false) {
   if (maestroMem && !forzar && Date.now() - maestroMem.t < 120000) return maestroMem.v;
   let v = null;
@@ -775,14 +787,14 @@ export async function cargosCartola() {
 // v0.66.0 · Documentos del SII por clasificar (subidos, sin gasto todavía), de la memoria: para el cierre y el estado de resultados
 // v0.67.1: lo mismo que Conciliación (sin lo que ya tiene su gasto registrado: eso no se cuenta en el cierre)
 export async function siiPorClasificar() {
-  try { return await (await import('./sii-pendientes-fs.js?v=0.80.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
-  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.80.0');
+  try { return await (await import('./sii-pendientes-fs.js?v=0.80.1')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
+  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.80.1');
   const sn = await FB.getDocs(FB.collection(db, 'sii_docs'));
   return SP.pendientesDe(sn.docs.map(d => ({ id: d.id, d: d.data() })));
 }
 // v0.69.5 · Las planillas de Previred para Cierre de mes (de la memoria de la sesión; lo que falte se lee). null si no se puede.
 export async function planillasPrevired() {
-  try { return await (await import('./gastos-cartola-fs.js?v=0.80.0')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
+  try { return await (await import('./gastos-cartola-fs.js?v=0.80.1')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
 }
 export async function cargasSii() {
   const db = await dbG();
@@ -811,8 +823,9 @@ export async function datosMes(mes, { forzar = false } = {}) {
   const info = (ventas.meses || [])[0] || {};
   const lAin = (ventas.lineas || []).filter(l => l.suc === 'ainavillo');
   const netoTotal = margen.filas.reduce((a, f) => a + f.neto, 0), netoSin = margen.filas.filter(f => f.tipo === 'sin').reduce((a, f) => a + f.neto, 0);
+  const pend = margen.filas.filter(f => f.tipo === 'pendiente');   // v0.80.1: receta pendiente (asociados, sin costo)
   const caja = info.caja || {};
-  mesCache[mes] = { mes, margen, merma, ventasInfo: { guardado: caja.fuente === 'guardado', abiertas: caja.abiertas || 0, faltan: caja.faltan || 0, nAinavillo: lAin.reduce((a, l) => a + (Number(l.cantidad) || 0), 0), netoAinavillo: lAin.reduce((a, l) => a + (Number(l.neto) || 0), 0), netoTotal, netoSinAsociar: netoSin, b2b: info.b2b || null } };
+  mesCache[mes] = { mes, margen, merma, ventasInfo: { guardado: caja.fuente === 'guardado', abiertas: caja.abiertas || 0, faltan: caja.faltan || 0, nAinavillo: lAin.reduce((a, l) => a + (Number(l.cantidad) || 0), 0), netoAinavillo: lAin.reduce((a, l) => a + (Number(l.neto) || 0), 0), netoTotal, netoSinAsociar: netoSin, netoRecetaPendiente: pend.reduce((a, f) => a + f.neto, 0), nRecetaPendiente: pend.length, b2b: info.b2b || null } };
   return mesCache[mes];
 }
 export async function conteosMes(mes) {

@@ -7,8 +7,8 @@
 //  después los productos en 2 columnas (foto, nombre, formato, descripción corta, precio "$ 3.500 + IVA") y al final
 //  "Condiciones" y el contacto. Pie con el número de página. Paleta "Salvia y arena". Sin costos.
 // ═══════════════════════════════════════════════
-import { cargarLibrerias } from './pdf-orden.js?v=0.80.0';
-import * as LM from './listas-precios-modelo.js?v=0.80.0';
+import { cargarLibrerias } from './pdf-orden.js?v=0.80.1';
+import * as LM from './listas-precios-modelo.js?v=0.80.1';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ANCHO = 794, ALTO = 1123;          // px CSS de una hoja A4 (96 ppp)

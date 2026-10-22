@@ -10,8 +10,8 @@
 //  · archivar: no si una receta viva (no archivada) la usa como ingrediente o insumo. Nada se borra.
 //  Se prueba solo: pruebas/sistemafen/mp-crear-v0760.test.js.
 // ═══════════════════════════════════════════════
-import { num, parsearContenido, contenidoValido } from './finanzas-costos.js?v=0.80.0';
-import { normalizarItem, contenidoDesdeForm, contenidoDeLinea, precioUnitarioNeto } from './finanzas-sii.js?v=0.80.0';
+import { num, parsearContenido, contenidoValido } from './finanzas-costos.js?v=0.80.1';
+import { normalizarItem, contenidoDesdeForm, contenidoDeLinea, precioUnitarioNeto } from './finanzas-sii.js?v=0.80.1';
 
 const t = v => (v === null || v === undefined ? '' : String(v).trim());
 const sinTildes = v => t(v).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();

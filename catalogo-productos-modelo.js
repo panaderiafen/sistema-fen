@@ -14,7 +14,8 @@
 //               precioUnico | null, excepcionHoraria, autoEliminar, categoria, areaCaja (la pestaña de la caja donde aparece;
 //               v0.75.1: una reventa va siempre a la pestaña REVENTA, sin elegir) },
 //       b2b:  { habilitado, docId (fen-b2b productos), precioBase (neto), categoria } },
-//     historial [40], creadoEn, creadoPor, editadoEn, editadoPor, origen 'manual' | 'migracion' | 'solicitud' }
+//     historial [40], creadoEn, creadoPor, editadoEn, editadoPor, origen 'manual' | 'migracion' | 'solicitud',
+//     v0.80.1: recetaPendiente true (tipo 'receta' sin receta todavía: recetaId null, area = la elegida) + notaReceta (≤ 120) }
 //   cat_config/productos = { siguiente (el número del próximo PR), armadoEn, armadoPor, vigenteDesde 'AAAA-MM', n, historial }
 //
 //  Las copias en los canales las escribe SOLO Sistema Fën (al guardar o habilitar):
@@ -30,7 +31,7 @@
 //   3. fin_productos (lo asociado a mano en Finanzas: meses antiguos y productos sin unir);
 //   4. lo de antes (ID de receta del catálogo de la caja o de B2B, nombre parecido) solo como sugerencia.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.80.0';
+import * as AR from './areas.js?v=0.80.1';
 // v0.75.1 (Etapa 2b): la caja v2.3.0 ya no crea ni cambia productos; sus pestañas son areas.js CAJA (PAN, BOL, PAS, CAF, REVENTA).
 
 export const TIPOS = { receta: 'Receta', reventa: 'Reventa', cargo: 'Cargo', armado: 'Armado' };
@@ -65,12 +66,23 @@ const AREA_TXT = { panaderia: 'PAN', pan: 'PAN', bolleria: 'BOL', bol: 'BOL', pa
 export const areaCodigo = a => { const u = s(a).toUpperCase(); if ([...AR.MARGEN, ...AR.CANAL].includes(u)) return u; return AREA_TXT[norm(a)] || ''; };
 export const nombreArea = a => AR.NOMBRE[areaCodigo(a)] || s(a) || 'Sin área';
 
+// ── v0.80.1 · Receta pendiente: un producto que se vende hoy, pero cuya receta todavía no está aprobada (o no existe) ──
+// tipo 'receta', recetaId null, recetaPendiente true, area (un área que produce: sus ventas van ahí) y una nota opcional
+// ("qué receta falta"). Se vende igual en sus canales; mientras tanto no tiene costo ni margen. Se cierra con "Unir con su receta".
+export const NOTA_RECETA_MAX = 120;
+export const recetaPendiente = p => !!p && p.tipo === 'receta' && p.recetaPendiente === true;
+export const faltaReceta = lista => (lista || []).filter(p => p && p.estado !== 'archivado' && recetaPendiente(p));
+// ¿Lleva vínculo en fin_productos? Un producto con receta pendiente no (Finanzas lo lee del maestro); se escribe al unirlo.
+export const conVinculoFin = p => !recetaPendiente(p);
+
 // ── Recetas y reventa que se pueden elegir ──
 // Una receta se puede vender si está aprobada (consolidada) y no archivada. Una sub receta solo si dice "vende directo".
 export const recetaAprobada = r => !!r && ['consolidada', 'aprobada'].includes(s(r.estado)) && (r.tipo !== 'sub_receta' || r.vendeDirecto === true);
 export const recetasElegibles = recetas => (recetas || []).filter(recetaAprobada).sort((a, b) => s(a.nombre).localeCompare(s(b.nombre), 'es'));
 export const reventaElegible = x => !!x && x.estado !== 'archivado';
 export const reventasElegibles = lista => (lista || []).filter(reventaElegible).sort((a, b) => s(a.nombre).localeCompare(s(b.nombre), 'es'));
+// v0.80.1 · Para "Unir con su receta": las aprobadas del área (o todas)
+export const recetasParaUnir = (recetas, area, todas = false) => recetasElegibles(recetas).filter(r => todas || !area || areaCodigo(r.area) === area);
 export const textoEstadoReceta = r => !r ? 'no está en la base de Cocina' : s(r.estado) === 'archivada' ? 'está archivada' : recetaAprobada(r) ? 'aprobada' : r.tipo === 'sub_receta' && ['consolidada', 'aprobada'].includes(s(r.estado)) ? 'es sub receta (no se vende sola)' : 'todavía no está aprobada';
 
 // ── Canales ──
@@ -101,7 +113,15 @@ export function validar(datos, { recetas = [], reventa = [], lista = [], prev = 
   if (!TIPOS[tipo]) throw new Error('Elige de dónde sale: una receta aprobada, una reventa o un cargo.');
   const out = { nombre, tipo, recetaId: null, reventaId: null, componentes: null, area: '', unidadesPorVenta: 1 };
   const mismoQueAntes = (campo, v) => prev && prev.tipo === tipo && s(prev[campo]) === s(v);
-  if (tipo === 'receta') {
+  const pendiente = tipo === 'receta' && (d.recetaPendiente === true || d.recetaPendiente === 'true');
+  if (pendiente) {
+    // v0.80.1 · Receta pendiente: sin receta, con su área (las ventas van a esa área) y una nota opcional
+    const a = areaCodigo(d.area);
+    if (!AR.PRODUCCION.includes(a)) throw new Error('Receta pendiente: elige el área que lo produce (Panadería, Bollería, Pastelería o Cafetería), así sus ventas van a esa área.');
+    const nota = s(d.notaReceta).replace(/\s+/g, ' ');
+    if (nota.length > NOTA_RECETA_MAX) throw new Error(`Qué receta falta: hasta ${NOTA_RECETA_MAX} letras (tiene ${nota.length}).`);
+    Object.assign(out, { area: a, recetaPendiente: true, notaReceta: nota });
+  } else if (tipo === 'receta') {
     const r = (recetas || []).find(x => x && x.id === s(d.recetaId));
     if (!s(d.recetaId)) throw new Error('Elige la receta (solo las aprobadas).');
     if (!recetaAprobada(r) && !mismoQueAntes('recetaId', d.recetaId)) throw new Error(`Esa receta ${textoEstadoReceta(r)}: solo se puede elegir una receta aprobada.`);
@@ -125,6 +145,8 @@ export function validar(datos, { recetas = [], reventa = [], lista = [], prev = 
     if (!AR.PRODUCCION.includes(a)) throw new Error('Un producto armado es de un área que produce (la que lo arma).');
     out.componentes = comp.map(c => ({ recetaId: c.recetaId, gramos: red(c.gramos, 2) })); out.area = a;
   }
+  // v0.80.1: si antes tenía la receta pendiente y ahora no, se apaga (queda en el historial)
+  if (!pendiente && prev && prev.recetaPendiente) Object.assign(out, { recetaPendiente: false, notaReceta: '' });
   if (tipo !== 'cargo') {
     const u = s(d.unidadesPorVenta) === '' ? 1 : num(d.unidadesPorVenta);
     if (!(u > 0 && u <= 1000)) throw new Error('Unidades por venta: un número mayor que 0 (por ejemplo 6 para una caja de 6).');
@@ -163,7 +185,9 @@ export function validar(datos, { recetas = [], reventa = [], lista = [], prev = 
 export function cambiosDe(antes, despues) {
   const out = {};
   // v0.80.0: + formato y descripción corta (vacío = no tenía)
-  ['formato', 'descripcionCorta'].forEach(k => { if (!(k in despues)) return; const a = s(antes && antes[k]), b = s(despues[k]); if (a !== b) out[k] = { antes: a, despues: b }; });
+  ['formato', 'descripcionCorta', 'notaReceta'].forEach(k => { if (!(k in despues)) return; const a = s(antes && antes[k]), b = s(despues[k]); if (a !== b) out[k] = { antes: a, despues: b }; });
+  // v0.80.1: receta pendiente (no tenerla = false)
+  if ('recetaPendiente' in despues && !!(antes && antes.recetaPendiente) !== !!despues.recetaPendiente) out.recetaPendiente = { antes: !!(antes && antes.recetaPendiente), despues: !!despues.recetaPendiente };
   ['nombre', 'tipo', 'recetaId', 'reventaId', 'componentes', 'area', 'unidadesPorVenta', 'estado'].forEach(k => {
     if (!(k in despues)) return;
     const a = antes ? antes[k] ?? null : null, b = despues[k] ?? null;
@@ -218,7 +242,9 @@ function vinculoBase(p, canal, docId, ctx = {}) {
   const base = { canal, productoId: s(docId), nombre: s(p.nombre), tipo: p.tipo, receta: null, recetaNombre: '', reventa: false, costoReventaNeto: null, ignorar: false,
     unidadesPorVenta: Number(p.unidadesPorVenta) > 0 ? Number(p.unidadesPorVenta) : 1, area: s(p.area), catalogoId: s(p.id), origen: 'catalogo',
     costoExtraNeto: fin && fin.costoExtraNeto !== undefined ? fin.costoExtraNeto : null };
-  if (p.tipo === 'receta') Object.assign(base, { receta: s(p.recetaId), recetaNombre: s(rec && rec.nombre) || s(fin && fin.recetaNombre) || s(p.nombre) });
+  // v0.80.1 · Receta pendiente: asociado (a su área), sin receta: sus ventas no tienen costo directo
+  if (recetaPendiente(p)) Object.assign(base, { receta: null, recetaNombre: '', recetaPendiente: true, notaReceta: s(p.notaReceta) });
+  else if (p.tipo === 'receta') Object.assign(base, { receta: s(p.recetaId), recetaNombre: s(rec && rec.nombre) || s(fin && fin.recetaNombre) || s(p.nombre) });
   else if (p.tipo === 'reventa') Object.assign(base, { reventa: true, reventaId: s(p.reventaId), reventaNombre: s(rev && rev.nombre), area: s(p.area) || AR.REVENTA,
     costoReventaNeto: rev && rev.costoNeto !== null && rev.costoNeto !== undefined ? Number(rev.costoNeto) : fin && fin.costoReventaNeto !== undefined ? fin.costoReventaNeto : null });
   else if (p.tipo === 'cargo') Object.assign(base, { unidadesPorVenta: 1 });
@@ -257,9 +283,11 @@ export function catalogoDisponible(maestro) {
 }
 
 // ── Pantalla Productos: filtros ──
-export function filtrar(lista, { estado = 'activo', canal = 'todos', tipo = 'todos', q = '' } = {}) {
+export function filtrar(lista, { estado = 'activo', canal = 'todos', tipo = 'todos', q = '', falta = false } = {}) {
   const t = norm(q);
   return (lista || []).filter(p => estado === 'todo' || (estado === 'archivado' ? p.estado === 'archivado' : p.estado !== 'archivado'))
+    .filter(p => !falta || (p.estado !== 'archivado' && recetaPendiente(p)))   // v0.80.1: "Falta receta"
+
     .filter(p => tipo === 'todos' || p.tipo === tipo)
     .filter(p => canal === 'todos' || (canal === 'sin' ? sinCanal(p) : habilitado(p, canal)))
     .filter(p => !t || norm(`${p.nombre} ${p.id} ${p.recetaId || ''} ${p.reventaId || ''}`).includes(t))
@@ -268,7 +296,7 @@ export function filtrar(lista, { estado = 'activo', canal = 'todos', tipo = 'tod
 export function resumen(lista) {
   const xs = lista || [];
   return { activos: xs.filter(p => p.estado !== 'archivado').length, archivados: xs.filter(p => p.estado === 'archivado').length, sinCanal: xs.filter(sinCanal).length,
-    caja: xs.filter(p => habilitado(p, 'caja')).length, b2b: xs.filter(p => habilitado(p, 'b2b')).length };
+    caja: xs.filter(p => habilitado(p, 'caja')).length, b2b: xs.filter(p => habilitado(p, 'b2b')).length, faltaReceta: faltaReceta(xs).length };
 }
 
 // ═══════════════ "Armar el catálogo" (una sola vez): proponer grupos desde lo vivo de la caja y de B2B ═══════════════
@@ -289,10 +317,10 @@ export function leerItem(canal, p, { vinculos = {}, recetas = [], reventa = [] }
   else if (cat && rec(cat)) Object.assign(it, { tipo: 'receta', recetaId: cat, origen: 'catalogo' });
   else if (cat && rev(catU)) Object.assign(it, { tipo: 'reventa', reventaId: catU, origen: 'catalogo' });
   else if (ES_CARGO.test(it.nombre)) Object.assign(it, { tipo: 'cargo', origen: 'nombre' });
-  if (it.tipo === 'receta') { const r = rec(it.recetaId); if (!recetaAprobada(r)) it.aviso = `La receta ${it.recetaId} ${textoEstadoReceta(r)}: elige una aprobada.`; }
+  if (it.tipo === 'receta') { const r = rec(it.recetaId); if (!recetaAprobada(r)) it.aviso = `La receta ${it.recetaId} ${textoEstadoReceta(r)}: elige una aprobada (o "Receta pendiente" si se sigue vendiendo).`; }
   if (it.tipo === 'reventa' && !it.reventaId) it.aviso = 'Es reventa, pero sin su ID de la lista: elígela.';
   if (it.tipo === 'reventa' && it.reventaId && !reventaElegible(rev(it.reventaId))) it.aviso = `La reventa ${it.reventaId} ${rev(it.reventaId) ? 'está archivada' : 'no está en la lista'}: elige otra.`;
-  if (!it.tipo && !it.aviso) it.aviso = 'Sin receta ni reventa: elige una receta, una reventa o un cargo, o archívalo.';
+  if (!it.tipo && !it.aviso) it.aviso = 'Sin receta ni reventa: elige una receta, una reventa o un cargo, "Receta pendiente" si se sigue vendiendo sin receta aprobada, o archívalo.';
   return it;
 }
 const datosCaja = d => ({ habilitado: true, controlStock: d.controlStock !== false, precios: { hoy: Number(d.precioHoy || d.precio) || 0, ayer: Number(d.precioAyer) || 0, antesayer: Number(d.precioAntesayer) || 0, cuartoDia: Number(d.precioCuartoDia) || 0, ultimaOferta: Number(d.precioUltimaOferta) || 0 },
@@ -332,10 +360,12 @@ export function proponerGrupos(datos) {
 // Lo que falta para guardar un grupo ('' = listo). accion 'archivar' archiva sus documentos en los canales (sin producto).
 export function faltaGrupo(g, ctx) {
   if (g.accion === 'archivar') return '';
-  try { validar(datosGrupo(g), { ...ctx, lista: [] }); return ''; } catch (e) { return e.message; }
+  try { validar(datosGrupo(g), { ...ctx, lista: [] }); return ''; }
+  catch (e) { return e.message + (!g.recetaPendiente && /receta aprobada|Elige de dónde sale/.test(e.message) ? ' Si se sigue vendiendo sin receta aprobada, elige "Receta pendiente".' : ''); }   // v0.80.1
 }
 export function datosGrupo(g) {
-  return { nombre: g.nombre, tipo: g.tipo, recetaId: g.recetaId, reventaId: g.reventaId, area: g.area, unidadesPorVenta: g.unidadesPorVenta,
+  return { nombre: g.nombre, tipo: g.tipo, recetaId: g.recetaPendiente ? null : g.recetaId, reventaId: g.reventaId, area: g.area, unidadesPorVenta: g.unidadesPorVenta,
+    ...(g.recetaPendiente && g.tipo === 'receta' ? { recetaPendiente: true, notaReceta: g.notaReceta || '' } : {}),   // v0.80.1
     canales: { caja: g.caja ? datosCaja(g.caja.doc) : { habilitado: false }, b2b: g.b2b ? datosB2b(g.b2b.doc) : { habilitado: false } } };
 }
 // Nombres repetidos entre los grupos que se crean (o con el maestro activo)
@@ -369,7 +399,7 @@ export function planGuardar(grupos, ctx) {
     if (g.caja) caja.push({ docId: g.caja.docId, cambios: { catalogoId: id, tipo: doc.tipo, reventaId: s(doc.reventaId), idRecetaFen: idRecetaCanal(doc) } });
     if (g.b2b) b2b.push({ docId: g.b2b.docId, cambios: { catalogoId: id, tipo: doc.tipo, reventaId: s(doc.reventaId), idReceta: idRecetaCanal(doc), area: doc.area } });
     [['caja', g.caja], ['b2b', g.b2b]].forEach(([cn, it]) => {
-      if (!it) return;
+      if (!it || !conVinculoFin(doc)) return;   // v0.80.1: la receta pendiente no lleva vínculo en fin_productos (Finanzas lo lee del maestro)
       const k = clave(cn, it.docId), prev = (ctx.vinculos || {})[k], nuevo = vinculoFin(doc, cn, it.docId, ctx, ctx);
       if (!decidido(prev)) vinculos.push({ clave: k, doc: nuevo, antes: prev || null });
       else if (!mismoVinculo(prev, nuevo)) distintos++;
@@ -401,6 +431,11 @@ export function pedidos({ b2b = [], caja = [] } = {}, maestro = []) {
   });
   return out;
 }
+// v0.80.1 · "Unir con su receta": los datos del producto con la receta elegida (canales, precios y ficha como estaban)
+export function datosUnir(p, recetaId) {
+  return { nombre: p.nombre, tipo: 'receta', recetaId: s(recetaId), recetaPendiente: false, componentes: p.componentes || null, area: p.area, unidadesPorVenta: p.unidadesPorVenta,
+    canales: JSON.parse(JSON.stringify(p.canales || {})) };
+}
 // Los datos del diálogo para resolver un pedido (crear o habilitar con el precio pedido)
 export function datosPedido(pd, { recetas = [] } = {}) {
   const canal = pd.origen === 'caja' ? 'caja' : 'b2b';
@@ -409,7 +444,8 @@ export function datosPedido(pd, { recetas = [] } = {}) {
     c[canal] = { ...(c[canal] || {}), habilitado: true };
     if (canal === 'b2b' && !(Number(c.b2b.precioBase) > 0) && pd.precio > 0) c.b2b.precioBase = pd.precio;
     if (canal === 'caja' && pd.precio > 0 && !(c.caja.precios && c.caja.precios.hoy > 0)) c.caja = { ...c.caja, controlStock: c.caja.controlStock !== false, precios: { ...(c.caja.precios || {}), hoy: pd.precio } };
-    return { id: p.id, datos: { nombre: p.nombre, tipo: p.tipo, recetaId: p.recetaId, reventaId: p.reventaId, componentes: p.componentes, area: p.area, unidadesPorVenta: p.unidadesPorVenta, canales: c } };
+    return { id: p.id, datos: { nombre: p.nombre, tipo: p.tipo, recetaId: p.recetaId, reventaId: p.reventaId, componentes: p.componentes, area: p.area, unidadesPorVenta: p.unidadesPorVenta, canales: c,
+      ...(recetaPendiente(p) ? { recetaPendiente: true, notaReceta: s(p.notaReceta) } : {}) } };   // v0.80.1: habilitar un producto con la receta pendiente
   }
   const r = (recetas || []).find(x => x.id === pd.recetaId);
   const canales = { caja: { habilitado: canal === 'caja', controlStock: true, precios: { hoy: canal === 'caja' ? pd.precio : 0 } }, b2b: { habilitado: canal === 'b2b', precioBase: canal === 'b2b' ? pd.precio : null } };

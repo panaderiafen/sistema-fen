@@ -20,7 +20,9 @@
 //     despacho: { modo: 'pct'|'orden', valor }, margenObjetivo: { PAN, BOL, PAS, CAF, REVENTA } (% o null), redondeo: 10|50|100 }
 //  v0.69.1: área REVENTA (las de margen salen de areas.js): una reventa sin área cuenta en REVENTA; la elegida se respeta.
 // ═══════════════════════════════════════════════
-import { AREAS, NOMBRE_AREA, SUCS, canalDeSuc, claveProducto, upv, mesDe, ultimoDia, areaVinculo, vinculoDeLinea } from './finanzas-ventas.js?v=0.80.0';
+import { AREAS, NOMBRE_AREA, SUCS, canalDeSuc, claveProducto, upv, mesDe, ultimoDia, areaVinculo, vinculoDeLinea, esPendiente } from './finanzas-ventas.js?v=0.80.1';
+// v0.80.1 · Receta pendiente (Catálogo): una fila por producto (tipo 'pendiente', clave 'p:…') en su área, sin costo directo
+export const MOTIVO_PENDIENTE = 'sin costo (receta pendiente)';
 
 export const IVA = 0.19;
 export const TOLERANCIA = 5;           // % de diferencia con el precio sugerido que todavía es "OK"
@@ -168,12 +170,13 @@ export function calcularMargenes(meses, vinculos, costos, cfg, { hoy, modo = 'me
         if (x) { x.neto += n; x.cantidad += num(l.cantidad); } else cargos.lineas.push({ clave, suc: l.suc, nombre: s(l.nombre), catalogoId: s(v.catalogoId), neto: n, cantidad: num(l.cantidad) });
         return;
       }
-      const tipo = v && (v.tipo === 'receta' || v.tipo === 'reventa') ? v.tipo : 'sin';
-      const k = tipo === 'receta' ? 'r:' + v.receta : (tipo === 'reventa' ? 'v:' : 's:') + clave;
+      const tipo = esPendiente(v) ? 'pendiente' : v && (v.tipo === 'receta' || v.tipo === 'reventa') ? v.tipo : 'sin';
+      const k = tipo === 'receta' ? 'r:' + v.receta : (tipo === 'reventa' ? 'v:' : tipo === 'pendiente' ? 'p:' : 's:') + clave;
       const u = upv(v), cant = num(l.cantidad), unidades = cant * u, neto = num(l.neto);
       const f = F[k] || (F[k] = { clave: k, tipo, nombre: tipo === 'receta' ? (v.recetaNombre || v.receta) : s(l.nombre), area: areaVinculo(v), receta: tipo === 'receta' ? v.receta : null,
         productoClave: tipo === 'receta' ? null : clave, unidad: 'un', fuentes: {}, porSuc: {}, cantidad: 0, unidades: 0, neto: 0, costo: 0, comision: 0, despacho: 0, extra: 0, motivos: new Set(), fuenteCosto: new Set() });
       f.fuentes[clave] = { nombre: s(l.nombre), canal: cn, productoId: l.productoId, unidadesPorVenta: u };
+      if (tipo === 'pendiente' && !f.catalogoId) f.catalogoId = s(v.catalogoId);
       // Costo directo
       let cu = null;
       if (tipo === 'receta') {
@@ -188,7 +191,8 @@ export function calcularMargenes(meses, vinculos, costos, cfg, { hoy, modo = 'me
       } else if (tipo === 'reventa') {
         if (v.costoReventaNeto === null || v.costoReventaNeto === undefined || s(v.costoReventaNeto) === '') f.motivos.add('reventa sin costo de compra');
         else cu = num(v.costoReventaNeto);
-      } else f.motivos.add('sin asociar');
+      } else if (tipo === 'pendiente') f.motivos.add(MOTIVO_PENDIENTE);
+      else f.motivos.add('sin asociar');
       const extra = v ? num(v.costoExtraNeto) * cant : 0;   // por venta (una caja de 6 lleva una caja)
       const costo = (cu || 0) * unidades + extra;
       // Costos de venta

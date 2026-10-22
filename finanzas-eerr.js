@@ -28,8 +28,8 @@
 //  canal B2B. El despacho ya no está en Común ni en el margen de contribución. El resultado operacional y el del mes no cambian.
 //  Un mes cerrado antes de la v0.75.1 se ve como quedó; sus ajustes se comparan en la forma de entonces (sin ruido por el cambio).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.80.0';
-import * as AR from './areas.js?v=0.80.0';
+import * as FR from './finanzas-resultados.js?v=0.80.1';
+import * as AR from './areas.js?v=0.80.1';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -135,7 +135,7 @@ export function armarEERR(E) {
   ['ventas', 'cargos', 'canalB2B', 'costoDirecto', 'costosVenta', 'merma', 'rem', 'fijos', 'dep', 'remComun', 'fijosComun', 'depComun', 'financieros'].forEach(fila);
   const canal = Object.fromEntries(SUCS.map(x => [x, vacia()]));
   const costosUsados = {};
-  let sinCostoNeto = 0, nSinCosto = 0, sinAsocNeto = 0;
+  let sinCostoNeto = 0, nSinCosto = 0, sinAsocNeto = 0, pendNeto = 0, nPend = 0;
   // Piso 1: ventas, costo directo y costos de venta, por producto y canal
   ((E.margen && E.margen.filas) || []).forEach(f => {
     const col = f.tipo === 'sin' ? 'comun' : colDe(f.area);
@@ -147,6 +147,7 @@ export function armarEERR(E) {
       det('ventas', col, ref); det('ventasCanal_' + suc, col, ref); det('costoDirecto', col, ref); det('costosVenta', col, ref);
     });
     if (f.tipo === 'sin') sinAsocNeto += num(f.neto);
+    else if (f.tipo === 'pendiente') { pendNeto += num(f.neto); nPend++; }   // v0.80.1: en su área, sin costo directo
     else if (!f.ok) { sinCostoNeto += num(f.neto); nSinCosto++; }
     if (f.tipo === 'receta' && f.receta) costosUsados[f.receta] = { nombre: s(f.nombre), costoUnit: f.costoUnit === null || f.costoUnit === undefined ? null : Math.round(num(f.costoUnit) * 100) / 100, lectura: f.lectura || 'un', fuente: (f.fuenteCosto || []).join(',') };
   });
@@ -155,6 +156,7 @@ export function armarEERR(E) {
   const CG = (E.margen && E.margen.cargos) || null;
   ((CG && CG.lineas) || []).forEach(x => { F.cargos.comun += num(x.neto); det('cargos', 'comun', { tipo: 'cargo', nombre: s(x.nombre), suc: x.suc, neto: r0(x.neto), unidades: Math.round(num(x.cantidad) * 1000) / 1000, catalogoId: s(x.catalogoId) }); });
   if (sinAsocNeto) avisos.push({ k: 'sin_asociar', texto: `Ventas de productos sin asociar: ${pesosTxt(sinAsocNeto)} (en Común, sin costo directo). Asócialos en Márgenes → Asociar productos.` });
+  if (nPend) avisos.push({ k: 'receta_pendiente', texto: `${nPend} ${nPend === 1 ? 'producto' : 'productos'} con la receta pendiente (${pesosTxt(pendNeto)} de venta): van en su área, sin costo directo. Únelos con su receta en Catálogo → Productos → Falta receta.` });
   if (nSinCosto) avisos.push({ k: 'sin_costo', texto: `${nSinCosto} ${nSinCosto === 1 ? 'producto' : 'productos'} con costo incompleto o sin costo (${pesosTxt(sinCostoNeto)} de venta): su costo directo va con lo que sí tiene costo.` });
   // Merma valorizada (neto)
   const M = E.merma || {};
@@ -217,6 +219,7 @@ export function armarEERR(E) {
   info.fuera.total = info.fuera.capital + info.fuera.impuestos + info.fuera.inversion + info.fuera.retiro + info.fuera.otro;
   info.sinClasificarLista = Object.values(sinClas).map(x => ({ ...x, neto: r0(x.neto) })).sort((a, b) => b.neto - a.neto);
   info.ventasSinAsociar = r0(sinAsocNeto); info.ventasSinCosto = r0(sinCostoNeto);
+  if (nPend) info.ventasRecetaPendiente = { neto: r0(pendNeto), n: nPend };   // v0.80.1
   const out = { mes, filas: F, canal, info, detalle: D, avisos, costosUsados };
   out.cuadratura = cuadratura(out, E.gastos);
   return out;
@@ -401,6 +404,10 @@ export function checksCierre(D) {
   const pctSin = num(v.netoTotal) > 0 ? num(v.netoSinAsociar) / num(v.netoTotal) * 100 : 0;
   add('asociar', 'Productos vendidos asociados', pctSin < 10, `${String(Math.round(pctSin * 10) / 10).replace('.', ',')} % de la venta neta sin asociar (${pesosTxt(v.netoSinAsociar)}); el límite es menos de 10 %.`,
     '#finanzas/margenes/asociar', 'La venta de productos sin asociar a una receta o reventa no tiene costo directo. Para cerrar, menos del 10 % de la venta neta del mes puede quedar sin asociar.');
+  // v0.80.1 · Receta pendiente: asociados (a su área) pero sin costo. Una línea aparte, que no impide cerrar.
+  if (num(v.nRecetaPendiente) > 0) add('receta_pendiente', 'Productos asociados sin costo (receta pendiente)', false,
+    `${v.nRecetaPendiente} ${v.nRecetaPendiente === 1 ? 'producto vendido tiene' : 'productos vendidos tienen'} la receta pendiente: ${pesosTxt(v.netoRecetaPendiente)} de venta neta en su área, sin costo directo. Cuentan como asociados; no impide cerrar.`,
+    '#catalogo/productos/falta-receta', 'Son productos del Catálogo que se venden con la "Receta pendiente" (su receta todavía no está aprobada o no existe). Su venta va a su área, pero sin costo directo: el margen de esa área se ve más alto de lo que es. Es un aviso: no impide cerrar.\nApruébala o créala en Cocina y toca "Unir con su receta" en Catálogo → Productos. Un mes ya cerrado no cambia.', 'aviso');
   return out;
 }
 export const fallas = checks => (checks || []).filter(c => c.nivel === 'falla');

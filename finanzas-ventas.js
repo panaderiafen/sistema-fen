@@ -13,7 +13,7 @@
 //  v0.69.1: área REVENTA (solo de margen) para lo que se compra hecho. AREAS = las de margen (las 4 de producción + REVENTA);
 //  AREAS_PRODUCCION = las que producen (la de una receta o del catálogo). Las listas salen de areas.js.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.80.0';
+import * as AR from './areas.js?v=0.80.1';
 
 export const AREAS = AR.MARGEN;
 export const AREAS_PRODUCCION = AR.PRODUCCION;
@@ -173,6 +173,8 @@ export function proponer(item, recetas) {
 // v0.74.0: 'cargo' (despacho: un ingreso aparte del canal B2B, sin margen de producto) viene del Catálogo
 export const decidido = v => !!(v && (v.tipo === 'receta' || v.tipo === 'reventa' || v.tipo === 'ignorar' || v.tipo === 'cargo'));
 export const esCargo = v => !!(v && v.tipo === 'cargo');
+// v0.80.1 · Receta pendiente (Catálogo): asociado a su área, sin receta todavía → sus ventas no tienen costo directo ("sin costo (receta pendiente)")
+export const esPendiente = v => !!(v && v.tipo === 'receta' && (v.recetaPendiente === true || !s(v.receta)));
 // v0.74.0 · El vínculo de una línea de venta: 1) su foto (la venta guarda su receta o reventa); 2) el maestro del Catálogo por el
 // catalogoId del producto del canal, desde el mes en que se armó (vigenteDesde: los meses antiguos siguen como estaban);
 // 3) fin_productos (lo asociado a mano). maestro: { vinc: { clave: vínculo }, desde: 'AAAA-MM', lista } (finanzas.maestroFinanzas) o null.
@@ -234,6 +236,7 @@ export function textoVinculo(v) {
   if (!v) return 'Sin asociar';
   if (v.tipo === 'ignorar') return 'No es un producto (no suma)';
   if (v.tipo === 'cargo') return `Cargo${v.catalogoId ? ' ' + v.catalogoId : ''} (ingreso aparte del canal B2B)`;
+  if (esPendiente(v)) return `Receta pendiente${v.catalogoId ? ' (Catálogo ' + v.catalogoId + ')' : ''} · ${NOMBRE_AREA[v.area] || v.area || 'sin área'} · sin costo`;   // v0.80.1
   const u = upv(v) !== 1 ? ` × ${String(upv(v)).replace('.', ',')} un` : '';
   if (v.tipo === 'reventa') return `Reventa${v.reventaId ? ' ' + v.reventaId : ''}${areaVinculo(v) === REVENTA ? '' : ' · ' + (NOMBRE_AREA[v.area] || v.area)}${v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? ` · costo $${Math.round(v.costoReventaNeto).toLocaleString('es-CL')} neto` : ''}${u}`;
   const ex = v.costoExtraNeto > 0 ? ` · envase $${Math.round(v.costoExtraNeto).toLocaleString('es-CL')}` : '';
@@ -269,8 +272,8 @@ export function tablaVentas(productos, { canal = 'todos' } = {}) {
     if (v && (v.tipo === 'ignorar' || v.tipo === 'cargo')) return;
     const sucs = Object.keys(p.porSuc).filter(sc => canal === 'todos' || sc === canal);
     if (!sucs.length) return;
-    const tipo = v ? v.tipo : 'sin';
-    const clave = tipo === 'receta' ? 'r:' + v.receta : (tipo === 'reventa' ? 'v:' : 's:') + p.clave;
+    const tipo = v ? (esPendiente(v) ? 'pendiente' : v.tipo) : 'sin';   // v0.80.1: receta pendiente, una fila por producto
+    const clave = tipo === 'receta' ? 'r:' + v.receta : (tipo === 'reventa' ? 'v:' : tipo === 'pendiente' ? 'p:' : 's:') + p.clave;
     const f = F[clave] || (F[clave] = { clave, tipo, nombre: tipo === 'receta' ? (v.recetaNombre || v.receta) : p.nombre, area: areaVinculo(v), receta: tipo === 'receta' ? v.receta : null,
       productoClave: tipo === 'receta' ? null : p.clave, fuentes: [], porSuc: {}, cantidad: 0, unidades: 0, neto: 0 });
     const u = upv(v);
@@ -287,7 +290,7 @@ export function tablaVentas(productos, { canal = 'todos' } = {}) {
 }
 // Totales del período (sobre los productos vendidos): por área, por canal (sucursal), sin asociar, ignorado y cobertura
 export function totales(productos, { canal = 'todos' } = {}) {
-  const t = { total: 0, porArea: Object.fromEntries(AREAS.map(a => [a, 0])), porSuc: { barros: 0, ainavillo: 0, b2b: 0 }, sinAsociar: 0, ignorado: 0, cargos: 0, reventa: 0, todo: 0, decidido: 0, nSinAsociar: 0 };
+  const t = { total: 0, porArea: Object.fromEntries(AREAS.map(a => [a, 0])), porSuc: { barros: 0, ainavillo: 0, b2b: 0 }, sinAsociar: 0, ignorado: 0, cargos: 0, reventa: 0, todo: 0, decidido: 0, nSinAsociar: 0, recetaPendiente: 0, nRecetaPendiente: 0 };
   (productos || []).forEach(p => {
     const v = p.vinculo;
     let neto = 0;
@@ -300,6 +303,7 @@ export function totales(productos, { canal = 'todos' } = {}) {
     t.total += neto;
     if (!v) { t.sinAsociar += neto; t.nSinAsociar++; return; }
     if (v.tipo === 'reventa') t.reventa += neto;
+    if (esPendiente(v)) { t.recetaPendiente += neto; t.nRecetaPendiente++; }   // v0.80.1: asociado (su área), sin costo
     const ar = areaVinculo(v); if (ar) t.porArea[ar] = (t.porArea[ar] || 0) + neto;
   });
   return { ...t, ...cobertura(t.decidido, t.todo) };

@@ -2607,3 +2607,12 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
   .lp-acc { justify-content: flex-start; }
   .lp-portada-ver { flex-basis: 100%; }
 }
+
+/* v0.80.1 · Receta pendiente (Catálogo → Productos y Armar el catálogo; Finanzas; Plan de Panadería) */
+.pr-pend-txt { font-weight: 600; }
+.cat-resumen .pr-falta { min-height: 32px; padding: 0 12px; font-size: 13px; }
+.cat-resumen .pr-falta[aria-pressed="false"] { border-color: var(--amarillo-t, #8a6100); color: var(--amarillo-t, #8a6100); }
+.pr-si-pendiente { display: flex; flex-direction: column; gap: 8px; }
+.pr-pend-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.cat-acc .btn { display: inline-flex; align-items: center; gap: 6px; }
+.fin-pend-chip { white-space: nowrap; }

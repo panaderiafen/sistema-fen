@@ -1,9 +1,57 @@
-# Sistema Fën · v0.80.0
+# Sistema Fën · v0.80.1
 
-**App:** v0.80.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** **fen-b2b v1.8.0** (nueva: listas de precios); las demás no cambian (fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.80.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.80.1: "Receta pendiente" en el Catálogo
+
+Para los productos que **se venden hoy** pero cuya **receta todavía no está aprobada** en Cocina (o no existe). Antes había que archivarlos (y salían de la caja y de B2B) o "Armar el catálogo" no dejaba guardar. Ahora eliges **"Receta pendiente"** con su **área**: el producto se guarda, sigue en la caja y en B2B con sus precios, y sus ventas van a esa área. Es **temporal**: mientras esté pendiente no tiene costo ni margen. Cuando la receta esté aprobada, **"Unir con su receta"**.
+
+- **Dónde va:** repo **sistema-fen**, raíz. Cambian `catalogo-productos-modelo.js` (la validación y el vínculo del maestro), `catalogo-productos.js` (Unir con su receta), `vista-productos.js` (Armar el catálogo, el diálogo del producto, "Falta receta" y Unir), `finanzas-ventas.js`, `finanzas-margenes.js`, `finanzas-eerr.js`, `finanzas.js` y `vista-finanzas.js` (márgenes, estado de resultados y cierre), `plan-pan-modelo.js` y `vista-plan-pan.js` (Plan de Panadería), `app.js` (Hoy y un ícono), `estilos.css` y este README; los demás, solo la versión (`?v=0.80.1`). `cocina/` y `fermentacion.js` **no cambian**. Caja, logística, reglas y Apps Script: nada.
+- **Sin cambios de reglas:** ni de Firestore (el campo nuevo `recetaPendiente` vive en `cat_productos` de fen-gastos, que la administración ya escribe con v0.1.0) ni de negocio: un producto se sigue creando solo en el Catálogo, unido por ID; la receta se aprueba en Cocina como siempre; nada se borra; los meses cerrados no cambian.
+
+### Cómo se usa
+1. **Armar el catálogo** (`#catalogo/armar`): en "Sale de" está **Receta pendiente (se vende, sin receta aprobada)**. Al elegirla pide el **Área que lo produce** (Panadería, Bollería, Pastelería o Cafetería; se propone la de la receta que ya tenía o la pestaña de la caja) y, opcional, **Qué receta falta** (hasta 120 letras). Queda "Listo" y arriba dice "Con receta pendiente N". **Guardar el catálogo** lo crea como cualquier otro: precios tal cual, en la caja y en B2B.
+2. **Catálogo → Productos:** el chip **"Falta receta (N)"** filtra los que tienen la receta pendiente (cada uno dice "Receta pendiente" y su nota). **Nuevo producto** y **Cambiar** también tienen **Receta pendiente** en "De dónde sale" (con su área y su nota).
+3. **Unir con su receta** (botón en cada uno): eliges su receta aprobada (las de su área; "Ver todas las áreas" si es de otra) → cambia la receta en el Catálogo (con su historial: "unido con su receta"), en la caja (`idRecetaFen`) y en B2B (`idReceta`) y deja el vínculo de Finanzas, igual que al crear un producto desde una receta. Los precios no cambian.
+4. **Hoy:** "N productos del catálogo sin receta" lleva a Productos → Falta receta.
+5. **Finanzas:** su venta va a **su área** como **"sin costo (receta pendiente)"** (no "sin asociar"): en Ventas por producto con el chip "Receta pendiente" y "Incluye $… con la receta pendiente"; en Margen por producto, en "Sin costo o incompleto" con "Unir con su receta"; en el estado de resultados, en la venta del área sin costo directo, con su aviso. **Cierre de mes:** "Productos vendidos asociados" los cuenta como asociados, y una línea aparte **"Productos asociados sin costo (receta pendiente)"** dice cuántos y el monto: es un **aviso** (no impide cerrar).
+6. **Plan de Panadería:** los de **Panadería** con la receta pendiente son pan sin tipo: no entran en el plan y salen en "Productos sin asociar" con el chip "Receta pendiente" y "Unir con su receta". Los de otras áreas no son pan (se saltan).
+
+Después de unirlo, las ventas de ese producto desde el mes del Catálogo toman el costo de su receta (los meses ya cerrados no cambian).
+
+### Cómo queda guardado (para el que venga)
+- **fen-gastos** `cat_productos/{PR####}`: `tipo 'receta'`, `recetaId null`, **`recetaPendiente: true`**, `notaReceta` (≤ 120), `area` (la elegida). Al unirlo: `recetaId`, `recetaPendiente: false`, `notaReceta: ''` y en `historial` `{ accion: 'unido con su receta', cambios { recetaId, recetaPendiente, notaReceta }, nota }`.
+- **fin_productos:** un pendiente **no** lleva vínculo (Finanzas y el Plan lo leen del maestro: `{ tipo 'receta', receta null, recetaPendiente true, area, catalogoId }`); al unirlo se escribe el de siempre (`origen 'catalogo_maestro'`, con su `fin_productos_hist`), solo donde no había uno decidido a mano.
+- **Caja y B2B:** las copias de siempre, con `idRecetaFen` / `idReceta` vacíos hasta unirlo (la foto de la venta queda `tipo 'receta'` sin `recetaId`: Finanzas va al maestro).
+- **Estado de resultados** (`fin_cierres`): `info.ventasRecetaPendiente { neto, n }` cuando hay; aviso `receta_pendiente`; revisión del cierre `receta_pendiente` (nivel aviso).
+
+### Lecturas (Spark)
+- **Hoy:** +1 consulta a `cat_productos` (`recetaPendiente == true`; 1 lectura si no hay ninguno, si no 1 por pendiente), solo con la base de Gastos conectada; queda 2 minutos en memoria (volver a Hoy: 0) y se olvida al cambiar el Catálogo.
+- **Unir con su receta:** las escrituras de "Cambiar" un producto (1 transacción + 1 por canal + 1 lote de vínculos). Productos, Armar, Finanzas y el Plan: igual que antes.
+
+### Instalación v0.80.1 (unos 3 minutos)
+1. GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.80.1.zip` (con la carpeta `cocina/`, que no cambia) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+2. Reglas, Cocina, caja, logística y Apps Script: nada.
+
+### Lista de verificación v0.80.1
+- [ ] Abajo dice **v0.80.1**.
+- [ ] **Catálogo → Armar el catálogo:** en "Sale de" de un grupo con la receta en prueba (o sin receta) elige **Receta pendiente** → pide el área (viene propuesta) y la nota → el grupo queda "Listo" y arriba "Con receta pendiente N"; sin área dice "elige el área que lo produce".
+- [ ] **Guardar el catálogo:** la confirmación dice "N con la receta pendiente: se siguen vendiendo…"; en la caja y en logística esos productos se ven y se venden igual (mismos precios).
+- [ ] **Catálogo → Productos:** aparece **Falta receta (N)**; al tocarlo quedan solo esos, cada uno con "Receta pendiente" y su nota. El (i) explica cuándo usarla.
+- [ ] **Hoy:** "N productos del catálogo sin receta" → lleva a Productos con el filtro puesto.
+- [ ] **Nuevo producto → Receta pendiente:** sin área no deja crear; con área y precio de la caja se crea y aparece en la caja.
+- [ ] Aprueba la receta en Producción → **Actualizar** → **Unir con su receta**: salen las aprobadas de su área ("Ver todas las áreas" trae las demás) → Unir → "quedó unido con su receta…"; **Falta receta** baja en 1; en Cambiar → Historial dice "unido con su receta".
+- [ ] **Finanzas → Márgenes → Ventas por producto:** un pendiente vendido sale en su área con el chip "Receta pendiente" (no en "Sin asociar"). **Margen por producto:** en "Sin costo o incompleto", "sin costo (receta pendiente)".
+- [ ] **Finanzas → Resultados → Cierre de mes** (de un mes con ventas de un pendiente): "Productos asociados sin costo (receta pendiente)" como **Aviso** con el monto; se puede cerrar.
+- [ ] **Producción → Plan de Panadería:** un pan pendiente sale en "Productos sin asociar" con "Receta pendiente" y "Unir con su receta".
+- [ ] En el celular, Productos (con el filtro), el diálogo y Unir sin mover la página de lado.
+
+**Si algo sale mal:** vuelve a subir la v0.80.0. No se pierde nada: los productos con la receta pendiente quedan en el Catálogo y en sus canales (la v0.80.0 los muestra como una receta sin ID y sin costo, hasta que los unas), y los que ya uniste quedan con su receta.
+
+**Pruebas:** `pruebas/sistemafen/receta-pendiente-v0801.test.js` (validar y copias, armar con 12 pendientes, Finanzas: márgenes, ventas por producto, estado de resultados y cierre, Plan de Panadería, estáticas, y en el navegador: Armar el catálogo, Falta receta y Hoy, crear uno pendiente, Unir con su receta) y las demás suites (`pruebas/resultados-v0801.txt`, con `pruebas/correr-v0801.sh`). Capturas en `pruebas/capturas/receta-pendiente-v0801/` (Armar, Falta receta, el diálogo nuevo y Unir, a 390 y 1280). Datos ficticios.
 
 ## Novedades de la v0.80.0: Listas de precios
 
