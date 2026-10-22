@@ -58,18 +58,23 @@
 //    va a fen-gastos costos_mp (finanzas.js crearPrecioMp). Mover de área, también solo aquí. La planilla de Producción ya no se lee ni
 //    se escribe desde la pantalla (decisión del dueño, 21-oct-2026): la lista publicada (CSV) que leen la caja y logística no recibe
 //    las recetas nuevas hasta la etapa 2. preparar/copiar quedan en el código, sin botón. El costo de una propuesta sale solo de Finanzas.
+//  · v0.76.0: MATERIAS PRIMAS E INSUMOS DESDE FINANZAS → COSTOS. crearMp (mismo ID MP### / IN### y la misma transacción que una pedida
+//    en Cocina: crearEnMps, compartida con resolverSolicitud), editarMp (nombre, categoría, áreas; el nombre también en la copia de las
+//    recetas que la usan) y archivarMp (estado 'archivada' / 'activa'; no si una receta viva la usa). Historial en mps/{id}.historial.
+//    La memoria (memoriaCon) y la marca de cambio quedan al día como al resolver un pedido: Hoy, Producción, Finanzas y Cocina la ven.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.75.1';
-import * as FBr from './firebase-produccion.js?v=0.75.1';
-import * as Apps from './apps.js?v=0.75.1';
-import { armar, AREAS } from './produccion-modelo.js?v=0.75.1';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.75.1';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.76.0';
+import * as FBr from './firebase-produccion.js?v=0.76.0';
+import * as Apps from './apps.js?v=0.76.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.76.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.76.0';
 import * as K from './cocina/consumo.js?v=0.17.4';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.17.4';
-import * as M from './fs-memoria.js?v=0.75.1';
-import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.75.1';
-import * as RM from './recetas-maestro.js?v=0.75.1';
-import { produccion as QP, esCuota } from './fs-cuota.js?v=0.75.1';
+import * as M from './fs-memoria.js?v=0.76.0';
+import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.76.0';
+import * as RM from './recetas-maestro.js?v=0.76.0';
+import * as MA from './mp-alta-modelo.js?v=0.76.0';
+import { produccion as QP, esCuota } from './fs-cuota.js?v=0.76.0';
 
 // ── v0.63.3: todo pedido a fen-produccion pasa por aquí: se cuenta (Configuración → Uso de la base hoy) y, si Firestore dice
 // "cuota agotada" (resource-exhausted), se muestra el letrero de Producción/Cocina. Cada escritura de Sistema Fën en recetas,
@@ -128,7 +133,7 @@ async function conMarca(col, fn, forzar = false) {
 }
 
 export { AREAS };
-export { resumenPropuesta } from './finanzas-motor.js?v=0.75.1';
+export { resumenPropuesta } from './finanzas-motor.js?v=0.76.0';
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
@@ -542,7 +547,7 @@ export async function pendientesCocina({ forzar = false } = {}) {
 // la planilla quedaron como estaban). Lo que no está en la base de Cocina va en "faltan" (no se puede aprobar).
 export async function costear(prop) {
   const [fin, base] = await Promise.all([
-    import('./finanzas.js?v=0.75.1').then(F => F.costosPropuesta(prop)),
+    import('./finanzas.js?v=0.76.0').then(F => F.costosPropuesta(prop)),
     mpsYRecetas().catch(() => null)
   ]);
   if (!fin || !fin.propuesta) { const e = new Error('Para ver el costo, conecta la base de Gastos y Finanzas (Gastos → Base nueva): los precios están en Finanzas → Costos.'); e.code = 'sin_gastos'; throw e; }
@@ -646,7 +651,27 @@ export async function aprobar(prop, comentario) {
 // Materias primas pedidas: crear (con precio neto y unidad de compra) o habilitar una existente
 // v0.73.0 (Etapa 1): SOLO en Firestore. La materia prima va a la base de Cocina (mps/{MP###|IN###}, sin precio) y su precio a
 // fen-gastos costos_mp (Finanzas → Costos: precio neto por la unidad de compra, origen "A mano"). La planilla ya no se escribe.
-export const UNIDAD_COMPRA = /^(\d+([.,]\d+)?)?\s*(kg|g|lt|l|ml|un|unidad|unidades)$/i;
+export const UNIDAD_COMPRA = MA.UNIDAD_COMPRA;
+// v0.76.0: el alta en mps con el ID que sigue (MP### / IN###, el mayor + 1), compartida por las materias primas pedidas en Cocina y
+// las que creas en Finanzas → Costos. Una transacción por intento: si justo ese ID existe (otro equipo), se prueba el siguiente.
+// extra(tx, id): lo que se escribe en la misma transacción (la solicitud resuelta). → el ID
+async function crearEnMps(db, mps, tipo, doc, extra = null) {
+  const saltar = [];
+  for (let k = 0; k < 20; k++) {
+    const cand = RM.siguienteIdMp(mps, tipo, saltar);
+    try {
+      await FB.runTransaction(db, async tx => {
+        const ref = FB.doc(db, 'mps', cand), sn = await tx.get(ref);
+        if (sn.exists()) { const e = new Error('ocupado'); e.code = 'id-ocupado'; throw e; }
+        tx.set(ref, { ...doc, creadaEnTs: FB.serverTimestamp() });
+        if (extra) extra(tx, cand);
+      });
+      marcar('mps');
+      return cand;
+    } catch (e) { if (e.code !== 'id-ocupado') throw e; saltar.push(cand); }
+  }
+  throw new Error('No se pudo elegir un ID libre para la materia prima. Toca Actualizar y vuelve a intentar.');
+}
 export async function resolverSolicitud(sol, datos = {}) {
   cambio('hoy:');
   const db = await dbOk(), por = authSF.currentUser.email, hoy = CM.hoyTxt(), en = new Date().toISOString();
@@ -665,6 +690,7 @@ export async function resolverSolicitud(sol, datos = {}) {
     await b.commit();
     const { id: _z, ...resto } = m;
     await memoriaCon('mps', { [idH]: { ...resto, areas, ...(reactivar ? { estado: 'activa' } : {}) } }).catch(() => M.olvidar('prod:mps@'));
+    if (reactivar) await sincronizarCostos(idH, { estado: 'activa' });
     versionDatos++;
     return idH;
   }
@@ -673,33 +699,112 @@ export async function resolverSolicitud(sol, datos = {}) {
   const nombre = String(datos.nombre || sol.nombre || '').trim(), tipo = datos.tipo === 'insumo' || (!datos.tipo && sol.esInsumo) ? 'insumo' : 'mp';
   if (!nombre) throw new Error('Falta el nombre.');
   if (!(Number(datos.costoNeto) > 0)) throw new Error('Escribe el costo neto (sin IVA) de la unidad de compra.');
-  const rep = mps.find(m => String(m.nombre || '').trim().toLowerCase() === nombre.toLowerCase());
+  // v0.76.0: repetida también sin importar tildes (la misma regla del alta en Finanzas)
+  const rep = MA.repetida(nombre, mps);
   if (rep) { const e = new Error(`Ya existe "${nombre}" (${rep.id}). Habilítala en vez de crearla.`); e.code = 'existe'; e.datos = { id: rep.id }; throw e; }
   // El precio va a Finanzas: sin fen-gastos conectada no se crea (así nunca queda una materia prima sin su precio por error)
-  const F = await import('./finanzas.js?v=0.75.1');
+  const F = await import('./finanzas.js?v=0.76.0');
   if (!(await F.gastosConectada())) throw new Error('Para crearla con su precio, conecta la base de Gastos y Finanzas en este equipo (Gastos → Base nueva).');
   const doc = RM.docMp({ nombre, tipo, categoria: datos.categoria, unidad, area: sol.area }, { solicitud: sol.docId, por, hoy });
-  // ID = el mayor + 1 del prefijo; si justo existe (otro equipo), se prueba el siguiente
-  let idN = '', saltar = [];
-  for (let k = 0; k < 20 && !idN; k++) {
-    const cand = RM.siguienteIdMp(mps, tipo, saltar);
-    try {
-      await FB.runTransaction(db, async tx => {
-        const ref = FB.doc(db, 'mps', cand), sn = await tx.get(ref);
-        if (sn.exists()) { const e = new Error('ocupado'); e.code = 'id-ocupado'; throw e; }
-        tx.set(ref, { ...doc, creadaEnTs: FB.serverTimestamp() });
-        tx.set(refSol, resuelta(cand), { merge: true });
-      });
-      idN = cand;
-    } catch (e) { if (e.code !== 'id-ocupado') throw e; saltar.push(cand); }
-  }
-  if (!idN) throw new Error('No se pudo elegir un ID libre para la materia prima. Toca Actualizar y vuelve a intentar.');
-  marcar('mps');
+  const idN = await crearEnMps(db, mps, tipo, doc, (tx, id) => tx.set(refSol, resuelta(id), { merge: true }));
   await memoriaCon('mps', { [idN]: doc }).catch(() => M.olvidar('prod:mps@'));
   versionDatos++;
   try { await F.crearPrecioMp(idN, { nombre, tipo, unidadCompra: unidad, precioNeto: Number(datos.costoNeto) }); }
   catch (e) { const x = new Error(`Quedó creada (${idN}) y habilitada para ${AREAS[sol.area] || sol.area}, pero su precio no se guardó en Finanzas (${(e && e.message) || e}). Ponlo en Finanzas → Costos.`); x.code = 'sin_precio'; x.id = idN; throw x; }
   return idN;
+}
+
+// ═══════════════ v0.76.0 · Materias primas e insumos desde Finanzas → Costos ═══════════════
+// Todas las de la base de Cocina (activas, inactivas, archivadas): para el nombre único, las parecidas y las categorías. De la memoria.
+export async function materiasPrimas(forzar = false) { return mpsMem(forzar); }
+// El nombre y el estado también en el maestro de costos (fen-gastos costos_mp), si está ahí (no crea uno sin precio)
+async function sincronizarCostos(id, campos) {
+  try { const F = await import('./finanzas.js?v=0.76.0'); if (await F.gastosConectada()) await F.datosMpEnCostos(id, campos); } catch (e) { console.warn('Finanzas: no se pudo copiar el cambio al maestro de costos', e); }
+}
+// Crear una materia prima o insumo: mps/{MP###|IN###} (como una pedida en Cocina) + su precio en costos_mp con historial.
+// datos: los del formulario (mp-alta-modelo.js validarAlta). sii (opcional): la línea de factura de la que sale { rut, proveedor, folio,
+// fecha, linea, nombreItem }; precioDeSii: el precio es el de esa compra (origen SII) o lo escribiste (origen "A mano").
+// → { id, doc, v }. Si el precio no se guarda: error code 'sin_precio' (la materia prima quedó).
+export async function crearMp(datos, { sii = null, precioDeSii = !!sii } = {}) {
+  cambio('hoy:');
+  const db = await dbOk(), por = authSF.currentUser.email, hoy = CM.hoyTxt(), en = new Date().toISOString();
+  const mps = await mpsMem();
+  const v = MA.validarAlta(datos, mps);
+  const F = await import('./finanzas.js?v=0.76.0');
+  if (!(await F.gastosConectada())) throw new Error('Para crearla con su precio, conecta la base de Gastos y Finanzas en este equipo (Gastos → Base nueva).');
+  const detalle = sii ? `Creada en Sistema Fën desde la compra del SII: ${sii.proveedor || sii.rut} F.${sii.folio} (${sii.nombreItem})` : 'Creada en Sistema Fën';
+  const origen = { base: 'sistema-fen', manual: true, ...(sii ? { sii: { rut: String(sii.rut || ''), proveedor: String(sii.proveedor || ''), nombreItem: String(sii.nombreItem || '') } } : {}) };
+  const doc = RM.docMp({ nombre: v.nombre, tipo: v.tipo, categoria: v.categoria || 'Sin categoría', unidad: v.unidad, areas: v.areas }, { por, hoy, origen,
+    historial: [{ accion: 'creó', detalle: `${detalle} · ${MA.textoAreas(v.areas)}`, por, en }] });
+  const id = await crearEnMps(db, mps, v.tipo, doc);
+  await memoriaCon('mps', { [id]: doc }).catch(() => M.olvidar('prod:mps@'));
+  versionDatos++;
+  try { await F.crearPrecioMp(id, { nombre: v.nombre, tipo: v.tipo, unidadCompra: v.unidad, contenido: v.contenido, precioNeto: v.precioNeto, motivo: precioDeSii || !sii ? detalle : `${detalle} · precio escrito a mano`, creadaDesde: 'sistema-fen', sii: precioDeSii ? sii : null }); }
+  catch (e) { const x = new Error(`Quedó creada (${id}), pero su precio no se guardó en Finanzas (${(e && e.message) || e}). Ponlo aquí mismo en su fila.`); x.code = 'sin_precio'; x.id = id; throw x; }
+  return { id, doc, v };
+}
+// Cambiar nombre, categoría y áreas (mismo ID: las recetas no se rompen). Un cambio de nombre también pasa a la copia del nombre en las
+// recetas que la usan (es solo la etiqueta: Cocina la muestra) y al maestro de costos. → { cambios, recetas: n } o null si nada cambió
+export async function editarMp(id, datos) {
+  cambio('hoy:');
+  const db = await dbOk(), por = authSF.currentUser.email, en = new Date().toISOString();
+  const [mps, recs] = await Promise.all([mpsMem(), recetasMem()]);
+  const m = mps.find(x => x.id === id);
+  const c = MA.cambioDatos(m, datos, mps, { por, en });
+  if (!c) return null;
+  // El historial se arma con el documento de ahora (1 lectura en la transacción), no con la memoria
+  let final = null;
+  await FB.runTransaction(db, async tx => {
+    const ref = FB.doc(db, 'mps', id), sn = await tx.get(ref);
+    if (!sn.exists()) throw new Error(`La materia prima ${id} ya no está en la base de Cocina. Toca Actualizar.`);
+    const actual = { id, ...sn.data() }, c2 = MA.cambioDatos(actual, datos, mps, { por, en }) || c;
+    final = { ...actual, ...c2.patch };
+    tx.update(ref, { ...c2.patch, actualizadoEn: FB.serverTimestamp() });
+  });
+  marcar('mps');
+  const { id: _i, ...resto } = final;
+  await memoriaCon('mps', { [id]: sinTs(resto) }).catch(() => M.olvidar('prod:mps@'));
+  let n = 0;
+  if (c.patch.nombre) {
+    const cambios = MA.nombresEnRecetas(id, c.patch.nombre, recs), ids = Object.keys(cambios);
+    for (let i = 0; i < ids.length; i += 400) {
+      const b = FB.writeBatch(db);
+      ids.slice(i, i + 400).forEach(r => b.update(FB.doc(db, 'recetas', r), cambios[r]));
+      await b.commit();
+    }
+    if (ids.length) {
+      const cR = {}; ids.forEach(r => { const x = recs.find(y => y.id === r); const { id: _r, ...rr } = x; cR[r] = { ...rr, ...cambios[r] }; });
+      await memoriaCon('recetas', cR).catch(() => M.olvidar('prod:recetas@'));
+    }
+    n = ids.length;
+    await sincronizarCostos(id, { nombre: c.patch.nombre });
+  }
+  versionDatos++;
+  return { cambios: c.cambios, recetas: n };
+}
+// Archivar (estado 'archivada': no aparece en Cocina para elegir ni para pedir) o reactivar ('activa'). No se archiva si una receta viva
+// la usa (error code 'en_uso' con datos.usos). Nada se borra. → { estado, antes } o null si ya estaba así
+export async function archivarMp(id, archivar = true) {
+  cambio('hoy:');
+  const db = await dbOk(), por = authSF.currentUser.email, en = new Date().toISOString();
+  const [mps, recs] = await Promise.all([mpsMem(), recetasMem()]);
+  const m = mps.find(x => x.id === id);
+  if (!MA.cambioEstado(m, archivar, recs, { por, en })) return null;
+  let final = null, antes = '';
+  await FB.runTransaction(db, async tx => {
+    const ref = FB.doc(db, 'mps', id), sn = await tx.get(ref);
+    if (!sn.exists()) throw new Error(`La materia prima ${id} ya no está en la base de Cocina. Toca Actualizar.`);
+    const actual = { id, ...sn.data() }, c = MA.cambioEstado(actual, archivar, recs, { por, en });
+    antes = MA.estadoDe(actual);
+    final = c ? { ...actual, ...c.patch } : actual;
+    if (c) tx.update(ref, { ...c.patch, actualizadoEn: FB.serverTimestamp() });
+  });
+  marcar('mps');
+  const { id: _i, ...resto } = final;
+  await memoriaCon('mps', { [id]: sinTs(resto) }).catch(() => M.olvidar('prod:mps@'));
+  await sincronizarCostos(id, { estado: archivar ? 'archivada' : 'activa' });
+  versionDatos++;
+  return { estado: MA.estadoDe(final), antes };
 }
 export async function rechazarSolicitud(sol, motivo) {
   cambio('hoy:pend');
@@ -781,7 +886,7 @@ export async function mermaDelPeriodo({ desde, hasta, fresco = false }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.75.1')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.76.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   // v0.75.1: ya no se piden a la planilla los costos que el motor no tiene (op costos_merma): quedan sin costo o incompletos
   const costos = {}, errorCostos = '';
   return { desde, hasta, merma, cafe, costos, costosMotor, errorCostos, calibraciones, mpCafe };

@@ -7,6 +7,7 @@
 //  · ID de sub receta (su entrada en mps, para usarla como ingrediente): 'SR' + hora en base 36 + 2 al azar, en mayúsculas
 //    (igual que aprobarReceta de Code.gs). Una sub receta que ya tenía SR lo conserva.
 //  · ID de materia prima / insumo: MP### / IN### = el mayor número con ese prefijo en mps + 1 (igual que solicitarMP).
+//    v0.76.0: la misma regla (y la misma transacción, produccion.js crearEnMps) para las que creas en Finanzas → Costos.
 //  · Documento de receta: los mismos campos que armaba produccion-modelo.js desde la fila de la planilla (sin costos).
 // ═══════════════════════════════════════════════
 const t = v => (v === null || v === undefined ? '' : String(v).trim());
@@ -81,9 +82,11 @@ export function docSR(receta, id, prev) {
     reemplazadaPor: t(x.reemplazadaPor), critica: !!x.critica, stockSeguridad: num(x.stockSeguridad), solicitadaPor: t(x.solicitadaPor), origen: x.origen || { base: 'sistema-fen', receta: id } };
 }
 // Materia prima o insumo nuevo en mps (sin precio: el precio va a fen-gastos costos_mp). datos: { nombre, tipo, categoria, unidad, area }
-export function docMp(datos, { solicitud = '', por = '', hoy = '' } = {}) {
+// v0.76.0: también la que creas en Finanzas → Costos: datos.areas (lista; vacía = todas las áreas), origen e historial propios.
+export function docMp(datos, { solicitud = '', por = '', hoy = '', origen = null, historial = null } = {}) {
+  const areas = Array.isArray(datos.areas) ? [...new Set(datos.areas.map(t).filter(Boolean))] : [t(datos.area)].filter(Boolean);
   return { nombre: t(datos.nombre), categoria: t(datos.categoria) || 'Pendiente', tipo: datos.tipo === 'insumo' ? 'insumo' : 'mp', unidad: t(datos.unidad).toLowerCase() || (datos.tipo === 'insumo' ? 'un' : 'kg'),
-    estado: 'activa', areas: [t(datos.area)].filter(Boolean), recetaOrigen: '', reemplazadaPor: '', critica: false, stockSeguridad: 0, solicitadaPor: t(datos.area),
-    origen: { base: 'sistema-fen', solicitud }, creadaPor: t(por), creadaEn: t(hoy) };
+    estado: 'activa', areas, recetaOrigen: '', reemplazadaPor: '', critica: false, stockSeguridad: 0, solicitadaPor: t(datos.area),
+    origen: origen || { base: 'sistema-fen', solicitud }, creadaPor: t(por), creadaEn: t(hoy), ...(historial ? { historial } : {}) };
 }
 export const conArea = (m, area) => [...new Set([...(Array.isArray(m && m.areas) ? m.areas : []), area].filter(Boolean))];

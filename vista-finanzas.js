@@ -10,16 +10,20 @@
 //  v0.62.0: Resultados → Estado de resultados (por segmentos, tres pisos) y Cierre de mes (vista-finanzas-eerr.js).
 //  Más adelante: Flujo de caja y Metas.
 //  Datos en fen-gastos (finanzas.js); reglas puras en finanzas-costos.js. Solo administración: nada va a Cocina.
+//  v0.76.0: Materias primas → "Nueva materia prima o insumo" (diálogo propio: nombre único, tipo, categoría, unidad de compra con su
+//  contenido, precio neto y áreas), "Nombre, categoría y áreas" (cambiar, archivar, reactivar) y, en Compras del SII, "Crear desde esta
+//  línea" y las 3 más parecidas al asociar. Reglas puras en mp-alta-modelo.js; escribe en la base de Cocina (produccion.js) y aquí.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.75.1';
-import * as FC from './finanzas-costos.js?v=0.75.1';
-import * as FS from './finanzas-sii.js?v=0.75.1';
-import * as FM from './finanzas-motor.js?v=0.75.1';
-import * as FV from './finanzas-ventas.js?v=0.75.1';
-import * as FMG from './finanzas-margenes.js?v=0.75.1';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.75.1';
-import * as VR from './vista-finanzas-resultados.js?v=0.75.1';
+import * as F from './finanzas.js?v=0.76.0';
+import * as FC from './finanzas-costos.js?v=0.76.0';
+import * as FS from './finanzas-sii.js?v=0.76.0';
+import * as FM from './finanzas-motor.js?v=0.76.0';
+import * as FV from './finanzas-ventas.js?v=0.76.0';
+import * as FMG from './finanzas-margenes.js?v=0.76.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.76.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.76.0';
+import * as MA from './mp-alta-modelo.js?v=0.76.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -46,7 +50,8 @@ const PI = {
   lupa: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', bajar: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
   neto: '<path d="M4 12h16M12 4v16"/><circle cx="12" cy="12" r="9"/>', fuente: '<circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6"/>', candado: '<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
   factura: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>', enlace: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
-  revisar: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/>', atras: '<path d="M19 12H5M11 6l-6 6 6 6"/>', no: '<circle cx="12" cy="12" r="8.5"/><path d="M6 18L18 6"/>'
+  revisar: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/>', mas: '<path d="M12 5v14M5 12h14"/>', lapiz: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+  archivo: '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M10 13h4"/>', atras: '<path d="M19 12H5M11 6l-6 6 6 6"/>', no: '<circle cx="12" cy="12" r="8.5"/><path d="M6 18L18 6"/>'
 };
 const ic = (n, t = 20) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${PI[n] || ''}</svg>`;
 
@@ -217,7 +222,8 @@ function htmlMaestro(H) {
   const prodAviso = st.cx.prod.estado !== 'ok' ? '<p class="aviso" style="margin-top:12px">La base de Producción no está conectada: la lista de materias primas y recetas no se puede leer. Conéctala en <a href="#produccion">Producción</a>.</p>' : '';
   return `<section class="tarjeta" aria-labelledby="t-fin-mp">
     <div class="titulo-fila fin-titulo"><h2 id="t-fin-mp">Maestro de materias primas ${H.info('Maestro de materias primas con costos', 'Cada materia prima o insumo con lo que trae una unidad de compra (contenido en g, ml o unidades) y su precio neto. Con eso sale el precio por kg, l o unidad que usa el costeo.\nLos precios partieron de la planilla (MP_maestro); desde la v0.73.0 viven solo aquí. Se actualizan solos con la última compra del SII (Compras del SII), en neto: lo que trae una unidad de la factura se lleva a la unidad de compra de cada materia prima. Lo que cambies a mano queda "A mano". Una materia prima nueva entra con su precio al crearla en Producción → Desde Cocina.\nCada cambio queda en el historial, con fecha, quién y motivo: nada se borra.\nEl impuesto adicional (harina) se guarda, pero no se suma al costo: en la harina es IVA anticipado y se recupera.\nLas sub recetas aparecen en la lista, pero su costo sale de su receta (Costos → Productos).\nSe guarda en la base de Gastos (fen-gastos): las jefas no lo ven.')}</h2>
-      <span class="ayuda fin-solo-finanzas" id="fin-traer-off">Precios solo de Finanzas ${H.info('Precios solo de Finanzas', TXT_SOLO_FINANZAS)}</span></div>
+      <span class="ayuda fin-solo-finanzas" id="fin-traer-off">Precios solo de Finanzas ${H.info('Precios solo de Finanzas', TXT_SOLO_FINANZAS)}</span>
+      <button type="button" class="btn" id="fin-mp-nueva" ${st.cx.prod.estado === 'ok' ? '' : 'disabled'}>${ic('mas', 18)} Nueva materia prima o insumo</button></div>
     <p class="ayuda" id="fin-resumen">${xs.length ? `${nf(activas.length)} activas · ${nf(cuenta('problemas'))} con problemas · última carga desde la planilla: ${ult ? `${fechaTxt(ult.fecha)} (${nf(ult.nuevas)} nuevas, ${nf(ult.cambian)} con cambios)` : '—'}` : 'Todavía no hay precios. Cada materia prima nueva entra con su precio al crearla en Producción → Desde Cocina; los demás cambios llegan con las compras del SII o a mano.'}</p>
     <p class="ok-texto" id="fin-msg" role="status">${H.esc(st.msg)}</p><p class="error" id="fin-err" role="alert">${H.esc(st.err)}</p>
     ${prodAviso}
@@ -256,6 +262,7 @@ function conectarMaestro(el, H) {
   }));
   const filas = $('fin-filas');
   if (filas) filas.addEventListener('click', ev => { const b = ev.target.closest('[data-fin-mp]'); if (b) editar(b.dataset.finMp, el, H, 'mp'); });
+  if ($('fin-mp-nueva')) $('fin-mp-nueva').addEventListener('click', () => dialogoAlta(el, H, { volver: 'mp' }));
   // v0.73.0: "Traer precios desde la planilla" ya no tiene botón (la planilla no se actualiza); traer() queda sin uso
   if ($('fin-traer')) $('fin-traer').addEventListener('click', () => traer(el, H));
 }
@@ -312,7 +319,8 @@ function editar(id, el, H, volver) {
   const pr = FC.problemasMp(m);
   const d = H.dialogo(`<form class="form-dialogo" id="fin-ed" novalidate>
     <h2>${H.esc(m.nombre)}</h2>
-    <p class="ayuda">${TIPO[m.tipo] || ''} · ${H.esc(id)} · unidad de compra en la planilla: <b>${H.esc(m.unidadCompra || '—')}</b>${m.impAdicionalPct ? ` · impuesto adicional ${nf(m.impAdicionalPct)} % (no se suma al costo)` : ''}</p>
+    <p class="ayuda">${TIPO[m.tipo] || ''} · ${H.esc(id)} · unidad de compra: <b>${H.esc(m.unidadCompra || '—')}</b>${m.impAdicionalPct ? ` · impuesto adicional ${nf(m.impAdicionalPct)} % (no se suma al costo)` : ''}${m.estado === 'archivada' ? ' · <span class="chip c-gris chip-chico">Archivada</span>' : ''}</p>
+    ${!esSub && mpDe(id) ? `<button type="button" class="btn-sec mpa-datos-btn" id="fin-ed-datos">${ic('lapiz', 16)} Nombre, categoría y áreas · ${H.esc(MA.textoAreas(mpDe(id).areas))}</button>` : ''}
     ${pr.length ? `<p class="aviso">${pr.map(p => H.esc(p.texto)).join(' · ')}</p>` : ''}
     ${m.contenidoNota ? `<p class="ayuda">${H.esc(m.contenidoNota)}</p>` : ''}
     <p class="fin-actual">Ahora: ${esSub ? 'se calcula de su receta' : `${m.precioNeto > 0 ? FC.pesos(m.precioNeto) + ' neto' : 'sin precio'} por ${FC.textoContenido(m.contenido)}${lec ? ` → <b>${lec.texto}</b>` : ''}`} · ${origenTxt(m, H)} ${fechaTxt(m.fecha)}</p>
@@ -332,6 +340,7 @@ function editar(id, el, H, volver) {
     <div class="fin-hist"><h3>Historial ${H.info('Historial de precios', 'Cada cambio de precio o contenido queda aquí con su fecha, origen, motivo y quién lo hizo. No se borra ni se edita.')}</h3><div id="fin-hist-lista"><p class="ayuda">Cargando…</p></div></div>
   </form>`);
   d.querySelector('#fin-ed-no').addEventListener('click', () => d.close());
+  if (d.querySelector('#fin-ed-datos')) d.querySelector('#fin-ed-datos').addEventListener('click', () => { d.close(); dialogoDatos(id, el, H, volver); });
   F.historial(id).then(hs => {
     const c2 = d.querySelector('#fin-hist-lista'); if (!c2) return;
     c2.innerHTML = hs.length ? `<ul class="fin-hist-lista">${hs.map(h => { const l = h.contenido ? FC.porLectura(h.precioPorBase, h.contenido.unidad) : null; return `<li><div><b>${fechaTxt(h.fecha)}</b> · ${h.precioNeto > 0 ? FC.pesos(h.precioNeto) : 'sin precio'} por ${FC.textoContenido(h.contenido)}${l ? ` (${l.texto})` : ''}</div><span class="ayuda">${ORIGEN[h.origen] || H.esc(h.origen || '')} · ${H.esc(h.motivo || '')}${h.por ? ` · ${H.esc(h.por)}` : ''}</span></li>`; }).join('')}</ul>` : '<p class="ayuda">Sin cambios todavía.</p>';
@@ -364,6 +373,187 @@ function editar(id, el, H, volver) {
       d.close(); await recargar(); pintarCostos(el, volver, H);
     } catch (e) { err.textContent = error(e, H); b.disabled = false; b.textContent = 'Guardar'; }
   });
+}
+
+// ═══════════════ v0.76.0 · Nueva materia prima o insumo · Nombre, categoría y áreas · Crear desde una línea del SII ═══════════════
+// La base de Cocina (fen-produccion mps) es la maestra (todas, con cualquier estado); el precio va al maestro de costos (aquí).
+const mpsCocina = () => (st.prod && Array.isArray(st.prod.mps) ? st.prod.mps : []);
+const mpDe = id => mpsCocina().find(m => m.id === id) || null;
+const categoriasCocina = () => [...new Set(mpsCocina().filter(m => !MA.esSub(m)).map(m => String(m.categoria || '').trim()).filter(c => c && !/^pendiente$/i.test(c)))].sort((a, b) => a.localeCompare(b, 'es'));
+const ESTADO_CHIP = { activa: '', inactiva: '<span class="chip c-amarillo chip-chico">inactiva</span>', archivada: '<span class="chip c-gris chip-chico">archivada</span>', reemplazada: '<span class="chip c-gris chip-chico">reemplazada</span>' };
+const TXT_AREAS = 'Las áreas de Cocina que la ven para elegirla en sus recetas.\nSi no marcas ninguna, sirve para todas las áreas (Panadería, Bollería, Pastelería y Cafetería).\nSi después un área la necesita, la puede pedir desde Cocina ("Falta una materia prima") o la habilitas aquí.';
+const TXT_NOMBRE = 'Las recetas guardan el ID de la materia prima (por ejemplo MP012), no el nombre: cambiarlo no rompe nada.\nEl nombre nuevo se ve en Cocina al elegir ingredientes y en las recetas que la usan (se cambia también la copia del nombre en esas recetas), y en Finanzas.\nNo puede repetirse con otra (sin importar mayúsculas ni tildes), aunque esa esté archivada.';
+const TXT_ARCHIVAR = 'Archivar la saca de las listas de Cocina para elegir y para pedir; no se borra nada: sus precios, su historial y las recetas archivadas que la usaban quedan.\nNo se puede archivar si una receta viva (no archivada) la usa como ingrediente o insumo: cámbiala en esas recetas o archívalas primero.\nReactivar la deja activa otra vez, con sus mismas áreas.';
+// Las parecidas: modo 'usar' (asociar: elige esa en el selector), 'abrir' (abre sus datos) o 'asociar' (asocia la línea a esa)
+function htmlParecidas(top, H, modo) {
+  if (!top.length) return '';
+  const acc = { usar: 'Usar esta', abrir: 'Abrir esa', asociar: 'Asociar a esta' }[modo];
+  return `<div class="mpa-sug" role="group" aria-label="Las más parecidas"><span class="rotulo-campo">${modo === 'usar' ? 'Las más parecidas' : '¿Es alguna de estas?'} ${H.info('Las más parecidas', 'Las 3 materias primas o insumos con el nombre más parecido (palabras en común, también abreviaturas de factura como HNA = harina, y letras en común).\nSi el proveedor la llama distinto, elige la que ya existe: así no queda repetida. Lo que asocias se aprende para las próximas facturas de ese proveedor.')}</span>
+    ${top.map(x => `<button type="button" class="mpa-sug-btn" data-mpa-${modo}="${H.esc(x.id)}" aria-pressed="false"><span><b>${H.esc(x.nombre)}</b> <span class="ayuda">${H.esc(x.id)}${x.tipo === 'insumo' ? ' · insumo' : ''}</span> ${ESTADO_CHIP[x.estado] || ''}</span><span class="mpa-sug-acc">${x.estado === 'archivada' && modo === 'asociar' ? 'Abrir esa' : acc}</span></button>`).join('')}</div>`;
+}
+const checksAreas = (pre, sel, H) => `<fieldset class="mpa-areas"><legend class="rotulo-campo">Áreas habilitadas ${H.info('Áreas habilitadas', TXT_AREAS)}</legend>
+  <div class="mpa-areas-ch">${Object.entries(MA.AREAS).map(([k, n]) => `<label class="check"><input type="checkbox" name="${pre}-area" value="${k}" ${(sel || []).includes(k) ? 'checked' : ''}> ${n}</label>`).join('')}</div>
+  <span class="ayuda" id="${pre}-areas-txt"></span></fieldset>`;
+const leerAreas = (d, pre) => [...d.querySelectorAll(`input[name="${pre}-area"]:checked`)].map(x => x.value);
+
+// g (opcional): el producto de Compras del SII (Crear desde esta línea). volver: 'mp' | 'compras'
+function dialogoAlta(el, H, { g = null, volver = 'mp' } = {}) {
+  const mps = mpsCocina(), u = g && g.ultima, pre = g ? MA.desdeLinea(g) : { nombre: '', tipo: 'mp', unidad: 'kg', contenido: { cantidad: 1000, unidad: 'g' }, precioNeto: null, categoria: '', areas: [] };
+  const c0 = MA.enForm(pre.contenido), cats = categoriasCocina();
+  const notaCont = g ? (pre.contenido ? (pre.contenidoDe === 'unidad' ? `La factura cobra por ${H.esc(u.unidad)}: una unidad trae ${FC.textoContenido(pre.contenido)}.` : `Leído del nombre: ${FC.textoContenido(pre.contenido)}.`) + (pre.contenidoDudoso ? ` ${H.esc(pre.contenidoMotivo)}` : '') : H.esc(pre.contenidoMotivo || 'No dice cuánto trae una unidad: escríbelo.')) : '';
+  const d = H.dialogo(`<form class="form-dialogo mpa" id="mpa-f" novalidate>
+    <h2>${g ? 'Crear desde esta línea' : 'Nueva materia prima o insumo'}</h2>
+    ${g ? `<p class="fin-actual"><b>${H.esc(g.nombreItem)}</b></p>
+      <p class="ayuda">${H.esc(g.proveedor || '')} · ${H.esc(g.rut)}${g.codigo ? ` · cód. ${H.esc(g.codigo)}` : ''} · última compra: ${cantTxt(u.cantidad)} ${H.esc(u.unidad || 'un')} a ${g.precioUnitario ? FC.pesos(g.precioUnitario) : '—'} neto c/u (${fechaTxt(u.fecha)}, F.${H.esc(u.folio)})</p>`
+      : '<p class="ayuda">Queda en la base de Cocina (con el ID que sigue) y su precio aquí. Las jefas la ven para elegirla en sus recetas, sin precio.</p>'}
+    <div class="campo"><label for="mpa-nombre">Nombre</label><input id="mpa-nombre" maxlength="${MA.MAX_NOMBRE}" autocomplete="off" spellcheck="false" value="${H.esc(pre.nombre)}" required>
+      <div id="mpa-rep" class="mpa-rep" role="status" aria-live="polite"></div></div>
+    <div id="mpa-sug-c" aria-live="polite"></div>
+    <fieldset class="fin-as-tipo"><legend class="rotulo-campo">Es</legend>
+      <label class="check"><input type="radio" name="mpa-tipo" value="mp" ${pre.tipo === 'insumo' ? '' : 'checked'}> Materia prima (va en la receta)</label>
+      <label class="check"><input type="radio" name="mpa-tipo" value="insumo" ${pre.tipo === 'insumo' ? 'checked' : ''}> Insumo (envase, etiqueta, desechable…)</label></fieldset>
+    <div class="campo"><label for="mpa-cat">Categoría</label><input id="mpa-cat" list="mpa-cats" maxlength="40" autocomplete="off" placeholder="${H.esc(cats.slice(0, 3).join(', ') || 'Secos, Lácteos…')}" value="${H.esc(pre.categoria)}">
+      <datalist id="mpa-cats">${cats.map(c => `<option value="${H.esc(c)}"></option>`).join('')}</datalist></div>
+    <div class="grilla-montos">
+      <div class="campo"><label for="mpa-uni">Unidad de compra ${H.info('Unidad de compra', 'Cómo la compras: kg, 25kg (un saco), lt, 500ml, un, 10un (un paquete de 10)…\nAl lado va lo que trae esa unidad, en peso, volumen o unidades: con eso sale el precio por kg, l o unidad que usa el costeo.' + (g ? '\nAquí la unidad de compra es la de la factura: lo que trae una unidad facturada.' : ''))}</label>
+        <input id="mpa-uni" maxlength="20" autocomplete="off" spellcheck="false" placeholder="kg, 25kg, lt, un, 10un" value="${H.esc(pre.unidad)}"></div>
+      <div class="campo"><span class="rotulo-campo" id="mpa-cont-l">${g ? 'Una unidad de la factura trae' : 'Una unidad de compra trae'}</span>
+        <div class="fin-cont" role="group" aria-labelledby="mpa-cont-l"><label class="sr" for="mpa-cant">Cantidad</label><input id="mpa-cant" type="number" inputmode="decimal" min="0" step="any" value="${H.esc(String(c0.cantidad))}">
+        <label class="sr" for="mpa-cuni">Unidad</label><select id="mpa-cuni">${['kg', 'g', 'l', 'ml', 'un'].map(x => `<option value="${x}" ${x === c0.unidad ? 'selected' : ''}>${x === 'un' ? 'unidades' : x}</option>`).join('')}</select></div>
+        <span class="ayuda" id="mpa-cont-nota">${notaCont}</span></div>
+    </div>
+    <div class="campo"><label for="mpa-precio">Precio neto de la unidad de compra</label><input id="mpa-precio" type="number" inputmode="decimal" min="0" step="any" value="${pre.precioNeto > 0 ? H.esc(String(pre.precioNeto)) : ''}" required>
+      <label class="check fin-check"><input type="checkbox" id="mpa-coniva"> Lo escribo con IVA (19 %) ${H.info('Precio con IVA', 'Si copias el precio de una boleta o de la góndola, marca esta casilla: se guarda el neto (precio ÷ 1,19). Todo en Finanzas va en neto.')}</label>
+      ${g ? '<span class="ayuda">El neto de la última compra (con su descuento). Si lo cambias, queda como precio "A mano".</span>' : ''}</div>
+    <p class="fin-calc" id="mpa-calc" aria-live="polite"></p>
+    ${checksAreas('mpa', pre.areas, H)}
+    <p class="error" id="mpa-err" role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" id="mpa-no">Cancelar</button><button type="submit" class="btn" id="mpa-si">${g ? 'Crear y asociar' : 'Crear'}</button></div>
+  </form>`);
+  const q = s2 => d.querySelector(s2);
+  q('#mpa-no').addEventListener('click', () => d.close());
+  let contTocado = false;   // si escribes el contenido a mano, la unidad de compra ya no lo cambia
+  const leer = () => ({ nombre: q('#mpa-nombre').value, tipo: (d.querySelector('input[name="mpa-tipo"]:checked') || {}).value, categoria: q('#mpa-cat').value, unidad: q('#mpa-uni').value,
+    contenido: { cantidad: q('#mpa-cant').value, unidad: q('#mpa-cuni').value }, precio: q('#mpa-precio').value, conIva: q('#mpa-coniva').checked, areas: leerAreas(d, 'mpa') });
+  const abrirOtra = (id, modo) => {
+    d.close();
+    if (modo === 'asociar' && g && st.datos.costos[id] && st.datos.costos[id].estado !== 'archivada') return asociar(g.clave, el, H, { elegir: id });
+    dialogoDatos(id, el, H, volver);
+  };
+  const conectarSug = () => d.querySelectorAll('[data-mpa-abrir], [data-mpa-asociar]').forEach(b => b.addEventListener('click', () => abrirOtra(b.dataset.mpaAbrir || b.dataset.mpaAsociar, b.dataset.mpaAsociar ? 'asociar' : 'abrir')));
+  const nombreCambio = () => {
+    const n = q('#mpa-nombre').value, rep = MA.repetida(n, mps), box = q('#mpa-rep');
+    box.innerHTML = rep ? `<p class="aviso">Ya existe <b>${H.esc(rep.nombre)}</b> (${H.esc(rep.id)}${MA.estadoDe(rep) !== 'activa' ? `, ${H.esc(MA.estadoDe(rep))}` : ''}).${MA.esSub(rep) ? ' Es una sub receta: elige otro nombre.' : ` <button type="button" class="btn-sec" data-mpa-${g && MA.estadoDe(rep) !== 'archivada' && st.datos.costos[rep.id] ? 'asociar' : 'abrir'}="${H.esc(rep.id)}">${g && MA.estadoDe(rep) !== 'archivada' && st.datos.costos[rep.id] ? 'Asociar a esa' : MA.estadoDe(rep) === 'activa' ? 'Abrir esa' : 'Abrir esa para reactivarla'}</button>`}</p>` : '';
+    const top = rep ? [] : MA.similares(n, mps, { excepto: '' });
+    q('#mpa-sug-c').innerHTML = htmlParecidas(top, H, g ? 'asociar' : 'abrir');
+    conectarSug();
+  };
+  const unidadCambio = () => {
+    if (contTocado) return calc();
+    const r = MA.contenidoDeUnidad(q('#mpa-uni').value);
+    if (r.contenido) { const f = MA.enForm(r.contenido); q('#mpa-cant').value = f.cantidad; q('#mpa-cuni').value = f.unidad; }
+    q('#mpa-cont-nota').textContent = r.dudoso ? `${r.motivo} Escribe lo que trae la unidad que pagas a ese precio.` : '';
+    calc();
+  };
+  const calc = () => {
+    const x = leer(), c = FS.contenidoDesdeForm(x.contenido.cantidad, x.contenido.unidad);
+    let neto = FC.num(x.precio); if (x.conIva) neto = neto / 1.19;
+    const ppb = FC.precioPorBase(neto, c), l = c && ppb ? FC.porLectura(ppb, c.unidad) : null;
+    q('#mpa-calc').textContent = l ? `${x.conIva ? `Neto: ${FC.pesos(neto)} · ` : ''}Precio por ${l.por}: ${l.texto}` : '';
+    q('#mpa-areas-txt').textContent = x.areas.length ? `La ven: ${MA.textoAreas(x.areas)}.` : 'Sin marcar: la ven todas las áreas.';
+  };
+  q('#mpa-nombre').addEventListener('input', () => { q('#mpa-err').textContent = ''; nombreCambio(); });
+  q('#mpa-uni').addEventListener('input', unidadCambio);
+  ['#mpa-cant', '#mpa-cuni'].forEach(s2 => { q(s2).addEventListener('input', () => { contTocado = true; calc(); }); q(s2).addEventListener('change', () => { contTocado = true; calc(); }); });
+  ['#mpa-precio', '#mpa-coniva'].forEach(s2 => q(s2).addEventListener('input', calc));
+  d.querySelectorAll('input[name="mpa-area"]').forEach(x => x.addEventListener('change', calc));
+  q('#mpa-coniva').addEventListener('change', calc);
+  nombreCambio(); calc();
+  q('#mpa-f').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const err = q('#mpa-err'), b = q('#mpa-si'), x = leer(); err.textContent = '';
+    try { MA.validarAlta(x, mps); } catch (e) { err.textContent = e.message; if (e.code === 'existe') nombreCambio(); return; }
+    b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      const r = g ? await F.crearDesdeLinea(g, x) : await F.crearMateriaPrima(x);
+      const v = r.v, lec = FC.porLectura(FC.precioPorBase(v.precioNeto, v.contenido), v.contenido.unidad);
+      H.registrar(g ? 'Finanzas: creó una materia prima desde una compra del SII' : 'Finanzas: creó una materia prima', `${v.nombre} (${r.id}) · ${MA.TIPOS[v.tipo]} · ${FC.pesos(v.precioNeto)} neto por ${v.unidad} · ${MA.textoAreas(v.areas)}${g ? ` · ${g.proveedor} · ${g.nombreItem}` : ''}`);
+      st.msg = `${v.nombre} quedó creada (${r.id}) con su precio${lec ? `: ${lec.texto}` : ''}.${g ? ` ${g.nombreItem} quedó asociado a ella (se aprende para las próximas facturas).` : ''} Cocina ya la ve${v.areas.length ? ` en ${MA.textoAreas(v.areas)}` : ' en todas las áreas'}.`; st.err = '';
+      if (g && !r.revision) st.err = 'No se pudieron revisar los precios de las compras ahora: toca "Revisar compras" cuando quieras.';
+      d.close(); await recargar(volver === 'compras'); pintarCostos(el, volver, H);
+    } catch (e) {
+      if (e.code === 'sin_precio') { H.registrar('Finanzas: creó una materia prima', `${x.nombre} (${e.id}) · sin precio`); st.err = error(e, H); d.close(); await recargar(volver === 'compras').catch(() => {}); pintarCostos(el, volver, H); return; }
+      err.textContent = error(e, H); b.disabled = false; b.textContent = g ? 'Crear y asociar' : 'Crear';
+      if (e.code === 'existe') nombreCambio();
+    }
+  });
+}
+
+// Nombre, categoría y áreas · archivar o reactivar (con su historial, que vive en el documento de la base de Cocina)
+function dialogoDatos(id, el, H, volver = 'mp') {
+  const m = mpDe(id);
+  if (!m) { st.err = `${id} no está en la base de Cocina (o no se pudo leer). Toca Actualizar en Producción.`; pintarCostos(el, volver, H); return; }
+  const est = MA.estadoDe(m), areas = MA.limpiarAreas(m.areas), cats = categoriasCocina();
+  const usos = MA.usosVivos(id, (st.prod && st.prod.recetas) || []);
+  const hs = [...(Array.isArray(m.historial) ? m.historial : [])].reverse();
+  const d = H.dialogo(`<form class="form-dialogo mpa" id="mpd-f" novalidate>
+    <h2>${H.esc(m.nombre)}</h2>
+    <p class="ayuda">${MA.TIPOS[m.tipo === 'insumo' ? 'insumo' : 'mp']} · ${H.esc(id)} · se compra por ${H.esc(m.unidad || '—')} ${ESTADO_CHIP[est] || ''}</p>
+    <div class="campo"><label for="mpd-nombre">Nombre ${H.info('Cambiar el nombre', TXT_NOMBRE)}</label><input id="mpd-nombre" maxlength="${MA.MAX_NOMBRE}" autocomplete="off" spellcheck="false" value="${H.esc(m.nombre)}">
+      <div id="mpd-aviso" role="status" aria-live="polite"></div></div>
+    <div class="campo"><label for="mpd-cat">Categoría</label><input id="mpd-cat" list="mpd-cats" maxlength="40" autocomplete="off" value="${H.esc(/^pendiente$/i.test(m.categoria || '') ? '' : m.categoria || '')}" placeholder="${H.esc(cats.slice(0, 3).join(', ') || 'Secos, Lácteos…')}">
+      <datalist id="mpd-cats">${cats.map(c => `<option value="${H.esc(c)}"></option>`).join('')}</datalist></div>
+    ${checksAreas('mpd', areas, H)}
+    <p class="error" id="mpd-err" role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" id="mpd-no">Cancelar</button><button type="submit" class="btn" id="mpd-si">Guardar</button></div>
+    <div class="mpa-estado"><h3>${est === 'archivada' ? 'Archivada' : 'Archivar'} ${H.info('Archivar y reactivar', TXT_ARCHIVAR)}</h3>
+      ${est === 'archivada' ? `<p class="ayuda">No aparece en Cocina para elegir ni para pedir${m.archivadaEn ? ` desde el ${fechaTxt(String(m.archivadaEn).slice(0, 10))}` : ''}.</p><button type="button" class="btn-sec" id="mpd-reactivar">${ic('revisar', 16)} Reactivar</button>`
+        : usos.length ? `<p class="aviso" id="mpd-usos">No se puede archivar: ${usos.length === 1 ? 'la usa una receta viva' : `la usan ${usos.length} recetas vivas`}.</p><ul class="fin-prev-lista mpa-usos">${usos.map(r => `<li>${H.esc(r.nombre)} <span class="ayuda">${H.esc(MA.AREAS[r.area] || r.area)} · ${H.esc(r.id)}</span></li>`).join('')}</ul>`
+        : `<p class="ayuda">${est === 'activa' ? 'Ninguna receta viva la usa.' : `Está ${H.esc(est)}.`}</p><button type="button" class="btn-sec" id="mpd-archivar">${ic('archivo', 16)} Archivar</button>`}
+      ${est !== 'archivada' && est !== 'activa' ? `<button type="button" class="btn-sec" id="mpd-reactivar">${ic('revisar', 16)} Dejarla activa</button>` : ''}</div>
+    <div class="fin-hist"><h3>Historial ${H.info('Historial', 'Lo que se le ha cambiado desde Sistema Fën (nombre, categoría, áreas, archivar o reactivar), con quién y cuándo. Los cambios de precio están en el historial de precios (toca su fila en la lista).')}</h3>
+      ${hs.length ? `<ul class="fin-hist-lista">${hs.map(h => `<li><div><b>${fechaTxt(String(h.en || '').slice(0, 10))}</b> · ${H.esc(h.accion || '')}</div><span class="ayuda">${H.esc(h.detalle || '')}${h.por ? ` · ${H.esc(h.por)}` : ''}</span></li>`).join('')}</ul>` : '<p class="ayuda">Sin cambios desde Sistema Fën todavía.</p>'}</div>
+  </form>`);
+  const q = s2 => d.querySelector(s2);
+  q('#mpd-no').addEventListener('click', () => d.close());
+  const aviso = () => {
+    const n = q('#mpd-nombre').value, rep = MA.repetida(n, mpsCocina(), id), box = q('#mpd-aviso');
+    const harina = /^harina/i.test(MA.normNombre(m.nombre)) && !/^harina/i.test(MA.normNombre(n));
+    box.innerHTML = rep ? `<p class="aviso">Ya existe <b>${H.esc(rep.nombre)}</b> (${H.esc(rep.id)}${MA.estadoDe(rep) !== 'activa' ? `, ${H.esc(MA.estadoDe(rep))}` : ''}): elige otro nombre.</p>`
+      : n.trim() && n.trim() !== m.nombre ? `<p class="ayuda">Las recetas guardan el ID (${H.esc(id)}): nada se rompe. Cocina muestra el nombre nuevo.${harina ? ' Ojo: Cocina reconoce las harinas porque su nombre empieza con "Harina" (para el % de panadero y los ajustes): si le sacas esa palabra, deja de contarla como harina.' : ''}</p>` : '';
+    q('#mpd-areas-txt').textContent = leerAreas(d, 'mpd').length ? `La ven: ${MA.textoAreas(leerAreas(d, 'mpd'))}.` : 'Sin marcar: la ven todas las áreas.';
+  };
+  q('#mpd-nombre').addEventListener('input', aviso);
+  d.querySelectorAll('input[name="mpd-area"]').forEach(x => x.addEventListener('change', aviso));
+  aviso();
+  const terminar = async msg => { st.msg = msg; st.err = ''; d.close(); await recargar(volver === 'compras'); pintarCostos(el, volver, H); };
+  q('#mpd-f').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const err = q('#mpd-err'), b = q('#mpd-si'); err.textContent = '';
+    const datos = { nombre: q('#mpd-nombre').value, categoria: q('#mpd-cat').value, areas: leerAreas(d, 'mpd') };
+    let c;
+    try { c = MA.cambioDatos(m, datos, mpsCocina()); } catch (e) { err.textContent = e.message; return; }
+    if (!c) { d.close(); return; }
+    b.disabled = true; b.textContent = 'Guardando…';
+    try {
+      const r = await F.editarMateriaPrima(id, datos);
+      if (r) H.registrar('Finanzas: cambió una materia prima', `${m.nombre} (${id}) · ${r.cambios.join(' · ')}${r.recetas ? ` · nombre actualizado en ${r.recetas} ${r.recetas === 1 ? 'receta' : 'recetas'}` : ''}`);
+      await terminar(`${datos.nombre.trim() || m.nombre}: guardado${r && r.recetas ? ` (y en ${r.recetas} ${r.recetas === 1 ? 'receta' : 'recetas'} que la usan)` : ''}.`);
+    } catch (e) { err.textContent = error(e, H); b.disabled = false; b.textContent = 'Guardar'; }
+  });
+  const estado = archivar => async () => {
+    const err = q('#mpd-err'); err.textContent = '';
+    const btn = q(archivar ? '#mpd-archivar' : '#mpd-reactivar'); btn.disabled = true;
+    try {
+      const r = await F.archivarMateriaPrima(id, archivar);
+      if (r) H.registrar(archivar ? 'Finanzas: archivó una materia prima' : 'Finanzas: reactivó una materia prima', `${m.nombre} (${id}) · ${r.antes} → ${r.estado}`);
+      await terminar(archivar ? `${m.nombre}: archivada. Ya no aparece en Cocina para elegir ni para pedir.` : `${m.nombre}: activa otra vez. Cocina la ve en ${MA.textoAreas(m.areas)}.`);
+    } catch (e) {
+      err.textContent = error(e, H); btn.disabled = false;
+    }
+  };
+  if (q('#mpd-archivar')) q('#mpd-archivar').addEventListener('click', estado(true));
+  if (q('#mpd-reactivar')) q('#mpd-reactivar').addEventListener('click', estado(false));
 }
 
 // ── Revisión de datos ──
@@ -458,7 +648,7 @@ function filaCompra(g, H) {
     <div class="fin-c-ult">${u ? `<span>${pu ? FC.pesos(pu) : '—'} neto por ${H.esc(u.unidad || 'unidad')}</span><span class="ayuda">${cantTxt(u.cantidad)} ${H.esc(u.unidad || 'un')} · ${fechaTxt(u.fecha)} · F.${H.esc(u.folio)} · ${g.veces} ${g.veces === 1 ? 'compra' : 'compras'}</span>` : '<span class="ayuda">Solo en notas de crédito</span>'}
       ${g.ncs ? `<span class="ayuda">${g.ncs} ${g.ncs === 1 ? 'nota de crédito' : 'notas de crédito'} (no cambian el precio)</span>` : ''}</div>
     <div class="fin-c-est">${estado}</div>
-    <div class="fin-c-acc">${u ? `<button type="button" class="btn-sec" data-fin-asoc="${H.esc(g.clave)}">${g.estado === 'sin_asociar' ? 'Asociar' : 'Cambiar'}</button>` : ''}</div></div>`;
+    <div class="fin-c-acc">${u ? `<button type="button" class="btn-sec" data-fin-asoc="${H.esc(g.clave)}">${g.estado === 'sin_asociar' ? 'Asociar' : 'Cambiar'}</button>` : ''}${u && g.estado === 'sin_asociar' && st.cx.prod.estado === 'ok' ? `<button type="button" class="btn-link" data-fin-crear="${H.esc(g.clave)}">${ic('mas', 14)} Crear desde esta línea</button>` : ''}</div></div>`;
 }
 function pintarCompras(H) {
   const cont = $('fin-compras'); if (!cont) return;
@@ -472,7 +662,10 @@ function conectarCompras(el, H) {
   if (q) q.addEventListener('input', () => { st.cQ = q.value; pintarCompras(H); });
   el.querySelectorAll('[data-fin-cf]').forEach(b => b.addEventListener('click', () => { st.cFiltro = b.dataset.finCf; el.querySelectorAll('[data-fin-cf]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); pintarCompras(H); }));
   const lista = $('fin-compras');
-  if (lista) lista.addEventListener('click', ev => { const b = ev.target.closest('[data-fin-asoc]'); if (b) asociar(b.dataset.finAsoc, el, H); });
+  if (lista) lista.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-fin-asoc]'); if (b) { asociar(b.dataset.finAsoc, el, H); return; }
+    const c = ev.target.closest('[data-fin-crear]'); if (c) { const g = gruposCompras().find(x => x.clave === c.dataset.finCrear); if (g) dialogoAlta(el, H, { g, volver: 'compras' }); }
+  });
   $('fin-revisar').addEventListener('click', async () => {
     const b = $('fin-revisar'); b.disabled = true; b.lastChild.textContent = ' Revisando…'; $('fin-err').textContent = '';
     try { const r = await F.preciosDesdeSii({ origen: 'boton' }); H.registrar('Finanzas: revisó las compras del SII', resumenRevision(r)); st.msg = resumenRevision(r); st.err = ''; await recargar(true); pintarCostos(el, 'compras', H); }
@@ -513,14 +706,16 @@ function resolver(id, confirmar, el, H) {
 
 // ── Asociar un producto de factura a su materia prima (o "no es materia prima") ──
 const enForm = c => { if (!FC.contenidoValido(c)) return { cantidad: '', unidad: 'kg' }; return enUnidadLectura(c); };
-function asociar(clave, el, H) {
+function asociar(clave, el, H, { elegir = '' } = {}) {
   const g = gruposCompras().find(x => x.clave === clave); if (!g || !g.ultima) return;
   const a = g.asoc, u = g.ultima, costos = st.datos.costos;
   const leido = FS.contenidoDeLinea(u.descripcion, u.unidad);
   const c0 = enForm(a && a.contenidoPorUnidad ? a.contenidoPorUnidad : leido.contenido);
   const sug = FS.sugerirMp(g.nombreItem, costos), idsSug = new Set(sug.map(x => x.id));
   const elegibles = Object.values(costos).filter(m => m.tipo !== 'sub_receta' && m.estado !== 'archivada').sort((x, y) => String(x.nombre).localeCompare(String(y.nombre), 'es'));
-  const mpSel = a && a.mp ? a.mp : (sug[0] ? sug[0].id : '');
+  const mpSel = elegir && costos[elegir] ? elegir : a && a.mp ? a.mp : (sug[0] ? sug[0].id : '');
+  // v0.76.0: las 3 más parecidas (con abreviaturas de factura), para elegir la que ya existe en vez de crear otra
+  const top = MA.similares(g.nombreItem, Object.values(costos), { activas: true });
   const opt = (m, t) => `<option value="${H.esc(m.id)}" ${m.id === mpSel ? 'selected' : ''}>${H.esc(t)}</option>`;
   const notaLeido = a && a.contenidoPorUnidad ? 'Lo que se guardó al asociarlo.' : leido.contenido ? (leido.de === 'unidad' ? `La factura cobra por ${H.esc(u.unidad)}: una unidad trae ${FC.textoContenido(leido.contenido)}.` : `Leído del nombre: ${FC.textoContenido(leido.contenido)}.`) + (leido.dudoso ? ` ${H.esc(leido.motivo)}` : '') : H.esc(leido.motivo);
   const ignorar = !!(a && a.ignorar);
@@ -535,6 +730,8 @@ function asociar(clave, el, H) {
       <div class="campo"><label for="fin-as-mp">Materia prima o insumo</label><select id="fin-as-mp"><option value="">Elige…</option>
         ${sug.map(x => opt(costos[x.id], `${costos[x.id].nombre} · parecida`)).join('')}${elegibles.filter(m => !idsSug.has(m.id)).map(m => opt(m, m.nombre)).join('')}</select>
         ${sug.length ? '<span class="ayuda">Primero las de nombre parecido.</span>' : ''}</div>
+      ${htmlParecidas(top, H, 'usar')}
+      ${!a && st.cx.prod.estado === 'ok' ? `<button type="button" class="btn-link" id="fin-as-crear">${ic('mas', 14)} No está: crear desde esta línea</button>` : ''}
       <div class="campo"><span class="rotulo-campo" id="fin-as-cont-l">Una unidad de la factura trae ${H.info('Contenido por unidad', 'Lo que trae UNA unidad de la línea de la factura, no la línea completa. Ejemplos: "HARINA SACO 25 KG", 10 sacos → 25 kg. "MANTEQUILLA" en KG, 20 KG → 1 kg. "LECHE 1 LT X12" (una caja de 12) → 12 l.\nSe usa para sacar el precio por kg, l o unidad. Si la materia prima se compra por peso, aquí va peso (kg o g); si se compra por unidades, unidades.')}</span>
         <div class="fin-cont" role="group" aria-labelledby="fin-as-cont-l"><label class="sr" for="fin-as-cant">Cantidad</label><input id="fin-as-cant" type="number" inputmode="decimal" min="0" step="any" value="${H.esc(String(c0.cantidad))}">
         <label class="sr" for="fin-as-uni">Unidad</label><select id="fin-as-uni">${['kg', 'g', 'l', 'ml', 'un'].map(x => `<option value="${x}" ${x === c0.unidad ? 'selected' : ''}>${x === 'un' ? 'unidades' : x}</option>`).join('')}</select></div>
@@ -549,6 +746,12 @@ function asociar(clave, el, H) {
   const sel = d.querySelector('#fin-as-mp');
   conBuscador(sel);
   d.querySelector('#fin-as-no').addEventListener('click', () => d.close());
+  d.querySelectorAll('[data-mpa-usar]').forEach(b => b.addEventListener('click', () => {
+    const bq = d.querySelector('.buscador input'); if (bq && bq.value) { bq.value = ''; bq.dispatchEvent(new Event('input')); }
+    sel.value = b.dataset.mpaUsar; sel.dispatchEvent(new Event('change', { bubbles: true }));
+    d.querySelectorAll('[data-mpa-usar]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  }));
+  if (d.querySelector('#fin-as-crear')) d.querySelector('#fin-as-crear').addEventListener('click', () => { d.close(); dialogoAlta(el, H, { g, volver: 'compras' }); });
   const tipo = () => d.querySelector('input[name="fin-as-t"]:checked').value;
   const leer = () => ({ rut: g.rut, proveedor: g.proveedor, nombreItem: g.nombreItem, codigo: g.codigo, ignorar: tipo() === 'no', mp: tipo() === 'no' ? null : sel.value,
     contenido: { cantidad: d.querySelector('#fin-as-cant').value, unidad: d.querySelector('#fin-as-uni').value }, nota: d.querySelector('#fin-as-nota').value });
@@ -1071,7 +1274,7 @@ function dialogoVinculo(p, el, volver, H) {
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
   // v0.73.0: la lista de reventa (cat_reventa, de la memoria de fs-gastos): activas, más la que ya tenía este producto
   const selRev = d.querySelector('#m-v-revid');
-  import('./reventa.js?v=0.75.1').then(R => R.leer()).then(({ lista }) => {
+  import('./reventa.js?v=0.76.0').then(R => R.leer()).then(({ lista }) => {
     MS.reventa = lista;
     const ofrecer = lista.filter(x => x.estado !== 'archivado' || (v && v.reventaId === x.id)).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
     selRev.innerHTML = `<option value="">${ofrecer.length ? 'Elige…' : 'La lista de reventa está vacía (Catálogo → Reventa)'}</option>` + ofrecer.map(x => `<option value="${H.esc(x.id)}" data-costo="${x.costoNeto ?? ''}" data-nombre="${H.esc(x.nombre)}" ${v && v.reventaId === x.id ? 'selected' : ''}>${H.esc(x.nombre)} · ${H.esc(x.id)} · $${(Math.round(Number(x.costoNeto || 0) * 100) / 100).toLocaleString('es-CL')} / ${H.esc(x.unidad || 'un')}${x.estado === 'archivado' ? ' · archivada' : ''}</option>`).join('');

@@ -2326,3 +2326,30 @@ body.cat-ocupado #v-catalogo button { pointer-events: none; opacity: .7; }
 .pid-campo { margin: 0; min-width: 0; }
 .pid-campo select { width: 100%; max-width: 100%; }
 @media (max-width: 640px) { .pid-fila { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
+
+/* v0.76.0 · Nueva materia prima o insumo (Finanzas → Costos), sus datos y "Crear desde esta línea" (Compras del SII) */
+#fin-mp-nueva { margin-left: auto; }
+.mpa .fin-as-tipo legend, .mpa-areas legend { padding: 0 0 4px; }
+.mpa-rep:empty, #mpd-aviso:empty, #mpa-sug-c:empty { display: none; }
+.mpa-rep .aviso, #mpd-aviso .aviso { margin: 4px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mpa-rep .aviso .btn-sec { min-height: 36px; padding: 0 12px; }
+#mpd-aviso .ayuda { margin: 2px 0 0; }
+.mpa-sug { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.mpa-sug-btn { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 6px 12px; border-radius: 12px; border: 1px solid var(--borde);
+  background: var(--tarjeta); text-align: left; cursor: pointer; font-size: 14px; min-width: 0; }
+.mpa-sug-btn > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.mpa-sug-btn[aria-pressed="true"] { border-color: var(--acento); background: var(--acento-suave); }
+.mpa-sug-btn:hover { border-color: var(--acento); }
+.mpa-sug-acc { flex: none; font-size: 13px; font-weight: 700; color: var(--acento); }
+.mpa-areas { gap: 4px; }
+.mpa-areas-ch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 12px; }
+@media (max-width: 520px) { .mpa-areas-ch { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.mpa-estado { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding-top: 12px; border-top: 1px solid var(--linea); }
+.mpa-estado h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.mpa-estado .btn-sec, .mpa-datos-btn { display: inline-flex; align-items: center; gap: 6px; }
+.mpa-estado .aviso { margin: 0; align-self: stretch; }
+.mpa-usos { margin: 0; align-self: stretch; }
+.mpa-datos-btn { align-self: flex-start; max-width: 100%; text-align: left; overflow-wrap: anywhere; }
+.fin-c-acc .btn-link { display: inline-flex; align-items: center; gap: 4px; align-self: flex-end; white-space: nowrap; }
+@media (max-width: 760px) { .fin-c-acc .btn-link { align-self: flex-start; } #fin-mp-nueva { margin-left: 0; } }
+#mpa-err:empty, #mpd-err:empty, #mpa-calc:empty { display: none; }

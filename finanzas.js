@@ -44,23 +44,25 @@
 //   [{ mes, lineas, medios (bruto por medio de pago y sucursal, de resumenes_caja.porMedio), ordenes (B2B válidas) }]; fin_ventas_mes de la caja
 //   guarda porMedio y el de B2B ordenesValidas. costos_config/finanzas.margenes (comisión por medio de pago, mezcla de la caja, despacho B2B,
 //   margen objetivo por área, redondeo) + historialMargenes. fin_productos.costoExtraNeto (envase por venta, neto).
+//  v0.76.0: materias primas e insumos nuevos desde Finanzas → Costos (crearMateriaPrima, crearDesdeLinea): costos_mp con origen 'manual'
+//   (o 'sii' si el precio es el de la línea de factura), creadaDesde 'sistema-fen' y su historial; datosMpEnCostos copia nombre y estado.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.75.1';
-import * as FB from './fs-gastos.js?v=0.75.1';
-import * as GB from './gastos-base.js?v=0.75.1';
-import * as P from './produccion.js?v=0.75.1';
-import * as FC from './finanzas-costos.js?v=0.75.1';
-import * as FS from './finanzas-sii.js?v=0.75.1';
-import * as FM from './finanzas-motor.js?v=0.75.1';
-import * as FV from './finanzas-ventas.js?v=0.75.1';
-import * as FMG from './finanzas-margenes.js?v=0.75.1';
-import * as FR from './finanzas-resultados.js?v=0.75.1';
-import * as FE from './finanzas-eerr.js?v=0.75.1';
-import * as CPM from './catalogo-productos-modelo.js?v=0.75.1';
-import * as Caja from './caja.js?v=0.75.1';
-import * as B from './b2b.js?v=0.75.1';
-import * as FBB from './firebase-b2b.js?v=0.75.1';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.75.1';
+import { auth as authSF } from './firebase.js?v=0.76.0';
+import * as FB from './fs-gastos.js?v=0.76.0';
+import * as GB from './gastos-base.js?v=0.76.0';
+import * as P from './produccion.js?v=0.76.0';
+import * as FC from './finanzas-costos.js?v=0.76.0';
+import * as FS from './finanzas-sii.js?v=0.76.0';
+import * as FM from './finanzas-motor.js?v=0.76.0';
+import * as FV from './finanzas-ventas.js?v=0.76.0';
+import * as FMG from './finanzas-margenes.js?v=0.76.0';
+import * as FR from './finanzas-resultados.js?v=0.76.0';
+import * as FE from './finanzas-eerr.js?v=0.76.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.76.0';
+import * as Caja from './caja.js?v=0.76.0';
+import * as B from './b2b.js?v=0.76.0';
+import * as FBB from './firebase-b2b.js?v=0.76.0';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.76.0';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -124,22 +126,64 @@ export async function aplicarCarga(plan) {
 export async function gastosConectada() { try { const cx = await GB.conexion(); return cx.estado === 'ok'; } catch (e) { return false; } }
 // Materia prima nueva (pedida en Cocina y creada en Producción): su precio neto por la unidad de compra, origen "A mano".
 // datos: { nombre, tipo 'mp'|'insumo', unidadCompra ('kg', '25kg', '10un'…), precioNeto }. 2 escrituras (el precio y su historial).
+// v0.76.0 (Finanzas → Costos → Nueva materia prima o insumo): también contenido { cantidad, unidad g|ml|un } escrito (no se adivina de la
+// unidad de compra), motivo, creadaDesde y sii (la línea de factura de la que sale: el precio queda con origen "SII" de esa compra, así
+// la revisión de compras lo reconoce como "Es el precio actual" y no lo repite).
 export async function crearPrecioMp(id, datos) {
   const db = await dbG(), hoy = hoyTxt(), por = yo(), ref = FB.doc(db, 'costos_mp', id);
   const precioNeto = FC.num(datos.precioNeto);
   if (!(precioNeto > 0)) throw new Error('Falta el costo neto.');
-  const rc = FC.resolverContenido(datos.unidadCompra, { precioNeto });
+  const rc = FC.contenidoValido(datos.contenido) ? { contenido: { cantidad: FC.num(datos.contenido.cantidad), unidad: datos.contenido.unidad }, problema: '', nota: '' } : FC.resolverContenido(datos.unidadCompra, { precioNeto });
+  const x = datos.sii || null;
+  const sii = x ? { rut: String(x.rut || ''), proveedor: String(x.proveedor || ''), folio: String(x.folio || ''), fecha: String(x.fecha || ''), linea: String(x.linea || ''), nombreItem: String(x.nombreItem || '') } : null;
+  const origen = sii ? 'sii' : 'manual', fecha = sii && sii.fecha ? sii.fecha : hoy;
+  const motivo = String(datos.motivo || 'Materia prima nueva pedida en Cocina (Producción → Desde Cocina)').slice(0, 300);
   const doc = { nombre: String(datos.nombre || id), tipo: FC.tipoMp(datos.tipo, id), estado: 'activa', unidadCompra: String(datos.unidadCompra || ''),
     contenido: rc.contenido, contenidoProblema: rc.contenido ? '' : rc.problema, contenidoNota: rc.nota, precioNeto, impAdicionalPct: 0, ivaPct: 19,
-    precioPorBase: FC.precioPorBase(precioNeto, rc.contenido), origen: 'manual', fecha: hoy, por, anterior: null, pesoPorUnidad: null, sii: null, creadaDesde: 'cocina' };
+    precioPorBase: FC.precioPorBase(precioNeto, rc.contenido), origen, fecha, por, anterior: null, pesoPorUnidad: null, sii, creadaDesde: datos.creadaDesde || 'cocina' };
   await FB.runTransaction(db, async tx => {
     const sn = await tx.get(ref);
     if (sn.exists() && FC.num(sn.data().precioNeto) > 0) return;   // ya tenía precio (un reintento): no se pisa
     tx.set(ref, { ...doc, updatedAt: FB.serverTimestamp() });
-    tx.set(FB.doc(db, 'costos_mp_hist', idNuevo('h-')), { mp: id, precioNeto, contenido: rc.contenido, precioPorBase: doc.precioPorBase, origen: 'manual', motivo: 'Materia prima nueva pedida en Cocina (Producción → Desde Cocina)', fecha: hoy, por, anterior: null, en: FB.serverTimestamp() });
+    tx.set(FB.doc(db, 'costos_mp_hist', idNuevo('h-')), { mp: id, precioNeto, contenido: rc.contenido, precioPorBase: doc.precioPorBase, origen, motivo, fecha, por, anterior: null, ...(sii ? { sii } : {}), en: FB.serverTimestamp() });
   });
   return doc;
 }
+// v0.76.0: el nombre y el estado (activa | archivada) que cambiaste en la base de Cocina, también en el maestro de costos. Solo si ya está
+// ahí (no crea una sin precio). 1 lectura y, si cambia, 1 escritura.
+export async function datosMpEnCostos(id, campos) {
+  const db = await dbG(), ref = FB.doc(db, 'costos_mp', id), c = {};
+  if (campos.nombre !== undefined) c.nombre = String(campos.nombre);
+  if (campos.estado !== undefined) c.estado = campos.estado === 'archivada' ? 'archivada' : 'activa';
+  return FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref); if (!sn.exists()) return false;
+    const d = sn.data(); if (Object.keys(c).every(k => d[k] === c[k])) return false;
+    tx.set(ref, { ...c, updatedAt: FB.serverTimestamp() }, { merge: true });
+    return true;
+  });
+}
+// v0.76.0 · "Crear desde esta línea" (Compras del SII): crea la materia prima con el precio de esa compra y asocia el producto del
+// proveedor a ella (costos_asoc, se aprende para las próximas facturas), en una sola acción. g: el grupo de Compras del SII (FS.agrupar);
+// datos: el formulario. → { id, nombre, revision } (revision: lo que hizo la revisión de compras, o null si falló; no deshace nada)
+export async function crearDesdeLinea(g, datos) {
+  const u = g && g.ultima; if (!u) throw new Error('Ese producto no tiene una compra para leer.');
+  // La unidad de compra de la nueva es la unidad de la factura: lo que trae una unidad de compra = lo que trae una unidad facturada.
+  // El precio es el de la factura (origen SII de esa compra) salvo que lo hayas cambiado: entonces queda "A mano", de hoy.
+  const unitario = FS.precioUnitarioNeto(u), escrito = FC.num(datos.precio) > 0 ? (datos.conIva ? FC.num(datos.precio) / 1.19 : FC.num(datos.precio)) : 0;
+  const precioDeSii = unitario > 0 && Math.abs(escrito - unitario) < 0.5;
+  const sii = { rut: g.rut, proveedor: g.proveedor, folio: u.folio, fecha: u.fecha, linea: u.id, nombreItem: u.descripcion };
+  const r = await P.crearMp(datos, { sii, precioDeSii });
+  const c = r.v.contenido, cont = c.unidad === 'g' ? { cantidad: c.cantidad / 1000, unidad: 'kg' } : c.unidad === 'ml' ? { cantidad: c.cantidad / 1000, unidad: 'l' } : { cantidad: c.cantidad, unidad: 'un' };
+  await guardarAsociacion(g.clave, { rut: g.rut, proveedor: g.proveedor, nombreItem: g.nombreItem, codigo: g.codigo, ignorar: false, mp: r.id, contenido: cont, nota: 'Creada desde esta línea' });
+  let revision = null;
+  try { revision = await preciosDesdeSii({ origen: 'asociacion' }); } catch (e) { revision = null; }
+  return { ...r, precioDeSii, revision };
+}
+
+// v0.76.0: lo que la pantalla de Costos pide a la base de Cocina (produccion.js: el mismo ID, transacción y memoria que las pedidas)
+export const crearMateriaPrima = datos => P.crearMp(datos);
+export const editarMateriaPrima = (id, datos) => P.editarMp(id, datos);
+export const archivarMateriaPrima = (id, archivar) => P.archivarMp(id, archivar);
 
 // ── Editar un precio a mano (con motivo) ──
 export async function guardarPrecio(id, datos) {
@@ -716,14 +760,14 @@ export async function cargosCartola() {
 // v0.66.0 · Documentos del SII por clasificar (subidos, sin gasto todavía), de la memoria: para el cierre y el estado de resultados
 // v0.67.1: lo mismo que Conciliación (sin lo que ya tiene su gasto registrado: eso no se cuenta en el cierre)
 export async function siiPorClasificar() {
-  try { return await (await import('./sii-pendientes-fs.js?v=0.75.1')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
-  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.75.1');
+  try { return await (await import('./sii-pendientes-fs.js?v=0.76.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
+  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.76.0');
   const sn = await FB.getDocs(FB.collection(db, 'sii_docs'));
   return SP.pendientesDe(sn.docs.map(d => ({ id: d.id, d: d.data() })));
 }
 // v0.69.5 · Las planillas de Previred para Cierre de mes (de la memoria de la sesión; lo que falte se lee). null si no se puede.
 export async function planillasPrevired() {
-  try { return await (await import('./gastos-cartola-fs.js?v=0.75.1')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
+  try { return await (await import('./gastos-cartola-fs.js?v=0.76.0')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
 }
 export async function cargasSii() {
   const db = await dbG();

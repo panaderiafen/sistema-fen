@@ -1,9 +1,53 @@
-# Sistema Fën · v0.75.1
+# Sistema Fën · v0.76.0
 
-**App:** v0.75.1 · **Caja (fen-ventas):** v2.3.0 (nueva) · **Reglas de Firestore (fen-ventas):** v1.5.0 (nueva, **obligatoria antes de la caja**) · **Reglas de fen-b2b:** v1.7.0 (sin cambios) · **Reglas de fen-produccion:** v1.8.0 (sin cambios) · **Reglas de fen-gastos:** v0.1.0 (sin cambios) · **Logística (fen-logistica):** v1.3.1 · **Cocina:** v0.17.6 · **Apps Script:** ninguno cambia (opcional: borrar un activador de B2B) · 21 de octubre de 2026
+**App:** v0.76.0 · **Cocina:** v0.17.10 (cambio chico) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-ventas v1.5.0, fen-b2b v1.7.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.76.0: crear y cambiar materias primas e insumos desde Finanzas
+
+Hasta ahora una materia prima solo nacía cuando Cocina la pedía. Desde esta versión la creas tú en **Finanzas → Costos → Materias primas**, o directo desde una factura en **Compras del SII**. La base de Cocina sigue siendo la maestra (mismo ID, misma regla) y el precio sigue viviendo solo en Finanzas.
+
+- **Dónde va:** repo **sistema-fen**, raíz. Archivo nuevo: `mp-alta-modelo.js`. Cambian `produccion.js` (alta compartida con las pedidas, cambiar, archivar), `recetas-maestro.js`, `finanzas.js`, `vista-finanzas.js`, `estilos.css` y este README; los demás, solo la versión. `cocina/` y `fermentacion.js` **no cambian** (idénticos a Cocina v0.17.10).
+- **Cocina v0.17.10:** repo **fen-cocina**, raíz. Cambian `editor.js`, `app.js`, `config.js`, `index.html` y su README (zip `fen-cocina-v0.17.10.zip`).
+- **Reglas:** sin cambios. Lo revisé: fen-produccion v1.8.0 ya deja a la administración escribir `mps` y `recetas` (`allow write: if admin()`), y fen-gastos v0.1.0 deja escribir todo a la administración (`costos_mp`, `costos_mp_hist`, `costos_asoc`). **Apps Script:** ninguno.
+
+### Qué cambia en cómo trabajas
+1. **Nueva materia prima o insumo** (botón arriba del Maestro de materias primas): nombre, si es materia prima o insumo, categoría (te sugiere las que ya existen), unidad de compra con lo que trae (por ejemplo 25kg → 25 kg; 10un → te pregunta si el precio es por las 10 o por 1), precio neto de esa unidad (o con IVA, marcando la casilla) y las **áreas** que la ven en Cocina (sin marcar ninguna = todas, lo explica la (i)). Queda en la base de Cocina con el ID que sigue (MP### o IN###, la misma regla y la misma transacción que una pedida) y su precio aquí, "A mano", con su historial ("Creada en Sistema Fën").
+2. **Nombre único:** si el nombre ya existe (sin importar mayúsculas, tildes ni espacios), aunque esté inactiva o archivada, te lo dice al escribir y te ofrece **abrir esa** (para habilitarle un área o reactivarla) en vez de crear otra. Mientras escribes, también te muestra **las 3 más parecidas** ("¿Es alguna de estas?").
+3. **Nombre, categoría y áreas** (toca una fila del maestro → botón "Nombre, categoría y áreas"): cambiar el nombre no rompe nada porque las recetas guardan el ID; el nombre nuevo se ve en Cocina, en la copia del nombre dentro de las recetas que la usan (sin cambiarles la versión) y en Finanzas. Si a una harina le sacas la palabra "Harina" te avisa (Cocina la reconoce por el nombre).
+4. **Archivar / Reactivar** (en el mismo diálogo): archivar la saca de Cocina (no se ofrece para elegir ni para pedir); **no se puede** si una receta viva (no archivada) la usa, y te dice cuáles. Nada se borra. Reactivar la deja activa con sus mismas áreas. Cada cambio queda en el historial de la materia prima y en el historial de Sistema Fën.
+5. **Compras del SII → "Crear desde esta línea"** (en los productos sin asociar): abre el mismo diálogo lleno con la factura: el nombre limpio ("HNA PANADERA 25KG" → "Harina panadera"), lo que trae una unidad (la misma lectura de Asociar), el precio neto de la última compra y si parece insumo. Al guardar crea la materia prima **y asocia** ese producto del proveedor a ella (se aprende para las próximas facturas), con el precio de esa compra (origen SII). Si cambias el precio, queda "A mano". Si el nombre ya existe, te ofrece **Asociar a esa**.
+6. **Asociar** (lo de siempre) ahora muestra arriba **las 3 más parecidas**, también cuando el proveedor la llama distinto o abreviada (HNA = harina, MANTEQ = mantequilla, S/SAL = sin sal…): toca "Usar esta". Y si no está, "No está: crear desde esta línea".
+
+### Cómo queda guardado (para el que venga)
+- **fen-produccion** `mps/{MP###|IN###}`: lo de siempre (`docMp`) + `areas` (lista; vacía = todas), `origen { base: 'sistema-fen', manual: true, sii? { rut, proveedor, nombreItem } }`, `historial [{ accion creó|cambió|archivó|reactivó, detalle, por, en }]` (últimos 50); al archivar `estado 'archivada', estadoAntes, archivadaPor, archivadaEn`; al reactivar `estado 'activa', reactivadaPor, reactivadaEn`. `recetas/{id}.ingredientes[].nombre` / `insumos[].nombre` se actualizan al cambiar el nombre (el ID no cambia).
+- **fen-gastos** `costos_mp/{id}`: `origen 'manual'` (o `'sii'` con `sii { rut, proveedor, folio, fecha, linea, nombreItem }` si el precio es el de la línea), `creadaDesde 'sistema-fen'`; `nombre` y `estado` se copian al cambiarlos. `costos_mp_hist` con el motivo. `costos_asoc/{rut__nombre}` con nota "Creada desde esta línea".
+
+### Lecturas y escrituras (Spark)
+- **Abrir el diálogo:** 0 lecturas (las materias primas y recetas ya están en la memoria compartida con Hoy y Producción).
+- **Crear:** 1 transacción en la base de Cocina (1 lectura + 1 escritura) + la marca de cambio (1 escritura); en Finanzas 1 transacción (1 lectura + 2 escrituras). Desde una línea: + la asociación (2 lecturas, 2 escrituras) y la revisión de compras de siempre.
+- **Cambiar / archivar:** 1 transacción (1 lectura + 1 escritura) + la marca; un cambio de nombre escribe además 1 documento por receta que la usa; en Finanzas 1 lectura (+1 escritura si cambia).
+- Nadie vuelve a leer las ≈ 300 materias primas por un cambio tuyo: la memoria queda con lo nuevo (como al resolver un pedido de Cocina). Las tablets ven el cambio con la marca de cambio.
+
+### Instalación v0.76.0 (unos 5 minutos)
+1. **Sistema Fën v0.76.0:** GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.76.0.zip` (con la carpeta `cocina/`, que no cambia, y el archivo nuevo `mp-alta-modelo.js`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+2. **Cocina v0.17.10:** GitHub, repo **fen-cocina**, raíz → sube los archivos del zip `fen-cocina-v0.17.10.zip` → **Commit changes**. En cada tablet, cierra y abre la app.
+3. Reglas y Apps Script: nada.
+
+### Lista de verificación v0.76.0
+- [ ] Abajo dice **v0.76.0**; en las tablets, **Cocina v0.17.10**.
+- [ ] Finanzas → Costos → Materias primas → **Nueva materia prima o insumo**: escribe el nombre de una que ya existe → dice "Ya existe…" con "Abrir esa". Crea una de prueba (por ejemplo "Prueba ficticia", 1kg, $1.000, solo Panadería) → aparece en la lista con su precio por kg.
+- [ ] En la tablet de Panadería, al agregar un ingrediente aparece "Prueba ficticia"; en la de Cafetería, no.
+- [ ] Toca su fila → **Nombre, categoría y áreas** → cámbiale el nombre y suma Cafetería → Guardar; en la tablet de Cafetería ahora aparece con el nombre nuevo.
+- [ ] En el mismo diálogo → **Archivar** → en la tablet ya no aparece (ni en "Falta una materia prima"). Una que usa una receta viva (por ejemplo la sal) no deja archivar y dice cuál receta.
+- [ ] Compras del SII: en un producto sin asociar, **Asociar** muestra "Las más parecidas"; **Crear desde esta línea** abre el diálogo lleno; al guardar el producto queda asociado y el precio dice "SII".
+- [ ] Hoy y Producción abren normal.
+
+**Si algo sale mal:** vuelve a subir la v0.75.1 (y Cocina v0.17.9). No se pierde nada: lo creado queda en la base de Cocina y en Finanzas (las versiones anteriores lo muestran igual; solo no tienen los botones nuevos). Ojo: Cocina v0.17.9 ofrecería las archivadas en "Falta una materia prima" (al habilitarlas desde Producción se reactivan).
+
+**Pruebas:** `pruebas/sistemafen/mp-crear-v0760.test.js` (12/12) y las demás suites (`pruebas/resultados-v0760.txt`, con `pruebas/correr-v0760.sh`). Capturas en `pruebas/capturas/mp-crear-v0760/` (lista y diálogo a 390 y 1280, datos y archivar, asociar con parecidas, crear desde una línea a 390 y 1280, Cocina sin las archivadas).
 
 ## Novedades de la v0.75.1: habilitar una materia prima inactiva
 

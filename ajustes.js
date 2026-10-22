@@ -9,9 +9,9 @@
 //  la caja mientras tanto, no se pierde su cambio.
 //  La caja lee estos ajustes al abrirse: llegan a cada tablet al recargar la caja.
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, runTransaction } from './firebase.js?v=0.75.1';
-import { diaLocal, productos } from './caja.js?v=0.75.1';
-import * as AR from './areas.js?v=0.75.1';
+import { auth, db, collection, doc, getDoc, getDocs, runTransaction } from './firebase.js?v=0.76.0';
+import { diaLocal, productos } from './caja.js?v=0.76.0';
+import * as AR from './areas.js?v=0.76.0';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
