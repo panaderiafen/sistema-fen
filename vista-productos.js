@@ -5,9 +5,9 @@
 //  #catalogo/armar: una sola vez, une lo vivo de la caja y de B2B en productos del catálogo (juntando los que llevan a la misma receta).
 //  Datos en catalogo-productos.js; reglas puras en catalogo-productos-modelo.js. H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, dialogo }
 // ═══════════════════════════════════════════════
-import * as C from './catalogo-productos.js?v=0.77.1';
-import * as CPM from './catalogo-productos-modelo.js?v=0.77.1';
-import * as AR from './areas.js?v=0.77.1';
+import * as C from './catalogo-productos.js?v=0.78.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.78.0';
+import * as AR from './areas.js?v=0.78.0';
 
 const st = { D: null, cargando: null, filtro: { estado: 'activo', canal: 'todos', tipo: 'todos', q: '' }, msg: '', err: '', grupos: null, gmsg: '', gerr: '', ocupado: false };
 export const estado = st;
@@ -40,7 +40,7 @@ export async function pintar(el, sub, h, c) {
   catch (e) { st.forzar = false; el.innerHTML = st.cab() + `<section class="tarjeta"><p class="error" role="alert">${H.esc(error(e))}</p></section>`; return; }
   st.forzar = false;
   if (!location.hash.startsWith('#catalogo/' + pestana)) return;
-  if (st.D.estados.gastos !== 'ok') { el.innerHTML = st.cab() + `<section class="tarjeta"><p class="aviso">El catálogo se guarda en la base de Gastos y Finanzas (fen-gastos), que no está conectada en este equipo. Conéctala en <a href="#gastos">Gastos → Base nueva</a>.</p></section>`; return; }
+  if (st.D.estados.gastos !== 'ok') { el.innerHTML = st.cab() + `<section class="tarjeta"><p class="aviso">El catálogo se guarda en la base de Gastos y Finanzas (fen-gastos), que no está conectada en este equipo. Conéctala en <a href="#gastos/config/base">Gastos → Configuración → Base nueva</a>.</p></section>`; return; }
   if (pestana === 'armar') { st.grupos = null; return dibujarArmar(el); }
   dibujar(el);
   // #catalogo/productos/PR0001 abre ese producto

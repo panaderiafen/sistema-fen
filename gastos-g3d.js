@@ -18,13 +18,13 @@
 //    vencimiento lo lleva (los gastos nacen partidos al pagarlo). "Cambiar reparto" de un mes ya cargado: planCambioReparto.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as B from './gastos-banco.js?v=0.77.1';
-import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.77.1';
-import * as M from './gastos-g2.js?v=0.77.1';
-import * as G3 from './gastos-g3.js?v=0.77.1';
-import { FERIADOS } from './feriados-cl.js?v=0.77.1';
-import * as FR from './finanzas-resultados.js?v=0.77.1';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
-import * as AB from './gastos-abono.js?v=0.77.1';   // v0.67.5: el reparto en % (el mismo de los abonos)
+import * as B from './gastos-banco.js?v=0.78.0';
+import { dia, huella, idLimpio } from './gastos-modelo.js?v=0.78.0';
+import * as M from './gastos-g2.js?v=0.78.0';
+import * as G3 from './gastos-g3.js?v=0.78.0';
+import { FERIADOS } from './feriados-cl.js?v=0.78.0';
+import * as FR from './finanzas-resultados.js?v=0.78.0';   // v0.67.1: una sola regla para "financiero" (tipoResultado)
+import * as AB from './gastos-abono.js?v=0.78.0';   // v0.67.5: el reparto en % (el mismo de los abonos)
 
 const s = v => String(v == null ? '' : v);
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -381,8 +381,8 @@ export function avisosPrevired(hoy, registrados, feriados = FERIADOS) {
     if (k === 2 && ![...reg].some(x => x < per)) return;
     const vence = venceDe(per, feriados), estado = hoy < vence ? 'pronto' : hoy === vence ? 'hoy' : 'atrasado', mes = MESES[+per.slice(5) - 1];
     const titulo = estado === 'pronto' ? `Previred de ${mes} vence el ${fechaLarga(vence)}` : estado === 'hoy' ? `Previred de ${mes} vence hoy, ${fechaLarga(vence)}` : `Previred de ${mes} venció el ${fechaLarga(vence)}: atrasado, se cobran multas`;
-    const detalle = estado === 'atrasado' ? `Págalo cuanto antes y sube el comprobante de pago (Conciliación → Previred): las multas e intereses quedan como gasto.`
-      : `Pagar en Previred y subir el comprobante de pago en Conciliación → Previred${estado === 'hoy' ? ' (después de hoy se cobran multas)' : ''}.`;
+    const detalle = estado === 'atrasado' ? `Págalo cuanto antes y sube el comprobante de pago (Gastos → Previred): las multas e intereses quedan como gasto.`
+      : `Pagar en Previred y subir el comprobante de pago en Gastos → Previred${estado === 'hoy' ? ' (después de hoy se cobran multas)' : ''}.`;
     out.push({ periodo: per, vence, estado, dias: diasEntre(hoy, vence), titulo, detalle });
   });
   return out;

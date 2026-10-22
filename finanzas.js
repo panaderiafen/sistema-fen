@@ -47,22 +47,22 @@
 //  v0.76.0: materias primas e insumos nuevos desde Finanzas → Costos (crearMateriaPrima, crearDesdeLinea): costos_mp con origen 'manual'
 //   (o 'sii' si el precio es el de la línea de factura), creadaDesde 'sistema-fen' y su historial; datosMpEnCostos copia nombre y estado.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.77.1';
-import * as FB from './fs-gastos.js?v=0.77.1';
-import * as GB from './gastos-base.js?v=0.77.1';
-import * as P from './produccion.js?v=0.77.1';
-import * as FC from './finanzas-costos.js?v=0.77.1';
-import * as FS from './finanzas-sii.js?v=0.77.1';
-import * as FM from './finanzas-motor.js?v=0.77.1';
-import * as FV from './finanzas-ventas.js?v=0.77.1';
-import * as FMG from './finanzas-margenes.js?v=0.77.1';
-import * as FR from './finanzas-resultados.js?v=0.77.1';
-import * as FE from './finanzas-eerr.js?v=0.77.1';
-import * as CPM from './catalogo-productos-modelo.js?v=0.77.1';
-import * as Caja from './caja.js?v=0.77.1';
-import * as B from './b2b.js?v=0.77.1';
-import * as FBB from './firebase-b2b.js?v=0.77.1';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.77.1';
+import { auth as authSF } from './firebase.js?v=0.78.0';
+import * as FB from './fs-gastos.js?v=0.78.0';
+import * as GB from './gastos-base.js?v=0.78.0';
+import * as P from './produccion.js?v=0.78.0';
+import * as FC from './finanzas-costos.js?v=0.78.0';
+import * as FS from './finanzas-sii.js?v=0.78.0';
+import * as FM from './finanzas-motor.js?v=0.78.0';
+import * as FV from './finanzas-ventas.js?v=0.78.0';
+import * as FMG from './finanzas-margenes.js?v=0.78.0';
+import * as FR from './finanzas-resultados.js?v=0.78.0';
+import * as FE from './finanzas-eerr.js?v=0.78.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.78.0';
+import * as Caja from './caja.js?v=0.78.0';
+import * as B from './b2b.js?v=0.78.0';
+import * as FBB from './firebase-b2b.js?v=0.78.0';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.78.0';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -74,7 +74,7 @@ export async function conexiones() {
   const [g, p] = await Promise.all([GB.conexion().catch(e => ({ estado: 'error', error: e })), P.conexion().catch(e => ({ estado: 'error', error: e }))]);
   return { gastos: g, prod: p };
 }
-async function dbG() { const cx = await GB.conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva de Gastos (Gastos → Base nueva).'); return cx.db; }
+async function dbG() { const cx = await GB.conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva de Gastos (Gastos → Configuración → Base nueva).'); return cx.db; }
 
 // El maestro de costos, las marcas de revisión y la última carga
 export async function leer() {
@@ -775,14 +775,14 @@ export async function cargosCartola() {
 // v0.66.0 · Documentos del SII por clasificar (subidos, sin gasto todavía), de la memoria: para el cierre y el estado de resultados
 // v0.67.1: lo mismo que Conciliación (sin lo que ya tiene su gasto registrado: eso no se cuenta en el cierre)
 export async function siiPorClasificar() {
-  try { return await (await import('./sii-pendientes-fs.js?v=0.77.1')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
-  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.77.1');
+  try { return await (await import('./sii-pendientes-fs.js?v=0.78.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
+  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.78.0');
   const sn = await FB.getDocs(FB.collection(db, 'sii_docs'));
   return SP.pendientesDe(sn.docs.map(d => ({ id: d.id, d: d.data() })));
 }
 // v0.69.5 · Las planillas de Previred para Cierre de mes (de la memoria de la sesión; lo que falte se lee). null si no se puede.
 export async function planillasPrevired() {
-  try { return await (await import('./gastos-cartola-fs.js?v=0.77.1')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
+  try { return await (await import('./gastos-cartola-fs.js?v=0.78.0')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
 }
 export async function cargasSii() {
   const db = await dbG();

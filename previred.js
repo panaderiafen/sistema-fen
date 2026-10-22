@@ -13,8 +13,8 @@
 //  institución (cotización, intereses y multas) y si se pagó fuera de plazo. Las páginas giradas (apaisadas) se leen
 //  derechas: lineasDelPdf usa la posición en la página como se ve (con su giro), igual que antes en las no giradas.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.77.1';
-import { venceDe } from './gastos-g3d.js?v=0.77.1';
+import * as Gastos from './gastos.js?v=0.78.0';
+import { venceDe } from './gastos-g3d.js?v=0.78.0';
 
 export const VERSION_MINIMA = '2.5.0';
 // v0.51.0: con la base nueva, a fen-gastos (las escrituras antiguas de Previred en la planilla las rechaza el script v2.17.0)
@@ -477,7 +477,7 @@ export async function claveDeEnvio(periodo, trabajadores) {
 }
 export async function registrar(datos, file, idem) {
   // v0.67.3: el CSV de la nómina solo con la base nueva (marca csv: sus líneas quedan con deCsv)
-  if (datos && datos.csv && !(await Gastos.enBase())) throw new Error('El CSV de la nómina se guarda con Gastos en la base nueva (Gastos → Base nueva).');
+  if (datos && datos.csv && !(await Gastos.enBase())) throw new Error('El CSV de la nómina se guarda con Gastos en la base nueva (Gastos → Configuración → Base nueva).');
   const r = await llamar('cot_registrar', { ...datos, archivoBase64: file && file.size <= 8 * 1024 * 1024 ? await base64(file) : '', nombreArchivo: file ? file.name : '' }, idem);
   Gastos.olvidarTodo();
   return r;

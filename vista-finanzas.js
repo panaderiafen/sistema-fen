@@ -15,15 +15,15 @@
 //  línea" y las 3 más parecidas al asociar. Reglas puras en mp-alta-modelo.js; escribe en la base de Cocina (produccion.js) y aquí.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.77.1';
-import * as FC from './finanzas-costos.js?v=0.77.1';
-import * as FS from './finanzas-sii.js?v=0.77.1';
-import * as FM from './finanzas-motor.js?v=0.77.1';
-import * as FV from './finanzas-ventas.js?v=0.77.1';
-import * as FMG from './finanzas-margenes.js?v=0.77.1';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.77.1';
-import * as VR from './vista-finanzas-resultados.js?v=0.77.1';
-import * as MA from './mp-alta-modelo.js?v=0.77.1';
+import * as F from './finanzas.js?v=0.78.0';
+import * as FC from './finanzas-costos.js?v=0.78.0';
+import * as FS from './finanzas-sii.js?v=0.78.0';
+import * as FM from './finanzas-motor.js?v=0.78.0';
+import * as FV from './finanzas-ventas.js?v=0.78.0';
+import * as FMG from './finanzas-margenes.js?v=0.78.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.78.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.78.0';
+import * as MA from './mp-alta-modelo.js?v=0.78.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -68,18 +68,21 @@ const cab = (tab) => `<div class="cabecera"><div><h1 id="t-finanzas">Finanzas</h
     <a role="tab" href="#finanzas" aria-selected="${tab === 'como'}">Cómo trabajamos</a>
     <a role="tab" href="#finanzas/costos/productos" aria-selected="${tab === 'costos'}">Costos</a>
     <a role="tab" href="#finanzas/margenes" aria-selected="${tab === 'margenes'}">Márgenes</a>
-    <a role="tab" href="#finanzas/resultados" aria-selected="${tab === 'resultados'}">Resultados</a></div></div>
+    <a role="tab" href="#finanzas/resultados" aria-selected="${tab === 'resultados'}">Resultados</a>
+    <a role="tab" href="#finanzas/resumen" aria-selected="${tab === 'resumen'}">Resumen del mes</a></div></div>
   <p class="fin-pronto">Próximamente: Flujo de caja, Metas</p>`;
 
 export async function pintar(el, sub, H) {
   // v0.77.1: el maestro de materias primas usa los mismos IDs en Producción → Materias primas: la otra pantalla (oculta) se vacía
   const enProd = document.querySelector('#v-produccion #prod-tab[data-tab="mp"]'); if (enProd) enProd.innerHTML = '';
-  const p = partes(), tab = p[1] === 'costos' ? 'costos' : p[1] === 'margenes' ? 'margenes' : p[1] === 'resultados' ? 'resultados' : 'como';
+  const p = partes(), tab = p[1] === 'costos' ? 'costos' : p[1] === 'margenes' ? 'margenes' : p[1] === 'resultados' ? 'resultados' : p[1] === 'resumen' ? 'resumen' : 'como';
   st.msg = ''; st.err = '';
   if (tab === 'margenes' && st.tabPrev !== 'margenes') MS.costos = null;   // v0.60.0: costos al día al entrar a Márgenes
   if (tab === 'resultados' && st.tabPrev !== 'resultados') VR.olvidar();   // v0.61.0: los gastos al día al entrar a Resultados
   st.tabPrev = tab;
   if (tab === 'como') { el.innerHTML = cab(tab) + comoTrabajamos(H); return; }
+  // v0.78.0 (Gastos, etapa A): Resumen del mes (antes en Conciliación), junto al Cierre de mes; lo dibuja app.js con lo de la conciliación
+  if (tab === 'resumen') { if (H.resumenMes) H.resumenMes(el, cab(tab), p[2] || ''); else el.innerHTML = cab(tab); return; }
   // v0.61.0: Resultados (F3 paso 1): Clasificación, Créditos e Inversiones
   // v0.62.0: Estado de resultados (primera parte) y Cierre de mes; Clasificación pasa a #finanzas/resultados/clasificacion
   if (tab === 'resultados') return VR.pintarResultados(el, ['creditos', 'inversiones', 'clasificacion', 'cierre'].includes(p[2]) ? p[2] : 'eerr', H, { cab, error, sinBase, conexion: async () => { if (!st.cx || st.cx.gastos.estado !== 'ok') st.cx = await F.conexiones(); return st.cx; } });
@@ -111,7 +114,7 @@ function sinBase(el, tab, H) {
     : g.estado === 'sin_sesion' ? 'Falta entrar a la base nueva de Gastos con tu contraseña.'
     : g.estado === 'sin_admin' ? 'Tu cuenta no está marcada como administración en fen-gastos.' : 'No se pudo abrir la base nueva de Gastos.';
   el.innerHTML = cab(tab) + `<section class="tarjeta" aria-labelledby="t-fin-sin"><h2 id="t-fin-sin">Los costos se guardan en la base nueva de Gastos</h2>
-    <p class="ayuda">${H.esc(txt)} Se arregla en <a href="#gastos/base">Gastos → Base nueva</a>; después vuelve aquí.</p></section>`;
+    <p class="ayuda">${H.esc(txt)} Se arregla en <a href="#gastos/config/base">Gastos → Configuración → Base nueva</a>; después vuelve aquí.</p></section>`;
 }
 
 // ═══════════════ Cómo trabajamos (contenido fijo) ═══════════════
@@ -127,7 +130,7 @@ function comoTrabajamos(H) {
     <ol class="fin-pasos">
       ${paso(1, 'dia', 'Todos los días', '', '<p>El costo directo de cada producto se actualiza con cada compra. En <b>Hoy</b>: la venta del mes contra la meta y el punto de equilibrio.</p>')}
       ${paso(2, 'cierre', 'Cierre del mes', 'después de Previred, hasta el día 13', `<p>Se cierra después de pagar y cargar el Previred de ese mes, a más tardar el día 13 del mes siguiente. Orden recomendado:</p>
-        <ol class="fin-orden" id="fin-orden-cierre"><li><b>Pagar Previred</b>, ojalá antes del día 10.</li><li><b>Subir el comprobante o el CSV</b> en Conciliación → Previred.</li><li><b>Cerrar el mes</b> (Resultados → Cierre de mes).</li></ol>
+        <ol class="fin-orden" id="fin-orden-cierre"><li><b>Pagar Previred</b>, ojalá antes del día 10.</li><li><b>Subir el comprobante o el CSV</b> en Gastos → Previred.</li><li><b>Cerrar el mes</b> (Resultados → Cierre de mes).</li></ol>
         <p>Se cierra cuando están las cinco cosas:</p>
         <ul class="fin-cond">${cond('SII del mes cargado y clasificado')}${cond('Ventas completas, de las dos sucursales')}${cond('Gastos conciliados con la cartola')}${cond('Previred del mes cargado')}${cond('Conteo de bodega hecho')}</ul>
         <p>Al cerrarlo, el mes queda <b>congelado</b>. Lo que aparezca después entra como ajuste del mes siguiente. ${H.info('Por qué el Previred del mismo mes', 'Las cotizaciones de octubre son un costo de octubre: su gasto queda con fecha del 31 de octubre y se pagan hasta el 13 de noviembre. Si octubre se cierra antes de cargarlas, octubre queda con menos costo y la diferencia entra a noviembre como "Ajustes de meses cerrados". Por eso el cierre espera el Previred.')}</p>`)}
@@ -147,7 +150,7 @@ function comoTrabajamos(H) {
   <section class="tarjeta" aria-labelledby="t-fin-pagos" id="fin-pagos">
     <h2 id="t-fin-pagos">Cómo se registran los pagos ${H.info('Cómo se registran los pagos', 'Acordado el 13 de octubre de 2026: cada peso que sale por el banco se registra una sola vez y desde la cartola, con la fecha del banco. Así Gastos y la cartola siempre cuadran y nada queda duplicado.\nLas cuentas recurrentes dicen cómo se pagan (Cuentas recurrentes → Editar → "Se paga por"): banco, efectivo o tarjeta de crédito.')}</h2>
     <div class="fin-reglas">
-      <div class="fin-regla">${ic('banco', 22)}<div><b>Lo que pagas por banco lo registra la cartola</b><span>Transferencias, cargos automáticos y pagos desde la cuenta: al subir la cartola, en Conciliación → Cargos dices qué es cada cargo y ahí queda el gasto.</span></div></div>
+      <div class="fin-regla">${ic('banco', 22)}<div><b>Lo que pagas por banco lo registra la cartola</b><span>Transferencias, cargos automáticos y pagos desde la cuenta: al subir la cartola, en Gastos → Bandeja → Cargos de la cartola dices qué es cada cargo y ahí queda el gasto.</span></div></div>
       <div class="fin-regla">${ic('efectivo', 22)}<div><b>Solo el efectivo se registra a mano</b><span>En Gastos → Registrar (forma de pago Efectivo) o con "Pagar" en un vencimiento que se paga en efectivo.</span></div></div>
       <div class="fin-regla">${ic('campana', 22)}<div><b>Los vencimientos te dicen qué pagar; la cartola lo registra</b><span>Un vencimiento de banco dice "Se paga desde la cartola": te recuerda pagarlo, no se paga ahí.</span></div></div>
       <div class="fin-regla">${ic('check', 22)}<div><b>Si registras a mano un pago de banco, la cartola solo lo confirma</b><span>Queda esperando su cargo (Hoy: "Esperan cartola"). Cuando llega, elige "Ya está en Gastos" para no duplicarlo.</span></div></div>
@@ -156,9 +159,9 @@ function comoTrabajamos(H) {
   <section class="tarjeta" aria-labelledby="t-fin-sii" id="fin-sii-flujo">
     <h2 id="t-fin-sii">Las facturas del SII, de la subida al cierre ${H.info('Facturas del SII', 'Acordado el 15 de octubre de 2026 (v0.66.0). Un gasto del SII siempre es del mes de la FACTURA (lo devengado), aunque se pague otro día. El pago queda con su propia fecha (la del banco, la del efectivo o la de la tarjeta) para el flujo de caja.\nNada se da por pagado en efectivo solo: lo decides tú en Pagos sin banco.')}</h2>
     <ol class="fin-pasos fin-sii-pasos">
-      ${paso(1, 'fuente', 'Subir el SII', 'Conciliación → Subir archivo', '<p>Se guardan todos los documentos. Los de <b>proveedores conocidos</b> (el mismo ítem y área al menos 2 veces, sin repartir) <b>se clasifican solos</b>: su gasto queda con la fecha de la factura y el chip "clasificación automática" (se revisan en Cargas del SII → <b>Revisar automáticas</b>: está bien, cambiar ítem o área, o anular). Lo nuevo o dudoso queda <b>por clasificar</b>, sin gasto.</p>')}
-      ${paso(2, 'banco', 'Clasificar al conciliar', 'Conciliación → Cartola → Cargos', '<p>El cargo del banco del mismo monto muestra "Factura por clasificar": eliges ítem y área (y repartes si hace falta) y al confirmar nace el gasto con la fecha de la factura y el pago con la del banco. Si pagaste en partes, se clasifica con el primer abono. También puedes clasificar en Cargas del SII, como siempre.</p>')}
-      ${paso(3, 'efectivo', 'Pagos sin banco', 'Conciliación → Pagos sin banco', '<p>Lo primero es pagar desde el banco; esto es para las excepciones. Las facturas sin pago del banco después de 10 días (o pasado su vencimiento, si son a crédito): <b>pagada en efectivo</b> (de dónde: <b>efectivo de cobros B2B</b>, que nunca pasa por el banco, u otro), <b>con tarjeta de crédito</b> o <b>todavía por pagar</b> (a crédito con su vencimiento: Agenda y Hoy). Ahí ves también el <b>efectivo en mano estimado</b>: lo cobrado en efectivo a clientes B2B menos lo pagado con ese efectivo.</p>')}
+      ${paso(1, 'fuente', 'Subir el SII', 'Gastos → Bandeja → Subir archivo', '<p>Se guardan todos los documentos. Los de <b>proveedores conocidos</b> (el mismo ítem y área al menos 2 veces, sin repartir) <b>se clasifican solos</b>: su gasto queda con la fecha de la factura y el chip "clasificación automática" (se revisan en Cargas del SII → <b>Revisar automáticas</b>: está bien, cambiar ítem o área, o anular). Lo nuevo o dudoso queda <b>por clasificar</b>, sin gasto.</p>')}
+      ${paso(2, 'banco', 'Clasificar al conciliar', 'Gastos → Bandeja → Cargos de la cartola', '<p>El cargo del banco del mismo monto muestra "Factura por clasificar": eliges ítem y área (y repartes si hace falta) y al confirmar nace el gasto con la fecha de la factura y el pago con la del banco. Si pagaste en partes, se clasifica con el primer abono. También puedes clasificar en Cargas del SII, como siempre.</p>')}
+      ${paso(3, 'efectivo', 'Pagos sin banco', 'Gastos → Bandeja → Pagos sin banco', '<p>Lo primero es pagar desde el banco; esto es para las excepciones. Las facturas sin pago del banco después de 10 días (o pasado su vencimiento, si son a crédito): <b>pagada en efectivo</b> (de dónde: <b>efectivo de cobros B2B</b>, que nunca pasa por el banco, u otro), <b>con tarjeta de crédito</b> o <b>todavía por pagar</b> (a crédito con su vencimiento: Agenda y Hoy). Ahí ves también el <b>efectivo en mano estimado</b>: lo cobrado en efectivo a clientes B2B menos lo pagado con ese efectivo.</p>')}
       ${paso(4, 'cierre', 'Cierre del mes', 'Resultados → Cierre de mes', '<p>Para cerrar, ningún documento del SII de ese mes puede quedar por clasificar (o se cierra igual con el motivo). El estado de resultados avisa si quedan, con su monto.</p>')}
     </ol>
   </section>
@@ -176,7 +179,7 @@ function comoTrabajamos(H) {
       ${def('Tarjeta de crédito', '<b>Compras con tarjeta</b>: son gasto el día de la compra (entran por el SII, con su factura). <b>Pago de la tarjeta</b>: queda fuera del resultado, es solo flujo de caja (en la cartola se marca "Pago de tarjeta": no crea gasto). <b>Mantención e intereses de la tarjeta</b>: gasto financiero, se registran a mano en Gastos.', 'Ejemplo: compras $100.000 en harina con la tarjeta el 10 de marzo → gasto de marzo. El 5 de abril pagas la tarjeta: ese cargo no es gasto (ya se contó en marzo). La comisión de mantención de $3.000 sí es gasto financiero de abril.')}
       ${def('Productos de reventa', 'Lo que compras hecho para venderlo tal cual (bebidas, jugos, chocolates, té e infusiones, Magia…). <b>En Gastos</b> la compra va al ítem "PRODUCTOS DE REVENTA" con el <b>área REVENTA</b> (en Gastos → Ítems, área fija REVENTA). En Resultados → Clasificación ese ítem es "Compras de productos de reventa" (se propone solo por el nombre: reventa, chocolate, infusión, té, Magia): <b>no es una línea de gasto</b>. Lo que entra al resultado es el costo de lo <b>vendido</b>: el costo de compra neto de cada producto (Márgenes → Asociar productos, tipo Reventa) × las unidades vendidas. En Asociar productos, el tipo Reventa propone el <b>área Reventa</b>: así el estado de resultados tiene su columna <b>Reventa</b> (aparece solo si el mes tiene algo), con sus ventas, su costo, su margen de contribución y sus fijos, si algún gasto tiene área REVENTA. Reventa es solo un área de margen: no está en Cocina ni en Producción, no entra sola en un reparto (solo si la eliges) y no recibe comunes en la vista repartida por causa. <b>Pendiente:</b> que ese costo se actualice solo con cada factura del SII; por ahora se escribe a mano.', 'Ejemplo: compras 24 chocolates a $500 netos c/u ($12.000) y vendes 10 en el mes → al resultado entran $5.000 de costo; los 14 que quedan no son gasto todavía.')}
       ${def('Costo de canal B2C', 'Lo que cuesta <b>atender a los clientes de las tiendas</b> (B2C), no lo que cuesta producir: por ejemplo, la parte de la luz y el agua de la sala de venta, o lo de las cajeras. En Gastos es el área <b>B2C</b>, igual que <b>B2B</b> es lo que cuesta atender a los clientes B2B. No es un área que produce ni de margen: no está en Cocina ni en Producción, y nunca entra sola en un reparto (solo si la eliges tú). En el estado de resultados va como B2B: a Común, con su nota de costo de canal, hasta que exista la fila de costo de canal. Cada gasto guarda su local o su cuenta, así más adelante se puede ver por tienda. Es la base para calcular después <b>cuánto cuesta conseguir y atender a un cliente</b>.', 'Ejemplo: la luz de Barros Arana se reparte 70 % Cafetería (lo que produce) y 30 % B2C (la sala de venta).')}
-      ${def('Boletas de luz y agua', 'Cada boleta (CGE, ESSBIO) se sube como PDF en Gastos → Por pagar (o en Conciliación → Subir archivo). Su gasto es del <b>mes en que termina el período</b> de la boleta, con fecha del último día de ese mes: 16 ago – 15 sep es de septiembre; 8 sep – 7 oct es de octubre. Una boleta no da crédito de IVA: su costo es el total. Los intereses que trae van aparte, como gasto financiero. El "saldo anterior" no es un gasto nuevo: son las boletas de antes que siguen por pagar.')}
+      ${def('Boletas de luz y agua', 'Cada boleta (CGE, ESSBIO) se sube como PDF en Gastos → Por pagar (o en Gastos → Bandeja → Subir archivo). Su gasto es del <b>mes en que termina el período</b> de la boleta, con fecha del último día de ese mes: 16 ago – 15 sep es de septiembre; 8 sep – 7 oct es de octubre. Una boleta no da crédito de IVA: su costo es el total. Los intereses que trae van aparte, como gasto financiero. El "saldo anterior" no es un gasto nuevo: son las boletas de antes que siguen por pagar.')}
       ${def('Qué queda fuera del resultado', 'No son gasto del mes, van al flujo de caja: el <b>capital</b> de las cuotas de crédito (solo el interés es gasto), el pago de IVA (<b>F29</b>), las <b>inversiones</b> (entran al resultado como depreciación mensual según su vida útil) y los <b>retiros</b>. El sueldo empresarial sí es costo (fijo común).')}
     </dl>
   </section>`;
@@ -228,7 +231,7 @@ export async function pintarMaestro(el, H, opc = {}) {
     st.cx = await F.conexiones();
     if (st.cx.gastos.estado !== 'ok') {
       el.innerHTML = `<section class="tarjeta" aria-labelledby="t-fin-sin"><h2 id="t-fin-sin">Los precios se guardan en la base de Gastos y Finanzas</h2>
-        <p class="ayuda">Falta conectar la base nueva de Gastos (fen-gastos), donde está el precio de cada materia prima. Se arregla en <a href="#gastos/base">Gastos → Base nueva</a>; después vuelve aquí.</p></section>`;
+        <p class="ayuda">Falta conectar la base nueva de Gastos (fen-gastos), donde está el precio de cada materia prima. Se arregla en <a href="#gastos/config/base">Gastos → Configuración → Base nueva</a>; después vuelve aquí.</p></section>`;
       return;
     }
     const [, k] = await Promise.all([recargar(), opc.conteo ? opc.conteo() : Promise.resolve(null)]);
@@ -1307,7 +1310,7 @@ function dialogoVinculo(p, el, volver, H) {
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
   // v0.73.0: la lista de reventa (cat_reventa, de la memoria de fs-gastos): activas, más la que ya tenía este producto
   const selRev = d.querySelector('#m-v-revid');
-  import('./reventa.js?v=0.77.1').then(R => R.leer()).then(({ lista }) => {
+  import('./reventa.js?v=0.78.0').then(R => R.leer()).then(({ lista }) => {
     MS.reventa = lista;
     const ofrecer = lista.filter(x => x.estado !== 'archivado' || (v && v.reventaId === x.id)).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
     selRev.innerHTML = `<option value="">${ofrecer.length ? 'Elige…' : 'La lista de reventa está vacía (Catálogo → Reventa)'}</option>` + ofrecer.map(x => `<option value="${H.esc(x.id)}" data-costo="${x.costoNeto ?? ''}" data-nombre="${H.esc(x.nombre)}" ${v && v.reventaId === x.id ? 'selected' : ''}>${H.esc(x.nombre)} · ${H.esc(x.id)} · $${(Math.round(Number(x.costoNeto || 0) * 100) / 100).toLocaleString('es-CL')} / ${H.esc(x.unidad || 'un')}${x.estado === 'archivado' ? ' · archivada' : ''}</option>`).join('');

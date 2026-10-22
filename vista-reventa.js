@@ -4,8 +4,8 @@
 //  ID para la caja y B2B. Crear, cambiar, archivar y reactivar con diálogos en la página; "Traer reventa de la planilla" una vez.
 //  Datos en reventa.js; reglas en reventa-modelo.js. H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, dialogo }
 // ═══════════════════════════════════════════════
-import * as R from './reventa.js?v=0.77.1';
-import * as RV from './reventa-modelo.js?v=0.77.1';
+import * as R from './reventa.js?v=0.78.0';
+import * as RV from './reventa-modelo.js?v=0.78.0';
 
 const st = { lista: null, meta: null, usos: {}, filtro: 'activo', q: '', msg: '', err: '', ocupado: false, sinGastos: false };
 export const estado = st;
@@ -22,7 +22,7 @@ const TXT_COSTO = 'Lo que pagas por una unidad, sin IVA. Si lo copias de una bol
 export async function pintar(el, h, ctx) {
   H = h; ctxCat = ctx;
   el.innerHTML = ctx.cab() + '<section class="tarjeta"><div class="vacio" style="border:0">Leyendo la reventa…</div></section>';
-  if (!(await R.conectada())) { st.sinGastos = true; el.innerHTML = ctx.cab() + `<section class="tarjeta"><p class="aviso">La reventa se guarda en la base de Gastos y Finanzas (fen-gastos), que no está conectada en este equipo. Conéctala en <a href="#gastos">Gastos → Base nueva</a>.</p></section>`; return; }
+  if (!(await R.conectada())) { st.sinGastos = true; el.innerHTML = ctx.cab() + `<section class="tarjeta"><p class="aviso">La reventa se guarda en la base de Gastos y Finanzas (fen-gastos), que no está conectada en este equipo. Conéctala en <a href="#gastos/config/base">Gastos → Configuración → Base nueva</a>.</p></section>`; return; }
   try { const r = await R.leer(); st.lista = r.lista; st.meta = r.meta; st.err = ''; }
   catch (e) { el.innerHTML = ctx.cab() + `<section class="tarjeta"><p class="error">${H.esc((e && e.message) || H.mensajeError(e))}</p></section>`; return; }
   // "Se vende como": los vínculos de Finanzas y los productos de la caja y B2B (de "Qué está vivo" si ya se abrió; si no, de la memoria de Finanzas)
@@ -30,7 +30,7 @@ export async function pintar(el, h, ctx) {
     const D = ctx.datos();
     let vinc, cat;
     if (D) { vinc = D.datos.vinculos; cat = { caja: Object.fromEntries((D.datos.caja || []).map(p => [p.id, p])), b2b: Object.fromEntries((D.datos.b2b || []).map(p => [p.id, p])) }; }
-    else { const F = await import('./finanzas.js?v=0.77.1'); [vinc, cat] = await Promise.all([F.leerVinculos().catch(() => ({})), F.catalogosVenta().catch(() => ({ caja: {}, b2b: {} }))]); }
+    else { const F = await import('./finanzas.js?v=0.78.0'); [vinc, cat] = await Promise.all([F.leerVinculos().catch(() => ({})), F.catalogosVenta().catch(() => ({ caja: {}, b2b: {} }))]); }
     st.vinc = vinc || {}; st.cat = cat || null;
   } catch (e) { st.vinc = {}; st.cat = null; }
   dibujar(el);

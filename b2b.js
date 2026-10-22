@@ -8,14 +8,14 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.77.1';
-import * as FB from './firebase-b2b.js?v=0.77.1';
-import * as Apps from './apps.js?v=0.77.1';
-import * as Mem from './fs-memoria.js?v=0.77.1';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.77.1';
-import { distanciaTef } from './feriados-cl.js?v=0.77.1';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.77.1';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.77.1';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.78.0';
+import * as FB from './firebase-b2b.js?v=0.78.0';
+import * as Apps from './apps.js?v=0.78.0';
+import * as Mem from './fs-memoria.js?v=0.78.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.78.0';
+import { distanciaTef } from './feriados-cl.js?v=0.78.0';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.78.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.78.0';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -970,7 +970,7 @@ export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
   const conf = d.conciliacion;
   if (conf && conf.importado) {
     const dias = diasRitmo(conf), revisado = hastaRevisado(conf, hoy);
-    for (let f = desde; f <= hasta; f = masDiasB(f, 1)) if (dias.includes(new Date(f + 'T12:00:00').getDay())) out.push({ auto: true, cat: 'conciliar', fecha: f, titulo: 'Conciliar la cartola', sub: 'Días de conciliar', url: '#conciliacion', hecho: f <= hoy && !!revisado && revisado >= masDiasB(f, -1) });
+    for (let f = desde; f <= hasta; f = masDiasB(f, 1)) if (dias.includes(new Date(f + 'T12:00:00').getDay())) out.push({ auto: true, cat: 'conciliar', fecha: f, titulo: 'Conciliar la cartola', sub: 'Días de conciliar', url: '#b2b/conciliacion', hecho: f <= hoy && !!revisado && revisado >= masDiasB(f, -1) });
   }
   // Facturar: hoy, lo que ya toca; hacia adelante, según cómo factura cada cliente (diaria: lunes a sábado; semanal: sábado; mensual: último día del mes)
   const modo = c => modoFacturacion(c.facturacion);
@@ -2170,7 +2170,7 @@ export async function guardarReglaB2b(op) {
   let res = null;
   await FB.runTransaction(db, async tx => {
     const cs = await tx.get(cref); if (!cs.exists()) throw new Error('Falta la configuración de la conciliación.');
-    const cd = cs.data(); if (!migradoB2b(cd)) throw new Error('Las reglas de Abonos todavía no están listas: abre Conciliación → Abonos y vuelve a intentar.');
+    const cd = cs.data(); if (!migradoB2b(cd)) throw new Error('Las reglas de Abonos todavía no están listas: abre Ventas B2B → Conciliación y vuelve a intentar.');
     const L = reglasB2b(cd);
     let x = null;
     if (o.que === 'crear' || o.que === 'aceptar' || o.que === 'descartar') {
@@ -2206,7 +2206,7 @@ export function movimientosRecientes(dias = RC.DIAS_SUGERIR) {
   return p;
 }
 export const usoRecientesB2b = () => (recientes ? { dias: recientes.dias, lecturas: recientes.lecturas } : null);
-// v0.69.3 · Conciliación → Resumen del mes: los abonos de un mes con lo que ya está en la memoria (0 lecturas).
+// v0.69.3 · Finanzas → Resumen del mes: los abonos de un mes con lo que ya está en la memoria (0 lecturas).
 // pendientes: b2b.datos.movimientos (la escucha). Lo resuelto sale de lo leído por rango en esta sesión (repetidos, Ya conciliados,
 // reglas sugeridas o "Contar lo conciliado"). completo: todos los días del mes (hasta hoy) ya se leyeron, así la cuenta es exacta.
 // → { pendientes, resueltos, completo, desde (el primer día del mes ya leído, si no está completo) }

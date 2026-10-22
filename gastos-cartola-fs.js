@@ -19,22 +19,22 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.77.1';
-import * as M from './gastos-g2.js?v=0.77.1';
-import * as G3 from './gastos-g3.js?v=0.77.1';
-import * as G3D from './gastos-g3d.js?v=0.77.1';
-import * as C from './gastos-cartola.js?v=0.77.1';
-import * as B from './gastos-banco.js?v=0.77.1';
-import { huella } from './gastos-modelo.js?v=0.77.1';
-import * as FS from './gastos-fs.js?v=0.77.1';
-import * as GB from './gastos-base.js?v=0.77.1';
-import * as TE from './tef-enviadas.js?v=0.77.1';
-import * as P from './proveedores.js?v=0.77.1';
-import * as SP from './sii-pendientes.js?v=0.77.1';   // v0.66.0: documentos del SII por clasificar
-import { registradosGastos } from './bandeja.js?v=0.77.1';   // v0.68.0: lo registrado con su estado (Buscar en Gastos)
-import * as RC from './reglas-conc.js?v=0.77.1';   // v0.69.0: las reglas de conciliación (conc_reglas)
-import * as PT from './puntaje.js?v=0.77.1';      // v0.69.0: el ritmo de pago de cada proveedor
-import * as PM from './pagos-mixtos.js?v=0.77.1';  // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as FB from './fs-gastos.js?v=0.78.0';
+import * as M from './gastos-g2.js?v=0.78.0';
+import * as G3 from './gastos-g3.js?v=0.78.0';
+import * as G3D from './gastos-g3d.js?v=0.78.0';
+import * as C from './gastos-cartola.js?v=0.78.0';
+import * as B from './gastos-banco.js?v=0.78.0';
+import { huella } from './gastos-modelo.js?v=0.78.0';
+import * as FS from './gastos-fs.js?v=0.78.0';
+import * as GB from './gastos-base.js?v=0.78.0';
+import * as TE from './tef-enviadas.js?v=0.78.0';
+import * as P from './proveedores.js?v=0.78.0';
+import * as SP from './sii-pendientes.js?v=0.78.0';   // v0.66.0: documentos del SII por clasificar
+import { registradosGastos } from './bandeja.js?v=0.78.0';   // v0.68.0: lo registrado con su estado (Buscar en Gastos)
+import * as RC from './reglas-conc.js?v=0.78.0';   // v0.69.0: las reglas de conciliación (conc_reglas)
+import * as PT from './puntaje.js?v=0.78.0';      // v0.69.0: el ritmo de pago de cada proveedor
+import * as PM from './pagos-mixtos.js?v=0.78.0';  // v0.69.2: pagos mixtos (un documento pagado en partes)
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -102,7 +102,7 @@ export async function lista(diasP) {
   // v0.67.4 · Los gastos sin cargo y, aparte, las notas de crédito sin cargo (con su referencia): solo se suman con su factura
   const grupos = B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon))), { conNC: true });
   const rNC = refsNC(ab.siiDocs), ncs = grupos.filter(g => g.monto < 0).map(g => (rNC[g.siiDocId] ? { ...g, refs: rNC[g.siiDocId] } : g));
-  const SPF = await import('./sii-pendientes-fs.js?v=0.77.1');
+  const SPF = await import('./sii-pendientes-fs.js?v=0.78.0');
   const siiPendientes = await SPF.pendientes().catch(async () => SP.pendientesDe(await todos('sii_docs').catch(() => []))), siiRegistrados = await SPF.registrados().catch(() => []);
   // v0.69.0 · El ritmo de pago de cada proveedor (factura → cargo del banco), de los gastos de 12 meses que ya están en la memoria (0 lecturas)
   const ritmos = await ritmosProveedores(hoy, todosC).catch(() => ({}));
@@ -803,7 +803,7 @@ async function resolverPrevired(c0, p, marca, tr) {
     const snV = await tx.get(refV); if (!snV.exists()) throw error('Ese vencimiento ya no existe', 'datos');
     const a = snV.data(), eb = G3.estadoBase(a);
     if (!['esperando_documento', 'por_pagar'].includes(eb)) throw error(`"${s(a.nombre)}" ya no está por pagar. Recarga la lista.`, 'pagado');
-    if (!G3.esPrevired(a)) throw error('Ese vencimiento no tiene el certificado de Previred: súbelo primero (Conciliación → Previred).', 'datos');
+    if (!G3.esPrevired(a)) throw error('Ese vencimiento no tiene el certificado de Previred: súbelo primero (Gastos → Previred).', 'datos');
     const Rs = [], leidas = {};
     for (const c of cs) { if (!leidas[c.clave]) leidas[c.clave] = await leerRegla(tx, d, c.clave); Rs.push(leidas[c.clave]); }
     const total = G3D.totalPlan(a.documento.previred), suma = cs.reduce((x, c) => x + c.monto, 0);   // v0.67.0: con las multas e intereses del comprobante
@@ -842,7 +842,7 @@ async function unirPlanilla(c0, p, marca) {
   if (lista.length > 12) throw error('Son demasiados cargos de una vez (máximo 12)', 'datos');
   if (new Set(lista.map(x => x.id)).size !== lista.length) throw error('Un cargo está repetido', 'datos');
   const pl = (await planillas()).find(x => x.periodo === per);
-  if (!pl) throw error('Esa planilla de Previred ya no está (Conciliación → Previred)', 'datos');
+  if (!pl) throw error('Esa planilla de Previred ya no está (Gastos → Previred)', 'datos');
   if (pl.vencAbierto) throw error('Esa planilla tiene su vencimiento de Cotizaciones por pagar: págalo con "Pago de Previred" en vez de unir.', 'datos');
   const clave = marca.t + marca.r, t = ahora(), por = quien();
   // v0.67.3 · "Registrar la diferencia como multas e intereses": el ítem (de la lista vigente) y el área; el gasto sale del cargo
@@ -1151,7 +1151,7 @@ export async function quitarRegla(clave) {
 }
 
 // ═══════════════════════════════════════════════
-//  v0.64.0 · Proveedores (Conciliación → Proveedores): lista, detalle y fichas a mano. Todo desde la memoria.
+//  v0.64.0 · Proveedores (Gastos → Proveedores): lista, detalle y fichas a mano. Todo desde la memoria.
 // ═══════════════════════════════════════════════
 export async function proveedoresLista() {
   const hoy = M.ahoraChile().dia;

@@ -6,11 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.77.1';
-import * as FR from './finanzas-resultados.js?v=0.77.1';
-import * as FE from './finanzas-eerr.js?v=0.77.1';
-import * as FC from './finanzas-costos.js?v=0.77.1';
-import * as SP from './sii-pendientes.js?v=0.77.1';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.78.0';
+import * as FR from './finanzas-resultados.js?v=0.78.0';
+import * as FE from './finanzas-eerr.js?v=0.78.0';
+import * as FC from './finanzas-costos.js?v=0.78.0';
+import * as SP from './sii-pendientes.js?v=0.78.0';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
 const $ = id => document.getElementById(id);
@@ -32,7 +32,7 @@ const mesHoy = () => hoyTxt().slice(0, 7);
 const mesDefecto = () => FE.mesMas(mesHoy(), -1) >= `${FR.ANIO}-01` ? FE.mesMas(mesHoy(), -1) : mesHoy();
 const cerrado = m => !!(ES.cierres && ES.cierres[m] && ES.cierres[m].estado === 'cerrado');
 const mensajes = H => `<p class="ok-texto" id="e-msg" role="status">${H.esc(ES.msg)}</p><p class="error" id="e-err" role="alert">${H.esc(ES.err)}</p>`;
-// v0.69.3 · Conciliación → Resumen del mes: "Ir a Cierre de mes" abre el mismo mes
+// v0.69.3 · Finanzas → Resumen del mes: "Ir a Cierre de mes" abre el mismo mes
 export function elegirMes(m) { if (/^\d{4}-\d{2}$/.test(String(m || ''))) { ES.mes = m; ES.msg = ''; ES.err = ''; } }
 export function olvidar() { ES.cierres = null; ES.cartola = null; ES.sii = null; ES.siiPend = null; ES.vivo = {}; ES.checks = {}; ES.conteos = {}; ES.msg = ''; ES.err = ''; F.olvidarMeses(); }
 
@@ -52,7 +52,7 @@ async function vivo(R, mes) {
   e.ventasInfo = dm.ventasInfo;
   // v0.66.0 · Documentos del SII de ese mes por clasificar: su gasto todavía no existe (no están en este estado de resultados)
   const sp = ES.siiPend ? SP.pendientesDelMes(ES.siiPend, mes) : null;
-  if (sp && sp.n) e.avisos = (e.avisos || []).concat([{ k: 'sii_por_clasificar', texto: `${sp.n} ${sp.n === 1 ? 'documento del SII' : 'documentos del SII'} de ${FE.mesTxt(mes)} sin clasificar (${SP.fmt(sp.monto)}): su gasto todavía no existe y no está en este estado de resultados. Clasifícalos al conciliar la cartola o en Conciliación → Cargas del SII.` }]);
+  if (sp && sp.n) e.avisos = (e.avisos || []).concat([{ k: 'sii_por_clasificar', texto: `${sp.n} ${sp.n === 1 ? 'documento del SII' : 'documentos del SII'} de ${FE.mesTxt(mes)} sin clasificar (${SP.fmt(sp.monto)}): su gasto todavía no existe y no está en este estado de resultados. Clasifícalos al conciliar la cartola o en Gastos → Bandeja → Cargas del SII.` }]);
   ES.vivo[mes] = e;
   return e;
 }
@@ -294,7 +294,7 @@ function conectarEERR(el, H, ctx, R, e, prev) {
 }
 
 // ═══════════════ Cierre de mes ═══════════════
-const TXT_CIERRE = 'Lo acordado (Cómo trabajamos): el mes se cierra después de pagar y cargar su Previred, a más tardar el día 13 del mes siguiente. Orden recomendado: (1) pagar Previred, ojalá antes del día 10; (2) subir el comprobante o el CSV en Conciliación → Previred; (3) revisar que esté todo y cerrar el mes.\nAl cerrarlo queda congelado: el estado de resultados de ese mes se guarda tal cual (ventas, costos usados, gastos, créditos, quién y cuándo) y no cambia más.\nLo que aparezca después (una factura atrasada, un gasto corregido) no cambia el mes cerrado: entra como "Ajustes de meses cerrados" en el primer mes abierto siguiente.\nSi una revisión no se cumple, se puede cerrar igual marcando "Cerrar igual" y escribiendo el motivo (queda guardado).';
+const TXT_CIERRE = 'Lo acordado (Cómo trabajamos): el mes se cierra después de pagar y cargar su Previred, a más tardar el día 13 del mes siguiente. Orden recomendado: (1) pagar Previred, ojalá antes del día 10; (2) subir el comprobante o el CSV en Gastos → Previred; (3) revisar que esté todo y cerrar el mes.\nAl cerrarlo queda congelado: el estado de resultados de ese mes se guarda tal cual (ventas, costos usados, gastos, créditos, quién y cuándo) y no cambia más.\nLo que aparezca después (una factura atrasada, un gasto corregido) no cambia el mes cerrado: entra como "Ajustes de meses cerrados" en el primer mes abierto siguiente.\nSi una revisión no se cumple, se puede cerrar igual marcando "Cerrar igual" y escribiendo el motivo (queda guardado).';
 async function datosCierre(R, mes) {
   // v0.69.5 · Previred del mes (planillas): de la memoria de la sesión, sin lecturas nuevas (lo que falte se lee)
   const [e, dm, conteos, sii, planillas] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes), ES.sii ? Promise.resolve(ES.sii) : F.cargasSii(), F.planillasPrevired()]);
@@ -343,7 +343,7 @@ function htmlCierre(H, x, hist) {
       <div class="botones fin-cbot"><button type="button" class="btn" id="c-cerrar">${ic('candado', 16)} Cerrar ${H.esc(FE.mesTxt(ES.mes))}</button></div>`;
   }
   return `<section class="tarjeta" aria-labelledby="t-c-cierre">
-    <div class="titulo-fila fin-titulo"><h2 id="t-c-cierre">Cierre de mes ${H.info('Cierre de mes', TXT_CIERRE)}</h2></div>
+    <div class="titulo-fila fin-titulo"><h2 id="t-c-cierre">Cierre de mes ${H.info('Cierre de mes', TXT_CIERRE)}</h2><a class="btn-link" href="#finanzas/resumen" id="c-ir-resumen">Ver el Resumen del mes</a></div>
     <div class="fin-ecab">${selectorMes(H, 'c-mes')}</div>
     <p class="ok-texto" id="c-msg" role="status">${H.esc(ES.msg)}</p>
     ${cuerpo}

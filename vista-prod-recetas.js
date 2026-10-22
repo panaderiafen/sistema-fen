@@ -7,8 +7,8 @@
 //  Lecturas: las recetas y los costos salen de la memoria compartida (Hoy, Producción, Finanzas); las versiones, al pedirlas.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.77.1';
-import * as RV from './recetas-ver-modelo.js?v=0.77.1';
+import * as P from './produccion.js?v=0.78.0';
+import * as RV from './recetas-ver-modelo.js?v=0.78.0';
 
 const S = { area: 'todas', tipo: 'todas', q: '', archivadas: false, recetas: null, costos: null, costosErr: '', err: '', vers: {}, comparar: {} };
 const $ = id => document.getElementById(id);
@@ -23,7 +23,7 @@ const TXT_RECETAS = 'Las recetas aprobadas de la base de Cocina (la maestra), so
 export async function pintar(el, H, { sub = '' } = {}) {
   el.innerHTML = '<section class="tarjeta"><div class="vacio" style="border:0" role="status">Abriendo las recetas…</div></section>';
   try {
-    const [recetas, costos] = await Promise.all([P.recetasCatalogo(), import('./finanzas.js?v=0.77.1').then(F => F.costosRecetas()).catch(e => { S.costosErr = (e && e.message) || ''; return null; })]);
+    const [recetas, costos] = await Promise.all([P.recetasCatalogo(), import('./finanzas.js?v=0.78.0').then(F => F.costosRecetas()).catch(e => { S.costosErr = (e && e.message) || ''; return null; })]);
     S.recetas = recetas; S.costos = costos; S.err = '';
   } catch (e) { S.err = (e && e.message) || H.mensajeError(e); }
   if (!/^#produccion\/recetas/.test(location.hash)) return;
@@ -65,7 +65,7 @@ function pintarLista(el, H) {
     <div class="titulo-fila fin-titulo"><h2 id="t-rv">Recetas aprobadas ${H.info('Recetas', TXT_RECETAS)}</h2>
       <span class="ayuda rv-donde">Si cambia el costo, ¿dónde se ve? ${H.info('Si cambia el costo, ¿dónde se ve?', TXT_COSTO)}</span></div>
     <p class="ayuda" id="rv-resumen">En la base de Cocina: ${k.productos} ${k.productos === 1 ? 'producto' : 'productos'} y ${k.subs} ${k.subs === 1 ? 'masa o sub receta' : 'masas y sub recetas'} (${Object.entries(k.porArea).map(([a, x]) => `${RV.AREAS[a]} ${x}`).join(' · ')})${k.archivadas ? ` · ${k.archivadas} ${k.archivadas === 1 ? 'archivada' : 'archivadas'}` : ''}.</p>
-    ${!S.costos ? `<p class="aviso" id="rv-sin-costos">Sin costos: la base de Gastos y Finanzas no está conectada${S.costosErr ? ` (${H.esc(S.costosErr)})` : ''}. Se conecta en <a href="#gastos/base">Gastos → Base nueva</a>.</p>` : ''}
+    ${!S.costos ? `<p class="aviso" id="rv-sin-costos">Sin costos: la base de Gastos y Finanzas no está conectada${S.costosErr ? ` (${H.esc(S.costosErr)})` : ''}. Se conecta en <a href="#gastos/config/base">Gastos → Configuración → Base nueva</a>.</p>` : ''}
     <div class="filtros fin-filtros rv-filtros">
       <div class="fin-buscar">${ic(IC.lupa, 18)}<label class="sr" for="rv-q">Buscar receta</label><input type="search" id="rv-q" placeholder="Buscar por nombre…" autocomplete="off" spellcheck="false" value="${H.esc(S.q)}"></div>
       ${chips('Área', [['todas', 'Todas las áreas'], ...Object.entries(RV.AREAS)], S.area)}

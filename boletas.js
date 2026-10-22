@@ -19,8 +19,8 @@
 //  5. Esperando boleta: mientras una cuenta de boleta no tiene la boleta del mes, un estimado (promedio de las últimas 3). No es gasto.
 //  6. Corte: el aviso urgente en Hoy hasta que se pague lo que la boleta dice que falta.
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.77.1';
-import * as AR from './areas.js?v=0.77.1';
+import * as G3 from './gastos-g3.js?v=0.78.0';
+import * as AR from './areas.js?v=0.78.0';
 
 const s = v => String(v == null ? '' : v);
 const num = v => (typeof v === 'number' ? (isFinite(v) ? v : 0) : (isFinite(Number(v)) ? Number(v) : 0));
@@ -127,7 +127,7 @@ export function leerBoleta(lineas0) {
   r.tipoDoc = /BOLETA ELECTRONICA/.test(T) ? 'boleta' : /FACTURA ELECTRONICA/.test(T) ? 'factura' : '';
   if (!emp) { r.errores.push('No se reconoce la empresa de la boleta (se buscan CGE y ESSBIO por su RUT o su nombre).'); return r; }
   r.reconocida = true; r.empresa = emp.id; r.servicio = emp.servicio; r.porRut = !!porRut;
-  if (r.tipoDoc === 'factura') { r.errores.push(`Es una factura de ${emp.nombre}, no una boleta: súbela con el SII (Conciliación → Subir archivo).`); return r; }
+  if (r.tipoDoc === 'factura') { r.errores.push(`Es una factura de ${emp.nombre}, no una boleta: súbela con el SII (Gastos → Bandeja → Subir archivo).`); return r; }
   // N° de la boleta
   for (const l of lineas.slice(0, 10)) { const m = /^\s*N\s*[º°o]\.?\s*(\d{4,12})\s*$/i.exec(l); if (m) { r.numero = m[1]; break; } }
   if (!r.numero) for (const l of lineas) { const m = /(?:copia\s+boleta|n[°º]\s*(?:de\s+)?boleta|boleta\s+n[°º])\s*:?\s*(\d{4,12})/i.exec(l); if (m) { r.numero = m[1]; break; } }
@@ -425,7 +425,7 @@ export function esperandoBoleta(plantillas, vencs, hoy) {
 }
 // En la Agenda: el estimado, con borde punteado (no es un pago ni un gasto)
 export const agendaEsperando = (lista, desde, hasta) => (lista || []).filter(x => x.fecha >= desde && x.fecha <= hasta).map(x => ({ auto: true, cat: 'pago', tipo: 'fen', fecha: x.fecha, hora: '', estimado: true, proyectado: true,
-  titulo: `${x.texto}: ${x.nombre}`, origen: `Desde Gastos · ${x.detalle} · es un estimado, no un gasto`, monto: x.estimado, url: '#gastos', ebId: x.id }));
+  titulo: `${x.texto}: ${x.nombre}`, origen: `Desde Gastos · ${x.detalle} · es un estimado, no un gasto`, monto: x.estimado, url: '#gastos/por-pagar', ebId: x.id }));
 
 // ═══════════════ 6 · Corte de suministro: aviso urgente en Hoy ═══════════════
 // Lo que cubre una boleta (su saldo anterior), con los reemplazos (un saldo sin boleta que después llegó con su boleta)

@@ -6,8 +6,8 @@
 //  v0.77.1: pestaña de Producción (Producción → Plan de Panadería); se dibuja dentro de #prod-tab.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as PP from './plan-pan.js?v=0.77.1';
-import * as PM from './plan-pan-modelo.js?v=0.77.1';
+import * as PP from './plan-pan.js?v=0.78.0';
+import * as PM from './plan-pan-modelo.js?v=0.78.0';
 
 const S = { D: null, prop: null, dia: 0, semana: '', suc: 'todas', abiertos: new Set(), msg: '', err: '', editSuc: 'barros', cargando: false, extra: [] };
 const $ = id => document.getElementById(id);
@@ -64,7 +64,7 @@ async function cargar(el, H, forzar) {
 
 function avisos(H) {
   const D = S.D, a = [];
-  if (D.estados.gastos !== 'ok') a.push('Finanzas (fen-gastos) no está conectada: sin los vínculos producto → receta no se puede armar el plan. Conéctala en <a href="#gastos">Gastos → Base nueva</a>.');
+  if (D.estados.gastos !== 'ok') a.push('Finanzas (fen-gastos) no está conectada: sin los vínculos producto → receta no se puede armar el plan. Conéctala en <a href="#gastos/config/base">Gastos → Configuración → Base nueva</a>.');
   if (D.estados.b2b !== 'ok') a.push('B2B (fen-b2b) no está conectada: la columna B2B va en 0. Conéctala en <a href="#b2b/base">Ventas B2B → Base nueva</a>.');
   if (D.estados.cocina !== 'ok') a.push('Cocina (fen-produccion) no está conectada: sin lo producido ni la masa madre. Conéctala en <a href="#ajustes/cocina">Configuración → Cocina</a>.');
   if (S.err) a.push(H.esc(S.err));

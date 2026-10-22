@@ -9,7 +9,7 @@
 //  v0.16.0: etiquetas con color (config/agenda), fecha de término, repetir cada
 //  semana o cada mes (con días quitados y "hecho" por día) y copia a Google Calendar.
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, addDoc, getDoc, getDocs, setDoc, updateDoc, query, where, Timestamp, runTransaction } from './firebase.js?v=0.77.1';
+import { auth, db, collection, doc, addDoc, getDoc, getDocs, setDoc, updateDoc, query, where, Timestamp, runTransaction } from './firebase.js?v=0.78.0';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 const uid = () => (auth.currentUser && auth.currentUser.uid) || '';
@@ -190,7 +190,7 @@ function siguienteOcurrencia(frecuencia, dia, ref) {
 }
 export function proyectarObligaciones(plantillas, vencimientos, desde, hasta) {
   const hay = new Set((vencimientos || []).map(v => `${v.plantillaId}|${v.fecha}`)), out = [];
-  const item = (p, f) => ({ auto: true, cat: 'pago', proyectado: true, fecha: f, titulo: `Pago de ${p.nombre}`, monto: Number(String(p.montoEstimado || '').replace(/[^0-9]/g, '')) || 0, sub: 'Próximo pago (se activa 3 días antes)', url: '#gastos/obligaciones' });
+  const item = (p, f) => ({ auto: true, cat: 'pago', proyectado: true, fecha: f, titulo: `Pago de ${p.nombre}`, monto: Number(String(p.montoEstimado || '').replace(/[^0-9]/g, '')) || 0, sub: 'Próximo pago (se activa 3 días antes)', url: '#gastos/config/cuentas' });
   (plantillas || []).filter(p => p.estado === 'ACTIVA' && p.proximaFecha && p.frecuencia !== 'cuponera').forEach(p => {
     if (p.frecuencia === 'variable') { const f = p.proximaFecha; if (f >= desde && f <= hasta && !hay.has(`${p.id}|${f}`)) out.push(item(p, f)); return; }
     for (let f = p.proximaFecha, n = 0; f && f <= hasta && n < 80; f = siguienteOcurrencia(p.frecuencia, p.dia, masDias(f, 1)), n++) {

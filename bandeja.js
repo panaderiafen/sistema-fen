@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════
 //  Sistema Fën · bandeja.js · v0.68.0 · v0.69.0 (las propuestas de una regla y el puntaje junto a la etiqueta)
-//  Conciliación → Cartola como bandeja de entrada (Entrega A del rediseño):
+//  Gastos → Bandeja como bandeja de entrada (Entrega A del rediseño):
 //  · el estado de cada movimiento pendiente (Listo, Revisar, Sin coincidencia) con su etiqueta;
 //  · la propuesta en una línea, "Qué es" y "Qué propongo y por qué";
 //  · lo registrado en Gastos (gastos y vencimientos de la memoria) con su estado real: si ya está pagado y con qué;
 //  · las facturas de un cliente de B2B (abiertas y pagadas recientes) y la búsqueda de facturas.
 //  Todo es puro: sale de lo que la pantalla ya tiene leído (0 lecturas).
 // ═══════════════════════════════════════════════
-import * as PM from './pagos-mixtos.js?v=0.77.1';   // v0.69.2: el historial de pagos de un documento pagado en partes
+import * as PM from './pagos-mixtos.js?v=0.78.0';   // v0.69.2: el historial de pagos de un documento pagado en partes
 const s = v => String(v == null ? '' : v);
 const n = v => Number(v) || 0;
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];

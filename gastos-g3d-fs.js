@@ -24,13 +24,13 @@
 //    ya cargado (y, si se pide, en los otros meses del trabajador) por el camino de siempre: corregir con historial y versión,
 //    anular lo que sobra y crear lo que falta. Un mes cerrado en Finanzas (fin_cierres) bloquea.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.77.1';
-import * as M from './gastos-g2.js?v=0.77.1';
-import * as G3 from './gastos-g3.js?v=0.77.1';
-import * as D from './gastos-g3d.js?v=0.77.1';
-import * as C from './gastos-cartola.js?v=0.77.1';
-import * as AB from './gastos-abono.js?v=0.77.1';
-import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.77.1';
+import * as FB from './fs-gastos.js?v=0.78.0';
+import * as M from './gastos-g2.js?v=0.78.0';
+import * as G3 from './gastos-g3.js?v=0.78.0';
+import * as D from './gastos-g3d.js?v=0.78.0';
+import * as C from './gastos-cartola.js?v=0.78.0';
+import * as AB from './gastos-abono.js?v=0.78.0';
+import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.78.0';
 
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const s = v => String(v == null ? '' : v);
@@ -249,7 +249,7 @@ export async function cotComprobante(p, marca, subir) {
   if (!del.length) throw error('Ese mes no tiene cotizaciones cargadas: regístralo con el comprobante completo (los trabajadores y las multas e intereses).', 'datos');
   const repetido = x => ({ ok: true, repetido: true, recargos: M.n(x.totalRecargos), totalPagado: M.n(x.totalPagado), gastoRecargosId: s(x.gastoRecargosId), conArchivo: !!x.archivo });
   const ya0 = compVigente((pl.find(x => x.id === per) || {}).d);
-  if (ya0) { if (s(ya0.clave) === comp.limpio.clave) return repetido(ya0); throw error('Ese mes ya tiene su comprobante de pago guardado. Para cambiarlo, quítalo primero (Conciliación → Previred → Meses cargados).', 'duplicado'); }
+  if (ya0) { if (s(ya0.clave) === comp.limpio.clave) return repetido(ya0); throw error('Ese mes ya tiene su comprobante de pago guardado. Para cambiarlo, quítalo primero (Gastos → Previred → Meses cargados).', 'duplicado'); }
   const vid = s((del.find(x => x.d.vencimientoId) || { d: {} }).d.vencimientoId), v0 = vid ? vencs.find(x => x.id === vid) : null;
   const aVenc = !!(comp.rec && v0 && G3.abierto(v0.d) && G3.esPrevired(v0.d) && v0.d.documento && v0.d.documento.previred);
   const url = await subirPdf(subir, p);

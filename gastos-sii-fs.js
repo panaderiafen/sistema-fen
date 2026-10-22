@@ -19,12 +19,12 @@
 //  · v0.53.0: el documento del vencimiento guarda también neto, iva, exento, otroImpuesto, total, tipoDoc y esHarina de la
 //    factura (también al asignarla desde la bandeja): al pagarlo, el gasto toma el neto exacto. avisoCargas(): "SII sin cargar".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.77.1';
-import * as GB from './gastos-base.js?v=0.77.1';
-import * as M from './gastos-g2.js?v=0.77.1';
-import * as S from './gastos-sii.js?v=0.77.1';
-import * as G3 from './gastos-g3.js?v=0.77.1';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.77.1';
+import * as FB from './fs-gastos.js?v=0.78.0';
+import * as GB from './gastos-base.js?v=0.78.0';
+import * as M from './gastos-g2.js?v=0.78.0';
+import * as S from './gastos-sii.js?v=0.78.0';
+import * as G3 from './gastos-g3.js?v=0.78.0';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, despues, limpio, correo, completarCon } from './gastos-fs.js?v=0.78.0';
 
 const error = (msg, code, datos) => Object.assign(new Error(msg), { code, ...(datos ? { datos } : {}) });
 const s = v => String(v == null ? '' : v);
@@ -369,7 +369,7 @@ export async function clasif() {
   l.forEach(x => { fichas[x.id] = { ...x.d, rut: x.d.rut || x.id }; });
   return S.clasifDesdeFichas(fichas, hoy());
 }
-// Una vez (Gastos → Base nueva): arma la ficha de cada proveedor con lo copiado de la planilla y lo hecho en la base
+// Una vez (Gastos → Configuración → Base nueva): arma la ficha de cada proveedor con lo copiado de la planilla y lo hecho en la base
 export async function armarProveedores(avance = () => {}) {
   avance('Leyendo gastos y documentos del SII…');
   const [gastos, siiDocs, prev] = await Promise.all([todos('gastos'), todos('sii_docs'), todos('proveedores')]);
@@ -390,7 +390,7 @@ export async function armarProveedores(avance = () => {}) {
   await FB.setDoc(FB.doc(d, 'config', 'proveedores'), { armadas: FB.serverTimestamp(), actualizado: FB.serverTimestamp(), por, n: conDatos, que: 'armó las fichas' }, { merge: true });
   return { ok: true, proveedores: conDatos, total: ids.length };
 }
-// Para "Gastos → Base nueva": cuántas fichas hay y cuándo se actualizaron
+// Para "Gastos → Configuración → Base nueva": cuántas fichas hay y cuándo se actualizaron
 export async function resumenProveedores() {
   const d = await dbBase();
   const [n, c, l] = await Promise.all([FB.getAggregateFromServer(FB.collection(d, 'proveedores'), { n: FB.count() }), FB.getDoc(FB.doc(d, 'config', 'proveedores')), todos('proveedores')]);

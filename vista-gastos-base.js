@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Gastos → Base nueva (fen-gastos)  v0.43.0 (etapa G1)
+//  Sistema Fën — Gastos → Configuración → Base nueva (fen-gastos)  v0.43.0 (etapa G1)
 //  v0.44.0: parte "Archivos en Drive" (dejar privados los archivos ya subidos; script de Gastos v2.10.0)
 //  v0.45.0 (etapa G2): partes "Copia a la planilla" (estado de lo que pasa de la base a la planilla) y
 //  "Cambio a la base nueva" (bloqueado hasta que estén listos G2 y G3: CAMBIO_HABILITADO en config.js).
@@ -12,10 +12,10 @@
 //  arreglo "sin IVA" opcional con su vista previa, fichas de proveedores, dejar privados los archivos y revisar la planilla).
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as GB from './gastos-base.js?v=0.77.1';
-import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.77.1';
-import * as Gastos from './gastos.js?v=0.77.1';
-import * as GP from './gastos-planilla.js?v=0.77.1';
+import * as GB from './gastos-base.js?v=0.78.0';
+import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.78.0';
+import * as Gastos from './gastos.js?v=0.78.0';
+import * as GP from './gastos-planilla.js?v=0.78.0';
 
 const st = { prep: null, ctrl: null, msg: '', copiando: false, leyendo: false, controlando: false,
   prov: { datos: null, corriendo: false, msg: '', err: '' },
@@ -53,11 +53,11 @@ export async function pintar(el, cab, H) {
   let cx, ult = null, errorCx = '';
   try { cx = await GB.conexion(); if (cx.estado === 'ok') ult = await GB.ultimaCopia(); }
   catch (e) { errorCx = error(e, H); cx = { estado: 'error' }; }
-  if (!el.isConnected || !/^#gastos\/base/.test(location.hash)) return;
+  if (!el.isConnected || !/^#gastos\/config\/base/.test(location.hash)) return;
   const ok = cx.estado === 'ok';
   let fuente = { fuente: 'planilla' };
   if (ok) { try { fuente = await GB.cargarFuente(true); } catch (e) {} }
-  if (!el.isConnected || !/^#gastos\/base/.test(location.hash)) return;
+  if (!el.isConnected || !/^#gastos\/config\/base/.test(location.hash)) return;
   const resCx = ok ? `<span class="chip c-verde">Conectada</span> ${H.esc(cx.cfg.projectId)}` : cx.estado === 'error' ? '<span class="chip c-rojo">Error</span>' : '<span class="chip c-gris">Sin conectar</span>';
   const resCopia = !ok ? '' : st.prep ? (st.prep.porEscribir ? `${n(st.prep.porEscribir)} por copiar` : 'Todo al día') : ult && ult.ultima ? 'Última: ' + H.esc(H.hace(ult.ultima)) : 'Nunca copiada';
   const resCtrl = !ok ? '' : st.ctrl && st.ctrl.resultado ? (st.ctrl.resultado.ok ? '<span class="chip c-verde">Todo cuadra</span>' : '<span class="chip c-rojo">Hay diferencias</span>') : 'Lee la planilla para comparar';
@@ -306,8 +306,8 @@ function despues(H) {
     ${p.lista.slice(0, 200).map(g => `<tr><td>${H.esc(g.fecha.split('-').reverse().join('-'))}</td><td>${H.esc(g.obligacion)}</td><td>${H.esc(g.item)} · ${H.esc(g.area)}</td><td>${pesos(g.montoFinal)}</td><td>${pesos(g.netoAntes)}</td><td>${pesos(g.netoNuevo)}</td></tr>`).join('')}</tbody></table></div>${p.lista.length > 200 ? `<p class="ayuda">… y ${n(p.lista.length - 200)} más</p>` : ''}` : '';
   return `<h3 style="margin:16px 0 4px;font-size:16px" id="gb-despues-t">Lo que queda justo después del cambio ${H.info('Después del cambio', TXT_DESPUES)}</h3>
     <ol class="lista-despues" id="gb-despues">
-      <li><b>Clasificar obligaciones</b>: revisa la propuesta de tipo de cada una y guárdalas. <a href="#gastos/clasificar" id="gb-ir-clasificar">Clasificar obligaciones</a></li>
-      <li><b>Completar identificadores</b>: el N° de cliente de luz y agua, el RUT del proveedor de internet, gas o teléfono, y "Es Previred" en Cotizaciones (en la misma pantalla o en <a href="#gastos/obligaciones">Obligaciones</a> → Editar).</li>
+      <li><b>Clasificar obligaciones</b>: revisa la propuesta de tipo de cada una y guárdalas. <a href="#gastos/config/clasificar" id="gb-ir-clasificar">Clasificar obligaciones</a></li>
+      <li><b>Completar identificadores</b>: el N° de cliente de luz y agua, el RUT del proveedor de internet, gas o teléfono, y "Es Previred" en Cotizaciones (en la misma pantalla o en <a href="#gastos/config/cuentas">Obligaciones</a> → Editar).</li>
       <li><b>Arreglo "sin IVA"</b> (opcional) ${H.info('Arreglo sin IVA', TXT_SINIVA)}
         <div class="botones" style="justify-content:flex-start;margin-top:6px"><button type="button" class="btn-sec btn-chico" id="gb-siniva-ver" ${x.corriendo ? 'disabled' : ''}>Revisar el arreglo "sin IVA"</button>
         ${p && p.lista.length ? `<button type="button" class="btn btn-chico" id="gb-siniva-aplicar" ${x.corriendo ? 'disabled' : ''}>Aplicar el arreglo (${n(p.n)})</button>` : ''}</div>
@@ -375,7 +375,7 @@ function conectarCambio(f, H, otra) {
 // ── v0.48.0 · Proveedores (etapa G3) ──
 // Con la base nueva, las sugerencias al cargar del SII salen de proveedores/{rut}: lo que se clasificó con cada proveedor
 // y cada producto en los últimos 2 años. Se actualiza solo al importar o vincular; "Armar fichas" las arma desde cero.
-const fsSii = () => import('./gastos-sii-fs.js?v=0.77.1');
+const fsSii = () => import('./gastos-sii-fs.js?v=0.78.0');
 const TXT_PROV = 'Al cargar un archivo del SII, Sistema Fën sugiere cómo clasificar cada documento según cómo clasificaste antes a ese proveedor y a cada uno de sus productos (los últimos 2 años).\nCon la base nueva, eso queda guardado en una ficha por proveedor. Cada importación o vínculo la actualiza sola.\n"Armar fichas de proveedores" las arma desde cero con todo lo que hay en la base nueva (lo copiado de la planilla y lo hecho después). Hazlo una vez, después del cambio a la base nueva. Repetirlo no hace daño.\nNo cambia ningún gasto ni la planilla.';
 function resumenProv(H) {
   const d = st.prov.datos;

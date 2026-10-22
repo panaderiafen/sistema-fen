@@ -516,7 +516,7 @@ export function bloqueosVolver(r, vencs, cargos, d) {
   const out = [], vistos = new Set(), V = new Map((vencs || []).map(x => [s(x.id), x.d])), C = new Map((cargos || []).map(x => [s(x.id), x.d]));
   const estadoV = v => { const e = s(v && v.estado), u = e.toUpperCase(); return u === 'PAGADO' ? 'pagado' : u === 'ANULADO' ? 'anulado' : e === 'con_abonos' || (Array.isArray(v && v.abonos) && v.abonos.length) ? 'con_abonos' : 'por_pagar'; };
   const una = (k, txt) => { if (vistos.has(k)) return; vistos.add(k); out.push(txt); };
-  const ccTxt = (id, fb) => { const c = C.get(s(id)); return `Primero deshaz la conciliación del cargo del ${fCorta((c && c.fecha) || fb) || 'banco'}${c && c.monto ? ` (${fmt(c.monto)})` : ''}: Conciliación → Cartola → Ya revisados → Deshacer.`; };
+  const ccTxt = (id, fb) => { const c = C.get(s(id)); return `Primero deshaz la conciliación del cargo del ${fCorta((c && c.fecha) || fb) || 'banco'}${c && c.monto ? ` (${fmt(c.monto)})` : ''}: Gastos → Bandeja → Cargos de la cartola → Ya revisados → Deshacer.`; };
   (r.vigentes || []).forEach(({ id, d: g }) => {
     if (s(g.cartolaCargo)) una('cc|' + g.cartolaCargo, ccTxt(g.cartolaCargo, g.fechaPago));
     if (g.pagoSinBanco && g.pagoSinBanco.medio) una('sb|' + id, `Tiene su pago ${g.pagoSinBanco.medio === 'tarjeta' ? 'con tarjeta' : 'en efectivo'} del ${fCorta(g.pagoSinBanco.fecha) || fCorta(g.fechaPago)} (Pagos sin banco): anula sus gastos en Gastos → Registrados; la factura vuelve sola a Por clasificar.`);

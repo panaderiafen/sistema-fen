@@ -5,7 +5,7 @@
 //  reglas de Firestore y la cuenta de administración.
 // ═══════════════════════════════════════════════
 window.FEN_SIS = {
-  VERSION: '0.77.1',
+  VERSION: '0.78.0',
   firebase: {
     apiKey: 'AIzaSyDrG2mij1h5wZ2lIyAYMTfgG9avaVnjcaU',
     authDomain: 'fen-ventas.firebaseapp.com',
@@ -49,7 +49,7 @@ window.FEN_SIS = {
   // Base nueva de Ventas B2B (proyecto Firebase fen-b2b). Se pega en Sistema Fën → Ventas B2B y queda
   // guardada en Firestore (config/sistemaFen). Si se pone aquí, se usa cuando no hay una guardada.
   firebaseB2B: null,
-  // Base nueva de Gastos (proyecto Firebase fen-gastos, etapa G1). Viene escrita en "Conectar" (Gastos → Base nueva):
+  // Base nueva de Gastos (proyecto Firebase fen-gastos, etapa G1). Viene escrita en "Conectar" (Gastos → Configuración → Base nueva):
   // al conectar se guarda en Firestore (config/sistemaFen → gastosFirebase). No es secreta: solo identifica el proyecto.
   firebaseGastos: {
     apiKey: 'AIzaSyDTun4x6bzoW71QQZ6vVnrjulbMIAQKVCU',
@@ -59,7 +59,7 @@ window.FEN_SIS = {
     messagingSenderId: '649845839125',
     appId: '1:649845839125:web:28b66f7f0cf364c95bc51c'
   },
-  // v0.45.0 · Gastos, etapa G2: el botón "Pasar Gastos a la base nueva" (Gastos → Base nueva) queda bloqueado
+  // v0.45.0 · Gastos, etapa G2: el botón "Pasar Gastos a la base nueva" (Gastos → Configuración → Base nueva) queda bloqueado
   // hasta que toda la etapa G2 esté lista (registrar, pagar, obligaciones, ítems, análisis y agenda con la base nueva).
   // v0.47.0: G2 ya está completo, pero el cambio también necesita G3 (SII, cartola y Previred con la base nueva):
   // sigue en false ("El cambio se habilita cuando estén listos G2 y G3").

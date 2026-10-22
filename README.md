@@ -1,9 +1,65 @@
-# Sistema Fën · v0.77.1
+# Sistema Fën · v0.78.0
 
-**App:** v0.77.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-ventas v1.5.0, fen-b2b v1.7.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.78.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-ventas v1.5.0, fen-b2b v1.7.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.78.0: Gastos, etapa A
+
+Es la **etapa A** del diseño aprobado (`diseno/gastos-rediseno.html`): **se mueven las pantallas tal como funcionan**, sin cambiar ningún dato. La sección **Conciliación sale del menú** (del computador y del celular) y sus pantallas pasan a Gastos, Ventas B2B y Finanzas. Gastos queda con siete pestañas, en este orden: **Bandeja · Por pagar · Registrados · Proveedores · Previred · Análisis · Configuración**, y **abre en la Bandeja**. Lo que viene después, una a la vez y con tu visto bueno: **etapa B** (una sola Bandeja con los documentos a la izquierda y el banco a la derecha) y **etapa C** (el libro en cada ítem: Producción, Remuneraciones, Operación, Costos de venta, Financiero, Fuera del resultado).
+
+- **Dónde va:** repo **sistema-fen**, raíz. Archivo nuevo: `rutas.js` (las rutas nuevas y la traducción de los enlaces viejos; reglas puras). Cambian `app.js` (menú, Gastos, Bandeja, Configuración, Ventas B2B → Conciliación, Resumen del mes, Hoy), `vista-finanzas.js` (pestaña Resumen del mes), `vista-finanzas-eerr.js` (enlace desde Cierre de mes), `conc-resumen.js`, `finanzas-eerr.js`, `agenda.js`, `b2b.js`, `boletas.js`, `gastos-g3.js`, `vista-gastos-base.js`, `vista-gastos-clasificar.js`, `vista-catalogo.js`, `vista-plan-pan.js`, `vista-prod-recetas.js`, `vista-productos.js`, `vista-reventa.js` (enlaces y textos que decían "Conciliación → …"), `estilos.css` y este README. Solo cambia un texto que decía dónde estaba algo ("Conciliación → …" o "Gastos → Base nueva", ahora "Gastos → Bandeja → …", "Gastos → Previred", "Gastos → Configuración → Base nueva"…) en `bandeja.js`, `cartola.js`, `catalogo.js`, `catalogo-productos.js`, `config.js`, `finanzas.js`, `gastos-cartola-fs.js`, `gastos-fs.js`, `gastos-g3d.js`, `gastos-g3d-fs.js`, `gastos-sii-fs.js`, `previred.js`, `produccion.js`, `reglas-conc.js`, `reventa.js`, `sii-pendientes.js` y `sii-pendientes-fs.js`; los demás, solo la versión. `cocina/` y `fermentacion.js` **no cambian** (idénticos a Cocina v0.17.11).
+- **Nada en reglas ni Apps Script:** no cambia ningún dato, ninguna colección ni ningún permiso; las pantallas leen y guardan exactamente lo mismo que antes. Cocina, la caja y logística no se tocan.
+
+### Dónde quedó cada cosa
+| Antes | Ahora |
+|---|---|
+| Conciliación → Cartola → Cargos (Gastos) | **Gastos → Bandeja** → pastilla **Cargos de la cartola** (`#gastos`, la pestaña con que abre Gastos) |
+| Conciliación → Cartola → Abonos (B2B) | **Ventas B2B → Conciliación** (`#b2b/conciliacion`), pestaña nueva después de Cobranza |
+| Conciliación → Cargas del SII | **Gastos → Bandeja** → pastilla **Cargas del SII** (`#gastos/sii`); la consulta de cargas también en **Configuración → Archivos** |
+| Conciliación → Pagos sin banco | **Gastos → Bandeja** → pastilla **Pagos sin banco** (`#gastos/sinbanco`) |
+| Conciliación → Previred | **Gastos → Previred** (`#gastos/previred`) |
+| Conciliación → Proveedores | **Gastos → Proveedores** (`#gastos/proveedores`) |
+| Conciliación → Reglas (cargos) | **Gastos → Configuración → Reglas del banco** (`#gastos/config/reglas`) |
+| Conciliación → Reglas (abonos) | **Ventas B2B → Conciliación → Reglas de los abonos** (`#b2b/conciliacion/reglas`) |
+| Conciliación → Resumen del mes (arriba de la cartola) | **Finanzas → Resumen del mes** (`#finanzas/resumen`, junto a Resultados y con enlace desde Cierre de mes); en la Bandeja y en B2B → Conciliación queda una línea con su avance y el enlace a "su parte" (cargos o abonos) |
+| Botón "Subir archivo" de Conciliación | El mismo botón en **Gastos → Bandeja** y en **Ventas B2B → Conciliación** (una cartola sigue repartiendo: los cargos a Gastos y los abonos a B2B) |
+| Gastos → Por pagar (abría Gastos) | **Gastos → Por pagar** (`#gastos/por-pagar`), segunda pestaña |
+| Gastos → Registrar (pestaña) | Botón **Registrar a mano** en la Bandeja (abre la misma pantalla, `#gastos/registrar`, con "Volver a la Bandeja") |
+| Gastos → Cuentas recurrentes (y Clasificar) | **Gastos → Configuración → Cuentas recurrentes** (`#gastos/config/cuentas`; Clasificar en `#gastos/config/clasificar`). Lo que generan sigue en Por pagar |
+| Gastos → Ítems | **Gastos → Configuración → Ítems** (`#gastos/config/items`) |
+| Gastos → Base nueva | **Gastos → Configuración → Base nueva** (`#gastos/config/base`), ya usada: queda para consultar |
+| — | **Gastos → Configuración → Archivos** (`#gastos/config/archivos`): las cartolas subidas y la consulta de cargas del SII |
+
+1. **Bandeja:** arriba, **Subir archivo** (el reconocedor de siempre: cartola, transferencias, SII, Previred, boletas de luz y agua) y **Registrar a mano**. Las tres pastillas llevan los mismos números que tenían las pestañas de Conciliación (cargos por revisar, documentos del SII por clasificar y automáticas por revisar, facturas sin pago del banco); la pestaña Bandeja muestra la suma. La (i) de la Bandeja explica qué es la etapa A y que la Bandeja unificada viene después.
+2. **Subir archivo:** desde la Bandeja, la cartola te deja en los cargos; desde Ventas B2B → Conciliación, en los abonos. El SII se abre en Bandeja → Cargas del SII, Previred en Gastos → Previred y una boleta de luz o agua en Gastos → Por pagar.
+3. **Enlaces viejos:** todos llevan solos al lugar nuevo (favoritos, correos, la Agenda guardada): `#conciliacion` y `#conciliacion/cargos` → `#gastos`; `#conciliacion/sii`, `/sinbanco`, `/previred`, `/proveedores` → lo mismo bajo `#gastos/…`; `#conciliacion/reglas` → `#gastos/config/reglas`; `#conciliacion/reglas-abonos` → `#b2b/conciliacion/reglas`; `#conciliacion/resumen` → `#finanzas/resumen`; `#gastos/obligaciones` y `#gastos/clasificar` → `#gastos/config/cuentas`; `#gastos/items` → `#gastos/config/items`; `#gastos/base` → `#gastos/config/base`. Ojo: `#conciliacion` a secas era la pastilla de Abonos, pero como no se puede distinguir de "la sección", lleva a la Bandeja de Gastos; los enlaces de la app que eran de abonos ya apuntan a `#b2b/conciliacion`.
+4. **Hoy y la Agenda:** "Pagos atrasados", "Pagos de los próximos 7 días", cortes de luz o agua, "Subir boleta" y las boletas estimadas → **Por pagar**; "Próximo pago" (cuentas recurrentes) → **Configuración → Cuentas recurrentes**; documentos del SII → **Bandeja → Cargas del SII**; Previred → **Gastos → Previred**; cargos por revisar y "Esperan cartola" → **Bandeja**; "Toca conciliar la cartola" y abonos por revisar → **Ventas B2B → Conciliación**; la línea del avance del mes → **Finanzas → Resumen del mes**.
+5. **Celular:** las pestañas de Gastos, de Ventas B2B y de Finanzas, y las pastillas de la Bandeja y de Configuración, se pasan con el dedo (como en Producción); la página no se mueve de lado.
+
+### Lecturas (Spark)
+Igual que antes, cada pestaña lee solo lo suyo al abrirla. Medido con Firebase simulado contra la v0.77.1 (`pruebas/capturas/gastos-etapaA-v0780/lecturas.json`): abrir la Bandeja lee lo mismo que abrir Conciliación → Cargos (50 en Gastos y 13 en B2B con los datos de prueba); ir a los abonos (8 en B2B) y volver (0), lo mismo. La revisión de con cuál base trabaja Gastos (una vez por sesión, lo que antes hacía al abrir Por pagar) sale de lo ya leído. **Finanzas → Resumen del mes** sale de la memoria si ya abriste la Bandeja; si es lo primero que abres, lee lo mismo que abrir la Bandeja (la lista de cargos, las cargas del SII y la escucha de B2B), una vez. **Configuración → Archivos**: la consulta de cargas del SII (como en Cargas del SII) y las cartolas desde la memoria (o con "Ver las cartolas", lo mismo que abrir la Bandeja).
+
+### Instalación v0.78.0 (unos 3 minutos)
+1. **Sistema Fën v0.78.0:** GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.78.0.zip` (con la carpeta `cocina/`, que no cambia, y el archivo nuevo `rutas.js`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+2. Cocina, reglas de Firestore y Apps Script: nada.
+
+### Lista de verificación v0.78.0
+- [ ] Abajo dice **v0.78.0**.
+- [ ] En el menú (computador y celular) ya no está **Conciliación**.
+- [ ] **Gastos** abre en **Bandeja**, con las pestañas Bandeja · Por pagar · Registrados · Proveedores · Previred · Análisis · Configuración; las pastillas Cargos de la cartola, Cargas del SII y Pagos sin banco con sus números.
+- [ ] **Subir archivo** en la Bandeja con una cartola: los cargos aparecen en la Bandeja y los abonos en **Ventas B2B → Conciliación**.
+- [ ] **Registrar a mano** abre el formulario de siempre; "Volver a la Bandeja" vuelve.
+- [ ] **Por pagar**, **Registrados**, **Análisis**, **Proveedores** y **Previred** como siempre.
+- [ ] **Configuración:** Cuentas recurrentes, Ítems, Reglas del banco, Archivos y Base nueva.
+- [ ] **Ventas B2B → Conciliación:** los abonos, Subir archivo y Reglas de los abonos.
+- [ ] **Finanzas → Resumen del mes:** el resumen de siempre; tocar un movimiento antiguo abre su bandeja.
+- [ ] Un favorito viejo (por ejemplo `…/#conciliacion/previred`) abre Gastos → Previred.
+
+**Si algo sale mal:** vuelve a subir la v0.77.1. No se pierde nada: esta versión no cambia datos (solo dónde se ve cada cosa).
+
+**Pruebas:** `pruebas/sistemafen/gastos-etapaA-v0780.test.js` (15/15) y las demás suites (`pruebas/resultados-v0780.txt`, con `pruebas/correr-v0780.sh`). Capturas de cada pestaña a 390 y 1280 en `pruebas/capturas/gastos-etapaA-v0780/`.
 
 ## Novedades de la v0.77.1: la Bodega se calcula sola
 

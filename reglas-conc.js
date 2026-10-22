@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════
 //  Sistema Fën · reglas-conc.js · v0.69.0 (Entrega B del rediseño de Conciliación)
-//  Las reglas de conciliación que maneja el dueño (Conciliación → Reglas), puras y sin red:
+//  Las reglas de conciliación que maneja el dueño (Gastos → Configuración → Reglas del banco), puras y sin red:
 //  · la regla: condición (la glosa contiene palabras, todas, sin tildes ni mayúsculas, con "y no contiene"; o la glosa
 //    exacta de lo aprendido; monto desde/hasta; cuenta; RUT en la glosa o en la transferencia), resultado (las mismas
 //    acciones de siempre), nivel (Solo proponer o Pasar a Listos para confirmar), estado (activa, pausada, archivada;

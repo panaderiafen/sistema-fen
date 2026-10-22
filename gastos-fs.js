@@ -25,18 +25,18 @@
 //    salió: tipo, quién, cuándo y lo propio de cada origen); "origen" sigue siendo el texto de siempre (el script lo usa).
 //    Hoy: "Esperan cartola". detalleGasto(ids): las líneas y su origen, para el detalle del gasto.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.77.1';
-import * as FB from './fs-gastos.js?v=0.77.1';
-import * as GB from './gastos-base.js?v=0.77.1';
-import * as GP from './gastos-planilla.js?v=0.77.1';
-import * as M from './gastos-g2.js?v=0.77.1';
-import * as G3 from './gastos-g3.js?v=0.77.1';
-import * as G3D from './gastos-g3d.js?v=0.77.1';
-import * as B from './gastos-banco.js?v=0.77.1';
-import { dia } from './gastos-modelo.js?v=0.77.1';
-import * as AB from './gastos-abono.js?v=0.77.1';
-import * as PM from './pagos-mixtos.js?v=0.77.1';   // v0.69.2: pagos mixtos (partes de un documento)
-import * as BO from './boletas.js?v=0.77.1';      // v0.70.0: boletas de luz y agua (CGE, ESSBIO) y cuentas que nacen de su boleta
+import { auth as authSF } from './firebase.js?v=0.78.0';
+import * as FB from './fs-gastos.js?v=0.78.0';
+import * as GB from './gastos-base.js?v=0.78.0';
+import * as GP from './gastos-planilla.js?v=0.78.0';
+import * as M from './gastos-g2.js?v=0.78.0';
+import * as G3 from './gastos-g3.js?v=0.78.0';
+import * as G3D from './gastos-g3d.js?v=0.78.0';
+import * as B from './gastos-banco.js?v=0.78.0';
+import { dia } from './gastos-modelo.js?v=0.78.0';
+import * as AB from './gastos-abono.js?v=0.78.0';
+import * as PM from './pagos-mixtos.js?v=0.78.0';   // v0.69.2: pagos mixtos (partes de un documento)
+import * as BO from './boletas.js?v=0.78.0';      // v0.70.0: boletas de luz y agua (CGE, ESSBIO) y cuentas que nacen de su boleta
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';
@@ -47,7 +47,7 @@ let cx = null;
 async function db() {
   if (cx && FB.conectado() && FB.conectado().auth.currentUser) return cx.db;
   const c = await GB.conexion();
-  if (c.estado !== 'ok') throw error('Gastos trabaja con la base nueva: conéctala en este equipo (Gastos → Base nueva) y entra con tu contraseña.', 'sin_base');
+  if (c.estado !== 'ok') throw error('Gastos trabaja con la base nueva: conéctala en este equipo (Gastos → Configuración → Base nueva) y entra con tu contraseña.', 'sin_base');
   cx = c; return c.db;
 }
 

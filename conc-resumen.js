@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Conciliación → Resumen del mes  v0.69.3 (Entrega C, punto 4)
+//  Sistema Fën — Finanzas → Resumen del mes  v0.69.3 (Entrega C, punto 4)
 //  Puro (sin Firebase): arma el resumen de un mes con lo que la app YA tiene en la memoria (0 lecturas nuevas):
 //  · avance: cargos y abonos B2B del mes (por la fecha del movimiento) ya revisados, en cantidad y en pesos;
 //  · lo más antiguo sin revisar (3 cargos y 3 abonos), con su edad en días;
@@ -11,7 +11,7 @@
 //  Conciliado = revisado: ya se dijo qué es (paga un vencimiento, gasto nuevo, no es gasto, cliente y folio, No es de B2B…).
 //  Un movimiento "Repetido" (el mismo en otra cartola) no cuenta en el total.
 // ═══════════════════════════════════════════════
-import * as FE from './finanzas-eerr.js?v=0.77.1';
+import * as FE from './finanzas-eerr.js?v=0.78.0';
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const n = v => { const x = Number(v); return isFinite(x) ? x : 0; };
@@ -87,26 +87,26 @@ export function checksMes(D) {
   const conAccion = (c, accion) => ({ ...c, accion, cierre: true });
   // Cartola hasta el último día del mes (todas las cuentas que se concilian)
   const cob = D.cob;
-  if (!cob || !cob.conCartola) out.push(sin('cartola_mes', 'Cartola hasta el fin de mes', 'Todavía no hay cartola de este mes.', '#conciliacion/cargos', 'Subir cartola', TXT_CARTOLA_MES));
-  else out.push({ k: 'cartola_mes', t: 'Cartola hasta el fin de mes', ok: cob.completo, nivel: cob.completo ? 'ok' : 'falla', ir: '#conciliacion/cargos', accion: 'Subir cartola', info: TXT_CARTOLA_MES,
+  if (!cob || !cob.conCartola) out.push(sin('cartola_mes', 'Cartola hasta el fin de mes', 'Todavía no hay cartola de este mes.', '#gastos', 'Subir cartola', TXT_CARTOLA_MES));
+  else out.push({ k: 'cartola_mes', t: 'Cartola hasta el fin de mes', ok: cob.completo, nivel: cob.completo ? 'ok' : 'falla', ir: '#gastos', accion: 'Subir cartola', info: TXT_CARTOLA_MES,
     detalle: faltaCartola(cob, mes) });
   // Ningún cargo del mes por revisar (la regla de Cierre de mes)
   if (D.cargos) out.push(conAccion(FE.checkCartolaConciliada({ mes, cargosPorRevisar: FE.cargosPorRevisarDelMes(D.cargos, mes) }), 'Revisar cargos'));
-  else out.push(sin('cartola', 'Cartola conciliada', 'Se cuenta al abrir Cargos.', '#conciliacion/cargos', 'Abrir Cargos'));
+  else out.push(sin('cartola', 'Cartola conciliada', 'Se cuenta al abrir Cargos.', '#gastos', 'Abrir Cargos'));
   // Ningún abono B2B del mes por revisar (Cierre de mes no lo revisa: aquí es un aviso)
-  if (D.abonos) { const f = D.abonos.faltan; out.push({ k: 'abonos', t: 'Abonos B2B revisados', ok: !f, nivel: f ? 'aviso' : 'ok', ir: '#conciliacion', accion: 'Revisar abonos', info: TXT_ABONOS,
+  if (D.abonos) { const f = D.abonos.faltan; out.push({ k: 'abonos', t: 'Abonos B2B revisados', ok: !f, nivel: f ? 'aviso' : 'ok', ir: '#b2b/conciliacion', accion: 'Revisar abonos', info: TXT_ABONOS,
     detalle: f ? `${f} ${f === 1 ? 'abono' : 'abonos'} del mes por revisar (${pesos(D.abonos.pend.reduce((a, x) => a + n(x.monto), 0))}).` : 'Sin abonos por revisar en el mes.' }); }
   // SII cargado hasta el fin de mes (la regla de Cierre de mes)
   if (D.cargasSii) out.push(conAccion(FE.checkSiiCargado({ mes, cargasSii: D.cargasSii }), 'Cargar del SII'));
-  else out.push(sin('sii', 'SII del mes cargado', 'Se ve al abrir Cargos.', '#conciliacion/cargos', 'Abrir Cargos'));
+  else out.push(sin('sii', 'SII del mes cargado', 'Se ve al abrir Cargos.', '#gastos', 'Abrir Cargos'));
   // Documentos del SII del mes sin clasificar = 0 (la regla de Cierre de mes)
   if (D.siiPorMes) out.push(conAccion(FE.checkSiiClasificados({ mes, siiPendientes: D.siiPorMes[mes] || { n: 0, monto: 0 } }), 'Clasificar'));
   // v0.69.5 · Previred DEL MES cargado (la misma regla de Cierre de mes: finanzas-eerr.js checkPrevired). Antes se pedía el del
   // mes anterior; ahora cerrar octubre pide "Previred de octubre" (su costo es de octubre y se paga hasta el 13 de noviembre).
-  if (!D.planillas) out.push(sin('previred', FE.tituloPrevired(mes), 'Se ve al abrir Cargos.', '#conciliacion/previred', 'Ir a Previred', FE.TXT_PREVIRED_MES));
+  if (!D.planillas) out.push(sin('previred', FE.tituloPrevired(mes), 'Se ve al abrir Cargos.', '#gastos/previred', 'Ir a Previred', FE.TXT_PREVIRED_MES));
   else { const c = FE.checkPrevired({ mes, planillas: D.planillas }); out.push(conAccion(c, c.nivel === 'falla' ? 'Cargar Previred' : 'Ir a Previred')); }
   // Facturas con saldo vencido: aviso, no impide cerrar
-  if (D.vencidas && D.vencidas.length) out.push({ k: 'vencidas', t: 'Facturas con saldo vencido', ok: false, nivel: 'aviso', ir: '#conciliacion/sinbanco', accion: 'Ver en Pagos sin banco', info: TXT_VENCIDAS,
+  if (D.vencidas && D.vencidas.length) out.push({ k: 'vencidas', t: 'Facturas con saldo vencido', ok: false, nivel: 'aviso', ir: '#gastos/sinbanco', accion: 'Ver en Pagos sin banco', info: TXT_VENCIDAS,
     detalle: `${D.vencidas.length} ${D.vencidas.length === 1 ? 'factura' : 'facturas'} con saldo vencido (${pesos(D.vencidas.reduce((a, x) => a + n(x.monto), 0))}).` });
   return out;
 }
@@ -123,7 +123,7 @@ function faltaCartola(cob, mes) {
 const sumar = (f, k) => new Date(Date.parse(dia(f) + 'T12:00:00Z') + k * 864e5).toISOString().slice(0, 10);
 export const paraCerrar = checks => (checks || []).filter(c => c.nivel === 'falla').length;
 const TXT_CARTOLA_MES = 'Que la cartola de cada cuenta que concilias llegue hasta el último día del mes, sin días que falten. Sin eso no se sabe si quedan cargos o abonos por revisar. Cierre de mes no lo revisa: lo ves aquí.';
-const TXT_ABONOS = 'Que todos los abonos de la cartola del mes estén revisados en Conciliación → Abonos (B2B). Cierre de mes no lo revisa: aquí es un aviso.';
+const TXT_ABONOS = 'Que todos los abonos de la cartola del mes estén revisados en Ventas B2B → Conciliación. Cierre de mes no lo revisa: aquí es un aviso.';
 const TXT_VENCIDAS = 'Facturas pagadas en partes con saldo cuya fecha ya pasó (las de Pagos sin banco). Es un aviso: no impide cerrar.';
 
 // ── Señales (una línea cada una, solo si no es cero) ──
@@ -131,14 +131,14 @@ const TXT_VENCIDAS = 'Facturas pagadas en partes con saldo cuya fecha ya pasó (
 export function senales(R, mes) {
   const out = [];
   const pa = (R.partes || []).filter(x => n(x.saldo) > 0);
-  if (pa.length) out.push({ k: 'partes', texto: `Pagos parciales con saldo abierto: ${pa.length} · ${pesos(pa.reduce((a, x) => a + n(x.saldo), 0))}`, ir: '#gastos' });
-  if (n(R.porClasificar) > 0) out.push({ k: 'porclasificar', texto: `Facturas por clasificar: ${n(R.porClasificar)}`, ir: '#conciliacion/sii/porclasificar' });
+  if (pa.length) out.push({ k: 'partes', texto: `Pagos parciales con saldo abierto: ${pa.length} · ${pesos(pa.reduce((a, x) => a + n(x.saldo), 0))}`, ir: '#gastos/por-pagar' });
+  if (n(R.porClasificar) > 0) out.push({ k: 'porclasificar', texto: `Facturas por clasificar: ${n(R.porClasificar)}`, ir: '#gastos/sii/porclasificar' });
   const cj = (R.caja || []).filter(x => s(x.fecha).slice(0, 7) === mes && n(x.monto) > 0);
   if (cj.length) {
     const b2b = cj.filter(x => s(x.origen) === 'cobros_b2b').reduce((a, x) => a + n(x.monto), 0), total = cj.reduce((a, x) => a + n(x.monto), 0);
-    out.push({ k: 'caja', texto: `Efectivo pagado en ${mesCorto(mes)}: ${pesos(total)} (cobros B2B ${pesos(b2b)} · otro ${pesos(total - b2b)})`, ir: '#conciliacion/sinbanco' });
+    out.push({ k: 'caja', texto: `Efectivo pagado en ${mesCorto(mes)}: ${pesos(total)} (cobros B2B ${pesos(b2b)} · otro ${pesos(total - b2b)})`, ir: '#gastos/sinbanco' });
   }
-  if (n(R.sugeridas) > 0) out.push({ k: 'sugeridas', texto: `Reglas sugeridas por revisar: ${n(R.sugeridas)}`, ir: '#conciliacion/reglas' });
+  if (n(R.sugeridas) > 0) out.push({ k: 'sugeridas', texto: `Reglas sugeridas por revisar: ${n(R.sugeridas)}`, ir: '#gastos/config/reglas' });
   return out;
 }
 

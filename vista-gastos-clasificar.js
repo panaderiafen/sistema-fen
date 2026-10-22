@@ -8,17 +8,17 @@
 //  v0.63.1: también "Se paga por" (banco, efectivo o tarjeta) con su propuesta desde el historial (pagos con la cartola → banco).
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, pesos, fecha }
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.77.1';
-import * as G3 from './gastos-g3.js?v=0.77.1';
-import { ID_PREVIRED } from './gastos-g3d.js?v=0.77.1';
-import * as B from './gastos-banco.js?v=0.77.1';
+import * as Gastos from './gastos.js?v=0.78.0';
+import * as G3 from './gastos-g3.js?v=0.78.0';
+import { ID_PREVIRED } from './gastos-g3d.js?v=0.78.0';
+import * as B from './gastos-banco.js?v=0.78.0';
 
 const st = { lista: null, msg: '', err: '', corriendo: false, sel: new Set() };
 const TXT = 'Para cada cuenta recurrente activa se propone un tipo:\n• Monto fijo, si los últimos 3 pagos fueron del mismo monto (arriendo, cuotas).\n• Según documento, si es luz, agua, gas, internet o teléfono, o si el SII tiene facturas de un proveedor con ese nombre. El identificador es el N° de cliente que aparece en el nombre (si hay varios, eliges tú) o el RUT del proveedor del SII.\n• Libre (abonos), si es un sueldo o los montos cambian mucho.\n• Las cotizaciones van como según documento con identificador Previred: el certificado completa su vencimiento.\nNada se guarda solo: confirma cada una con Guardar, o marca varias y presiona "Aplicar propuestas". Puedes cambiar el tipo y el identificador antes. Al guardar, sus vencimientos abiertos (sin documento ni abonos) toman el tipo nuevo.\n\nSe paga por: banco (la cartola registra el pago), efectivo o tarjeta de crédito (se pagan con "Pagar"). La propuesta sale de sus últimos pagos: si se pagaron con la cartola, banco; si sus gastos fueron en efectivo, efectivo. Sin historial: banco.';
 const nombreIdent = v => (v === ID_PREVIRED ? 'Previred' : v);
 
 export async function pintar(cont, H) {
-  cont.innerHTML = `<div class="titulo-fila"><h2 id="t-clasif">Clasificar cuentas recurrentes ${H.info('Clasificar cuentas recurrentes', TXT)}</h2><a class="btn-sec btn-chico" href="#gastos/obligaciones">Volver a Cuentas recurrentes</a></div><div class="vacio" style="border:0">Revisando cuentas recurrentes y pagos…</div>`;
+  cont.innerHTML = `<div class="titulo-fila"><h2 id="t-clasif">Clasificar cuentas recurrentes ${H.info('Clasificar cuentas recurrentes', TXT)}</h2><a class="btn-sec btn-chico" href="#gastos/config/cuentas">Volver a Cuentas recurrentes</a></div><div class="vacio" style="border:0">Revisando cuentas recurrentes y pagos…</div>`;
   try { st.lista = (await Gastos.datosClasificar()).obligaciones || []; st.err = ''; }
   catch (e) { cont.querySelector('.vacio').outerHTML = `<p class="error" role="alert">${H.esc(e.message || H.mensajeError(e))}</p>`; return; }
   if (!cont.isConnected) return;
@@ -51,7 +51,7 @@ function fila(o, H) {
 }
 function dibujar(cont, H) {
   const L = st.lista, sinC = L.filter(o => o.sinClasificar).length;
-  cont.innerHTML = `<div class="titulo-fila"><h2 id="t-clasif">Clasificar cuentas recurrentes ${H.info('Clasificar cuentas recurrentes', TXT)}</h2><a class="btn-sec btn-chico" href="#gastos/obligaciones">Volver a Cuentas recurrentes</a></div>
+  cont.innerHTML = `<div class="titulo-fila"><h2 id="t-clasif">Clasificar cuentas recurrentes ${H.info('Clasificar cuentas recurrentes', TXT)}</h2><a class="btn-sec btn-chico" href="#gastos/config/cuentas">Volver a Cuentas recurrentes</a></div>
     <p class="ayuda">${L.length} ${L.length === 1 ? 'cuenta recurrente activa' : 'cuentas recurrentes activas'} · <b>${sinC}</b> sin clasificar. Revisa la propuesta de cada una; las marcadas se guardan con "Aplicar propuestas".${(n => n ? ` ${n} todavía sin "Se paga por" guardado (cuentan como banco).` : '')(L.filter(o => !o.sePagaPor).length)}</p>
     <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="cl-aplicar" ${st.corriendo || !st.sel.size ? 'disabled' : ''}>Aplicar propuestas (${st.sel.size})</button></div>
     <p class="ayuda" id="cl-msg" role="status" aria-live="polite">${H.esc(st.msg)}</p>${st.err ? `<p class="error" role="alert" id="cl-err">${H.esc(st.err)}</p>` : ''}

@@ -17,7 +17,7 @@
 //    toma el neto de la factura (netoFactura / conNetoSii).
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import { dia } from './gastos-modelo.js?v=0.77.1';
+import { dia } from './gastos-modelo.js?v=0.78.0';
 
 export const TIPOS_OBLIGACION = ['fijo', 'documento', 'libre'];
 export const NOMBRE_TIPO = { fijo: 'Monto fijo', documento: 'Según documento del mes', libre: 'Libre (abonos)' };
@@ -329,7 +329,7 @@ export function agendaBase(vistas, desde, hasta, hoy) {
       const base = v.fechaEstimada || f; if (!base) return;
       let fr = sumarDias(base, -diasAvisoDe(v));
       if (fr < hoy) fr = hoy;              // atrasado: se sigue mostrando hoy hasta que se suba
-      if (fr >= desde && fr <= hasta) out.push({ auto: true, cat: 'recordatorio', tipo: 'fen', fecha: fr, hora: '', titulo: `Subir boleta de ${v.nombre}`, origen: 'Recordatorio de Gastos', sub: `Vence cerca del ${base.split('-').reverse().join('-')} (fecha estimada)`, url: '#gastos', vencIdBoleta: v.id });
+      if (fr >= desde && fr <= hasta) out.push({ auto: true, cat: 'recordatorio', tipo: 'fen', fecha: fr, hora: '', titulo: `Subir boleta de ${v.nombre}`, origen: 'Recordatorio de Gastos', sub: `Vence cerca del ${base.split('-').reverse().join('-')} (fecha estimada)`, url: '#gastos/por-pagar', vencIdBoleta: v.id });
     }
   });
   return out;

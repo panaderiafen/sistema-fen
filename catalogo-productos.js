@@ -13,21 +13,21 @@
 //   1 vínculo en fin_productos por canal nuevo (+1 su historial) + 1 de la lista para logística (config/catalogoDisponible).
 //   Cambiar = 1 en fen-gastos + 1 por canal que cambia. Armar el catálogo = lotes en fen-gastos + 1 por documento de la caja + lotes en fen-b2b.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.77.1';
-import * as GB from './gastos-base.js?v=0.77.1';
-import * as FBG from './fs-gastos.js?v=0.77.1';
-import * as Cuota from './fs-cuota.js?v=0.77.1';
-import * as P from './produccion.js?v=0.77.1';
-import * as Caja from './caja.js?v=0.77.1';
-import * as B from './b2b.js?v=0.77.1';
-import * as F from './finanzas.js?v=0.77.1';
-import * as CPM from './catalogo-productos-modelo.js?v=0.77.1';
+import { auth } from './firebase.js?v=0.78.0';
+import * as GB from './gastos-base.js?v=0.78.0';
+import * as FBG from './fs-gastos.js?v=0.78.0';
+import * as Cuota from './fs-cuota.js?v=0.78.0';
+import * as P from './produccion.js?v=0.78.0';
+import * as Caja from './caja.js?v=0.78.0';
+import * as B from './b2b.js?v=0.78.0';
+import * as F from './finanzas.js?v=0.78.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.78.0';
 
 const LOTE = 400;
 const yo = () => (auth.currentUser && auth.currentUser.email) || '';
 export const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const idNuevo = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-async function dbG() { const cx = await GB.conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base de Gastos y Finanzas (Gastos → Base nueva): el catálogo se guarda ahí.'); return cx.db; }
+async function dbG() { const cx = await GB.conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base de Gastos y Finanzas (Gastos → Configuración → Base nueva): el catálogo se guarda ahí.'); return cx.db; }
 
 // Lecturas de la última apertura, por base (documentos)
 export const uso = { gastos: 0, caja: 0, b2b: 0, cocina: 0 };

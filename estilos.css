@@ -2403,3 +2403,27 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
   .rv-filtros .fin-buscar { flex: 0 0 auto; width: 100%; }
 }
 .fin-mp-movidas h2 { margin-top: 0; }
+/* ═══ v0.78.0 · Gastos, etapa A: Bandeja, Configuración, Ventas B2B → Conciliación y Finanzas → Resumen del mes ═══ */
+#v-gastos .cabecera > .pestanas, #v-conciliacion .cabecera > .pestanas, #v-b2b .cabecera > .pestanas { min-width: 0; max-width: 100%; }
+#v-gastos .pestanas a, #v-conciliacion .pestanas a, #v-b2b .pestanas a { gap: 6px; }
+@media (max-width: 760px) {
+  /* En el celular las pestañas se pasan con el dedo (como en Producción), sin mover la página de lado */
+  #v-gastos .cabecera > .pestanas, #v-conciliacion .cabecera > .pestanas, #v-b2b .cabecera > .pestanas, #v-finanzas .cabecera > .pestanas {
+    flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  #v-gastos .cabecera > .pestanas::-webkit-scrollbar, #v-conciliacion .cabecera > .pestanas::-webkit-scrollbar, #v-b2b .cabecera > .pestanas::-webkit-scrollbar, #v-finanzas .cabecera > .pestanas::-webkit-scrollbar { display: none; }
+  .conc-sub.bandeja-a, .conc-sub.config-gastos, .conc-sub.res-lados { display: flex; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; max-width: 100%; }
+  .conc-sub.bandeja-a::-webkit-scrollbar, .conc-sub.config-gastos::-webkit-scrollbar, .conc-sub.res-lados::-webkit-scrollbar { display: none; }
+  .conc-sub .pastilla { flex: none; white-space: nowrap; }
+}
+#v-gastos .cabecera > .conc-sub { flex: 1 1 100%; }
+.conc-subir #bandeja-registrar { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+@media (max-width: 600px) { .conc-subir #bandeja-registrar { flex: 1 1 auto; justify-content: center; } }
+.conc-res-enlace { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: var(--tarjeta); border: 1px solid var(--linea); font-size: 14px; }
+.conc-res-enlace > span { min-width: 0; overflow-wrap: anywhere; }
+.conc-res-enlace > svg { flex: none; color: var(--suave); }
+.res-lados { margin: 0 0 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.res-ir-bandejas { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.res-ir-bandejas a { display: inline-flex; align-items: center; gap: 4px; }
+#v-gastos .titulo-reg { margin: 0 0 10px; font-size: 18px; display: flex; align-items: center; gap: 6px; }
+#arch-cartolas .cobertura-conc, #arch-cartolas .detalle-an { overflow-wrap: anywhere; }
+#c-ir-resumen { white-space: nowrap; }

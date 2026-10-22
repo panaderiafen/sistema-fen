@@ -15,19 +15,19 @@
 //  · v0.67.2: un documento cuyos gastos fueron todos anulados vuelve a por clasificar (contexto, una escritura por documento, una
 //    vez) y "Volver a clasificar" (infoVolver, volverAClasificar).
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.77.1';
-import * as M from './gastos-g2.js?v=0.77.1';
-import * as S from './gastos-sii.js?v=0.77.1';
-import * as SP from './sii-pendientes.js?v=0.77.1';
-import * as G3 from './gastos-g3.js?v=0.77.1';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo, abonoParcial } from './gastos-fs.js?v=0.77.1';
-import * as PM from './pagos-mixtos.js?v=0.77.1';   // v0.69.2: documentos pagados en partes con saldo
+import * as FB from './fs-gastos.js?v=0.78.0';
+import * as M from './gastos-g2.js?v=0.78.0';
+import * as S from './gastos-sii.js?v=0.78.0';
+import * as SP from './sii-pendientes.js?v=0.78.0';
+import * as G3 from './gastos-g3.js?v=0.78.0';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo, abonoParcial } from './gastos-fs.js?v=0.78.0';
+import * as PM from './pagos-mixtos.js?v=0.78.0';   // v0.69.2: documentos pagados en partes con saldo
 
 const s = v => String(v == null ? '' : v);
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const ahora = () => M.ahoraChile().texto;
 const hoy = () => M.ahoraChile().dia;
-const SIIF = () => import('./gastos-sii-fs.js?v=0.77.1');
+const SIIF = () => import('./gastos-sii-fs.js?v=0.78.0');
 export const COL_PAGOS = 'sii_pagos';
 
 // ── Configuración (días) ──
@@ -187,7 +187,7 @@ export async function estadoDoc(docId) {
 // → { ok, doc: { id, razonSocial, folio, total, fecha }, gastos: [{ id, item, area, monto, fecha }], bloqueos: [texto], motivoNo }
 export async function infoVolver(docId) {
   const { docs, idx, vencs } = await contexto(), x = docs.find(y => y.id === s(docId));
-  if (!x || x.d.quitadoEnPlanilla) return { ok: false, motivoNo: 'Esta factura no está en los documentos del SII de la base nueva: súbela en Conciliación → Subir archivo. Si quieres sacar su gasto, anúlalo.', gastos: [], bloqueos: [] };
+  if (!x || x.d.quitadoEnPlanilla) return { ok: false, motivoNo: 'Esta factura no está en los documentos del SII de la base nueva: súbela en Gastos → Bandeja → Subir archivo. Si quieres sacar su gasto, anúlalo.', gastos: [], bloqueos: [] };
   if (s(x.d.tipo) === '61') return { ok: false, motivoNo: 'Las notas de crédito se corrigen desde su carga.', gastos: [], bloqueos: [] };
   if (x.d.importado && (x.d.importado.aVencimiento || x.d.importado.pendienteId)) return { ok: false, motivoNo: 'Esta factura fue al vencimiento de su cuenta recurrente (según documento): se corrige en Gastos → Por pagar.', gastos: [], bloqueos: [] };
   const doc = { id: x.id, razonSocial: s(x.d.razonSocial), folio: s(x.d.folio), total: Number((x.d.importado || {}).total || (x.d.porClasificar || {}).total) || 0, fecha: s((x.d.porClasificar || {}).fecha || (x.d.importado || {}).fechaDocto || x.d.fecha) };
@@ -254,7 +254,7 @@ export async function conteos() {
   const lista = listaSinBanco(pend, gs, pg, c, vencs);
   return { porClasificar: pend.filter(v => !v.esNC).length, sinBanco: lista.length, automaticas: SP.automaticasDe(ga).length, resumen: resumenMemoria(pend, pg, vencs) };
 }
-// v0.69.3 · Conciliación → Resumen del mes: lo mismo que ya se leyó para los números de las pestañas (0 lecturas nuevas).
+// v0.69.3 · Finanzas → Resumen del mes: lo mismo que ya se leyó para los números de las pestañas (0 lecturas nuevas).
 //  · siiPorMes: los documentos del SII por clasificar de cada mes (la misma cuenta que el cierre de mes: SP.pendientesDelMes);
 //  · caja: lo pagado en efectivo (Pagos sin banco y la parte en efectivo de los pagos mixtos), con su fecha y de dónde salió;
 //  · partes: los vencimientos con abonos y saldo abierto; vencidas: los documentos con saldo cuya fecha ya pasó (como Pagos sin banco).
@@ -343,7 +343,7 @@ export async function clasificar(docId, lineas, pago, opc = {}) {
   const SF = await SIIF();
   await SF.importar([f], false, opc.marca || M.marcaNueva(), { formato: v.formato, archivo: v.archivo, cargaId: v.cargaId });
   const sn2 = await FB.getDoc(ref), im = (sn2.exists() && sn2.data().importado) || {};
-  try { import('./finanzas.js?v=0.77.1').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
+  try { import('./finanzas.js?v=0.78.0').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
   return { ok: true, gastos: im.gastos || [], vencimiento: im.vencimiento || '' };
 }
 
