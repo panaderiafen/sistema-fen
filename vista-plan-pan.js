@@ -6,8 +6,8 @@
 //  v0.77.1: pestaña de Producción (Producción → Plan de Panadería); se dibuja dentro de #prod-tab.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as PP from './plan-pan.js?v=0.79.0';
-import * as PM from './plan-pan-modelo.js?v=0.79.0';
+import * as PP from './plan-pan.js?v=0.80.1';
+import * as PM from './plan-pan-modelo.js?v=0.80.1';
 
 const S = { D: null, prop: null, dia: 0, semana: '', suc: 'todas', abiertos: new Set(), msg: '', err: '', editSuc: 'barros', cargando: false, extra: [] };
 const $ = id => document.getElementById(id);
@@ -31,7 +31,7 @@ const TXT = {
   costo: 'Costo directo de la receta (Finanzas → Costos → Productos, neto por unidad) por las unidades. Solo administración.',
   pisos: 'Un mínimo opcional por tienda, día y tipo de pan: la propuesta de esa tienda no baja de ese número.\nVacío = sin piso. Cada cambio queda en el historial (quién, cuándo, antes → después).\nEl sistema avisa cuando los datos sugieren cambiarlo:\n· subir: en 2 o más de las últimas 4 semanas se vendió todo (o se agotó) con el piso o menos;\n· bajar: el piso pasa la mediana de lo vendido y en 3 o más semanas la merma fue de 20 % o más.',
   lecturas: 'Lo leído para armar esta pantalla, por base (documentos). Queda en memoria mientras la app está abierta (hasta 6 horas): cambiar de pestaña o de semana no vuelve a leer. "Actualizar" lo lee de nuevo.\nLo de Cocina y Finanzas usa la memoria compartida con Producción y Finanzas: lo que ya leyeron no se vuelve a leer.',
-  sinAsociar: 'Productos de la caja con área Panadería y productos de B2B pedidos en estas semanas que no tienen vínculo en Finanzas. Mientras no se asocien no entran en el plan.\n"Asociar" abre Finanzas → Márgenes → Asociar productos con ese producto.'
+  sinAsociar: 'Productos de la caja con área Panadería y productos de B2B pedidos en estas semanas que no tienen vínculo en Finanzas. Mientras no se asocien no entran en el plan.\n"Asociar" abre Finanzas → Márgenes → Asociar productos con ese producto.\nLos que dicen "Receta pendiente" son productos del Catálogo de Panadería que se venden sin receta aprobada todavía: son pan sin tipo (no se sabe de qué receta), así que no entran en el plan. "Unir con su receta" los lleva al Catálogo.'
 };
 
 // v0.77.1: es una pestaña de Producción (la cabecera y las pestañas de Producción van arriba); aquí, su título y sus botones
@@ -189,7 +189,8 @@ function porDia(f, sucs, H) {
 function htmlSinAsociar(H) {
   const l = S.D.sinAsociar;
   return `<section class="tarjeta" aria-labelledby="t-pp-sin" id="pp-sin"><h2 id="t-pp-sin">Productos sin asociar <span class="chip ${l.length ? 'c-amarillo' : 'c-verde'} chip-chico">${n(l.length)}</span> ${H.info('Productos sin asociar', TXT.sinAsociar)}</h2>
-    ${l.length ? `<ul class="pp-lista">${l.map(p => `<li><div><b>${H.esc(p.nombre)}</b> <span class="ayuda">${p.canal === 'b2b' ? 'B2B' : 'Caja'} · ${H.esc(p.productoId)}${p.cantidad ? ` · ${n(p.cantidad)} vendidos` : ''}</span></div><a class="btn-sec btn-chico" href="#finanzas/margenes/asociar/${encodeURIComponent(p.clave)}">${'Asociar'}</a></li>`).join('')}</ul>` : '<p class="ok-texto">Todo el pan vendido y pedido está asociado a su receta.</p>'}</section>`;
+    ${l.some(p => p.pendiente) ? `<p class="ayuda" id="pp-sin-pend">${n(l.filter(p => p.pendiente).length)} con la receta pendiente: pan sin tipo, no entran en el plan hasta que los unas con su receta en el Catálogo.</p>` : ''}
+    ${l.length ? `<ul class="pp-lista">${l.map(p => `<li${p.pendiente ? ' data-pp-pend' : ''}><div><b>${H.esc(p.nombre)}</b>${p.pendiente ? ' <span class="chip c-amarillo chip-chico">Receta pendiente</span>' : ''} <span class="ayuda">${p.canal === 'b2b' ? 'B2B' : 'Caja'} · ${H.esc(p.productoId)}${p.cantidad ? ` · ${n(p.cantidad)} vendidos` : ''}</span></div>${p.pendiente ? '<a class="btn-sec btn-chico" href="#catalogo/productos/falta-receta">Unir con su receta</a>' : `<a class="btn-sec btn-chico" href="#finanzas/margenes/asociar/${encodeURIComponent(p.clave)}">${'Asociar'}</a>`}</li>`).join('')}</ul>` : '<p class="ok-texto">Todo el pan vendido y pedido está asociado a su receta.</p>'}</section>`;
 }
 
 // ═══ Ainavillo y pisos ═══
