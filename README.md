@@ -1,9 +1,60 @@
-# Sistema Fën · v0.78.0
+# Sistema Fën · v0.79.0
 
-**App:** v0.78.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-ventas v1.5.0, fen-b2b v1.7.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.79.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-ventas v1.5.0, fen-b2b v1.7.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.79.0: Gastos, etapa B — la Bandeja única
+
+Es la **etapa B** del diseño aprobado (`diseno/gastos-rediseno.html`, "La ruta de un gasto" y "Así se vería la Bandeja"). Antes, una misma factura vivía en cuatro lugares con cuatro nombres (el documento del SII "por clasificar", el vencimiento "por pagar", el cargo del banco "por calzar" y el gasto "registrado") y no se podía seguir su ruta. Ahora **Gastos → Bandeja** muestra **cada gasto una sola vez**, con una barra de 4 pasos y lo que falta hacer. No cambia ningún dato: la Bandeja lee lo que ya existe y cada botón hace exactamente lo mismo que la pantalla de antes.
+
+- **Dónde va:** repo **sistema-fen**, raíz. Archivos nuevos: `bandeja-gastos-modelo.js` (el modelo: un ítem por gasto, puro) y `bandeja-gastos-fs.js` (los números para Hoy). Cambian `app.js` (la Bandeja única, la vista anterior, Hoy y el número de la pestaña), `rutas.js` (`#gastos/cargos` es la vista anterior), `gastos.js` (Hoy), `gastos-cartola.js` (los vencimientos llevan sus enlaces `siiDocId` y `gastosDoc`, que ya estaban guardados), `estilos.css` y este README; los demás, solo la versión. `cocina/` y `fermentacion.js` **no cambian**.
+- **Nada en reglas ni Apps Script:** ninguna colección, campo ni permiso nuevo. Cocina, la caja y logística no se tocan.
+- **Arreglo de pantalla:** en Configuración (Ajustes), en el celular, los botones-enlace largos ("Reglas del banco (Gastos → Configuración)") se salían 4 px de la pantalla; ahora se cortan en dos líneas.
+
+### Cómo se lee la barra de 4 pasos
+| Paso | Qué quiere decir | Qué falta (la flecha de cada fila) |
+|---|---|---|
+| **1 Llegó** | Está el documento (SII, boleta, Previred) o el aviso de la cuenta recurrente, pero sin ítem y área | Clasificar (ítem y área), asignar la boleta a una cuenta, o subir la boleta que falta |
+| **2 Clasificado** | Ya tiene ítem y área (y su vencimiento, si es a crédito) | Pagarlo, o decir cómo se pagó si no aparece en el banco |
+| **3 Pagado, falta el banco** | Se pagó (a mano, al contado, por transferencia) pero su cargo aún no está en la cartola | Calzar con su cargo cuando llegue la cartola |
+| **4 Conciliado** | El cargo calzó (o se pagó en efectivo o con tarjeta) | Nada: queda en "Ya listos" 30 días y después solo en Registrados |
+
+Los segmentos llenos son lo hecho; el que tiene solo el borde es lo que sigue. El gasto cuenta en el mes de la factura; el pago, en el mes en que sale la plata (eso no cambia).
+
+### La Bandeja
+1. **Arriba:** Subir archivo · Registrar a mano · Resumen del mes (Finanzas). La (i) junto a "Lo que falta hacer" explica la ruta y que cada gasto aparece una vez.
+2. **Filtros (pastillas con su número):** Todo · Por clasificar · Por pagar · Por calzar con el banco · Sin pago en banco · Ya listos (30 días). Cada cosa está en uno solo; **Todo** es la suma y es el número de la pestaña Bandeja y de Hoy. Los cargos del banco sin documento cuentan en "Por calzar con el banco". El filtro elegido se recuerda en el equipo.
+3. **Dos lados:** en el computador, a la izquierda **Documentos y gastos** y a la derecha **Lo que muestra el banco** (la misma bandeja de cargos de siempre, con Listo/Revisar/Sin coincidencia, buscar, confirmar varios y Reglas); en el celular, dos pestañas. Al tocar un gasto se destaca su cargo (en amarillo) y al abrir un cargo se destaca su gasto; cada cargo dice "Es de: …". Teclado: ↑ ↓ para moverse, Enter abre, Esc cierra.
+4. **Qué hace cada botón (lo mismo que antes):** Clasificar → "Importar compra" de Cargas del SII · Calzar con este cargo → abre el cargo con su propuesta (la confirmación de siempre, con combinaciones factura − nota de crédito y pagos en partes) · Pagada en efectivo / con tarjeta / Todavía por pagar → el editor de Pagos sin banco · Pagar → el diálogo de Por pagar · documento sin cuenta → Asignar, Registrar como gasto, Crear cuenta, Descartar · en un cargo sin coincidencia, **Crear gasto** y **No es gasto** abren su detalle en "Gasto nuevo" o "No es gasto" · **Abrir: la ruta de este gasto** muestra dónde está (documento, por pagar, gasto, cargo) y en qué paso va.
+5. **Cartola y cobertura** (cerrada de entrada) y **Lo aprendido** siguen debajo, plegables.
+6. **Vista anterior:** el enlace "Vista anterior" lleva a las pantallas de la etapa A, tal como estaban: `#gastos/cargos` (Cargos de la cartola), `#gastos/sii` (Cargas del SII) y `#gastos/sinbanco` (Pagos sin banco), con "Volver a la Bandeja". Se quitan en la próxima versión. Subir un archivo del SII sigue abriendo Cargas del SII (ahí se clasifica la carga). Los enlaces viejos (`#conciliacion…`) llevan a los mismos lugares que en la v0.78.0.
+7. **Qué es "un mismo gasto":** se une por los enlaces que ya se guardan: documento del SII ↔ vencimiento (`documento.siiDocId`, o el mismo RUT y folio, o folio y razón social), vencimiento ↔ gastos (`vencimientoId`, `gastosDoc`), documento ↔ gastos (`siiDoc.id`), Pagos sin banco (su documento y sus gastos), documento sin cuenta ↔ SII (`siiDocId`), y gasto ↔ cargo (la propuesta del cargo). Una nota de crédito va en la fila de su factura. Lo por pagar entra a la Bandeja desde 7 días antes de su fecha (lo de después sigue en Por pagar, con un aviso abajo).
+8. **Hoy:** una línea "Bandeja de Gastos: N por hacer" con el detalle por filtro (reemplaza "Facturas por clasificar"); "Pagos atrasados", "Pagos de los próximos 7 días" y "Esperan cartola" siguen como estaban. Si abriste la Bandeja hace poco, Hoy usa sus números; si no, los calcula sin las propuestas de la cartola, y una combinación o un pago parcial aparecen como dos cosas hasta que abres la Bandeja.
+
+### Lecturas (Spark)
+Medido con Firebase simulado y la misma semilla contra la v0.78.0 (`pruebas/capturas/gastos-etapaB-v0790/lecturas.json`): **abrir la Bandeja la primera vez** lee 71 en Gastos (antes 70: la única lectura nueva son los documentos sin cuenta recurrente, una colección chica, una vez por sesión) y 11 en B2B (igual); Pagos sin banco sale de la memoria. **Ir a Por pagar** 0 (antes 1) y **volver a la Bandeja** 0 en Gastos (igual). Ninguna escritura nueva. **Hoy** lee además los cargos por revisar (su paquete) y los documentos sin cuenta: +5 por apertura con los datos de la prueba de cuota (52 → 57); la primera vez de todas, el paquete de cargos se arma al abrir Hoy en vez de al abrir la Bandeja (las mismas lecturas, antes). La vista anterior lee lo mismo que la v0.78.0.
+
+### Instalación v0.79.0 (unos 3 minutos)
+1. **Sistema Fën v0.79.0:** GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.79.0.zip` (con la carpeta `cocina/`, que no cambia, y los archivos nuevos `bandeja-gastos-modelo.js` y `bandeja-gastos-fs.js`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+2. Cocina, reglas de Firestore y Apps Script: nada.
+
+### Lista de verificación v0.79.0
+- [ ] Abajo dice **v0.79.0**.
+- [ ] **Gastos → Bandeja**: a la izquierda los documentos y gastos con su barra de 4 pasos; a la derecha los cargos del banco. Una factura que es también un vencimiento aparece **una vez**.
+- [ ] Las pastillas Todo · Por clasificar · Por pagar · Por calzar con el banco · Sin pago en banco · Ya listos con sus números; Todo = el número de la pestaña Bandeja.
+- [ ] Tocar un gasto con cargo: su cargo queda destacado a la derecha; "Calzar con este cargo" lo abre y se confirma como siempre.
+- [ ] Una factura por clasificar: elegir ítem y área → Importar compra.
+- [ ] Una factura en "Sin pago en banco": Pagada en efectivo → queda en Ya listos.
+- [ ] Un cargo sin coincidencia: "Crear gasto" y "No es gasto" abren su detalle.
+- [ ] En el celular: las pestañas "Documentos y gastos" y "Lo que muestra el banco", sin mover la página de lado.
+- [ ] **Hoy**: "Bandeja de Gastos: N por hacer" lleva a la Bandeja.
+- [ ] "Vista anterior" abre las pantallas de la etapa A; "Volver a la Bandeja" vuelve.
+
+**Si algo sale mal:** vuelve a subir la v0.78.0. No se pierde nada: esta versión no cambia datos.
+
+**Pruebas:** `pruebas/sistemafen/gastos-etapaB-v0790.test.js` (19/19: el modelo, la pantalla con un mes ficticio, cada acción comparada con la vista anterior, Hoy, lecturas) y las demás suites (`pruebas/resultados-v0790.txt`, con `pruebas/correr-v0790.sh`). Capturas de cada filtro, con y sin un gasto elegido, a 390 y 1280, en `pruebas/capturas/gastos-etapaB-v0790/`.
 
 ## Novedades de la v0.78.0: Gastos, etapa A
 

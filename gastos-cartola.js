@@ -16,12 +16,12 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.78.0';
-import * as B from './gastos-banco.js?v=0.78.0';
-import { habilesEntre } from './feriados-cl.js?v=0.78.0';
-import * as D3 from './gastos-g3d.js?v=0.78.0';   // v0.67.0: total del plan de Previred con multas e intereses
-import * as PM from './pagos-mixtos.js?v=0.78.0';   // v0.69.2: pagos mixtos (un documento pagado en partes)
-import * as BO from './boletas.js?v=0.78.0';   // v0.70.0: boletas de luz y agua (el total a pagar paga todo lo que cubre, lo más antiguo primero)
+import * as G3 from './gastos-g3.js?v=0.79.0';
+import * as B from './gastos-banco.js?v=0.79.0';
+import { habilesEntre } from './feriados-cl.js?v=0.79.0';
+import * as D3 from './gastos-g3d.js?v=0.79.0';   // v0.67.0: total del plan de Previred con multas e intereses
+import * as PM from './pagos-mixtos.js?v=0.79.0';   // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as BO from './boletas.js?v=0.79.0';   // v0.70.0: boletas de luz y agua (el total a pagar paga todo lo que cubre, lo más antiguo primero)
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
@@ -308,7 +308,9 @@ export function vencimientosAbiertos(vencs, plantillas, siiRut, hoy) {
       partes: PM.partesDe(d), enPartes: !!d.pagoEnPartes, deDocumento: PM.esDeDocumento(d),
       fechaDoc: dia(d.fechaCompra) || (d.documento && dia(d.documento.fecha)) || '',   // v0.69.0: la fecha de la factura (para el ritmo de pago)
       // v0.70.0 · Nació de su boleta (luz, agua): sus gastos ya existen; la boleta dice qué cubre (su saldo anterior) y de qué empresa es
-      devengado: G3.esDevengado(d), boleta: d.boleta && typeof d.boleta === 'object' ? d.boleta : null, mesBoleta: s(d.boleta && d.boleta.mes) || s(d.periodoKey), empresa: s((o && o.empresa) || (d.boleta && d.boleta.empresa)), cuentaNombre: o ? s(o.nombre) : '' });
+      devengado: G3.esDevengado(d), boleta: d.boleta && typeof d.boleta === 'object' ? d.boleta : null, mesBoleta: s(d.boleta && d.boleta.mes) || s(d.periodoKey), empresa: s((o && o.empresa) || (d.boleta && d.boleta.empresa)), cuentaNombre: o ? s(o.nombre) : '',
+      // v0.79.0 · Los enlaces que ya guarda (para la Bandeja única: un gasto aparece una sola vez): su documento del SII y sus gastos
+      siiDocId: s(d.documento && d.documento.siiDocId) || s(d.siiDocId), gastosDoc: Array.isArray(d.gastosDoc) ? d.gastosDoc.map(String) : [] });
   });
   return out.sort((a, b) => s(a.fecha).localeCompare(s(b.fecha)) || a.id.localeCompare(b.id));
 }

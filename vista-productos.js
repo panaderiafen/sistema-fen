@@ -5,9 +5,9 @@
 //  #catalogo/armar: una sola vez, une lo vivo de la caja y de B2B en productos del catálogo (juntando los que llevan a la misma receta).
 //  Datos en catalogo-productos.js; reglas puras en catalogo-productos-modelo.js. H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, dialogo }
 // ═══════════════════════════════════════════════
-import * as C from './catalogo-productos.js?v=0.78.0';
-import * as CPM from './catalogo-productos-modelo.js?v=0.78.0';
-import * as AR from './areas.js?v=0.78.0';
+import * as C from './catalogo-productos.js?v=0.79.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.79.0';
+import * as AR from './areas.js?v=0.79.0';
 
 const st = { D: null, cargando: null, filtro: { estado: 'activo', canal: 'todos', tipo: 'todos', q: '' }, msg: '', err: '', grupos: null, gmsg: '', gerr: '', ocupado: false };
 export const estado = st;

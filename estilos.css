@@ -2427,3 +2427,112 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 #v-gastos .titulo-reg { margin: 0 0 10px; font-size: 18px; display: flex; align-items: center; gap: 6px; }
 #arch-cartolas .cobertura-conc, #arch-cartolas .detalle-an { overflow-wrap: anywhere; }
 #c-ir-resumen { white-space: nowrap; }
+/* ═══ v0.79.0 · Gastos, etapa B: la Bandeja única (documentos y gastos a la izquierda, el banco a la derecha) ═══ */
+.conc-subir .bu-resumen { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 6px; text-decoration: none; font-weight: 600; font-size: 14px; }
+.bu-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; }
+.bu-filtros { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 520px; min-width: 0; }
+.bu-filtros .pastilla { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 999px; }
+.bu-filtros .pastilla[aria-pressed="true"] { border-color: var(--acento); background: var(--acento-suave); color: var(--acento); }
+.bu-ant { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.bu-aviso-ant { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0; font-size: 13px; color: var(--suave); }
+.bu-aviso-ant a { font-weight: 700; }
+.bu-aviso-ant svg { color: var(--acento); }
+.tarjeta.bu { padding: 0; overflow: hidden; }
+.bu-lados { display: none; }
+.bu-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.bu-izq, .bu-der { min-width: 0; }
+.bu-izq { border-right: 1px solid var(--linea); }
+.bu-cab { position: sticky; top: 0; z-index: 3; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 12px 16px; background: var(--tarjeta); border-bottom: 1px solid var(--linea); }
+.bu-cab h2 { margin: 0; font-size: 15px; font-weight: 700; }
+.bu-cab > span { font-size: 12.5px; color: var(--suave); text-align: right; }
+.bu-nota { margin: 8px 16px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.bu-tecla { margin: 8px 16px 14px; }
+.bu-vacio { margin: 14px 16px; border: 0; padding: 18px 8px; }
+.bu-lista { display: flex; flex-direction: column; }
+.bu-item { --bu-c: var(--bj-gris, #B8B2A4); border-top: 1px solid var(--linea); box-shadow: inset 3px 0 0 var(--bu-c); }
+.bu-lista > .bu-item:first-child { border-top: 0; }
+.bu-item[data-paso="1"] { --bu-c: var(--bj-amarillo, #D9B45A); }
+.bu-item[data-paso="2"] { --bu-c: #6E93A6; }
+.bu-item[data-paso="3"] { --bu-c: var(--acento); }
+.bu-item[data-paso="4"] { --bu-c: var(--bj-verde, #5E9A6F); }
+.bu-fila { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 11px 14px 11px 17px; border: 0; background: transparent; text-align: left; cursor: pointer; color: var(--texto); }
+.bu-fila:hover { background: rgba(47, 90, 69, .035); }
+.bu-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: -3px; border-radius: 4px; }
+.bu-sel > .bu-fila { background: var(--acento-suave); }
+.bu-item.bu-par:not(.bu-sel) > .bu-fila, .bj-lista details.mov.bu-par > summary.fila-caja { background: #FFF6DE; box-shadow: inset 3px 0 0 var(--amarillo-t); }
+.bu-l1 { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.bu-tit { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; }
+.bu-tit > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bu-tit > svg { flex: none; color: var(--suave); }
+.bu-monto { flex: none; font-size: 15px; font-weight: 700; white-space: nowrap; }
+.bu-sub { font-size: 12.5px; color: var(--suave); line-height: 1.4; overflow-wrap: anywhere; }
+.bu-sub b { color: var(--texto); font-weight: 600; }
+.bu-l3 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; }
+.bu-pasos { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+.bu-seg { width: 18px; height: 5px; border-radius: 3px; background: var(--linea); }
+.bu-seg-hecho { background: var(--bu-c); }
+.bu-seg-sigue { background: transparent; box-shadow: inset 0 0 0 1.5px var(--bu-c); }
+.bu-paso-tx { margin-left: 5px; font-size: 12px; font-weight: 700; color: var(--texto); white-space: nowrap; }
+.bu-acc { display: inline-flex; align-items: center; gap: 3px; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--acento); }
+.bu-acc > span { min-width: 0; overflow-wrap: anywhere; }
+.bu-acc > svg { flex: none; }
+.bu-calza { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; max-width: 100%; padding: 3px 9px; border-radius: 999px; background: var(--verde); color: var(--verde-t); font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.bu-calza-duda { background: var(--amarillo); color: var(--amarillo-t); }
+.bu-calza > svg { flex: none; }
+.bu-det { display: flex; flex-direction: column; gap: 12px; padding: 4px 14px 16px 17px; background: var(--acento-suave); }
+.bu-det > p { margin: 0; }
+.bu-bloque { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: var(--tarjeta); border: 1px solid var(--linea); min-width: 0; }
+.bu-bloque .mov-edit { padding: 0; }
+.bu-bloque .ayuda { margin: 0; }
+.bu-k { margin: 0; display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--suave); text-transform: uppercase; letter-spacing: .03em; }
+.bu-bot { justify-content: flex-start; flex-wrap: wrap; gap: 8px; margin: 0; }
+.bu-cargo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--linea); background: #fff; }
+.bu-cargo-duda { border-style: dashed; }
+.bu-cargo-txt { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.bu-cargo-txt b { overflow-wrap: anywhere; }
+.bu-cargo-txt span { font-size: 12px; color: var(--suave); }
+.bu-det .reg-det { max-width: 100%; }
+.bu-det .sp-detalle, .bu-det .sp-clasif { min-width: 0; }
+.bj-lista details.mov > summary .txt > small.bu-es-de { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--acento); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bj-lista details.mov > summary .txt > small.bu-es-de svg { flex: none; }
+/* La bandeja de cargos a la derecha, angosta: el detalle se abre debajo del cargo (como en el celular) */
+.bu-der .tarjeta.bandeja { border: 0; border-radius: 0; margin: 0; box-shadow: none; }
+@media (min-width: 1024px) {
+  .bu-izq, .bu-der { height: clamp(520px, calc(100vh - 150px), 1300px); overflow-y: auto; overscroll-behavior: contain; }
+  .bj-angosta .bj-cuerpo { display: block; height: auto; }
+  .bj-angosta .bj-lista { overflow: visible; border-right: 0; min-height: 0; }
+  .bj-angosta .bj-lista > details.plegable > summary { position: static; }
+  .bj-angosta .bj-lista .bj-det { position: static; padding: 14px 14px 18px; border-top: 1px solid var(--linea); overflow: visible; background: var(--tarjeta); }
+  .bj-angosta .bj-vacio-det { display: none; }
+  .bj-angosta .bj-lista details.mov > summary.fila-caja { flex-wrap: wrap; row-gap: 6px; }
+  .bj-angosta .bj-lista details.mov > summary.fila-caja > .txt { flex: 1 1 60%; }
+  .bj-angosta .bj-lista details.mov > summary.fila-caja:has(.btn, .btn-sec) > .acciones { flex: 1 1 100%; justify-content: flex-end; flex-wrap: wrap; }
+  .bj-angosta .bj-datos { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .bj-angosta .bj-cab-monto { font-size: 22px; }
+}
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .bu-filtros .pastilla { padding: 0 10px; font-size: 12.5px; }
+  .bu-fila { padding: 10px 12px 10px 15px; }
+}
+@media (max-width: 1023px) {
+  .bu-lados { display: flex; gap: 6px; padding: 10px 10px 0; border-bottom: 1px solid var(--linea); }
+  .bu-lados [role="tab"] { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 8px; border: 0; border-bottom: 3px solid transparent; background: transparent; font-weight: 700; font-size: 13.5px; color: var(--suave); cursor: pointer; }
+  .bu-lados [role="tab"][aria-selected="true"] { color: var(--acento); border-bottom-color: var(--acento); }
+  .bu-lado-n { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--fondo); font-size: 12px; }
+  .bu-cuerpo { display: block; }
+  .bu-izq { border-right: 0; }
+  .bu-cuerpo[data-bu-ver="docs"] .bu-der, .bu-cuerpo[data-bu-ver="banco"] .bu-izq { display: none; }
+  .bu-cab { display: none; }   /* las pestañas de los dos lados ya lo dicen */
+  .bu-der .bj-barra { padding: 10px 12px; }
+}
+@media (max-width: 760px) {
+  .bu-filtros { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; flex-basis: 100%; }
+  .bu-filtros::-webkit-scrollbar { display: none; }
+  .bu-filtros .pastilla { flex: none; white-space: nowrap; }
+  .bu-det { padding: 4px 10px 14px 13px; }
+  .bu-bloque { padding: 10px; }
+  .bu-cab { padding: 10px 12px; }
+}
+/* v0.79.0 · Ajustes en el celular: los enlaces-botón largos ("Reglas del banco (Gastos → Configuración)") se cortan en dos líneas */
+.btn-enlace { max-width: 100%; }
+@media (max-width: 600px) { .btn-enlace { white-space: normal; height: auto; min-height: 40px; padding-top: 6px; padding-bottom: 6px; line-height: 1.3; } }

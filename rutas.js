@@ -8,6 +8,8 @@
 //  · Ventas B2B → Conciliación (#b2b/conciliacion): los abonos; sus reglas en #b2b/conciliacion/reglas;
 //  · Finanzas → Resumen del mes (#finanzas/resumen[/cargos|/abonos]).
 //  Los enlaces viejos (#conciliacion…, #gastos/obligaciones, #gastos/items…) llevan solos al lugar nuevo.
+//  v0.79.0 (Gastos, etapa B): #gastos es la Bandeja única (documentos y gastos a la izquierda, el banco a la derecha). Las pantallas
+//  de la etapa A quedan una versión más como "Vista anterior": #gastos/cargos (Cargos de la cartola), #gastos/sii y #gastos/sinbanco.
 // ═══════════════════════════════════════════════
 
 export const SUBS_BANDEJA = ['cargos', 'sii', 'sinbanco'];
@@ -29,7 +31,7 @@ export function rutaNueva(h) {
   }
   if (p[0] === 'gastos') {
     const k = p[1] || '';
-    if (k === 'cartola' || k === 'cargos' || k === 'bandeja') return '#gastos';
+    if (k === 'cartola' || k === 'bandeja') return '#gastos';   // v0.79.0: #gastos/cargos es la vista anterior (ya no se traduce)
     if (k === 'obligaciones' || k === 'clasificar') return '#gastos/config/cuentas';
     if (k === 'items') return '#gastos/config/items';
     if (k === 'base') return '#gastos/config/base';
@@ -47,7 +49,7 @@ export function rutaNueva(h) {
 export function concSub(h) {
   const p = partes(h);
   if (p[0] === 'gastos') {
-    if (!p[1]) return 'cargos';
+    if (!p[1] || p[1] === 'cargos') return 'cargos';   // v0.79.0: la Bandeja única y la vista anterior de los cargos son la misma pantalla de cargos
     if (['sii', 'sinbanco', 'previred', 'proveedores'].includes(p[1])) return p[1];
     if (p[1] === 'config' && p[2] === 'reglas') return 'reglas';
     return null;
@@ -79,7 +81,10 @@ export function tabGastos(sub) {
 export function parteConfig(sub) {
   return { obligaciones: 'cuentas', clasificar: 'cuentas', cuentas: 'cuentas', items: 'items', reglas: 'reglas', archivos: 'archivos', base: 'base' }[sub] || 'cuentas';
 }
-// La pastilla de la Bandeja
+// v0.79.0 · ¿Es la Bandeja única? (#gastos a secas). #gastos/cargos, #gastos/sii y #gastos/sinbanco son la vista anterior
+export const bandejaUnica = h => { const p = partes(h); return p[0] === 'gastos' && !p[1]; };
+export const vistaAnterior = h => { const p = partes(h); return p[0] === 'gastos' && SUBS_BANDEJA.includes(p[1] || ''); };
+// La pastilla de la Bandeja (vista anterior)
 export const pastillaBandeja = sub => (sub === 'sii' || sub === 'sinbanco' ? sub : 'cargos');
 // Finanzas → Resumen del mes: qué lado ('cc' cargos o 'ab' abonos)
 export const ladoResumen = h => (partes(h)[2] === 'abonos' ? 'ab' : 'cc');
