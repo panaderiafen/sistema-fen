@@ -5,9 +5,10 @@
 //  #catalogo/armar: una sola vez, une lo vivo de la caja y de B2B en productos del catálogo (juntando los que llevan a la misma receta).
 //  Datos en catalogo-productos.js; reglas puras en catalogo-productos-modelo.js. H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, dialogo }
 // ═══════════════════════════════════════════════
-import * as C from './catalogo-productos.js?v=0.80.1';
-import * as CPM from './catalogo-productos-modelo.js?v=0.80.1';
-import * as AR from './areas.js?v=0.80.1';
+import * as C from './catalogo-productos.js?v=0.80.2';
+import * as CPM from './catalogo-productos-modelo.js?v=0.80.2';
+import * as AR from './areas.js?v=0.80.2';
+import * as LMP from './listas-precios-modelo.js?v=0.80.2';
 
 const st = { D: null, cargando: null, filtro: { estado: 'activo', canal: 'todos', tipo: 'todos', q: '', falta: false }, msg: '', err: '', grupos: null, gmsg: '', gerr: '', ocupado: false };
 export const estado = st;
@@ -32,6 +33,7 @@ const TXT_FALTA = 'Los productos que se venden con la receta pendiente (todavía
 const TXT_UNIR = 'Elige su receta, ya aprobada en Cocina. Se proponen las de su área; marca "Ver todas las áreas" si es de otra (el área pasa a ser la de la receta).\nCambia la receta del producto en el Catálogo, en la caja y en B2B (sus precios no cambian) y el vínculo de Finanzas, como al crear un producto desde una receta. Desde ahí sus ventas tienen costo y margen. Queda en el historial.\nSi la receta todavía no aparece, apruébala primero en Producción (o pide que la propongan desde Cocina).';
 const TXT_UPV = 'Cuántas unidades de la receta (o de la reventa) lleva una venta. Casi siempre 1; una "caja de 6" = 6.';
 const TXT_ARMAR = 'Una sola vez: une lo que hoy está vivo en la caja y en B2B en productos del catálogo, para que todo quede unido por ID y no por nombre.\n1) Se proponen grupos: un producto de la caja y uno de B2B que llevan a la misma receta (o reventa) quedan juntos (por el vínculo de Finanzas → Asociar productos; si no hay, por el ID de receta de la caja o de B2B).\n2) Revisa cada grupo: el nombre, de dónde sale (receta aprobada, reventa, cargo) y sus canales. "Separar" deja la caja y B2B en productos distintos; "Juntar con" une dos.\n3) Lo que no tiene receta ni reventa hay que resolverlo antes de guardar: elige una receta, una reventa, cargo o "Archivar". Si se sigue vendiendo pero su receta todavía no está aprobada (o no existe), elige "Receta pendiente" con su área: se guarda y se sigue vendiendo, sin costo hasta que lo unas con su receta (Productos → Falta receta).\n4) Guardar crea los productos (PR0001…), escribe su ID en los documentos de la caja y de B2B que ya existían (conservan su ID: la historia de ventas está guardada con él) y deja el vínculo de Finanzas donde no había uno.\nLos precios no cambian: se copian de la caja y de B2B tal cual.';
+const TXT_ENCUADRE = 'El marco tiene la forma de la foto en cada tarjeta de la lista de precios. Arrastra la foto (con el mouse o el dedo) para elegir qué parte se ve, y usa la barra para acercarla. "Centrar" la deja como estaba. Se guarda con "Guardar cambios" y no vuelve a subir la foto.';
 const TXT_FICHA = 'Lo que sale en las listas de precios de Ventas B2B (no cambia nada en la caja).\nFormato: cómo se vende (por ejemplo "800 g", "Unidad" o "Caja 10 un"). Descripción corta: una frase, hasta 140 letras.\nLa foto se achica en este equipo antes de subirla (hasta 900 px y 90 KB, más una miniatura de 240 px) y se guarda aparte del catálogo: abrir el Catálogo no carga imágenes. Se sube al guardar. Quitar la foto la saca de las listas y queda anotado en el historial.';
 const TXT_LECTURAS = 'Lo que se leyó de cada base al abrir (documentos). El catálogo, la reventa y los vínculos usan la memoria de Gastos y Finanzas; las recetas, la memoria compartida con Producción; los productos de la caja y de B2B, una vez por sesión (los mismos de Finanzas).\nFiltrar y buscar: 0 lecturas. "Actualizar" vuelve a leer.';
 
@@ -213,7 +215,9 @@ function formProducto(p, base) {
         ${docB && docB.nombre && docB.nombre !== x.nombre ? `<p class="ayuda">En B2B se llama "${H.esc(docB.nombre)}" (ese nombre no cambia).</p>` : ''}
       </div></fieldset>
     <fieldset class="pr-canal pr-ficha" id="pr-c-ficha"><legend>Foto y ficha para las listas de precios ${H.info('Foto y ficha para las listas', TXT_FICHA)}</legend>
-      <div class="pr-foto-fila"><div class="pr-foto-ver" id="pr-foto-ver">${x.foto && x.foto.en ? '<span class="pr-foto-vacia" role="status">Cargando la foto…</span>' : `<span class="pr-foto-vacia">${H.icono('foto', 24)}<span>Sin foto</span></span>`}</div>
+      <div class="pr-foto-fila"><div class="pr-foto-col"><div class="pr-foto-ver" id="pr-foto-ver">${x.foto && x.foto.en ? '<span class="pr-foto-vacia" role="status">Cargando la foto…</span>' : `<span class="pr-foto-vacia">${H.icono('foto', 24)}<span>Sin foto</span></span>`}</div>
+          <div class="pr-encuadre oculto" id="pr-encuadre"><label for="pr-foto-zoom" class="pr-zoom">${H.icono('lupa', 14)}<span class="sr">Acercar la foto</span><input type="range" id="pr-foto-zoom" min="1" max="${LMP.ZOOM_MAX}" step="0.05" value="1"></label>
+            <button type="button" class="btn-link" id="pr-foto-centrar">Centrar</button> ${H.info('Encuadrar la foto', TXT_ENCUADRE)}</div></div>
         <div class="pr-foto-acc"><p class="ayuda" id="pr-foto-info">${x.foto && x.foto.en ? `${nf(x.foto.ancho)} × ${nf(x.foto.alto)} px` : 'JPG, PNG o WebP. Se achica sola antes de subir.'}</p>
           <div class="botones" style="justify-content:flex-start"><label class="btn-sec btn-chico pr-foto-subir" for="pr-foto-arch">${H.icono('subir', 16)} <span id="pr-foto-subir-t">${x.foto && x.foto.en ? 'Cambiar foto' : 'Subir foto'}</span></label><input type="file" id="pr-foto-arch" accept="image/*" class="sr">
           <button type="button" class="btn-sec btn-chico btn-peligro ${x.foto && x.foto.en ? '' : 'oculto'}" id="pr-foto-quitar">Quitar foto</button></div></div></div>
@@ -262,17 +266,45 @@ function dialogoProducto(el, p, { base = null, titulo = '', onGuardar = null, no
   });
   d.querySelector('#pr-dlg-no').addEventListener('click', () => d.close());
   // v0.80.0 · Foto y ficha para las listas de precios: la foto se achica al elegirla y se sube al guardar
-  const foto = { nueva: null, quitar: false };
-  const verFoto = (url, info) => { d.querySelector('#pr-foto-ver').innerHTML = url ? `<img src="${url}" alt="Foto de ${H.esc((p || {}).nombre || 'el producto')}">` : `<span class="pr-foto-vacia">${H.icono('foto', 24)}<span>Sin foto</span></span>`; if (info !== undefined) d.querySelector('#pr-foto-info').textContent = info; };
-  if (p && p.foto && p.foto.en) import('./listas-precios.js?v=0.80.1').then(L => L.leerFoto(p.id)).then(f => { if (!foto.nueva && !foto.quitar) verFoto(f && f.mini); }).catch(() => verFoto(null, 'No se pudo leer la foto.'));
+  // v0.80.2 · Encuadre: la vista tiene la forma de la foto en la tarjeta del PDF; se arrastra para moverla y la barra la acerca
+  const foto = { nueva: null, quitar: false, enc: LMP.encuadre(), enc0: LMP.encuadre(), dims: null };
+  const marco = d.querySelector('#pr-foto-ver'), panelEnc = d.querySelector('#pr-encuadre'), zoom = d.querySelector('#pr-foto-zoom');
+  const pintarEnc = () => { const im = marco.querySelector('.pr-foto-img'); if (!im || !foto.dims) return; im.setAttribute('style', `background-image:url('${foto.dims.url}');` + LMP.fondoFoto({ ...foto.dims, encuadre: foto.enc }, marco.clientWidth || 240, marco.clientHeight || 106)); zoom.value = foto.enc.zoom; };
+  const verFoto = (url, info, dims) => {
+    foto.dims = url && dims ? { url, ancho: dims.ancho, alto: dims.alto } : null;
+    marco.innerHTML = url ? `<div class="pr-foto-img" role="img" aria-label="Foto de ${H.esc((p || {}).nombre || 'el producto')}. Arrastra para encuadrarla."></div>` : `<span class="pr-foto-vacia">${H.icono('foto', 24)}<span>Sin foto</span></span>`;
+    marco.classList.toggle('con-foto', !!url); panelEnc.classList.toggle('oculto', !url); pintarEnc();
+    if (info !== undefined) d.querySelector('#pr-foto-info').textContent = info;
+  };
+  // Arrastrar (mouse o dedo): mover la foto dentro del marco
+  let arr = null;
+  marco.addEventListener('pointerdown', ev => { if (!foto.dims) return; ev.preventDefault(); marco.setPointerCapture(ev.pointerId); arr = { x: ev.clientX, y: ev.clientY, e: { ...foto.enc } }; marco.classList.add('arrastrando'); });
+  marco.addEventListener('pointermove', ev => {
+    if (!arr || !foto.dims) return;
+    const w = marco.clientWidth, h = marco.clientHeight, t = LMP.tamFoto(foto.dims.ancho, foto.dims.alto, w, h, foto.enc.zoom);
+    const nx = t.w - w > 0.5 ? arr.e.x - (ev.clientX - arr.x) / (t.w - w) * 100 : arr.e.x, ny = t.h - h > 0.5 ? arr.e.y - (ev.clientY - arr.y) / (t.h - h) * 100 : arr.e.y;
+    foto.enc = LMP.encuadre({ ...foto.enc, x: nx, y: ny }); pintarEnc();
+  });
+  const soltar = () => { arr = null; marco.classList.remove('arrastrando'); };
+  marco.addEventListener('pointerup', soltar); marco.addEventListener('pointercancel', soltar);
+  // Teclado: flechas mueven, + y - acercan
+  marco.tabIndex = 0;
+  marco.addEventListener('keydown', ev => {
+    if (!foto.dims) return; const k = ev.key, e = { ...foto.enc };
+    if (k === 'ArrowLeft') e.x -= 5; else if (k === 'ArrowRight') e.x += 5; else if (k === 'ArrowUp') e.y -= 5; else if (k === 'ArrowDown') e.y += 5; else if (k === '+') e.zoom += 0.1; else if (k === '-') e.zoom -= 0.1; else return;
+    ev.preventDefault(); foto.enc = LMP.encuadre(e); pintarEnc();
+  });
+  zoom.addEventListener('input', () => { foto.enc = LMP.encuadre({ ...foto.enc, zoom: zoom.value }); pintarEnc(); });
+  d.querySelector('#pr-foto-centrar').addEventListener('click', () => { foto.enc = LMP.encuadre(); pintarEnc(); });
+  if (p && p.foto && p.foto.en) import('./listas-precios.js?v=0.80.2').then(L => L.leerFoto(p.id)).then(f => { if (foto.nueva || foto.quitar) return; if (f) { foto.enc = foto.enc0 = LMP.encuadre(f.encuadre); } verFoto(f && f.mini, undefined, f); }).catch(() => verFoto(null, 'No se pudo leer la foto.'));
   d.querySelector('#pr-desc').addEventListener('input', ev => { d.querySelector('#pr-desc-n').textContent = `${ev.target.value.length}/140`; });
   d.querySelector('#pr-pend-nota').addEventListener('input', ev => { d.querySelector('#pr-pend-n').textContent = `${ev.target.value.length}/${CPM.NOTA_RECETA_MAX}`; });
   d.querySelector('#pr-foto-arch').addEventListener('change', async ev => {
     const a = ev.target.files && ev.target.files[0]; if (!a) return;
     const err = d.querySelector('#pr-dlg-err'); err.textContent = ''; verFoto(null, 'Achicando la foto…');
     try {
-      const IM = await import('./imagenes.js?v=0.80.1'), r = await IM.fotoProducto(a);
-      foto.nueva = r; foto.quitar = false; verFoto(r.mini, `${nf(r.ancho)} × ${nf(r.alto)} px · ${nf(Math.round(r.bytes / 1024))} KB (la original: ${nf(Math.round(a.size / 1024))} KB). Se sube al guardar.`);
+      const IM = await import('./imagenes.js?v=0.80.2'), r = await IM.fotoProducto(a);
+      foto.nueva = r; foto.quitar = false; foto.enc = LMP.encuadre(); verFoto(r.mini, `${nf(r.ancho)} × ${nf(r.alto)} px · ${nf(Math.round(r.bytes / 1024))} KB (la original: ${nf(Math.round(a.size / 1024))} KB). Se sube al guardar.`, r);
       d.querySelector('#pr-foto-quitar').classList.remove('oculto'); d.querySelector('#pr-foto-subir-t').textContent = 'Cambiar foto';
     } catch (e) { err.textContent = e.message; verFoto(null, ''); }
     ev.target.value = '';
@@ -290,9 +322,13 @@ function dialogoProducto(el, p, { base = null, titulo = '', onGuardar = null, no
         const x = r.producto, cs = CPM.canalesDe(x).map(c => CPM.NOMBRE_CANAL[c]).join(' y ');
         H.registrar(p ? 'Catálogo: cambió un producto' : 'Catálogo: creó un producto', `${x.nombre} · ${x.id} · ${cs || 'sin canal'}`);
         st.msg = p ? `${x.nombre}: guardado${cs ? ' (' + cs + ')' : ''}.` : `${x.nombre} creado (${x.id})${cs ? ' · en ' + cs : ''}.`; st.err = '';
+        if (!foto.nueva && !foto.quitar && foto.dims && !LMP.encuadreIgual(foto.enc, foto.enc0)) {   // v0.80.2: solo cambió el encuadre
+          try { const L = await import('./listas-precios.js?v=0.80.2'); await L.guardarEncuadre(x.id, foto.enc); H.registrar('Catálogo: encuadró la foto', `${x.nombre} · ${x.id}`); st.msg += ' Encuadre de la foto guardado.'; }
+          catch (e) { st.err = `${x.nombre} quedó guardado, pero no el encuadre de la foto: ${error(e)} Vuelve a intentarlo.`; }
+        }
         if (foto.nueva || foto.quitar) {
           try {
-            const L = await import('./listas-precios.js?v=0.80.1'), rf = await L.guardarFoto(x.id, foto.nueva);
+            const L = await import('./listas-precios.js?v=0.80.2'), rf = await L.guardarFoto(x.id, foto.nueva, foto.enc);
             if (rf.accion) { const i = st.D.maestro.findIndex(y => y.id === x.id); if (i >= 0) st.D.maestro[i] = { ...st.D.maestro[i], foto: rf.p.foto, historial: rf.p.historial }; H.registrar('Catálogo: ' + rf.accion, `${x.nombre} · ${x.id}`); st.msg += foto.nueva ? ' Foto guardada.' : ' Foto quitada.'; }
           } catch (e) { st.err = `${x.nombre} quedó guardado, pero no la foto: ${error(e)} Vuelve a intentarlo.`; }
         }

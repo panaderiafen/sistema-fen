@@ -1,9 +1,26 @@
-# Sistema Fën · v0.80.1
+# Sistema Fën · v0.80.2
 
-**App:** v0.80.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.80.2 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.80.2: encuadrar la foto y descripción completa en las listas de precios
+
+1. **Encuadrar la foto** (Catálogo → Productos → Cambiar → "Foto y ficha para las listas de precios"): el marco de la foto tiene ahora la **misma forma que la foto en la tarjeta del PDF**. Se **arrastra** la foto (mouse o dedo) para elegir qué parte se ve, la **barra** la acerca (hasta 3 veces) y **"Centrar"** la deja como al principio. Con el teclado: flechas para mover, + y - para acercar. Se guarda con "Guardar cambios" y **no vuelve a subir la foto** (1 escritura). Una foto nueva parte centrada.
+2. **Tarjetas iguales con la descripción completa:** la foto de cada tarjeta es un poco más baja (150 px en vez de 160) y la descripción tiene **3 líneas** con letra levemente más chica (11 en vez de 11,5): las 140 letras se ven enteras. Todas las tarjetas tienen el mismo alto y siguen siendo **6 por hoja**.
+
+- **Este paquete trae solo los 67 archivos que cambian** (todos van a la raíz del repo **sistema-fen**; caben en una sola tanda). La carpeta `cocina/`, `logo-fen.png`, `logo-orden.png`, las reglas y los demás archivos quedan como están.
+- **Dónde va:** repo **sistema-fen**, raíz. Cambian `listas-precios-modelo.js` (el encuadre), `listas-precios.js` (guardar el encuadre), `pdf-lista-precios.js` (la tarjeta), `vista-productos.js` (el marco para encuadrar), `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.80.2`). `cocina/` **no cambia**.
+- **Cómo queda guardado:** fen-gastos `cat_fotos/{PR####}.encuadre = { x, y, zoom }` (x e y de 0 a 100, 50 = centro; zoom de 1 a 3), con `encuadreEn` y `encuadrePor`. Sin encuadre = centrada (las fotos que ya subió se ven igual que antes). Las reglas de fen-gastos v0.1.0 ya lo permiten.
+- **Lecturas:** ninguna nueva (el encuadre viene con la foto, que ya se leía).
+
+### Lista de verificación v0.80.2
+- [ ] Subir los archivos al repo **sistema-fen** (menos de 100 por tanda; "Commit changes" después de cada tanda) y esperar que termine Actions.
+- [ ] Abrir Sistema Fën con Cmd + Shift + R; abajo del menú dice v0.80.2.
+- [ ] Catálogo → Productos → Cambiar en un producto con foto: el marco es alargado; arrastrar la foto, acercarla, "Guardar cambios". Dice "Encuadre de la foto guardado".
+- [ ] Ventas B2B → Listas de precios → abrir una lista: la foto se ve como la dejó y la descripción larga se ve completa.
+- [ ] Descargar el PDF y revisar una hoja.
 
 ## Novedades de la v0.80.1: "Receta pendiente" en el Catálogo
 

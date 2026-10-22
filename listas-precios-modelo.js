@@ -1,16 +1,32 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Listas de precios (Ventas B2B → Listas de precios): reglas puras  v0.80.0
+//  Sistema Fën — Listas de precios (Ventas B2B → Listas de precios): reglas puras  v0.80.2
 //  Sin red ni pantalla: qué productos entran (los del Catálogo habilitados en B2B y activos), el precio que se propone para
 //  cada cliente (su precio especial o el base), el orden (área y nombre), la vigencia, el documento que se guarda en
 //  fen-b2b listas_precios/{id}, las páginas del PDF y "Usar como precios especiales" (qué cambia, solo lo distinto del base,
 //  con su historial). Los precios son NETOS: el PDF dice "+ IVA". Ningún costo sale de aquí.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.80.1';
+import * as AR from './areas.js?v=0.80.2';
 
 // Límites de las imágenes (comprimidas en el navegador, JPEG). bytes = el JPEG (el texto data URL pesa ~4/3).
 export const FOTO = { lado: 900, bytes: 90000, miniLado: 240, miniBytes: 15000 };
 export const PORTADA = { lado: 1600, bytes: 250000 };
 export const DESCRIPCION_MAX = 140, FORMATO_MAX = 40;
+// v0.80.2 · Encuadre de la foto en la tarjeta del PDF: x, y = posición (0–100 %, 50 = centro), zoom = 1 a 3 (1 = la foto justo cubre).
+export const TARJETA_FOTO = { w: 338, h: 150 };   // px de la foto en cada tarjeta (A4 a 96 ppp)
+export const ZOOM_MAX = 3;
+const acotar = (v, a, b, d) => { const n = Number(v); return Number.isFinite(n) ? Math.min(b, Math.max(a, n)) : d; };
+export function encuadre(e) { const x = e || {}; return { x: Math.round(acotar(x.x, 0, 100, 50) * 10) / 10, y: Math.round(acotar(x.y, 0, 100, 50) * 10) / 10, zoom: Math.round(acotar(x.zoom, 1, ZOOM_MAX, 1) * 100) / 100 }; }
+export const encuadreIgual = (a, b) => { const p = encuadre(a), q = encuadre(b); return p.x === q.x && p.y === q.y && p.zoom === q.zoom; };
+// Tamaño (px) de la foto dentro de una caja w × h: "cubrir" por el zoom. ancho/alto = de la foto (si no se sabe, 4:3).
+export function tamFoto(ancho, alto, w, h, zoom = 1) {
+  const fw = Number(ancho) > 0 ? Number(ancho) : 4, fh = Number(alto) > 0 ? Number(alto) : 3, k = Math.max(w / fw, h / fh) * acotar(zoom, 1, ZOOM_MAX, 1);
+  return { w: fw * k, h: fh * k };
+}
+// El estilo de fondo de la foto encuadrada (lo usan el PDF y el editor del encuadre)
+export function fondoFoto(foto, w, h) {
+  const e = encuadre(foto && foto.encuadre), t = tamFoto(foto && foto.ancho, foto && foto.alto, w, h, e.zoom);
+  return `background-size:${t.w.toFixed(1)}px ${t.h.toFixed(1)}px;background-position:${e.x}% ${e.y}%`;
+}
 export const POR_PAGINA = 6;                       // tarjetas por hoja del PDF (2 columnas × 3 filas)
 export const MAX_ITEMS = 120;
 

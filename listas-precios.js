@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Listas de precios: lecturas y escrituras  v0.80.0
+//  Sistema Fën — Listas de precios: lecturas y escrituras  v0.80.2
+//  v0.80.2: cat_fotos/{id}.encuadre = { x, y, zoom } (cómo se ve la foto en la tarjeta; se cambia sin volver a subirla)
 //  · fen-gastos cat_fotos/{PR####} = { foto, mini (data URL JPEG), ancho, alto, bytes, miniBytes, actualizadoEn, actualizadoPor, historial }
 //    (colección aparte: leer el catálogo no trae imágenes). El producto guarda solo la marca cat_productos/{id}.foto = { en, ancho, alto } | null.
 //  · fen-b2b config/listasPrecios = { condiciones (con contacto), portada (data URL) | null, portadaAncho, portadaAlto, portadaBytes, en, por, historial }
@@ -10,12 +11,12 @@
 //  de B2B: los de la escucha de siempre (0). El catálogo: la memoria de Gastos y Finanzas.
 //  Nada se borra: quitar una foto deja foto/mini en null con su historial.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.80.1';
-import * as FB from './firebase-b2b.js?v=0.80.1';
-import * as B from './b2b.js?v=0.80.1';
-import * as GB from './gastos-base.js?v=0.80.1';
-import * as FBG from './fs-gastos.js?v=0.80.1';
-import * as LM from './listas-precios-modelo.js?v=0.80.1';
+import { auth } from './firebase.js?v=0.80.2';
+import * as FB from './firebase-b2b.js?v=0.80.2';
+import * as B from './b2b.js?v=0.80.2';
+import * as GB from './gastos-base.js?v=0.80.2';
+import * as FBG from './fs-gastos.js?v=0.80.2';
+import * as LM from './listas-precios-modelo.js?v=0.80.2';
 
 const yo = () => (auth.currentUser && auth.currentUser.email) || '';
 const ahora = () => new Date().toISOString();
@@ -42,7 +43,7 @@ async function leerFotoBase(id) {
   const db = await dbG(), sn = await FBG.getDoc(FBG.doc(db, 'cat_fotos', id));
   uso.gastos++; uso.fotos++;
   const d = sn.exists() ? sn.data() : null;
-  const v = d && d.foto ? { foto: d.foto, mini: d.mini || d.foto, ancho: d.ancho || 0, alto: d.alto || 0 } : null;
+  const v = d && d.foto ? { foto: d.foto, mini: d.mini || d.foto, ancho: d.ancho || 0, alto: d.alto || 0, encuadre: LM.encuadre(d.encuadre) } : null;
   fotos.set(id, v);
   return v;
 }
@@ -53,7 +54,7 @@ export async function leerFotos(items) {
   return Object.fromEntries(ids.map(id => [id, fotos.get(id) || null]));
 }
 // Subir, cambiar (datos = lo de imagenes.fotoProducto) o quitar (datos = null). 1 transacción: lee el producto y su foto, escribe los dos.
-export async function guardarFoto(id, datos) {
+export async function guardarFoto(id, datos, enc = null) {
   const db = await dbG(), por = yo(), en = ahora();
   const rp = FBG.doc(db, 'cat_productos', id), rf = FBG.doc(db, 'cat_fotos', id);
   if (datos && (LM.bytesDataUrl(datos.foto) > LM.FOTO.bytes || LM.bytesDataUrl(datos.mini) > LM.FOTO.miniBytes)) throw new Error('La foto pesa más de lo permitido.');
@@ -64,15 +65,23 @@ export async function guardarFoto(id, datos) {
     const habia = !!f.foto, accion = datos ? (habia ? 'cambió la foto' : 'subió la foto') : 'quitó la foto';
     if (!datos && !habia) return { p: { ...p, id }, accion: '' };
     const marca = datos ? { en, ancho: datos.ancho, alto: datos.alto } : null;
-    tx.set(rf, { foto: datos ? datos.foto : null, mini: datos ? datos.mini : null, ancho: datos ? datos.ancho : null, alto: datos ? datos.alto : null, bytes: datos ? datos.bytes : null, miniBytes: datos ? datos.miniBytes : null,
+    tx.set(rf, { foto: datos ? datos.foto : null, mini: datos ? datos.mini : null, ancho: datos ? datos.ancho : null, alto: datos ? datos.alto : null, bytes: datos ? datos.bytes : null, miniBytes: datos ? datos.miniBytes : null, encuadre: datos ? LM.encuadre(enc) : null,
       catalogoId: id, actualizadoEn: en, actualizadoPor: por, historial: conHist(f.historial, { accion, en, por, ...(datos ? { ancho: datos.ancho, alto: datos.alto, bytes: datos.bytes } : {}) }) });
     const cambio = { foto: marca, editadoEn: en, editadoPor: por, historial: conHist(p.historial, { accion: 'foto', por, en, nota: accion }, 40) };
     tx.update(rp, cambio);
     return { p: { ...p, ...cambio, id }, accion };
   });
   uso.gastos += 2; uso.escrituras += 2;
-  fotos.set(id, datos ? { foto: datos.foto, mini: datos.mini, ancho: datos.ancho, alto: datos.alto } : null);
+  fotos.set(id, datos ? { foto: datos.foto, mini: datos.mini, ancho: datos.ancho, alto: datos.alto, encuadre: LM.encuadre(enc) } : null);
   return r;
+}
+// v0.80.2 · Mover o acercar la foto en la tarjeta (sin subirla de nuevo): 1 escritura en cat_fotos/{id}.encuadre
+export async function guardarEncuadre(id, enc) {
+  const db = await dbG(), e = LM.encuadre(enc);
+  await FBG.updateDoc(FBG.doc(db, 'cat_fotos', id), { encuadre: e, encuadreEn: ahora(), encuadrePor: yo() });
+  uso.escrituras++;
+  const f = fotos.get(id); if (f) fotos.set(id, { ...f, encuadre: e });
+  return e;
 }
 
 // ═══════════════ Configuración: portada, condiciones y contacto (fen-b2b config/listasPrecios) ═══════════════

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — PDF de la lista de precios (A4 vertical)  v0.80.0
+//  Sistema Fën — PDF de la lista de precios (A4 vertical)  v0.80.2
 //  Mismo método que el PDF de las órdenes (pdf-orden.js): html2canvas + jsPDF desde cdnjs, la primera vez que se pide.
 //  Cada hoja se dibuja como una página HTML de 794 × 1123 px (A4) y se pasa a JPEG (liviano: ~20 productos ≈ 1–2 MB).
 //  Además lleva el texto (invisible) de cada hoja, para que se pueda buscar y copiar en el PDF.
@@ -7,8 +7,8 @@
 //  después los productos en 2 columnas (foto, nombre, formato, descripción corta, precio "$ 3.500 + IVA") y al final
 //  "Condiciones" y el contacto. Pie con el número de página. Paleta "Salvia y arena". Sin costos.
 // ═══════════════════════════════════════════════
-import { cargarLibrerias } from './pdf-orden.js?v=0.80.1';
-import * as LM from './listas-precios-modelo.js?v=0.80.1';
+import { cargarLibrerias } from './pdf-orden.js?v=0.80.2';
+import * as LM from './listas-precios-modelo.js?v=0.80.2';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ANCHO = 794, ALTO = 1123;          // px CSS de una hoja A4 (96 ppp)
@@ -34,17 +34,17 @@ export const CSS = `.lp-pag{position:relative;width:${ANCHO}px;height:${ALTO}px;
 .lp-cab-t1{font-size:15px;font-weight:800;color:#2F5A45}.lp-cab-t2{font-size:12px;color:#626C66;margin-top:2px}
 .lp-cab-der{font-size:12px;color:#626C66;text-align:right;line-height:1.5}
 .lp-grid{position:absolute;left:48px;right:48px;top:112px;display:flex;flex-wrap:wrap;gap:18px 22px}
-.lp-card{width:338px;height:298px;border-radius:16px;background:#FFFDF9;border:1px solid #E4DFD3;overflow:hidden;display:flex;flex-direction:column}
-.lp-foto{width:338px;height:160px;background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#EFEBE0;flex:none}
-.lp-sin-foto{width:338px;height:160px;background:#EFEBE0;display:flex;align-items:center;justify-content:center;flex:none}
+.lp-card{width:338px;height:300px;border-radius:16px;background:#FFFDF9;border:1px solid #E4DFD3;overflow:hidden;display:flex;flex-direction:column}
+.lp-foto{width:338px;height:150px;background-repeat:no-repeat;background-color:#EFEBE0;flex:none}
+.lp-sin-foto{width:338px;height:150px;background:#EFEBE0;display:flex;align-items:center;justify-content:center;flex:none}
 .lp-mono{width:66px;height:66px;border-radius:33px;border:1.5px solid #C9D6CB;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#2F5A45;background:#F6F4EE}
-.lp-card-cuerpo{padding:12px 16px 12px;display:flex;flex-direction:column;flex:1;min-height:0}
+.lp-card-cuerpo{padding:10px 16px 11px;display:flex;flex-direction:column;flex:1;min-height:0}
 .lp-area{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7C857F}
-.lp-nombre{font-size:16px;font-weight:700;line-height:24px;height:24px;margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.lp-formato{font-size:12px;color:#626C66;margin-top:0;line-height:17px;height:17px;overflow:hidden;white-space:nowrap}
-.lp-desc{font-size:11.5px;color:#4A544E;line-height:16px;margin-top:4px;height:34px;overflow:hidden;padding-bottom:2px}
+.lp-nombre{font-size:16px;font-weight:700;line-height:22px;height:22px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.lp-formato{font-size:11.5px;color:#626C66;margin-top:0;line-height:16px;height:16px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.lp-desc{font-size:11px;color:#4A544E;line-height:15px;margin-top:4px;height:46px;overflow:hidden;padding-bottom:1px}
 .lp-precio{margin-top:auto;display:flex;align-items:baseline;gap:6px}
-.lp-precio b{font-size:22px;font-weight:800;color:#2F5A45;letter-spacing:-.01em}.lp-precio span{font-size:12px;font-weight:600;color:#626C66}
+.lp-precio b{font-size:21px;font-weight:800;color:#2F5A45;letter-spacing:-.01em}.lp-precio span{font-size:12px;font-weight:600;color:#626C66}
 .lp-pie{position:absolute;left:48px;right:48px;bottom:30px;display:flex;justify-content:space-between;font-size:11px;color:#7C857F;border-top:1px solid #E4DFD3;padding-top:10px}
 .lp-cond{position:absolute;left:64px;right:64px;top:128px}
 .lp-cond h2{margin:0;font-size:30px;font-weight:800;color:#2F5A45;letter-spacing:-.01em}
@@ -63,7 +63,7 @@ const cabecera = (lista, logo) => `<div class="lp-cab"><div class="lp-cab-izq"><
   <div class="lp-cab-der">${esc(LM.fechaLarga(lista.fecha))}<br>Precios netos + IVA</div></div>`;
 const inicial = n => (String(n || '').trim().charAt(0) || 'F').toUpperCase();
 function tarjeta(it, foto) {
-  const f = foto && foto.foto ? `<div class="lp-foto" style="background-image:url('${foto.foto}')"></div>` : `<div class="lp-sin-foto"><div class="lp-mono">${esc(inicial(it.nombre))}</div></div>`;
+  const f = foto && foto.foto ? `<div class="lp-foto" style="background-image:url('${foto.foto}');${LM.fondoFoto(foto, LM.TARJETA_FOTO.w, LM.TARJETA_FOTO.h)}"></div>` : `<div class="lp-sin-foto"><div class="lp-mono">${esc(inicial(it.nombre))}</div></div>`;
   return `<div class="lp-card">${f}<div class="lp-card-cuerpo"><div class="lp-area">${esc(it.areaNombre || '')}</div><div class="lp-nombre">${esc(it.nombre)}</div>
     <div class="lp-formato">${esc(it.formato || '')}</div><div class="lp-desc">${esc(it.descripcion || '')}</div>
     <div class="lp-precio"><b>${esc(LM.clp(it.precio))}</b><span>+ IVA</span></div></div></div>`;
