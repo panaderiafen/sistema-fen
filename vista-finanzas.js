@@ -15,15 +15,15 @@
 //  línea" y las 3 más parecidas al asociar. Reglas puras en mp-alta-modelo.js; escribe en la base de Cocina (produccion.js) y aquí.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.77.0';
-import * as FC from './finanzas-costos.js?v=0.77.0';
-import * as FS from './finanzas-sii.js?v=0.77.0';
-import * as FM from './finanzas-motor.js?v=0.77.0';
-import * as FV from './finanzas-ventas.js?v=0.77.0';
-import * as FMG from './finanzas-margenes.js?v=0.77.0';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.77.0';
-import * as VR from './vista-finanzas-resultados.js?v=0.77.0';
-import * as MA from './mp-alta-modelo.js?v=0.77.0';
+import * as F from './finanzas.js?v=0.77.1';
+import * as FC from './finanzas-costos.js?v=0.77.1';
+import * as FS from './finanzas-sii.js?v=0.77.1';
+import * as FM from './finanzas-motor.js?v=0.77.1';
+import * as FV from './finanzas-ventas.js?v=0.77.1';
+import * as FMG from './finanzas-margenes.js?v=0.77.1';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.77.1';
+import * as VR from './vista-finanzas-resultados.js?v=0.77.1';
+import * as MA from './mp-alta-modelo.js?v=0.77.1';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -72,7 +72,7 @@ const cab = (tab) => `<div class="cabecera"><div><h1 id="t-finanzas">Finanzas</h
   <p class="fin-pronto">Próximamente: Flujo de caja, Metas</p>`;
 
 export async function pintar(el, sub, H) {
-  // v0.77.0: el maestro de materias primas usa los mismos IDs en Producción → Materias primas: la otra pantalla (oculta) se vacía
+  // v0.77.1: el maestro de materias primas usa los mismos IDs en Producción → Materias primas: la otra pantalla (oculta) se vacía
   const enProd = document.querySelector('#v-produccion #prod-tab[data-tab="mp"]'); if (enProd) enProd.innerHTML = '';
   const p = partes(), tab = p[1] === 'costos' ? 'costos' : p[1] === 'margenes' ? 'margenes' : p[1] === 'resultados' ? 'resultados' : 'como';
   st.msg = ''; st.err = '';
@@ -200,7 +200,7 @@ function revision() {
     .concat(productosIncompletos().map(([id, d]) => ({ clave: `producto_incompleto:${id}`, grupo: 'producto_incompleto', titulo: d.nombre || id, detalle: d.incompleto.join(' · '), producto: id, huella: JSON.stringify(d.incompleto) })));
   return { pendientes: items.filter(i => FC.pendiente(i, st.datos.marcas)), revisados: items.filter(i => !FC.pendiente(i, st.datos.marcas)) };
 }
-// v0.77.0: el maestro de materias primas vive en Producción → Materias primas (#produccion/mp); en Finanzas queda un enlace
+// v0.77.1: el maestro de materias primas vive en Producción → Materias primas (#produccion/mp); en Finanzas queda un enlace
 const enProduccion = () => /^#produccion\/mp/.test(location.hash || '');
 function pintarCostos(el, parte, H) {
   if (parte === 'mp' && enProduccion()) { el.innerHTML = htmlMaestro(H); conectarMaestro(el, H); return; }
@@ -211,14 +211,14 @@ function pintarCostos(el, parte, H) {
 }
 
 // ── Materias primas ──
-// v0.77.0: en Finanzas → Costos, solo el enlace (la pantalla es la misma, en Producción)
+// v0.77.1: en Finanzas → Costos, solo el enlace (la pantalla es la misma, en Producción)
 function htmlMpMovidas(H) {
   return `<section class="tarjeta fin-mp-movidas" aria-labelledby="t-fin-mp-mov" id="fin-mp-movidas">
-    <h2 id="t-fin-mp-mov">Las materias primas están en Producción → Materias primas ${H.info('Materias primas', 'Desde la v0.77.0 el maestro de materias primas e insumos (crear, cambiar nombre, categoría y áreas, archivar, y el precio de cada una) está en Producción → Materias primas: es la misma pantalla, en un solo lugar.\nEl precio sigue guardado aquí, en la base de Gastos y Finanzas, y lo siguen usando Compras del SII y el costo de los productos.\nEn Finanzas quedan Compras del SII (con "Crear desde esta línea") y Productos (el costo de cada receta).')}</h2>
+    <h2 id="t-fin-mp-mov">Las materias primas están en Producción → Materias primas ${H.info('Materias primas', 'Desde la v0.77.1 el maestro de materias primas e insumos (crear, cambiar nombre, categoría y áreas, archivar, y el precio de cada una) está en Producción → Materias primas: es la misma pantalla, en un solo lugar.\nEl precio sigue guardado aquí, en la base de Gastos y Finanzas, y lo siguen usando Compras del SII y el costo de los productos.\nEn Finanzas quedan Compras del SII (con "Crear desde esta línea") y Productos (el costo de cada receta).')}</h2>
     <p class="ayuda">Crear, cambiar y archivar materias primas e insumos, con su precio a la vista. Aquí quedan Compras del SII y el costo de los productos.</p>
     <p><a class="btn" href="#produccion/mp" id="fin-ir-mp">Abrir Producción → Materias primas</a></p></section>`;
 }
-// v0.77.0: Producción → Materias primas (el mismo maestro de la v0.76.0). Lee lo de Finanzas (de la memoria de fen-gastos) y la lista
+// v0.77.1: Producción → Materias primas (el mismo maestro de la v0.76.0). Lee lo de Finanzas (de la memoria de fen-gastos) y la lista
 // de la base de Cocina (memoria compartida); no recalcula el costo de los productos. opc.conteo(): cuántas hay en la base de Cocina.
 export async function pintarMaestro(el, H, opc = {}) {
   const fin = document.getElementById('v-finanzas'); if (fin && fin !== el && !fin.contains(el)) fin.innerHTML = '';   // mismos IDs (fin-…): solo una pantalla a la vez
@@ -252,7 +252,7 @@ function htmlMaestro(H) {
   const ult = st.datos.ultimaCarga;
   const prodAviso = st.cx.prod.estado !== 'ok' ? '<p class="aviso" style="margin-top:12px">La base de Cocina no está conectada: la lista de materias primas y recetas no se puede leer. Conéctala en <a href="#ajustes/cocina">Configuración → Cocina</a>.</p>' : '';
   return `<section class="tarjeta" aria-labelledby="t-fin-mp">
-    <div class="titulo-fila fin-titulo"><h2 id="t-fin-mp">Maestro de materias primas ${H.info('Maestro de materias primas con costos', 'Cada materia prima o insumo con lo que trae una unidad de compra (contenido en g, ml o unidades) y su precio neto. Con eso sale el precio por kg, l o unidad que usa el costeo.\nLos precios partieron de la planilla (MP_maestro); desde la v0.73.0 viven solo aquí. Se actualizan solos con la última compra del SII (Compras del SII), en neto: lo que trae una unidad de la factura se lleva a la unidad de compra de cada materia prima. Lo que cambies a mano queda "A mano". Una materia prima nueva entra con su precio al crearla aquí (o al resolver un pedido de Cocina en Producción → Por revisar).\nHasta la v0.76.0 esta pantalla estaba en Finanzas → Costos; desde la v0.77.0 está aquí, en Producción.\nCada cambio queda en el historial, con fecha, quién y motivo: nada se borra.\nEl impuesto adicional (harina) se guarda, pero no se suma al costo: en la harina es IVA anticipado y se recupera.\nLas sub recetas aparecen en la lista, pero su costo sale de su receta (Costos → Productos).\nSe guarda en la base de Gastos (fen-gastos): las jefas no lo ven.')}</h2>
+    <div class="titulo-fila fin-titulo"><h2 id="t-fin-mp">Maestro de materias primas ${H.info('Maestro de materias primas con costos', 'Cada materia prima o insumo con lo que trae una unidad de compra (contenido en g, ml o unidades) y su precio neto. Con eso sale el precio por kg, l o unidad que usa el costeo.\nLos precios partieron de la planilla (MP_maestro); desde la v0.73.0 viven solo aquí. Se actualizan solos con la última compra del SII (Compras del SII), en neto: lo que trae una unidad de la factura se lleva a la unidad de compra de cada materia prima. Lo que cambies a mano queda "A mano". Una materia prima nueva entra con su precio al crearla aquí (o al resolver un pedido de Cocina en Producción → Por revisar).\nHasta la v0.76.0 esta pantalla estaba en Finanzas → Costos; desde la v0.77.1 está aquí, en Producción.\nCada cambio queda en el historial, con fecha, quién y motivo: nada se borra.\nEl impuesto adicional (harina) se guarda, pero no se suma al costo: en la harina es IVA anticipado y se recupera.\nLas sub recetas aparecen en la lista, pero su costo sale de su receta (Costos → Productos).\nSe guarda en la base de Gastos (fen-gastos): las jefas no lo ven.')}</h2>
       <span class="ayuda fin-solo-finanzas" id="fin-traer-off">Precios solo de Finanzas ${H.info('Precios solo de Finanzas', TXT_SOLO_FINANZAS)}</span>
       <button type="button" class="btn" id="fin-mp-nueva" ${st.cx.prod.estado === 'ok' ? '' : 'disabled'}>${ic('mas', 18)} Nueva materia prima o insumo</button></div>
     ${st.mpConteo ? `<p class="ayuda" id="fin-mp-cocina">En la base de Cocina: ${nf(st.mpConteo.total)} materias primas e insumos (${nf(st.mpConteo.activas)} ${st.mpConteo.activas === 1 ? 'activa' : 'activas'} · ${nf(st.mpConteo.insumos)} ${st.mpConteo.insumos === 1 ? 'insumo' : 'insumos'}${st.mpConteo.archivadas ? ` · ${nf(st.mpConteo.archivadas)} ${st.mpConteo.archivadas === 1 ? 'archivada' : 'archivadas'}` : ''}).</p>` : ''}
@@ -1307,7 +1307,7 @@ function dialogoVinculo(p, el, volver, H) {
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
   // v0.73.0: la lista de reventa (cat_reventa, de la memoria de fs-gastos): activas, más la que ya tenía este producto
   const selRev = d.querySelector('#m-v-revid');
-  import('./reventa.js?v=0.77.0').then(R => R.leer()).then(({ lista }) => {
+  import('./reventa.js?v=0.77.1').then(R => R.leer()).then(({ lista }) => {
     MS.reventa = lista;
     const ofrecer = lista.filter(x => x.estado !== 'archivado' || (v && v.reventaId === x.id)).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
     selRev.innerHTML = `<option value="">${ofrecer.length ? 'Elige…' : 'La lista de reventa está vacía (Catálogo → Reventa)'}</option>` + ofrecer.map(x => `<option value="${H.esc(x.id)}" data-costo="${x.costoNeto ?? ''}" data-nombre="${H.esc(x.nombre)}" ${v && v.reventaId === x.id ? 'selected' : ''}>${H.esc(x.nombre)} · ${H.esc(x.id)} · $${(Math.round(Number(x.costoNeto || 0) * 100) / 100).toLocaleString('es-CL')} / ${H.esc(x.unidad || 'un')}${x.estado === 'archivado' ? ' · archivada' : ''}</option>`).join('');

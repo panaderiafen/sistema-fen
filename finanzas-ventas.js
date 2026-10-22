@@ -13,7 +13,7 @@
 //  v0.69.1: área REVENTA (solo de margen) para lo que se compra hecho. AREAS = las de margen (las 4 de producción + REVENTA);
 //  AREAS_PRODUCCION = las que producen (la de una receta o del catálogo). Las listas salen de areas.js.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.77.0';
+import * as AR from './areas.js?v=0.77.1';
 
 export const AREAS = AR.MARGEN;
 export const AREAS_PRODUCCION = AR.PRODUCCION;

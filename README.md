@@ -1,9 +1,20 @@
-# Sistema Fën · v0.77.0
+# Sistema Fën · v0.77.1
 
-**App:** v0.77.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-ventas v1.5.0, fen-b2b v1.7.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.77.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-ventas v1.5.0, fen-b2b v1.7.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.77.1: la Bodega se calcula sola
+
+- **Producción → Bodega** calcula el stock al abrir la pestaña, sin tocar nada. Usa lo que Sistema Fën ya tiene en memoria: la primera vez gasta parecido a un "Calcular" de antes; si vuelves en los minutos siguientes, casi nada.
+- El botón ahora dice **"Actualizar ahora"**: vuelve a leer todo (por ejemplo, justo después de un conteo en Cocina).
+- Los correos de stock bajo siguen igual: como máximo uno al día por materia prima.
+- **Dónde va:** repo **sistema-fen**, raíz. Cambia `vista-produccion.js`; los demás, solo la versión. Reglas y Apps Script sin cambios.
+
+### Lista de verificación v0.77.1
+- [ ] Abajo dice **v0.77.1**.
+- [ ] Producción → Bodega muestra el stock sin tocar "Calcular".
 
 ## Novedades de la v0.77.0: Producción en pestañas
 

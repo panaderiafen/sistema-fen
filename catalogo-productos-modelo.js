@@ -30,7 +30,7 @@
 //   3. fin_productos (lo asociado a mano en Finanzas: meses antiguos y productos sin unir);
 //   4. lo de antes (ID de receta del catálogo de la caja o de B2B, nombre parecido) solo como sugerencia.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.77.0';
+import * as AR from './areas.js?v=0.77.1';
 // v0.75.1 (Etapa 2b): la caja v2.3.0 ya no crea ni cambia productos; sus pestañas son areas.js CAJA (PAN, BOL, PAS, CAF, REVENTA).
 
 export const TIPOS = { receta: 'Receta', reventa: 'Reventa', cargo: 'Cargo', armado: 'Armado' };

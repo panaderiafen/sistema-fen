@@ -2354,7 +2354,7 @@ body.cat-ocupado #v-catalogo button { pointer-events: none; opacity: .7; }
 @media (max-width: 760px) { .fin-c-acc .btn-link { align-self: flex-start; } #fin-mp-nueva { margin-left: 0; } }
 #mpa-err:empty, #mpd-err:empty, #mpa-calc:empty { display: none; }
 
-/* ═══ v0.77.0 · Producción en pestañas ═══ */
+/* ═══ v0.77.1 · Producción en pestañas ═══ */
 #v-produccion .pest-prod { margin-bottom: 16px; }
 #v-produccion .pest-prod a { gap: 6px; }
 @media (max-width: 760px) {

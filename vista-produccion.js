@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.77.0
-//  v0.77.0: siete pestañas (como Gastos, B2B y el Catálogo): Por revisar · Plan de Panadería · Recetas · Materias primas · Bodega ·
+//  Sistema Fën — pantalla Producción  v0.77.1
+//  v0.77.1: siete pestañas (como Gastos, B2B y el Catálogo): Por revisar · Plan de Panadería · Recetas · Materias primas · Bodega ·
 //  Merma · Configuración. Rutas: #produccion (Por revisar) · #produccion/plan-pan[/como|/fijos] · #produccion/recetas[/{id}] ·
 //  #produccion/mp · #produccion/bodega · #produccion/merma · #produccion/config. Cada pestaña lee solo lo suyo al abrirla.
 //  La conexión con la base de Cocina (fen-produccion) y las Cuentas de las áreas pasaron a Configuración → Cocina (#ajustes/cocina):
@@ -9,11 +9,11 @@
 //  Antes (v0.42.0 … v0.76.0): una sola página con tarjetas y pliegues (Desde Cocina, grupo Cocina y grupo Sistema).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.77.0';
+import * as P from './produccion.js?v=0.77.1';
 import * as K from './cocina/consumo.js?v=0.17.4';
-import { conBuscador, coincide } from './buscador.js?v=0.77.0';
-import * as FBQ from './fermentacion.js?v=0.77.0';
-import * as RV from './recetas-ver-modelo.js?v=0.77.0';
+import { conBuscador, coincide } from './buscador.js?v=0.77.1';
+import * as FBQ from './fermentacion.js?v=0.77.1';
+import * as RV from './recetas-ver-modelo.js?v=0.77.1';
 
 const st = { fb: null, sab: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', nRevisar: null, cfgMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -28,7 +28,7 @@ function error(e, H) {
   return (e && e.message) || H.mensajeError(e);
 }
 
-// ── v0.77.0 · Pestañas ──
+// ── v0.77.1 · Pestañas ──
 export const TABS = [['revisar', '', 'Por revisar'], ['plan-pan', 'plan-pan', 'Plan de Panadería'], ['recetas', 'recetas', 'Recetas'], ['mp', 'mp', 'Materias primas'],
   ['bodega', 'bodega', 'Bodega'], ['merma', 'merma', 'Merma'], ['config', 'config', 'Configuración']];
 // Rutas antiguas o con otro nombre → la pestaña (los enlaces viejos siguen funcionando)
@@ -62,7 +62,7 @@ export async function pintar(el, sub, H) {
     el.addEventListener('click', ev => {
       if (!ev.target.closest('#prod-actualizar')) return;
       P.olvidarMemoria(); st.bodega.calc = null; st.merma.datos = null; st.fb = null; st.sab = null; st.costos = {}; st.mover = null;
-      import('./vista-prod-recetas.js?v=0.77.0').then(m => m.olvidar()).catch(() => {});
+      import('./vista-prod-recetas.js?v=0.77.1').then(m => m.olvidar()).catch(() => {});
       pintar(el, partes()[1] || '', H);
     });
   }
@@ -71,8 +71,8 @@ export async function pintar(el, sub, H) {
   // En el celular las pestañas se pasan con el dedo: la elegida queda a la vista
   const nav = el.querySelector('.pest-prod'), sel = nav && nav.querySelector('[aria-selected="true"]');
   if (nav && sel && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = Math.max(0, sel.offsetLeft - nav.offsetLeft - 16);
-  // v0.71.1: Plan de Panadería (Etapa 1); desde la v0.77.0 es una pestaña (trae Finanzas y B2B: se carga recién al abrirla)
-  if (tab === 'plan-pan') { contarRevisar(); const VPP = await import('./vista-plan-pan.js?v=0.77.0'); VPP.fijarH(H); return VPP.pintar(cont, H); }
+  // v0.71.1: Plan de Panadería (Etapa 1); desde la v0.77.1 es una pestaña (trae Finanzas y B2B: se carga recién al abrirla)
+  if (tab === 'plan-pan') { contarRevisar(); const VPP = await import('./vista-plan-pan.js?v=0.77.1'); VPP.fijarH(H); return VPP.pintar(cont, H); }
   // Materias primas: los precios están en Finanzas; sin la base de Cocina se ven igual (sin crear ni cambiar, lo dice el aviso)
   if (tab === 'mp') { contarRevisar(); return pintarTab(cont, tab, H); }
   let cx;
@@ -86,8 +86,8 @@ export async function pintar(el, sub, H) {
 function contarRevisar() { P.pendientesCocina().then(r => { if (r) ponerChip((r.nRecetas || 0) + (r.nMps || 0)); }).catch(() => {}); }
 function pintarTab(cont, tab, H) {
   if (tab === 'revisar') { cont.innerHTML = '<section class="tarjeta" aria-labelledby="t-prod-revision" id="prod-cocina"><div class="vacio" style="border:0">Revisando lo que llegó desde Cocina…</div></section>'; return pintarCocina(cont, H, true); }
-  if (tab === 'recetas') return import('./vista-prod-recetas.js?v=0.77.0').then(m => m.pintar(cont, H, { sub: partes().slice(2).join('/') }));
-  if (tab === 'mp') return import('./vista-finanzas.js?v=0.77.0').then(m => m.pintarMaestro(cont, H, { conteo: conteoMps }));
+  if (tab === 'recetas') return import('./vista-prod-recetas.js?v=0.77.1').then(m => m.pintar(cont, H, { sub: partes().slice(2).join('/') }));
+  if (tab === 'mp') return import('./vista-finanzas.js?v=0.77.1').then(m => m.pintarMaestro(cont, H, { conteo: conteoMps }));
   if (tab === 'bodega') { cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prod-bodega"><h2 id="t-prod-bodega">Bodega</h2><div id="prod-bodega">${seccionBodega(H)}</div></section>`; return conectarBodega(H); }
   if (tab === 'merma') { cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prod-merma"><h2 id="t-prod-merma">Merma</h2><div id="prod-merma">${seccionMerma(H)}</div></section>`; return conectarMerma(cont, H); }
   if (tab === 'config') return pintarConfigTab(cont, H);
@@ -108,7 +108,7 @@ function pintarSinConexion(cont, H, cx) {
     <p><a class="btn" href="#ajustes/cocina" id="prod-ir-ajustes">Ir a Configuración → Cocina</a></p></section>`;
 }
 
-// ═══════════════ Configuración general → Cocina (v0.77.0: antes en Producción) ═══════════════
+// ═══════════════ Configuración general → Cocina (v0.77.1: antes en Producción) ═══════════════
 // Conexión con la base de Cocina (configuración, entrar, marcar administración) y las Cuentas de las áreas (tablets).
 export async function pintarAjustesCocina(box, H) {
   if (!box) return;
@@ -420,8 +420,8 @@ const bajosDe = lista => lista.filter(e => e.st.contado && (e.bajoAhora || e.baj
 function seccionBodega(H) {
   const b = st.bodega, c = b.calc;
   const cab = `<div class="titulo-fila"><span class="ayuda">Stock de las críticas por bodega, consumo por área y llegadas ${H.info('Bodega (materias primas críticas)', 'Hay dos bodegas, cada una con su stock: Producción (Panadería, Bollería y Pastelería: lo que cuenta un área vale para las tres) y Cafetería (solo Cafetería).\nUna materia prima puede ser crítica en una o en las dos, con su propio mínimo, llegadas, conteos y stock. Lo que consume Cafetería (ventas de la caja, calibración diaria y extra, derramado, merma) baja la bodega de Cafetería; lo de las otras áreas, la de Producción. Si una materia prima no es crítica en esa bodega, no se sigue ahí.\nStock = último conteo + llegadas − lo consumido. El conteo vale como cierre de su día (se cuenta después de la producción; en Cafetería, después de cerrar la caja): lo hecho ese día ya está incluido y se descuenta desde el día siguiente.\nLas jefas anotan llegadas y conteos en Cocina → Bodega, solo de su bodega. El conteo corrige la cuenta. Si faltó, es lo que se usa sin anotar (harina de mesón, pruebas, pérdidas chicas) o algo hecho que no se marcó; si sobró, una llegada o un hecho que no se anotó.\n"Alcanza" y "bajo el mínimo" usan lo planificado de los próximos 7 días (Panadería: el plan; Bollería: masas y metas; Pastelería y Cafetería: su ritmo de los últimos 14 días).\nBajo el mínimo: aparece en Hoy, en Cocina (arriba de la Bodega del área) y llega un correo (uno por día por materia prima) a ti y a las jefas de esa bodega. Se revisa cuando se abre Sistema Fën o Cocina, o se hace un conteo: no hay revisión automática de noche.\nEn Producción, si no marcas una crítica aquí, vale lo de la planilla (es_critica, stock_seguridad).')}</span>
-    <button type="button" class="btn-sec" id="prod-bod-calc" ${b.cargando ? 'disabled' : ''}>${b.cargando ? 'Calculando…' : c ? 'Calcular de nuevo' : 'Calcular'}</button></div>`;
-  if (!c) return cab + (b.msg ? `<p class="error">${H.esc(b.msg)}</p>` : '<p class="ayuda">Presiona "Calcular" (lee los últimos 120 días de Cocina).</p>');
+    <button type="button" class="btn-sec" id="prod-bod-calc" ${b.cargando ? 'disabled' : ''}>${b.cargando ? 'Calculando…' : 'Actualizar ahora'}</button></div>`;
+  if (!c) return cab + (b.msg ? `<p class="error">${H.esc(b.msg)}</p>` : '<p class="ayuda">Calculando el stock…</p>');
   const bods = c.bodegas || [K.BODEGA_PRINCIPAL], ver = bods.includes(b.ver) ? b.ver : bods[0], resp = K.esResponsable(c.mapa);
   const pest = `<div class="pestanas pest-bodega" role="tablist" aria-label="Bodegas">${bods.map(x => { const n = bajosDe(c.porBodega[x] || []); return `<button type="button" role="tab" data-bod-tab="${H.esc(x)}" aria-selected="${x === ver}">${H.esc(K.nombreBodega(x, c.mapa))}${n ? ` <span class="chip c-rojo">${n}</span>` : ''}</button>`; }).join('')}</div>`;
   const per = P.periodoMerma(b.periodo), cons = P.consumoPeriodo(c, per);
@@ -516,11 +516,14 @@ function seccionUnaBodega(H, c, bod) {
 function conectarBodega(H) {
   const $b = id => document.getElementById(id), b = st.bodega;
   const repintarB = () => { const c = $b('prod-bodega'); if (!c) return; c.innerHTML = seccionBodega(H); conectarBodega(H); };
-  const calcular = async () => { b.cargando = true; b.msg = ''; repintarB(); try { b.calc = await P.calcularBodega(); } catch (e) { b.msg = error(e, H); } b.cargando = false; repintarB(); };
+  // v0.77.1: al abrir la pestaña se calcula solo, con lo que ya está en memoria (casi sin lecturas al volver);
+  // "Actualizar ahora" y después de un cambio hecho aquí se vuelve a leer todo (fresco)
+  const calcular = async (fresco = true) => { b.cargando = true; b.msg = ''; repintarB(); try { b.calc = await P.calcularBodega({ fresco }); } catch (e) { b.msg = error(e, H); } b.cargando = false; repintarB(); };
   const boton = $b('prod-bod-calc'); if (!boton) return;
+  if (!b.calc && !b.cargando && !b.autoHecho) { b.autoHecho = true; setTimeout(() => calcular(false), 0); }
   // v0.54.1: buscador sobre las listas de materias primas (café de Cafetería, agregar crítica, llegó mercadería)
   document.querySelectorAll('#prod-bod-cafe, select[id^="prod-bod-nueva"], select[id^="prod-bod-ll-mp"]').forEach(conBuscador);
-  boton.addEventListener('click', calcular);
+  boton.addEventListener('click', () => calcular(true));
   document.querySelectorAll('[data-bod-tab]').forEach(t => t.addEventListener('click', () => { b.ver = t.dataset.bodTab; repintarB(); }));
   const per = $b('prod-bod-per'); if (per) per.addEventListener('change', () => { b.periodo = per.value; repintarB(); });
   const mp = id => b.calc.datos.mps.find(m => m.id === id);
@@ -668,7 +671,7 @@ const FMr = c => P.resumenPropuesta(c);
 const pesosN = v => '$' + Math.round(Number(v) || 0).toLocaleString('es-CL');
 const pesosD = v => '$' + (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('es-CL');
 const ESTADO_TXT = { en_revision: 'En revisión', devuelta: 'Devuelta', aprobada: 'Aprobada' };
-// v0.77.0 · Por revisar: cada propuesta dice qué cambió (ingredientes en g y %, rendimiento, pasos) y su impacto en el costo
+// v0.77.1 · Por revisar: cada propuesta dice qué cambió (ingredientes en g y %, rendimiento, pasos) y su impacto en el costo
 // (costo por unidad vigente → propuesto, con el motor de Finanzas; los precios se leen una sola vez para toda la lista).
 function resumenFila(p, H) {
   const d = p.datos || {}, v = p.vigente, c = st.costos[p.docId];
@@ -786,7 +789,7 @@ function detallePropuesta(p, H) {
   const cant = i => i ? (i.unidades !== null && i.unidades !== undefined && i.unidades !== '' ? `${String(i.unidades).replace('.', ',')} un · ` : '') + `${(Math.round((Number(i.gramos) || 0) * 10) / 10).toLocaleString('es-CL')} g` : '—';
   const vIngs = v ? v.ingredientes || [] : [];
   const ids = [...new Set([...(d.ingredientes || []).map(i => i.id), ...vIngs.map(i => i.id)])];
-  const pctV = v ? RV.panadero(v) : {}, pctP = RV.panadero(d);   // v0.77.0: el % de panadero al lado de los gramos (como en Cocina)
+  const pctV = v ? RV.panadero(v) : {}, pctP = RV.panadero(d);   // v0.77.1: el % de panadero al lado de los gramos (como en Cocina)
   // v0.63.6: costo neto por ingrediente (Finanzas), vigente y propuesta: se ve qué ingrediente mueve el costo
   const lnV = c && !c.error && c.vigente && c.vigente.lineas, lnP = c && !c.error && c.propuesta && c.propuesta.lineas, conCosto = !!(lnP || lnV);
   const cst = (ln, id, hay) => (!hay ? '' : ln && ln[id] !== null && ln[id] !== undefined ? ` <span class="prop-costo">${pesosN(ln[id])}</span>` : ln && id in ln ? ' <span class="prop-costo">sin precio</span>' : '');

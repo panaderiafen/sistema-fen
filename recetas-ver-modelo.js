@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Producción → Recetas y Por revisar: reglas puras  v0.77.0
+//  Sistema Fën — Producción → Recetas y Por revisar: reglas puras  v0.77.1
 //  · Qué cambió entre dos versiones de una receta (o una receta vigente y su propuesta): ingredientes en gramos y en % de panadero
 //    (la misma regla de Cocina: cocina/modelo.js → panadero), rendimiento, peso por unidad, pasos (cuántos), insumos, nombre y notas.
 //  · El costo de una receta aprobada (costos_recetas de Finanzas) y su variación contra el costo anterior (costos_recetas_hist).
@@ -7,7 +7,7 @@
 //  Sin lecturas ni pantallas: lo usan vista-prod-recetas.js y vista-produccion.js (y las pruebas).
 // ═══════════════════════════════════════════════
 import * as CM from './cocina/modelo.js?v=0.17.4';
-import { coincide, normalizar } from './buscador.js?v=0.77.0';
+import { coincide, normalizar } from './buscador.js?v=0.77.1';
 
 export const AREAS = { PAN: 'Panadería', BOL: 'Bollería', PAS: 'Pastelería', CAF: 'Cafetería' };
 const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Producción → Recetas (solo para mirar)  v0.77.0
+//  Sistema Fën — Producción → Recetas (solo para mirar)  v0.77.1
 //  Las recetas aprobadas de la base de Cocina por área, con su rendimiento, versión, quién y cuándo se aprobó y su costo por
 //  unidad (el último cálculo de Finanzas → Costos → Productos) con la variación contra el costo anterior. Al abrir una: ingredientes
 //  (g y %), insumos, pasos, notas y las versiones anteriores (versiones/{id}_v{n}, se leen solo al pedirlas) comparadas con la vigente.
@@ -7,8 +7,8 @@
 //  Lecturas: las recetas y los costos salen de la memoria compartida (Hoy, Producción, Finanzas); las versiones, al pedirlas.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.77.0';
-import * as RV from './recetas-ver-modelo.js?v=0.77.0';
+import * as P from './produccion.js?v=0.77.1';
+import * as RV from './recetas-ver-modelo.js?v=0.77.1';
 
 const S = { area: 'todas', tipo: 'todas', q: '', archivadas: false, recetas: null, costos: null, costosErr: '', err: '', vers: {}, comparar: {} };
 const $ = id => document.getElementById(id);
@@ -23,7 +23,7 @@ const TXT_RECETAS = 'Las recetas aprobadas de la base de Cocina (la maestra), so
 export async function pintar(el, H, { sub = '' } = {}) {
   el.innerHTML = '<section class="tarjeta"><div class="vacio" style="border:0" role="status">Abriendo las recetas…</div></section>';
   try {
-    const [recetas, costos] = await Promise.all([P.recetasCatalogo(), import('./finanzas.js?v=0.77.0').then(F => F.costosRecetas()).catch(e => { S.costosErr = (e && e.message) || ''; return null; })]);
+    const [recetas, costos] = await Promise.all([P.recetasCatalogo(), import('./finanzas.js?v=0.77.1').then(F => F.costosRecetas()).catch(e => { S.costosErr = (e && e.message) || ''; return null; })]);
     S.recetas = recetas; S.costos = costos; S.err = '';
   } catch (e) { S.err = (e && e.message) || H.mensajeError(e); }
   if (!/^#produccion\/recetas/.test(location.hash)) return;
