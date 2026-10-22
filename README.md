@@ -1,9 +1,60 @@
-# Sistema Fën · v0.79.0
+# Sistema Fën · v0.80.0
 
-**App:** v0.79.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-ventas v1.5.0, fen-b2b v1.7.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.80.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** **fen-b2b v1.8.0** (nueva: listas de precios); las demás no cambian (fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.80.0: Listas de precios
+
+Una herramienta nueva en **Ventas B2B → Listas de precios** (`#b2b/listas`) para mandarle a un cliente (o a uno nuevo) un PDF elegante con tus productos: foto, nombre, formato, descripción corta y precio **neto "+ IVA"**, más las condiciones (despacho, formas de pago, vigencia) y tu contacto. Si el cliente acepta, con un botón esos precios quedan como **sus precios especiales**. Ningún costo aparece en la lista.
+
+- **Dónde va:** repo **sistema-fen**, raíz. Archivos nuevos: `listas-precios-modelo.js` (reglas puras), `listas-precios.js` (lecturas y escrituras), `vista-listas-precios.js` (la pestaña), `pdf-lista-precios.js` (el PDF) e `imagenes.js` (achica las fotos en el navegador). Cambian `app.js` (la pestaña nueva y dos íconos), `vista-productos.js` (foto y ficha en el diálogo del producto), `catalogo-productos-modelo.js` (formato y descripción corta), `pdf-orden.js` (comparte sus librerías con el PDF nuevo), `estilos.css`, `firestore-b2b.rules` (**v1.8.0**) y este README; los demás, solo la versión. `cocina/` y `fermentacion.js` **no cambian**. Caja y logística no se tocan.
+- **Reglas:** **fen-b2b v1.8.0** agrega `listas_precios/{id}`: solo administración lee, crea y cambia; nada se borra; **logística no las ve** (tampoco `config/listasPrecios`, que ya era solo de administración). Todo lo demás, igual a la v1.7.0. fen-gastos (v0.1.0) ya permite a la administración la colección nueva `cat_fotos`: no cambia. **Apps Script:** ninguno.
+
+### Cómo se usa
+1. **Fotos y ficha (una vez por producto):** Catálogo → Productos → **Cambiar** → al final, **Foto y ficha para las listas de precios**: *Subir foto* (JPG, PNG o WebP; se achica sola en el equipo a 900 px y ≤ 90 KB, más una miniatura de 240 px y ≤ 15 KB), **Formato** ("800 g", "Unidad", "Caja 10 un") y **Descripción corta** (hasta 140 letras, con contador). La foto se sube al tocar **Guardar cambios**. *Cambiar foto* la reemplaza; *Quitar foto* la saca de las listas (queda anotado). En la lista de productos aparece "Con foto".
+2. **Portada, condiciones y contacto (una vez):** Ventas B2B → Listas de precios → **Portada, condiciones y contacto**: *Subir portada* (una foto horizontal; se achica a 1.600 px y ≤ 250 KB y se guarda al tiro), y las condiciones que se proponen en cada lista: días de despacho, costo de despacho, formas de pago, vigencia en días (dice "Precios válidos hasta …"), **Otras condiciones** (opcional, puede quedar vacía; no hay pedido mínimo) y el contacto (nombre, teléfono, correo) → **Guardar condiciones**.
+3. **Nueva lista:** elige el cliente (o **Cliente nuevo** y escribe su nombre) → marca los productos (solo los del Catálogo activos y habilitados en B2B; filtra por área, categoría o busca; "Marcar los que se ven"). Cada fila muestra la foto, el formato y el precio **base** o el **precio especial** actual del cliente (marcado "Especial"); el precio de la lista parte de ese y lo puedes cambiar: vale solo para esta lista (el Catálogo y los precios del cliente no cambian). Si cambias de cliente, los precios que no tocaste se ajustan solos. **Orden en el PDF:** por área y nombre, con flechas para subir o bajar. **Condiciones:** las predeterminadas, editables para esta lista (marca "Guardar estas condiciones como las predeterminadas" si quieres). **Vista previa** muestra las hojas; **Guardar lista** la deja guardada y abre la lista.
+4. **Una lista guardada:** **Enviar por WhatsApp** (en el celular abre *Compartir* con el PDF y el mensaje ya escrito; si pide otro toque, el botón dice "Tocar para enviar"; en el computador baja el PDF y abre WhatsApp Web con el mensaje para el número o grupo del cliente: adjuntas el PDF), **Descargar PDF**, **Usar como precios especiales**, **Duplicar para otro cliente** y **Cambiar** (mientras no se haya aplicado).
+5. **Usar como precios especiales:** muestra primero una tabla con lo que cambia (producto, *Base* o *Especial* actual → nuevo). Solo entran los productos cuyo precio en la lista es **distinto del base** (y distinto de su especial actual). Los demás precios especiales del cliente quedan igual: nada se borra. Cada cambio queda en el **historial de precios** del cliente (Ventas B2B → Clientes) con "lista de precios", y la lista queda **Aplicada como precios especiales** (ya no se cambia; se duplica). Para un cliente nuevo no aparece: créalo en Clientes y duplica la lista para él.
+6. **La pestaña:** cada lista con cliente, fecha, n° de productos, vigencia ("Vencida" si pasó) y estado (**Guardada**, **Enviada**, **Aplicada como precios especiales**); Abrir y Duplicar. Muestra las últimas 60.
+
+### El PDF
+A4 vertical, colores "Salvia y arena" y el logo de Fën. **Hoja 1:** la portada (o, sin portada, el logo sobre el color salvia), "Lista de precios", "Para <cliente>", la fecha y "Precios netos + IVA · válidos hasta el …". **Después:** los productos en dos columnas, 6 por hoja (foto o, si no tiene, una inicial sobre fondo arena; área, nombre, formato, descripción corta y el precio grande "$ 3.500 + IVA"). **Al final:** Condiciones y Contacto. Pie con "Página X de N". Las hojas van como imagen JPEG (liviano) y llevan el texto escondido, así se puede buscar y copiar. Medido: 5 productos ≈ 0,4 MB; **20 productos con foto ≈ 0,9 MB** (meta ≤ 3 MB). Usa las mismas librerías del PDF de las órdenes (html2canvas y jsPDF de cdnjs).
+
+### Cómo queda guardado (para el que venga)
+- **fen-gastos** `cat_fotos/{PR####}` = `{ foto, mini (data URL JPEG), ancho, alto, bytes, miniBytes, catalogoId, actualizadoEn, actualizadoPor, historial [20] }`. Quitar = `foto` y `mini` en null (con su historial). Aparte del catálogo: leer `cat_productos` no trae imágenes.
+- **fen-gastos** `cat_productos/{id}`: + `formato`, `descripcionCorta` y `foto { en, ancho, alto } | null` (solo la marca); el historial anota "foto". Las copias de la caja y de B2B no cambian.
+- **fen-b2b** `config/listasPrecios` = `{ condiciones { diasDespacho, costoDespacho, formasPago, vigenciaDias, otras, contacto { nombre, telefono, correo } }, portada | null, portadaAncho, portadaAlto, portadaBytes, en, por, historial }`.
+- **fen-b2b** `listas_precios/{auto}` = `{ cliente { id | null, nombre }, fecha, vigenciaDias, vigenciaHasta, items [{ catalogoId, productoId, nombre, formato, descripcion, area, precioBase, precio }], n, condiciones (copia), por, en, editadoEn/Por, enviadaEn, envios [{ en, por, como 'compartir' | 'descarga' }], aplicada { en, por, n } | null, duplicadaDe, historial }`.
+- **fen-b2b** `clientes/{id}`: al aplicar, `precios[]` por `productoId` y `historialPrecios[]` con `{ producto, productoId, antes, despues, en, por, origen 'lista de precios', listaId }`.
+
+### Lecturas (Spark), medidas con Firebase simulado (`pruebas/capturas/listas-precios-v0800/lecturas.json`)
+- **Abrir la pestaña:** fen-b2b 1 por lista guardada (mín. 1, hasta 60) + 1 de `config/listasPrecios`, **una vez por sesión** (con 2 listas: 3). Volver: 0. Clientes y productos: los de la escucha de Ventas B2B de siempre (0 más). El Catálogo: la memoria de Gastos y Finanzas.
+- **Fotos:** **solo al armar o ver una lista**: 1 lectura por producto marcado **que tiene foto** (prueba: 2 de 5); quedan en memoria (desmarcar y marcar, vista previa, PDF y volver: 0). Abrir Catálogo → Productos: 0; abrir el diálogo de un producto con foto: 1.
+- **Escrituras:** guardar una lista 1; marcarla enviada 1; usar como precios especiales 1 transacción (lee y escribe el cliente y la lista: 2 + 2); subir o quitar una foto 1 transacción (lee y escribe el producto y su foto); portada o condiciones 1 transacción.
+
+### Instalación v0.80.0 (unos 5 minutos, en este orden)
+1. **Reglas de fen-b2b v1.8.0:** consola de Firebase → proyecto **fen-b2b** → Firestore Database → pestaña **Reglas** → borra todo y pega `firestore-b2b.rules` (de este zip; arriba dice v1.8.0) → **Publicar**. Sin este paso, la pestaña dice que faltan las reglas y no deja guardar listas.
+2. **Sistema Fën v0.80.0:** GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.80.0.zip` (con la carpeta `cocina/`, que no cambia, y los archivos nuevos `listas-precios-modelo.js`, `listas-precios.js`, `vista-listas-precios.js`, `pdf-lista-precios.js` e `imagenes.js`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+3. Cocina, caja, logística y Apps Script: nada.
+
+### Lista de verificación v0.80.0
+- [ ] Abajo dice **v0.80.0**; en la consola de fen-b2b → Reglas, arriba dice **v1.8.0**.
+- [ ] **Catálogo → Productos → Cambiar** un producto: aparece "Foto y ficha para las listas de precios"; sube una foto (dice "900 × … px · … KB … Se sube al guardar"), escribe formato y descripción → Guardar cambios → "Foto guardada" y la fila dice "Con foto".
+- [ ] **Ventas B2B → Listas de precios**: sube la portada y guarda las condiciones y el contacto.
+- [ ] **Nueva lista** para un cliente con precio especial: ese producto muestra "Especial $…" y su precio parte de ahí; cambia otro precio; sube o baja uno; **Vista previa** muestra portada, productos y condiciones; **Guardar lista**.
+- [ ] **Descargar PDF**: se abre bien, A4, con "+ IVA" y "válidos hasta …".
+- [ ] **Enviar por WhatsApp** desde el celular (Compartir con el PDF) y desde el computador (baja el PDF y abre WhatsApp Web); la lista queda "Enviada".
+- [ ] **Usar como precios especiales**: la tabla muestra solo lo distinto del base → Usar → en Ventas B2B → Clientes el cliente tiene esos precios y su historial; la lista dice "Aplicada como precios especiales".
+- [ ] **Duplicar** para un **Cliente nuevo**: queda guardada con los mismos productos y precios.
+- [ ] En la app de logística todo sigue igual (no ve las listas).
+- [ ] En el celular, la pestaña y la lista nueva sin mover la página de lado.
+
+**Si algo sale mal:** vuelve a subir la v0.79.0. No se pierde nada: las listas, fotos y portada quedan guardadas (la v0.79.0 no las usa) y las reglas v1.8.0 sirven igual para la v0.79.0 y logística v1.3.1.
+
+**Pruebas:** `pruebas/sistemafen/listas-precios-v0800.test.js` (12/12: el modelo, la ficha del Catálogo, reglas, la foto achicada (tamaño y peso), portada y condiciones, logística sin acceso, armar y guardar, el PDF revisado con pdfinfo y pdftotext, uno de 20 productos para el peso, WhatsApp en computador y celular, usar como precios especiales, duplicar y lecturas) y las demás suites (`pruebas/resultados-v0800.txt`, con `pruebas/correr-v0800.sh`). Capturas (la pestaña, la lista nueva y la lista guardada a 390 y 1280, el diálogo de la foto del Catálogo, la confirmación de precios especiales) y los PDF de ejemplo (`lista-ejemplo-5-productos.pdf`, `lista-ejemplo-20-productos.pdf`, y sus hojas en PNG) en `pruebas/capturas/listas-precios-v0800/`. Todas las imágenes de prueba son generadas (degradados y ruido) y los datos, ficticios.
 
 ## Novedades de la v0.79.0: Gastos, etapa B — la Bandeja única
 

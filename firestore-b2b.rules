@@ -1,8 +1,12 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.7.0 (2026-10-21)
+//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.8.0 (2026-10-22)
 //
+//  v1.8.0: (Sistema Fën v0.80.0) listas_precios/{id}: las listas de precios de Ventas B2B → Listas de
+//          precios. Solo administración las lee, crea y cambia; nada se borra. Logística no las ve.
+//          (La portada y las condiciones van en config/listasPrecios, que ya era solo de administración.)
+//          Todo lo demás queda igual a la v1.7.0.
 //  v1.7.0: (Sistema Fën v0.74.0 · logística v1.3.0) logística lee config/catalogoDisponible (la lista
 //          de productos del Catálogo que todavía no están en B2B, la escribe Sistema Fën) y
 //          crea órdenes sin marcarlas para la planilla (planillaPendiente false: la copia está apagada).
@@ -183,6 +187,12 @@ service cloud.firestore {
       allow update: if esAdmin() && nuevo().gestiones is list && nuevo().gestiones.size() >= antes().gestiones.size()
                     && nuevo().gestiones.size() <= 5000
                     && (antes().gestiones.size() == 0 || nuevo().gestiones[0:antes().gestiones.size()] == antes().gestiones);
+      allow delete: if false;
+    }
+    // v1.8.0: listas de precios (solo administración; logística no las lee)
+    match /listas_precios/{id} {
+      allow read: if esAdmin();
+      allow create, update: if esAdmin() && nuevo().cliente is map && nuevo().items is list && nuevo().items.size() <= 120;
       allow delete: if false;
     }
     match /config/{id} {

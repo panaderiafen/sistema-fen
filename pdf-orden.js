@@ -92,6 +92,9 @@ function cargarLetra() {
   return letraLista;
 }
 
+// v0.80.0 · Las mismas librerías y la misma letra para el PDF de las listas de precios (pdf-lista-precios.js)
+export async function cargarLibrerias() { await Promise.all([script(CDN.h2c), script(CDN.jspdf), cargarLetra()]); }
+
 // Arma el PDF (tamaño carta) y lo descarga. Si el contenido es más alto que una hoja, sigue en la siguiente.
 // abrir: true → se muestra en otra pestaña (para revisar) en vez de descargarse
 // Pasa uno o varios bloques HTML (.od) a un PDF tamaño carta. Cada bloque empieza en una hoja nueva;

@@ -30,7 +30,7 @@
 //   3. fin_productos (lo asociado a mano en Finanzas: meses antiguos y productos sin unir);
 //   4. lo de antes (ID de receta del catálogo de la caja o de B2B, nombre parecido) solo como sugerencia.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.79.0';
+import * as AR from './areas.js?v=0.80.0';
 // v0.75.1 (Etapa 2b): la caja v2.3.0 ya no crea ni cambia productos; sus pestañas son areas.js CAJA (PAN, BOL, PAS, CAF, REVENTA).
 
 export const TIPOS = { receta: 'Receta', reventa: 'Reventa', cargo: 'Cargo', armado: 'Armado' };
@@ -151,12 +151,19 @@ export function validar(datos, { recetas = [], reventa = [], lista = [], prev = 
   const pbv = entero(b.precioBase); b2b.precioBase = pbv > 0 ? pbv : null;
   if (b2b.habilitado && !(b2b.precioBase > 0)) throw new Error('B2B: escribe el precio base neto.');
   out.canales = { caja, b2b };
+  // v0.80.0 · Ficha para las listas de precios: formato ("800 g", "Unidad", "Caja 10 un") y descripción corta (hasta 140).
+  // Si no vienen (un pedido, el armado), quedan las de antes.
+  const ficha = (k, max, txt) => { if (d[k] === undefined || d[k] === null) return s(prev && prev[k]); const v = s(d[k]).replace(/\s+/g, ' '); if (v.length > max) throw new Error(`${txt}: hasta ${max} letras (tiene ${v.length}).`); return v; };
+  out.formato = ficha('formato', 40, 'Formato');
+  out.descripcionCorta = ficha('descripcionCorta', 140, 'Descripción corta');
   return out;
 }
 
 // Lo que cambió (para el historial): campo → { antes, despues }
 export function cambiosDe(antes, despues) {
   const out = {};
+  // v0.80.0: + formato y descripción corta (vacío = no tenía)
+  ['formato', 'descripcionCorta'].forEach(k => { if (!(k in despues)) return; const a = s(antes && antes[k]), b = s(despues[k]); if (a !== b) out[k] = { antes: a, despues: b }; });
   ['nombre', 'tipo', 'recetaId', 'reventaId', 'componentes', 'area', 'unidadesPorVenta', 'estado'].forEach(k => {
     if (!(k in despues)) return;
     const a = antes ? antes[k] ?? null : null, b = despues[k] ?? null;
