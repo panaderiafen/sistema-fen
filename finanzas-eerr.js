@@ -28,8 +28,8 @@
 //  canal B2B. El despacho ya no está en Común ni en el margen de contribución. El resultado operacional y el del mes no cambian.
 //  Un mes cerrado antes de la v0.75.1 se ve como quedó; sus ajustes se comparan en la forma de entonces (sin ruido por el cambio).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.76.0';
-import * as AR from './areas.js?v=0.76.0';
+import * as FR from './finanzas-resultados.js?v=0.77.0';
+import * as AR from './areas.js?v=0.77.0';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -390,7 +390,7 @@ export function checksCierre(D) {
   const sinConteo = bods.filter(b => !((C.porBodega || {})[b] || []).some(f => f >= w.desde && f <= w.hasta));
   add('conteo', 'Conteo de bodega hecho', C.disponible !== false && !sinConteo.length,
     C.disponible === false ? 'No se pudo leer Producción (bodegas).' : sinConteo.length ? `Falta el conteo de ${sinConteo.map(b => (C.nombres || {})[b] || b).join(' y ')} (del ${fechaCorta(w.desde)} al ${fechaCorta(w.hasta)}).` : `Contado: ${bods.map(b => `${(C.nombres || {})[b] || b} ${fechaCorta(((C.porBodega || {})[b] || []).filter(f => f >= w.desde && f <= w.hasta).sort().pop())}`).join(' · ')}.`,
-    '#produccion', `Un conteo en cada bodega (Producción y Cafetería) entre el ${fechaCorta(w.desde)} y el ${fechaCorta(w.hasta)}: los últimos ${VENTANA_CONTEO} días del mes o los primeros ${VENTANA_CONTEO} del siguiente. Lo anotan las jefas en Cocina → Bodega.`);
+    '#produccion/bodega', `Un conteo en cada bodega (Producción y Cafetería) entre el ${fechaCorta(w.desde)} y el ${fechaCorta(w.hasta)}: los últimos ${VENTANA_CONTEO} días del mes o los primeros ${VENTANA_CONTEO} del siguiente. Lo anotan las jefas en Cocina → Bodega.`);
   // 5. Gastos sin clasificar = 0
   const sc = D.sinClasificar || {};
   add('clasificar', 'Gastos clasificados', !num(sc.n), num(sc.n) ? `${sc.n} ${sc.n === 1 ? 'ítem' : 'ítems'} sin tipo para resultados (${pesosTxt(sc.neto)}).` : 'Todos los gastos del mes tienen tipo.',

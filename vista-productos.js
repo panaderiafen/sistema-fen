@@ -5,9 +5,9 @@
 //  #catalogo/armar: una sola vez, une lo vivo de la caja y de B2B en productos del catálogo (juntando los que llevan a la misma receta).
 //  Datos en catalogo-productos.js; reglas puras en catalogo-productos-modelo.js. H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, dialogo }
 // ═══════════════════════════════════════════════
-import * as C from './catalogo-productos.js?v=0.76.0';
-import * as CPM from './catalogo-productos-modelo.js?v=0.76.0';
-import * as AR from './areas.js?v=0.76.0';
+import * as C from './catalogo-productos.js?v=0.77.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.77.0';
+import * as AR from './areas.js?v=0.77.0';
 
 const st = { D: null, cargando: null, filtro: { estado: 'activo', canal: 'todos', tipo: 'todos', q: '' }, msg: '', err: '', grupos: null, gmsg: '', gerr: '', ocupado: false };
 export const estado = st;
@@ -103,7 +103,7 @@ function dibujar(el) {
       <div class="titulo-fila"><h2 id="t-pr">Productos ${H.info('Productos', TXT_PRODUCTOS)}</h2><button type="button" class="btn" id="pr-nuevo">${H.icono('mas', 16)} Nuevo producto</button></div>
       ${armado ? '' : `<p class="aviso" id="pr-sin-armar">Todavía no armas el catálogo: los productos que ya existen en la caja y en B2B se unen en <a href="#catalogo/armar">Armar el catálogo</a> (una vez). Mientras, puedes crear productos nuevos aquí.</p>`}
       ${D.estados.b2b !== 'ok' ? '<p class="aviso">B2B (fen-b2b) no está conectada en este equipo: se ve lo del catálogo, pero no se puede habilitar ni cambiar el canal B2B. Conéctala en <a href="#b2b">Ventas B2B</a>.</p>' : ''}
-      ${D.estados.cocina !== 'ok' ? '<p class="aviso">Cocina (fen-produccion) no está conectada: sin la lista de recetas aprobadas. Conéctala en <a href="#produccion">Producción</a>.</p>' : ''}
+      ${D.estados.cocina !== 'ok' ? '<p class="aviso">Cocina (fen-produccion) no está conectada: sin la lista de recetas aprobadas. Conéctala en <a href="#ajustes/cocina">Configuración → Cocina</a>.</p>' : ''}
       <div class="cat-resumen" role="group" aria-label="Resumen"><span class="chip c-verde" id="pr-n-activos">Activos ${nf(r.activos)}</span><span class="chip c-gris">En la caja ${nf(r.caja)}</span><span class="chip c-gris">En B2B ${nf(r.b2b)}</span>${r.sinCanal ? `<span class="chip c-amarillo" id="pr-n-sincanal">Sin canal ${nf(r.sinCanal)}</span>${H.info('Sin canal', TXT_SIN_CANAL)}` : ''}<span class="chip c-gris">Archivados ${nf(r.archivados)}</span></div>
       <div class="cat-filtros">
         <div class="chips" role="group" aria-label="Estado">${chips('estado', CPM.FILTROS_ESTADO)}</div>
@@ -367,7 +367,7 @@ function dibujarArmar(el) {
       <div class="titulo-fila"><h2 id="t-g">Armar el catálogo ${H.info('Cómo armar el catálogo', TXT_ARMAR)}</h2>${cfg.armadoEn ? `<span class="ayuda" id="g-armado">Armado el ${H.esc(diaCorto(cfg.armadoEn))}${cfg.armadoPor ? ' por ' + H.esc(cfg.armadoPor) : ''} · ${nf(D.maestro.length)} productos</span>` : ''}</div>
       <p class="ayuda">${cfg.armadoEn ? 'Lo vivo de la caja y de B2B que todavía no está unido a un producto del catálogo.' : 'Une lo vivo de la caja y de B2B en productos del catálogo. Revisa cada grupo y guarda una vez: los precios no cambian.'}</p>
       ${D.estados.b2b !== 'ok' ? '<p class="aviso">B2B (fen-b2b) no está conectada en este equipo: arma el catálogo cuando esté conectada (si no, quedan fuera los productos de B2B). Conéctala en <a href="#b2b">Ventas B2B</a>.</p>' : ''}
-      ${D.estados.cocina !== 'ok' ? '<p class="aviso">Cocina (fen-produccion) no está conectada: sin la lista de recetas. Conéctala en <a href="#produccion">Producción</a>.</p>' : ''}
+      ${D.estados.cocina !== 'ok' ? '<p class="aviso">Cocina (fen-produccion) no está conectada: sin la lista de recetas. Conéctala en <a href="#ajustes/cocina">Configuración → Cocina</a>.</p>' : ''}
       ${pend.length ? `<div class="aviso" id="g-pendientes">${nf(pend.length)} ${pend.length === 1 ? 'documento de la caja o de B2B no quedó' : 'documentos de la caja o de B2B no quedaron'} unidos (el guardado se cortó). <button type="button" class="btn-sec btn-chico" id="g-terminar">Terminar de unir</button></div>` : ''}
       <div class="cat-resumen" id="g-resumen" role="group" aria-label="Resumen"></div>
       <p class="ok-texto" id="g-msg" role="status">${H.esc(st.gmsg)}</p><p class="error" id="g-err" role="alert">${H.esc(st.gerr)}</p>

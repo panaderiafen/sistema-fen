@@ -15,15 +15,15 @@
 //  línea" y las 3 más parecidas al asociar. Reglas puras en mp-alta-modelo.js; escribe en la base de Cocina (produccion.js) y aquí.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.76.0';
-import * as FC from './finanzas-costos.js?v=0.76.0';
-import * as FS from './finanzas-sii.js?v=0.76.0';
-import * as FM from './finanzas-motor.js?v=0.76.0';
-import * as FV from './finanzas-ventas.js?v=0.76.0';
-import * as FMG from './finanzas-margenes.js?v=0.76.0';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.76.0';
-import * as VR from './vista-finanzas-resultados.js?v=0.76.0';
-import * as MA from './mp-alta-modelo.js?v=0.76.0';
+import * as F from './finanzas.js?v=0.77.0';
+import * as FC from './finanzas-costos.js?v=0.77.0';
+import * as FS from './finanzas-sii.js?v=0.77.0';
+import * as FM from './finanzas-motor.js?v=0.77.0';
+import * as FV from './finanzas-ventas.js?v=0.77.0';
+import * as FMG from './finanzas-margenes.js?v=0.77.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.77.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.77.0';
+import * as MA from './mp-alta-modelo.js?v=0.77.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -72,6 +72,8 @@ const cab = (tab) => `<div class="cabecera"><div><h1 id="t-finanzas">Finanzas</h
   <p class="fin-pronto">Próximamente: Flujo de caja, Metas</p>`;
 
 export async function pintar(el, sub, H) {
+  // v0.77.0: el maestro de materias primas usa los mismos IDs en Producción → Materias primas: la otra pantalla (oculta) se vacía
+  const enProd = document.querySelector('#v-produccion #prod-tab[data-tab="mp"]'); if (enProd) enProd.innerHTML = '';
   const p = partes(), tab = p[1] === 'costos' ? 'costos' : p[1] === 'margenes' ? 'margenes' : p[1] === 'resultados' ? 'resultados' : 'como';
   st.msg = ''; st.err = '';
   if (tab === 'margenes' && st.tabPrev !== 'margenes') MS.costos = null;   // v0.60.0: costos al día al entrar a Márgenes
@@ -198,14 +200,43 @@ function revision() {
     .concat(productosIncompletos().map(([id, d]) => ({ clave: `producto_incompleto:${id}`, grupo: 'producto_incompleto', titulo: d.nombre || id, detalle: d.incompleto.join(' · '), producto: id, huella: JSON.stringify(d.incompleto) })));
   return { pendientes: items.filter(i => FC.pendiente(i, st.datos.marcas)), revisados: items.filter(i => !FC.pendiente(i, st.datos.marcas)) };
 }
+// v0.77.0: el maestro de materias primas vive en Producción → Materias primas (#produccion/mp); en Finanzas queda un enlace
+const enProduccion = () => /^#produccion\/mp/.test(location.hash || '');
 function pintarCostos(el, parte, H) {
+  if (parte === 'mp' && enProduccion()) { el.innerHTML = htmlMaestro(H); conectarMaestro(el, H); return; }
   const rv = revision();
   if (parte === 'productos') { const p = partes(); if (p[3] === 'r' && p[4]) return pintarDetalle(el, decodeURIComponent(p[4]), rv, H); }
-  el.innerHTML = cab('costos') + subPestanas(parte, rv.pendientes.length) + (parte === 'revision' ? htmlRevision(rv, H) : parte === 'compras' ? htmlCompras(H) : parte === 'productos' ? htmlProductos(H) : htmlMaestro(H));
-  if (parte === 'revision') conectarRevision(el, rv, H); else if (parte === 'compras') conectarCompras(el, H); else if (parte === 'productos') conectarProductos(el, H); else conectarMaestro(el, H);
+  el.innerHTML = cab('costos') + subPestanas(parte, rv.pendientes.length) + (parte === 'revision' ? htmlRevision(rv, H) : parte === 'compras' ? htmlCompras(H) : parte === 'productos' ? htmlProductos(H) : htmlMpMovidas(H));
+  if (parte === 'revision') conectarRevision(el, rv, H); else if (parte === 'compras') conectarCompras(el, H); else if (parte === 'productos') conectarProductos(el, H);
 }
 
 // ── Materias primas ──
+// v0.77.0: en Finanzas → Costos, solo el enlace (la pantalla es la misma, en Producción)
+function htmlMpMovidas(H) {
+  return `<section class="tarjeta fin-mp-movidas" aria-labelledby="t-fin-mp-mov" id="fin-mp-movidas">
+    <h2 id="t-fin-mp-mov">Las materias primas están en Producción → Materias primas ${H.info('Materias primas', 'Desde la v0.77.0 el maestro de materias primas e insumos (crear, cambiar nombre, categoría y áreas, archivar, y el precio de cada una) está en Producción → Materias primas: es la misma pantalla, en un solo lugar.\nEl precio sigue guardado aquí, en la base de Gastos y Finanzas, y lo siguen usando Compras del SII y el costo de los productos.\nEn Finanzas quedan Compras del SII (con "Crear desde esta línea") y Productos (el costo de cada receta).')}</h2>
+    <p class="ayuda">Crear, cambiar y archivar materias primas e insumos, con su precio a la vista. Aquí quedan Compras del SII y el costo de los productos.</p>
+    <p><a class="btn" href="#produccion/mp" id="fin-ir-mp">Abrir Producción → Materias primas</a></p></section>`;
+}
+// v0.77.0: Producción → Materias primas (el mismo maestro de la v0.76.0). Lee lo de Finanzas (de la memoria de fen-gastos) y la lista
+// de la base de Cocina (memoria compartida); no recalcula el costo de los productos. opc.conteo(): cuántas hay en la base de Cocina.
+export async function pintarMaestro(el, H, opc = {}) {
+  const fin = document.getElementById('v-finanzas'); if (fin && fin !== el && !fin.contains(el)) fin.innerHTML = '';   // mismos IDs (fin-…): solo una pantalla a la vez
+  st.mpConteo = null; st.msg = ''; st.err = '';
+  el.innerHTML = '<section class="tarjeta"><div class="vacio" style="border:0" role="status">Abriendo las materias primas…</div></section>';
+  try {
+    st.cx = await F.conexiones();
+    if (st.cx.gastos.estado !== 'ok') {
+      el.innerHTML = `<section class="tarjeta" aria-labelledby="t-fin-sin"><h2 id="t-fin-sin">Los precios se guardan en la base de Gastos y Finanzas</h2>
+        <p class="ayuda">Falta conectar la base nueva de Gastos (fen-gastos), donde está el precio de cada materia prima. Se arregla en <a href="#gastos/base">Gastos → Base nueva</a>; después vuelve aquí.</p></section>`;
+      return;
+    }
+    const [, k] = await Promise.all([recargar(), opc.conteo ? opc.conteo() : Promise.resolve(null)]);
+    st.mpConteo = k;
+  } catch (e) { el.innerHTML = `<section class="tarjeta"><p class="error" role="alert">${H.esc(error(e, H))}</p></section>`; return; }
+  if (!enProduccion()) return;
+  pintarCostos(el, 'mp', H);
+}
 const FILTROS = [['todas', 'Todas'], ['problemas', 'Con problemas'], ['insumo', 'Insumos'], ['sub_receta', 'Sub recetas'], ['archivada', 'Archivadas']];
 function filtrar(xs, f, q) {
   const r = xs.filter(m => f === 'archivada' ? m.estado === 'archivada' : m.estado !== 'archivada')
@@ -214,17 +245,18 @@ function filtrar(xs, f, q) {
   return r.sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'));
 }
 // v0.73.0 (Etapa 1): costos_mp (fen-gastos) es la única fuente de precios
-const TXT_SOLO_FINANZAS = 'Desde la v0.73.0 los precios viven solo aquí (Finanzas → Costos, en la base de Gastos y Finanzas). La planilla de Producción ya no se actualiza, por eso "Traer precios desde la planilla" ya no está.\nUna materia prima nueva (pedida en Cocina) entra con su precio neto cuando la creas en Producción → Desde Cocina. Después, el precio cambia con la última compra del SII o a mano (con motivo).\nEl costo de las recetas por aprobar, la merma y los márgenes salen de estos precios.';
+const TXT_SOLO_FINANZAS = 'Desde la v0.73.0 los precios viven solo aquí (Finanzas → Costos, en la base de Gastos y Finanzas). La planilla de Producción ya no se actualiza, por eso "Traer precios desde la planilla" ya no está.\nUna materia prima nueva entra con su precio neto cuando la creas aquí o cuando resuelves un pedido de Cocina en Producción → Por revisar. Después, el precio cambia con la última compra del SII o a mano (con motivo).\nEl costo de las recetas por aprobar, la merma y los márgenes salen de estos precios.';
 function htmlMaestro(H) {
   const xs = lista(), activas = xs.filter(m => m.estado !== 'archivada');
   const cuenta = k => k === 'todas' ? activas.length : filtrar(xs, k, '').length;
   const ult = st.datos.ultimaCarga;
-  const prodAviso = st.cx.prod.estado !== 'ok' ? '<p class="aviso" style="margin-top:12px">La base de Producción no está conectada: la lista de materias primas y recetas no se puede leer. Conéctala en <a href="#produccion">Producción</a>.</p>' : '';
+  const prodAviso = st.cx.prod.estado !== 'ok' ? '<p class="aviso" style="margin-top:12px">La base de Cocina no está conectada: la lista de materias primas y recetas no se puede leer. Conéctala en <a href="#ajustes/cocina">Configuración → Cocina</a>.</p>' : '';
   return `<section class="tarjeta" aria-labelledby="t-fin-mp">
-    <div class="titulo-fila fin-titulo"><h2 id="t-fin-mp">Maestro de materias primas ${H.info('Maestro de materias primas con costos', 'Cada materia prima o insumo con lo que trae una unidad de compra (contenido en g, ml o unidades) y su precio neto. Con eso sale el precio por kg, l o unidad que usa el costeo.\nLos precios partieron de la planilla (MP_maestro); desde la v0.73.0 viven solo aquí. Se actualizan solos con la última compra del SII (Compras del SII), en neto: lo que trae una unidad de la factura se lleva a la unidad de compra de cada materia prima. Lo que cambies a mano queda "A mano". Una materia prima nueva entra con su precio al crearla en Producción → Desde Cocina.\nCada cambio queda en el historial, con fecha, quién y motivo: nada se borra.\nEl impuesto adicional (harina) se guarda, pero no se suma al costo: en la harina es IVA anticipado y se recupera.\nLas sub recetas aparecen en la lista, pero su costo sale de su receta (Costos → Productos).\nSe guarda en la base de Gastos (fen-gastos): las jefas no lo ven.')}</h2>
+    <div class="titulo-fila fin-titulo"><h2 id="t-fin-mp">Maestro de materias primas ${H.info('Maestro de materias primas con costos', 'Cada materia prima o insumo con lo que trae una unidad de compra (contenido en g, ml o unidades) y su precio neto. Con eso sale el precio por kg, l o unidad que usa el costeo.\nLos precios partieron de la planilla (MP_maestro); desde la v0.73.0 viven solo aquí. Se actualizan solos con la última compra del SII (Compras del SII), en neto: lo que trae una unidad de la factura se lleva a la unidad de compra de cada materia prima. Lo que cambies a mano queda "A mano". Una materia prima nueva entra con su precio al crearla aquí (o al resolver un pedido de Cocina en Producción → Por revisar).\nHasta la v0.76.0 esta pantalla estaba en Finanzas → Costos; desde la v0.77.0 está aquí, en Producción.\nCada cambio queda en el historial, con fecha, quién y motivo: nada se borra.\nEl impuesto adicional (harina) se guarda, pero no se suma al costo: en la harina es IVA anticipado y se recupera.\nLas sub recetas aparecen en la lista, pero su costo sale de su receta (Costos → Productos).\nSe guarda en la base de Gastos (fen-gastos): las jefas no lo ven.')}</h2>
       <span class="ayuda fin-solo-finanzas" id="fin-traer-off">Precios solo de Finanzas ${H.info('Precios solo de Finanzas', TXT_SOLO_FINANZAS)}</span>
       <button type="button" class="btn" id="fin-mp-nueva" ${st.cx.prod.estado === 'ok' ? '' : 'disabled'}>${ic('mas', 18)} Nueva materia prima o insumo</button></div>
-    <p class="ayuda" id="fin-resumen">${xs.length ? `${nf(activas.length)} activas · ${nf(cuenta('problemas'))} con problemas · última carga desde la planilla: ${ult ? `${fechaTxt(ult.fecha)} (${nf(ult.nuevas)} nuevas, ${nf(ult.cambian)} con cambios)` : '—'}` : 'Todavía no hay precios. Cada materia prima nueva entra con su precio al crearla en Producción → Desde Cocina; los demás cambios llegan con las compras del SII o a mano.'}</p>
+    ${st.mpConteo ? `<p class="ayuda" id="fin-mp-cocina">En la base de Cocina: ${nf(st.mpConteo.total)} materias primas e insumos (${nf(st.mpConteo.activas)} ${st.mpConteo.activas === 1 ? 'activa' : 'activas'} · ${nf(st.mpConteo.insumos)} ${st.mpConteo.insumos === 1 ? 'insumo' : 'insumos'}${st.mpConteo.archivadas ? ` · ${nf(st.mpConteo.archivadas)} ${st.mpConteo.archivadas === 1 ? 'archivada' : 'archivadas'}` : ''}).</p>` : ''}
+    <p class="ayuda" id="fin-resumen">${xs.length ? `${nf(activas.length)} activas · ${nf(cuenta('problemas'))} con problemas · última carga desde la planilla: ${ult ? `${fechaTxt(ult.fecha)} (${nf(ult.nuevas)} nuevas, ${nf(ult.cambian)} con cambios)` : '—'}` : 'Todavía no hay precios. Cada materia prima nueva entra con su precio al crearla aquí o en Producción → Por revisar; los demás cambios llegan con las compras del SII o a mano.'}</p>
     <p class="ok-texto" id="fin-msg" role="status">${H.esc(st.msg)}</p><p class="error" id="fin-err" role="alert">${H.esc(st.err)}</p>
     ${prodAviso}
     ${xs.length ? `<div class="filtros fin-filtros">
@@ -479,6 +511,7 @@ function dialogoAlta(el, H, { g = null, volver = 'mp' } = {}) {
       const v = r.v, lec = FC.porLectura(FC.precioPorBase(v.precioNeto, v.contenido), v.contenido.unidad);
       H.registrar(g ? 'Finanzas: creó una materia prima desde una compra del SII' : 'Finanzas: creó una materia prima', `${v.nombre} (${r.id}) · ${MA.TIPOS[v.tipo]} · ${FC.pesos(v.precioNeto)} neto por ${v.unidad} · ${MA.textoAreas(v.areas)}${g ? ` · ${g.proveedor} · ${g.nombreItem}` : ''}`);
       st.msg = `${v.nombre} quedó creada (${r.id}) con su precio${lec ? `: ${lec.texto}` : ''}.${g ? ` ${g.nombreItem} quedó asociado a ella (se aprende para las próximas facturas).` : ''} Cocina ya la ve${v.areas.length ? ` en ${MA.textoAreas(v.areas)}` : ' en todas las áreas'}.`; st.err = '';
+      st.creadaMp = g ? st.msg : '';
       if (g && !r.revision) st.err = 'No se pudieron revisar los precios de las compras ahora: toca "Revisar compras" cuando quieras.';
       d.close(); await recargar(volver === 'compras'); pintarCostos(el, volver, H);
     } catch (e) {
@@ -566,7 +599,7 @@ function htmlRevision(rv, H) {
     return `<section class="tarjeta fin-grupo" aria-labelledby="t-fin-g-${k}">
       <div class="titulo-fila"><h2 id="t-fin-g-${k}">${t} ${H.info(t, ayuda)}</h2><span class="chip ${st.verRevisados ? 'c-gris' : 'c-rojo'}">${nf(xs.length)}</span></div>
       ${xs.map(i => { const marca = (st.datos.marcas || {})[FC.idRevision(i.clave)]; return `<div class="fila-caja fin-item"><div class="txt"><b>${H.esc(i.titulo)}</b><span>${H.esc(i.detalle)}</span>${st.verRevisados && marca && marca.revisado ? `<span class="ayuda">Revisado por ${H.esc(marca.revisado.por)} el ${fechaTxt(marca.revisado.fecha)}</span>` : ''}</div>
-        <div class="acciones">${i.mp && st.datos.costos[i.mp] && ['sin_precio', 'contenido', 'raro', 'unidad'].includes(i.grupo) ? `<button type="button" class="btn-sec" data-fin-corregir="${H.esc(i.mp)}">Corregir</button>` : i.producto ? `<a class="btn-sec fin-enlace" href="#finanzas/costos/productos/r/${encodeURIComponent(i.producto)}">Ver costo</a>` : i.receta ? '<a class="btn-sec fin-enlace" href="#produccion">Ver en Producción</a>' : ''}
+        <div class="acciones">${i.mp && st.datos.costos[i.mp] && ['sin_precio', 'contenido', 'raro', 'unidad'].includes(i.grupo) ? `<button type="button" class="btn-sec" data-fin-corregir="${H.esc(i.mp)}">Corregir</button>` : i.producto ? `<a class="btn-sec fin-enlace" href="#finanzas/costos/productos/r/${encodeURIComponent(i.producto)}">Ver costo</a>` : i.receta ? `<a class="btn-sec fin-enlace" href="#produccion/recetas/${encodeURIComponent(i.receta)}">Ver en Producción</a>` : ''}
         <button type="button" class="btn-sec" data-fin-rev="${H.esc(i.clave)}">${st.verRevisados ? 'Volver a la lista' : `${ic('check', 16)} Marcar revisado`}</button></div></div>`; }).join('')}
     </section>`;
   }).join('');
@@ -574,7 +607,7 @@ function htmlRevision(rv, H) {
     <div class="titulo-fila fin-titulo"><h2 id="t-fin-rev">Revisión de datos ${H.info('Revisión de datos', 'Lista de lo que parece mal en el maestro de costos y en las recetas aprobadas: sin precio, contenido que no se entiende, precios raros, ingredientes sin costo, unidades que no calzan, recetas sin rendimiento y productos con costo incompleto.\n"Corregir" abre el precio de esa materia prima. Lo de las recetas se corrige en la receta.\nSi algo está bien así, márcalo "revisado": sale de la lista y vuelve solo si cambia.')}</h2>
       <button type="button" class="btn-sec" id="fin-ver-rev" aria-pressed="${st.verRevisados}">${st.verRevisados ? 'Ver pendientes' : `Ver revisados (${nf(rv.revisados.length)})`}</button></div>
     <p class="ayuda">${st.verRevisados ? `${nf(rv.revisados.length)} marcados como revisados.` : rv.pendientes.length ? `${nf(rv.pendientes.length)} por revisar.` : lista.length === 0 && Object.keys(st.datos.costos).length ? 'Nada por revisar.' : 'Trae los precios desde la planilla para empezar.'}</p>
-    ${sinProd ? '<p class="aviso">Sin la base de Producción no se revisan las recetas (solo el maestro de costos). Conéctala en <a href="#produccion">Producción</a>.</p>' : ''}
+    ${sinProd ? '<p class="aviso">Sin la base de Cocina no se revisan las recetas (solo el maestro de costos). Conéctala en <a href="#ajustes/cocina">Configuración → Cocina</a>.</p>' : ''}
     <p class="ok-texto" id="fin-msg" role="status">${H.esc(st.msg)}</p><p class="error" id="fin-err" role="alert"></p>
   </section>${grupos}`;
 }
@@ -610,7 +643,7 @@ function htmlCompras(H) {
     <div class="titulo-fila fin-titulo"><h2 id="t-fin-compras">Compras del SII ${info}</h2>
       <button type="button" class="btn-sec" id="fin-revisar">${ic('revisar', 18)} Revisar compras de los últimos 90 días</button></div>
     <p class="ayuda" id="fin-c-resumen">${nf(gs.length)} ${gs.length === 1 ? 'producto' : 'productos'} en facturas desde el ${fechaTxt(c.desde)} · ${nf(cuenta('sin_asociar'))} sin asociar · ${nf(cuenta('asociada'))} asociados · ${nf(cuenta('ignorada'))} no son materia prima · última revisión: ${ult ? `${fechaTxt(ult.fecha)} (${nf(ult.aplicadas)} ${ult.aplicadas === 1 ? 'precio aplicado' : 'precios aplicados'}${ult.porConfirmar ? `, ${nf(ult.porConfirmar)} por confirmar` : ''})` : '—'}</p>
-    <p class="ok-texto" id="fin-msg" role="status">${H.esc(st.msg)}</p><p class="error" id="fin-err" role="alert">${H.esc(st.err)}</p>
+    <p class="ok-texto" id="fin-msg" role="status">${H.esc(st.msg)}${st.creadaMp && st.creadaMp === st.msg ? ` <a href="#produccion/mp" id="fin-ver-mp">Verla en Producción → Materias primas</a>` : ''}</p><p class="error" id="fin-err" role="alert">${H.esc(st.err)}</p>
     ${c.sinDetalle.length ? `<details class="fin-prev fin-sindet"><summary>${ic('factura', 18)} ${nf(c.sinDetalle.length)} ${c.sinDetalle.length === 1 ? 'factura' : 'facturas'} sin detalle de productos</summary>
       <p class="aviso">Esta carga no trae el detalle de productos (sube el XML para actualizar precios).</p>
       <ul class="fin-prev-lista">${c.sinDetalle.sort((a, b) => b.fecha.localeCompare(a.fecha)).map(d => `<li>${H.esc(d.proveedor || d.rut)} · F.${H.esc(d.folio)} · ${fechaTxt(d.fecha)}</li>`).join('')}</ul></details>` : ''}
@@ -826,7 +859,7 @@ function htmlProductos(H) {
       <span class="ayuda" id="fin-calc-hora">${calc ? `Calculado ${H.esc(new Date(calc.cuando).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }))}` : ''}</span></div>
     <p class="ayuda" id="fin-presumen">${todas.length ? `${nf(todas.length)} productos aprobados · ${nf(inc)} con costo incompleto` : sinProd ? '' : 'Todavía no hay productos costeados.'}</p>
     <p class="ok-texto" id="fin-msg" role="status">${H.esc(st.msg)}</p><p class="error" id="fin-err" role="alert">${H.esc(st.calcErr || st.err)}</p>
-    ${sinProd ? '<p class="aviso">La base de Producción no está conectada: sin recetas no se puede calcular (se muestra el último cálculo guardado). Conéctala en <a href="#produccion">Producción</a>.</p>' : ''}
+    ${sinProd ? '<p class="aviso">La base de Cocina no está conectada: sin recetas no se puede calcular (se muestra el último cálculo guardado). Conéctala en <a href="#ajustes/cocina">Configuración → Cocina</a>.</p>' : ''}
     ${alzas.length ? `<div class="fin-alzas" id="fin-alzas" role="region" aria-labelledby="t-fin-alzas">
       <h3 id="t-fin-alzas">${ic('sube', 18)} Subió el costo de ${nf(alzas.length)} ${alzas.length === 1 ? 'producto' : 'productos'} ${H.info('Alzas de costo', `Productos cuyo costo directo por unidad subió más de ${String(umbral).replace('.', ',')} % contra el costo con que empezó el mes (el % se cambia en Ajustes de Finanzas, abajo).\nTambién aparecen en Hoy. "Visto" lo saca de aquí y de Hoy mientras el costo siga igual; si vuelve a subir, avisa de nuevo.\nNo avisan los productos con costo incompleto (su costo no es confiable).`)}</h3>
       <ul class="fin-alzas-lista">${alzas.map(f => `<li data-alza="${H.esc(f.id)}"><div class="txt"><a href="#finanzas/costos/productos/r/${encodeURIComponent(f.id)}"><b>${H.esc(f.nombre)}</b></a> <span class="ayuda">${H.esc(AREAS[f.area] || f.area)}</span>
@@ -1274,7 +1307,7 @@ function dialogoVinculo(p, el, volver, H) {
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
   // v0.73.0: la lista de reventa (cat_reventa, de la memoria de fs-gastos): activas, más la que ya tenía este producto
   const selRev = d.querySelector('#m-v-revid');
-  import('./reventa.js?v=0.76.0').then(R => R.leer()).then(({ lista }) => {
+  import('./reventa.js?v=0.77.0').then(R => R.leer()).then(({ lista }) => {
     MS.reventa = lista;
     const ofrecer = lista.filter(x => x.estado !== 'archivado' || (v && v.reventaId === x.id)).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
     selRev.innerHTML = `<option value="">${ofrecer.length ? 'Elige…' : 'La lista de reventa está vacía (Catálogo → Reventa)'}</option>` + ofrecer.map(x => `<option value="${H.esc(x.id)}" data-costo="${x.costoNeto ?? ''}" data-nombre="${H.esc(x.nombre)}" ${v && v.reventaId === x.id ? 'selected' : ''}>${H.esc(x.nombre)} · ${H.esc(x.id)} · $${(Math.round(Number(x.costoNeto || 0) * 100) / 100).toLocaleString('es-CL')} / ${H.esc(x.unidad || 'un')}${x.estado === 'archivado' ? ' · archivada' : ''}</option>`).join('');

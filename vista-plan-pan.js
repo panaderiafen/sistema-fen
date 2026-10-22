@@ -3,10 +3,11 @@
 //  Rutas: #produccion/plan-pan (Propuesta próxima semana) · #produccion/plan-pan/como (Cómo nos fue) · #produccion/plan-pan/fijos
 //  (Ainavillo y pisos). Solo administración. Solo lectura, salvo la tabla fija de Ainavillo y los pisos (config/planPanaderia
 //  en fen-ventas, con historial). "Copiar como texto" y la hoja para imprimir (viernes).
+//  v0.77.0: pestaña de Producción (Producción → Plan de Panadería); se dibuja dentro de #prod-tab.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as PP from './plan-pan.js?v=0.76.0';
-import * as PM from './plan-pan-modelo.js?v=0.76.0';
+import * as PP from './plan-pan.js?v=0.77.0';
+import * as PM from './plan-pan-modelo.js?v=0.77.0';
 
 const S = { D: null, prop: null, dia: 0, semana: '', suc: 'todas', abiertos: new Set(), msg: '', err: '', editSuc: 'barros', cargando: false, extra: [] };
 const $ = id => document.getElementById(id);
@@ -33,7 +34,8 @@ const TXT = {
   sinAsociar: 'Productos de la caja con área Panadería y productos de B2B pedidos en estas semanas que no tienen vínculo en Finanzas. Mientras no se asocien no entran en el plan.\n"Asociar" abre Finanzas → Márgenes → Asociar productos con ese producto.'
 };
 
-const cab = H => `<div class="cabecera"><div><p class="pp-miga"><a href="#produccion">Producción</a></p><h1 id="t-produccion">Plan de Panadería</h1><p>Etapa 1 · solo lectura, salvo la tabla de Ainavillo y los pisos</p></div>
+// v0.77.0: es una pestaña de Producción (la cabecera y las pestañas de Producción van arriba); aquí, su título y sus botones
+const cab = H => `<div class="titulo-fila pp-cab"><div><h2 id="t-planpan">Plan de Panadería ${H.info('Plan de Panadería', 'Etapa 1: solo lectura, salvo la tabla de Ainavillo y los pisos. La propuesta de la semana se mira el viernes (esa tarde se hace la masa madre para el lunes).')}</h2><p class="ayuda" style="margin:2px 0 0">Etapa 1 · solo lectura, salvo la tabla de Ainavillo y los pisos</p></div>
   <div class="botones pp-acc" style="margin:0"><button type="button" class="btn-sec btn-chico" id="pp-actualizar">Actualizar</button>
   <button type="button" class="btn-sec btn-chico" id="pp-copiar">${H.icono('copias', 16)} Copiar como texto</button>
   <button type="button" class="btn-sec btn-chico" id="pp-imprimir">${H.icono('nota', 16)} Imprimir (viernes)</button></div></div>`;
@@ -64,7 +66,7 @@ function avisos(H) {
   const D = S.D, a = [];
   if (D.estados.gastos !== 'ok') a.push('Finanzas (fen-gastos) no está conectada: sin los vínculos producto → receta no se puede armar el plan. Conéctala en <a href="#gastos">Gastos → Base nueva</a>.');
   if (D.estados.b2b !== 'ok') a.push('B2B (fen-b2b) no está conectada: la columna B2B va en 0. Conéctala en <a href="#b2b/base">Ventas B2B → Base nueva</a>.');
-  if (D.estados.cocina !== 'ok') a.push('Cocina (fen-produccion) no está conectada: sin lo producido ni la masa madre. Conéctala en <a href="#produccion">Producción</a>.');
+  if (D.estados.cocina !== 'ok') a.push('Cocina (fen-produccion) no está conectada: sin lo producido ni la masa madre. Conéctala en <a href="#ajustes/cocina">Configuración → Cocina</a>.');
   if (S.err) a.push(H.esc(S.err));
   return a.map(x => `<p class="aviso">${x}</p>`).join('');
 }

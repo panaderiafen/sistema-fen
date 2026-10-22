@@ -2353,3 +2353,53 @@ body.cat-ocupado #v-catalogo button { pointer-events: none; opacity: .7; }
 .fin-c-acc .btn-link { display: inline-flex; align-items: center; gap: 4px; align-self: flex-end; white-space: nowrap; }
 @media (max-width: 760px) { .fin-c-acc .btn-link { align-self: flex-start; } #fin-mp-nueva { margin-left: 0; } }
 #mpa-err:empty, #mpd-err:empty, #mpa-calc:empty { display: none; }
+
+/* ═══ v0.77.0 · Producción en pestañas ═══ */
+#v-produccion .pest-prod { margin-bottom: 16px; }
+#v-produccion .pest-prod a { gap: 6px; }
+@media (max-width: 760px) {
+  /* En el celular las 7 pestañas se pasan con el dedo (como Conciliación), sin mover la página de lado */
+  #v-produccion .pest-prod { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  #v-produccion .pest-prod::-webkit-scrollbar { display: none; }
+}
+.prod-tab > .tarjeta + .tarjeta { margin-top: 16px; }
+.sub-h3 { margin: 14px 0 4px; font-size: 16px; }
+#cocina .titulo-fila h2 { margin: 0; }
+/* Por revisar: qué cambió y cuánto cuesta, en la fila */
+.prop-resumen { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; font-size: 13px; }
+.prop-cambios { color: var(--texto); overflow-wrap: anywhere; }
+.prop-costo-fila { overflow-wrap: anywhere; }
+.prop-impacto { font-weight: 600; }
+.prop-maestra { margin-top: 14px; }
+/* Plan de Panadería como pestaña */
+.pp-cab { flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.pp-cab h2 { margin: 0; }
+/* Recetas (solo para mirar) */
+.rv-donde { display: inline-flex; align-items: center; gap: 4px; }
+.rv-filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rv-filtros .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rv-arch { font-size: 13px; min-height: 40px; display: inline-flex; align-items: center; gap: 6px; }
+.rv-tabla { margin-top: 6px; }
+.rv-fila { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, .8fr) minmax(0, .6fr) minmax(0, 1.3fr) minmax(0, 1.6fr); gap: 10px; align-items: center; padding: 10px; border-bottom: 1px solid var(--linea); color: var(--texto); text-decoration: none; font-size: 14px; border-radius: 10px; }
+a.rv-fila:hover { background: rgba(47, 90, 69, 0.05); }
+a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+.rv-fila > span { min-width: 0; overflow-wrap: anywhere; }
+.rv-cab { font-size: 12px; font-weight: 600; color: var(--suave); padding-top: 0; }
+.rv-nombre { display: flex; flex-direction: column; gap: 2px; }
+.rv-nombre b { font-weight: 600; }
+.rv-costo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.rv-ant { flex-basis: 100%; }
+.rv-h3 { margin: 18px 0 6px; font-size: 16px; display: flex; align-items: center; gap: 4px; }
+.rv-lista { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.rv-notas { white-space: pre-wrap; font-size: 14px; margin: 0; }
+.rv-cifras { margin: 12px 0 8px; grid-template-columns: minmax(0, 1fr); max-width: 460px; }
+.rv-versiones { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.rv-cambios { margin: 4px 0 10px; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 2px; }
+@media (max-width: 760px) {
+  .rv-cab { display: none; }
+  .rv-fila { grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 12px 4px; }
+  .rv-fila > .rv-nombre, .rv-fila > .rv-costo { grid-column: 1 / -1; }
+  .rv-fila .fin-et { display: block; font-size: 11px; color: var(--suave); font-weight: 600; flex-basis: 100%; }
+  .rv-filtros .fin-buscar { flex: 0 0 auto; width: 100%; }
+}
+.fin-mp-movidas h2 { margin-top: 0; }

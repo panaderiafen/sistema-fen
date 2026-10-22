@@ -63,18 +63,18 @@
 //    recetas que la usan) y archivarMp (estado 'archivada' / 'activa'; no si una receta viva la usa). Historial en mps/{id}.historial.
 //    La memoria (memoriaCon) y la marca de cambio quedan al día como al resolver un pedido: Hoy, Producción, Finanzas y Cocina la ven.
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.76.0';
-import * as FBr from './firebase-produccion.js?v=0.76.0';
-import * as Apps from './apps.js?v=0.76.0';
-import { armar, AREAS } from './produccion-modelo.js?v=0.76.0';
-import { parsearConfig as parsearB2b } from './b2b.js?v=0.76.0';
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction, collection as colSF, getDocs as getDocsSF, query as querySF, where as whereSF } from './firebase.js?v=0.77.0';
+import * as FBr from './firebase-produccion.js?v=0.77.0';
+import * as Apps from './apps.js?v=0.77.0';
+import { armar, AREAS } from './produccion-modelo.js?v=0.77.0';
+import { parsearConfig as parsearB2b } from './b2b.js?v=0.77.0';
 import * as K from './cocina/consumo.js?v=0.17.4';      // el cálculo de la bodega es el de Cocina (copia exacta)
 import * as CM from './cocina/modelo.js?v=0.17.4';
-import * as M from './fs-memoria.js?v=0.76.0';
-import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.76.0';
-import * as RM from './recetas-maestro.js?v=0.76.0';
-import * as MA from './mp-alta-modelo.js?v=0.76.0';
-import { produccion as QP, esCuota } from './fs-cuota.js?v=0.76.0';
+import * as M from './fs-memoria.js?v=0.77.0';
+import { cambioArchivo, conArchivo } from './catalogo-modelo.js?v=0.77.0';
+import * as RM from './recetas-maestro.js?v=0.77.0';
+import * as MA from './mp-alta-modelo.js?v=0.77.0';
+import { produccion as QP, esCuota } from './fs-cuota.js?v=0.77.0';
 
 // ── v0.63.3: todo pedido a fen-produccion pasa por aquí: se cuenta (Configuración → Uso de la base hoy) y, si Firestore dice
 // "cuota agotada" (resource-exhausted), se muestra el letrero de Producción/Cocina. Cada escritura de Sistema Fën en recetas,
@@ -133,7 +133,7 @@ async function conMarca(col, fn, forzar = false) {
 }
 
 export { AREAS };
-export { resumenPropuesta } from './finanzas-motor.js?v=0.76.0';
+export { resumenPropuesta } from './finanzas-motor.js?v=0.77.0';
 export const VERSION_MINIMA = '2.3.0';   // script de Producción con la copia (SistemaFen.gs v2)
 export const VERSION_RECETAS = '2.4.0';  // script con costear / aprobar / materias primas (SistemaFen.gs v2.1)
 export const VERSION_MOVER = '2.5.0';    // script que mueve recetas entre áreas (SistemaFen.gs v2.2)
@@ -547,12 +547,37 @@ export async function pendientesCocina({ forzar = false } = {}) {
 // la planilla quedaron como estaban). Lo que no está en la base de Cocina va en "faltan" (no se puede aprobar).
 export async function costear(prop) {
   const [fin, base] = await Promise.all([
-    import('./finanzas.js?v=0.76.0').then(F => F.costosPropuesta(prop)),
+    import('./finanzas.js?v=0.77.0').then(F => F.costosPropuesta(prop)),
     mpsYRecetas().catch(() => null)
   ]);
   if (!fin || !fin.propuesta) { const e = new Error('Para ver el costo, conecta la base de Gastos y Finanzas (Gastos → Base nueva): los precios están en Finanzas → Costos.'); e.code = 'sin_gastos'; throw e; }
   const faltan = base ? RM.faltantes(prop.datos, base.mps, base.recetas) : [];
   return { ...fin, propuesta: { ...fin.propuesta, faltan } };
+}
+// v0.77.0 · Producción → Por revisar: el costo de todas las propuestas de la lista de una vez (los precios se leen una sola vez)
+// → [{ …comparación, propuesta: { …, faltan } } | { error }] en el mismo orden
+export async function costearVarias(props) {
+  const [fin, base] = await Promise.all([
+    import('./finanzas.js?v=0.77.0').then(F => F.costosPropuestas(props)),
+    mpsYRecetas().catch(() => null)
+  ]);
+  return (props || []).map((p, i) => {
+    const c = fin[i];
+    if (!c || !c.propuesta) return { error: 'Para ver el costo, conecta la base de Gastos y Finanzas (Gastos → Base nueva): los precios están en Finanzas → Costos.', code: 'sin_gastos' };
+    return { ...c, propuesta: { ...c.propuesta, faltan: base ? RM.faltantes(p.datos, base.mps, base.recetas) : [] } };
+  });
+}
+// v0.77.0 · Producción → Recetas: las versiones anteriores de una receta (versiones/{id}_v{n}, guardadas al aprobar un cambio).
+// Se leen solo al pedirlas, por su ID (v1 … la anterior a la vigente: 1 lectura cada una) y quedan 10 minutos en memoria.
+export async function versionesReceta(id, version) {
+  const n = Math.max(0, Math.min(60, (Number(version) || 1) - 1));
+  if (!n) return [];
+  const l = await M.memo(`prod:versiones:${id}@${n}`, async () => {
+    const db = await dbOk();
+    const sn = await Promise.all(Array.from({ length: n }, (_, k) => FB.getDoc(FB.doc(db, 'versiones', `${id}_v${k + 1}`))));
+    return sn.filter(x => x.exists()).map(x => ({ ...x.data(), id, docId: x.id }));
+  });
+  return l.map(v => ({ ...v, version: Number(v.version) || Number(String(v.docId).split('_v').pop()) || 1 })).sort((a, b) => b.version - a.version);
 }
 const paso = (prop, estado, comentario, extra = {}) => ({
   estado, ...extra,
@@ -703,7 +728,7 @@ export async function resolverSolicitud(sol, datos = {}) {
   const rep = MA.repetida(nombre, mps);
   if (rep) { const e = new Error(`Ya existe "${nombre}" (${rep.id}). Habilítala en vez de crearla.`); e.code = 'existe'; e.datos = { id: rep.id }; throw e; }
   // El precio va a Finanzas: sin fen-gastos conectada no se crea (así nunca queda una materia prima sin su precio por error)
-  const F = await import('./finanzas.js?v=0.76.0');
+  const F = await import('./finanzas.js?v=0.77.0');
   if (!(await F.gastosConectada())) throw new Error('Para crearla con su precio, conecta la base de Gastos y Finanzas en este equipo (Gastos → Base nueva).');
   const doc = RM.docMp({ nombre, tipo, categoria: datos.categoria, unidad, area: sol.area }, { solicitud: sol.docId, por, hoy });
   const idN = await crearEnMps(db, mps, tipo, doc, (tx, id) => tx.set(refSol, resuelta(id), { merge: true }));
@@ -719,7 +744,7 @@ export async function resolverSolicitud(sol, datos = {}) {
 export async function materiasPrimas(forzar = false) { return mpsMem(forzar); }
 // El nombre y el estado también en el maestro de costos (fen-gastos costos_mp), si está ahí (no crea uno sin precio)
 async function sincronizarCostos(id, campos) {
-  try { const F = await import('./finanzas.js?v=0.76.0'); if (await F.gastosConectada()) await F.datosMpEnCostos(id, campos); } catch (e) { console.warn('Finanzas: no se pudo copiar el cambio al maestro de costos', e); }
+  try { const F = await import('./finanzas.js?v=0.77.0'); if (await F.gastosConectada()) await F.datosMpEnCostos(id, campos); } catch (e) { console.warn('Finanzas: no se pudo copiar el cambio al maestro de costos', e); }
 }
 // Crear una materia prima o insumo: mps/{MP###|IN###} (como una pedida en Cocina) + su precio en costos_mp con historial.
 // datos: los del formulario (mp-alta-modelo.js validarAlta). sii (opcional): la línea de factura de la que sale { rut, proveedor, folio,
@@ -730,7 +755,7 @@ export async function crearMp(datos, { sii = null, precioDeSii = !!sii } = {}) {
   const db = await dbOk(), por = authSF.currentUser.email, hoy = CM.hoyTxt(), en = new Date().toISOString();
   const mps = await mpsMem();
   const v = MA.validarAlta(datos, mps);
-  const F = await import('./finanzas.js?v=0.76.0');
+  const F = await import('./finanzas.js?v=0.77.0');
   if (!(await F.gastosConectada())) throw new Error('Para crearla con su precio, conecta la base de Gastos y Finanzas en este equipo (Gastos → Base nueva).');
   const detalle = sii ? `Creada en Sistema Fën desde la compra del SII: ${sii.proveedor || sii.rut} F.${sii.folio} (${sii.nombreItem})` : 'Creada en Sistema Fën';
   const origen = { base: 'sistema-fen', manual: true, ...(sii ? { sii: { rut: String(sii.rut || ''), proveedor: String(sii.proveedor || ''), nombreItem: String(sii.nombreItem || '') } } : {}) };
@@ -886,7 +911,7 @@ export async function mermaDelPeriodo({ desde, hasta, fresco = false }) {
   const items = [...new Set(merma.map(k3))].map(k => { const [tipo, ...r] = k.split(':'); const unidad = r.pop(); return { tipo, id: r.join(':'), unidad }; });
   if (mpCafe && (calibraciones.length || cafe.length)) items.push({ tipo: 'mp', id: mpCafe, unidad: 'g' });
   let costosMotor = null;
-  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.76.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
+  if (items.length) { try { costosMotor = await (await import('./finanzas.js?v=0.77.0')).costosMerma(items); } catch (e) { console.warn('Merma: sin el motor de costeo', e); costosMotor = null; } }
   // v0.75.1: ya no se piden a la planilla los costos que el motor no tiene (op costos_merma): quedan sin costo o incompletos
   const costos = {}, errorCostos = '';
   return { desde, hasta, merma, cafe, costos, costosMotor, errorCostos, calibraciones, mpCafe };

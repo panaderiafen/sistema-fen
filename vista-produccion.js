@@ -1,16 +1,21 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — pantalla Producción  v0.42.0
-//  Base nueva de Producción (fen-produccion): conexión, cuentas de las áreas (las tablets
-//  de la app Cocina), la base de Cocina como maestra (v0.73.0; antes: copia desde la planilla) y Configuración de
-//  Producción por área (v0.32.0), y recetas por aprobar y materias primas pedidas desde Cocina (v0.33.0).
-//  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
+//  Sistema Fën — pantalla Producción  v0.77.0
+//  v0.77.0: siete pestañas (como Gastos, B2B y el Catálogo): Por revisar · Plan de Panadería · Recetas · Materias primas · Bodega ·
+//  Merma · Configuración. Rutas: #produccion (Por revisar) · #produccion/plan-pan[/como|/fijos] · #produccion/recetas[/{id}] ·
+//  #produccion/mp · #produccion/bodega · #produccion/merma · #produccion/config. Cada pestaña lee solo lo suyo al abrirla.
+//  La conexión con la base de Cocina (fen-produccion) y las Cuentas de las áreas pasaron a Configuración → Cocina (#ajustes/cocina):
+//  pintarAjustesCocina. Materias primas es el mismo maestro de la v0.76.0 (vista-finanzas.js → pintarMaestro), que antes vivía en
+//  Finanzas → Costos. Recetas (solo para mirar) está en vista-prod-recetas.js.
+//  Antes (v0.42.0 … v0.76.0): una sola página con tarjetas y pliegues (Desde Cocina, grupo Cocina y grupo Sistema).
+//  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.76.0';
+import * as P from './produccion.js?v=0.77.0';
 import * as K from './cocina/consumo.js?v=0.17.4';
-import { conBuscador, coincide } from './buscador.js?v=0.76.0';
-import * as FBQ from './fermentacion.js?v=0.76.0';
+import { conBuscador, coincide } from './buscador.js?v=0.77.0';
+import * as FBQ from './fermentacion.js?v=0.77.0';
+import * as RV from './recetas-ver-modelo.js?v=0.77.0';
 
-const st = { fb: null, sab: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
+const st = { fb: null, sab: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', nRevisar: null, cfgMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
 const n = v => Number(v || 0).toLocaleString('es-CL');
 
@@ -22,86 +27,181 @@ function error(e, H) {
   if (/failed-precondition/.test(c)) return 'Firestore todavía no está creado en fen-produccion (consola → Firestore Database → Crear base de datos).';
   return (e && e.message) || H.mensajeError(e);
 }
-// v0.39.0: la pestaña se ordena en dos tarjetas (Cocina y Sistema) con partes plegables; lo abierto se recuerda en el equipo
-const K_PLIEGUES = 'fen_sf_prod_pliegues';
-const abiertos = (() => { try { return new Set(JSON.parse(localStorage.getItem(K_PLIEGUES) || '[]')); } catch (e) { return new Set(); } })();
-const pliegue = (clave, titulo, resumen, cuerpo) => `<details class="pliegue" data-pliegue="${clave}" ${abiertos.has(clave) ? 'open' : ''}>
-    <summary><span class="pl-tit">${titulo}</span><span class="pl-res" id="pl-res-${clave}">${resumen || ''}</span></summary>
-    <div class="pliegue-cuerpo">${cuerpo}</div></details>`;
-function conectarPliegues(el) {
-  el.querySelectorAll('details.pliegue').forEach(d => d.addEventListener('toggle', () => {
-    if (d.open) abiertos.add(d.dataset.pliegue); else abiertos.delete(d.dataset.pliegue);
-    try { localStorage.setItem(K_PLIEGUES, JSON.stringify([...abiertos])); } catch (e) {}
-  }));
+
+// ── v0.77.0 · Pestañas ──
+export const TABS = [['revisar', '', 'Por revisar'], ['plan-pan', 'plan-pan', 'Plan de Panadería'], ['recetas', 'recetas', 'Recetas'], ['mp', 'mp', 'Materias primas'],
+  ['bodega', 'bodega', 'Bodega'], ['merma', 'merma', 'Merma'], ['config', 'config', 'Configuración']];
+// Rutas antiguas o con otro nombre → la pestaña (los enlaces viejos siguen funcionando)
+export const ALIAS = { revisar: 'revisar', 'por-revisar': 'revisar', cocina: 'revisar', 'desde-cocina': 'revisar', recetas: 'recetas', 'materias-primas': 'mp', maestro: 'mp', mp: 'mp',
+  bodega: 'bodega', merma: 'merma', config: 'config', configuracion: 'config', mover: 'config', fermentacion: 'config', sabado: 'config', 'plan-pan': 'plan-pan' };
+export const A_AJUSTES = ['cuentas', 'conexion', 'base'];   // → Configuración → Cocina
+const hashDe = tab => { const t = TABS.find(x => x[0] === tab); return '#produccion' + (t && t[1] ? '/' + t[1] : ''); };
+const partes = () => (location.hash || '').replace('#', '').split('/');
+const TXT_ACTUALIZAR = 'Lo que Sistema Fën lee de la base de Cocina (recetas, materias primas, configuración, bodega, días de Cocina) queda 10 minutos en memoria: así no gasta la cuota de las tablets de las jefas cada vez que abres Hoy, Producción o Finanzas.\nLo que cambias aquí se ve al tiro. Lo que cambian las jefas en Cocina puede tardar hasta 10 minutos en verse; "Actualizar" lo vuelve a leer ahora.\nCada pestaña lee solo lo suyo, al abrirla.';
+const chipRevisar = () => st.nRevisar ? ` <span class="chip c-amarillo chip-chico" id="prod-n-revisar">${st.nRevisar}</span>` : ' <span id="prod-n-revisar" hidden></span>';
+const cab = (H, tab) => `<div class="cabecera"><div><h1 id="t-produccion">Producción</h1><p>Lo que llega de Cocina, las recetas, las materias primas y la bodega</p></div>
+  ${tab === 'plan-pan' ? '' : `<div class="botones" style="margin:0;align-items:center"><button type="button" class="btn-sec btn-chico" id="prod-actualizar">Actualizar</button>${H.info('Actualizar', TXT_ACTUALIZAR)}</div>`}</div>
+  <nav class="pestanas pest-prod" role="tablist" aria-label="Pestañas de Producción">${TABS.map(([k, , t]) => `<a role="tab" href="${hashDe(k)}" data-prod-tab="${k}" aria-selected="${k === tab}">${t}${k === 'revisar' ? chipRevisar() : ''}</a>`).join('')}</nav>`;
+function ponerChip(nn) {
+  st.nRevisar = nn || 0;
+  const c = $('prod-n-revisar'); if (!c) return;
+  if (st.nRevisar) { c.hidden = false; c.className = 'chip c-amarillo chip-chico'; c.textContent = String(st.nRevisar); } else { c.hidden = true; c.textContent = ''; }
 }
-const resumenBodega = () => {
-  const c = st.bodega.calc; if (!c) return 'Toca para ver el stock';
-  const bajos = c.criticas.filter(e => e.st.contado && (e.bajoAhora || e.bajoDesde)).length, sin = c.criticas.filter(e => !e.st.contado).length;
-  const porB = (c.bodegas || []).filter(x => (c.porBodega[x] || []).length).map(x => `${K.nombreBodega(x, c.mapa)} ${c.porBodega[x].length}`).join(' · ');
-  return `${c.criticas.length} ${c.criticas.length === 1 ? 'crítica' : 'críticas'}${porB && (c.bodegas || []).length > 1 ? ` (${porB})` : ''}${bajos ? ` · <span class="chip c-rojo">${bajos} bajo el mínimo</span>` : c.criticas.length ? ' · bien' : ''}${sin ? ` · ${sin} sin conteo` : ''}`;
-};
-const resumenMerma = () => st.merma.datos ? `${P.PERIODOS_MERMA[st.merma.periodo]}: ${pesosN(P.resumenMerma(st.merma.datos).total)} neto` : 'Toca para ver lo perdido';
-const cab = H => `<div class="cabecera"><div><h1 id="t-produccion">Producción</h1><p>Base nueva de la cocina (fen-produccion) · la app actual sigue funcionando igual</p></div>
-  <div class="botones" style="margin:0;align-items:center"><button type="button" class="btn-sec btn-chico" id="prod-actualizar">Actualizar</button>${H.info('Actualizar', 'Lo que Sistema Fën lee de la base de Cocina (recetas, materias primas, configuración, bodega, días de Cocina) queda 10 minutos en memoria: así no gasta la cuota de las tablets de las jefas cada vez que abres Hoy, Producción o Finanzas.\nLo que cambias aquí se ve al tiro. Lo que cambian las jefas en Cocina puede tardar hasta 10 minutos en verse; "Actualizar" lo vuelve a leer ahora.')}</div></div>`;
+let tabActual = 'revisar';
 
 export async function pintar(el, sub, H) {
-  // v0.71.1: Plan de Panadería (Etapa 1) en su propia pantalla
-  // (se carga recién al abrirlo: trae Finanzas y B2B, que el resto de la app carga solo cuando se usan)
-  if (sub === 'plan-pan') { const VPP = await import('./vista-plan-pan.js?v=0.76.0'); VPP.fijarH(H); return VPP.pintar(el, H); }
+  // Ruta → pestaña (y los enlaces viejos a la pestaña nueva)
+  if (A_AJUSTES.includes(sub)) { location.replace('#ajustes/cocina'); return; }
+  const tab = sub === '' ? 'revisar' : ALIAS[sub];
+  if (!tab) { location.replace('#produccion'); return; }
+  if (sub !== '' && TABS.find(x => x[0] === tab)[1] !== sub) { location.replace(hashDe(tab)); return; }
+  tabActual = tab;
   // v0.63.3: un solo escuchador para el botón Actualizar (la cabecera se vuelve a dibujar en cada pantalla)
-  if (!el.dataset.actualizar) { el.dataset.actualizar = '1'; el.addEventListener('click', ev => { if (ev.target.closest('#prod-actualizar')) { P.olvidarMemoria(); st.bodega.calc = null; st.merma.datos = null; pintar(el, '', H); } }); }
-  el.innerHTML = cab(H) + '<section class="tarjeta"><div class="vacio" style="border:0">Conectando…</div></section>';
+  if (!el.dataset.actualizar) {
+    el.dataset.actualizar = '1';
+    el.addEventListener('click', ev => {
+      if (!ev.target.closest('#prod-actualizar')) return;
+      P.olvidarMemoria(); st.bodega.calc = null; st.merma.datos = null; st.fb = null; st.sab = null; st.costos = {}; st.mover = null;
+      import('./vista-prod-recetas.js?v=0.77.0').then(m => m.olvidar()).catch(() => {});
+      pintar(el, partes()[1] || '', H);
+    });
+  }
+  el.innerHTML = cab(H, tab) + '<div id="prod-tab" class="prod-tab" data-tab="' + tab + '"><section class="tarjeta"><div class="vacio" style="border:0" role="status">Abriendo…</div></section></div>';
+  const cont = $('prod-tab');
+  // En el celular las pestañas se pasan con el dedo: la elegida queda a la vista
+  const nav = el.querySelector('.pest-prod'), sel = nav && nav.querySelector('[aria-selected="true"]');
+  if (nav && sel && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = Math.max(0, sel.offsetLeft - nav.offsetLeft - 16);
+  // v0.71.1: Plan de Panadería (Etapa 1); desde la v0.77.0 es una pestaña (trae Finanzas y B2B: se carga recién al abrirla)
+  if (tab === 'plan-pan') { contarRevisar(); const VPP = await import('./vista-plan-pan.js?v=0.77.0'); VPP.fijarH(H); return VPP.pintar(cont, H); }
+  // Materias primas: los precios están en Finanzas; sin la base de Cocina se ven igual (sin crear ni cambiar, lo dice el aviso)
+  if (tab === 'mp') { contarRevisar(); return pintarTab(cont, tab, H); }
   let cx;
-  try { cx = await P.conexion(); } catch (e) { el.innerHTML = cab(H) + `<section class="tarjeta"><p class="error">${H.esc(error(e, H))}</p></section>`; return; }
-  if (cx.estado === 'sin_config') return pintarConfig(el, H, null);
-  if (cx.estado === 'sin_sesion') return pintarEntrar(el, H, cx);
-  if (cx.estado === 'sin_admin') return pintarSinAdmin(el, H, cx);
-  return pintarBase(el, H, cx);
+  try { cx = await P.conexion(); } catch (e) { cont.innerHTML = `<section class="tarjeta"><p class="error">${H.esc(error(e, H))}</p></section>`; return; }
+  if (tabActual !== tab || !document.body.contains(cont)) return;
+  if (cx.estado !== 'ok') return pintarSinConexion(cont, H, cx);
+  if (tab !== 'revisar') contarRevisar();
+  return pintarTab(cont, tab, H);
+}
+// El número de la pestaña Por revisar fuera de ella: el mismo resumen de Hoy (limit y count; 2 minutos en memoria)
+function contarRevisar() { P.pendientesCocina().then(r => { if (r) ponerChip((r.nRecetas || 0) + (r.nMps || 0)); }).catch(() => {}); }
+function pintarTab(cont, tab, H) {
+  if (tab === 'revisar') { cont.innerHTML = '<section class="tarjeta" aria-labelledby="t-prod-revision" id="prod-cocina"><div class="vacio" style="border:0">Revisando lo que llegó desde Cocina…</div></section>'; return pintarCocina(cont, H, true); }
+  if (tab === 'recetas') return import('./vista-prod-recetas.js?v=0.77.0').then(m => m.pintar(cont, H, { sub: partes().slice(2).join('/') }));
+  if (tab === 'mp') return import('./vista-finanzas.js?v=0.77.0').then(m => m.pintarMaestro(cont, H, { conteo: conteoMps }));
+  if (tab === 'bodega') { cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prod-bodega"><h2 id="t-prod-bodega">Bodega</h2><div id="prod-bodega">${seccionBodega(H)}</div></section>`; return conectarBodega(H); }
+  if (tab === 'merma') { cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prod-merma"><h2 id="t-prod-merma">Merma</h2><div id="prod-merma">${seccionMerma(H)}</div></section>`; return conectarMerma(cont, H); }
+  if (tab === 'config') return pintarConfigTab(cont, H);
+}
+// Materias primas: cuántas hay en la base de Cocina (arriba del maestro; de la memoria, sin lecturas extra)
+async function conteoMps() {
+  try {
+    const ms = (await P.materiasPrimas()).filter(m => m.tipo !== 'sub_receta'), est = m => m.estado || 'activa';
+    return { total: ms.length, activas: ms.filter(m => est(m) === 'activa').length, insumos: ms.filter(m => m.tipo === 'insumo').length, archivadas: ms.filter(m => est(m) === 'archivada').length };
+  } catch (e) { return null; }
+}
+function pintarSinConexion(cont, H, cx) {
+  const txt = cx.estado === 'sin_config' ? 'Todavía no está conectada la base de Cocina (fen-produccion).'
+    : cx.estado === 'sin_sesion' ? 'Falta entrar a la base de Cocina con tu contraseña de Sistema Fën.'
+    : cx.estado === 'sin_admin' ? 'Tu cuenta todavía no está marcada como administración en la base de Cocina.' : 'No se pudo abrir la base de Cocina.';
+  cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prod-sincx" id="prod-sin-conexion"><h2 id="t-prod-sincx">Falta conectar la base de Cocina ${H.info('Base de Cocina', 'Es la base de las tablets de las jefas (proyecto fen-produccion). Se conecta una vez, en Configuración → Cocina, junto con las cuentas de cada área.')}</h2>
+    <p class="ayuda">${H.esc(txt)} Se hace en Configuración → Cocina.</p>
+    <p><a class="btn" href="#ajustes/cocina" id="prod-ir-ajustes">Ir a Configuración → Cocina</a></p></section>`;
 }
 
-function pintarConfig(el, H, actual) {
-  el.innerHTML = cab(H) + `<section class="tarjeta" aria-labelledby="t-prod-cfg">
-    <h2 id="t-prod-cfg">Conectar la base nueva ${H.info('Base nueva de Producción', 'Es un proyecto de Firebase aparte (fen-produccion), en tu misma cuenta de Google, con su propia cuota gratis.\nLa configuración que pegas aquí no es secreta: solo dice cuál es el proyecto. Los datos los protegen las reglas y las cuentas (la tuya y la de cada área).')}</h2>
-    <p class="ayuda">Consola de Firebase → proyecto <b>fen-produccion</b> → ⚙️ Configuración del proyecto → Tus apps → la app web → copia todo el bloque <code>const firebaseConfig = { … }</code>.</p>
+// ═══════════════ Configuración general → Cocina (v0.77.0: antes en Producción) ═══════════════
+// Conexión con la base de Cocina (configuración, entrar, marcar administración) y las Cuentas de las áreas (tablets).
+export async function pintarAjustesCocina(box, H) {
+  if (!box) return;
+  const tit = `<div class="titulo-fila"><h2 id="t-ajustes-cocina">Cocina ${H.info('Cocina', 'La conexión de Sistema Fën con la base de Cocina (fen-produccion, la de las tablets de las jefas) y las cuentas de cada área. Se usa una vez y casi nunca más: por eso está aquí y no en Producción.\nLo del día (Por revisar, recetas, materias primas, bodega, merma y la configuración de cada área) está en Producción.')}</h2></div>`;
+  box.innerHTML = tit + '<div class="vacio" style="border:0">Revisando la conexión con Cocina…</div>';
+  let cx;
+  try { cx = await P.conexion(); } catch (e) { box.innerHTML = tit + `<p class="error">${H.esc(error(e, H))}</p>`; return; }
+  if (cx.estado === 'sin_config') return pintarConfig(box, H, null, tit);
+  if (cx.estado === 'sin_sesion') return pintarEntrar(box, H, cx, tit);
+  if (cx.estado === 'sin_admin') return pintarSinAdmin(box, H, cx, tit);
+  return pintarCuentas(box, H, cx, tit);
+}
+function pintarConfig(box, H, actual, tit) {
+  box.innerHTML = tit + `<div aria-labelledby="t-prod-cfg">
+    <h3 id="t-prod-cfg" class="sub-h3">Conectar la base de Cocina ${H.info('Base de Cocina', 'Es un proyecto de Firebase aparte (fen-produccion), en tu misma cuenta de Google, con su propia cuota gratis.\nLa configuración que pegas aquí no es secreta: solo dice cuál es el proyecto. Los datos los protegen las reglas y las cuentas (la tuya y la de cada área).')}</h3>
+    <p class="ayuda">Consola de Firebase → proyecto <b>fen-produccion</b> → Configuración del proyecto (rueda) → Tus apps → la app web → copia todo el bloque <code>const firebaseConfig = { … }</code>.</p>
     <div class="campo"><label for="prod-cfg">Configuración web de fen-produccion</label><textarea id="prod-cfg" rows="8" spellcheck="false" style="font-family:monospace;font-size:13px;padding:12px;border-radius:12px;border:1px solid var(--borde)">${actual ? H.esc(JSON.stringify(actual, null, 2)) : ''}</textarea></div>
     <div class="error" id="prod-cfg-err" role="alert"></div>
-    <div class="botones">${actual ? '<button type="button" class="btn-sec" id="prod-cfg-volver">Volver</button>' : ''}<button type="button" class="btn" id="prod-cfg-ok">Guardar y conectar</button></div></section>`;
-  if (actual) $('prod-cfg-volver').addEventListener('click', () => pintar(el, '', H));
+    <div class="botones">${actual ? '<button type="button" class="btn-sec" id="prod-cfg-volver">Volver</button>' : ''}<button type="button" class="btn" id="prod-cfg-ok">Guardar y conectar</button></div></div>`;
+  if (actual) $('prod-cfg-volver').addEventListener('click', () => pintarAjustesCocina(box, H));
   $('prod-cfg-ok').addEventListener('click', async () => {
     const btn = $('prod-cfg-ok'); $('prod-cfg-err').textContent = '';
     let cfg; try { cfg = P.parsearConfig($('prod-cfg').value); } catch (e) { $('prod-cfg-err').textContent = e.message; return; }
     btn.disabled = true; btn.textContent = 'Guardando…';
-    try { await P.salir(); await P.guardarConfig(cfg); H.registrar('Conectó la base nueva de Producción', cfg.projectId); pintar(el, '', H); }
+    try { await P.salir(); await P.guardarConfig(cfg); H.registrar('Conectó la base nueva de Producción', cfg.projectId); pintarAjustesCocina(box, H); }
     catch (e) { $('prod-cfg-err').textContent = error(e, H); btn.disabled = false; btn.textContent = 'Guardar y conectar'; }
   });
 }
-
-function pintarEntrar(el, H, cx) {
-  el.innerHTML = cab(H) + `<section class="tarjeta" aria-labelledby="t-prod-entrar">
-    <h2 id="t-prod-entrar">Entrar a la base nueva de Producción</h2>
+function pintarEntrar(box, H, cx, tit) {
+  box.innerHTML = tit + `<div aria-labelledby="t-prod-entrar">
+    <h3 id="t-prod-entrar" class="sub-h3">Entrar a la base de Cocina</h3>
     <p class="ayuda">Proyecto <b>${H.esc(cx.cfg.projectId)}</b> · cuenta <b>${H.esc(cx.correo)}</b> (tu misma contraseña de Sistema Fën)</p>
     <form id="prod-form-entrar" class="campo" style="max-width:420px">
       <label for="prod-clave">Tu contraseña de Sistema Fën</label><input type="password" id="prod-clave" autocomplete="current-password" required>
       <div class="error" id="prod-entrar-err" role="alert"></div>
       <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn" id="prod-entrar-ok">Entrar</button><button type="button" class="btn-sec" id="prod-cambiar-cfg">Cambiar configuración</button></div>
-    </form></section>`;
-  $('prod-cambiar-cfg').addEventListener('click', () => pintarConfig(el, H, cx.cfg));
+    </form></div>`;
+  $('prod-cambiar-cfg').addEventListener('click', () => pintarConfig(box, H, cx.cfg, tit));
   $('prod-form-entrar').addEventListener('submit', async ev => {
     ev.preventDefault();
     const btn = $('prod-entrar-ok'); $('prod-entrar-err').textContent = ''; btn.disabled = true; btn.textContent = 'Entrando…';
-    try { await P.entrar($('prod-clave').value, false); pintar(el, '', H); }
+    try { await P.entrar($('prod-clave').value, false); pintarAjustesCocina(box, H); }
     catch (e) { $('prod-entrar-err').textContent = error(e, H); btn.disabled = false; btn.textContent = 'Entrar'; }
   });
 }
-
-function pintarSinAdmin(el, H, cx) {
-  el.innerHTML = cab(H) + `<section class="tarjeta" aria-labelledby="t-prod-adm">
-    <h2 id="t-prod-adm">Falta marcar tu cuenta como administración</h2>
+function pintarSinAdmin(box, H, cx, tit) {
+  box.innerHTML = tit + `<div aria-labelledby="t-prod-adm">
+    <h3 id="t-prod-adm" class="sub-h3">Falta marcar tu cuenta como administración</h3>
     <p class="ayuda">Entraste a <b>${H.esc(cx.cfg.projectId)}</b> con <b>${H.esc(cx.correo)}</b>, pero esa cuenta no está en <code>admins</code>. Consola de Firebase de fen-produccion → Firestore Database → <b>Iniciar colección</b> <code>admins</code> → ID del documento:</p>
     <div class="aviso" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><code style="font-size:15px;word-break:break-all">${H.esc(cx.uid)}</code></div>
     <p class="ayuda" style="margin-top:8px">Agrega un campo <code>ok</code> (booleano, true) y guarda. Después presiona Revisar.</p>
-    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="prod-revisar">Revisar</button></div></section>`;
-  $('prod-revisar').addEventListener('click', () => pintar(el, '', H));
+    <div class="botones" style="justify-content:flex-start"><button type="button" class="btn" id="prod-revisar">Revisar</button></div></div>`;
+  $('prod-revisar').addEventListener('click', () => { P.olvidarTodo(); pintarAjustesCocina(box, H); });
+}
+async function pintarCuentas(box, H, cx, tit) {
+  let cuentas = [], msg = '';
+  try { cuentas = await P.cuentas(); } catch (e) { msg = error(e, H); }
+  const porArea = a => cuentas.filter(c => P.areasDeCuenta(c).includes(a));
+  const listas = Object.keys(P.AREAS).filter(a => porArea(a).length).length;
+  box.innerHTML = tit + `<p class="ayuda" id="prod-cx-ok"><span class="chip c-verde chip-chico">Conectada</span> Proyecto <b>${H.esc(cx.cfg.projectId)}</b> · ${H.esc(cx.correo || '')} <button type="button" class="btn-link" id="prod-cx-cambiar">Cambiar configuración</button></p>
+    <h3 class="sub-h3" id="t-prod-cuentas">Cuentas de las áreas ${H.info('Cuentas de las áreas', 'Cada tablet de la cocina se autoriza una vez con la cuenta de su área (la creas en la consola de Firebase de fen-produccion → Authentication). Aquí dices de qué área es cada cuenta: con eso, esa tablet solo ve y cambia lo de su área. Una cuenta puede tener más de un área ("También entra a").\nEl UID está en la consola → Authentication → Usuarios. No es secreto.\nLa contraseña de cada cuenta no pasa por aquí: la escribes tú en la tablet al autorizarla.')}</h3>
+    <p class="ayuda">Las tablets de la cocina y sus áreas · ${listas} de ${Object.keys(P.AREAS).length} áreas con cuenta</p>
+    ${msg ? `<p class="error">${H.esc(msg)}</p>` : ''}
+    <div class="lista-simple">${Object.keys(P.AREAS).map(a => `<div class="fila-caja fila-compacta"><div class="txt"><b>${P.AREAS[a]}</b><span>${porArea(a).length ? porArea(a).map(c => H.esc(c.uid) + (c.area !== a ? ` (también; principal ${H.esc(P.AREAS[c.area] || c.area)})` : '')).join(' · ') : 'Sin cuenta asignada'}</span></div>${porArea(a).length ? '<span class="chip c-verde">Lista</span>' : '<span class="chip c-gris">Falta</span>'}</div>`).join('')}</div>
+    ${cuentas.length ? `<h3 style="margin:14px 0 4px;font-size:15px">Cuentas ${H.info('Cambiar las áreas de una cuenta', 'Toca "Cambiar" para cargar la cuenta en el formulario de abajo, marca o desmarca áreas y presiona Guardar.\nSi una tablet ya estaba abierta, toma el cambio en la próxima carga.')}</h3>
+    <div class="lista-simple">${cuentas.map(c => `<div class="fila-caja fila-compacta"><div class="txt"><b>${P.areasDeCuenta(c).map(a => H.esc(P.AREAS[a])).join(' + ') || 'Sin área'}</b><span>${H.esc(c.uid)}</span></div><button type="button" class="btn-sec" data-cta-editar="${H.esc(c.uid)}">Cambiar</button></div>`).join('')}</div>` : ''}
+    <form id="prod-cuenta" style="margin-top:12px">
+      <div class="fila-campos fila-bod">
+        <div class="campo"><label for="prod-cta-area">Área principal ${H.info('Área principal', 'Con esta área abre la tablet la primera vez. Después recuerda la última en que estuvo.')}</label><select id="prod-cta-area">${Object.entries(P.AREAS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
+        <div class="campo campo-ancho"><label for="prod-cta-uid">UID de la cuenta del área</label><input id="prod-cta-uid" spellcheck="false" autocomplete="off"></div>
+      </div>
+      <fieldset style="border:0;padding:0;margin:8px 0 0"><legend style="font-weight:600;font-size:14px;margin-bottom:4px">También entra a ${H.info('Más de un área', 'Marca las otras áreas a las que puede entrar esta tablet (por ejemplo, una tablet compartida entre Bollería y Pastelería).\nArriba de la app aparece "Cambiar de área". En cada área se pide el PIN de una persona de esa área, y la tablet ve y cambia solo lo de esa área mientras está en ella.')}</legend>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">${Object.entries(P.AREAS).map(([k, v]) => `<label style="display:flex;gap:6px;align-items:center;min-height:44px"><input type="checkbox" name="prod-cta-otras" value="${k}">${v}</label>`).join('')}</div>
+      </fieldset>
+      <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn-sec">Guardar</button></div>
+    </form>
+    <div class="error" id="prod-cta-err" role="alert"></div>`;
+  $('prod-cx-cambiar').addEventListener('click', () => pintarConfig(box, H, cx.cfg, tit));
+  const marcarPrincipal = () => box.querySelectorAll('[name="prod-cta-otras"]').forEach(x => { const es = x.value === $('prod-cta-area').value; x.disabled = es; if (es) x.checked = false; });
+  $('prod-cta-area').addEventListener('change', marcarPrincipal); marcarPrincipal();
+  box.querySelectorAll('[data-cta-editar]').forEach(b => b.addEventListener('click', () => {
+    const c = cuentas.find(x => x.uid === b.dataset.ctaEditar); if (!c) return;
+    $('prod-cta-uid').value = c.uid; $('prod-cta-area').value = P.AREAS[c.area] ? c.area : 'PAN';
+    const otras = P.areasDeCuenta(c).filter(a => a !== c.area);
+    box.querySelectorAll('[name="prod-cta-otras"]').forEach(x => { x.checked = otras.includes(x.value); });
+    marcarPrincipal(); $('prod-cta-uid').focus();
+  }));
+  $('prod-cuenta').addEventListener('submit', async ev => {
+    ev.preventDefault(); $('prod-cta-err').textContent = '';
+    const principal = $('prod-cta-area').value, otras = [...box.querySelectorAll('[name="prod-cta-otras"]:checked')].map(x => x.value).filter(a => a !== principal);
+    try { await P.asignarCuenta($('prod-cta-uid').value, principal, otras); H.registrar('Asignó una cuenta de área (Producción)', `${[principal, ...otras].map(a => P.AREAS[a]).join(' + ')} · ${$('prod-cta-uid').value.trim()}`); pintarCuentas(box, H, cx, tit); }
+    catch (e) { $('prod-cta-err').textContent = error(e, H); }
+  });
 }
 
 function tablaControl(prep, tot) {
@@ -117,56 +217,22 @@ function tablaControl(prep, tot) {
     ${prep ? `<p class="${ok ? 'ok-texto' : 'error'}" style="margin-top:8px">${ok ? 'Todo cuadra: la base nueva tiene lo mismo que la planilla.' : 'Hay diferencias. Si recién copiaste, presiona "Leer la planilla" de nuevo; si siguen, avísame.'}</p>` : '<p class="ayuda">Lee la planilla para comparar.</p>'}`;
 }
 
-async function pintarBase(el, H, cx) {
-  let cuentas = [], personas = [], cfgs = {};
-  try { [cuentas, st.tot, cfgs] = await Promise.all([P.cuentas(), P.totales(), P.leerConfigs()]); } catch (e) { st.msg = error(e, H); }
-  const t = st.tot, p = st.prep, ult = t && t.ultima;
-  const porArea = a => cuentas.filter(c => P.areasDeCuenta(c).includes(a));
-  const listas = Object.keys(P.AREAS).filter(a => porArea(a).length).length;
-  el.innerHTML = cab(H) + `
-    <section class="tarjeta pp-entrada" aria-labelledby="t-prod-planpan"><div><h2 id="t-prod-planpan">Plan de Panadería</h2><p class="ayuda">Cómo nos fue por tipo de pan y tienda, y la propuesta de la próxima semana (B2B, Barros Arana y Ainavillo) con su masa madre.</p></div>
-      <a class="btn-sec" href="#produccion/plan-pan" id="prod-ir-planpan">${H.icono('libro', 16)} Abrir el Plan de Panadería</a></section>
-    <section class="tarjeta" aria-labelledby="t-prod-revision" id="prod-cocina"><div class="vacio" style="border:0">Revisando lo que llegó desde Cocina…</div></section>
-
-    <section class="tarjeta grupo-pliegues" aria-labelledby="t-prod-g-cocina">
-      <h2 id="t-prod-g-cocina">Cocina</h2>
-      ${pliegue('bodega', 'Bodega', resumenBodega(), `<div id="prod-bodega">${seccionBodega(H)}</div>`)}
-      ${pliegue('merma', 'Merma', resumenMerma(), `<div id="prod-merma">${seccionMerma(H)}</div>`)}
-      ${pliegue('config', 'Configuración de Producción', ['PAN', 'BOL', 'CAF'].map(a => P.AREAS[a] + (cfgs[a] && cfgs[a].editado ? ' ✓' : '')).join(' · '), seccionConfig(cfgs, H))}
-    </section>
-
-    <section class="tarjeta grupo-pliegues" aria-labelledby="t-prod-g-sistema">
-      <h2 id="t-prod-g-sistema">Sistema</h2>
-      ${pliegue('cuentas', 'Cuentas de las áreas', `${listas} de ${Object.keys(P.AREAS).length} áreas con cuenta`, `<p class="ayuda">Las tablets de la cocina y sus áreas · ${H.esc(cx.cfg.projectId)} ${H.info('Cuentas de las áreas', 'Cada tablet de la cocina se autoriza una vez con la cuenta de su área (la creas en la consola de Firebase de fen-produccion → Authentication). Aquí dices de qué área es cada cuenta: con eso, esa tablet solo ve y cambia lo de su área. Una cuenta puede tener más de un área ("También entra a").\nEl UID está en la consola → Authentication → Usuarios. No es secreto.\nLa contraseña de cada cuenta no pasa por aquí: la escribes tú en la tablet al autorizarla.')}</p>
-      <div class="lista-simple">${Object.keys(P.AREAS).map(a => `<div class="fila-caja fila-compacta"><div class="txt"><b>${P.AREAS[a]}</b><span>${porArea(a).length ? porArea(a).map(c => H.esc(c.uid) + (c.area !== a ? ` (también; principal ${H.esc(P.AREAS[c.area] || c.area)})` : '')).join(' · ') : 'Sin cuenta asignada'}</span></div>${porArea(a).length ? '<span class="chip c-verde">Lista</span>' : '<span class="chip c-gris">Falta</span>'}</div>`).join('')}</div>
-      ${cuentas.length ? `<h3 style="margin:14px 0 4px;font-size:15px">Cuentas ${H.info('Cambiar las áreas de una cuenta', 'Toca "Cambiar" para cargar la cuenta en el formulario de abajo, marca o desmarca áreas y presiona Guardar.\nSi una tablet ya estaba abierta, toma el cambio en la próxima carga.')}</h3>
-      <div class="lista-simple">${cuentas.map(c => `<div class="fila-caja fila-compacta"><div class="txt"><b>${P.areasDeCuenta(c).map(a => H.esc(P.AREAS[a])).join(' + ') || 'Sin área'}</b><span>${H.esc(c.uid)}</span></div><button type="button" class="btn-sec" data-cta-editar="${H.esc(c.uid)}">Cambiar</button></div>`).join('')}</div>` : ''}
-      <form id="prod-cuenta" style="margin-top:12px">
-        <div class="fila-campos fila-bod">
-          <div class="campo"><label for="prod-cta-area">Área principal ${H.info('Área principal', 'Con esta área abre la tablet la primera vez. Después recuerda la última en que estuvo.')}</label><select id="prod-cta-area">${Object.entries(P.AREAS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
-          <div class="campo campo-ancho"><label for="prod-cta-uid">UID de la cuenta del área</label><input id="prod-cta-uid" spellcheck="false" autocomplete="off"></div>
-        </div>
-        <fieldset style="border:0;padding:0;margin:8px 0 0"><legend style="font-weight:600;font-size:14px;margin-bottom:4px">También entra a ${H.info('Más de un área', 'Marca las otras áreas a las que puede entrar esta tablet (por ejemplo, una tablet compartida entre Bollería y Pastelería).\nArriba de la app aparece "Cambiar de área". En cada área se pide el PIN de una persona de esa área, y la tablet ve y cambia solo lo de esa área mientras está en ella.')}</legend>
-          <div style="display:flex;gap:16px;flex-wrap:wrap">${Object.entries(P.AREAS).map(([k, v]) => `<label style="display:flex;gap:6px;align-items:center;min-height:44px"><input type="checkbox" name="prod-cta-otras" value="${k}">${v}</label>`).join('')}</div>
-        </fieldset>
-        <div class="botones" style="justify-content:flex-start"><button type="submit" class="btn-sec">Guardar</button></div>
-      </form>
-      <div class="error" id="prod-cta-err" role="alert"></div>
-`)}
-      ${pliegue('maestro', 'Recetas y materias primas', t ? `${n(t.recetas)} recetas · ${n(t.mps)} materias primas` : '', `<p class="ayuda" id="prod-maestro">La base de Cocina es la maestra ${H.info('La base de Cocina es la maestra', TXT_MAESTRA)}</p>
-      ${t ? `<p class="ayuda" id="prod-maestro-n">En la base de Cocina: ${Object.keys(P.AREAS).map(a => `${P.AREAS[a]} ${n(t.recetasPorArea[a] || 0)}`).join(' · ')} · ${n(t.mps)} materias primas e insumos · ${n(t.personas)} personas con PIN.</p>` : ''}
-      <p class="ayuda" id="prod-csv">Recetas nuevas en la caja y en logística ${H.info('Recetas nuevas en la caja y en logística', TXT_CSV)}</p>
-      <div id="prod-avance" class="ayuda" aria-live="polite">${H.esc(st.msg)}</div>
-`)}
-      ${pliegue('mover', 'Pasar recetas de Bollería a Pastelería', '', `<div id="prod-mover"><p class="ayuda">Rellenos, cremas y preparaciones del día ${H.info('Pasar recetas a Pastelería', 'Los rellenos, cremas y otras preparaciones del día pasan a Pastelería. Marca cuáles: se mueven en la base de Cocina con el mismo ID (la planilla ya no se escribe).\nLos productos de Bollería que las usan siguen funcionando: la sub receta queda habilitada para las dos áreas.')}</p>
+// ═══════════════ Configuración (pestaña): por área, fermentación en bloque, ajuste de sábado y pasar recetas a Pastelería ═══════════════
+// Lee la configuración de la memoria; la lista de la fermentación en bloque y el ajuste de sábado se leen al abrir la pestaña.
+async function pintarConfigTab(cont, H) {
+  let cfgs = {};
+  try { cfgs = await P.leerConfigs(); } catch (e) { st.msg = error(e, H); }
+  if (tabActual !== 'config' || !document.body.contains(cont)) return;
+  cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prod-config"><h2 id="t-prod-config">Configuración de Producción</h2>
+      ${st.msg ? `<p class="error">${H.esc(st.msg)}</p>` : ''}
+      <div id="prod-config">${seccionConfig(cfgs, H)}</div></section>
+    <section class="tarjeta" aria-labelledby="t-prod-mover"><h2 id="t-prod-mover">Pasar recetas de Bollería a Pastelería</h2>
+      <div id="prod-mover"><p class="ayuda">Rellenos, cremas y preparaciones del día ${H.info('Pasar recetas a Pastelería', 'Los rellenos, cremas y otras preparaciones del día pasan a Pastelería. Marca cuáles: se mueven en la base de Cocina con el mismo ID (la planilla ya no se escribe).\nLos productos de Bollería que las usan siguen funcionando: la sub receta queda habilitada para las dos áreas.')}</p>
       ${st.mover ? listaMover(H) : '<div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec" id="prod-mover-ver">Ver las recetas de Bollería</button></div>'}
-      ${st.moverMsg ? `<p class="ayuda" role="status">${H.esc(st.moverMsg)}</p>` : ''}
-</div>`)}
-    </section>`;
-  conectarPliegues(el);
-  // v0.66.0: la lista de la fermentación en bloque se lee solo con "Configuración de Producción" abierta
-  const plCfg = el.querySelector('details.pliegue[data-pliegue="config"]');
-  if (plCfg) { if (plCfg.open) cargarFB(el, H, cfgs); else plCfg.addEventListener('toggle', () => { if (plCfg.open) cargarFB(el, H, cfgs); }); }
+      ${st.moverMsg ? `<p class="ayuda" role="status">${H.esc(st.moverMsg)}</p>` : ''}</div></section>`;
+  st.msg = '';
+  const repintar = () => pintarConfigTab(cont, H);
+  cargarFB(cont, H, cfgs);
   if (st.fb) conectarFB();
   st.fbMsg = '';
   const fFB = $('prod-fb');
@@ -191,22 +257,19 @@ async function pintarBase(el, H, cx) {
       const con = Object.values(valores).filter(v => v > 0).length;
       H.registrar('Cambió la fermentación en bloque (Producción)', `Panadería · ${con} ${con === 1 ? 'receta' : 'recetas'} con f.b.`);
       st.fbMsg = 'Guardado. Las tablets lo ven al instante.';
-      pintarBase(el, H, cx);
+      repintar();
     } catch (e) { err.textContent = error(e, H); btn.disabled = false; btn.textContent = 'Guardar fermentación en bloque'; }
   });
-
-  pintarCocina(el, H, true);
-  conectarMerma(el, H); conectarBodega(H);
   const verMover = $('prod-mover-ver');
   if (verMover) verMover.addEventListener('click', async () => {
     verMover.disabled = true; verMover.textContent = 'Cargando…';
     try { st.mover = await P.recetasDeArea('BOL'); st.moverMsg = ''; } catch (e) { st.moverMsg = error(e, H); }
-    pintarBase(el, H, cx);
+    repintar();
   });
   const btnMover = $('prod-mover-ok');
   if (btnMover) btnMover.addEventListener('click', async () => {
-    const ids = [...el.querySelectorAll('[data-mover]:checked')].map(x => x.dataset.mover);
-    if (!ids.length) { st.moverMsg = 'Marca al menos una receta.'; pintarBase(el, H, cx); return; }
+    const ids = [...cont.querySelectorAll('[data-mover]:checked')].map(x => x.dataset.mover);
+    if (!ids.length) { st.moverMsg = 'Marca al menos una receta.'; repintar(); return; }
     if (!confirm(`¿Pasar ${ids.length} ${ids.length === 1 ? 'receta' : 'recetas'} a Pastelería? Se mueven en la planilla y en la base nueva, con el mismo ID.`)) return;
     btnMover.disabled = true; btnMover.textContent = 'Moviendo…';
     try {
@@ -215,24 +278,9 @@ async function pintarBase(el, H, cx) {
       st.moverMsg = `Listo: ${r.movidas.length} ${r.movidas.length === 1 ? 'receta pasó' : 'recetas pasaron'} a Pastelería.${r.saltadas.length ? ' No se movieron: ' + r.saltadas.map(x => `${x.id} (${x.motivo})`).join(', ') + '.' : ''}`;
       st.mover = await P.recetasDeArea('BOL');
     } catch (e) { st.moverMsg = error(e, H); }
-    pintarBase(el, H, cx);
+    repintar();
   });
-  const marcarPrincipal = () => el.querySelectorAll('[name="prod-cta-otras"]').forEach(x => { const es = x.value === $('prod-cta-area').value; x.disabled = es; if (es) x.checked = false; });
-  $('prod-cta-area').addEventListener('change', marcarPrincipal); marcarPrincipal();
-  el.querySelectorAll('[data-cta-editar]').forEach(b => b.addEventListener('click', () => {
-    const c = cuentas.find(x => x.uid === b.dataset.ctaEditar); if (!c) return;
-    $('prod-cta-uid').value = c.uid; $('prod-cta-area').value = P.AREAS[c.area] ? c.area : 'PAN';
-    const otras = P.areasDeCuenta(c).filter(a => a !== c.area);
-    el.querySelectorAll('[name="prod-cta-otras"]').forEach(x => { x.checked = otras.includes(x.value); });
-    marcarPrincipal(); $('prod-cta-uid').focus();
-  }));
-  $('prod-cuenta').addEventListener('submit', async ev => {
-    ev.preventDefault(); $('prod-cta-err').textContent = '';
-    const principal = $('prod-cta-area').value, otras = [...el.querySelectorAll('[name="prod-cta-otras"]:checked')].map(x => x.value).filter(a => a !== principal);
-    try { await P.asignarCuenta($('prod-cta-uid').value, principal, otras); H.registrar('Asignó una cuenta de área (Producción)', `${[principal, ...otras].map(a => P.AREAS[a]).join(' + ')} · ${$('prod-cta-uid').value.trim()}`); pintarBase(el, H, cx); }
-    catch (e) { $('prod-cta-err').textContent = error(e, H); }
-  });
-  el.querySelectorAll('[data-cfg-area]').forEach(f => f.addEventListener('submit', async ev => {
+  cont.querySelectorAll('[data-cfg-area]').forEach(f => f.addEventListener('submit', async ev => {
     ev.preventDefault();
     const area = f.dataset.cfgArea, err = f.querySelector('.error'), btn = f.querySelector('button[type=submit]');
     err.textContent = '';
@@ -247,26 +295,11 @@ async function pintarBase(el, H, cx) {
       cambios[c.k] = v;
     }
     btn.disabled = true; btn.textContent = 'Guardando…';
-    try { await P.guardarConfigArea(area, cambios); H.registrar('Cambió la configuración de Producción', P.AREAS[area]); pintarBase(el, H, cx); }
+    try { await P.guardarConfigArea(area, cambios); H.registrar('Cambió la configuración de Producción', P.AREAS[area]); repintar(); }
     catch (e) { err.textContent = error(e, H); btn.disabled = false; btn.textContent = 'Guardar'; }
   }));
-  // v0.73.0: "Leer la planilla" / "Copiar" ya no están en la pantalla (la base de Cocina es la maestra); P.preparar y P.copiar quedan sin uso
-  if ($('prod-leer')) $('prod-leer').addEventListener('click', async () => {
-    const b = $('prod-leer'); b.disabled = true; b.textContent = 'Leyendo la planilla…'; st.msg = '';
-    try { st.prep = await P.preparar(); } catch (e) { st.msg = error(e, H); }
-    pintarBase(el, H, cx);
-  });
-  const bc = $('prod-copiar');
-  if (bc) bc.addEventListener('click', async () => {
-    bc.disabled = true; st.copiando = true;
-    try {
-      const r = await P.copiar(st.prep, (h, tot) => { $('prod-avance').textContent = `Copiando… ${n(h)} de ${n(tot)}`; });
-      H.registrar('Copió Producción a la base nueva', `${n(r.escritos)} documentos`);
-      st.msg = `Listo: ${n(r.escritos)} documentos copiados.`;
-    } catch (e) { st.msg = error(e, H); }
-    st.copiando = false; pintarBase(el, H, cx);
-  });
 }
+
 
 function resumenPrep(p, H) {
   const r = p.resumen, docs = Object.keys(p.docs.recetas).length + Object.keys(p.docs.mps).length + Object.keys(p.docs.config).length + Object.keys(p.docs.personas).length + p.planesACopiar.length;
@@ -482,7 +515,7 @@ function seccionUnaBodega(H, c, bod) {
 }
 function conectarBodega(H) {
   const $b = id => document.getElementById(id), b = st.bodega;
-  const repintarB = () => { $b('prod-bodega').innerHTML = seccionBodega(H); const r = $b('pl-res-bodega'); if (r) r.innerHTML = resumenBodega(); conectarBodega(H); };
+  const repintarB = () => { const c = $b('prod-bodega'); if (!c) return; c.innerHTML = seccionBodega(H); conectarBodega(H); };
   const calcular = async () => { b.cargando = true; b.msg = ''; repintarB(); try { b.calc = await P.calcularBodega(); } catch (e) { b.msg = error(e, H); } b.cargando = false; repintarB(); };
   const boton = $b('prod-bod-calc'); if (!boton) return;
   // v0.54.1: buscador sobre las listas de materias primas (café de Cafetería, agregar crítica, llegó mercadería)
@@ -622,7 +655,7 @@ function conectarMerma(el, H) {
     st.merma.periodo = sel.value; st.merma.cargando = true; st.merma.msg = ''; $('prod-merma').innerHTML = seccionMerma(H); conectarMerma(el, H);
     // v0.63.3: lo pides tú: se lee de nuevo (fresco)
     try { st.merma.datos = await P.mermaDelPeriodo({ ...P.periodoMerma(st.merma.periodo), fresco: true }); } catch (e) { st.merma.datos = null; st.merma.msg = error(e, H); }
-    st.merma.cargando = false; $('prod-merma').innerHTML = seccionMerma(H); if ($('pl-res-merma')) $('pl-res-merma').innerHTML = resumenMerma(); conectarMerma(el, H);
+    st.merma.cargando = false; if (!$('prod-merma')) return; $('prod-merma').innerHTML = seccionMerma(H); conectarMerma(el, H);
   });
 }
 
@@ -635,32 +668,57 @@ const FMr = c => P.resumenPropuesta(c);
 const pesosN = v => '$' + Math.round(Number(v) || 0).toLocaleString('es-CL');
 const pesosD = v => '$' + (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('es-CL');
 const ESTADO_TXT = { en_revision: 'En revisión', devuelta: 'Devuelta', aprobada: 'Aprobada' };
+// v0.77.0 · Por revisar: cada propuesta dice qué cambió (ingredientes en g y %, rendimiento, pasos) y su impacto en el costo
+// (costo por unidad vigente → propuesto, con el motor de Finanzas; los precios se leen una sola vez para toda la lista).
+function resumenFila(p, H) {
+  const d = p.datos || {}, v = p.vigente, c = st.costos[p.docId];
+  const cs = RV.cambios(v ? { ...v } : null, d);
+  const qu = cs.length > 3 ? cs.slice(0, 3).concat([`y ${cs.length - 3} ${cs.length - 3 === 1 ? 'cambio más' : 'cambios más'}`]) : cs;
+  const imp = c ? RV.impactoCosto(c, c.error ? null : FMr(c)) : null;
+  const costo = !c ? '<span class="ayuda">Calculando el costo…</span>'
+    : c.error ? `<span class="ayuda">Sin costo: ${H.esc(c.code === 'sin_gastos' ? 'conecta la base de Gastos y Finanzas' : c.error)}</span>`
+    : imp ? `<span class="prop-impacto${imp.pct > 0.05 ? ' dif-mal' : imp.pct < -0.05 ? ' prop-baja' : ''}">${H.esc(imp.texto)}</span>${imp.faltan.length ? ` <span class="chip c-rojo chip-chico">no está en la base de Cocina: ${H.esc(imp.faltan.join(', '))}</span>` : ''}${imp.sinPrecio.length ? ` <span class="chip c-amarillo chip-chico">sin precio: ${H.esc(imp.sinPrecio.slice(0, 3).join(', '))}${imp.sinPrecio.length > 3 ? '…' : ''}</span>` : ''}` : '';
+  return `<div class="prop-resumen" data-prop-resumen="${H.esc(p.docId)}">${qu.length ? `<span class="prop-cambios">${qu.map(x => H.esc(x)).join(' · ')}</span>` : ''}<span class="prop-costo-fila">${costo}</span></div>`;
+}
 async function pintarCocina(el, H, leer) {
   const caja = $('prod-cocina'); if (!caja) return;
   if (leer) {
     try { [st.props, st.sols] = await Promise.all([P.propuestasEnRevision(), P.solicitudesPendientes()]); st.cocinaMsg = ''; }
     catch (e) { st.props = st.props || []; st.sols = st.sols || []; st.cocinaMsg = error(e, H); }
+    ponerChip((st.props || []).length + (st.sols || []).length);
+    // El costo de todas las propuestas, de una vez (sin esperar: la lista se ve antes)
+    const faltan = (st.props || []).filter(p => !st.costos[p.docId]);
+    // Al llegar, solo se cambia la línea del costo de cada fila (lo que estés escribiendo en las pedidas no se borra); la propuesta
+    // abierta que esperaba su costo se vuelve a dibujar entera
+    const llegaron = () => {
+      if (faltan.some(p => p.docId === st.abierta)) return pintarCocina(el, H, false);
+      faltan.forEach(p => { const x = document.querySelector(`[data-prop-resumen="${CSS.escape(p.docId)}"]`); if (x) x.outerHTML = resumenFila(p, H); });
+    };
+    if (faltan.length) P.costearVarias(faltan).then(cs => { faltan.forEach((p, i) => { st.costos[p.docId] = cs[i]; }); llegaron(); })
+      .catch(e => { faltan.forEach(p => { st.costos[p.docId] = { error: error(e, H) }; }); llegaron(); });
   }
   if (!$('prod-cocina')) return;
   const props = st.props || [], sols = st.sols || [];
   const cuando = p => String(((p.historial || []).slice(-1)[0] || {}).en || '').slice(0, 10);
+  const pie = `<p class="ayuda prod-maestra" id="prod-maestro">La base de Cocina es la maestra ${H.info('La base de Cocina es la maestra', TXT_MAESTRA)} · Las recetas aprobadas están en <a href="#produccion/recetas">Recetas</a> y las materias primas en <a href="#produccion/mp">Materias primas</a>.</p>`;
   // Sin nada esperando: una sola línea
   if (!props.length && !sols.length && !st.cocinaMsg) {
-    caja.innerHTML = `<div class="titulo-fila"><h2 id="t-prod-revision">Desde Cocina ${H.info('Desde Cocina', TXT_DESDE)}</h2><span class="ayuda">Nada esperando: recetas por aprobar · 0 · materias primas pedidas · 0</span></div>`;
+    caja.innerHTML = `<div class="titulo-fila"><h2 id="t-prod-revision">Por revisar ${H.info('Por revisar', TXT_DESDE)}</h2><span class="ayuda">Nada esperando: recetas por aprobar · 0 · materias primas pedidas · 0</span></div>${pie}`;
     return;
   }
   caja.innerHTML = `
-    <div class="titulo-fila"><h2 id="t-prod-revision">Desde Cocina ${H.info('Desde Cocina', TXT_DESDE)}</h2></div>
+    <div class="titulo-fila"><h2 id="t-prod-revision">Por revisar ${H.info('Por revisar', TXT_DESDE)}</h2></div>
     ${st.cocinaMsg ? `<p class="error">${H.esc(st.cocinaMsg)}</p>` : ''}
     <h3 style="margin:8px 0">Recetas por aprobar · ${props.length} ${H.info('Recetas nuevas en la caja y en logística', TXT_CSV)}</h3>
-    ${props.length ? `<div class="lista-simple">${props.map(p => `<div class="fila-caja" data-prop="${H.esc(p.docId)}" style="flex-wrap:wrap">
-        <div class="txt"><b>${H.esc((p.datos || {}).nombre || 'Sin nombre')}</b><span>${P.AREAS[p.area] || p.area} · ${p.recetaId ? `cambio a la v${H.esc(String((p.vigente || {}).version || 1))}` : 'receta nueva'}${p.origen === 'ajuste' ? ' · desde el ajuste de harina/agua' : ''} · ${H.esc(p.creadaPor || '')} · ${H.esc(cuando(p))}</span></div>
+    ${props.length ? `<div class="lista-simple">${props.map(p => `<div class="fila-caja fila-prop" data-prop="${H.esc(p.docId)}" style="flex-wrap:wrap">
+        <div class="txt"><b>${p.recetaId ? 'Cambio a ' : ''}${H.esc((p.datos || {}).nombre || 'Sin nombre')}</b><span>${P.AREAS[p.area] || p.area} · ${p.recetaId ? `cambio a la v${H.esc(String((p.vigente || {}).version || 1))}` : 'receta nueva'}${p.origen === 'ajuste' ? ' · desde el ajuste de harina/agua' : ''} · ${H.esc(p.creadaPor || '')} · ${H.esc(cuando(p))}</span>${resumenFila(p, H)}</div>
         ${p.estado === 'aprobando' ? `<span class="chip c-amarillo">Aprobándose</span><button type="button" class="btn-sec" data-prop-destrabar="${H.esc(p.docId)}" title="Si se cortó la aprobación, vuelve a revisión para reintentarla">Volver a revisión</button>`
           : `<button type="button" class="btn-sec" data-prop-revisar="${H.esc(p.docId)}">${st.abierta === p.docId ? 'Cerrar' : 'Revisar'}</button>`}
         ${st.abierta === p.docId ? `<div style="flex-basis:100%">${detallePropuesta(p, H)}</div>` : ''}
       </div>`).join('')}</div>` : '<p class="ayuda">No hay recetas esperando.</p>'}
     <h3 style="margin:16px 0 8px">Materias primas pedidas · ${sols.length}</h3>
-    ${sols.length ? `<div class="lista-simple">${sols.map(s => filaSolicitud(s, H)).join('')}</div>` : '<p class="ayuda">No hay pedidos.</p>'}`;
+    ${sols.length ? `<div class="lista-simple">${sols.map(s => filaSolicitud(s, H)).join('')}</div>` : '<p class="ayuda">No hay pedidos.</p>'}
+    ${pie}`;
   caja.querySelectorAll('[data-prop-revisar]').forEach(b => b.addEventListener('click', async () => {
     const id = b.dataset.propRevisar;
     st.abierta = st.abierta === id ? null : id;
@@ -728,12 +786,14 @@ function detallePropuesta(p, H) {
   const cant = i => i ? (i.unidades !== null && i.unidades !== undefined && i.unidades !== '' ? `${String(i.unidades).replace('.', ',')} un · ` : '') + `${(Math.round((Number(i.gramos) || 0) * 10) / 10).toLocaleString('es-CL')} g` : '—';
   const vIngs = v ? v.ingredientes || [] : [];
   const ids = [...new Set([...(d.ingredientes || []).map(i => i.id), ...vIngs.map(i => i.id)])];
+  const pctV = v ? RV.panadero(v) : {}, pctP = RV.panadero(d);   // v0.77.0: el % de panadero al lado de los gramos (como en Cocina)
   // v0.63.6: costo neto por ingrediente (Finanzas), vigente y propuesta: se ve qué ingrediente mueve el costo
   const lnV = c && !c.error && c.vigente && c.vigente.lineas, lnP = c && !c.error && c.propuesta && c.propuesta.lineas, conCosto = !!(lnP || lnV);
   const cst = (ln, id, hay) => (!hay ? '' : ln && ln[id] !== null && ln[id] !== undefined ? ` <span class="prop-costo">${pesosN(ln[id])}</span>` : ln && id in ln ? ' <span class="prop-costo">sin precio</span>' : '');
   const filas = ids.map(id => {
-    const a = vIngs.find(i => i.id === id), b = (d.ingredientes || []).find(i => i.id === id), igual = a && b && cant(a) === cant(b);
-    return `<tr${igual ? '' : ' class="cambio"'}><td>${H.esc((b || a).nombre)}</td>${v ? `<td>${cant(a)}${cst(lnV, id, !!a)}</td>` : ''}<td>${cant(b)}${cst(lnP, id, !!b)}${!a && v ? ' <span class="chip c-verde">nuevo</span>' : !b ? ' <span class="chip c-rojo">sale</span>' : ''}</td></tr>`;
+    const a = vIngs.find(i => i.id === id), b = (d.ingredientes || []).find(i => i.id === id), igual = a && b && cant(a) === cant(b) && RV.pctTxt(pctV[id]) === RV.pctTxt(pctP[id]);
+    const pc = (x, m) => (x && m[id] !== null && m[id] !== undefined ? ` · ${RV.pctTxt(m[id])}` : '');
+    return `<tr${igual ? '' : ' class="cambio"'}><td>${H.esc((b || a).nombre)}</td>${v ? `<td>${cant(a)}${pc(a, pctV)}${cst(lnV, id, !!a)}</td>` : ''}<td>${cant(b)}${pc(b, pctP)}${cst(lnP, id, !!b)}${!a && v ? ' <span class="chip c-verde">nuevo</span>' : !b ? ' <span class="chip c-rojo">sale</span>' : ''}</td></tr>`;
   }).join('');
   const otros = [];
   const cmp = (t, x, y) => { if (String(x ?? '') !== String(y ?? '')) otros.push(`${t}: ${H.esc(String(x ?? '—'))} → <b>${H.esc(String(y ?? '—'))}</b>`); };

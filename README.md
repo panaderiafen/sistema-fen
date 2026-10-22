@@ -1,9 +1,69 @@
-# Sistema Fën · v0.76.0
+# Sistema Fën · v0.77.0
 
-**App:** v0.76.0 · **Cocina:** v0.17.10 (cambio chico) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-ventas v1.5.0, fen-b2b v1.7.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.77.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.0 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-ventas v1.5.0, fen-b2b v1.7.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.77.0: Producción en pestañas
+
+Producción deja de ser una página larga con tarjetas y pliegues: ahora tiene **siete pestañas**, como Gastos, Ventas B2B y el Catálogo, en este orden: **Por revisar · Plan de Panadería · Recetas · Materias primas · Bodega · Merma · Configuración**. Abre siempre en **Por revisar**, que lleva el número de lo que espera. En el celular las pestañas se pasan con el dedo. Es el diseño aprobado (`diseno/produccion-rediseno.html`). No cambia ningún dato, ni Cocina, ni las reglas.
+
+- **Dónde va:** repo **sistema-fen**, raíz. Archivos nuevos: `recetas-ver-modelo.js` (qué cambió entre versiones, el costo y su variación; reglas puras) y `vista-prod-recetas.js` (la pestaña Recetas). Cambian `vista-produccion.js` (las pestañas; Por revisar; Configuración → Cocina), `vista-plan-pan.js` (es una pestaña), `vista-finanzas.js` (el maestro de materias primas se dibuja en Producción; en Finanzas, el enlace), `finanzas.js` (el costo de todas las propuestas de una vez; los costos guardados para Recetas), `produccion.js` (costear varias; versiones anteriores al pedirlas), `app.js` (Hoy y Configuración → Cocina), `finanzas-eerr.js`, `vista-productos.js`, `vista-catalogo.js` (enlaces), `estilos.css` y este README; los demás, solo la versión. `cocina/` y `fermentacion.js` **no cambian** (idénticos a Cocina v0.17.11).
+- **Cocina:** sin cambios (v0.17.11). **Reglas:** sin cambios (lo revisé: todo lo que se lee o escribe ya estaba permitido; las versiones anteriores `versiones/{id}_v{n}` las lee la administración con fen-produccion v1.8.0). **Apps Script:** ninguno.
+
+### Qué cambia en cómo trabajas
+| Antes | Ahora |
+|---|---|
+| Tarjeta "Desde Cocina" | **Producción → Por revisar** (`#produccion`) |
+| Tarjeta "Plan de Panadería" (página aparte) | **Producción → Plan de Panadería** (`#produccion/plan-pan`, con Cómo nos fue y Ainavillo y pisos) |
+| — | **Producción → Recetas** (nueva, solo para mirar; `#produccion/recetas`) |
+| Finanzas → Costos → Materias primas | **Producción → Materias primas** (`#produccion/mp`); en Finanzas queda un enlace |
+| Pliegue Bodega / Merma | **Producción → Bodega** / **Merma** |
+| Pliegues Configuración de Producción y Pasar recetas de Bollería a Pastelería | **Producción → Configuración** |
+| Pliegue Cuentas de las áreas y la conexión con la base | **Configuración → Cocina** (`#ajustes/cocina`) |
+| Pliegue Recetas y materias primas (solo números) | Desaparece: los números van arriba de Recetas y de Materias primas |
+
+1. **Por revisar:** cada receta por aprobar dice en su fila **qué cambió** (por ejemplo "Agua 70 % → 72 % · Rinde 10 un → 9 un · Pasos 2 → 3": en % de panadero cuando la receta tiene harina, si no en gramos; ingredientes nuevos y los que salen; insumos y notas) y **cuánto cambia el costo** ("Costo por unidad $485 → $539 (+11,1 %)"; si rinde gramos, el lote y el kilo). Una receta nueva dice su costo por unidad. Si falta un precio lo dice ("sin precio: …") y si un ingrediente no está en la base de Cocina, también (no se puede aprobar). Al tocar **Revisar** se abre lo de siempre (la tabla, ahora con el % al lado de los gramos, el costo por ingrediente, el lote y la unidad) con **Aprobar** y **Devolver**. Las materias primas pedidas se crean o habilitan igual que antes. Las (i) de siempre siguen ahí; aprobar no se bloquea.
+2. **Recetas** (solo para mirar): las recetas aprobadas de la base de Cocina, por área y tipo (**Productos** o **Masas y sub recetas**), con buscador. Cada una con su rendimiento, versión, quién y cuándo se aprobó, y su **costo neto por unidad** (o por kg) con la **flecha y el %** contra su costo anterior y desde cuándo valía ese costo. Al abrir una: ingredientes (g y %), insumos, pasos, notas, el enlace **Ver en Finanzas → Costos → Productos** y **Versiones anteriores** (cada aprobación guarda la anterior): elige una y ves qué cambió contra la vigente. Las archivadas, con "Ver solo las archivadas". Archivar o reactivar sigue en el Catálogo.
+3. **Si cambia el costo, ¿dónde se ve?** (lo explica la (i) de Recetas): en **Hoy**, el aviso "Subió el costo de N productos" (de Finanzas, sobre el % de aviso contra el mes anterior); en **Producción → Recetas**, la flecha con el % de cada receta; y el análisis completo en **Finanzas → Costos → Productos** (qué materia prima lo movió, historial y detalle).
+4. **Materias primas:** es la misma pantalla de la v0.76.0 (crear, cambiar nombre, categoría y áreas, archivar y reactivar, el precio a la vista, las parecidas), un solo componente, ahora en Producción; arriba dice cuántas hay en la base de Cocina. Se ve aunque la base de Cocina no esté conectada (sin crear ni cambiar). En **Finanzas → Costos**, la pastilla Materias primas muestra "Las materias primas están en Producción → Materias primas" con el botón para ir. **Compras del SII → "Crear desde esta línea"** sigue igual y, al crear, el mensaje trae "Verla en Producción → Materias primas".
+5. **Bodega, Merma y Configuración:** lo mismo de antes, cada una en su pestaña (Calcular y Ver se piden igual que antes).
+6. **Configuración → Cocina:** la conexión con la base de Cocina (pegar la configuración, entrar, marcar administración) y las **Cuentas de las áreas** (las tablets). Si la base no está conectada, Producción lo dice y lleva ahí.
+7. **Enlaces:** en Hoy, "recetas de Cocina por aprobar" y "materias primas pedidas" llevan a Por revisar; "Bajo el mínimo" a **Bodega**; el conteo del cierre de mes (Finanzas) también a Bodega; "Ver en Producción" de Revisión de datos abre esa receta; "Conéctala en…" lleva a Configuración → Cocina. Los enlaces viejos siguen funcionando: `#produccion/revisar`, `/desde-cocina` → Por revisar; `/materias-primas` → Materias primas; `/configuracion`, `/mover` → Configuración; `/cuentas` → Configuración → Cocina; una ruta que no existe → Por revisar; `#finanzas/costos` → el enlace a Producción.
+
+### Lecturas (Spark), medidas con Firebase simulado (`pruebas/capturas/produccion-tabs-v0770/lecturas.json`)
+Cada pestaña lee solo lo suyo al abrirla. Lecturas estimadas (documentos + 1 por pedido, como en Configuración → Uso de la base):
+
+| Pestaña | Primera vez (Cocina / Gastos) | Al volver (Cocina / Gastos) | Qué lee |
+|---|---|---|---|
+| Por revisar | 6 / 19 | 6 / 0 | las propuestas en revisión y las pedidas (2 consultas, 1 lectura por cada una); el costo: los precios de la memoria de fen-gastos, **una sola vez para toda la lista** (antes, al abrir cada una) |
+| Plan de Panadería | 0 / 4 | 0 / 0 | lo de siempre (su pie de lecturas; caja y B2B aparte) |
+| Recetas | 0 / 2 | 0 / 2 | recetas: de la memoria (0); costos guardados de Finanzas (memoria de fen-gastos). Abrir una: 0. **Versiones anteriores: 1 lectura por versión**, solo al tocar el botón |
+| Materias primas | 0 / 8 | 0 / 4 | como en Finanzas (precios, revisión, por confirmar; memoria de fen-gastos) |
+| Bodega / Merma | 0 / 0 | 0 / 0 | nada hasta Calcular / Ver (igual que antes) |
+| Configuración | 2 / 0 | 0 / 0 | configuración de la memoria; la fermentación en bloque y el ajuste de sábado (como antes al abrir el pliegue) |
+| Número de Por revisar (en las otras pestañas) | — | — | el mismo resumen de Hoy (limit + count, 2 minutos en memoria) |
+
+Con datos reales, Por revisar cuesta 1 lectura por propuesta y por pedido (hoy, unas pocas). Antes, abrir Producción leía de una vez las cuentas, los totales (con un conteo de personas) y lo que llegó de Cocina; ahora eso queda en sus pestañas o en Configuración → Cocina.
+
+### Instalación v0.77.0 (unos 3 minutos)
+1. **Sistema Fën v0.77.0:** GitHub, repo **sistema-fen**, raíz → **Add file → Upload files** → todos los archivos del zip `sistema-fen-v0.77.0.zip` (con la carpeta `cocina/`, que no cambia, y los archivos nuevos `recetas-ver-modelo.js` y `vista-prod-recetas.js`) → **Commit changes**. Espera 1 o 2 minutos y recarga (Ctrl+Shift+R).
+2. Cocina, reglas y Apps Script: nada.
+
+### Lista de verificación v0.77.0
+- [ ] Abajo dice **v0.77.0**.
+- [ ] **Producción** abre en **Por revisar** con las siete pestañas en orden; si hay algo esperando, la pestaña tiene su número. En el celular las pestañas se pasan con el dedo y la página no se mueve de lado.
+- [ ] Por revisar: una receta cambiada dice qué cambió y "Costo por unidad $… → $…"; **Revisar → Aprobar** y **Devolver** funcionan como antes; una materia prima pedida se crea o habilita.
+- [ ] **Recetas:** filtra por área y tipo; una receta con costo muestra la flecha y el %; ábrela → ingredientes con g y %, pasos; **Ver la versión anterior** compara con la vigente.
+- [ ] **Materias primas:** está el maestro (Nueva materia prima o insumo, tocar una fila, Nombre, categoría y áreas). En **Finanzas → Costos → Materias primas** aparece solo el enlace; Compras del SII → Crear desde esta línea sigue y ofrece "Verla en Producción → Materias primas".
+- [ ] **Bodega** (Calcular), **Merma** (Ver) y **Configuración** (por área, fermentación en bloque, ajuste de sábado, pasar recetas) como siempre.
+- [ ] **Configuración → Cocina:** dice Conectada y muestra las Cuentas de las áreas.
+- [ ] **Hoy:** "Bajo el mínimo" lleva a Producción → Bodega; las recetas por aprobar, a Por revisar.
+
+**Si algo sale mal:** vuelve a subir la v0.76.0. No se pierde nada: esta versión no cambia datos (solo dónde se ve cada cosa).
+
+**Pruebas:** `pruebas/sistemafen/produccion-tabs-v0770.test.js` (12/12) y las demás suites (`pruebas/resultados-v0770.txt`, con `pruebas/correr-v0770.sh`). Capturas de cada pestaña a 390 y 1280, Configuración → Cocina y el enlace de Finanzas en `pruebas/capturas/produccion-tabs-v0770/`.
 
 ## Novedades de la v0.76.0: crear y cambiar materias primas e insumos desde Finanzas
 
