@@ -1,9 +1,20 @@
-# Sistema Fën · v0.81.1
+# Sistema Fën · v0.81.2
 
-**App:** v0.81.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.81.2 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.81.2: un solo nombre para confirmar
+
+Los botones hacían lo mismo con nombres distintos. Ahora:
+- **"Confirmar"**: en la fila del cargo y en su detalle (antes "Confirmar: Ya en Gastos: …"; lo que confirma sigue escrito arriba, en "Qué propongo"). Confirma la propuesta del cargo.
+- **"Es este gasto"**: solo cuando eliges el gasto a mano en "Ya está en Gastos". Confirma el que tú elegiste.
+- **"Ver su cargo"** (del lado del gasto, antes "Calzar con este cargo"): no guarda nada; abre el cargo a la derecha para confirmarlo ahí.
+- **"Confirmar seleccionados"**: varios "Listo" de una vez (igual que antes).
+Cambian `app.js`, `config.js` y este README; los demás, solo la versión (`?v=0.81.2`). En Ventas B2B → Conciliación (abonos) no cambia nada.
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.81.2.
 
 ## Novedades de la v0.81.1: el nombre de la cuenta Mercado Pago
 
