@@ -56,13 +56,23 @@ export function docDeSii(f, cargaId) {
 }
 // Plan de una carga del SII: qué entra nuevo, qué ya estaba, qué es deuda anterior y qué queda fuera por antiguo
 export function planDocs(facturas, existentes, inicio, cargaId) {
-  const C = corte(inicio), ya = new Set((existentes || []).map(x => x.id)), visto = new Set();
-  const out = { nuevos: [], yaEstaban: 0, anteriores: 0, antiguos: 0, sinFecha: 0, leidos: (facturas || []).length };
+  const C = corte(inicio), ya = new Map((existentes || []).map(x => [x.id, x])), visto = new Set();
+  const out = { nuevos: [], completar: [], yaEstaban: 0, anteriores: 0, antiguos: 0, sinFecha: 0, leidos: (facturas || []).length };
   (facturas || []).forEach(f => {
     const d = docDeSii(f, cargaId);
     if (!d.fecha) { out.sinFecha++; return; }
     if (d.fecha < C.anterior) { out.antiguos++; return; }
-    if (ya.has(d.id) || visto.has(d.id)) { out.yaEstaban++; return; }
+    if (visto.has(d.id)) { out.yaEstaban++; return; }
+    const e = ya.get(d.id);
+    if (e) {
+      // v0.90.2 · Ya estaba sin detalle (vino del Registro de Compras) y ahora llega el XML con detalle: se completa (montos y todo lo demás no se tocan)
+      if (!(e.detalle || []).length && d.detalle.length) {
+        visto.add(d.id);
+        out.completar.push({ id: d.id, detalle: d.detalle, ...(e.vence ? {} : d.vence ? { vence: d.vence } : {}), ...(e.formaPago ? {} : d.formaPago ? { formaPago: d.formaPago } : {}),
+          ...((e.referencias || []).length || !d.referencias.length ? {} : { referencias: d.referencias }), completadoCon: cargaId });
+      } else out.yaEstaban++;
+      return;
+    }
     visto.add(d.id);
     if (d.fecha < C.inicio) { d.anterior = true; out.anteriores++; }
     out.nuevos.push(d);
@@ -125,7 +135,7 @@ export function planMovs(movs, existentes, inicio) {
 export const idCarga = (tipo, ms = Date.now()) => `c_${tipo}_${ms.toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 export function textoCarga(k) {
   const n = (x, s1, p1) => `${x} ${x === 1 ? s1 : p1}`;
-  if (k.tipo === 'sii') return [`${n(k.nuevos - (k.anteriores || 0), 'documento nuevo', 'documentos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.anteriores ? `${k.anteriores} del mes anterior (deuda anterior)` : '',
+  if (k.tipo === 'sii') return [`${n(k.nuevos - (k.anteriores || 0), 'documento nuevo', 'documentos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.completados ? `${k.completados} ya estaban sin detalle y se completaron` : '', k.anteriores ? `${k.anteriores} del mes anterior (deuda anterior)` : '',
     k.antiguos ? `${k.antiguos} más antiguos (no entran)` : '', k.guias ? n(k.guias, 'guía de despacho fuera', 'guías de despacho fuera') : ''].filter(Boolean).join(' · ');
   return [`${n(k.nuevos, 'movimiento nuevo', 'movimientos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.parecidos ? `${n(k.parecidos, 'ya llegó en otra cartola', 'ya llegaron en otra cartola')}` : '',
     k.antes ? `${k.antes} antes del inicio (no entran)` : '', k.traspasos ? n(k.traspasos, 'traspaso al banco', 'traspasos al banco') : ''].filter(Boolean).join(' · ');

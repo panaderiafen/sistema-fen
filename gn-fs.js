@@ -7,10 +7,10 @@
 //    guardado, no se pierde nada de lo que se le agregó después (clasificación, pagos, notas). Nada se borra.
 //  · Sin la marca de la planilla (planillaPendiente): lo nuevo ya no se copia a la planilla de Google.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.90.1';
-import { dbBase, correo } from './gastos-fs.js?v=0.90.1';
-import { ahoraChile } from './gastos-g2.js?v=0.90.1';
-import * as GN from './gn-modelo.js?v=0.90.1';
+import * as FB from './fs-gastos.js?v=0.90.2';
+import { dbBase, correo } from './gastos-fs.js?v=0.90.2';
+import { ahoraChile } from './gastos-g2.js?v=0.90.2';
+import * as GN from './gn-modelo.js?v=0.90.2';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -47,10 +47,11 @@ const nuevoExtra = (cargaId, por, en) => ({ estado: 'vigente', creado: { por, en
 export async function cargarSii(L, archivo) {
   const ya = await todos(GN.COL.docs), por = quien(), en = ahoraChile().texto, id = GN.idCarga('sii');
   const P = GN.planDocs(L.facturas, ya, inicio(), id);
-  await escribir(GN.COL.docs, P.nuevos, nuevoExtra(id, por, en));
+  await escribir(GN.COL.docs, P.nuevos.map(d => ({ ...d, formato: L.formato || '' })), nuevoExtra(id, por, en));
+  if (P.completar.length) await escribir(GN.COL.docs, P.completar, {});   // v0.90.2: solo el detalle (y lo que faltaba): nada más se toca
   const fechas = (L.facturas || []).map(f => GN.aIso(f.fecha)).filter(Boolean).sort();
   const k = { id, tipo: 'sii', archivo: String(archivo.nombre || '').slice(0, 120), tamano: Number(archivo.tamano) || 0, formato: L.formato || '', desde: fechas[0] || '', hasta: fechas[fechas.length - 1] || '',
-    leidos: P.leidos, nuevos: P.nuevos.length, yaEstaban: P.yaEstaban, anteriores: P.anteriores, antiguos: P.antiguos, guias: (L.omitidas || []).length, por, en };
+    leidos: P.leidos, nuevos: P.nuevos.length, yaEstaban: P.yaEstaban, completados: P.completar.length, anteriores: P.anteriores, antiguos: P.antiguos, guias: (L.omitidas || []).length, por, en };
   await guardarCarga(k);
   return { ...k, plan: P };
 }

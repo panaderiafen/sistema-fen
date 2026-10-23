@@ -1,9 +1,19 @@
-# Sistema Fën · v0.90.1
+# Sistema Fën · v0.90.2
 
-**App:** v0.90.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.90.2 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.90.2: el Registro de Compras (RCV) y el XML se completan
+
+- El **Registro de Compras (RCV, .csv)** trae todas las facturas del mes, pero sin detalle. El XML de documentos recibidos trae el detalle, pero a veces le faltan facturas. Ahora se complementan, en cualquier orden:
+  - Si el RCV trae una factura que no estaba, entra **sin detalle** y en la Bandeja dice "sin detalle (Registro de Compras)".
+  - Si la factura ya estaba (por el XML), el RCV no la toca.
+  - Si entró primero por el RCV y después llega su XML, se **completa con su detalle** (y su vencimiento y forma de pago, si faltaban). Los montos no se tocan. El mensaje dice "ya estaban sin detalle y se completaron".
+Cambian `gn-modelo.js`, `gn-fs.js`, `vista-gn.js`, `config.js` y este README; los demás, solo la versión (`?v=0.90.2`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.90.2.
 
 ## Novedades de la v0.90.1: arrastrar archivos a Gastos
 

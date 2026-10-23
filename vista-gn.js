@@ -7,13 +7,13 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.90.1';
-import * as Sii from './sii.js?v=0.90.1';
-import * as MP from './mercadopago.js?v=0.90.1';
+import * as GN from './gn-modelo.js?v=0.90.2';
+import * as Sii from './sii.js?v=0.90.2';
+import * as MP from './mercadopago.js?v=0.90.2';
 
 const st = { D: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.90.1');
+const fsGN = () => import('./gn-fs.js?v=0.90.2');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -64,7 +64,7 @@ function bandejaHtml(H) {
   const D = st.D, B = GN.bandeja(D.docs, D.movs, { cuenta: st.cuenta }), cob = GN.cobertura(D.movs, D.cargas);
   const cuentas = [['', 'Todas'], ...cob.map(c => [c.cuenta, c.nombre])];
   const docFila = d => `<div class="gn-it${d.nc ? ' gn-nc' : ''}"><div class="gn-fila"><b>${H.esc(d.razon || d.rut)}</b><span class="gn-m">${H.pesos(d.total)}</span></div>
-      <small>${H.esc(d.tipoTexto)} N° ${H.esc(d.folio)} · ${H.esc(H.diaTexto(d.fecha))}${d.vence && d.vence !== d.fecha ? ` · vence ${H.esc(H.diaTexto(d.vence))}` : ''}${d.nc && d.referencias && d.referencias.length ? ` · corrige la N° ${H.esc(d.referencias.map(r => r.folio).join(', '))}` : ''}</small></div>`;
+      <small>${H.esc(d.tipoTexto)} N° ${H.esc(d.folio)} · ${H.esc(H.diaTexto(d.fecha))}${d.vence && d.vence !== d.fecha ? ` · vence ${H.esc(H.diaTexto(d.vence))}` : ''}${d.nc && d.referencias && d.referencias.length ? ` · corrige la N° ${H.esc(d.referencias.map(r => r.folio).join(', '))}` : ''}${d.formato === 'registro' && !(d.detalle || []).length ? ' · sin detalle (Registro de Compras)' : ''}</small></div>`;
   const movFila = m => `<div class="gn-it"><div class="gn-fila"><b>${H.esc(m.glosa)}</b><span class="gn-m">${H.pesos(m.monto)}</span></div>
       <small>${H.esc(GN.CUENTAS[m.cuenta] || m.cuenta)} · ${H.esc(H.diaTexto(m.fecha))}${m.hora ? ' ' + H.esc(m.hora) : ''}</small></div>`;
   const vacioD = D.docs.length ? 'No hay documentos desde el inicio.' : 'Todavía no hay documentos. Suba las compras del SII con "Subir archivo".';
