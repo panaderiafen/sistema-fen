@@ -1,9 +1,18 @@
-# Sistema Fën · v0.81.5
+# Sistema Fën · v0.81.6
 
-**App:** v0.81.5 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.81.6 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.81.6: las guías de despacho no son compras
+
+Al subir el XML del SII, las **guías de despacho** (DTE 52, y 50 en papel) quedan fuera: no son compras, la que cuenta es su factura. Antes entraban como si fueran una factura más, con su monto (el caso de Pizarro: la guía N° 279623 de la F.992502). La carga avisa cuáles se dejaron fuera y de qué factura son. Facturas (33, 34), boletas (39), notas de crédito (61) y notas de débito (56) siguen igual.
+La guía que ya quedó registrada como gasto (copiada de la planilla antigua) no se toca sola: se anula en Registrados con su motivo.
+Cambian `sii.js`, `app.js`, `config.js` y este README; los demás, solo la versión (`?v=0.81.6`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.81.6.
+- [ ] Anular en Registrados el gasto "PIZARRO F.279623 $32.450 (1 oct)" con el motivo "Guía de despacho de la F.992502: no es compra".
 
 ## Novedades de la v0.81.5: se ve qué está elegido y qué está abierto
 

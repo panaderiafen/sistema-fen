@@ -8,7 +8,7 @@
 //  v0.48.0 (etapa G3): con Gastos en la base nueva (config/gastos: fuente "base"), las llamadas van a fen-gastos
 //  (gastos-sii-fs.js) con las mismas respuestas; "Sugerir % según ventas" sigue con el script. Con la planilla, igual que antes.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.81.5';
+import * as Gastos from './gastos.js?v=0.81.6';
 
 export const VERSION_MINIMA = '2.4.0';
 // v0.10.0: un documento se reconoce por RUT, folio y si es nota de crédito (tipo 61):
@@ -205,10 +205,21 @@ export function parseCSVSII(texto) {
   }).filter(f => f.rut && f.folio);
 }
 
+// v0.81.6 · Las guías de despacho (DTE 52, y 50 en papel) no son compras: la que cuenta es su factura (la guía solo acompaña
+// el despacho y a veces cita la factura). Vienen en el mismo lote XML: se dejan fuera y se avisa cuáles.
+export const TIPOS_NO_COMPRA = { '50': 'Guía de despacho', '52': 'Guía de despacho electrónica' };
 export function leer(contenido) {
   const formato = detectarFormatoSII(contenido);
-  const facturas = formato === 'xml' ? parseXMLSII(contenido) : formato === 'detalle' ? parseXLSDetalleSII(contenido) : parseCSVSII(contenido);
-  return { formato, facturas };
+  const todas = formato === 'xml' ? parseXMLSII(contenido) : formato === 'detalle' ? parseXLSDetalleSII(contenido) : parseCSVSII(contenido);
+  const omitidas = todas.filter(f => TIPOS_NO_COMPRA[String(f.tipoDoc || '').trim()]);
+  const facturas = todas.filter(f => !TIPOS_NO_COMPRA[String(f.tipoDoc || '').trim()]).map((f, i) => ({ ...f, idx: i }));
+  return { formato, facturas, omitidas: omitidas.map(f => ({ tipoDoc: f.tipoDoc, tipo: TIPOS_NO_COMPRA[f.tipoDoc], folio: f.folio, rut: f.rut, razonSocial: f.razonSocial, total: Math.abs(f.total), referencias: f.referencias || [] })) };
+}
+// "Se dejaron fuera 1 guía de despacho (no son compras: cuenta su factura): F.279623 de PIZARRO (de la F.992502)"
+export function textoOmitidas(om) {
+  if (!om || !om.length) return '';
+  const l = om.slice(0, 6).map(g => `N° ${g.folio} de ${g.razonSocial || g.rut}${g.referencias.length ? ` (de la F.${g.referencias.map(r => r.folio).join(', F.')})` : ''}`).join(' · ');
+  return `Se dejaron fuera ${om.length} ${om.length === 1 ? 'guía de despacho' : 'guías de despacho'}: no son compras (la que cuenta es su factura). ${l}${om.length > 6 ? ` y ${om.length - 6} más` : ''}.`;
 }
 
 // Con fecha de vencimiento posterior a la emisión (o forma de pago 2 = crédito) se precarga
@@ -424,7 +435,7 @@ const base64Utf8 = texto => { const b = new TextEncoder().encode(texto); let s =
 const docsDe = facturas => facturas.map(f => ({ rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', total: f.total, fecha: fechaDDMMYYYYaISO(f.fecha), razonSocial: f.razonSocial }));
 
 // v0.48.0 · Con la base nueva, lo mismo en fen-gastos (gastos-sii-fs.js)
-const fsSii = () => import('./gastos-sii-fs.js?v=0.81.5');
+const fsSii = () => import('./gastos-sii-fs.js?v=0.81.6');
 const enBase = () => Gastos.enBase();
 export async function estado(facturas) { return (await enBase()) ? (await fsSii()).estado(docsDe(facturas)) : llamar('sii_estado', { documentos: docsDe(facturas) }); }
 export async function registrarCarga(facturas, nombre, tipo, contenido, idem) {
@@ -441,7 +452,7 @@ export async function importar(listas, omitirRepetidas, idem, origen) {
   if (await enBase()) {
     const r = await (await fsSii()).importar(listas, !!omitirRepetidas, await Gastos.marcaDe(idem), origen || null); Gastos.olvidarTodo();
     // v0.57.0 · Finanzas: con lo importado ya guardado, revisa los precios de las materias primas (sin esperar; si falla, solo avisa)
-    r.precios = import('./finanzas.js?v=0.81.5').then(F => F.preciosTrasImportar()).catch(e => ({ error: e.message || String(e) }));
+    r.precios = import('./finanzas.js?v=0.81.6').then(F => F.preciosTrasImportar()).catch(e => ({ error: e.message || String(e) }));
     return r;
   }
   const r = await llamar('sii_importar', { facturas: listas, omitirRepetidas: !!omitirRepetidas }, idem); Gastos.olvidar(); return r;
