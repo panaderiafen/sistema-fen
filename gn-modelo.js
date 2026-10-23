@@ -4,7 +4,7 @@
 //  Aquí: cómo nace cada documento (del SII) y cada movimiento (cartola BancoEstado, Mercado Pago), su id fijo (el freno de
 //  repetidos) y el plan de cada carga. Sin red ni Firebase: lo prueba pruebas/sistemafen/gn-etapa1-v0900.test.js.
 //  · Documento: id = d_<RUT sin puntos>_<tipo>_<folio>. Subir el mismo archivo dos veces no crea nada nuevo.
-//    Antes del inicio: el mes anterior queda como "deuda anterior" (anterior: true, no se muestra en la Bandeja hasta que
+//    Antes del inicio (v0.90.3: hasta un año antes, no solo el mes anterior) queda como "deuda anterior" (anterior: true, no se muestra en la Bandeja hasta que
 //    un pago lo pida); lo más antiguo no entra. Las guías de despacho no entran (sii.leer ya las deja fuera).
 //  · Movimiento: solo lo que SALE (cargos). Id fijo por la línea exacta (cuenta, fecha, monto, saldo, glosa, N° de operación);
 //    en Mercado Pago, por su N° de operación. Antes del inicio: no entra.
@@ -28,8 +28,9 @@ export function aIso(f) {
 export const mesDe = f => (esIso(f) ? f.slice(0, 7) : '');
 export function mesAnterior(mes) { const [y, m] = mes.split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`; }
 const diasEntre = (a, b) => Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5);
-// Lo que cuenta desde el inicio, y la deuda anterior (el mes anterior al inicio)
-export function corte(inicio) { const ini = esIso(inicio) ? inicio : '2026-10-01'; return { inicio: ini, anterior: mesAnterior(mesDe(ini)) + '-01' }; }
+// Lo que cuenta desde el inicio, y desde cuándo entra la deuda anterior. v0.90.3: hasta un año antes del inicio (antes, solo el mes anterior:
+// el Registro de Compras de septiembre traía facturas de agosto que se pagan después y quedaban fuera)
+export function corte(inicio) { const ini = esIso(inicio) ? inicio : '2026-10-01'; return { inicio: ini, anterior: (Number(ini.slice(0, 4)) - 1) + ini.slice(4, 8) + '01' }; }
 
 // ── RUT ──
 export const rutN = r => s(r).toUpperCase().replace(/[^0-9K]/g, '');
@@ -135,8 +136,8 @@ export function planMovs(movs, existentes, inicio) {
 export const idCarga = (tipo, ms = Date.now()) => `c_${tipo}_${ms.toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 export function textoCarga(k) {
   const n = (x, s1, p1) => `${x} ${x === 1 ? s1 : p1}`;
-  if (k.tipo === 'sii') return [`${n(k.nuevos - (k.anteriores || 0), 'documento nuevo', 'documentos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.completados ? `${k.completados} ya estaban sin detalle y se completaron` : '', k.anteriores ? `${k.anteriores} del mes anterior (deuda anterior)` : '',
-    k.antiguos ? `${k.antiguos} más antiguos (no entran)` : '', k.guias ? n(k.guias, 'guía de despacho fuera', 'guías de despacho fuera') : ''].filter(Boolean).join(' · ');
+  if (k.tipo === 'sii') return [`${n(k.nuevos - (k.anteriores || 0), 'documento nuevo', 'documentos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.completados ? `${k.completados} ya estaban sin detalle y se completaron` : '', k.anteriores ? `${k.anteriores} anteriores al inicio (deuda anterior)` : '',
+    k.antiguos ? `${k.antiguos} de hace más de un año (no entran)` : '', k.guias ? n(k.guias, 'guía de despacho fuera', 'guías de despacho fuera') : ''].filter(Boolean).join(' · ');
   return [`${n(k.nuevos, 'movimiento nuevo', 'movimientos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.parecidos ? `${n(k.parecidos, 'ya llegó en otra cartola', 'ya llegaron en otra cartola')}` : '',
     k.antes ? `${k.antes} antes del inicio (no entran)` : '', k.traspasos ? n(k.traspasos, 'traspaso al banco', 'traspasos al banco') : ''].filter(Boolean).join(' · ');
 }

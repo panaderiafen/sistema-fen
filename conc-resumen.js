@@ -11,7 +11,7 @@
 //  Conciliado = revisado: ya se dijo qué es (paga un vencimiento, gasto nuevo, no es gasto, cliente y folio, No es de B2B…).
 //  Un movimiento "Repetido" (el mismo en otra cartola) no cuenta en el total.
 // ═══════════════════════════════════════════════
-import * as FE from './finanzas-eerr.js?v=0.90.2';
+import * as FE from './finanzas-eerr.js?v=0.90.3';
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const n = v => { const x = Number(v); return isFinite(x) ? x : 0; };

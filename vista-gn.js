@@ -7,13 +7,13 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.90.2';
-import * as Sii from './sii.js?v=0.90.2';
-import * as MP from './mercadopago.js?v=0.90.2';
+import * as GN from './gn-modelo.js?v=0.90.3';
+import * as Sii from './sii.js?v=0.90.3';
+import * as MP from './mercadopago.js?v=0.90.3';
 
 const st = { D: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.90.2');
+const fsGN = () => import('./gn-fs.js?v=0.90.3');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -23,8 +23,8 @@ const TABS = [['bandeja', '', 'Bandeja'], ['cargas', 'cargas', 'Archivos subidos
 const hashDe = t => '#gastos' + (t === 'cargas' ? '/cargas' : '');
 const TXT_SUBIR = 'Sirven:\n• Las compras del SII: el XML de documentos recibidos, el Registro de Compras (.csv) o los Documentos recibidos (.xls).\n• La cartola de BancoEstado (.xlsx), histórica o en línea, de la cuenta corriente o de la chequera. Sus abonos siguen pasando a Ventas B2B → Conciliación.\n• El reporte de liberaciones de Mercado Pago (.csv).\nSubir el mismo archivo dos veces no repite nada: cada documento se reconoce por RUT, tipo y folio, y cada movimiento por su línea exacta. Si la misma salida ya llegó en otra cartola (por ejemplo la en línea y después la histórica), no se guarda otra vez.\nLas guías de despacho no entran (no son compras: cuenta su factura).';
 const TXT_BANDEJA = 'A la izquierda, lo que se debe: los documentos de compra desde el inicio del sistema. A la derecha, lo que salió: los movimientos de cada cuenta.\nEn la Etapa 2 la Bandeja propone qué documento va con qué movimiento, y se confirma con un toque.\nLos traspasos entre cuentas propias (por ejemplo, el retiro de Mercado Pago a BancoEstado) no son gasto: se muestran aparte.';
-const TXT_ANTERIOR = 'Facturas del mes anterior al inicio del sistema. Si se pagan desde el inicio en adelante, son "deuda anterior": su pago no cuenta como gasto del mes nuevo.\nNo aparecen en la Bandeja: en la Etapa 2, cuando un movimiento no encuentra su documento, el sistema las busca aquí.';
-const TXT_INICIO = 'Gastos parte desde cero. Lo anterior a esta fecha no entra (solo las facturas del mes anterior, como deuda anterior). El Gastos anterior no se borró: sus datos siguen guardados en la base.';
+const TXT_ANTERIOR = 'Facturas anteriores al inicio del sistema (hasta un año antes). Si se pagan desde el inicio en adelante, son "deuda anterior": su pago no cuenta como gasto del mes nuevo.\nNo aparecen en la Bandeja: en la Etapa 2, cuando un movimiento no encuentra su documento, el sistema las busca aquí.';
+const TXT_INICIO = 'Gastos parte desde cero. Lo anterior a esta fecha no entra, salvo las facturas, que quedan aparte como deuda anterior. El Gastos anterior no se borró: sus datos siguen guardados en la base.';
 
 function cab(H, tab) {
   return `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Lo que se debe y lo que salió, desde el ${H.esc(fechaLarga(INICIO()))} ${H.info('Desde cero', TXT_INICIO)}</p></div>
@@ -76,7 +76,7 @@ function bandejaHtml(H) {
       <div class="gn-lados">
         <div class="gn-lado"><div class="gn-lado-t">Documentos · ${B.docs.length} · ${H.pesos(B.totalDocs)}</div>
           ${B.docs.length ? B.docs.map(docFila).join('') : `<div class="vacio">${vacioD}</div>`}
-          ${B.anteriores.length ? `<details class="gn-det"><summary>${B.anteriores.length} ${B.anteriores.length === 1 ? 'factura' : 'facturas'} del mes anterior, como deuda anterior ${H.info('Deuda anterior', TXT_ANTERIOR)}</summary>${B.anteriores.map(docFila).join('')}</details>` : ''}</div>
+          ${B.anteriores.length ? `<details class="gn-det"><summary>${B.anteriores.length} ${B.anteriores.length === 1 ? 'factura anterior' : 'facturas anteriores'} al inicio, como deuda anterior ${H.info('Deuda anterior', TXT_ANTERIOR)}</summary>${B.anteriores.map(docFila).join('')}</details>` : ''}</div>
         <div class="gn-lado"><div class="gn-lado-t">Movimientos · ${B.movs.length} · ${H.pesos(B.totalMovs)}</div>
           ${cuentas.length > 2 ? `<div class="gn-filtro" role="group" aria-label="Cuenta">${cuentas.map(([k, t]) => `<button type="button" class="chip ${st.cuenta === k ? 'c-verde' : 'c-gris'}" data-gn-cuenta="${k}" aria-pressed="${st.cuenta === k}">${H.esc(t)}</button>`).join('')}</div>` : ''}
           ${B.movs.length ? B.movs.map(movFila).join('') : `<div class="vacio">${vacioM}</div>`}

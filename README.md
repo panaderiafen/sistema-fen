@@ -1,9 +1,19 @@
-# Sistema Fën · v0.90.2
+# Sistema Fën · v0.90.3
 
-**App:** v0.90.2 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.90.3 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.90.3: la deuda anterior incluye las facturas de agosto
+
+- Antes, solo las facturas del mes anterior al inicio (septiembre) quedaban como **deuda anterior**; las más antiguas no entraban. Pero el Registro de Compras de septiembre trae facturas con fecha de agosto que se pagan en octubre o después.
+- Ahora queda como deuda anterior **todo lo de hasta un año antes del inicio**. Igual que antes, no aparece en la Bandeja: queda aparte, para cuando un pago la necesite.
+- Lo de hace más de un año sigue sin entrar.
+Cambian `gn-modelo.js`, `vista-gn.js`, `config.js` y este README; los demás, solo la versión (`?v=0.90.3`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.90.3.
+- [ ] Volver a subir el RCV de septiembre: dice "… anteriores al inicio (deuda anterior)" con las de agosto que antes quedaron fuera (lo demás, "ya estaban").
 
 ## Novedades de la v0.90.2: el Registro de Compras (RCV) y el XML se completan
 
