@@ -1,9 +1,18 @@
-# Sistema Fën · v0.81.4
+# Sistema Fën · v0.81.5
 
-**App:** v0.81.4 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.81.5 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.81.5: se ve qué está elegido y qué está abierto
+
+- "Buscar en Gastos": el gasto elegido con "Es este gasto" queda con borde y fondo verdes y dice "Elegido: confírmalo abajo".
+- Un cargo abierto (derecha): su fila con un verde más intenso y su contenido con el verde claro, para no confundirlo con los demás.
+- El gasto destacado por su cargo (izquierda): un amarillo un poco más intenso, en toda la fila.
+Cambian `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.81.5`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.81.5.
 
 ## Novedades de la v0.81.4: "Es este gasto" fuera de la ventana de fechas
 

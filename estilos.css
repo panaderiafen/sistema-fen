@@ -2658,3 +2658,16 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 @keyframes bu-destello { 0% { box-shadow: 0 0 0 3px var(--acento); } 100% { box-shadow: 0 0 0 0 transparent; } }
 .bu-destello { animation: bu-destello 1.6s ease-out 1; }
 @media (prefers-reduced-motion: reduce) { .bu-destello { animation: none; outline: 2px solid var(--acento); } }
+/* v0.81.5 · Lo elegido y lo abierto se distinguen mejor */
+/* "Buscar en Gastos": el gasto elegido */
+.bj-card[data-bj-elegida] { border-color: var(--acento); background: var(--acento-suave); box-shadow: inset 4px 0 0 var(--acento); }
+.bj-elegido { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--acento); }
+/* Un cargo (o abono) abierto: la fila con un verde más intenso y su contenido con el verde claro */
+.bj-lista details.mov[open] > summary.fila-caja, .bj-lista details.mov[open].bu-par > summary.fila-caja { background: #C7DACB; box-shadow: inset 4px 0 0 var(--acento); }
+.bj-lista details.mov[open] > .bj-det { background: var(--acento-suave); }
+.bj-lista details.mov[open] > .bj-det .bj-card, .bj-lista details.mov[open] > .bj-det .bj-buscar { background: var(--tarjeta); }
+.bj-lista details.mov[open] > .bj-det .bj-card[data-bj-elegida], .bj-card[data-bj-elegida] { border-color: var(--acento); background: #C7DACB; box-shadow: inset 4px 0 0 var(--acento); }
+@media (max-width: 1023px) { .bj-lista details.mov[open] > summary.fila-caja { background: #C7DACB; } }
+/* El gasto destacado por su cargo (izquierda): un amarillo un poco más intenso, en toda la fila */
+.bu-item.bu-par:not(.bu-sel) > .bu-fila { background: #FBE6B0; box-shadow: inset 4px 0 0 var(--amarillo-t); }
+.bj-lista details.mov.bu-par:not([open]) > summary.fila-caja { background: #FBE6B0; box-shadow: inset 4px 0 0 var(--amarillo-t); }
