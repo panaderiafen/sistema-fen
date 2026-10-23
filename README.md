@@ -1,10 +1,30 @@
-# Sistema Fën · v0.80.2
+# Sistema Fën · v0.80.3
 
-**App:** v0.80.2 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.80.3 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
 
+## Novedades de la v0.80.3: informe "Gastos sin cargo" (solo lee)
+
+En **Gastos → Bandeja**, arriba, el botón **"Revisar gastos sin cargo (N)"** abre un informe de los gastos que esperan su cargo del banco. **No cambia nada**: usa lo que ya está en la memoria (0 lecturas, 0 escrituras). Para cada gasto revisa todas las cartolas subidas y todos los gastos registrados, y lo pone en un grupo:
+
+1. **Su cargo está por revisar en la cartola:** hay un cargo del mismo monto sin revisar.
+2. **Posible repetido:** otro gasto con el mismo folio del mismo proveedor (también el escrito en la observación, "F.579485"), o el mismo monto con fechas a 10 días o menos; o su cargo creó un gasto nuevo. Dice si el otro tiene su cargo.
+3. **Su cargo se usó para otra cosa:** un cargo del mismo monto (10 días antes a 60 después) que quedó resuelto de otra forma (dice cómo: "No es gasto", pagó un vencimiento, Previred…).
+4. **Varios gastos suman un cargo:** un pago del banco por varias facturas del mismo proveedor (hasta 4).
+5. **Sin cargo en el banco (ya debió llegar):** la cartola cubre su fecha y no hay nada: efectivo, tarjeta, otra cuenta (Mercado Pago) o plata personal.
+6. **Todavía puede llegar:** su fecha es posterior a la última cartola.
+
+**"Descargar (Excel)"** baja el informe en CSV. Queda anotado en el historial que se revisó.
+
+- **Este paquete trae solo los 68 archivos que cambian** (todos a la raíz del repo **sistema-fen**, en una sola tanda). Nuevo: `revision-sin-cargo-modelo.js`. Cambian `app.js` (el botón y la ventana), `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.80.3`). `cocina/` no cambia.
+
+### Lista de verificación v0.80.3
+- [ ] Subir los archivos al repo **sistema-fen** ("Commit changes") y esperar que termine Actions.
+- [ ] Abrir Sistema Fën con Cmd + Shift + R; abajo del menú dice v0.80.3.
+- [ ] Gastos → Bandeja → "Revisar gastos sin cargo": ver cuántos hay en cada grupo y descargar el Excel.
+- [ ] Contarme los números de cada grupo (no hay que arreglar nada todavía).
 ## Novedades de la v0.80.2: encuadrar la foto y descripción completa en las listas de precios
 
 1. **Encuadrar la foto** (Catálogo → Productos → Cambiar → "Foto y ficha para las listas de precios"): el marco de la foto tiene ahora la **misma forma que la foto en la tarjeta del PDF**. Se **arrastra** la foto (mouse o dedo) para elegir qué parte se ve, la **barra** la acerca (hasta 3 veces) y **"Centrar"** la deja como al principio. Con el teclado: flechas para mover, + y - para acercar. Se guarda con "Guardar cambios" y **no vuelve a subir la foto** (1 escritura). Una foto nueva parte centrada.

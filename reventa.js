@@ -6,10 +6,10 @@
 //  "Traer reventa de la planilla" lee la lista publicada (CSV, no cuesta lecturas de Firestore) y los vínculos de Finanzas (memoria).
 //  Escrituras: 1 por reventa creada, cambiada, archivada o reactivada (+1 de cat_config al importar).
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.80.2';
-import * as GB from './gastos-base.js?v=0.80.2';
-import * as FB from './fs-gastos.js?v=0.80.2';
-import * as RV from './reventa-modelo.js?v=0.80.2';
+import { auth } from './firebase.js?v=0.80.3';
+import * as GB from './gastos-base.js?v=0.80.3';
+import * as FB from './fs-gastos.js?v=0.80.3';
+import * as RV from './reventa-modelo.js?v=0.80.3';
 
 const yo = () => (auth.currentUser && auth.currentUser.email) || '';
 async function dbG() { const cx = await GB.conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base de Gastos y Finanzas (Gastos → Configuración → Base nueva): la reventa se guarda ahí.'); return cx.db; }
@@ -63,7 +63,7 @@ export async function archivar(id, archivar = true) {
 }
 // "Traer reventa de la planilla": lo que hay en la lista publicada con código de área REV, con su costo si un vínculo de Finanzas lo tiene
 export async function prepararImportacion(lista) {
-  const [Aj, F] = await Promise.all([import('./ajustes.js?v=0.80.2'), import('./finanzas.js?v=0.80.2')]);
+  const [Aj, F] = await Promise.all([import('./ajustes.js?v=0.80.3'), import('./finanzas.js?v=0.80.3')]);
   let filas;
   try { filas = await Aj.leerRecetasProduccion(); } catch (e) { throw new Error('No se pudo leer la lista publicada de la planilla (' + (e.message || e) + '). Revisa internet y vuelve a intentar.'); }
   const [vinc, cat] = await Promise.all([F.leerVinculos().catch(() => ({})), F.catalogosVenta().catch(() => ({ caja: {}, b2b: {} }))]);

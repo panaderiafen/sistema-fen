@@ -2627,3 +2627,18 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .pr-pend-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
 .cat-acc .btn { display: inline-flex; align-items: center; gap: 6px; }
 .fin-pend-chip { white-space: nowrap; }
+
+/* v0.80.3 · Informe "Gastos sin cargo" (Bandeja) */
+.bu-informe { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.isc-dlg.dialogo-ancho { width: min(820px, calc(100vw - 32px)); }
+.isc-resumen { list-style: none; margin: 10px 0 14px; padding: 0; border-top: 1px solid var(--linea); }
+.isc-resumen li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--linea); font-size: 14px; }
+.isc-resumen li span { color: var(--suave); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.isc-grupo { border: 1px solid var(--linea); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; background: var(--tarjeta); }
+.isc-grupo summary { cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.isc-lista { list-style: none; margin: 8px 0 0; padding: 0; }
+.isc-fila { padding: 10px 0; border-top: 1px solid var(--linea); min-width: 0; }
+.isc-cab { display: flex; justify-content: space-between; gap: 12px; }
+.isc-cab b { min-width: 0; overflow-wrap: anywhere; }
+.isc-cab span { white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; }
+.isc-hall { margin: 6px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
