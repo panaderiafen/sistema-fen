@@ -15,7 +15,7 @@
 //   · gasto ↔ cargo del banco: la propuesta de la Bandeja para ese cargo (o, sin propuesta, el mismo monto en su ventana).
 //  Todo lo unido por alguno de esos campos es UN ítem (aunque esté en tres colecciones).
 // ═══════════════════════════════════════════════
-import { VENTANAS, claveFactura } from './gastos-banco.js?v=0.81.7';
+import { VENTANAS, claveFactura } from './gastos-banco.js?v=0.82.0';
 
 const s = v => String(v == null ? '' : v);
 const n = v => Number(v) || 0;
@@ -90,9 +90,11 @@ function uniones() {
 export const desdeMesAnterior = hoy => { const [y, m] = dia(hoy).split('-').map(Number); if (!y) return '9999-99-99'; const d = new Date(Date.UTC(y, m - 2, 1)); return d.toISOString().slice(0, 10); };
 export function armar(E = {}) {
   const hoy = dia(E.hoy) || '0000-00-00', U = uniones(), cosas = [];
+  // v0.82.0 · Inicio del sistema: lo anterior no se pide (salvo lo que todavía se debe: vencimientos y facturas del SII esperando su pago)
+  const ini = dia(E.inicio) || '0000-00-00', antes = f => !!(dia(f) && dia(f) < ini);
   const add = (tipo, x, claves) => { const ks = claves.filter(Boolean); const c = { tipo, x, claves: ks, nodo: tipo + '#' + cosas.length }; cosas.push(c); U.nodo(c.nodo); ks.forEach(k => U.unir(c.nodo, k)); return c; };
   // Documentos del SII por clasificar (las notas de crédito no van solas: se descuentan de su factura)
-  (E.siiPendientes || []).forEach(v => { if (v.esNC || !(n(v.total) > 0)) return; add('sii', v, ['s:' + v.id, kF(v.rut, v.folio), kFR(v.folio, v.razonSocial)]); });
+  (E.siiPendientes || []).forEach(v => { if (v.esNC || !(n(v.total) > 0) || antes(v.fecha)) return; add('sii', v, ['s:' + v.id, kF(v.rut, v.folio), kFR(v.folio, v.razonSocial)]); });
   // Vencimientos abiertos
   (E.vencimientos || []).forEach(v => {
     const nf = nombreFolio(v.nombre), folio = s(v.folio) || (nf ? nf.folio : ''), razon = s(v.razon) || (nf ? nf.razon : '');
@@ -103,6 +105,7 @@ export function armar(E = {}) {
   const sinBancoYa = new Set((E.registrados || []).filter(r => r.tipo === 'gasto' && ['efectivo', 'tarjeta', 'mercadopago', 'personal'].includes(r.estado)).flatMap(r => r.ids || []));
   (E.gastos || []).forEach(g => {
     if (!(g.monto > 0) || g.clase === 'efectivo') return;
+    if (antes(g.fecha) && g.clase !== 'sii') return;   // v0.82.0: pagado antes del inicio (sin su cargo): no se pide
     if ((g.filas || []).length && g.filas.every(f => sinBancoYa.has(s(f.id || f.fila)))) return;
     const vent = (VENTANAS[g.clase] || VENTANAS.contado)[1];
     // v0.81.0 · Lo del mes pasado y de este no sale solo de la Bandeja (aunque pase su ventana): espera que digas qué pasó
@@ -113,12 +116,13 @@ export function armar(E = {}) {
   (E.planillas || []).forEach(p => {
     if (p.vencAbierto || p.conciliada || !(n(p.total) > 0)) return;
     const ref = dia(p.fechaPago) || (s(p.periodo) + '-28');
-    if (!(diasEntre(ref, hoy) <= 60)) return;
+    if (!(diasEntre(ref, hoy) <= 60) || antes(ref)) return;
     add('planilla', p, ['pl:' + p.periodo, p.vencimientoId ? 'v:' + p.vencimientoId : '']);
   });
   // Pagos sin banco
   const sinB = Array.isArray(E.sinBanco) ? E.sinBanco : [];
   sinB.forEach(x => {
+    if (antes(x.fecha) && !x.saldo) return;   // v0.82.0
     const ks = (x.gastos || []).map(id => 'g:' + id);
     if (x.saldo) ks.push('v:' + x.vencId);
     else if (/^f:/.test(s(x.docId))) ks.push(s(x.docId));
@@ -145,7 +149,7 @@ export function armar(E = {}) {
 
   // El banco: cada cargo por revisar con su ítem (la propuesta de la Bandeja; sin ella, el mismo monto en su ventana)
   const props = E.props || {}, pt = E.pt || {}, cl = E.clase || {}, alt = E.alt || {};
-  const pend = (E.cargos || []).filter(c => c.estado === 'POR_REVISAR');
+  const pend = (E.cargos || []).filter(c => c.estado === 'POR_REVISAR' && !antes(c.fecha));
   const conProps = !!E.props;
   const porCargo = {}, enlaza = (c, it, principal, valor, por) => {
     if (!it || it.grupo === 'listos') return;

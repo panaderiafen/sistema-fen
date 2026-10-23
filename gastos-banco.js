@@ -70,7 +70,7 @@ export function propuestaSePagaPor(pid, vencs, gastos) {
 
 // ── Esperan cartola (para Hoy) ──
 // vencs, plantillas, gastos: [{ id, d }] (gastos: los que tienen esperaCargo). Devuelve { vencimientos, gastos, total }
-export function esperanCartola({ vencs, plantillas, gastos, hoy, gracia = GRACIA }) {
+export function esperanCartola({ vencs, plantillas, gastos, hoy, gracia = GRACIA, inicio = '' }) {
   const mapa = mapaSePaga(plantillas);
   const vs = [];
   (vencs || []).forEach(({ id, d }) => {
@@ -88,7 +88,7 @@ export function esperanCartola({ vencs, plantillas, gastos, hoy, gracia = GRACIA
   (gastos || []).forEach(({ id, d }) => {
     if (!d || d.quitadoEnPlanilla || d.estado !== 'vigente' || d.esperaCargo !== true || ligado(d)) return;
     // El pago de un vencimiento lleva la fecha del vencimiento; lo que cuenta aquí es cuándo se pagó
-    const f = dia(d.fechaPago) || dia(d.fecha); if (!f) return;
+    const f = dia(d.fechaPago) || dia(d.fecha); if (!f || (inicio && f < inicio)) return;   // v0.82.0: lo de antes del inicio no se pide
     const k = [f, s(d.hora), s(d.observacion), s(d.urlFoto), s(d.vencimientoId)].join('|');
     let g = grupos[k];
     if (!g) { g = grupos[k] = { ids: [], fecha: f, dias: diasEntre(f, hoy), items: [], monto: 0, vencimientoId: s(d.vencimientoId), obligacion: s(d.origenDetalle && d.origenDetalle.obligacion) }; gs.push(g); }

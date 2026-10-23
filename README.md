@@ -1,9 +1,23 @@
-# Sistema Fën · v0.81.7
+# Sistema Fën · v0.82.0
 
-**App:** v0.81.7 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.82.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.82.0: el sistema empieza el 1 de octubre
+
+Acordado el 23 de octubre de 2026: **septiembre es el mes de transición** (datos de la planilla antigua y de varias versiones del sistema). No se borra nada, pero el sistema ya no lo pide:
+- **La Bandeja, el informe "Revisar gastos sin cargo" y los avisos de Hoy** dejan fuera lo de antes del 1 de octubre: gastos ya pagados sin su cargo, facturas por clasificar, cargos del banco y de Mercado Pago por revisar y las planillas de Previred anteriores.
+- **Se queda lo que todavía se debe:** vencimientos por pagar y facturas del SII que esperan su pago. Una factura de septiembre pagada en octubre se calza con su cargo como siempre ("Buscar en Gastos" la encuentra).
+- **Todo lo de septiembre sigue guardado** en Registrados, en la cartola y en Mercado Pago, para consultarlo.
+- **En Finanzas, el primer mes que se cierra es octubre** (septiembre queda sin cierre en el sistema; la referencia son los números de la contadora).
+- La Bandeja dice "Desde el 1 oct 2026" con su (i).
+- **Dónde se cambia:** `config.js` → `INICIO: '2026-10-01'`.
+Cambian `config.js`, `bandeja-gastos-modelo.js`, `gastos-cartola-fs.js`, `gastos-banco.js`, `gastos-fs.js`, `app.js`, `estilos.css` y este README; los demás, solo la versión (`?v=0.82.0`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.82.0.
+- [ ] Gastos → Bandeja: arriba dice "Desde el 1 oct 2026" y ya no aparecen los gastos pagados de septiembre.
 
 ## Novedades de la v0.81.7: "No es una compra"
 
