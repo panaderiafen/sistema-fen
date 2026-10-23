@@ -2722,3 +2722,34 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-sep { border: 0; border-top: 1px dashed currentColor; opacity: .35; margin: 8px 0; }
 .gn-cel { display: none; }
 @media (hover: none) and (pointer: coarse) { .gn-pc { display: none; } .gn-cel { display: inline; } }
+/* v0.91.0 · Gastos, Etapa 2: la Bandeja que une */
+.gn-grupo { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 18px; }
+.gn-grupo-t { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.gn-grupo-t h3 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); display: inline-flex; align-items: center; gap: 6px; }
+.gn-par { border: 1px solid var(--linea); border-radius: 14px; padding: 12px; background: var(--amarillo); display: flex; flex-direction: column; gap: 10px; }
+.gn-par-lados { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+@media (max-width: 640px) { .gn-par-lados { grid-template-columns: minmax(0, 1fr); } }
+.gn-par-l, .gn-par-r { background: var(--tarjeta); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.gn-par-l > div, .gn-par-r { font-size: 13px; overflow-wrap: anywhere; }
+.gn-par small { display: block; font-size: 12px; color: var(--suave); }
+.gn-par-pie { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.gn-par-pie .chip { color: var(--texto); }
+.gn-acc { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+.gn-cl { font-size: 12px; font-weight: 600; color: var(--verde-t); }
+.gn-cl-falta { color: var(--amarillo-t); }
+.gn-sug { font-size: 12px; color: var(--suave); flex-basis: 100%; }
+.gn-listos { margin-top: 14px; }
+.gn-opcs { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; padding-right: 2px; }
+.gn-opc { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--linea); border-radius: 12px; padding: 9px 11px; cursor: pointer; background: var(--tarjeta); }
+.gn-opc:has(input:checked) { border-color: var(--acento); background: var(--acento-suave); }
+.gn-opc input { margin-top: 3px; accent-color: var(--acento); }
+.gn-opc > span { flex: 1; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.gn-opc small { display: block; font-size: 12px; color: var(--suave); }
+.gn-pcts { display: flex; flex-wrap: wrap; gap: 8px; }
+.gn-pct { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+.gn-pct input { width: 72px; min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--borde); background: var(--tarjeta); }
+.gn-check { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.gn-check input { accent-color: var(--acento); width: 18px; height: 18px; }
+.gn-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 480px) { .gn-dos { grid-template-columns: 1fr; } }
+.form-dialogo input[type=search] { min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--borde); background: var(--tarjeta); }

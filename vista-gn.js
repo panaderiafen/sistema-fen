@@ -7,13 +7,15 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.90.3';
-import * as Sii from './sii.js?v=0.90.3';
-import * as MP from './mercadopago.js?v=0.90.3';
+import * as GN from './gn-modelo.js?v=0.91.0';
+import * as GB from './gn-bandeja.js?v=0.91.0';
+import * as AR from './areas.js?v=0.91.0';
+import * as Sii from './sii.js?v=0.91.0';
+import * as MP from './mercadopago.js?v=0.91.0';
 
-const st = { D: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false };
+const st = { D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, noEsEste: new Set(), ocupado: false };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.90.3');
+const fsGN = () => import('./gn-fs.js?v=0.91.0');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -23,7 +25,7 @@ const TABS = [['bandeja', '', 'Bandeja'], ['cargas', 'cargas', 'Archivos subidos
 const hashDe = t => '#gastos' + (t === 'cargas' ? '/cargas' : '');
 const TXT_SUBIR = 'Sirven:\n• Las compras del SII: el XML de documentos recibidos, el Registro de Compras (.csv) o los Documentos recibidos (.xls).\n• La cartola de BancoEstado (.xlsx), histórica o en línea, de la cuenta corriente o de la chequera. Sus abonos siguen pasando a Ventas B2B → Conciliación.\n• El reporte de liberaciones de Mercado Pago (.csv).\nSubir el mismo archivo dos veces no repite nada: cada documento se reconoce por RUT, tipo y folio, y cada movimiento por su línea exacta. Si la misma salida ya llegó en otra cartola (por ejemplo la en línea y después la histórica), no se guarda otra vez.\nLas guías de despacho no entran (no son compras: cuenta su factura).';
 const TXT_BANDEJA = 'A la izquierda, lo que se debe: los documentos de compra desde el inicio del sistema. A la derecha, lo que salió: los movimientos de cada cuenta.\nEn la Etapa 2 la Bandeja propone qué documento va con qué movimiento, y se confirma con un toque.\nLos traspasos entre cuentas propias (por ejemplo, el retiro de Mercado Pago a BancoEstado) no son gasto: se muestran aparte.';
-const TXT_ANTERIOR = 'Facturas anteriores al inicio del sistema (hasta un año antes). Si se pagan desde el inicio en adelante, son "deuda anterior": su pago no cuenta como gasto del mes nuevo.\nNo aparecen en la Bandeja: en la Etapa 2, cuando un movimiento no encuentra su documento, el sistema las busca aquí.';
+const TXT_ANTERIOR = 'Facturas anteriores al inicio del sistema (hasta un año antes). Si se pagan desde el inicio en adelante, son "deuda anterior": su pago no cuenta como gasto del mes nuevo.\n"Es de este documento" (en un movimiento) también las busca. Las que tienen el mismo monto que un cargo aparecen solas en Para confirmar.';
 const TXT_INICIO = 'Gastos parte desde cero. Lo anterior a esta fecha no entra, salvo las facturas, que quedan aparte como deuda anterior. El Gastos anterior no se borró: sus datos siguen guardados en la base.';
 
 function cab(H, tab) {
@@ -59,29 +61,56 @@ export async function pintar(el, sub, H) {
 const enGastos = () => (location.hash || '').replace('#', '').split('/')[0] === 'gastos';
 const subActual = () => ((location.hash || '').split('/')[1] || '');
 
-// ── Bandeja (Etapa 1: los dos lados) ──
+// ── Bandeja (v0.91.0 · Etapa 2: une cada documento con su pago) ──
+const TXT_PARES = 'El documento y el movimiento del mismo monto, con la fecha del pago entre 20 días antes y 60 días después del documento.\nPrimero los que además tienen el RUT o el nombre del proveedor en la glosa del banco. "Varios documentos" es un pago que cubre facturas (y notas de crédito) del mismo proveedor.\nConfirmar crea el pago. Se puede deshacer en "Listos".';
+const TXT_CLASIF = 'Cada documento necesita su ítem y su reparto por área. Lo que elija queda recordado en el proveedor: sus próximas facturas llegan clasificadas.\n"Sugerido" viene del Gastos anterior: es solo una propuesta; nada se copia hasta que usted la usa.';
+const TXT_SINPAGO = 'Lo que se debe y todavía no tiene su pago. Si se pagó por el banco y el cargo ya llegó, use "¿Cómo se pagó?" → Con un cargo. Si se pagó en efectivo o con su plata, ahí mismo.\n"Esto no va": un documento repetido, que no es de la empresa o que no es una compra. No se borra.';
+const TXT_SINDOC = 'Lo que salió de las cuentas y todavía no tiene su documento. "Es de este documento" lo une con una factura (también con la deuda anterior). "Registrar a mano": una boleta en papel o un pago sin documento. "No es gasto": traspaso entre sus cuentas, retiro suyo o pago de la tarjeta de crédito.';
+const kPar = p => p.movId + '|' + p.docIds.join(',');
+const POR_TXT = { rut: 'mismo monto y RUT en la glosa', nombre: 'mismo monto y nombre en la glosa', monto: 'mismo monto', varios: 'varios documentos del mismo proveedor' };
 function bandejaHtml(H) {
-  const D = st.D, B = GN.bandeja(D.docs, D.movs, { cuenta: st.cuenta }), cob = GN.cobertura(D.movs, D.cargas);
+  const D = st.D, cob = GN.cobertura(D.movs, D.cargas);
+  const B = st.B = GB.armar(D, { cuenta: st.cuenta, excluir: st.noEsEste }), pares = B.pares;
+  const docDe = id => B.docs.find(d => d.id === id), movDe = id => B.movs.find(m => m.id === id);
   const cuentas = [['', 'Todas'], ...cob.map(c => [c.cuenta, c.nombre])];
-  const docFila = d => `<div class="gn-it${d.nc ? ' gn-nc' : ''}"><div class="gn-fila"><b>${H.esc(d.razon || d.rut)}</b><span class="gn-m">${H.pesos(d.total)}</span></div>
-      <small>${H.esc(d.tipoTexto)} N° ${H.esc(d.folio)} · ${H.esc(H.diaTexto(d.fecha))}${d.vence && d.vence !== d.fecha ? ` · vence ${H.esc(H.diaTexto(d.vence))}` : ''}${d.nc && d.referencias && d.referencias.length ? ` · corrige la N° ${H.esc(d.referencias.map(r => r.folio).join(', '))}` : ''}${d.formato === 'registro' && !(d.detalle || []).length ? ' · sin detalle (Registro de Compras)' : ''}</small></div>`;
-  const movFila = m => `<div class="gn-it"><div class="gn-fila"><b>${H.esc(m.glosa)}</b><span class="gn-m">${H.pesos(m.monto)}</span></div>
-      <small>${H.esc(GN.CUENTAS[m.cuenta] || m.cuenta)} · ${H.esc(H.diaTexto(m.fecha))}${m.hora ? ' ' + H.esc(m.hora) : ''}</small></div>`;
-  const vacioD = D.docs.length ? 'No hay documentos desde el inicio.' : 'Todavía no hay documentos. Suba las compras del SII con "Subir archivo".';
-  const vacioM = D.movs.length ? 'No hay movimientos de esta cuenta.' : 'Todavía no hay movimientos. Suba la cartola de BancoEstado o el reporte de Mercado Pago.';
+  const nombreDoc = d => H.esc(d.razon || d.rut || 'Sin nombre');
+  const lineaDoc = d => `${H.esc(d.tipoTexto)}${d.folio ? ' N° ' + H.esc(d.folio) : ''} · ${H.esc(H.diaTexto(d.fecha))}${d.vence && d.vence !== d.fecha ? ` · vence ${H.esc(H.diaTexto(d.vence))}` : ''}${d.nc && (d.referencias || []).length ? ` · corrige la N° ${H.esc(d.referencias.map(r => r.folio).join(', '))}` : ''}${d.anterior ? ' · deuda anterior' : ''}${d.formato === 'registro' && !(d.detalle || []).length ? ' · sin detalle' : ''}`;
+  const clasTxt = d => (d.clasifEf ? `<span class="gn-cl">${H.esc(d.clasifEf.item)} · ${H.esc(GB.textoReparto(d.clasifEf.areas))}</span>` : '<span class="gn-cl gn-cl-falta">Sin clasificar</span>');
+  const docFila = (d, acc) => `<div class="gn-it${d.nc ? ' gn-nc' : ''}" data-gn-doc="${H.esc(d.id)}"><div class="gn-fila"><b>${nombreDoc(d)}</b><span class="gn-m">${H.pesos(d.estadoPago === 'a_medias' ? d.saldo : d.total)}</span></div>
+      <small>${lineaDoc(d)}${d.estadoPago === 'a_medias' ? ` · falta de ${H.pesos(d.total)}` : ''}</small>${clasTxt(d)}${acc ? `<div class="gn-acc">${acc}</div>` : ''}</div>`;
+  const movFila = (m, acc) => `<div class="gn-it" data-gn-mov="${H.esc(m.id)}"><div class="gn-fila"><b>${H.esc(m.glosa)}</b><span class="gn-m">${H.pesos(m.libre > 0 && m.libre !== m.monto ? m.libre : m.monto)}</span></div>
+      <small>${H.esc(GN.CUENTAS[m.cuenta] || m.cuenta)} · ${H.esc(H.diaTexto(m.fecha))}${m.hora ? ' ' + H.esc(m.hora) : ''}${m.libre > 0 && m.libre !== m.monto ? ` · queda libre de ${H.pesos(m.monto)}` : ''}${m.naturaleza ? ' · ' + H.esc(GB.NO_GASTO[m.naturaleza] || m.naturaleza) : ''}</small>${acc ? `<div class="gn-acc">${acc}</div>` : ''}</div>`;
+  const bt = (attr, txt, pri) => `<button type="button" class="${pri ? 'btn btn-chico' : 'btn-sec btn-chico'}" ${attr}>${txt}</button>`;
+  const accDoc = d => d.nc ? bt(`data-gn-nc="${H.esc(d.id)}"`, 'Descontar de su factura', true) + bt(`data-gn-nova="${H.esc(d.id)}"`, 'Esto no va')
+    : bt(`data-gn-como="${H.esc(d.id)}"`, '¿Cómo se pagó?', true) + (d.clasifEf ? bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Cambiar clasificación') : '') + bt(`data-gn-nova="${H.esc(d.id)}"`, 'Esto no va');
+  const accMov = m => bt(`data-gn-esde="${H.esc(m.id)}"`, 'Es de este documento', true) + bt(`data-gn-mano="${H.esc(m.id)}"`, 'Registrar a mano') + bt(`data-gn-nogasto="${H.esc(m.id)}"`, 'No es gasto');
+  const parHtml = p => { const m = movDe(p.movId), ds = p.docIds.map(docDe).filter(Boolean);
+    return `<div class="gn-par" data-gn-par="${H.esc(kPar(p))}"><div class="gn-par-lados"><div class="gn-par-l">${ds.map(d => `<div><b>${nombreDoc(d)}</b> <span class="gn-m">${H.pesos(d.saldo)}</span><small>${lineaDoc(d)}</small></div>`).join('')}</div>
+      <div class="gn-par-r"><b>${H.esc(m.glosa)}</b> <span class="gn-m">${H.pesos(m.libre)}</span><small>${H.esc(GN.CUENTAS[m.cuenta] || m.cuenta)} · ${H.esc(H.diaTexto(m.fecha))}</small></div></div>
+      <div class="gn-par-pie"><span class="chip ${p.por === 'monto' ? 'c-gris' : 'c-verde'} chip-chico">${POR_TXT[p.por]}${p.dif ? ` · diferencia de ${H.pesos(Math.abs(p.dif))}` : ''}</span><div class="gn-acc">${bt(`data-gn-confirmar="${H.esc(kPar(p))}"`, 'Confirmar', true)}${bt(`data-gn-noeseste="${H.esc(kPar(p))}"`, 'No es este')}</div></div></div>`; };
+  const seguros = pares.filter(p => p.por !== 'monto');
+  const clasifHtml = d => docFila(d, d.sugerida && d.sugerida.areas.length ? `<span class="gn-sug">Sugerido: ${H.esc(d.sugerida.item)}${d.sugerida.areas.length ? ' · ' + H.esc(GB.textoReparto(d.sugerida.areas)) : ''}</span>${bt(`data-gn-usar="${H.esc(d.id)}"`, 'Usar esta', true)}${bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Otra')}` : bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar', true));
+  const listos = B.listosD.slice(0, 60);
+  const pagoTxt = p => p.movId ? `${H.esc(GN.CUENTAS[p.cuenta] || p.cuenta || 'Banco')} ${H.esc(H.diaTexto(p.fecha))}` : `${H.esc((p.medio === 'nc' ? 'Nota de crédito' : GB.MEDIOS[p.medio] || p.medio))} ${H.esc(H.diaTexto(p.fecha))}`;
+  const listoHtml = d => docFila(d, d.estado === 'no_va' ? `<span class="gn-sug">Esto no va: ${H.esc(GB.MOTIVOS_NO_VA[(d.noVa || {}).motivo] || '')}${(d.noVa || {}).nota ? ' · ' + H.esc(d.noVa.nota) : ''}</span>${bt(`data-gn-volverdoc="${H.esc(d.id)}"`, 'Volver a la Bandeja')}`
+    : d.pagos.map(p => `<span class="gn-sug">Pagado: ${H.pesos(p.monto)} · ${pagoTxt(p)}</span>${bt(`data-gn-deshacer="${H.esc(p.id)}"`, 'Deshacer')}`).join(''));
   return `<section class="tarjeta" aria-labelledby="t-gn-cob"><div class="titulo-fila"><h2 id="t-gn-cob">Hasta dónde llega cada cuenta</h2></div>
       ${cob.length ? `<div class="gn-cob">${cob.map(c => `<div class="gn-cob-c"><b>${H.esc(c.nombre)}</b><span>${H.esc(H.diaTexto(c.desde))} al ${H.esc(H.diaTexto(c.hasta))} · ${c.n} ${c.n === 1 ? 'movimiento' : 'movimientos'}</span></div>`).join('')}</div>` : '<p class="ayuda">Todavía no se sube ninguna cartola.</p>'}</section>
-    <section class="tarjeta" aria-labelledby="t-gn-bandeja"><div class="titulo-fila"><h2 id="t-gn-bandeja">Bandeja ${H.info('Bandeja', TXT_BANDEJA)}</h2></div>
-      <p class="nota-i">(i) Etapa 1: aquí se ve lo cargado. Unir cada documento con su pago llega en la Etapa 2.</p>
+    <section class="tarjeta" aria-labelledby="t-gn-bandeja"><div class="titulo-fila"><h2 id="t-gn-bandeja">Bandeja</h2><span>${pares.length + B.n.clasificar + B.n.sinPago + B.n.sinDoc} por hacer</span></div>
+      ${cuentas.length > 2 ? `<div class="gn-filtro" role="group" aria-label="Cuenta">${cuentas.map(([k, t]) => `<button type="button" class="chip ${st.cuenta === k ? 'c-verde' : 'c-gris'}" data-gn-cuenta="${k}" aria-pressed="${st.cuenta === k}">${H.esc(t)}</button>`).join('')}</div>` : ''}
+      <div class="gn-grupo" id="gn-pares"><div class="gn-grupo-t"><h3>Para confirmar · ${pares.length} ${H.info('Para confirmar', TXT_PARES)}</h3>${seguros.length > 1 ? bt('data-gn-confirmar-seguros', `Confirmar los ${seguros.length} con RUT o nombre`) : ''}</div>
+        ${pares.length ? pares.map(parHtml).join('') : '<div class="vacio">Nada por confirmar.</div>'}</div>
+      ${B.porClasificar.length ? `<div class="gn-grupo" id="gn-clasificar"><div class="gn-grupo-t"><h3>Por clasificar · ${B.porClasificar.length} ${H.info('Por clasificar', TXT_CLASIF)}</h3>${B.porClasificar.filter(d => d.sugerida && d.sugerida.areas.length).length > 1 ? bt('data-gn-usar-todas', `Usar las ${B.porClasificar.filter(d => d.sugerida && d.sugerida.areas.length).length} sugeridas`) : ''}</div>${B.porClasificar.map(clasifHtml).join('')}</div>` : ''}
       <div class="gn-lados">
-        <div class="gn-lado"><div class="gn-lado-t">Documentos · ${B.docs.length} · ${H.pesos(B.totalDocs)}</div>
-          ${B.docs.length ? B.docs.map(docFila).join('') : `<div class="vacio">${vacioD}</div>`}
-          ${B.anteriores.length ? `<details class="gn-det"><summary>${B.anteriores.length} ${B.anteriores.length === 1 ? 'factura anterior' : 'facturas anteriores'} al inicio, como deuda anterior ${H.info('Deuda anterior', TXT_ANTERIOR)}</summary>${B.anteriores.map(docFila).join('')}</details>` : ''}</div>
-        <div class="gn-lado"><div class="gn-lado-t">Movimientos · ${B.movs.length} · ${H.pesos(B.totalMovs)}</div>
-          ${cuentas.length > 2 ? `<div class="gn-filtro" role="group" aria-label="Cuenta">${cuentas.map(([k, t]) => `<button type="button" class="chip ${st.cuenta === k ? 'c-verde' : 'c-gris'}" data-gn-cuenta="${k}" aria-pressed="${st.cuenta === k}">${H.esc(t)}</button>`).join('')}</div>` : ''}
-          ${B.movs.length ? B.movs.map(movFila).join('') : `<div class="vacio">${vacioM}</div>`}
-          ${B.traspasos.length ? `<details class="gn-det"><summary>${B.traspasos.length} ${B.traspasos.length === 1 ? 'traspaso' : 'traspasos'} entre cuentas propias (no son gasto)</summary>${B.traspasos.map(movFila).join('')}</details>` : ''}</div>
-      </div></section>`;
+        <div class="gn-lado"><div class="gn-lado-t">Documentos sin pago · ${B.sinPago.length} ${H.info('Documentos sin pago', TXT_SINPAGO)}</div>
+          ${B.sinPago.length ? B.sinPago.map(d => docFila(d, accDoc(d))).join('') : `<div class="vacio">${D.docs.length ? 'Todos los documentos tienen su pago.' : 'Todavía no hay documentos. Suba las compras del SII.'}</div>`}
+          ${B.anteriores.length ? `<details class="gn-det"><summary>${B.anteriores.length} de deuda anterior sin pago ${H.info('Deuda anterior', TXT_ANTERIOR)}</summary>${B.anteriores.map(d => docFila(d, accDoc(d))).join('')}</details>` : ''}</div>
+        <div class="gn-lado"><div class="gn-lado-t">Movimientos sin documento · ${B.sinDoc.length} ${H.info('Movimientos sin documento', TXT_SINDOC)}</div>
+          ${B.sinDoc.length ? B.sinDoc.map(m => movFila(m, accMov(m))).join('') : `<div class="vacio">${D.movs.length ? 'Todos los movimientos tienen su documento.' : 'Todavía no hay movimientos. Suba la cartola o el reporte de Mercado Pago.'}</div>`}
+          ${B.noGasto.length ? `<details class="gn-det"><summary>${B.noGasto.length} que no son gasto (traspasos, retiros, tarjeta)</summary>${B.noGasto.map(m => movFila(m, bt(`data-gn-volvermov="${H.esc(m.id)}"`, 'Volver a la Bandeja'))).join('')}</details>` : ''}</div>
+      </div>
+      ${listos.length ? `<details class="gn-det gn-listos"><summary>Listos · ${B.listosD.length} (pagados o "esto no va")</summary>${listos.map(listoHtml).join('')}${B.listosD.length > 60 ? `<p class="ayuda">Y ${B.listosD.length - 60} más antiguos.</p>` : ''}</details>` : ''}
+    </section>`;
 }
 
 // ── Archivos subidos ──
@@ -100,6 +129,7 @@ function conectar(el, H) {
   const inp = el.querySelector('#gn-archivo');
   if (inp) inp.addEventListener('change', () => { const l = Array.from(inp.files || []); inp.value = ''; if (l.length) subir(l, el, H); });
   arrastrar(el, H);
+  acciones(el, H);
   el.querySelectorAll('[data-gn-cuenta]').forEach(b => b.addEventListener('click', () => { st.cuenta = b.dataset.gnCuenta; pintar(el, subActual(), H); }));
 }
 const repintar = (el, H) => { if (enGastos()) pintar(el, subActual(), H); };
@@ -192,4 +222,232 @@ async function subirCartola(f, wb, XLSX, H) {
   } catch (x) { ab = `<br>Abonos: no se pudieron pasar a Ventas B2B (${H.esc(x.message || H.mensajeError(x))}).`; }
   H.registrar('Gastos: cargó cartola', `${c.identificador} · ${GN.textoCarga(k)}`);
   return `<b>${H.esc(c.identificador)}</b>: ${H.esc(GN.textoCarga(k))}.${ab}`;
+}
+
+// ═══════════════ v0.91.0 · Etapa 2: acciones de la Bandeja ═══════════════
+const TXT_COMO = 'Con un cargo: el pago está en la cartola o en Mercado Pago (aparecen primero los del mismo monto y fecha cercana).\nEn efectivo: excepción; queda con su fecha y cuenta en el informe de pagos en efectivo.\nCon plata del dueño: lo pagó usted con su plata; queda como aporte del dueño, fuera del resultado, y no espera cartola.';
+const TXT_NOVA = 'Repetido: el mismo documento ya está (por ejemplo, una factura que se emitió dos veces).\nNo es de la empresa: una compra personal con el RUT de la empresa.\nNo es una compra: un documento que no es gasto.\nNo se borra: queda en Listos con el motivo, y se puede volver a la Bandeja.';
+const TXT_NOGASTO = 'Traspaso entre cuentas propias: de una cuenta de la empresa a otra (por ejemplo, de Mercado Pago a BancoEstado).\nRetiro del dueño: plata de la empresa para usted. Va fuera del resultado.\nPago de la tarjeta de crédito: lo que se paga a la tarjeta; las compras ya están en su estado de cuenta.\nNo se borra: se puede volver a la Bandeja.';
+const TXT_MANO = 'Para lo que no tiene factura del SII: una boleta en papel o un pago sin documento (por ejemplo, el maestro o la feria). Nace el documento ya pagado con este movimiento.\nEl monto puede ser menor que el movimiento si el mismo pago cubre varias cosas: lo que sobra queda libre.';
+const nombreArea = a => (AR.NOMBRE[a] ? `${AR.NOMBRE[a]} (${a})` : a);
+function aviso(el, H, txt) { st.msg = txt; st.err = ''; st.D = null; repintar(el, H); }
+function falla(dlg, e, H) { const er = dlg.querySelector('[data-err]'); if (er) er.textContent = e.message || H.mensajeError(e); const b = dlg.querySelector('[type=submit]'); if (b) b.disabled = false; }
+async function hacer(el, H, fn, ok) {
+  if (st.ocupado) return; st.ocupado = true;
+  try { await fn(); aviso(el, H, ok); } catch (e) { st.err = H.esc(e.message || H.mensajeError(e)); st.msg = ''; st.D = null; repintar(el, H); }
+  finally { st.ocupado = false; }
+}
+const B = () => st.B;
+const docDe = id => B().docs.find(d => d.id === id), movDe = id => B().movs.find(m => m.id === id);
+const nom = d => d.razon || d.rut || 'Sin nombre';
+
+function acciones(el, H) {
+  if (el.dataset.gnAcc) return;
+  el.dataset.gnAcc = '1';
+  el.addEventListener('click', ev => {
+    const b = ev.target && ev.target.closest && ev.target.closest('button'); if (!b || !enGastos() || !st.B) return;
+    const ds = b.dataset;
+    if (ds.gnConfirmar !== undefined) return confirmarPar(el, H, ds.gnConfirmar);
+    if (ds.gnConfirmarSeguros !== undefined) return confirmarSeguros(el, H);
+    if (ds.gnNoeseste) { st.noEsEste.add(ds.gnNoeseste); return repintar(el, H); }
+    if (ds.gnComo) return dlgComo(el, H, docDe(ds.gnComo));
+    if (ds.gnNova) return dlgNoVa(el, H, docDe(ds.gnNova));
+    if (ds.gnClasif) return dlgClasif(el, H, docDe(ds.gnClasif));
+    if (ds.gnUsar) { const d = docDe(ds.gnUsar); return hacer(el, H, async () => (await fsGN()).clasificar(d, d.sugerida, true), `Clasificado: ${H.esc(nom(d))} → ${H.esc(d.sugerida.item)}. Sus próximas facturas llegan así.`); }
+    if (ds.gnUsarTodas !== undefined) return usarTodas(el, H);
+    if (ds.gnNc) return dlgNC(el, H, docDe(ds.gnNc));
+    if (ds.gnEsde) return dlgEsDe(el, H, movDe(ds.gnEsde));
+    if (ds.gnMano) return dlgMano(el, H, movDe(ds.gnMano));
+    if (ds.gnNogasto) return dlgNoGasto(el, H, movDe(ds.gnNogasto));
+    if (ds.gnVolverdoc) return hacer(el, H, async () => (await fsGN()).volverDoc(ds.gnVolverdoc), 'El documento volvió a la Bandeja.');
+    if (ds.gnVolvermov) return hacer(el, H, async () => (await fsGN()).volverMov(ds.gnVolvermov), 'El movimiento volvió a la Bandeja.');
+    if (ds.gnDeshacer) return dlgDeshacer(el, H, ds.gnDeshacer);
+  });
+}
+const parDe = k => st.B.pares.find(p => p.movId + '|' + p.docIds.join(',') === k);
+async function confirmarPar(el, H, k) {
+  const p = parDe(k); if (!p) return;
+  const docs = p.docIds.map(docDe), partes = GB.repartirPago(docs, p.monto);
+  return hacer(el, H, async () => { await (await fsGN()).pagar({ partes, movId: p.movId }); H.registrar('Gastos: confirmó un pago', `${nom(docs[0])} · ${p.monto}`); }, `Pagado: ${H.esc(nom(docs[0]))}${docs.length > 1 ? ` (${docs.length} documentos)` : ''} · ${H.pesos(p.monto)}.`);
+}
+async function confirmarSeguros(el, H) {
+  const l = st.B.pares.filter(p => p.por !== 'monto' && !st.noEsEste.has(p.movId + '|' + p.docIds.join(',')));
+  return hacer(el, H, async () => { const F = await fsGN(); for (const p of l) await F.pagar({ partes: GB.repartirPago(p.docIds.map(docDe), p.monto), movId: p.movId }); H.registrar('Gastos: confirmó pagos', `${l.length} pares con RUT o nombre`); }, `Confirmados ${l.length} pagos con RUT o nombre en la glosa.`);
+}
+async function usarTodas(el, H) {
+  const l = st.B.porClasificar.filter(d => d.sugerida && d.sugerida.areas.length), hechos = new Set();
+  return hacer(el, H, async () => { const F = await fsGN(); for (const d of l) { await F.clasificar(d, d.sugerida, !hechos.has(GB.claveProveedor(d))); hechos.add(GB.claveProveedor(d)); } }, `Clasificados ${l.length} documentos con lo sugerido.`);
+}
+
+// ¿Cómo se pagó? (una sola puerta: con un cargo, en efectivo, con plata del dueño)
+function dlgComo(el, H, d) {
+  const hoy = new Date().toISOString().slice(0, 10), cand = GB.candidatosMov(d, st.B.abiertosM).slice(0, 40);
+  const opc = cand.map(({ m, igual, dentro }, i) => `<label class="gn-opc" data-txt="${H.esc(GN.norm(m.glosa + ' ' + m.monto))}"><input type="radio" name="gc-mov" value="${H.esc(m.id)}" ${i === 0 && igual && dentro ? 'checked' : ''}><span><b>${H.esc(m.glosa)}</b> <span class="gn-m">${H.pesos(m.libre)}</span><small>${H.esc(GN.CUENTAS[m.cuenta] || m.cuenta)} · ${H.esc(H.diaTexto(m.fecha))}${igual ? ' · mismo monto' : ''}${dentro ? '' : ' · fuera de la ventana de fechas'}</small></span></label>`).join('');
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>¿Cómo se pagó?</h2>${H.info('Cómo se pagó', TXT_COMO)}</div>
+    <p class="ayuda"><b>${H.esc(nom(d))}</b> · ${H.esc(d.tipoTexto)} ${H.esc(d.folio || '')} · ${H.pesos(d.saldo)} · ${H.esc(H.diaTexto(d.fecha))}</p>
+    <div class="chips" role="radiogroup" aria-label="Medio">${Object.entries(GB.MEDIOS).map(([k, t], i) => `<label class="chip-radio"><input type="radio" name="gc-medio" value="${k}" ${i === 0 ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div>
+    <div data-gc="cargo" class="gn-dlg-bloque">${cand.length ? `<input type="search" data-gn-buscar placeholder="Buscar por glosa o monto" aria-label="Buscar movimiento"><div class="gn-opcs">${opc}</div>` : '<p class="ayuda">No hay movimientos libres. Suba la cartola o use otro medio.</p>'}</div>
+    <div data-gc="otro" class="gn-dlg-bloque" hidden><div class="campo"><label for="gc-fecha">Fecha del pago</label><input id="gc-fecha" type="date" value="${H.esc(d.fecha <= hoy ? d.fecha : hoy)}" max="${hoy}"></div></div>
+    <div class="campo"><label for="gc-nota">Nota (opcional)</label><input id="gc-nota" maxlength="200"></div>
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
+  const medio = () => dlg.querySelector('[name=gc-medio]:checked').value;
+  dlg.querySelectorAll('[name=gc-medio]').forEach(r => r.addEventListener('change', () => { dlg.querySelector('[data-gc=cargo]').hidden = medio() !== 'cargo'; dlg.querySelector('[data-gc=otro]').hidden = medio() === 'cargo'; }));
+  buscador(dlg); dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async ev => {
+    ev.preventDefault(); const bt = dlg.querySelector('[type=submit]'); bt.disabled = true;
+    try {
+      const nota = dlg.querySelector('#gc-nota').value, F = await fsGN();
+      if (medio() === 'cargo') {
+        const r = dlg.querySelector('[name=gc-mov]:checked'); if (!r) throw new Error('Elija el movimiento.');
+        const m = movDe(r.value); await F.pagar({ partes: GB.repartirPago([d], m.libre), movId: m.id, nota });
+      } else {
+        const f = dlg.querySelector('#gc-fecha').value; if (!GN.esIso(f)) throw new Error('Elija la fecha del pago.');
+        await F.pagar({ partes: [{ docId: d.id, monto: d.saldo }], medio: medio(), fecha: f, nota });
+      }
+      dlg.close(); H.registrar('Gastos: registró un pago', `${nom(d)} · ${GB.MEDIOS[medio()]}`); aviso(el, H, `Pagado: ${H.esc(nom(d))} · ${H.esc(GB.MEDIOS[medio()].toLowerCase())}.`);
+    } catch (e) { falla(dlg, e, H); }
+  });
+}
+function buscador(dlg) {
+  const q = dlg.querySelector('[data-gn-buscar]'); if (!q) return;
+  q.addEventListener('input', () => { const t = GN.norm(q.value); dlg.querySelectorAll('.gn-opc').forEach(o => { o.hidden = !!t && !o.dataset.txt.includes(t); }); });
+}
+// Esto no va (un solo botón, tres motivos)
+function dlgNoVa(el, H, d) {
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>Esto no va</h2>${H.info('Esto no va', TXT_NOVA)}</div>
+    <p class="ayuda"><b>${H.esc(nom(d))}</b> · ${H.esc(d.tipoTexto)} ${H.esc(d.folio || '')} · ${H.pesos(d.total)}</p>
+    <div class="chips" role="radiogroup" aria-label="Motivo">${Object.entries(GB.MOTIVOS_NO_VA).map(([k, t]) => `<label class="chip-radio"><input type="radio" name="nv-m" value="${k}"><span>${t}</span></label>`).join('')}</div>
+    <div class="campo"><label for="nv-nota">Nota (opcional)</label><input id="nv-nota" maxlength="200" placeholder="Por ejemplo: es la misma que la N° 1234"></div>
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
+  dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async ev => {
+    ev.preventDefault(); const r = dlg.querySelector('[name=nv-m]:checked'); if (!r) return falla(dlg, new Error('Elija el motivo.'), H);
+    dlg.querySelector('[type=submit]').disabled = true;
+    try { await (await fsGN()).noVa(d.id, r.value, dlg.querySelector('#nv-nota').value); dlg.close(); H.registrar('Gastos: esto no va', `${nom(d)} · ${GB.MOTIVOS_NO_VA[r.value]}`); aviso(el, H, `${H.esc(nom(d))}: ${H.esc(GB.MOTIVOS_NO_VA[r.value].toLowerCase())}. Queda en Listos.`); }
+    catch (e) { falla(dlg, e, H); }
+  });
+}
+// Ítem y reparto por área (lo usan Clasificar y Registrar a mano)
+function camposClasif(H, pre, pref) {
+  const items = st.D.items || [], areas = (pre && pre.areas) || [];
+  return `<div class="campo"><label for="${pref}-item">Ítem</label><input id="${pref}-item" list="${pref}-items" value="${H.esc((pre && pre.item) || '')}" autocomplete="off" placeholder="Escriba o elija"><datalist id="${pref}-items">${items.map(i => `<option value="${H.esc(i.item)}">`).join('')}</datalist></div>
+    <fieldset class="campo"><legend>Área</legend><div class="chips" data-areas>${AR.GASTO.map(a => `<label class="chip-radio"><input type="checkbox" value="${a}" ${areas.some(x => x.area === a) ? 'checked' : ''}><span>${H.esc(nombreArea(a))}</span></label>`).join('')}</div>
+      <div class="gn-pcts" data-pcts></div><span class="ayuda">Con varias áreas, el reparto en %. Debe sumar 100.</span></fieldset>`;
+}
+function conectarClasif(dlg, H, pre, pref) {
+  const items = st.D.items || [], pcts = dlg.querySelector('[data-pcts]'), prev = {}; ((pre && pre.areas) || []).forEach(a => { prev[a.area] = a.pct; });
+  const elegidas = () => Array.from(dlg.querySelectorAll('[data-areas] input:checked')).map(x => x.value);
+  const dibujar = () => { const l = elegidas(), ig = GB.repartoIgual(l); pcts.innerHTML = l.length > 1 ? l.map((a, i) => `<label class="gn-pct"><span>${H.esc(a)}</span><input type="number" min="1" max="100" step="1" data-pct="${a}" value="${prev[a] != null && l.length === Object.keys(prev).length ? prev[a] : ig[i].pct}" inputmode="numeric"><span>%</span></label>`).join('') : ''; };
+  dlg.querySelectorAll('[data-areas] input').forEach(x => x.addEventListener('change', dibujar)); dibujar();
+  const it = dlg.querySelector(`#${pref}-item`);
+  it.addEventListener('change', () => { const i = items.find(x => x.item === it.value); if (i && AR.GASTO.includes(i.area) && !elegidas().length) { const c = dlg.querySelector(`[data-areas] input[value="${i.area}"]`); if (c) { c.checked = true; dibujar(); } } });
+  return () => { const l = elegidas(); return { item: it.value.trim(), areas: l.length === 1 ? [{ area: l[0], pct: 100 }] : l.map(a => ({ area: a, pct: Number((dlg.querySelector(`[data-pct="${a}"]`) || {}).value) || 0 })) }; };
+}
+function dlgClasif(el, H, d) {
+  const pre = d.clasifEf || d.sugerida || null;
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>Clasificar</h2>${H.info('Clasificar', TXT_CLASIF)}</div>
+    <p class="ayuda"><b>${H.esc(nom(d))}</b> · ${H.esc(d.tipoTexto)} ${H.esc(d.folio || '')} · ${H.pesos(d.total)}${(d.detalle || []).length ? '<br>' + H.esc(d.detalle.slice(0, 3).map(x => x.descripcion).join(' · ')) : ''}</p>
+    ${camposClasif(H, pre, 'cl')}
+    <label class="gn-check"><input type="checkbox" id="cl-rec" checked> Recordar para las próximas facturas de este proveedor</label>
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
+  const leer = conectarClasif(dlg, H, pre, 'cl'); dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async ev => {
+    ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
+    try { const c = leer(); await (await fsGN()).clasificar(d, c, dlg.querySelector('#cl-rec').checked); dlg.close(); aviso(el, H, `Clasificado: ${H.esc(nom(d))} → ${H.esc(c.item)} · ${H.esc(GB.textoReparto(c.areas))}.`); }
+    catch (e) { falla(dlg, e, H); }
+  });
+}
+// Una nota de crédito se descuenta de su factura (la que cita, si está)
+function dlgNC(el, H, nc) {
+  const ref = (nc.referencias || []).map(r => r.folio), facs = st.B.abiertosD.concat(st.B.anteriores).filter(d => !d.nc && d.rutN === nc.rutN && d.saldo > 0).filter((d, i, a) => a.findIndex(x => x.id === d.id) === i)
+    .sort((a, b) => (ref.includes(b.folio) - ref.includes(a.folio)) || b.fecha.localeCompare(a.fecha));
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>Descontar de su factura</h2></div>
+    <p class="ayuda"><b>${H.esc(nom(nc))}</b> · Nota de crédito ${H.esc(nc.folio)} · ${H.pesos(nc.saldo)}${ref.length ? ` · corrige la N° ${H.esc(ref.join(', '))}` : ''}</p>
+    ${facs.length ? `<div class="gn-opcs">${facs.map((f, i) => `<label class="gn-opc"><input type="radio" name="nc-f" value="${H.esc(f.id)}" ${i === 0 ? 'checked' : ''}><span><b>Factura N° ${H.esc(f.folio)}</b> <span class="gn-m">${H.pesos(f.saldo)}</span><small>${H.esc(H.diaTexto(f.fecha))}${ref.includes(f.folio) ? ' · la que cita' : ''}${f.anterior ? ' · deuda anterior' : ''}</small></span></label>`).join('')}</div>` : '<p class="ayuda">No hay facturas abiertas de este proveedor. Si su factura ya se pagó, marque la nota como "Esto no va" con una nota, o espere la devolución.</p>'}
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button>${facs.length ? '<button type="submit" class="btn">Descontar</button>' : ''}</div></form>`);
+  dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async ev => {
+    ev.preventDefault(); const r = dlg.querySelector('[name=nc-f]:checked'); if (!r) return; dlg.querySelector('[type=submit]').disabled = true;
+    try { const f = facs.find(x => x.id === r.value), m = Math.max(nc.saldo, -f.saldo);
+      await (await fsGN()).pagar({ partes: [{ docId: nc.id, monto: m }, { docId: f.id, monto: -m }], medio: 'nc', fecha: nc.fecha }); dlg.close(); aviso(el, H, `Nota de crédito ${H.esc(nc.folio)} descontada de la factura N° ${H.esc(f.folio)}.`); }
+    catch (e) { falla(dlg, e, H); }
+  });
+}
+// Es de este documento (desde un movimiento): uno o varios documentos, también de la deuda anterior
+function dlgEsDe(el, H, m) {
+  const abiertos = st.B.abiertosD.filter((d, i, a) => a.findIndex(x => x.id === d.id) === i), cand = GB.candidatosDoc(m, abiertos).slice(0, 60);
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>Es de este documento</h2></div>
+    <p class="ayuda"><b>${H.esc(m.glosa)}</b> · ${H.pesos(m.libre)} · ${H.esc(GN.CUENTAS[m.cuenta] || m.cuenta)} · ${H.esc(H.diaTexto(m.fecha))}</p>
+    ${cand.length ? `<input type="search" data-gn-buscar placeholder="Buscar proveedor, folio o monto" aria-label="Buscar documento"><div class="gn-opcs">${cand.map(({ d, igual, dentro }) => `<label class="gn-opc" data-txt="${H.esc(GN.norm(nom(d) + ' ' + d.folio + ' ' + d.saldo + ' ' + d.rut))}"><input type="checkbox" value="${H.esc(d.id)}"><span><b>${H.esc(nom(d))}</b> <span class="gn-m">${H.pesos(d.saldo)}</span><small>${H.esc(d.tipoTexto)} ${H.esc(d.folio || '')} · ${H.esc(H.diaTexto(d.fecha))}${igual ? ' · mismo monto' : ''}${d.anterior ? ' · deuda anterior' : ''}${dentro ? '' : ' · fuera de la ventana de fechas'}</small></span></label>`).join('')}</div>
+      <p class="ayuda" data-suma></p>` : '<p class="ayuda">No hay documentos sin pago. Use "Registrar a mano" si no tiene factura.</p>'}
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button>${cand.length ? '<button type="submit" class="btn">Unir</button>' : ''}</div></form>`);
+  buscador(dlg); dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  const elegidos = () => Array.from(dlg.querySelectorAll('.gn-opc input:checked')).map(x => abiertos.find(d => d.id === x.value));
+  const suma = dlg.querySelector('[data-suma]');
+  dlg.querySelectorAll('.gn-opc input').forEach(x => x.addEventListener('change', () => { const l = elegidos(), t = l.reduce((a, d) => a + d.saldo, 0); suma.textContent = l.length ? `Elegidos: ${l.length} · ${H.pesos(t)} de ${H.pesos(m.libre)}${t > m.libre ? ' · el último queda pagado en parte' : t < m.libre ? ' · sobra ' + H.pesos(m.libre - t) + ', queda libre' : ' · justo'}` : ''; }));
+  dlg.querySelector('form').addEventListener('submit', async ev => {
+    ev.preventDefault(); const l = elegidos(); if (!l.length) return falla(dlg, new Error('Elija al menos un documento.'), H);
+    dlg.querySelector('[type=submit]').disabled = true;
+    try { await (await fsGN()).pagar({ partes: GB.repartirPago(l, m.libre), movId: m.id }); dlg.close(); aviso(el, H, `Unido: ${H.esc(m.glosa)} con ${l.length === 1 ? H.esc(nom(l[0])) : l.length + ' documentos'}.`); }
+    catch (e) { falla(dlg, e, H); }
+  });
+}
+// Registrar a mano: boleta en papel o pago sin documento
+function dlgMano(el, H, m) {
+  const provs = Object.values(st.D.provs || {});
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>Registrar a mano</h2>${H.info('Registrar a mano', TXT_MANO)}</div>
+    <p class="ayuda"><b>${H.esc(m.glosa)}</b> · ${H.pesos(m.libre)} · ${H.esc(H.diaTexto(m.fecha))}</p>
+    <div class="chips" role="radiogroup" aria-label="Documento"><label class="chip-radio"><input type="radio" name="am-t" value="boleta" checked><span>Boleta en papel</span></label><label class="chip-radio"><input type="radio" name="am-t" value="sin"><span>Sin documento</span></label></div>
+    <div class="campo"><label for="am-prov">A quién se le pagó</label><input id="am-prov" list="am-provs" maxlength="120" autocomplete="off"><datalist id="am-provs">${provs.map(p => `<option value="${H.esc(p.razon)}">`).join('')}</datalist></div>
+    <div class="gn-dos"><div class="campo"><label for="am-rut">RUT (opcional)</label><input id="am-rut" maxlength="14"></div><div class="campo"><label for="am-folio">N° de boleta (opcional)</label><input id="am-folio" maxlength="30"></div></div>
+    <div class="campo"><label for="am-monto">Monto</label><input id="am-monto" type="number" min="1" max="${m.libre}" value="${m.libre}" inputmode="numeric"></div>
+    <div class="campo"><label for="am-nota">Qué se compró (opcional)</label><input id="am-nota" maxlength="120"></div>
+    ${camposClasif(H, null, 'am')}
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Registrar</button></div></form>`);
+  const leer = conectarClasif(dlg, H, null, 'am'); dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  const prov = dlg.querySelector('#am-prov');
+  prov.addEventListener('change', () => { const p = provs.find(x => x.razon === prov.value); if (!p) return; if (p.rut) dlg.querySelector('#am-rut').value = p.rut; dlg.querySelector('#am-item').value = p.item || '';
+    dlg.querySelectorAll('[data-areas] input').forEach(x => { x.checked = (p.areas || []).some(a => a.area === x.value); }); dlg.querySelector('[data-areas] input').dispatchEvent(new Event('change')); });
+  dlg.querySelector('form').addEventListener('submit', async ev => {
+    ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
+    try { const c = leer();
+      await (await fsGN()).registrarAMano(m, { tipo: dlg.querySelector('[name=am-t]:checked').value, proveedor: prov.value, rut: dlg.querySelector('#am-rut').value, folio: dlg.querySelector('#am-folio').value,
+        monto: dlg.querySelector('#am-monto').value, nota: dlg.querySelector('#am-nota').value, item: c.item, areas: c.areas });
+      dlg.close(); H.registrar('Gastos: registró a mano', `${prov.value} · ${m.libre}`); aviso(el, H, `Registrado: ${H.esc(prov.value)} · ${H.esc(c.item)}, pagado con ${H.esc(m.glosa)}.`); }
+    catch (e) { falla(dlg, e, H); }
+  });
+}
+function dlgNoGasto(el, H, m) {
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>No es gasto</h2>${H.info('No es gasto', TXT_NOGASTO)}</div>
+    <p class="ayuda"><b>${H.esc(m.glosa)}</b> · ${H.pesos(m.monto)} · ${H.esc(H.diaTexto(m.fecha))}</p>
+    <div class="chips" role="radiogroup" aria-label="Qué es">${Object.entries(GB.NO_GASTO).map(([k, t]) => `<label class="chip-radio"><input type="radio" name="ng-t" value="${k}"><span>${t}</span></label>`).join('')}</div>
+    <div class="campo"><label for="ng-nota">Nota (opcional)</label><input id="ng-nota" maxlength="200"></div>
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
+  dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async ev => {
+    ev.preventDefault(); const r = dlg.querySelector('[name=ng-t]:checked'); if (!r) return falla(dlg, new Error('Elija qué es.'), H);
+    dlg.querySelector('[type=submit]').disabled = true;
+    try { await (await fsGN()).noEsGasto(m.id, r.value, dlg.querySelector('#ng-nota').value); dlg.close(); aviso(el, H, `${H.esc(m.glosa)}: ${H.esc(GB.NO_GASTO[r.value].toLowerCase())}.`); }
+    catch (e) { falla(dlg, e, H); }
+  });
+}
+function dlgDeshacer(el, H, pagoId) {
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>Deshacer el pago</h2></div>
+    <p class="ayuda">El documento y el movimiento vuelven a la Bandeja. El pago no se borra: queda como deshecho, con quién y cuándo.</p>
+    <div class="campo"><label for="dh-m">Motivo</label><input id="dh-m" maxlength="200" placeholder="Por ejemplo: era de otra factura"></div>
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Deshacer</button></div></form>`);
+  dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async ev => {
+    ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
+    try { await (await fsGN()).deshacerPago(pagoId, dlg.querySelector('#dh-m').value); dlg.close(); aviso(el, H, 'Pago deshecho: el documento y el movimiento volvieron a la Bandeja.'); }
+    catch (e) { falla(dlg, e, H); }
+  });
 }

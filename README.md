@@ -1,9 +1,41 @@
-# Sistema Fën · v0.90.3
+# Sistema Fën · v0.91.0
 
-**App:** v0.90.3 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.91.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.91.0: Gastos desde cero, Etapa 2 (la Bandeja que une)
+
+La Bandeja ahora une cada documento con su pago. Confirmar crea un **pago**: es lo único que se guarda. El estado de cada documento (sin pago, a medias, pagado) se calcula de sus pagos.
+- **Para confirmar** (arriba):
+  - Documento y movimiento del mismo monto, con el pago entre 20 días antes y 60 días después del documento. Se acepta una diferencia de hasta $5 (redondeo del IVA) y se avisa.
+  - Primero aparecen los que tienen el RUT o el nombre del proveedor en la glosa.
+  - También propone **varios documentos del mismo proveedor** que suman justo un pago (por ejemplo, una factura menos su nota de crédito).
+  - Botones "Confirmar" y "No es este". Con varios pares seguros: "Confirmar los N con RUT o nombre".
+- **Por clasificar:** ítem y reparto por área (en %, deben sumar 100).
+  - Lo que se elige queda **recordado en el proveedor**: sus próximas facturas llegan clasificadas.
+  - "Sugerido" viene del Gastos anterior y es solo una propuesta: "Usar esta" o "Usar las N sugeridas".
+- **En cada documento sin pago:**
+  - **"¿Cómo se pagó?"**, una sola puerta: con un cargo (primero los del mismo monto), en efectivo o con plata del dueño.
+  - **"Esto no va"**, un solo botón con tres motivos: repetido, no es de la empresa, no es una compra.
+  - En una nota de crédito: **"Descontar de su factura"**.
+- **En cada movimiento sin documento:**
+  - **"Es de este documento"**: uno o varios documentos; también busca en la deuda anterior.
+  - **"Registrar a mano"**: boleta en papel o pago sin documento. Nace ya pagado y clasificado.
+  - **"No es gasto"**: traspaso entre cuentas propias, retiro del dueño, pago de la tarjeta de crédito u otro.
+- **Listos:** lo pagado (con "Deshacer" en cada pago) y lo que "no va" (con "Volver a la Bandeja"). **Nada se borra:** un pago deshecho queda guardado como deshecho, con quién, cuándo y por qué.
+- **Filtro por cuenta:** Todas, BancoEstado, Mercado Pago.
+- **Colecciones nuevas:** `gn_pagos`, `gn_proveedores`, `gn_config`.
+  - La primera vez que se abre Gastos, lee una sola vez los gastos del Gastos anterior para armar las sugerencias (unas miles de lecturas, dentro de la cuota gratis) y las guarda en un documento.
+  - Las reglas de Firebase no cambian.
+
+Archivo nuevo: `gn-bandeja.js`. Cambian `gn-fs.js`, `gn-modelo.js`, `vista-gn.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.91.0`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.91.0.
+- [ ] Gastos → Bandeja: revisar "Para confirmar" y confirmar los que calzan.
+- [ ] "Por clasificar": usar lo sugerido o clasificar a mano.
+- [ ] Revisar lo que queda en los dos lados con "¿Cómo se pagó?", "Es de este documento", "Registrar a mano" y "No es gasto".
 
 ## Novedades de la v0.90.3: la deuda anterior incluye las facturas de agosto
 
