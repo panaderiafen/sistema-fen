@@ -75,7 +75,8 @@ export function revisar(E = {}) {
     // v0.81.0 · El folio es único: dos facturas con folios distintos son compras distintas (aunque tengan el mismo monto)
     const repetidos = regs.filter(r => !(r.ids || []).some(id => yo.has(id)) && !(g.folio && s(r.folio) && s(r.folio) !== g.folio) && (
       (g.folio && s(r.folio) === g.folio && (mismoProv(g, r) || (!r.rut && !g.rut))) ||
-      (Math.abs(r.monto - g.monto) <= 1 && Math.abs(diasEntre(g.fecha, r.fecha)) <= DIAS_REPETIDO && (!g.rut || !r.rut || mismoProv(g, r)))))
+      (Math.abs(r.monto - g.monto) <= 1 && Math.abs(diasEntre(g.fecha, r.fecha)) <= DIAS_REPETIDO && (!g.rut || !r.rut || mismoProv(g, r))
+        && (mismoProv(g, r) || (r.items || []).some(i => (g.items || []).some(j => norm(i) === norm(j)))))))   // v0.81.4: otro ítem y otro proveedor = otra compra
       .slice(0, 4).map(r => ({ ids: (r.ids || []).slice(0, 40), fecha: r.fecha, monto: r.monto, folio: r.folio, razon: r.razon, items: r.items || [], conCargo: !!r.cargoId, estado: r.estado || '', porFolio: !!(g.folio && s(r.folio) === g.folio) }));
     // v0.81.0 · Un cargo ya unido a otro gasto que no se parece (otro folio, otro proveedor y otro ítem) es una casualidad del monto
     const parecido = l => (g.folio && s(l.folio) === g.folio) || (norm(l.razon) && norm(l.razon) === norm(g.razon)) || (s(l.item) && (g.items || []).some(i => norm(i) === norm(l.item)));
