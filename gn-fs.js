@@ -7,10 +7,10 @@
 //    guardado, no se pierde nada de lo que se le agregó después (clasificación, pagos, notas). Nada se borra.
 //  · Sin la marca de la planilla (planillaPendiente): lo nuevo ya no se copia a la planilla de Google.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.90.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.90.0';
-import { ahoraChile } from './gastos-g2.js?v=0.90.0';
-import * as GN from './gn-modelo.js?v=0.90.0';
+import * as FB from './fs-gastos.js?v=0.90.1';
+import { dbBase, correo } from './gastos-fs.js?v=0.90.1';
+import { ahoraChile } from './gastos-g2.js?v=0.90.1';
+import * as GN from './gn-modelo.js?v=0.90.1';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };

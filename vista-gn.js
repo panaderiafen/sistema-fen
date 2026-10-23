@@ -7,13 +7,13 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.90.0';
-import * as Sii from './sii.js?v=0.90.0';
-import * as MP from './mercadopago.js?v=0.90.0';
+import * as GN from './gn-modelo.js?v=0.90.1';
+import * as Sii from './sii.js?v=0.90.1';
+import * as MP from './mercadopago.js?v=0.90.1';
 
 const st = { D: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.90.0');
+const fsGN = () => import('./gn-fs.js?v=0.90.1');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -28,10 +28,19 @@ const TXT_INICIO = 'Gastos parte desde cero. Lo anterior a esta fecha no entra (
 
 function cab(H, tab) {
   return `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Lo que se debe y lo que salió, desde el ${H.esc(fechaLarga(INICIO()))} ${H.info('Desde cero', TXT_INICIO)}</p></div>
-    <div class="botones" style="margin:0;align-items:center"><label class="btn gn-subir" for="gn-archivo">${H.icono('subir', 18)} Subir archivo</label>${H.info('Subir archivo', TXT_SUBIR)}
-      <input type="file" id="gn-archivo" class="sr" accept=".xml,.csv,.txt,.xls,.xlsx,.html"></div></div>
+    </div>
     <nav class="pestanas" role="tablist" aria-label="Pestañas de Gastos">${TABS.map(([k, , t]) => `<a role="tab" href="${hashDe(k)}" aria-selected="${k === tab}">${t}</a>`).join('')}</nav>
-    <div id="gn-msg" role="status" aria-live="polite">${st.subiendo ? '<p class="ayuda">Leyendo el archivo…</p>' : ''}${st.err ? `<p class="error" role="alert">${st.err}</p>` : ''}${st.msg ? `<div class="aviso gn-aviso">${st.msg}</div>` : ''}</div>`;
+    <div class="gn-drop${st.subiendo ? ' gn-drop-ocupado' : ''}" data-gn-drop>
+      <label class="gn-drop-zona" for="gn-archivo">
+        <span class="gn-drop-ic">${H.icono('subir', 26)}</span>
+        <span class="gn-drop-txt"><b>${st.subiendo ? H.esc(st.subiendo === true ? 'Leyendo el archivo…' : st.subiendo) : '<span class="gn-pc">Arrastre aquí los archivos</span><span class="gn-cel">Toque para elegir los archivos</span>'}</b>
+          <small>${st.subiendo ? 'No cierre esta pestaña' : '<span class="gn-pc">o haga clic para elegirlos · puede soltar varios a la vez</span><span class="gn-cel">Puede elegir varios a la vez</span>'}</small></span>
+        <span class="gn-drop-tipos"><span>SII</span><span>BancoEstado</span><span>Mercado Pago</span></span>
+      </label>
+      ${H.info('Subir archivo', TXT_SUBIR)}
+      <input type="file" id="gn-archivo" class="sr" multiple accept=".xml,.csv,.txt,.xls,.xlsx,.html" ${st.subiendo ? 'disabled' : ''}>
+    </div>
+    <div id="gn-msg" role="status" aria-live="polite">${st.err ? `<p class="error" role="alert">${st.err}</p>` : ''}${st.msg ? `<div class="aviso gn-aviso">${st.msg}</div>` : ''}</div>`;
 }
 
 export async function pintar(el, sub, H) {
@@ -89,16 +98,41 @@ function cargasHtml(H) {
 // ── Eventos ──
 function conectar(el, H) {
   const inp = el.querySelector('#gn-archivo');
-  if (inp) inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; inp.value = ''; if (f) subir(f, el, H); });
+  if (inp) inp.addEventListener('change', () => { const l = Array.from(inp.files || []); inp.value = ''; if (l.length) subir(l, el, H); });
+  arrastrar(el, H);
   el.querySelectorAll('[data-gn-cuenta]').forEach(b => b.addEventListener('click', () => { st.cuenta = b.dataset.gnCuenta; pintar(el, subActual(), H); }));
 }
 const repintar = (el, H) => { if (enGastos()) pintar(el, subActual(), H); };
 
-async function subir(f, el, H) {
-  st.err = ''; st.msg = ''; st.subiendo = true; repintar(el, H);
-  try { st.msg = await procesar(f, H); }
-  catch (e) { st.err = H.esc('No se pudo cargar el archivo: ' + (e.message || H.mensajeError(e))); }
-  st.subiendo = false; st.D = null;
+// Arrastrar y soltar: un solo juego de escuchadores en la vista (la cabecera se vuelve a dibujar). Soltar fuera del recuadro, dentro
+// de Gastos, también sirve (así el navegador no abre el archivo en la pestaña).
+function arrastrar(el, H) {
+  if (el.dataset.gnArrastre) return;
+  el.dataset.gnArrastre = '1';
+  let n = 0;
+  const conArchivos = ev => ev.dataTransfer && Array.from(ev.dataTransfer.types || []).includes('Files');
+  const marcar = on => { const z = el.querySelector('[data-gn-drop]'); if (z) z.classList.toggle('gn-drop-sobre', on); };
+  el.addEventListener('dragenter', ev => { if (!conArchivos(ev) || !enGastos()) return; ev.preventDefault(); n++; marcar(true); });
+  el.addEventListener('dragover', ev => { if (!conArchivos(ev) || !enGastos()) return; ev.preventDefault(); ev.dataTransfer.dropEffect = st.subiendo ? 'none' : 'copy'; });
+  el.addEventListener('dragleave', ev => { if (!conArchivos(ev)) return; n = Math.max(0, n - 1); if (!n) marcar(false); });
+  el.addEventListener('drop', ev => {
+    if (!conArchivos(ev) || !enGastos()) return;
+    ev.preventDefault(); n = 0; marcar(false);
+    const l = Array.from(ev.dataTransfer.files || []);
+    if (l.length && !st.subiendo) subir(l, el, H);
+  });
+}
+// Uno o varios archivos, uno detrás de otro; cada uno con su resultado
+async function subir(lista, el, H) {
+  const L = Array.isArray(lista) ? lista : [lista], msgs = [], errs = [];
+  st.err = ''; st.msg = '';
+  for (let i = 0; i < L.length; i++) {
+    st.subiendo = L.length > 1 ? `Leyendo ${i + 1} de ${L.length}: ${L[i].name}` : true; repintar(el, H);
+    try { msgs.push(await procesar(L[i], H)); }
+    catch (e) { errs.push(H.esc(`${L.length > 1 ? L[i].name + ': ' : ''}No se pudo cargar el archivo: ` + (e.message || H.mensajeError(e)))); }
+    st.D = null;
+  }
+  st.subiendo = false; st.msg = msgs.join('<hr class="gn-sep">'); st.err = errs.join('<br>');
   repintar(el, H);
 }
 const ext = f => (String(f.name || '').toLowerCase().match(/\.([a-z0-9]+)$/) || [])[1] || '';
