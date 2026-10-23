@@ -5,10 +5,13 @@
 //  reglas de Firestore y la cuenta de administración.
 // ═══════════════════════════════════════════════
 window.FEN_SIS = {
-  VERSION: '0.82.1',
+  VERSION: '0.90.0',
   // v0.82.0 · El sistema empieza el 1 de octubre de 2026: lo anterior (septiembre, mes de transición) queda guardado, pero la Bandeja,
   // el informe y los avisos ya no lo piden. Se queda lo que todavía se debe (vencimientos y facturas del SII esperando su pago).
   INICIO: '2026-10-01',
+  // v0.90.0 · Gastos desde cero: la pestaña Gastos es la nueva (documentos, movimientos y la Bandeja que los une). El Gastos anterior queda
+  // fuera de la vista y sus datos no se borran. En false vuelve el Gastos anterior tal cual (solo para una emergencia).
+  GASTOS_NUEVO: true,
   firebase: {
     apiKey: 'AIzaSyDrG2mij1h5wZ2lIyAYMTfgG9avaVnjcaU',
     authDomain: 'fen-ventas.firebaseapp.com',

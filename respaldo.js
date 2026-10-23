@@ -6,16 +6,16 @@
 //  compartida; caja y B2B: los productos de la sesión). Antes de bajar se muestra el estimado (conteos: 1 lectura por cada pregunta).
 //  Escrituras: 1 (config/respaldo en fen-ventas: qué meses ya se bajaron, para la Agenda).
 // ═══════════════════════════════════════════════
-import { auth, db as dbV, collection, doc, getDoc, getDocs, setDoc, query, where, getAggregateFromServer, count } from './firebase.js?v=0.82.1';
-import * as GB from './gastos-base.js?v=0.82.1';
-import * as FBG from './fs-gastos.js?v=0.82.1';
-import * as FBB from './firebase-b2b.js?v=0.82.1';
-import * as B from './b2b.js?v=0.82.1';
-import * as P from './produccion.js?v=0.82.1';
-import * as Caja from './caja.js?v=0.82.1';
-import * as M from './fs-memoria.js?v=0.82.1';
-import * as Cuota from './fs-cuota.js?v=0.82.1';
-import * as RM from './respaldo-modelo.js?v=0.82.1';
+import { auth, db as dbV, collection, doc, getDoc, getDocs, setDoc, query, where, getAggregateFromServer, count } from './firebase.js?v=0.90.0';
+import * as GB from './gastos-base.js?v=0.90.0';
+import * as FBG from './fs-gastos.js?v=0.90.0';
+import * as FBB from './firebase-b2b.js?v=0.90.0';
+import * as B from './b2b.js?v=0.90.0';
+import * as P from './produccion.js?v=0.90.0';
+import * as Caja from './caja.js?v=0.90.0';
+import * as M from './fs-memoria.js?v=0.90.0';
+import * as Cuota from './fs-cuota.js?v=0.90.0';
+import * as RM from './respaldo-modelo.js?v=0.90.0';
 
 export const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 const yo = () => (auth.currentUser && auth.currentUser.email) || '';

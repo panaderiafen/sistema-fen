@@ -7,7 +7,7 @@
 //  · las facturas de un cliente de B2B (abiertas y pagadas recientes) y la búsqueda de facturas.
 //  Todo es puro: sale de lo que la pantalla ya tiene leído (0 lecturas).
 // ═══════════════════════════════════════════════
-import * as PM from './pagos-mixtos.js?v=0.82.1';   // v0.69.2: el historial de pagos de un documento pagado en partes
+import * as PM from './pagos-mixtos.js?v=0.90.0';   // v0.69.2: el historial de pagos de un documento pagado en partes
 const s = v => String(v == null ? '' : v);
 const n = v => Number(v) || 0;
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];

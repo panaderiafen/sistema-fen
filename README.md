@@ -1,9 +1,54 @@
-# Sistema Fën · v0.82.1
+# Sistema Fën · v0.90.0
 
-**App:** v0.82.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.90.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.90.0: Gastos desde cero, Etapa 1 (base y carga)
+
+Primera etapa del Gastos nuevo (propuesta "Gastos desde cero", aprobada el 23 de octubre de 2026): **todo gasto es un documento y todo pago es un movimiento; la Bandeja los une**.
+- **La pestaña Gastos es la nueva y parte vacía**, desde el 1 de octubre de 2026. El Gastos anterior (Bandeja, Por pagar, cuentas recurrentes, Previred, Proveedores) sale de la vista. **Sus datos no se borran**: siguen en la base.
+- **Subir archivo** (un solo botón) reconoce:
+  - las compras del SII (XML, Registro de Compras .csv o Documentos recibidos .xls);
+  - la cartola de BancoEstado (.xlsx, histórica o en línea, cuenta corriente o chequera);
+  - el reporte de liberaciones de Mercado Pago (.csv).
+- **Nada se repite:**
+  - Cada documento se reconoce por RUT, tipo y folio.
+  - Cada movimiento se reconoce por su línea exacta (en Mercado Pago, por su N° de operación).
+  - Si la misma salida ya llegó en otra cartola (la en línea y después la histórica), no se guarda otra vez y queda anotado en "Archivos subidos".
+  - Dos compras iguales el mismo día, en el mismo archivo, son dos movimientos.
+- **Antes del 1 de octubre:**
+  - Las facturas de septiembre quedan aparte como **deuda anterior** (no salen en la Bandeja).
+  - Lo más antiguo no entra.
+  - Los movimientos de antes del inicio no entran.
+- **Guías de despacho** fuera, como antes.
+- **El retiro de Mercado Pago a BancoEstado** queda como traspaso entre cuentas propias (no es gasto).
+- **Las ventas con tarjeta (Point)** con su comisión real siguen yendo a Finanzas.
+- **Los abonos de la cartola** siguen pasando a Ventas B2B → Conciliación, igual que antes.
+- **La Bandeja (Etapa 1) muestra:**
+  - a la izquierda, los documentos;
+  - a la derecha, los movimientos, con filtro por cuenta;
+  - arriba, hasta dónde llega cada cuenta.
+- **Unir documento y pago llega en la Etapa 2.**
+- **Archivos subidos:** cada carga con lo que trajo (nuevos, ya estaban, ya llegaron en otra cartola, antes del inicio).
+- **Hoy y la Agenda** ya no muestran avisos ni pagos del Gastos anterior.
+- **Colecciones nuevas** en fen-gastos: `gn_documentos`, `gn_movimientos`, `gn_cargas`. Las reglas de Firebase no cambian. Lo nuevo no se copia a la planilla.
+- **Mientras llegan las etapas 3 y 4:**
+  - Previred, sueldos, arriendos, créditos y luz/agua no se cargan todavía.
+  - Finanzas sigue leyendo el Gastos anterior: octubre se verá incompleto hasta la Etapa 4.
+- **Emergencia:** en `config.js`, `GASTOS_NUEVO: false` vuelve a mostrar el Gastos anterior tal cual.
+
+Archivos nuevos: `gn-modelo.js`, `gn-fs.js`, `vista-gn.js`. Cambian `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.90.0`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.90.0.
+- [ ] Gastos: dice "desde el 1 de octubre de 2026" y está vacío.
+- [ ] Subir las compras del SII de septiembre y de octubre (XML). Revisar el mensaje: documentos nuevos, del mes anterior (deuda anterior) y guías fuera.
+- [ ] Subir la cartola de BancoEstado de la cuenta corriente desde el 1 de octubre, después la de la chequera.
+- [ ] Subir el reporte de liberaciones de Mercado Pago desde el 1 de octubre.
+- [ ] "Hasta dónde llega cada cuenta": cada cuenta llega hasta el último día de su archivo.
+- [ ] Subir otra vez uno de los archivos: dice "0 … nuevos · … ya estaban".
+- [ ] Ventas B2B → Conciliación: los abonos de la cartola llegaron como siempre.
 
 ## Novedades de la v0.82.1: cobertura arriba y filtro de cuenta
 

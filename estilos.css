@@ -2673,3 +2673,31 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .bj-lista details.mov.bu-par:not([open]) > summary.fila-caja { background: #FBE6B0; box-shadow: inset 4px 0 0 var(--amarillo-t); }
 .bu-inicio { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
 .cc-filtro-cuenta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+/* ── v0.90.0 · Gastos nuevo (desde cero), Etapa 1: subir archivo, cobertura y los dos lados de la Bandeja ── */
+.gn-subir { min-height: 44px; cursor: pointer; }
+#gn-msg { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+#gn-msg:empty { display: none; }
+.gn-aviso a { color: inherit; font-weight: 700; }
+.gn-cob { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.gn-cob-c { border: 1px solid var(--linea); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gn-cob-c b { font-size: 13px; }
+.gn-cob-c span { font-size: 12px; color: var(--suave); }
+.gn-lados { margin-top: 6px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .gn-lados { grid-template-columns: minmax(0, 1fr); } }
+.gn-lado { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.gn-lado-t { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); font-variant-numeric: tabular-nums; }
+.gn-it { border: 1px solid var(--linea); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; background: var(--tarjeta); min-width: 0; }
+.gn-it small, .gn-carga small { font-size: 12px; color: var(--suave); line-height: 1.4; }
+.gn-nc { border-style: dashed; }
+.gn-fila { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; min-width: 0; }
+.gn-fila b, .gn-fila span:first-child { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+.gn-m { font-weight: 700; font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gn-filtro { display: flex; flex-wrap: wrap; gap: 6px; }
+.gn-filtro .chip { border: 0; cursor: pointer; min-height: 32px; }
+.gn-det { border-top: 1px dashed var(--linea); padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.gn-det summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--suave); }
+.gn-det[open] > .gn-it, .gn-det[open] > .gn-fila { margin-top: 8px; }
+.gn-carga { border-bottom: 1px solid var(--linea); padding: 12px 0; display: flex; flex-direction: column; gap: 4px; }
+.gn-carga:last-child { border-bottom: 0; }
+.gn-carga p { margin: 0; font-size: 13px; }

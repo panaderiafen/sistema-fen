@@ -11,8 +11,8 @@
 //  Todo en neto. Nada de esto cambia los gastos: es una capa de Finanzas (fen-gastos: fin_items, fin_config,
 //  fin_creditos, fin_inversiones).
 // ═══════════════════════════════════════════════
-import { idLimpio } from './gastos-modelo.js?v=0.82.1';
-import * as AR from './areas.js?v=0.82.1';
+import { idLimpio } from './gastos-modelo.js?v=0.90.0';
+import * as AR from './areas.js?v=0.90.0';
 
 export const ANIO = 2026;
 // v0.69.1: las áreas propias son las de margen (las 4 de producción + REVENTA), de areas.js
