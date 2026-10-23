@@ -2672,3 +2672,4 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .bu-item.bu-par:not(.bu-sel) > .bu-fila { background: #FBE6B0; box-shadow: inset 4px 0 0 var(--amarillo-t); }
 .bj-lista details.mov.bu-par:not([open]) > summary.fila-caja { background: #FBE6B0; box-shadow: inset 4px 0 0 var(--amarillo-t); }
 .bu-inicio { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.cc-filtro-cuenta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }

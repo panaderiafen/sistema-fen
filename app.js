@@ -9,57 +9,57 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.82.0';
-import * as Caja from './caja.js?v=0.82.0';
-import * as Stock from './stock.js?v=0.82.0';
-import * as Ajustes from './ajustes.js?v=0.82.0';
-import * as Apps from './apps.js?v=0.82.0';
-import * as Agenda from './agenda.js?v=0.82.0';
-import * as Gastos from './gastos.js?v=0.82.0';
-import * as G3 from './gastos-g3.js?v=0.82.0';
-import * as G3D from './gastos-g3d.js?v=0.82.0';
-import * as GBanco from './gastos-banco.js?v=0.82.0';
-import * as TE from './tef-enviadas.js?v=0.82.0';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.82.0';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.82.0';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.82.0';
-import * as AR from './areas.js?v=0.82.0';   // v0.69.1: una sola lista de áreas (con REVENTA)
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.82.0';
-import * as Sii from './sii.js?v=0.82.0';
-import * as GSii from './gastos-sii.js?v=0.82.0';
-import * as SP from './sii-pendientes.js?v=0.82.0';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.82.0');
-import * as Previred from './previred.js?v=0.82.0';
-import * as B2b from './b2b.js?v=0.82.0';
-import * as Cartola from './cartola.js?v=0.82.0';
-import * as RD from './registro-detalle.js?v=0.82.0';   // v0.67.7: "Ver el registro" (B2B y Gastos)
-import * as BJ from './bandeja.js?v=0.82.0';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
-import * as RC from './reglas-conc.js?v=0.82.0';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
-import * as PT from './puntaje.js?v=0.82.0';       // v0.69.0: el puntaje explicado de cada propuesta
-import * as PM from './pagos-mixtos.js?v=0.82.0';  // v0.69.2: pagos mixtos (un documento pagado en partes)
-import * as CR from './conc-resumen.js?v=0.82.0';  // v0.69.3: Finanzas → Resumen del mes (de la memoria)
-import * as BO from './boletas.js?v=0.82.0';      // v0.70.0: boletas de luz y agua, cuentas recurrentes y por pagar
-import * as SiiFactura from './sii-factura.js?v=0.82.0';
-import * as PdfOrden from './pdf-orden.js?v=0.82.0';
-import * as Prod from './produccion.js?v=0.82.0';
-import * as Mem from './fs-memoria.js?v=0.82.0';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.82.0';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.82.1';
+import * as Caja from './caja.js?v=0.82.1';
+import * as Stock from './stock.js?v=0.82.1';
+import * as Ajustes from './ajustes.js?v=0.82.1';
+import * as Apps from './apps.js?v=0.82.1';
+import * as Agenda from './agenda.js?v=0.82.1';
+import * as Gastos from './gastos.js?v=0.82.1';
+import * as G3 from './gastos-g3.js?v=0.82.1';
+import * as G3D from './gastos-g3d.js?v=0.82.1';
+import * as GBanco from './gastos-banco.js?v=0.82.1';
+import * as TE from './tef-enviadas.js?v=0.82.1';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.82.1';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.82.1';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.82.1';
+import * as AR from './areas.js?v=0.82.1';   // v0.69.1: una sola lista de áreas (con REVENTA)
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.82.1';
+import * as Sii from './sii.js?v=0.82.1';
+import * as GSii from './gastos-sii.js?v=0.82.1';
+import * as SP from './sii-pendientes.js?v=0.82.1';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.82.1');
+import * as Previred from './previred.js?v=0.82.1';
+import * as B2b from './b2b.js?v=0.82.1';
+import * as Cartola from './cartola.js?v=0.82.1';
+import * as RD from './registro-detalle.js?v=0.82.1';   // v0.67.7: "Ver el registro" (B2B y Gastos)
+import * as BJ from './bandeja.js?v=0.82.1';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
+import * as RC from './reglas-conc.js?v=0.82.1';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
+import * as PT from './puntaje.js?v=0.82.1';       // v0.69.0: el puntaje explicado de cada propuesta
+import * as PM from './pagos-mixtos.js?v=0.82.1';  // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as CR from './conc-resumen.js?v=0.82.1';  // v0.69.3: Finanzas → Resumen del mes (de la memoria)
+import * as BO from './boletas.js?v=0.82.1';      // v0.70.0: boletas de luz y agua, cuentas recurrentes y por pagar
+import * as SiiFactura from './sii-factura.js?v=0.82.1';
+import * as PdfOrden from './pdf-orden.js?v=0.82.1';
+import * as Prod from './produccion.js?v=0.82.1';
+import * as Mem from './fs-memoria.js?v=0.82.1';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.82.1';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.4';
-import * as VistaProd from './vista-produccion.js?v=0.82.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B, planPreciosPorId, precioEsDe, productoDePrecio } from './b2b-modelo.js?v=0.82.0';
-import * as RespM from './respaldo-modelo.js?v=0.82.0';   // v0.73.0: recordatorio del respaldo mensual en la Agenda (puro)
-import * as RT from './rutas.js?v=0.82.0';   // v0.78.0: Gastos, etapa A (las pantallas de Conciliación en Gastos, B2B y Finanzas)
-import * as BU from './bandeja-gastos-modelo.js?v=0.82.0';   // v0.79.0: Gastos, etapa B (la Bandeja única: un ítem por gasto, con su ruta)
+import * as VistaProd from './vista-produccion.js?v=0.82.1';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B, planPreciosPorId, precioEsDe, productoDePrecio } from './b2b-modelo.js?v=0.82.1';
+import * as RespM from './respaldo-modelo.js?v=0.82.1';   // v0.73.0: recordatorio del respaldo mensual en la Agenda (puro)
+import * as RT from './rutas.js?v=0.82.1';   // v0.78.0: Gastos, etapa A (las pantallas de Conciliación en Gastos, B2B y Finanzas)
+import * as BU from './bandeja-gastos-modelo.js?v=0.82.1';   // v0.79.0: Gastos, etapa B (la Bandeja única: un ítem por gasto, con su ruta)
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.82.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.82.1');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.82.0');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.82.1');
 // v0.72.0 · Catálogo (Etapa 0, "Qué está vivo"): se carga recién al abrirlo
-const vistaCatalogo = () => import('./vista-catalogo.js?v=0.82.0');
+const vistaCatalogo = () => import('./vista-catalogo.js?v=0.82.1');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.82.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.82.1')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -391,7 +391,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.82.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.82.1" alt="Fën"><span>Sistema de administración</span></div>
     ${SECCIONES.map(([v, ic, nom]) => `<a class="nav-item" href="#${v}" data-vista="${v}">${icono(ic)}${nom}</a>`).join('')}
     <div class="grupo">Abren la app actual</div>
     ${apps}
@@ -660,14 +660,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.82.0').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.82.1').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.82.0').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.82.1').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -675,7 +675,7 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.80.1 · Catálogo: productos que se venden con la receta pendiente (sin costo ni margen hasta unirlos con su receta)
-  import('./finanzas.js?v=0.82.0').then(F => F.recetaPendienteParaHoy()).then(l => {
+  import('./finanzas.js?v=0.82.1').then(F => F.recetaPendienteParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.3, color: 'amarillo', icono: 'libro', chip: 'Unir', url: '#catalogo/productos/falta-receta', origen: 'Catálogo', titulo: `${l.length} ${l.length === 1 ? 'producto del catálogo' : 'productos del catálogo'} sin receta`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · se venden sin costo hasta unirlos con su receta` });
@@ -754,7 +754,7 @@ const partesDia = d => { const [y, m, dd] = d.split('-').map(Number); return new
 // Pagos de Gastos de esta semana (llegan con el resumen de Gastos: hasta 5, los más próximos)
 // v0.73.0 · Respaldo mensual: el día 1 de cada mes "Bajar respaldo de <mes anterior>" (hecho si ya se bajó; config/respaldo, 1 lectura cada 6 horas)
 let respHechos = null;
-const cargarRespHechos = () => import('./respaldo.js?v=0.82.0').then(R => R.hechos()).then(h => { respHechos = h || {}; return respHechos; }).catch(() => { respHechos = respHechos || {}; return respHechos; });
+const cargarRespHechos = () => import('./respaldo.js?v=0.82.1').then(R => R.hechos()).then(h => { respHechos = h || {}; return respHechos; }).catch(() => { respHechos = respHechos || {}; return respHechos; });
 const itemsRespaldo = (desde, hasta) => RespM.itemsAgenda(desde, hasta, respHechos || {});
 function itemsAuto(estados, desde, hasta) {
   const g = estados && estados.gastos;
@@ -1076,9 +1076,9 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.82.0').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.82.1').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.82.0').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.82.1').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 async function pintarGastos(sub) {
@@ -2966,7 +2966,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar cuentas recurrentes se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las cuentas recurrentes no tienen tipo.</p><p><a href="#gastos/config/cuentas">Volver a Cuentas recurrentes</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.82.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.82.1')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 // v0.70.0 · En el formulario de la cuenta: si es de boleta (luz o agua), su empresa, local y reparto en %
@@ -3928,14 +3928,18 @@ function pintarCartola(el, sub, dg) {
   // v0.68.0 · La bandeja: el estado de cada cargo (Listo = los de "Listos para confirmar"; Revisar; Sin coincidencia)
   const clase = {}; pend.forEach(c => { clase[c.id] = listos.includes(c) ? 'listo' : RX.clase[c.id] === 'listo' ? 'revisar' : RX.clase[c.id]; });
   // v0.69.3 · Con "Solo <mes>" (desde el Resumen del mes) los números y la lista son de ese mes
-  const delMesCc = c => !cart.bjMes || String(c.fecha || '').slice(0, 7) === cart.bjMes;
+  // v0.82.1 · Filtro de cuenta (BancoEstado o Mercado Pago): para revisar una cartola a la vez; la izquierda no cambia
+  const cuentasPend = [...new Set(pend.map(c => c.cuenta === 'mp' ? 'mp' : 'banco'))];
+  if (cart.cuentaF && !cuentasPend.includes(cart.cuentaF)) cart.cuentaF = '';
+  const deCuenta = c => !cart.cuentaF || (cart.cuentaF === 'mp' ? c.cuenta === 'mp' : c.cuenta !== 'mp');
+  const delMesCc = c => (!cart.bjMes || String(c.fecha || '').slice(0, 7) === cart.bjMes) && deCuenta(c);
   const kBj = BJ.contar(pend.filter(delMesCc).map(c => clase[c.id]));
   if (cart.bjFiltro && !kBj[cart.bjFiltro]) cart.bjFiltro = '';
   if (cart.histSel && !hechos.some(c => c.id === cart.histSel)) cart.histSel = '';
   // v0.50.0 · Base nueva: casillas para confirmar varios de una vez (los seguros vienen marcados; cualquiera con propuesta completa se puede marcar)
   const base = D.fuente === 'base', pedibles = {};
   if (base) pend.forEach(c => { const pd = pedidoDeProp(c, props[c.id], dg.items || []); if (pd) { pedibles[c.id] = pd; if (cart.sel[c.id] === undefined) cart.sel[c.id] = listos.includes(c); } else delete cart.sel[c.id]; });
-  const elegidos = base ? pend.filter(c => pedibles[c.id] && cart.sel[c.id]) : [];
+  const elegidos = base ? pend.filter(c => pedibles[c.id] && cart.sel[c.id] && deCuenta(c)) : [];   // v0.82.1: solo los de la cuenta elegida
   const casilla = c => (base && pedibles[c.id] ? `<label class="cc-sel" title="Confirmar con los seleccionados"><input type="checkbox" data-cc-sel="${esc(c.id)}" ${cart.sel[c.id] ? 'checked' : ''} ${cart.ocupado ? 'disabled' : ''} aria-label="Elegir ${esc(pesos(c.monto) + ' ' + c.descripcion)}"></label>` : '');
   const fila = c => { const p = props[c.id], auto = listos.includes(c), pc = c.repetidoProp ? '' : BJ.porCorto(p), rs = BJ.resumenCargo(p, c) + (pc ? ` (${pc})` : ''); return `<details class="fila-orden-b2b mov${c.nota ? ' cc-con-nota' : ''}" data-ccd="${esc(c.id)}" data-bj="${clase[c.id]}" ${RX.pt[c.id] ? `data-bj-pt="${RX.pt[c.id].valor}"` : ''} ${bjAttrs([c.descripcion, c.proveedor ? c.proveedor.nombre : '', c.tef ? c.tef.nombre : '', rs, c.nota ? c.nota.texto : ''].join(' '), [c.monto])} ${cart.abierto === c.id ? 'open' : ''}><summary class="fila-caja">${casilla(c)}<div class="txt">${l0Bj(clase[c.id], c.fecha, RX.pt[c.id])}<b><span class="bj-monto">${pesos(c.monto)}</span><span class="bj-sep"> · </span><span class="bj-glosa">${esc(c.descripcion)}</span></b>${glBj(c.descripcion)}${resBj(rs)}<span class="bj-ocultar">${esc(diaTexto(c.fecha))} · ${esc(cuentaCc(c))}</span>${base ? `<small class="cc-origen">${esc(origenCargoTxt(c))}</small>` : ''}${c.tef ? `<small class="cc-tef">${esc(TE.textoPagaste(c.tef))}</small>` : ''}${c.proveedor ? `<small class="cc-prov">Proveedor: ${esc(c.proveedor.nombre)}</small>` : ''}${c.repetidoProp ? '' : p ? `<small class="prop-cc">${textoProp(p)}</small>` : ''}${notaCcHtml(c)}${filaRepetidoHtml(c)}</div>
       <div class="acciones">${base ? botonNotaCc(c) : ''}${auto ? `<button type="button" class="btn btn-chico" data-cc-auto="${esc(c.id)}" ${cart.ocupado ? 'disabled' : ''}>Confirmar</button>` : ''}</div></summary>${cart.abierto === c.id ? `<div class="bj-det" data-bj-det="${esc(c.id)}" role="region" aria-label="Detalle del cargo">${detCargoHtml(c, p, clase[c.id], !!(base ? pedibles[c.id] : pedidoDeProp(c, p, dg.items || [])))}${propRepetidoHtml(c)}${editorCargo(c, p, dg)}</div>` : ''}</details>`; };
@@ -3952,6 +3956,8 @@ function pintarCartola(el, sub, dg) {
       <span class="ayuda" id="cc-lote-avance" role="status">${esc(cart.avance || '')}</span></div>` : '';
   const seccion = (k, titulo, l, ayuda, extra = '') => `<details class="tarjeta plegable" data-plegar="cc-${k}" ${plegadas()['cc-' + k] === true && l.length ? '' : 'open'}><summary class="titulo-fila"><h2>${titulo}</h2><span>${l.length} ${l.length === 1 ? 'cargo' : 'cargos'} · ${pesos(l.reduce((s, c) => s + c.monto, 0))}</span></summary>
     ${l.length ? `<p class="ayuda">${ayuda}</p>${extra}${l.map(fila).join('')}` : '<div class="vacio" style="border:0">Nada aquí.</div>'}</details>`;
+  const nCu = k => pend.filter(c => (k === 'mp' ? c.cuenta === 'mp' : c.cuenta !== 'mp') && (!cart.bjMes || String(c.fecha || '').slice(0, 7) === cart.bjMes)).length;
+  const filtroCuenta = cuentasPend.length > 1 ? `<span class="cc-filtro-cuenta" role="group" aria-label="Cuenta">${[['', 'Todas las cuentas'], ['banco', 'BancoEstado'], ['mp', 'Mercado Pago']].map(([k, t]) => `<button type="button" class="bj-filtro chip-filtro" data-cc-cuenta="${k}" aria-pressed="${(cart.cuentaF || '') === k}"><span>${t}</span>${k ? ` <b class="bj-num">${nCu(k)}</b>` : ''}</button>`).join('')}${info('Cuenta', TXT_CUENTA_F)}</span>` : '';
   const filtroNota = base && nNota ? `<span class="cc-filtro-nota"><button type="button" class="bj-filtro chip-filtro" id="cc-con-nota" aria-pressed="${!!cart.conNota}">${icono('nota', 14)} <span>Con nota ·</span> <b class="bj-num">${nNota}</b></button>${info('Notas de los cargos', TXT_NOTA_CC)}</span>` : '';
   // El orden visible (para avanzar al siguiente después de confirmar)
   cart.bjOrden = fNota(listos).concat(fNota(revisar)).map(c => c.id);
@@ -3959,7 +3965,7 @@ function pintarCartola(el, sub, dg) {
   const hechoC = cart.hecho && cart.hechoMsg === cart.msg ? D.cargos.find(c => c.id === cart.hecho && c.estado !== 'POR_REVISAR') : null;
   // v0.69.0 · Las reglas sugeridas (de lo ya revisado en la memoria: 0 lecturas)
   const sugCc = base && D.concMigrado ? sugerenciasCargos(D) : [];
-  const barra = barraBjHtml({ tipo: 'cc', k: kBj, filtro: cart.bjFiltro || '', q: cart.bjQ || '', extraFiltro: filtroNota + filtroMesBjHtml(cart), lote: barraLote, reglas: base && D.concMigrado ? '#gastos/config/reglas' : '', sug: sugBannerHtml('cargo', sugCc),
+  const barra = barraBjHtml({ tipo: 'cc', k: kBj, filtro: cart.bjFiltro || '', q: cart.bjQ || '', extraFiltro: filtroCuenta + filtroNota + filtroMesBjHtml(cart), lote: barraLote, reglas: base && D.concMigrado ? '#gastos/config/reglas' : '', sug: sugBannerHtml('cargo', sugCc),
     hecho: hechoBjHtml({ tipo: 'cc', msg: cart.msg, err: cart.err, deshacer: hechoC ? hechoC.id : '', attr: 'data-bj-deshacer', sig: sigC ? sigC.id : '', sigTxt: sigC ? `${pesos(sigC.monto)} · ${sigC.descripcion}`.slice(0, 48) : '' }) });
   cart.claseRes = clase;   // v0.78.0: el Resumen del mes está en Finanzas; aquí queda su enlace (en la cabecera)
   // v0.79.0 · En la Bandeja única (#gastos) la misma bandeja de cargos va a la derecha ("Lo que muestra el banco"), angosta
@@ -3972,7 +3978,7 @@ function pintarCartola(el, sub, dg) {
     + `<p class="nota-i">(i) Pagar un vencimiento aquí hace lo mismo que en Por pagar (crea el gasto o completa el de la compra a crédito), con la fecha del banco. Cada gasto y cada vencimiento queda con la columna "Cartola" en la planilla: de qué cartola, cuenta y operación salió el pago, cuándo se subió y, si era una factura del SII, de qué carga venía. Deshacer no borra nada: el cargo vuelve a revisar, el vencimiento queda por pagar y un gasto creado aquí pasa a "Gastos anulados".</p>`;
   if (unica) {
     const sc = guardarScrollBu(el);
-    el.innerHTML = cabConc('cargos') + bandejaUnicaHtml(D, dg, { props, RX, clase, secCc }) + arribaConcHtml('cc', subir + coberturaDosHtml(D), resumenArribaCc(D), 'bu-arriba', false) + abajo;
+    el.innerHTML = cabConc('cargos') + arribaConcHtml('cc', subir + coberturaDosHtml(D), resumenArribaCc(D), 'bu-arriba', false) + bandejaUnicaHtml(D, dg, { props, RX, clase, secCc }) + abajo;   // v0.82.1: la cobertura, arriba
     conectarArriba(); conectarCartola(el, dg, props, listos, pedibles); conectarCobDos(el); conectarBandeja(el, 'cc'); irDesdeResumen(el); conectarSug(el, () => pintarCartola(concEl(), 'cargos', cart.dg));
     conectarBandejaUnica(el, dg); ponerScrollBu(el, sc);
     return;
@@ -4021,6 +4027,7 @@ function pedirDatosBu(D) {
   }
 }
 // v0.82.0 · Inicio del sistema (config.js): lo anterior queda guardado, pero no se pide
+const TXT_CUENTA_F = 'Para revisar una cartola a la vez: elige BancoEstado (cuenta corriente y Chequera Electrónica) o Mercado Pago y vacía esa; después pasa a la otra.\nSolo filtra lo que muestra el banco (derecha). Los documentos y gastos de la izquierda no cambian: un gasto se puede haber pagado desde cualquiera de las dos cuentas.';
 const TXT_INICIO = 'El sistema empieza el 1 de octubre de 2026. Septiembre fue el mes de transición (datos de la planilla antigua y de varias versiones): queda guardado en Registrados y en la cartola, pero la Bandeja, el informe y los avisos ya no lo piden.\nSe queda lo que todavía se debe: vencimientos por pagar y facturas del SII que esperan su pago. Una factura de septiembre pagada en octubre se calza con su cargo como siempre (Buscar en Gastos).\nEn Finanzas, el primer mes que se cierra es octubre.';
 const INICIO_SIS = (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const infoVencsBu = dg => { const m = {}; ((dg && dg.vencimientos) || []).forEach(v => { m[v.id] = { sePagaPor: v.sePagaPor || '', origenPor: v.origenPor || '', cuentaNombre: v.cuentaNombre || '', estadoBase: v.estadoBase || '' }; }); return m; };
@@ -4138,7 +4145,7 @@ async function informeSinCargo(M) {
   d.classList.add('dialogo-ancho', 'isc-dlg');
   d.querySelector('#isc-cerrar').addEventListener('click', () => d.close());
   try {
-    const RS = await import('./revision-sin-cargo-modelo.js?v=0.82.0');
+    const RS = await import('./revision-sin-cargo-modelo.js?v=0.82.1');
     const R = RS.revisar({ items: M.items, cargos: (D && (D.todosCargos || D.cargos)) || [], registrados: (D && D.registrados) || [], ligados: (D && D.ligados) || {}, cartolas: (D && D.cartolas) || [], hoy: Caja.diaLocal() });
     const meses = Object.entries(R.porMes).sort().map(([m, k]) => `${MESES_LARGOS[Number(m.slice(5, 7)) - 1] || m}: ${k}`).join(' · ');
     const linea = r => {
@@ -4166,7 +4173,7 @@ async function informeSinCargo(M) {
       const ok = d.querySelector(`[data-isc-ok="${CSS.escape(r.key)}"]`), fila = b.closest('.isc-fila');
       fila.querySelectorAll('button').forEach(x => { x.disabled = true; });
       try {
-        await (await import('./gastos-fs.js?v=0.82.0')).anularRepetido(ids, motivo);
+        await (await import('./gastos-fs.js?v=0.82.1')).anularRepetido(ids, motivo);
         registrar('Gastos: anuló un gasto repetido', `${desc(otro || r)} · ${motivo}`);
         if (ok) ok.textContent = `Anulado ${otro ? 'el otro' : 'este'}: queda en Gastos anulados (no se borra).`; fila.classList.add("isc-hecho"); huboCambio = true;
       } catch (e) { if (ok) { ok.className = 'error isc-ok'; ok.textContent = e.message || mensajeError(e); } fila.querySelectorAll('button').forEach(x => { x.disabled = false; }); }
@@ -4247,7 +4254,7 @@ function dialogoNoEmpresa(key) {
     const modo = d.querySelector('input[name="ne-modo"]:checked').value, nota = d.querySelector('#ne-nota').value;
     b.disabled = true; b.textContent = 'Guardando…';
     try {
-      await (await import('./gastos-fs.js?v=0.82.0')).noEsDeLaEmpresa(D0.x.gastos, modo, nota);
+      await (await import('./gastos-fs.js?v=0.82.1')).noEsDeLaEmpresa(D0.x.gastos, modo, nota);
       registrar(modo === 'retiro' ? 'Gastos: pasó un gasto a retiro del dueño' : 'Gastos: anuló un gasto que no es de la empresa', `${D0.nombre} · ${pesos(D0.x.total)}${nota ? ' · ' + nota : ''}`);
       d.close(); bu.sel = ''; bu.err = '';
       bu.msg = modo === 'retiro' ? `Listo: ${esc(D0.nombre)} quedó como Retiro del dueño (fuera del resultado). Si salió por el banco o Mercado Pago, cálzalo con su cargo; si fue en efectivo, dilo con "¿Cómo se pagó?".` : `Listo: ${esc(D0.nombre)} se anuló (no era de la empresa). Queda en Gastos anulados.`;
@@ -4820,7 +4827,7 @@ function conectarResumenConc(el) {
     resConc.contando = false; refrescarResumenConc();
   });
   const ic = R0.querySelector('[data-res-cierre]');
-  if (ic) ic.addEventListener('click', async ev => { ev.preventDefault(); const m = ic.dataset.resCierre; try { (await import('./vista-finanzas-eerr.js?v=0.82.0')).elegirMes(m); } catch (e) {} location.hash = '#finanzas/resultados/cierre'; });
+  if (ic) ic.addEventListener('click', async ev => { ev.preventDefault(); const m = ic.dataset.resCierre; try { (await import('./vista-finanzas-eerr.js?v=0.82.1')).elegirMes(m); } catch (e) {} location.hash = '#finanzas/resultados/cierre'; });
 }
 // La bandeja filtrada por el mes del resumen: "Solo octubre" con su X
 const filtroMesBjHtml = st => (st.bjMes ? `<button type="button" class="bj-filtro bj-f-mes" data-bj-mes-quitar aria-pressed="true" title="Mostrar todos los meses"><span>Solo ${esc(CR.mesCorto(st.bjMes))}</span>${icono('anular', 14)}</button>` : '');
@@ -4965,6 +4972,7 @@ function conectarCartola(el, dg, props, listos, pedibles = {}) {
   // v0.67.1 · Notas: el botón está en la fila (no abre ni cierra el cargo) y el filtro "Con nota"
   el.querySelectorAll('[data-cc-nota]').forEach(b => b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); const c = cargo(b.dataset.ccNota); if (c) editarNotaCc(c); }));
   if ($('cc-con-nota')) $('cc-con-nota').addEventListener('click', () => { cart.conNota = !cart.conNota; repintar(); });
+  document.querySelectorAll('[data-cc-cuenta]').forEach(b => b.addEventListener('click', () => { cart.cuentaF = b.dataset.ccCuenta; repintar(); }));   // v0.82.1
   const confirmarProp = id => {
     const c = cargo(id), pd = pedidoDeProp(c, props[c.id], dg.items || []);
     if (!pd) { cart.abierto = c.id; cart.modo[c.id] = modoDeProp(props[c.id]); repintar(); return; }
@@ -7393,7 +7401,7 @@ function pintarB2bProductos(el, sub) {
 // ── v0.80.0 · Listas de precios (vista-listas-precios.js) ──
 function pintarB2bListas(el, sub) {
   if (!catOk()) return sinActivar(el, sub);
-  import('./vista-listas-precios.js?v=0.82.0').then(m => m.pintar(el, { esc, info, icono, registrar, mensajeError, dialogo },
+  import('./vista-listas-precios.js?v=0.82.1').then(m => m.pintar(el, { esc, info, icono, registrar, mensajeError, dialogo },
     { cab: () => cabB2b(sub).replace('class="cabecera"', 'class="cabecera lp-raiz"'), datos: () => b2b.datos, errorB2b, abrirWhatsapp, esCelular, copiarTexto }))
     .catch(e => { el.innerHTML = cabB2b(sub) + `<section class="tarjeta"><p class="error">No se pudo abrir Listas de precios (${esc(e.message || e)}). Revisa la conexión y recarga.</p></section>`; });
 }
@@ -7554,7 +7562,7 @@ async function subirArchivoConc(f) {
   // v0.81.0 · El reporte de Mercado Pago (CSV): el de liberaciones se carga como la cuenta "Mercado Pago"; el de liquidaciones se avisa
   if (ext === 'csv' && f.size <= 8 * 1024 * 1024) {
     let txt = ''; try { txt = await f.text(); } catch (e) { txt = ''; }
-    const MPx = await import('./mercadopago.js?v=0.82.0'), tipo = txt ? MPx.tipoReporte(txt) : '';
+    const MPx = await import('./mercadopago.js?v=0.82.1'), tipo = txt ? MPx.tipoReporte(txt) : '';
     if (tipo === 'liquidaciones') { conc.err = MPx.leer(txt).error; repintarConc(); return; }
     if (tipo === 'liberaciones') return subirMercadoPago(f, txt, MPx);
   }
@@ -9224,7 +9232,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.82.0')).dbBase(); const FG = await import('./fs-gastos.js?v=0.82.0'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.82.1')).dbBase(); const FG = await import('./fs-gastos.js?v=0.82.1'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }
@@ -9317,7 +9325,7 @@ async function pintarAjustes(sub) {
     .then(() => { if (sub === 'cocina' && $('cocina')) $('cocina').scrollIntoView({ block: 'start' }); })
     .catch(e => { if ($('cocina')) $('cocina').innerHTML = `<p class="error">${esc(mensajeError(e))}</p>`; });
   // v0.73.0 · Respaldo mensual en Excel (reemplaza a las copias en vivo a las planillas)
-  import('./vista-respaldo.js?v=0.82.0').then(m => m.pintar($('respaldo'), { esc, info, icono, registrar, mensajeError, dialogo }))
+  import('./vista-respaldo.js?v=0.82.1').then(m => m.pintar($('respaldo'), { esc, info, icono, registrar, mensajeError, dialogo }))
     .then(() => { if (sub === 'respaldo' && $('respaldo')) $('respaldo').scrollIntoView({ block: 'start' }); })
     .catch(e => { if ($('respaldo')) $('respaldo').innerHTML = `<p class="error">No se pudo abrir el Respaldo (${esc(e.message || e)}).</p>`; });
 

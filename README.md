@@ -1,9 +1,17 @@
-# Sistema Fën · v0.82.0
+# Sistema Fën · v0.82.1
 
-**App:** v0.82.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.82.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.82.1: cobertura arriba y filtro de cuenta
+
+- **"Cartola y cobertura" va arriba de la Bandeja** (antes quedaba al final): primero se ve hasta qué día llega cada cuenta y el SII.
+- **Filtro de cuenta** en "Lo que muestra el banco": Todas las cuentas · BancoEstado · Mercado Pago (con cuántos hay). Sirve para revisar una cartola a la vez. Solo filtra la derecha: la izquierda (documentos y gastos) no cambia, porque un gasto se puede haber pagado desde cualquiera. "Confirmar seleccionados" confirma solo los de la cuenta elegida.
+Cambian `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.82.1`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.82.1.
 
 ## Novedades de la v0.82.0: el sistema empieza el 1 de octubre
 
