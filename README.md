@@ -1,9 +1,16 @@
-# Sistema Fën · v0.81.0
+# Sistema Fën · v0.81.1
 
-**App:** v0.81.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.81.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.81.1: el nombre de la cuenta Mercado Pago
+
+En el detalle de un cargo de Mercado Pago decía "Cuenta: Chequera", "en la mp" y "Cartola en línea". Ahora dice **Mercado Pago**, "en la cuenta de Mercado Pago" y "Reporte de Mercado Pago (subido el …)". Los cargos que ya subió se ven bien sin subir nada de nuevo. Cambian `app.js`, `gastos-cartola.js`, `config.js` y este README; los demás, solo la versión (`?v=0.81.1`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.81.1.
+- [ ] Abrir un cargo de Mercado Pago: dice "Cuenta: Mercado Pago".
 
 ## Novedades de la v0.81.0: lo que septiembre necesita para cerrarse
 
