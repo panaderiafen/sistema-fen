@@ -28,8 +28,8 @@
 //  canal B2B. El despacho ya no está en Común ni en el margen de contribución. El resultado operacional y el del mes no cambian.
 //  Un mes cerrado antes de la v0.75.1 se ve como quedó; sus ajustes se comparan en la forma de entonces (sin ruido por el cambio).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.91.0';
-import * as AR from './areas.js?v=0.91.0';
+import * as FR from './finanzas-resultados.js?v=0.91.1';
+import * as AR from './areas.js?v=0.91.1';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;

@@ -4,8 +4,8 @@
 //  ID para la caja y B2B. Crear, cambiar, archivar y reactivar con diálogos en la página; "Traer reventa de la planilla" una vez.
 //  Datos en reventa.js; reglas en reventa-modelo.js. H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, dialogo }
 // ═══════════════════════════════════════════════
-import * as R from './reventa.js?v=0.91.0';
-import * as RV from './reventa-modelo.js?v=0.91.0';
+import * as R from './reventa.js?v=0.91.1';
+import * as RV from './reventa-modelo.js?v=0.91.1';
 
 const st = { lista: null, meta: null, usos: {}, filtro: 'activo', q: '', msg: '', err: '', ocupado: false, sinGastos: false };
 export const estado = st;
@@ -30,7 +30,7 @@ export async function pintar(el, h, ctx) {
     const D = ctx.datos();
     let vinc, cat;
     if (D) { vinc = D.datos.vinculos; cat = { caja: Object.fromEntries((D.datos.caja || []).map(p => [p.id, p])), b2b: Object.fromEntries((D.datos.b2b || []).map(p => [p.id, p])) }; }
-    else { const F = await import('./finanzas.js?v=0.91.0'); [vinc, cat] = await Promise.all([F.leerVinculos().catch(() => ({})), F.catalogosVenta().catch(() => ({ caja: {}, b2b: {} }))]); }
+    else { const F = await import('./finanzas.js?v=0.91.1'); [vinc, cat] = await Promise.all([F.leerVinculos().catch(() => ({})), F.catalogosVenta().catch(() => ({ caja: {}, b2b: {} }))]); }
     st.vinc = vinc || {}; st.cat = cat || null;
   } catch (e) { st.vinc = {}; st.cat = null; }
   dibujar(el);

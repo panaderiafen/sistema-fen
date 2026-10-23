@@ -10,11 +10,11 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.91.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.91.0';
-import { ahoraChile } from './gastos-g2.js?v=0.91.0';
-import * as GN from './gn-modelo.js?v=0.91.0';
-import * as GB from './gn-bandeja.js?v=0.91.0';
+import * as FB from './fs-gastos.js?v=0.91.1';
+import { dbBase, correo } from './gastos-fs.js?v=0.91.1';
+import { ahoraChile } from './gastos-g2.js?v=0.91.1';
+import * as GN from './gn-modelo.js?v=0.91.1';
+import * as GB from './gn-bandeja.js?v=0.91.1';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -91,6 +91,13 @@ const conHist = (a, h) => (Array.isArray(a && a.historial) ? a.historial : []).c
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 // Lee lo último de cada documento y movimiento tocado (dentro de una transacción) para no pisar un cambio de otra pestaña
 async function enTransaccion(fn) { const d = await dbBase(); return FB.runTransaction(d, tx => fn(tx, d)); }
+// La seña aprendida en la ficha del proveedor: una vez cada seña; recuerda con qué movimiento se aprendió (para olvidarla al deshacer)
+function conGlosa(prev, doc, sena, movId, h) {
+  const gl = (prev && Array.isArray(prev.glosas) ? prev.glosas : []).filter(g => g && g.sena);
+  const base = prev ? {} : { rut: doc.rut || '', razon: doc.razon || '' };
+  if (gl.some(g => g.sena === sena)) return { ...base, glosas: gl };
+  return { ...base, glosas: gl.concat([{ sena, movId, por: h.por, en: h.en }]).slice(-20) };
+}
 const idPago = (docId, ref, n) => 'p_' + GN.hash(docId + '|' + ref) + (n ? '_' + n : '');
 
 // Pagar: partes = [{ docId, monto }], con un movimiento (movId) o un medio sin banco (efectivo, personal) y su fecha.
@@ -103,6 +110,10 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
     let mov = null; const mref = movId ? FB.doc(d, GN.COL.movs, movId) : null;
     if (mref) { const ms = await tx.get(mref); if (!ms.exists()) throw error('Ese movimiento ya no está.', 'cambio'); mov = ms.data(); if (mov.naturaleza || mov.estado === 'no_va') throw error('Ese movimiento ya se marcó como "no es gasto".', 'cambio'); }
     sn.forEach((x, i) => { if (!x.exists()) throw error('Un documento ya no está.', 'cambio'); if (x.data().estado === 'no_va') throw error(`El documento N° ${x.data().folio || ''} se marcó "Esto no va".`, 'cambio'); });
+    // v0.91.1 · El proveedor aprende cómo aparece en el banco (solo si todos los documentos son del mismo proveedor y la glosa tiene seña propia)
+    const claves = [...new Set(sn.map(x => GB.claveProveedor(x.data())))], sena = mov ? GB.senaDe(mov.glosa) : '';
+    const aprende = sena && claves.length === 1 ? { ref: FB.doc(d, GN.COL.provs, claves[0]), dato: sn[0].data() } : null;
+    if (aprende) { const ps = await tx.get(aprende.ref); aprende.prev = ps.exists() ? ps.data() : null; }
     const h = marca(movId ? 'pagado con un movimiento' : 'pagado sin banco', { medio, movId, nota: String(nota || '').slice(0, 200) });
     partes.forEach((p, i) => {
       const ref = movId || (medio + '|' + fecha), n = pagosAntes.filter(x => x.id === idPago(p.docId, ref) || x.id.startsWith(idPago(p.docId, ref) + '_')).length;
@@ -111,7 +122,8 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
       tx.update(refs[i], { historial: conHist(sn[i].data(), h) });
     });
     if (mref) tx.update(mref, { historial: conHist(mov, marca('unido a ' + partes.length + (partes.length === 1 ? ' documento' : ' documentos'), { docs: partes.map(p => p.docId) })) });
-    return { pagos: partes.length };
+    if (aprende) tx.set(aprende.ref, conGlosa(aprende.prev, aprende.dato, sena, movId, h), { merge: true });
+    return { pagos: partes.length, sena: aprende ? sena : '' };
   });
 }
 // Deshacer un pago: queda "deshecho" (con quién, cuándo y por qué); el documento y el movimiento vuelven a estar abiertos
@@ -121,9 +133,11 @@ export async function deshacerPago(pagoId, motivo) {
     if (!sn.exists() || sn.data().estado === 'deshecho') throw error('Ese pago ya no está vigente.', 'cambio');
     const p = sn.data(), h = marca('pago deshecho', { pagoId, motivo: String(motivo || '').slice(0, 200) });
     const dref = FB.doc(d, GN.COL.docs, p.docId), ds = await tx.get(dref), mref = p.movId ? FB.doc(d, GN.COL.movs, p.movId) : null, ms = mref ? await tx.get(mref) : null;
+    const pref = p.movId && ds.exists() ? FB.doc(d, GN.COL.provs, GB.claveProveedor(ds.data())) : null, ps = pref ? await tx.get(pref) : null;
     tx.update(ref, { estado: 'deshecho', deshecho: { por: h.por, en: h.en, motivo: h.motivo } });
     if (ds.exists()) tx.update(dref, { historial: conHist(ds.data(), h) });
     if (ms && ms.exists()) tx.update(mref, { historial: conHist(ms.data(), h) });
+    if (ps && ps.exists() && (ps.data().glosas || []).some(g => g.movId === p.movId)) tx.update(pref, { glosas: ps.data().glosas.filter(g => g.movId !== p.movId) });   // v0.91.1: se olvida lo aprendido con ese pago
   });
 }
 // Esto no va (documento): repetido, no es de la empresa o no es una compra. Volver a la Bandeja lo deshace.
@@ -165,7 +179,7 @@ export async function clasificar(doc, clasif, recordar = true) {
     const ref = FB.doc(d, GN.COL.docs, doc.id), sn = await tx.get(ref), a = sn.data(), h = marca('clasificado', { item: c.item, areas: GB.textoReparto(c.areas) });
     const pref = recordar ? FB.doc(d, GN.COL.provs, GB.claveProveedor(doc)) : null, ps = pref ? await tx.get(pref) : null;
     tx.update(ref, { clasif: { ...c, por: h.por, en: h.en }, historial: conHist(a, h) });
-    if (pref) tx.set(pref, limpio({ rut: doc.rut || '', razon: doc.razon || '', item: c.item, areas: c.areas, por: h.por, en: h.en, historial: conHist(ps && ps.exists() ? ps.data() : null, h) }));
+    if (pref) tx.set(pref, limpio({ rut: doc.rut || '', razon: doc.razon || '', item: c.item, areas: c.areas, por: h.por, en: h.en, historial: conHist(ps && ps.exists() ? ps.data() : null, h) }), { merge: true });
   });
 }
 // Registrar a mano desde un movimiento: boleta en papel o pago sin documento. Nace el documento ya pagado con ese movimiento.
@@ -185,7 +199,16 @@ export async function registrarAMano(mov, p) {
     tx.set(FB.doc(d, GN.COL.docs, docId), limpio(doc));
     tx.set(FB.doc(d, GN.COL.pagos, idPago(docId, mov.id)), { docId, movId: mov.id, medio: 'cargo', monto, fecha: mov.fecha, cuenta: mov.cuenta, nota: '', estado: 'vigente', creado: { por: h.por, en: h.en } });
     tx.update(mref, { historial: conHist(m, marca('registrado a mano: ' + doc.razon, { docs: [docId] })) });
-    if (pref) tx.set(pref, limpio({ rut: doc.rut, razon: doc.razon, item: doc.clasif.item, areas: p.areas, por: h.por, en: h.en, historial: conHist(ps && ps.exists() ? ps.data() : null, h) }));
+    if (pref) { const sena = GB.senaDe(mov.glosa), prev = ps && ps.exists() ? ps.data() : null;
+      tx.set(pref, limpio({ rut: doc.rut, razon: doc.razon, item: doc.clasif.item, areas: p.areas, por: h.por, en: h.en, historial: conHist(prev, h), ...(sena ? { glosas: conGlosa(prev, doc, sena, mov.id, h).glosas } : {}) }), { merge: true }); }
     return { docId };
+  });
+}
+
+// v0.91.1 · Olvidar una seña aprendida (desde el par que la muestra)
+export async function olvidarSena(provKey, sena) {
+  return enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.provs, provKey), sn = await tx.get(ref); if (!sn.exists()) return;
+    const a = sn.data(); tx.update(ref, { glosas: (a.glosas || []).filter(g => g.sena !== sena), historial: conHist(a, marca('olvidó la glosa ' + sena)) });
   });
 }

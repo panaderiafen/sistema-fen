@@ -2753,3 +2753,9 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 480px) { .gn-dos { grid-template-columns: 1fr; } }
 .form-dialogo input[type=search] { min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--borde); background: var(--tarjeta); }
+/* v0.91.1 · Pares seguros en verde (RUT, nombre, glosa conocida, varios del mismo proveedor); los de solo monto siguen en amarillo */
+.gn-par-seguro { background: var(--verde); border-color: var(--verde-t); }
+.gn-par-por { font-size: 12px; font-weight: 700; color: var(--amarillo-t); }
+.gn-par-seguro .gn-par-por { color: var(--verde-t); }
+.gn-btn-seguro { background: var(--verde-t); }
+.gn-link { border: 0; background: none; padding: 0 0 0 6px; font: inherit; font-weight: 600; color: var(--suave); text-decoration: underline; cursor: pointer; }

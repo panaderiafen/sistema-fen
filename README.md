@@ -1,9 +1,25 @@
-# Sistema Fën · v0.91.0
+# Sistema Fën · v0.91.1
 
-**App:** v0.91.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.91.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.91.1: pares seguros en verde y el proveedor aprende cómo aparece en el banco
+
+- **Para confirmar en dos colores:**
+  - **Verde (seguros):** RUT o nombre del proveedor en la glosa, glosa conocida, o varios documentos del mismo proveedor que suman justo el pago. El botón "Confirmar los N en verde" confirma justo esos.
+  - **Amarillo:** calzan solo por el monto; revíselos antes.
+- **Glosa conocida:**
+  - Al confirmar un pago, el proveedor guarda la seña de la glosa del banco. Es la glosa sin números ni palabras comunes (COMPRA, TEF, PAGO, CL, MERCADO PAGO…): "COMPRA VANNI CONCEP CL" queda "VANNI CONCEP".
+  - El próximo cargo con esa seña se reconoce como de ese proveedor y sale en verde, aunque no traiga su RUT ni su nombre.
+  - Las glosas sin seña propia no se aprenden.
+  - Si dos proveedores tienen la misma seña, no cuenta.
+  - "Olvidar esta glosa" la quita. Deshacer el pago con que se aprendió también la quita.
+Cambian `gn-bandeja.js`, `gn-fs.js`, `vista-gn.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.91.1`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.91.1.
+- [ ] Confirmar el pago de Fabrica de Bandejas ("COMPRA VANNI CONCEP CL"): la próxima compra llega en verde, "glosa conocida (VANNI CONCEP)".
 
 ## Novedades de la v0.91.0: Gastos desde cero, Etapa 2 (la Bandeja que une)
 
