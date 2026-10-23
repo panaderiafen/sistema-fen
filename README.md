@@ -1,9 +1,33 @@
-# Sistema Fën · v0.91.1
+# Sistema Fën · v0.92.0
 
-**App:** v0.91.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.92.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.92.0: listo = pagado y clasificado; clasificación por partes (líneas o montos)
+
+- **Un documento está listo cuando tiene su pago Y su clasificación.**
+  - "Confirmar", "¿Cómo se pagó?", "Es de este documento" y "Descontar de su factura" piden clasificar antes, si falta. El botón dice **"Clasificar y confirmar"** y abre la clasificación; al guardar, sigue con el pago.
+  - La regla también está en la base: un pago de un documento sin clasificar no se guarda.
+- **Cada factura en una sola tarjeta, con su clasificación a la vista:**
+  - si ya la tiene, se ve en verde ("como siempre" si viene de su proveedor);
+  - si hay sugerencia, "Sugerido: …" con "Usar lo sugerido";
+  - si no hay nada, "Sin clasificar".
+  - "Ver detalle" muestra las líneas de la factura (producto, cantidad, monto).
+- **"Pagados, falta clasificar"** (antes "Por clasificar") muestra solo lo ya pagado sin ítem, por ejemplo lo que se confirmó con la v0.91. Ya no repite facturas que están en otro grupo.
+- **"Confirmar los N en verde ya clasificados"** confirma solo los pares seguros que ya tienen clasificación.
+- **Clasificación por partes** (ítem, área y monto neto; la suma es el neto de la factura):
+  - **Toda la factura:** un ítem y sus áreas en %, como antes.
+  - **Separar por líneas** (facturas con detalle): cada producto con su ítem y área; las líneas vacías toman lo de toda la factura.
+  - **Separar por montos** (facturas sin detalle, del RCV): montos con su ítem y área. Deben sumar el neto.
+  - **El proveedor recuerda** su clasificación general y la de **cada producto**: la próxima factura con esos productos llega separada sola.
+  - Lo ya clasificado se lee igual (pasa solo a partes).
+Cambian `gn-bandeja.js`, `gn-fs.js`, `vista-gn.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.92.0`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.92.0.
+- [ ] "Pagados, falta clasificar": clasificar lo que ya confirmó (mirar "Ver detalle" antes de usar lo sugerido).
+- [ ] Una factura con varias cosas: Clasificar → "separar por líneas".
 
 ## Novedades de la v0.91.1: pares seguros en verde y el proveedor aprende cómo aparece en el banco
 

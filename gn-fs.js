@@ -10,11 +10,11 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.91.1';
-import { dbBase, correo } from './gastos-fs.js?v=0.91.1';
-import { ahoraChile } from './gastos-g2.js?v=0.91.1';
-import * as GN from './gn-modelo.js?v=0.91.1';
-import * as GB from './gn-bandeja.js?v=0.91.1';
+import * as FB from './fs-gastos.js?v=0.92.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.92.0';
+import { ahoraChile } from './gastos-g2.js?v=0.92.0';
+import * as GN from './gn-modelo.js?v=0.92.0';
+import * as GB from './gn-bandeja.js?v=0.92.0';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -110,10 +110,14 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
     let mov = null; const mref = movId ? FB.doc(d, GN.COL.movs, movId) : null;
     if (mref) { const ms = await tx.get(mref); if (!ms.exists()) throw error('Ese movimiento ya no está.', 'cambio'); mov = ms.data(); if (mov.naturaleza || mov.estado === 'no_va') throw error('Ese movimiento ya se marcó como "no es gasto".', 'cambio'); }
     sn.forEach((x, i) => { if (!x.exists()) throw error('Un documento ya no está.', 'cambio'); if (x.data().estado === 'no_va') throw error(`El documento N° ${x.data().folio || ''} se marcó "Esto no va".`, 'cambio'); });
+    // v0.91.2 · Regla: cada documento pagado tiene que estar clasificado (por sí mismo o por su proveedor)
+    const claves = [...new Set(sn.map(x => GB.claveProveedor(x.data())))], provs = {};
+    for (const k of claves) { const ps = await tx.get(FB.doc(d, GN.COL.provs, k)); if (ps.exists()) provs[k] = ps.data(); }
+    const falta = GB.faltaClasificar(sn.map(x => ({ id: x.id, ...x.data() })), provs);
+    if (falta.length) throw error(`Primero clasifique: ${falta.map(x => x.razon || x.folio).join(', ')}.`, 'clasificar');
     // v0.91.1 · El proveedor aprende cómo aparece en el banco (solo si todos los documentos son del mismo proveedor y la glosa tiene seña propia)
-    const claves = [...new Set(sn.map(x => GB.claveProveedor(x.data())))], sena = mov ? GB.senaDe(mov.glosa) : '';
-    const aprende = sena && claves.length === 1 ? { ref: FB.doc(d, GN.COL.provs, claves[0]), dato: sn[0].data() } : null;
-    if (aprende) { const ps = await tx.get(aprende.ref); aprende.prev = ps.exists() ? ps.data() : null; }
+    const sena = mov ? GB.senaDe(mov.glosa) : '';
+    const aprende = sena && claves.length === 1 ? { ref: FB.doc(d, GN.COL.provs, claves[0]), dato: sn[0].data(), prev: provs[claves[0]] || null } : null;
     const h = marca(movId ? 'pagado con un movimiento' : 'pagado sin banco', { medio, movId, nota: String(nota || '').slice(0, 200) });
     partes.forEach((p, i) => {
       const ref = movId || (medio + '|' + fecha), n = pagosAntes.filter(x => x.id === idPago(p.docId, ref) || x.id.startsWith(idPago(p.docId, ref) + '_')).length;
@@ -171,15 +175,28 @@ export async function volverMov(movId) {
   });
 }
 // Clasificar: ítem y reparto en el documento; "recordar" lo deja en su proveedor para los que vienen
+// Clasificar (v0.92.0, por partes). clasif = { general: { item, areas }, partes?, lineas? } o lo simple { item, areas } (lo sugerido).
+//  · general: lo de "toda la factura" (lo que el proveedor recuerda para las próximas).
+//  · partes: [{ item, area, monto }] que suman la base del documento (si no vienen, salen de general).
+//  · lineas: [{ descripcion, item, area }] cuando se separó por líneas: el proveedor recuerda cada producto.
 export async function clasificar(doc, clasif, recordar = true) {
-  const err = GB.repartoValido(clasif.areas); if (err) throw error(err, 'datos');
-  if (!String(clasif.item || '').trim()) throw error('Elija el ítem.', 'datos');
-  const c = { item: String(clasif.item).trim(), areas: clasif.areas.map(a => ({ area: String(a.area), pct: Math.round(Number(a.pct) * 100) / 100 })) };
+  const gen = clasif.general || { item: clasif.item, areas: clasif.areas };
+  const err = GB.repartoValido(gen.areas); if (err) throw error(err, 'datos');
+  if (!String(gen.item || '').trim()) throw error('Elija el ítem.', 'datos');
+  const general = { item: String(gen.item).trim(), areas: gen.areas.map(a => ({ area: String(a.area), pct: Math.round(Number(a.pct) * 100) / 100 })) };
+  const base = GB.baseDe(doc), partes = (clasif.partes && clasif.partes.length ? clasif.partes : GB.partesSimple(base, general.item, general.areas))
+    .map(x => ({ item: String(x.item).trim(), area: String(x.area), monto: Math.round(Number(x.monto) || 0) }));
+  const e2 = GB.partesValidas(partes, base); if (e2) throw error(e2, 'datos');
+  const lineas = (clasif.lineas || []).filter(l => l && l.descripcion && l.item && l.area);
   return enTransaccion(async (tx, d) => {
-    const ref = FB.doc(d, GN.COL.docs, doc.id), sn = await tx.get(ref), a = sn.data(), h = marca('clasificado', { item: c.item, areas: GB.textoReparto(c.areas) });
-    const pref = recordar ? FB.doc(d, GN.COL.provs, GB.claveProveedor(doc)) : null, ps = pref ? await tx.get(pref) : null;
-    tx.update(ref, { clasif: { ...c, por: h.por, en: h.en }, historial: conHist(a, h) });
-    if (pref) tx.set(pref, limpio({ rut: doc.rut || '', razon: doc.razon || '', item: c.item, areas: c.areas, por: h.por, en: h.en, historial: conHist(ps && ps.exists() ? ps.data() : null, h) }), { merge: true });
+    const ref = FB.doc(d, GN.COL.docs, doc.id), sn = await tx.get(ref), a = sn.data(), h = marca('clasificado', { clasificacion: GB.textoPartes(partes) });
+    const pref = recordar ? FB.doc(d, GN.COL.provs, GB.claveProveedor(doc)) : null, ps = pref ? await tx.get(pref) : null, prev = ps && ps.exists() ? ps.data() : null;
+    tx.update(ref, { clasif: { item: general.item, areas: general.areas, partes, porLineas: lineas.length > 0, lineas: lineas.map(l => ({ descripcion: String(l.descripcion).slice(0, 120), item: l.item, area: l.area })), por: h.por, en: h.en }, historial: conHist(a, h) });
+    if (pref) {
+      const productos = { ...((prev && prev.productos) || {}) };
+      lineas.forEach(l => { const k = GB.normProducto(l.descripcion); if (k) productos[k] = { item: l.item, area: l.area }; });
+      tx.set(pref, limpio({ rut: doc.rut || '', razon: doc.razon || '', item: general.item, areas: general.areas, productos, por: h.por, en: h.en, historial: conHist(prev, h) }), { merge: true });
+    }
   });
 }
 // Registrar a mano desde un movimiento: boleta en papel o pago sin documento. Nace el documento ya pagado con ese movimiento.
@@ -192,7 +209,7 @@ export async function registrarAMano(mov, p) {
   const rut = GN.rutN(p.rut);
   const doc = { origen: 'mano', tipo, tipoTexto: p.tipo === 'boleta' ? 'Boleta' : 'Sin documento', nc: false, rut: rut ? GN.rutTexto(rut) : '', rutN: rut, razon: String(p.proveedor).trim().slice(0, 120), folio: String(p.folio || '').slice(0, 30),
     fecha: mov.fecha, mes: mov.fecha.slice(0, 7), neto: 0, exento: 0, iva: 0, otroImp: 0, total: monto, vence: '', formaPago: '', referencias: [], detalle: p.nota ? [{ descripcion: String(p.nota).slice(0, 120), cantidad: 1, unidad: '', monto }] : [],
-    estado: 'vigente', clasif: { item: String(p.item).trim(), areas: p.areas, por: h.por, en: h.en }, creado: { por: h.por, en: h.en, mov: mov.id }, version: 0, historial: [h] };
+    estado: 'vigente', clasif: { item: String(p.item).trim(), areas: p.areas, partes: GB.partesSimple(monto, String(p.item).trim(), p.areas), por: h.por, en: h.en }, creado: { por: h.por, en: h.en, mov: mov.id }, version: 0, historial: [h] };
   return enTransaccion(async (tx, d) => {
     const mref = FB.doc(d, GN.COL.movs, mov.id), ms = await tx.get(mref), m = ms.data();
     const pref = p.recordar !== false ? FB.doc(d, GN.COL.provs, GB.claveProveedor(doc)) : null, ps = pref ? await tx.get(pref) : null;

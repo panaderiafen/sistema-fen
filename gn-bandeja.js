@@ -41,11 +41,66 @@ export function libreMov(m, I) {
 }
 
 // ── Clasificación efectiva: la del documento, si no la del proveedor ──
+// v0.91.2 · Un pago solo se crea con cada documento clasificado (la regla vive también en gn-fs.pagar).
+export const faltaClasificar = (docs, provs) => (docs || []).filter(d => !clasifDe(d, provs));
 export const claveProveedor = d => (rutN(d.rutN || d.rut) ? 'r_' + rutN(d.rutN || d.rut) : 'n_' + norm(d.razon).replace(/ /g, '_').slice(0, 60));
+// v0.92.0 · La clasificación es POR PARTES: [{ item, area, monto }] en neto (neto + exento; una boleta o un pago sin documento, su total).
+// La suma de las partes es la base del documento. El caso simple (un ítem, una o varias áreas en %) es una clasificación más.
+// Lo antiguo ({ item, areas: [{ area, pct }] }) se lee igual. El proveedor recuerda su clasificación general y la de cada producto.
+export const baseDe = d => { const b = entero(d.neto) + entero(d.exento); return b || entero(d.total); };
+export const normProducto = t => norm(t).replace(/\b\d+([.,]\d+)?\b/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+// Reparte un monto en partes enteras según pesos, sin perder pesos (lo que sobra del redondeo va a la parte más grande)
+export function repartirMonto(total, pesos) {
+  const t = pesos.reduce((a, b) => a + b, 0); if (!t) return pesos.map(() => 0);
+  const out = pesos.map(w => Math.round(total * w / t)), dif = total - out.reduce((a, b) => a + b, 0);
+  if (dif) { let k = 0; out.forEach((v, i) => { if (Math.abs(pesos[i]) > Math.abs(pesos[k])) k = i; }); out[k] += dif; }
+  return out;
+}
+const juntar = partes => { const m = {}; partes.forEach(p => { const k = p.item + '|' + p.area; m[k] = m[k] ? { ...m[k], monto: m[k].monto + p.monto } : { ...p }; }); return Object.values(m).filter(p => p.monto !== 0); };
+// Un ítem con su reparto por área (%) → partes
+export function partesSimple(base, item, areas) {
+  const l = (areas || []).filter(a => s(a.area)); if (!s(item) || !l.length) return [];
+  const m = repartirMonto(base, l.map(a => Number(a.pct) || 0));
+  return juntar(l.map((a, i) => ({ item: s(item), area: s(a.area), monto: m[i] })));
+}
+// Por líneas del detalle: asign[i] = { item, area } de cada línea → partes, ajustadas a la base (descuentos globales, redondeos)
+export function partesPorLineas(d, asign) {
+  const det = d.detalle || [], w = det.map(x => entero(x.monto)), m = repartirMonto(baseDe(d), w);
+  return juntar(det.map((x, i) => ({ item: s(asign[i] && asign[i].item), area: s(asign[i] && asign[i].area), monto: m[i] })));
+}
+export function partesValidas(partes, base) {
+  if (!(partes || []).length) return 'Falta la clasificación.';
+  if (partes.some(p => !s(p.item))) return 'Cada parte necesita su ítem.';
+  if (partes.some(p => !s(p.area))) return 'Cada parte necesita su área.';
+  const t = partes.reduce((a, p) => a + entero(p.monto), 0);
+  return Math.abs(t - base) > 2 ? `Las partes suman ${t.toLocaleString('es-CL')} y la base del documento es ${base.toLocaleString('es-CL')}.` : '';
+}
+// Las partes de una clasificación guardada (nueva o antigua)
+export function partesDe(d, c) {
+  if (!c) return [];
+  if (Array.isArray(c.partes) && c.partes.length) return c.partes;
+  return partesSimple(baseDe(d), c.item, c.areas || []);
+}
+// Lo que dice la ficha del proveedor para un documento: su clasificación general y, por línea, la del producto si la recuerda
+function desdeProveedor(d, p) {
+  const prods = p.productos || {}, det = d.detalle || [], usa = det.length > 1 && det.some(x => prods[normProducto(x.descripcion)]);
+  if (!usa) return partesSimple(baseDe(d), p.item, p.areas || []);
+  const gen = (p.areas || [])[0] ? { item: p.item, area: p.areas[0].area } : { item: p.item, area: '' };
+  return partesPorLineas(d, det.map(x => prods[normProducto(x.descripcion)] || gen));
+}
 export function clasifDe(d, provs) {
-  if (d.clasif && d.clasif.item) return { ...d.clasif, de: 'documento' };
+  if (d.clasif && (d.clasif.item || (d.clasif.partes || []).length)) { const partes = partesDe(d, d.clasif); return { ...d.clasif, partes, item: principal(partes), de: 'documento' }; }
   const p = provs && provs[claveProveedor(d)];
-  return p && p.item ? { item: p.item, areas: p.areas || [], de: 'proveedor' } : null;
+  if (!p || !p.item) return null;
+  const partes = desdeProveedor(d, p); return partes.length ? { item: p.item, areas: p.areas || [], partes, de: 'proveedor' } : null;
+}
+const principal = partes => (partes.slice().sort((a, b) => Math.abs(b.monto) - Math.abs(a.monto))[0] || {}).item || '';
+// "MATERIA PRIMA · PAN" · "MATERIA PRIMA · PAN 60% · BOL 40%" · "MATERIA PRIMA · PAN $40.000 + INSUMOS VARIOS · VENTAS $9.990"
+export function textoPartes(partes) {
+  const l = partes || []; if (!l.length) return '';
+  const items = [...new Set(l.map(p => p.item))], t = l.reduce((a, p) => a + p.monto, 0) || 1;
+  if (items.length === 1) return items[0] + ' · ' + (l.length === 1 ? l[0].area : l.map(p => `${p.area} ${Math.round(p.monto / t * 100)}%`).join(' · '));
+  return l.map(p => `${p.item} · ${p.area} $${Math.abs(p.monto).toLocaleString('es-CL')}`).join(' + ');
 }
 // Reparto válido: áreas distintas, porcentajes enteros que suman 100
 export function repartoValido(areas) {
@@ -181,12 +236,16 @@ export function armar(D, { cuenta = '', excluir = null } = {}) {
   const pares = sugerirPares(abiertosD, abiertosM, S).filter(p => !excluir || !excluir.has(p.movId + '|' + p.docIds.join(',')));   // "No es este": ese par no se vuelve a proponer (en esta sesión)
   const enPar = new Set(pares.flatMap(p => p.docIds)), movEnPar = new Set(pares.map(p => p.movId));
   const visible = d => !d.anterior;
-  const porClasificar = docs.filter(d => visible(d) && d.estado !== 'no_va' && !d.clasifEf && entero(d.total) !== 0);
+  // v0.91.2 · "Listo" = pagado Y clasificado. Cada documento está en un solo grupo: en su par, sin pago (con su clasificación a la vista)
+  // o, si ya está pagado y le falta el ítem, en "Pagados sin clasificar".
+  const tocado = d => visible(d) || d.pagos.length || d.estado === 'no_va';
+  const porClasificar = docs.filter(d => tocado(d) && d.estado !== 'no_va' && d.estadoPago === 'pagado' && !d.clasifEf && entero(d.total) !== 0).sort((a, b) => b.fecha.localeCompare(a.fecha));
   const sinPago = abiertosD.filter(d => visible(d) && !enPar.has(d.id)).sort((a, b) => b.fecha.localeCompare(a.fecha));
   const sinDoc = abiertosM.filter(m => !movEnPar.has(m.id) && (!cuenta || m.cuenta === cuenta)).sort((a, b) => b.fecha.localeCompare(a.fecha));
-  const listosD = docs.filter(d => (visible(d) || d.pagos.length || d.estado === 'no_va') && (d.estadoPago === 'pagado' || d.estado === 'no_va')).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const listosD = docs.filter(d => tocado(d) && ((d.estadoPago === 'pagado' && (d.clasifEf || entero(d.total) === 0)) || d.estado === 'no_va')).sort((a, b) => b.fecha.localeCompare(a.fecha));
   const noGasto = movs.filter(m => m.naturaleza || m.estado === 'no_va').sort((a, b) => b.fecha.localeCompare(a.fecha));
-  const paresV = pares.filter(p => !cuenta || (movs.find(m => m.id === p.movId) || {}).cuenta === cuenta);
+  const porId = Object.fromEntries(docs.map(d => [d.id, d]));
+  const paresV = pares.filter(p => !cuenta || (movs.find(m => m.id === p.movId) || {}).cuenta === cuenta).map(p => ({ ...p, faltaClasif: p.docIds.some(i => !porId[i].clasifEf) }));
   return { docs, movs, I, S, pares: paresV, porClasificar, sinPago, sinDoc, listosD, noGasto, abiertosD, abiertosM,
     anteriores: docs.filter(d => d.anterior && d.estadoPago !== 'pagado' && d.estado !== 'no_va'),
     n: { pares: paresV.length, clasificar: porClasificar.length, sinPago: sinPago.length, sinDoc: sinDoc.length, total: paresV.length + porClasificar.length + sinPago.length + sinDoc.length } };

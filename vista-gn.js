@@ -7,15 +7,15 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.91.1';
-import * as GB from './gn-bandeja.js?v=0.91.1';
-import * as AR from './areas.js?v=0.91.1';
-import * as Sii from './sii.js?v=0.91.1';
-import * as MP from './mercadopago.js?v=0.91.1';
+import * as GN from './gn-modelo.js?v=0.92.0';
+import * as GB from './gn-bandeja.js?v=0.92.0';
+import * as AR from './areas.js?v=0.92.0';
+import * as Sii from './sii.js?v=0.92.0';
+import * as MP from './mercadopago.js?v=0.92.0';
 
 const st = { D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, noEsEste: new Set(), ocupado: false };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.91.1');
+const fsGN = () => import('./gn-fs.js?v=0.92.0');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -63,7 +63,7 @@ const subActual = () => ((location.hash || '').split('/')[1] || '');
 
 // ── Bandeja (v0.91.0 · Etapa 2: une cada documento con su pago) ──
 const TXT_PARES = 'El documento y el movimiento del mismo monto (hasta $5 de diferencia), con la fecha del pago entre 20 días antes y 60 días después del documento.\nEn verde, los seguros: el RUT o el nombre del proveedor está en la glosa del banco, la glosa ya se confirmó antes con ese proveedor ("glosa conocida"), o son varios documentos del mismo proveedor que suman justo el pago. En amarillo, los que calzan solo por el monto: revíselos antes de confirmar.\nAl confirmar, el proveedor aprende cómo aparece en el banco. Si se aprendió mal, "Olvidar esta glosa". Deshacer el pago también la olvida.\nConfirmar crea el pago. Se puede deshacer en "Listos".';
-const TXT_CLASIF = 'Cada documento necesita su ítem y su reparto por área. Lo que elija queda recordado en el proveedor: sus próximas facturas llegan clasificadas.\n"Sugerido" viene del Gastos anterior: es solo una propuesta; nada se copia hasta que usted la usa.';
+const TXT_CLASIF = 'Un documento está listo cuando tiene su pago y su clasificación (ítem y área). Aquí quedan los que ya tienen su pago y todavía no su ítem.\nUna factura con cosas distintas se separa por líneas (o por montos, si no trae detalle). Lo que elija queda recordado en el proveedor, también por producto: sus próximas facturas llegan clasificadas.\n"Sugerido" viene del Gastos anterior: es solo una propuesta; nada se copia hasta que usted la usa. Antes de usarla, mire el detalle de la factura.';
 const TXT_SINPAGO = 'Lo que se debe y todavía no tiene su pago. Si se pagó por el banco y el cargo ya llegó, use "¿Cómo se pagó?" → Con un cargo. Si se pagó en efectivo o con su plata, ahí mismo.\n"Esto no va": un documento repetido, que no es de la empresa o que no es una compra. No se borra.';
 const TXT_SINDOC = 'Lo que salió de las cuentas y todavía no tiene su documento. "Es de este documento" lo une con una factura (también con la deuda anterior). "Registrar a mano": una boleta en papel o un pago sin documento. "No es gasto": traspaso entre sus cuentas, retiro suyo o pago de la tarjeta de crédito.';
 const kPar = p => p.movId + '|' + p.docIds.join(',');
@@ -75,22 +75,28 @@ function bandejaHtml(H) {
   const cuentas = [['', 'Todas'], ...cob.map(c => [c.cuenta, c.nombre])];
   const nombreDoc = d => H.esc(d.razon || d.rut || 'Sin nombre');
   const lineaDoc = d => `${H.esc(d.tipoTexto)}${d.folio ? ' N° ' + H.esc(d.folio) : ''} · ${H.esc(H.diaTexto(d.fecha))}${d.vence && d.vence !== d.fecha ? ` · vence ${H.esc(H.diaTexto(d.vence))}` : ''}${d.nc && (d.referencias || []).length ? ` · corrige la N° ${H.esc(d.referencias.map(r => r.folio).join(', '))}` : ''}${d.anterior ? ' · deuda anterior' : ''}${d.formato === 'registro' && !(d.detalle || []).length ? ' · sin detalle' : ''}`;
-  const clasTxt = d => (d.clasifEf ? `<span class="gn-cl">${H.esc(d.clasifEf.item)} · ${H.esc(GB.textoReparto(d.clasifEf.areas))}</span>` : '<span class="gn-cl gn-cl-falta">Sin clasificar</span>');
+  // v0.92.0 · La clasificación de cada documento a la vista (con su detalle), y sus botones, en la misma tarjeta donde esté
+  const bt = (attr, txt, pri) => `<button type="button" class="${pri ? 'btn btn-chico' : 'btn-sec btn-chico'}" ${attr}>${txt}</button>`;
+  const sugOk = d => d.sugerida && (d.sugerida.areas || []).length;
+  const clasTxt = d => (d.clasifEf ? `<span class="gn-cl">${H.esc(GB.textoPartes(d.clasifEf.partes))}${d.clasifEf.de === 'proveedor' ? ' <span class="gn-cl-de">(como siempre)</span>' : ''}</span>`
+    : sugOk(d) ? `<span class="gn-cl gn-cl-falta">Sugerido: ${H.esc(d.sugerida.item)} · ${H.esc(GB.textoReparto(d.sugerida.areas))}</span>` : '<span class="gn-cl gn-cl-falta">Sin clasificar</span>');
+  const detHtml = d => ((d.detalle || []).length ? `<details class="gn-detalle"><summary>Ver detalle (${d.detalle.length} ${d.detalle.length === 1 ? 'línea' : 'líneas'})</summary><ul>${d.detalle.map(x => `<li><span>${H.esc(x.descripcion)}${x.cantidad ? ` · ${H.esc(String(x.cantidad).replace('.', ','))}${x.unidad ? ' ' + H.esc(x.unidad) : ''}` : ''}</span><span class="gn-m">${H.pesos(x.monto)}</span></li>`).join('')}</ul></details>` : '');
+  const clasBtns = d => d.estado === 'no_va' ? '' : d.clasifEf ? bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Cambiar clasificación')
+    : sugOk(d) ? bt(`data-gn-usar="${H.esc(d.id)}"`, 'Usar lo sugerido') + bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar') : bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar');
   const docFila = (d, acc) => `<div class="gn-it${d.nc ? ' gn-nc' : ''}" data-gn-doc="${H.esc(d.id)}"><div class="gn-fila"><b>${nombreDoc(d)}</b><span class="gn-m">${H.pesos(d.estadoPago === 'a_medias' ? d.saldo : d.total)}</span></div>
-      <small>${lineaDoc(d)}${d.estadoPago === 'a_medias' ? ` · falta de ${H.pesos(d.total)}` : ''}</small>${clasTxt(d)}${acc ? `<div class="gn-acc">${acc}</div>` : ''}</div>`;
+      <small>${lineaDoc(d)}${d.estadoPago === 'a_medias' ? ` · falta de ${H.pesos(d.total)}` : ''}</small>${clasTxt(d)}${detHtml(d)}${acc ? `<div class="gn-acc">${acc}</div>` : ''}</div>`;
   const movFila = (m, acc) => `<div class="gn-it" data-gn-mov="${H.esc(m.id)}"><div class="gn-fila"><b>${H.esc(m.glosa)}</b><span class="gn-m">${H.pesos(m.libre > 0 && m.libre !== m.monto ? m.libre : m.monto)}</span></div>
       <small>${H.esc(GN.CUENTAS[m.cuenta] || m.cuenta)} · ${H.esc(H.diaTexto(m.fecha))}${m.hora ? ' ' + H.esc(m.hora) : ''}${m.libre > 0 && m.libre !== m.monto ? ` · queda libre de ${H.pesos(m.monto)}` : ''}${m.naturaleza ? ' · ' + H.esc(GB.NO_GASTO[m.naturaleza] || m.naturaleza) : ''}</small>${acc ? `<div class="gn-acc">${acc}</div>` : ''}</div>`;
-  const bt = (attr, txt, pri) => `<button type="button" class="${pri ? 'btn btn-chico' : 'btn-sec btn-chico'}" ${attr}>${txt}</button>`;
-  const accDoc = d => d.nc ? bt(`data-gn-nc="${H.esc(d.id)}"`, 'Descontar de su factura', true) + bt(`data-gn-nova="${H.esc(d.id)}"`, 'Esto no va')
-    : bt(`data-gn-como="${H.esc(d.id)}"`, '¿Cómo se pagó?', true) + (d.clasifEf ? bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Cambiar clasificación') : '') + bt(`data-gn-nova="${H.esc(d.id)}"`, 'Esto no va');
+  const accDoc = d => d.nc ? bt(`data-gn-nc="${H.esc(d.id)}"`, 'Descontar de su factura', true) + clasBtns(d) + bt(`data-gn-nova="${H.esc(d.id)}"`, 'Esto no va')
+    : bt(`data-gn-como="${H.esc(d.id)}"`, '¿Cómo se pagó?', true) + clasBtns(d) + bt(`data-gn-nova="${H.esc(d.id)}"`, 'Esto no va');
   const accMov = m => bt(`data-gn-esde="${H.esc(m.id)}"`, 'Es de este documento', true) + bt(`data-gn-mano="${H.esc(m.id)}"`, 'Registrar a mano') + bt(`data-gn-nogasto="${H.esc(m.id)}"`, 'No es gasto');
   const parHtml = p => { const m = movDe(p.movId), ds = p.docIds.map(docDe).filter(Boolean);
     const sena = p.por === 'glosa' ? GB.senaDe(m.glosa) : '';
-    return `<div class="gn-par${p.por === 'monto' ? '' : ' gn-par-seguro'}" data-gn-par="${H.esc(kPar(p))}"><div class="gn-par-lados"><div class="gn-par-l">${ds.map(d => `<div><b>${nombreDoc(d)}</b> <span class="gn-m">${H.pesos(d.saldo)}</span><small>${lineaDoc(d)}</small></div>`).join('')}</div>
+    return `<div class="gn-par${p.por === 'monto' ? '' : ' gn-par-seguro'}" data-gn-par="${H.esc(kPar(p))}"><div class="gn-par-lados"><div class="gn-par-l">${ds.map(d => `<div><b>${nombreDoc(d)}</b> <span class="gn-m">${H.pesos(d.saldo)}</span><small>${lineaDoc(d)}</small>${clasTxt(d)}${detHtml(d)}${d.clasifEf ? '' : `<div class="gn-acc">${clasBtns(d)}</div>`}</div>`).join('')}</div>
       <div class="gn-par-r"><b>${H.esc(m.glosa)}</b> <span class="gn-m">${H.pesos(m.libre)}</span><small>${H.esc(GN.CUENTAS[m.cuenta] || m.cuenta)} · ${H.esc(H.diaTexto(m.fecha))}</small></div></div>
-      <div class="gn-par-pie"><span class="gn-par-por">${POR_TXT[p.por]}${sena ? ` (${H.esc(sena)})` : ''}${p.dif ? ` · diferencia de ${H.pesos(Math.abs(p.dif))}` : ''}${sena ? ` <button type="button" class="gn-link" data-gn-olvidar="${H.esc(GB.claveProveedor(ds[0]))}" data-sena="${H.esc(sena)}">Olvidar esta glosa</button>` : ''}</span><div class="gn-acc">${bt(`data-gn-confirmar="${H.esc(kPar(p))}"`, 'Confirmar', true)}${bt(`data-gn-noeseste="${H.esc(kPar(p))}"`, 'No es este')}</div></div></div>`; };
-  const seguros = pares.filter(p => p.por !== 'monto');
-  const clasifHtml = d => docFila(d, d.sugerida && d.sugerida.areas.length ? `<span class="gn-sug">Sugerido: ${H.esc(d.sugerida.item)}${d.sugerida.areas.length ? ' · ' + H.esc(GB.textoReparto(d.sugerida.areas)) : ''}</span>${bt(`data-gn-usar="${H.esc(d.id)}"`, 'Usar esta', true)}${bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Otra')}` : bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar', true));
+      <div class="gn-par-pie"><span class="gn-par-por">${POR_TXT[p.por]}${sena ? ` (${H.esc(sena)})` : ''}${p.dif ? ` · diferencia de ${H.pesos(Math.abs(p.dif))}` : ''}${sena ? ` <button type="button" class="gn-link" data-gn-olvidar="${H.esc(GB.claveProveedor(ds[0]))}" data-sena="${H.esc(sena)}">Olvidar esta glosa</button>` : ''}</span><div class="gn-acc">${bt(`data-gn-confirmar="${H.esc(kPar(p))}"`, p.faltaClasif ? 'Clasificar y confirmar' : 'Confirmar', true)}${bt(`data-gn-noeseste="${H.esc(kPar(p))}"`, 'No es este')}</div></div></div>`; };
+  const seguros = pares.filter(p => p.por !== 'monto' && !p.faltaClasif);
+  const clasifHtml = d => docFila(d, clasBtns(d));
   const listos = B.listosD.slice(0, 60);
   const pagoTxt = p => p.movId ? `${H.esc(GN.CUENTAS[p.cuenta] || p.cuenta || 'Banco')} ${H.esc(H.diaTexto(p.fecha))}` : `${H.esc((p.medio === 'nc' ? 'Nota de crédito' : GB.MEDIOS[p.medio] || p.medio))} ${H.esc(H.diaTexto(p.fecha))}`;
   const listoHtml = d => docFila(d, d.estado === 'no_va' ? `<span class="gn-sug">Esto no va: ${H.esc(GB.MOTIVOS_NO_VA[(d.noVa || {}).motivo] || '')}${(d.noVa || {}).nota ? ' · ' + H.esc(d.noVa.nota) : ''}</span>${bt(`data-gn-volverdoc="${H.esc(d.id)}"`, 'Volver a la Bandeja')}`
@@ -99,9 +105,9 @@ function bandejaHtml(H) {
       ${cob.length ? `<div class="gn-cob">${cob.map(c => `<div class="gn-cob-c"><b>${H.esc(c.nombre)}</b><span>${H.esc(H.diaTexto(c.desde))} al ${H.esc(H.diaTexto(c.hasta))} · ${c.n} ${c.n === 1 ? 'movimiento' : 'movimientos'}</span></div>`).join('')}</div>` : '<p class="ayuda">Todavía no se sube ninguna cartola.</p>'}</section>
     <section class="tarjeta" aria-labelledby="t-gn-bandeja"><div class="titulo-fila"><h2 id="t-gn-bandeja">Bandeja</h2><span>${pares.length + B.n.clasificar + B.n.sinPago + B.n.sinDoc} por hacer</span></div>
       ${cuentas.length > 2 ? `<div class="gn-filtro" role="group" aria-label="Cuenta">${cuentas.map(([k, t]) => `<button type="button" class="chip ${st.cuenta === k ? 'c-verde' : 'c-gris'}" data-gn-cuenta="${k}" aria-pressed="${st.cuenta === k}">${H.esc(t)}</button>`).join('')}</div>` : ''}
-      <div class="gn-grupo" id="gn-pares"><div class="gn-grupo-t"><h3>Para confirmar · ${pares.length} ${H.info('Para confirmar', TXT_PARES)}</h3>${seguros.length > 1 ? `<button type="button" class="btn btn-chico gn-btn-seguro" data-gn-confirmar-seguros>Confirmar los ${seguros.length} en verde</button>` : ''}</div>
+      <div class="gn-grupo" id="gn-pares"><div class="gn-grupo-t"><h3>Para confirmar · ${pares.length} ${H.info('Para confirmar', TXT_PARES)}</h3>${seguros.length > 1 ? `<button type="button" class="btn btn-chico gn-btn-seguro" data-gn-confirmar-seguros>Confirmar los ${seguros.length} en verde ya clasificados</button>` : ''}</div>
         ${pares.length ? pares.map(parHtml).join('') : '<div class="vacio">Nada por confirmar.</div>'}</div>
-      ${B.porClasificar.length ? `<div class="gn-grupo" id="gn-clasificar"><div class="gn-grupo-t"><h3>Por clasificar · ${B.porClasificar.length} ${H.info('Por clasificar', TXT_CLASIF)}</h3>${B.porClasificar.filter(d => d.sugerida && d.sugerida.areas.length).length > 1 ? bt('data-gn-usar-todas', `Usar las ${B.porClasificar.filter(d => d.sugerida && d.sugerida.areas.length).length} sugeridas`) : ''}</div>${B.porClasificar.map(clasifHtml).join('')}</div>` : ''}
+      ${B.porClasificar.length ? `<div class="gn-grupo" id="gn-clasificar"><div class="gn-grupo-t"><h3>Pagados, falta clasificar · ${B.porClasificar.length} ${H.info('Pagados, falta clasificar', TXT_CLASIF)}</h3>${B.porClasificar.filter(sugOk).length > 1 ? bt('data-gn-usar-todas', `Usar lo sugerido en ${B.porClasificar.filter(sugOk).length}`) : ''}</div>${B.porClasificar.map(clasifHtml).join('')}</div>` : ''}
       <div class="gn-lados">
         <div class="gn-lado"><div class="gn-lado-t">Documentos sin pago · ${B.sinPago.length} ${H.info('Documentos sin pago', TXT_SINPAGO)}</div>
           ${B.sinPago.length ? B.sinPago.map(d => docFila(d, accDoc(d))).join('') : `<div class="vacio">${D.docs.length ? 'Todos los documentos tienen su pago.' : 'Todavía no hay documentos. Suba las compras del SII.'}</div>`}
@@ -270,19 +276,21 @@ const parDe = k => st.B.pares.find(p => p.movId + '|' + p.docIds.join(',') === k
 async function confirmarPar(el, H, k) {
   const p = parDe(k); if (!p) return;
   const docs = p.docIds.map(docDe), partes = GB.repartirPago(docs, p.monto);
+  if (!(await asegurarClasif(H, docs))) return;   // v0.92.0: listo = pagado y clasificado
   return hacer(el, H, async () => { await (await fsGN()).pagar({ partes, movId: p.movId }); H.registrar('Gastos: confirmó un pago', `${nom(docs[0])} · ${p.monto}`); }, `Pagado: ${H.esc(nom(docs[0]))}${docs.length > 1 ? ` (${docs.length} documentos)` : ''} · ${H.pesos(p.monto)}.`);
 }
 async function confirmarSeguros(el, H) {
-  const l = st.B.pares.filter(p => p.por !== 'monto' && !st.noEsEste.has(p.movId + '|' + p.docIds.join(',')));
+  const l = st.B.pares.filter(p => p.por !== 'monto' && !p.faltaClasif && !st.noEsEste.has(p.movId + '|' + p.docIds.join(',')));
   return hacer(el, H, async () => { const F = await fsGN(); for (const p of l) await F.pagar({ partes: GB.repartirPago(p.docIds.map(docDe), p.monto), movId: p.movId }); H.registrar('Gastos: confirmó pagos', `${l.length} pares con RUT o nombre`); }, `Confirmados ${l.length} pagos con RUT o nombre en la glosa.`);
 }
 async function usarTodas(el, H) {
-  const l = st.B.porClasificar.filter(d => d.sugerida && d.sugerida.areas.length), hechos = new Set();
+  const l = st.B.porClasificar.filter(d => d.sugerida && (d.sugerida.areas || []).length), hechos = new Set();
   return hacer(el, H, async () => { const F = await fsGN(); for (const d of l) { await F.clasificar(d, d.sugerida, !hechos.has(GB.claveProveedor(d))); hechos.add(GB.claveProveedor(d)); } }, `Clasificados ${l.length} documentos con lo sugerido.`);
 }
 
 // ¿Cómo se pagó? (una sola puerta: con un cargo, en efectivo, con plata del dueño)
-function dlgComo(el, H, d) {
+async function dlgComo(el, H, d) {
+  if (!(await asegurarClasif(H, [d]))) return;
   const hoy = new Date().toISOString().slice(0, 10), cand = GB.candidatosMov(d, st.B.abiertosM, st.B.S).slice(0, 40);
   const opc = cand.map(({ m, igual, dentro }, i) => `<label class="gn-opc" data-txt="${H.esc(GN.norm(m.glosa + ' ' + m.monto))}"><input type="radio" name="gc-mov" value="${H.esc(m.id)}" ${i === 0 && igual && dentro ? 'checked' : ''}><span><b>${H.esc(m.glosa)}</b> <span class="gn-m">${H.pesos(m.libre)}</span><small>${H.esc(GN.CUENTAS[m.cuenta] || m.cuenta)} · ${H.esc(H.diaTexto(m.fecha))}${igual ? ' · mismo monto' : ''}${dentro ? '' : ' · fuera de la ventana de fechas'}</small></span></label>`).join('');
   const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>¿Cómo se pagó?</h2>${H.info('Cómo se pagó', TXT_COMO)}</div>
@@ -348,18 +356,74 @@ function conectarClasif(dlg, H, pre, pref) {
   return () => { const l = elegidas(); return { item: it.value.trim(), areas: l.length === 1 ? [{ area: l[0], pct: 100 }] : l.map(a => ({ area: a, pct: Number((dlg.querySelector(`[data-pct="${a}"]`) || {}).value) || 0 })) }; };
 }
 function dlgClasif(el, H, d) {
-  const pre = d.clasifEf || d.sugerida || null;
-  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>Clasificar</h2>${H.info('Clasificar', TXT_CLASIF)}</div>
-    <p class="ayuda"><b>${H.esc(nom(d))}</b> · ${H.esc(d.tipoTexto)} ${H.esc(d.folio || '')} · ${H.pesos(d.total)}${(d.detalle || []).length ? '<br>' + H.esc(d.detalle.slice(0, 3).map(x => x.descripcion).join(' · ')) : ''}</p>
-    ${camposClasif(H, pre, 'cl')}
-    <label class="gn-check"><input type="checkbox" id="cl-rec" checked> Recordar para las próximas facturas de este proveedor</label>
-    <p class="error" data-err role="alert"></p>
-    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
-  const leer = conectarClasif(dlg, H, pre, 'cl'); dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
-  dlg.querySelector('form').addEventListener('submit', async ev => {
-    ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
-    try { const c = leer(); await (await fsGN()).clasificar(d, c, dlg.querySelector('#cl-rec').checked); dlg.close(); aviso(el, H, `Clasificado: ${H.esc(nom(d))} → ${H.esc(c.item)} · ${H.esc(GB.textoReparto(c.areas))}.`); }
-    catch (e) { falla(dlg, e, H); }
+  pedirClasif(H, d).then(r => { if (r) aviso(el, H, `Clasificado: ${H.esc(nom(d))} → ${H.esc(GB.textoPartes(r.partes))}.`); });
+}
+// v0.92.0 · Antes de pagar: cada documento clasificado. Abre la clasificación de los que faltan (uno por proveedor: si se recuerda,
+// los demás del mismo proveedor quedan clasificados). → true si quedaron todos; false si se canceló.
+async function asegurarClasif(H, docs) {
+  const hechos = new Set();
+  for (const d of docs) {
+    if (!d || d.clasifEf || hechos.has(GB.claveProveedor(d))) continue;
+    const r = await pedirClasif(H, d, true); if (!r) return false;
+    if (r.recordar) hechos.add(GB.claveProveedor(d));
+  }
+  return true;
+}
+// La clasificación de un documento: toda la factura (ítem y áreas en %) o separada por líneas (con detalle) o por montos (sin detalle).
+// → Promise: { partes, recordar } al guardar, o null si se cancela.
+function pedirClasif(H, d, antesDePagar) {
+  return new Promise(resolve => {
+    const base = GB.baseDe(d), det = d.detalle || [], conLineas = det.length >= 2, c0 = d.clasifEf || null, sug = d.sugerida && (d.sugerida.areas || []).length ? d.sugerida : null;
+    const pre = c0 ? { item: c0.item, areas: c0.areas && c0.areas.length ? c0.areas : [] } : sug;
+    const prov = (st.D.provs || {})[GB.claveProveedor(d)] || null, prods = (prov && prov.productos) || {};
+    const lineasPrev = c0 && c0.lineas && c0.lineas.length === det.length ? c0.lineas : null;
+    const empezarSeparado = !!(lineasPrev || (conLineas && det.some(x => prods[GB.normProducto(x.descripcion)])) || (c0 && new Set((c0.partes || []).map(p => p.item)).size > 1));
+    const items = st.D.items || [], areaSel = (v, k) => `<select data-${k} aria-label="Área"><option value="">Área</option>${AR.GASTO.map(a => `<option value="${a}" ${a === v ? 'selected' : ''}>${H.esc(a)}</option>`).join('')}</select>`;
+    const itemInp = (v, k) => `<input data-${k} list="cl-items" value="${H.esc(v || '')}" placeholder="Ítem" aria-label="Ítem" autocomplete="off">`;
+    let idx = 0; const filaMonto = (x = {}) => `<div class="gn-sep-fila" data-parte="${idx++}"><input type="number" data-pm value="${x.monto || ''}" placeholder="Monto" aria-label="Monto" inputmode="numeric">${itemInp(x.item, 'pi')}${areaSel(x.area, 'pa')}<button type="button" class="gn-link" data-quitar>Quitar</button></div>`;
+    const dlg = H.dialogo(`<form class="form-dialogo gn-dlg-ancho" novalidate><div class="titulo-fila"><h2>${antesDePagar ? 'Clasificar antes de confirmar' : 'Clasificar'}</h2>${H.info('Clasificar', TXT_CLASIF)}</div>
+      <p class="ayuda"><b>${H.esc(nom(d))}</b> · ${H.esc(d.tipoTexto)} ${H.esc(d.folio || '')} · neto ${H.pesos(base)}${sug && !c0 ? `<br>Sugerido por el Gastos anterior: ${H.esc(sug.item)} · ${H.esc(GB.textoReparto(sug.areas))}` : ''}</p>
+      ${camposClasif(H, pre, 'cl')}
+      <label class="gn-check"><input type="checkbox" id="cl-sep" ${empezarSeparado ? 'checked' : ''}> ${conLineas ? 'La factura trae cosas distintas: separar por líneas' : 'Separar en partes (por montos)'}</label>
+      <div data-sep hidden>
+        ${conLineas ? `<div class="gn-lineas">${det.map((x, i) => { const pr = (lineasPrev && lineasPrev[i]) || prods[GB.normProducto(x.descripcion)] || {};
+          return `<div class="gn-sep-fila" data-linea="${i}"><span class="gn-lin-desc">${H.esc(x.descripcion)}<small>${x.cantidad ? H.esc(String(x.cantidad).replace('.', ',')) + (x.unidad ? ' ' + H.esc(x.unidad) : '') + ' · ' : ''}${H.pesos(x.monto)}</small></span>${itemInp(pr.item, 'li')}${areaSel(pr.area, 'la')}</div>`; }).join('')}</div>
+          <p class="ayuda">Las líneas vacías toman lo de arriba (toda la factura).</p>`
+        : `<div class="gn-montos" data-montos>${(c0 && (c0.partes || []).length > 1 ? c0.partes : [{}, {}]).map(filaMonto).join('')}</div><p><button type="button" class="btn-sec btn-chico" data-agregar>Agregar parte</button></p>`}
+        <p class="ayuda" data-resumen></p>
+      </div>
+      <label class="gn-check"><input type="checkbox" id="cl-rec" checked> Recordar para las próximas facturas de este proveedor${conLineas ? ' (también cada producto)' : ''}</label>
+      <p class="error" data-err role="alert"></p>
+      <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">${antesDePagar ? 'Guardar y seguir' : 'Guardar'}</button></div></form>`);
+    let listo = false; dlg.addEventListener('close', () => { if (!listo) resolve(null); });
+    const leerGen = conectarClasif(dlg, H, pre, 'cl'); dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+    const sep = dlg.querySelector('#cl-sep'), caja = dlg.querySelector('[data-sep]'), resumen = dlg.querySelector('[data-resumen]');
+    const generalPrimera = () => { const g = leerGen(); return { item: g.item, area: (g.areas[0] || {}).area || '' }; };
+    const armar = () => {
+      const g = leerGen();
+      if (!sep.checked) return { general: g, partes: GB.partesSimple(base, g.item, g.areas), lineas: null };
+      if (conLineas) {
+        const gp = generalPrimera(), asign = det.map((x, i) => { const f = dlg.querySelector(`[data-linea="${i}"]`); return { item: f.querySelector('[data-li]').value.trim() || gp.item, area: f.querySelector('[data-la]').value || gp.area }; });
+        return { general: g, partes: GB.partesPorLineas(d, asign), lineas: det.map((x, i) => ({ descripcion: x.descripcion, ...asign[i] })) };
+      }
+      const partes = Array.from(dlg.querySelectorAll('[data-parte]')).map(f => ({ monto: Math.round(Number(f.querySelector('[data-pm]').value) || 0), item: f.querySelector('[data-pi]').value.trim(), area: f.querySelector('[data-pa]').value })).filter(x => x.monto);
+      return { general: g, partes, lineas: null };
+    };
+    const pintarResumen = () => { if (!sep.checked) return; const a = armar(), t = a.partes.reduce((x, p) => x + p.monto, 0); resumen.textContent = a.partes.length ? `${GB.textoPartes(a.partes)} · suma ${H.pesos(t)} de ${H.pesos(base)}${t !== base ? ` · ${t < base ? 'falta' : 'sobra'} ${H.pesos(Math.abs(base - t))}` : ''}` : ''; };
+    const mostrar = () => { caja.hidden = !sep.checked; pintarResumen(); };
+    sep.addEventListener('change', mostrar); mostrar();
+    dlg.addEventListener('input', pintarResumen); dlg.addEventListener('change', pintarResumen);
+    const ag = dlg.querySelector('[data-agregar]'); if (ag) ag.onclick = () => { dlg.querySelector('[data-montos]').insertAdjacentHTML('beforeend', filaMonto()); };
+    dlg.addEventListener('click', ev => { const q = ev.target.closest && ev.target.closest('[data-quitar]'); if (q) { q.closest('[data-parte]').remove(); pintarResumen(); } });
+    dlg.querySelector('form').addEventListener('submit', async ev => {
+      ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
+      try {
+        const a = armar(), rec = dlg.querySelector('#cl-rec').checked;
+        await (await fsGN()).clasificar(d, a, rec);
+        listo = true; dlg.close(); st.D = null; H.registrar('Gastos: clasificó', `${nom(d)} · ${GB.textoPartes(a.partes)}`);
+        resolve({ partes: a.partes, recordar: rec });
+      } catch (e) { falla(dlg, e, H); }
+    });
   });
 }
 // Una nota de crédito se descuenta de su factura (la que cita, si está)
@@ -375,6 +439,7 @@ function dlgNC(el, H, nc) {
   dlg.querySelector('form').addEventListener('submit', async ev => {
     ev.preventDefault(); const r = dlg.querySelector('[name=nc-f]:checked'); if (!r) return; dlg.querySelector('[type=submit]').disabled = true;
     try { const f = facs.find(x => x.id === r.value), m = Math.max(nc.saldo, -f.saldo);
+      if (!(await asegurarClasif(H, [f, nc]))) { dlg.querySelector('[type=submit]').disabled = false; return; }
       await (await fsGN()).pagar({ partes: [{ docId: nc.id, monto: m }, { docId: f.id, monto: -m }], medio: 'nc', fecha: nc.fecha }); dlg.close(); aviso(el, H, `Nota de crédito ${H.esc(nc.folio)} descontada de la factura N° ${H.esc(f.folio)}.`); }
     catch (e) { falla(dlg, e, H); }
   });
@@ -395,7 +460,8 @@ function dlgEsDe(el, H, m) {
   dlg.querySelector('form').addEventListener('submit', async ev => {
     ev.preventDefault(); const l = elegidos(); if (!l.length) return falla(dlg, new Error('Elija al menos un documento.'), H);
     dlg.querySelector('[type=submit]').disabled = true;
-    try { await (await fsGN()).pagar({ partes: GB.repartirPago(l, m.libre), movId: m.id }); dlg.close(); aviso(el, H, `Unido: ${H.esc(m.glosa)} con ${l.length === 1 ? H.esc(nom(l[0])) : l.length + ' documentos'}.`); }
+    try { if (!(await asegurarClasif(H, l))) { dlg.querySelector('[type=submit]').disabled = false; return; }
+      await (await fsGN()).pagar({ partes: GB.repartirPago(l, m.libre), movId: m.id }); dlg.close(); aviso(el, H, `Unido: ${H.esc(m.glosa)} con ${l.length === 1 ? H.esc(nom(l[0])) : l.length + ' documentos'}.`); }
     catch (e) { falla(dlg, e, H); }
   });
 }
