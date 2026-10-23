@@ -1,9 +1,18 @@
-# Sistema Fën · v0.81.2
+# Sistema Fën · v0.81.3
 
-**App:** v0.81.2 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.81.3 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.81.3: ir a la pareja sin buscarla
+
+- En un cargo (derecha), **"Es de: …"** ahora es un enlace: abre su gasto a la izquierda y lo deja a la vista (si el filtro de la izquierda lo escondía, pasa a "Todo"). El cargo sigue abierto.
+- Al elegir un gasto (izquierda), su cargo queda a la vista a la derecha aunque el filtro (Listo, Revisar, Sin coincidencia), el buscador o un grupo plegado lo escondieran.
+- Lo que se trae destella un momento para encontrarlo.
+Cambian `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.81.3`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.81.3.
 
 ## Novedades de la v0.81.2: un solo nombre para confirmar
 

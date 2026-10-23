@@ -2653,3 +2653,8 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .isc-ok:empty { display: none; }
 .isc-hecho { opacity: .6; }
 .bu-aviso { margin: 8px 12px 0; }
+/* v0.81.3 · Ir a la pareja: "Es de: …" lleva al gasto; lo traído destella un momento */
+.bu-ir-item { font-size: inherit; padding: 0; text-align: left; }
+@keyframes bu-destello { 0% { box-shadow: 0 0 0 3px var(--acento); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.bu-destello { animation: bu-destello 1.6s ease-out 1; }
+@media (prefers-reduced-motion: reduce) { .bu-destello { animation: none; outline: 2px solid var(--acento); } }
