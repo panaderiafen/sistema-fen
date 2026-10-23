@@ -15,15 +15,15 @@
 //  línea" y las 3 más parecidas al asociar. Reglas puras en mp-alta-modelo.js; escribe en la base de Cocina (produccion.js) y aquí.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.80.3';
-import * as FC from './finanzas-costos.js?v=0.80.3';
-import * as FS from './finanzas-sii.js?v=0.80.3';
-import * as FM from './finanzas-motor.js?v=0.80.3';
-import * as FV from './finanzas-ventas.js?v=0.80.3';
-import * as FMG from './finanzas-margenes.js?v=0.80.3';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.80.3';
-import * as VR from './vista-finanzas-resultados.js?v=0.80.3';
-import * as MA from './mp-alta-modelo.js?v=0.80.3';
+import * as F from './finanzas.js?v=0.81.0';
+import * as FC from './finanzas-costos.js?v=0.81.0';
+import * as FS from './finanzas-sii.js?v=0.81.0';
+import * as FM from './finanzas-motor.js?v=0.81.0';
+import * as FV from './finanzas-ventas.js?v=0.81.0';
+import * as FMG from './finanzas-margenes.js?v=0.81.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.81.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.81.0';
+import * as MA from './mp-alta-modelo.js?v=0.81.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -1311,7 +1311,7 @@ function dialogoVinculo(p, el, volver, H) {
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
   // v0.73.0: la lista de reventa (cat_reventa, de la memoria de fs-gastos): activas, más la que ya tenía este producto
   const selRev = d.querySelector('#m-v-revid');
-  import('./reventa.js?v=0.80.3').then(R => R.leer()).then(({ lista }) => {
+  import('./reventa.js?v=0.81.0').then(R => R.leer()).then(({ lista }) => {
     MS.reventa = lista;
     const ofrecer = lista.filter(x => x.estado !== 'archivado' || (v && v.reventaId === x.id)).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
     selRev.innerHTML = `<option value="">${ofrecer.length ? 'Elige…' : 'La lista de reventa está vacía (Catálogo → Reventa)'}</option>` + ofrecer.map(x => `<option value="${H.esc(x.id)}" data-costo="${x.costoNeto ?? ''}" data-nombre="${H.esc(x.nombre)}" ${v && v.reventaId === x.id ? 'selected' : ''}>${H.esc(x.nombre)} · ${H.esc(x.id)} · $${(Math.round(Number(x.costoNeto || 0) * 100) / 100).toLocaleString('es-CL')} / ${H.esc(x.unidad || 'un')}${x.estado === 'archivado' ? ' · archivada' : ''}</option>`).join('');

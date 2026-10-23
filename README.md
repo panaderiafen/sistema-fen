@@ -1,9 +1,52 @@
-# Sistema Fën · v0.80.3
+# Sistema Fën · v0.81.0
 
-**App:** v0.80.3 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
+**App:** v0.81.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 22 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.81.0: lo que septiembre necesita para cerrarse
+
+Cuatro herramientas para la limpieza de septiembre en **Gastos → Bandeja**. Nada se borra.
+
+### 1. Mercado Pago como una cuenta más
+En **Subir archivo** sirve ahora el **reporte de liberaciones** de Mercado Pago (CSV, "reserve-release…"):
+- Los **pagos con el saldo** (y las compras de Mercado Libre) quedan como cargos de la cuenta **"Mercado Pago"** en la Bandeja, lado del banco. El reporte no dice a quién se pagó: se calzan por monto y fecha (ahora desde 20 días antes de la factura, porque en Mercado Pago a veces se paga antes). Lo que no calce: "Crear gasto" o "No es gasto".
+- Los **retiros a la cuenta del banco** quedan marcados solos como **traspaso entre cuentas propias** (no son gasto).
+- Las **ventas con tarjeta (Point)** se guardan por día con su **comisión real** (cambia según las metas) y el % de cada mes. Por ahora solo se guardan; Finanzas y la caja las usarán después.
+- El **reporte de liquidaciones** (settlement) se rechaza con un aviso: no trae los retiros ni el saldo.
+- Subirlo otra vez no repite nada. "Cartola y cobertura" muestra hasta cuándo llega Mercado Pago.
+
+### 2. ¿Cómo se pagó? (en cada gasto que espera su cargo)
+Para lo que no se pagó por el banco ni con el saldo de Mercado Pago: **en efectivo** (de cobros B2B u otro, con texto), **con tarjeta de crédito**, **en Mercado Pago (sin cargo)** —por ejemplo, la factura de comisión de Mercado Pago, que se descuenta sola— o **con plata personal del dueño**. El gasto queda igual (ítem, área, monto), sale de lo que falta y pasa a "Ya listos"; el pago queda guardado para el flujo de caja.
+
+### 3. No es gasto de la empresa
+- **Con plata de la empresa** (cuenta, Mercado Pago o caja): queda como **Retiro del dueño**. Sigue registrado con el ítem "RETIRO DEL DUEÑO" (se crea solo) y Finanzas lo deja **fuera del resultado**. Su ítem anterior queda en el historial. Después se calza con su cargo, o se dice cómo se pagó.
+- **Con su plata**: se **anula** (queda en Gastos anulados con el motivo).
+
+### 4. Repetidos y lo que ya no se esfuma
+- En el informe "Revisar gastos sin cargo": **"Sobra este"** (o "Sobra este otro", si el otro no tiene cargo) anula el repetido con el motivo "Repetido de …". Un gasto con su cargo del banco no se anula desde aquí.
+- Reglas nuevas: **dos facturas con distinto folio no son repetidas** (el folio es único); un cargo unido a otra compra de otro ítem y otro proveedor es **casualidad del monto** (no cuenta).
+- **Lo del mes pasado ya no sale solo de la Bandeja** aunque pase su ventana (antes, a los 45 días, desaparecía sin resolverse).
+- **"Ver el gasto"** abre el detalle de ese gasto (antes, solo la pestaña Registrados).
+- El aviso de lo recién hecho ("Listo: …") se ve arriba de la lista.
+
+### Dónde va
+- **Este paquete trae solo los 70 archivos que cambian** (todos a la raíz del repo **sistema-fen**, en una sola tanda). Nuevo: `mercadopago.js`. Cambian, entre otros, `app.js`, `gastos-fs.js`, `gastos-cartola.js`, `gastos-cartola-fs.js`, `cartola.js`, `gastos-banco.js`, `bandeja.js`, `bandeja-gastos-modelo.js`, `sii-pendientes-fs.js`, `revision-sin-cargo-modelo.js`, `b2b.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.81.0`). `cocina/` no cambia.
+
+### Cómo queda guardado (fen-gastos)
+- `cartola_cargos`: cuenta `mp`; glosa "PAGO CON SALDO MERCADO PAGO OP 1234-5678-9012" (una por pago: lo aprendido de uno no se aplica a otro), "COMPRA MERCADO LIBRE OP …" o "RETIRO MERCADO PAGO A CUENTA BANCARIA OP …" (accion `traspaso`). `cartolas`: tipo "mercado pago".
+- `mp_ventas/{AAAA-MM-DD}` = { fecha, mes, n, bruto, comision, neto, pct, porTipo { debit_card, credit_card, prepaid_card }, archivo, subidaEl, subidaPor }. Un día no se achica con un reporte que corta a mitad de día.
+- `gastos/{id}`: `pagoSinBanco { medio: efectivo|tarjeta|mercadopago|personal, fecha, origen, origenTexto, nota, por, en }`, `medioPago`, `fechaPago`, `esperaCargo: false`; y su pago en `sii_pagos/sp-g_{id}`.
+- Retiro: `itemGasto: "RETIRO DEL DUEÑO"`, `retiroDueno { itemAntes, areaAntes, por, en, nota }`; `items/retiro-del-dueno`; `fin_items/retiro-del-dueno` tipo `retiro` (con su `fin_items_hist`).
+- Anulados: `estado: 'anulado'` con `anulado { motivo, por, en }` y `noEsEmpresa: true` o `repetido: true`.
+
+### Lista de verificación v0.81.0
+- [ ] Subir los archivos al repo **sistema-fen** ("Commit changes") y esperar que termine Actions.
+- [ ] Abrir Sistema Fën con Cmd + Shift + R; abajo del menú dice v0.81.0.
+- [ ] Gastos → Subir archivo → el reporte de liberaciones de Mercado Pago (1 sep a hoy). Dice cuántos pagos, retiros y ventas; los retiros ya como traspaso.
+- [ ] Abrir un gasto sin cargo: están "¿Cómo se pagó?", "No es gasto de la empresa" y "Ver el gasto".
+- [ ] "Revisar gastos sin cargo": ver los grupos de nuevo (ahora con Mercado Pago). No anular nada todavía: lo hacemos juntos en la limpieza.
 
 ## Novedades de la v0.80.3: informe "Gastos sin cargo" (solo lee)
 

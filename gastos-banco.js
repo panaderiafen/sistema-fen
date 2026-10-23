@@ -124,10 +124,13 @@ export const CHIP_CLASE = { sii: 'Carga del SII', espera: 'Pagado por banco a ma
 // facturasAbiertas: Set de "folio|RAZÓN" de facturas del SII con su vencimiento por pagar (esas se pagan con "Paga vencimientos")
 // v0.67.4 · opc.conNC: también las notas de crédito (gastos con monto negativo), para sumarlas con su factura. Salen como grupos
 // con monto < 0 y nc = true; quien llama las separa (una nota de crédito nunca es candidata sola).
+// v0.81.0 · Lo pagado sin banco no espera ningún cargo
+export const SIN_BANCO = ['efectivo', 'tarjeta', 'mercadopago', 'personal'];
 export function candidatosGastos(gastos, hoy, facturasAbiertas, opc = {}) {
   const corte = sumar(hoy, -150), porRegistro = {}, out = [];
   (gastos || []).forEach(({ id, d }) => {
     if (!d || d.estado !== 'vigente' || d.quitadoEnPlanilla || ligado(d)) return;
+    if (d.pagoSinBanco && SIN_BANCO.includes(s(d.pagoSinBanco.medio)) && !d.pagoMixto) return;   // v0.81.0: ya se dijo cómo se pagó (no espera cargo)
     const clase = claseCandidato(d); if (!clase) return;
     // Fecha de referencia: la del pago para lo pagado (vencimientos, pagos a mano por banco); la del documento para el SII y lo demás
     const f = (clase === 'espera' || clase === 'vencimiento') ? (dia(d.fechaPago) || dia(d.fecha)) : dia(d.fecha), monto = n(d.montoFinal);
@@ -502,7 +505,10 @@ export function resumenLineas(lineas) {
   const forma = s(d0.formaPago || 'contado'), medio = s(d0.medioPago || (d0.origenDetalle || {}).medio);
   // v0.69.2 · Pagado en partes (un cargo y el resto en efectivo o con tarjeta, o varios cargos): lo dice tal cual
   const mix = d0.pagoMixto && Array.isArray(d0.pagoMixto.partes) && d0.pagoMixto.partes.length ? d0.pagoMixto : null;
-  const pagado = mix ? textoPagadoMix(mix) : '';
+  // v0.81.0 · Pagado sin banco (efectivo, tarjeta, Mercado Pago o plata personal del dueño) y retiro del dueño
+  const sb = d0.pagoSinBanco && !mix ? d0.pagoSinBanco : null;
+  const MED = { efectivo: 'Pagado en efectivo', tarjeta: 'Pagado con tarjeta de crédito', mercadopago: 'Pagado o descontado en Mercado Pago', personal: 'Pagado por el dueño con plata personal' };
+  const pagado = mix ? textoPagadoMix(mix) : sb && MED[sb.medio] ? `${MED[sb.medio]}${sb.fecha ? ' el ' + dma(sb.fecha) : ''}${sb.nota ? ' · ' + s(sb.nota) : ''}` : '';
   const formaTxt = mix ? `Pagado en partes (el ${dma(d0.fechaPago)}, la última)` : d0.enPartes === true ? 'En partes: todavía tiene saldo (ver su vencimiento)' : forma === 'tarjeta' ? 'Tarjeta de crédito' : forma === 'proveedor' ? 'Crédito proveedor' + (s(d0.fechaPago) ? ` (pagado el ${dma(d0.fechaPago)})` : '') : medio === 'efectivo' ? 'Contado · efectivo' : medio === 'banco' ? 'Contado · transferencia o banco' : 'Contado';
   return { fecha: dia(d0.fecha), fechaPago: dia(d0.fechaPago), hora: s(d0.hora).slice(0, 5), items: [...new Set(L.map(d => s(d.itemGasto)))],
     areas: L.map(d => ({ area: s(d.area), item: s(d.itemGasto), neto: n(d.montoNeto), total: n(d.montoFinal) })),

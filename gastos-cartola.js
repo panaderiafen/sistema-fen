@@ -16,12 +16,12 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.80.3';
-import * as B from './gastos-banco.js?v=0.80.3';
-import { habilesEntre } from './feriados-cl.js?v=0.80.3';
-import * as D3 from './gastos-g3d.js?v=0.80.3';   // v0.67.0: total del plan de Previred con multas e intereses
-import * as PM from './pagos-mixtos.js?v=0.80.3';   // v0.69.2: pagos mixtos (un documento pagado en partes)
-import * as BO from './boletas.js?v=0.80.3';   // v0.70.0: boletas de luz y agua (el total a pagar paga todo lo que cubre, lo más antiguo primero)
+import * as G3 from './gastos-g3.js?v=0.81.0';
+import * as B from './gastos-banco.js?v=0.81.0';
+import { habilesEntre } from './feriados-cl.js?v=0.81.0';
+import * as D3 from './gastos-g3d.js?v=0.81.0';   // v0.67.0: total del plan de Previred con multas e intereses
+import * as PM from './pagos-mixtos.js?v=0.81.0';   // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as BO from './boletas.js?v=0.81.0';   // v0.70.0: boletas de luz y agua (el total a pagar paga todo lo que cubre, lo más antiguo primero)
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
@@ -33,7 +33,7 @@ export const TRASPASO = 'traspaso';
 // v0.67.6 · REPETIDO: el mismo movimiento que ya llegó en otra cartola (en línea ↔ histórica). No se revisa ni crea nada; apunta al
 // original (repetidoDe). Nunca cuenta: ni por revisar, ni en totales, ni en el flujo (accion 'repetido').
 export const ESTADOS = { revisar: 'POR_REVISAR', conciliado: 'CONCILIADO', ignorado: 'IGNORADO', aMedias: 'A_MEDIAS', repetido: 'REPETIDO' };
-export const CUENTAS = { cc: 'Cta. Cte.', chequera: 'Chequera' };
+export const CUENTAS = { cc: 'Cta. Cte.', chequera: 'Chequera', mp: 'Mercado Pago' };   // v0.81.0: Mercado Pago (reporte de liberaciones)
 // Ventana de fechas para el monto fijo y el documento: el cargo puede llegar hasta 15 días antes del vencimiento y hasta 10 después
 export const VENTANA = { antes: 15, despues: 10 };
 
@@ -245,7 +245,7 @@ export function repetidosAlListar(cargos) {
 }
 // La fila de la cartola (una vez por cartola y cuenta; una cartola grande llega en partes: la parte 2 en adelante suma)
 export function filaCartola(previa, meta, L, r, parte, ahora, quien) {
-  const f = { cartola: L.ident, cuenta: L.cuenta, cuentaN: L.cuentaN, tipo: meta.tipo === 'historica' ? 'histórica' : 'en línea', nCartola: L.nCartola,
+  const f = { cartola: L.ident, cuenta: L.cuenta, cuentaN: L.cuentaN, tipo: meta.tipo === 'historica' ? 'histórica' : meta.tipo === 'mercadopago' ? 'mercado pago' : 'en línea', nCartola: L.nCartola,
     desde: esIso(meta.desde) ? meta.desde : '', hasta: esIso(meta.hasta) ? meta.hasta : '', cargos: r.cargos, nuevos: r.nuevos, yaVistos: r.yaVistos, ignorados: r.ignorados, subidaEl: ahora, subidaPor: quien };
   if (r.repetidos) f.repetidos = r.repetidos;   // v0.67.6: el mismo movimiento que ya llegó en otra cartola
   if (previa && Number(parte) > 0) ['cargos', 'nuevos', 'yaVistos', 'ignorados', 'repetidos'].forEach(k => { if (f[k] !== undefined || previa[k] !== undefined) f[k] = num(f[k]) + num(previa[k]); });
@@ -638,7 +638,7 @@ export const soloEnLinea = c => { const l = fuentesCargo(c); return l.length > 0
 // La fuente de una carga: { tipo, numero, generada, subida }
 export function fuenteDeCarga(meta, subida) {
   const gen = /(\d{2})\/(\d{2})\/(\d{4})/.exec(s(meta && meta.id).replace(/^.*generada /, ''));
-  return { tipo: meta && meta.tipo === 'historica' ? 'historica' : 'enlinea', numero: s(meta && meta.nCartola).replace(/[^0-9A-Za-z]/g, '').slice(0, 10), generada: meta && meta.tipo !== 'historica' && gen ? `${gen[3]}-${gen[2]}-${gen[1]}` : '', subida: dia(subida) };
+  return { tipo: meta && meta.tipo === 'historica' ? 'historica' : meta && meta.tipo === 'mercadopago' ? 'mercadopago' : 'enlinea', numero: s(meta && meta.nCartola).replace(/[^0-9A-Za-z]/g, '').slice(0, 10), generada: meta && meta.tipo !== 'historica' && gen ? `${gen[3]}-${gen[2]}-${gen[1]}` : '', subida: dia(subida) };
 }
 
 // Lo que se aprende al resolver (regla), según la acción

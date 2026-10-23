@@ -19,22 +19,22 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.80.3';
-import * as M from './gastos-g2.js?v=0.80.3';
-import * as G3 from './gastos-g3.js?v=0.80.3';
-import * as G3D from './gastos-g3d.js?v=0.80.3';
-import * as C from './gastos-cartola.js?v=0.80.3';
-import * as B from './gastos-banco.js?v=0.80.3';
-import { huella } from './gastos-modelo.js?v=0.80.3';
-import * as FS from './gastos-fs.js?v=0.80.3';
-import * as GB from './gastos-base.js?v=0.80.3';
-import * as TE from './tef-enviadas.js?v=0.80.3';
-import * as P from './proveedores.js?v=0.80.3';
-import * as SP from './sii-pendientes.js?v=0.80.3';   // v0.66.0: documentos del SII por clasificar
-import { registradosGastos } from './bandeja.js?v=0.80.3';   // v0.68.0: lo registrado con su estado (Buscar en Gastos)
-import * as RC from './reglas-conc.js?v=0.80.3';   // v0.69.0: las reglas de conciliación (conc_reglas)
-import * as PT from './puntaje.js?v=0.80.3';      // v0.69.0: el ritmo de pago de cada proveedor
-import * as PM from './pagos-mixtos.js?v=0.80.3';  // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as FB from './fs-gastos.js?v=0.81.0';
+import * as M from './gastos-g2.js?v=0.81.0';
+import * as G3 from './gastos-g3.js?v=0.81.0';
+import * as G3D from './gastos-g3d.js?v=0.81.0';
+import * as C from './gastos-cartola.js?v=0.81.0';
+import * as B from './gastos-banco.js?v=0.81.0';
+import { huella } from './gastos-modelo.js?v=0.81.0';
+import * as FS from './gastos-fs.js?v=0.81.0';
+import * as GB from './gastos-base.js?v=0.81.0';
+import * as TE from './tef-enviadas.js?v=0.81.0';
+import * as P from './proveedores.js?v=0.81.0';
+import * as SP from './sii-pendientes.js?v=0.81.0';   // v0.66.0: documentos del SII por clasificar
+import { registradosGastos } from './bandeja.js?v=0.81.0';   // v0.68.0: lo registrado con su estado (Buscar en Gastos)
+import * as RC from './reglas-conc.js?v=0.81.0';   // v0.69.0: las reglas de conciliación (conc_reglas)
+import * as PT from './puntaje.js?v=0.81.0';      // v0.69.0: el ritmo de pago de cada proveedor
+import * as PM from './pagos-mixtos.js?v=0.81.0';  // v0.69.2: pagos mixtos (un documento pagado en partes)
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -102,7 +102,7 @@ export async function lista(diasP) {
   // v0.67.4 · Los gastos sin cargo y, aparte, las notas de crédito sin cargo (con su referencia): solo se suman con su factura
   const grupos = B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon))), { conNC: true });
   const rNC = refsNC(ab.siiDocs), ncs = grupos.filter(g => g.monto < 0).map(g => (rNC[g.siiDocId] ? { ...g, refs: rNC[g.siiDocId] } : g));
-  const SPF = await import('./sii-pendientes-fs.js?v=0.80.3');
+  const SPF = await import('./sii-pendientes-fs.js?v=0.81.0');
   const siiPendientes = await SPF.pendientes().catch(async () => SP.pendientesDe(await todos('sii_docs').catch(() => []))), siiRegistrados = await SPF.registrados().catch(() => []);
   // v0.69.0 · El ritmo de pago de cada proveedor (factura → cargo del banco), de los gastos de 12 meses que ya están en la memoria (0 lecturas)
   const ritmos = await ritmosProveedores(hoy, todosC).catch(() => ({}));
@@ -351,6 +351,37 @@ export async function cargar(meta, cargos, parte) {
   });
   await despues(n);
   return { ok: true, ...plan.cuenta };
+}
+// ═══ v0.81.0 · Mercado Pago (reporte de liberaciones) ═══
+// Los retiros de Mercado Pago a la cuenta del banco: "Traspaso entre cuentas propias" (no es gasto; se aprende). Los que ya estaban
+// resueltos se dejan como están. retiros: los cargos { fecha, descripcion, monto, saldo, operacion } tal como se subieron.
+export async function traspasosMP(meta, retiros, nota) {
+  const L = C.limpiarCarga(meta, retiros || []);
+  if (L.error) throw error(L.error, 'datos');
+  let n = 0;
+  for (const x of L.limpios) {
+    x.huella = C.huellaDe(x); x.id = await C.idDe(x.huella, sha256);
+    try { const r = await resolver({ id: x.id, huella: x.huella, accion: C.TRASPASO, nota }); if (!r.repetido) n++; }
+    catch (e) { if (!['resuelto', 'cambio', 'datos'].includes(e.code)) throw e; }
+  }
+  return n;
+}
+// Las ventas con tarjeta (Point) de cada día: mp_ventas/{AAAA-MM-DD} = { fecha, n, bruto, comision, neto, pct, porTipo, archivo, subidaEl, subidaPor }.
+// Un día que ya estaba con más o las mismas ventas no se toca (un reporte que corta a mitad de día no lo achica). → { escritos, iguales }
+export async function guardarVentasMP(dias, archivo) {
+  const l = Object.values(dias || {}).filter(x => x && /^\d{4}-\d{2}-\d{2}$/.test(x.fecha));
+  if (!l.length) return { escritos: 0, iguales: 0 };
+  const d = await dbBase(), t = ahora(), por = correo() || 'Sistema Fën';
+  const prev = Object.fromEntries((await todos('mp_ventas').catch(() => [])).map(x => [x.id, x.d]));
+  const cambia = l.filter(x => { const p = prev[x.fecha]; return !p || (Number(p.n) || 0) < x.n || ((Number(p.n) || 0) === x.n && Math.round(Number(p.comision) || 0) !== Math.round(x.comision)); });
+  for (let i = 0; i < cambia.length; i += 200) {
+    const b = FB.writeBatch(d);
+    cambia.slice(i, i + 200).forEach(x => b.set(FB.doc(d, 'mp_ventas', x.fecha), { fecha: x.fecha, mes: x.fecha.slice(0, 7), n: x.n, bruto: Math.round(x.bruto), comision: Math.round(x.comision), neto: Math.round(x.neto),
+      pct: x.bruto > 0 ? Math.round(x.comision / x.bruto * 10000) / 100 : 0, porTipo: x.porTipo, archivo: s(archivo).slice(0, 120), subidaEl: t, subidaPor: por }));
+    await b.commit();
+  }
+  if (cambia.length) await despues(cambia.length);
+  return { escritos: cambia.length, iguales: l.length - cambia.length };
 }
 // Id de una cartola nueva: como la copia G1 ("ct-" + huella del nombre); si ese ya es de otra cuenta, con la cuenta
 const idCartola = (ct, L) => { const a = 'ct-' + huella(L.ident); return ct.some(x => x.id === a) ? 'ct-' + huella(L.ident + '|' + L.cuenta) : a; };

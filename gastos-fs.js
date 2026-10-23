@@ -25,18 +25,18 @@
 //    salió: tipo, quién, cuándo y lo propio de cada origen); "origen" sigue siendo el texto de siempre (el script lo usa).
 //    Hoy: "Esperan cartola". detalleGasto(ids): las líneas y su origen, para el detalle del gasto.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.80.3';
-import * as FB from './fs-gastos.js?v=0.80.3';
-import * as GB from './gastos-base.js?v=0.80.3';
-import * as GP from './gastos-planilla.js?v=0.80.3';
-import * as M from './gastos-g2.js?v=0.80.3';
-import * as G3 from './gastos-g3.js?v=0.80.3';
-import * as G3D from './gastos-g3d.js?v=0.80.3';
-import * as B from './gastos-banco.js?v=0.80.3';
-import { dia } from './gastos-modelo.js?v=0.80.3';
-import * as AB from './gastos-abono.js?v=0.80.3';
-import * as PM from './pagos-mixtos.js?v=0.80.3';   // v0.69.2: pagos mixtos (partes de un documento)
-import * as BO from './boletas.js?v=0.80.3';      // v0.70.0: boletas de luz y agua (CGE, ESSBIO) y cuentas que nacen de su boleta
+import { auth as authSF } from './firebase.js?v=0.81.0';
+import * as FB from './fs-gastos.js?v=0.81.0';
+import * as GB from './gastos-base.js?v=0.81.0';
+import * as GP from './gastos-planilla.js?v=0.81.0';
+import * as M from './gastos-g2.js?v=0.81.0';
+import * as G3 from './gastos-g3.js?v=0.81.0';
+import * as G3D from './gastos-g3d.js?v=0.81.0';
+import * as B from './gastos-banco.js?v=0.81.0';
+import { dia } from './gastos-modelo.js?v=0.81.0';
+import * as AB from './gastos-abono.js?v=0.81.0';
+import * as PM from './pagos-mixtos.js?v=0.81.0';   // v0.69.2: pagos mixtos (partes de un documento)
+import * as BO from './boletas.js?v=0.81.0';      // v0.70.0: boletas de luz y agua (CGE, ESSBIO) y cuentas que nacen de su boleta
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';
@@ -227,6 +227,64 @@ export async function anular(filas, motivo) {
   await despues(filas.length);
   const rel = M.relacionadosAnular(filas, await todos('vencimientos'));
   return { ok: true, anuladas: filas.length, ...rel };
+}
+
+// ═══ v0.81.0 · "No es gasto de la empresa" ═══
+// modo 'retiro': se pagó con plata de la empresa (cuenta, Mercado Pago o caja) → sigue registrado, pero con el ítem "RETIRO DEL DUEÑO",
+//   que Finanzas cuenta como Retiro del dueño (fuera del resultado: no es gasto del mes). Su ítem anterior queda en retiroDueno.
+// modo 'personal': lo pagó el dueño con su plata → no es de la empresa: se anula (no se borra), con el motivo.
+export const ITEM_RETIRO = 'RETIRO DEL DUEÑO';
+export async function noEsDeLaEmpresa(ids, modo, nota) {
+  if (!Array.isArray(ids) || !ids.length || ids.length > 40) throw error('Faltan los gastos', 'datos');
+  if (!['retiro', 'personal'].includes(modo)) throw error('Elige con qué plata se pagó', 'datos');
+  const d = await db(), en = M.ahoraChile().texto, por = correo() || 'Sistema Fën', nt = M.texto(nota || '', 200);
+  const refs = ids.map(id => FB.doc(d, 'gastos', String(id)));
+  if (modo === 'personal') {
+    const motivo = ('No es gasto de la empresa: lo pagó el dueño con su plata' + (nt ? ' · ' + nt : '')).slice(0, 300);
+    await FB.runTransaction(d, async tx => {
+      const sns = []; for (const r of refs) sns.push(await tx.get(r));
+      sns.forEach(sn => { if (!sn.exists() || sn.data().estado !== 'vigente') throw error(MSG_CAMBIO, 'cambio'); if (s(sn.data().cartolaCargo)) throw error('Ese gasto ya tiene su cargo del banco: si salió de la cuenta, es un retiro del dueño (con plata de la empresa).', 'datos'); });
+      sns.forEach((sn, i) => tx.update(refs[i], cambio(sn.data(), 'anuló', { estado: 'anulado', noEsEmpresa: true, anulado: { el: en, en, por, motivo, filaOriginal: '' } }, { motivo })));
+    });
+    await despues(ids.length);
+    return { ok: true, modo, n: ids.length };
+  }
+  // El ítem "RETIRO DEL DUEÑO" (si no está, se crea) y su clasificación en Finanzas: Retiro del dueño
+  const items = await todos('items');
+  if (!items.some(x => x.d && String(x.d.item || '').toUpperCase() === ITEM_RETIRO && x.d.archivado !== true)) {
+    const plan = M.planGuardarItem(items, { nombre: ITEM_RETIRO, categoria: 'VARIABLE', tipo: 'INDIRECTO', subTipo: 'OPERATIVO', area: 'SELECCIONAR' });
+    if (plan.crear) await FB.runTransaction(d, async tx => { const ref = FB.doc(d, 'items', plan.crear.id); if (!(await tx.get(ref)).exists()) tx.set(ref, nuevo(plan.crear.doc, 'mano')); });
+  }
+  const FR = await import('./finanzas-resultados.js?v=0.81.0'), refF = FB.doc(d, 'fin_items', FR.claveItem(ITEM_RETIRO));
+  await FB.runTransaction(d, async tx => {
+    const sns = []; for (const r of refs) sns.push(await tx.get(r));
+    const snF = await tx.get(refF), prevF = snF.exists() ? snF.data() : null;
+    sns.forEach(sn => { if (!sn.exists() || sn.data().estado !== 'vigente') throw error(MSG_CAMBIO, 'cambio'); });
+    sns.forEach((sn, i) => { const a = sn.data(); if (String(a.itemGasto || '').toUpperCase() === ITEM_RETIRO) return;
+      tx.update(refs[i], cambio(a, 'pasó a retiro del dueño', { itemGasto: ITEM_RETIRO, retiroDueno: { itemAntes: s(a.itemGasto), areaAntes: s(a.area), por, en, ...(nt ? { nota: nt } : {}) } }, nt ? { motivo: nt } : undefined)); });
+    if (!prevF || prevF.tipo !== 'retiro') {
+      const { doc, hist } = FR.armarClasificacion(prevF, { item: ITEM_RETIRO, tipo: 'retiro', origen: 'manual' }, { hoy: M.ahoraChile().dia, por });
+      tx.set(refF, { ...doc, updatedAt: FB.serverTimestamp() });
+      if (hist) tx.set(FB.doc(d, 'fin_items_hist', 'ci-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)), { ...hist, en: FB.serverTimestamp() });
+    }
+  });
+  await despues(ids.length + 1);
+  return { ok: true, modo, n: ids.length };
+}
+
+// v0.81.0 · Un gasto repetido (el mismo registrado dos veces): se anula el que sobra (no se borra), con el motivo y a cuál repite.
+// No se anula uno que ya tiene su cargo del banco (primero se deshace el cargo).
+export async function anularRepetido(ids, motivo) {
+  if (!Array.isArray(ids) || !ids.length || ids.length > 40) throw error('Faltan los gastos', 'datos');
+  const m = M.texto(motivo, 300) || 'Repetido';
+  const d = await db(), en = M.ahoraChile().texto, por = correo() || 'Sistema Fën', refs = ids.map(id => FB.doc(d, 'gastos', String(id)));
+  await FB.runTransaction(d, async tx => {
+    const sns = []; for (const r of refs) sns.push(await tx.get(r));
+    sns.forEach(sn => { if (!sn.exists() || sn.data().estado !== 'vigente') throw error(MSG_CAMBIO, 'cambio'); if (s(sn.data().cartolaCargo)) throw error('Ese gasto tiene su cargo del banco: anula el otro (o deshaz primero el cargo).', 'datos'); });
+    sns.forEach((sn, i) => tx.update(refs[i], cambio(sn.data(), 'anuló', { estado: 'anulado', repetido: true, anulado: { el: en, en, por, motivo: m, filaOriginal: '' } }, { motivo: m })));
+  });
+  await despues(ids.length);
+  return { ok: true, n: ids.length };
 }
 
 // ── Pagar un vencimiento (sfGastosPagar + registrarPagoVencimiento), todo en una transacción ──

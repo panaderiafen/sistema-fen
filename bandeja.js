@@ -7,7 +7,7 @@
 //  · las facturas de un cliente de B2B (abiertas y pagadas recientes) y la búsqueda de facturas.
 //  Todo es puro: sale de lo que la pantalla ya tiene leído (0 lecturas).
 // ═══════════════════════════════════════════════
-import * as PM from './pagos-mixtos.js?v=0.80.3';   // v0.69.2: el historial de pagos de un documento pagado en partes
+import * as PM from './pagos-mixtos.js?v=0.81.0';   // v0.69.2: el historial de pagos de un documento pagado en partes
 const s = v => String(v == null ? '' : v);
 const n = v => Number(v) || 0;
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -131,6 +131,7 @@ export function estadoGastoDoc(d) {
   const sb = d.pagoSinBanco || null, forma = s(d.formaPago || 'contado');
   if ((sb && sb.medio === 'tarjeta') || forma === 'tarjeta') return { estado: 'tarjeta', fechaPago: dia((sb && sb.fecha) || d.fechaPago) };
   if ((sb && sb.medio === 'efectivo') || s(d.medioPago) === 'efectivo' || s(d.origenDetalle && d.origenDetalle.medio) === 'efectivo') return { estado: 'efectivo', fechaPago: dia((sb && sb.fecha) || d.fechaPago) };
+  if (sb && (sb.medio === 'mercadopago' || sb.medio === 'personal')) return { estado: sb.medio, fechaPago: dia(sb.fecha || d.fechaPago) };   // v0.81.0
   if (d.esperaCargo === true) return { estado: 'espera', fechaPago: dia(d.fechaPago) };
   if (forma === 'proveedor') return dia(d.fechaPago) ? { estado: 'pagado', fechaPago: dia(d.fechaPago) } : { estado: 'credito', fechaPago: '' };
   return { estado: 'sin_cargo', fechaPago: dia(d.fechaPago) };
@@ -176,6 +177,8 @@ export function estadoTxt(r, cargoTxt) {
     case 'cargo': return { texto: `Pagado con el cargo ${ct || 'de otra cartola'}`, tono: 'verde', corto: 'Conciliado' };
     case 'efectivo': return { texto: `Pagado en efectivo${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''}`, tono: 'gris', corto: 'Efectivo' };
     case 'tarjeta': return { texto: `Pagado con tarjeta de crédito${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''}`, tono: 'gris', corto: 'Tarjeta' };
+    case 'mercadopago': return { texto: `Pagado o descontado en Mercado Pago${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''}`, tono: 'gris', corto: 'Mercado Pago' };
+    case 'personal': return { texto: `Pagado por el dueño con plata personal${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''}`, tono: 'gris', corto: 'Plata personal' };
     case 'espera': return { texto: 'Pagado por banco a mano: espera su cargo', tono: 'azul', corto: 'Espera su cargo' };
     case 'credito': return { texto: 'A crédito: todavía por pagar', tono: 'amarillo', corto: 'Por pagar' };
     case 'pagado': return { texto: `Pagado${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''} (registrado a mano, sin cargo de la cartola)`, tono: 'gris', corto: 'Pagado' };

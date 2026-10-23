@@ -8,13 +8,13 @@
 //  v0.50.0: con Gastos en la base nueva, todo va a gastos-cartola-fs.js (fen-gastos) y las propuestas siguen la forma de
 //  trabajar acordada (gastos-cartola.js: monto fijo, documento, abonos). Con la planilla, igual que en la v0.49.0.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.80.3';
-import * as CB from './gastos-cartola.js?v=0.80.3';
-export { resumenLote } from './gastos-cartola.js?v=0.80.3';
+import * as Gastos from './gastos.js?v=0.81.0';
+import * as CB from './gastos-cartola.js?v=0.81.0';
+export { resumenLote } from './gastos-cartola.js?v=0.81.0';
 
 export const VERSION_CARTOLA = '2.8.0';
 const op = (o, d, idem) => Gastos.llamar(o, d, idem, VERSION_CARTOLA);
-const fsC = () => import('./gastos-cartola-fs.js?v=0.80.3');
+const fsC = () => import('./gastos-cartola-fs.js?v=0.81.0');
 const enBase = () => Gastos.enBase();
 
 let cache = null;
@@ -53,6 +53,9 @@ export async function guardarArchivo(file, cartola, idem) {
   olvidar();
   return r;
 }
+// v0.81.0 · Mercado Pago: los retiros al banco como traspaso y las ventas con tarjeta por día (solo con la base nueva)
+export async function traspasosMP(cartola, retiros, nota) { if (!(await enBase())) throw new Error('Mercado Pago necesita Gastos en la base nueva'); const r = await (await fsC()).traspasosMP(metaDe(cartola), retiros, nota); olvidar(); Gastos.olvidarTodo(); return r; }
+export async function ventasMP(dias, archivo) { if (!(await enBase())) throw new Error('Mercado Pago necesita Gastos en la base nueva'); return (await fsC()).guardarVentasMP(dias, archivo); }
 export async function resolver(d, idem) { const r = (await enBase()) ? await (await fsC()).resolver(d) : await op('cc_resolver', d, idem); olvidar(); Gastos.olvidarTodo(); return r; }
 export async function deshacer(id, motivo, idem, opc = {}) { const r = (await enBase()) ? await (await fsC()).deshacer(id, motivo, opc) : await op('cc_deshacer', { id, motivo }, idem); olvidar(); Gastos.olvidarTodo(); return r; }
 export async function quitarRegla(clave) { const r = (await enBase()) ? await (await fsC()).quitarRegla(clave) : await op('cc_quitar_regla', { clave }); olvidar(); return r; }

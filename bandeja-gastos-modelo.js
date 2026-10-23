@@ -15,7 +15,7 @@
 //   · gasto ↔ cargo del banco: la propuesta de la Bandeja para ese cargo (o, sin propuesta, el mismo monto en su ventana).
 //  Todo lo unido por alguno de esos campos es UN ítem (aunque esté en tres colecciones).
 // ═══════════════════════════════════════════════
-import { VENTANAS, claveFactura } from './gastos-banco.js?v=0.80.3';
+import { VENTANAS, claveFactura } from './gastos-banco.js?v=0.81.0';
 
 const s = v => String(v == null ? '' : v);
 const n = v => Number(v) || 0;
@@ -39,7 +39,7 @@ export const FILTROS = [['todo', 'Todo'], ['clasificar', 'Por clasificar'], ['pa
 export const GRUPOS = ['clasificar', 'pagar', 'calzar', 'sinbanco'];
 export const DIAS_LISTOS = 30;      // "Ya listos": lo conciliado o pagado en los últimos 30 días
 export const DIAS_POR_PAGAR = 7;    // lo por pagar entra a la Bandeja desde 7 días antes de su fecha (lo de después sigue en Por pagar)
-export const VENTANA_MONTO = [-10, 60];   // sin propuesta: un cargo del mismo monto (±$1) de 10 días antes a 60 días después
+export const VENTANA_MONTO = [-20, 60];   // v0.81.0: desde 20 días antes (Mercado Pago: la factura llega después del pago)
 export const ORIGENES = { sii: 'Factura del SII', boleta: 'Boleta', previred: 'Previred', mano: 'A mano', cuenta: 'Cuenta recurrente' };
 
 // ═══ Las claves de enlace de cada cosa ═══
@@ -86,6 +86,8 @@ function uniones() {
 //   clase ({ cargoId → listo|revisar|sin }), alt ({ cargoId → [{ p, pt }] }),
 //   registrados     (D.registrados: lo ya pagado, para "Ya listos") }
 // → { items (lo que falta, sin "Ya listos"), listos, cargos (los por revisar, con sus ítems), porKey, porCargo, sueltos, n, masAdelante }
+// v0.81.0 · El primer día del mes anterior a hoy ('2026-10-22' → '2026-09-01')
+export const desdeMesAnterior = hoy => { const [y, m] = dia(hoy).split('-').map(Number); if (!y) return '9999-99-99'; const d = new Date(Date.UTC(y, m - 2, 1)); return d.toISOString().slice(0, 10); };
 export function armar(E = {}) {
   const hoy = dia(E.hoy) || '0000-00-00', U = uniones(), cosas = [];
   const add = (tipo, x, claves) => { const ks = claves.filter(Boolean); const c = { tipo, x, claves: ks, nodo: tipo + '#' + cosas.length }; cosas.push(c); U.nodo(c.nodo); ks.forEach(k => U.unir(c.nodo, k)); return c; };
@@ -98,12 +100,13 @@ export function armar(E = {}) {
   });
   // Gastos sin cargo (lo pagado o por pagar que espera el banco), dentro de la ventana que usa hoy "Ya está en Gastos"
   // (lo que ya se marcó pagado en efectivo o con tarjeta no espera ningún cargo: está en "Ya listos")
-  const sinBancoYa = new Set((E.registrados || []).filter(r => r.tipo === 'gasto' && ['efectivo', 'tarjeta'].includes(r.estado)).flatMap(r => r.ids || []));
+  const sinBancoYa = new Set((E.registrados || []).filter(r => r.tipo === 'gasto' && ['efectivo', 'tarjeta', 'mercadopago', 'personal'].includes(r.estado)).flatMap(r => r.ids || []));
   (E.gastos || []).forEach(g => {
     if (!(g.monto > 0) || g.clase === 'efectivo') return;
     if ((g.filas || []).length && g.filas.every(f => sinBancoYa.has(s(f.id || f.fila)))) return;
     const vent = (VENTANAS[g.clase] || VENTANAS.contado)[1];
-    if (!(diasEntre(g.fecha, hoy) <= vent)) return;
+    // v0.81.0 · Lo del mes pasado y de este no sale solo de la Bandeja (aunque pase su ventana): espera que digas qué pasó
+    if (!(diasEntre(g.fecha, hoy) <= vent) && !(dia(g.fecha) >= desdeMesAnterior(hoy))) return;
     add('gasto', g, (g.filas || []).map(f => 'g:' + s(f.id || f.fila)).concat([g.vencimientoId ? 'v:' + g.vencimientoId : '', g.siiDocId ? 's:' + g.siiDocId : '', g.folio && !g.esNC ? kF(g.rut, g.folio) : '']));
   });
   // Previred ya registrado sin vencimiento abierto que todavía no tiene todos sus pagos del banco (de los últimos 60 días)
@@ -323,13 +326,13 @@ export function listosDe(E, hoy) {
   const corte = sumarDias(hoy, -(E.diasListos || DIAS_LISTOS)), out = [], porCargo = new Map(), cargos = new Map((E.cargos || []).map(c => [c.id, c]));
   const mete = (key, x) => { out.push(x); if (x.cargoId) porCargo.set(x.cargoId, x); return x; };
   (E.registrados || []).forEach(r => {
-    if (!['cargo', 'efectivo', 'tarjeta', 'partes', 'pagado'].includes(r.estado)) return;
+    if (!['cargo', 'efectivo', 'tarjeta', 'partes', 'pagado', 'mercadopago', 'personal'].includes(r.estado)) return;
     const c = r.cargoId ? cargos.get(r.cargoId) : null;
     const ref = [dia(r.fechaPago), c ? dia(c.fecha) : '', c ? dia(c.resueltoEl) : ''].filter(Boolean).sort().pop() || (r.estado !== 'cargo' ? dia(r.fecha) : '');
     if (!ref || ref < corte) return;
     if (r.cargoId && porCargo.has(r.cargoId)) { const x = porCargo.get(r.cargoId); if (r.tipo === 'venc' && !x.venc) { x.venc = r.ids[0]; } x.ids = x.ids.concat(r.ids); return; }
     const titulo = r.tipo === 'venc' ? limpio(r.nombre) : [limpio(r.razon) || (r.items || []).join(' + ') || 'Gasto', r.folio ? 'F. ' + r.folio : ''].filter(Boolean).join(' · ');
-    const estado = r.estado === 'cargo' ? `Conciliado con el cargo del ${diaTxt(c ? c.fecha : r.fechaPago)}` : r.estado === 'efectivo' ? `Pagado en efectivo${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''}` : r.estado === 'tarjeta' ? `Pagado con tarjeta${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''}` : r.estado === 'partes' ? 'Pagado en partes' : `Pagado${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''}`;
+    const estado = r.estado === 'cargo' ? `Conciliado con el cargo del ${diaTxt(c ? c.fecha : r.fechaPago)}` : r.estado === 'efectivo' ? `Pagado en efectivo${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''}` : r.estado === 'tarjeta' ? `Pagado con tarjeta${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''}` : r.estado === 'mercadopago' ? `Pagado o descontado en Mercado Pago${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''}` : r.estado === 'personal' ? `Pagado por el dueño con plata personal${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''}` : r.estado === 'partes' ? 'Pagado en partes' : `Pagado${r.fechaPago ? ' el ' + diaTxt(r.fechaPago) : ''}`;
     mete('', { key: (r.tipo === 'venc' ? 'lv:' : 'lg:') + r.ids[0], tipo: 'listo', grupo: 'listos', paso: 4, titulo, sub: [r.tipo === 'venc' ? 'Vencimiento' : (r.items || []).join(' + '), r.fecha ? diaTxt(r.fecha) : ''].filter(Boolean).join(' · '), monto: Math.round(n(r.monto)), pendiente: 0, fecha: ref,
       estado, cargoId: s(r.cargoId), ids: r.ids.slice(), venc: r.tipo === 'venc' ? r.ids[0] : '', medio: r.estado, origen: r.folio ? 'sii' : 'mano', cargos: c ? [{ id: c.id, fecha: dia(c.fecha), monto: n(c.monto), descripcion: s(c.descripcion), principal: true, valor: null }] : [], ncs: [], accion: { codigo: 'listo', texto: estado }, claves: [] });
   });

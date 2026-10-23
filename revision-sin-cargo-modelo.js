@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Informe "Gastos sin cargo" (Gastos → Bandeja)  v0.80.3
+//  Sistema Fën — Informe "Gastos sin cargo" (Gastos → Bandeja)  v0.81.0
 //  Reglas puras, sin red ni pantalla. SOLO LEE: no cambia nada en la base.
 //  Para cada gasto de la Bandeja que espera su cargo del banco busca, en TODAS las cartolas ya subidas (de la memoria):
-//   · un cargo del mismo monto (±$1) en su ventana (10 días antes a 60 después), y qué se hizo con él;
+//   · un cargo del mismo monto (±$1) en su ventana (20 días antes a 60 después), y qué se hizo con él;
 //   · otro gasto vigente igual (mismo folio del mismo proveedor, o mismo monto con fecha cercana): posible repetido;
 //   · varios gastos del mismo proveedor que juntos suman un cargo (un pago por varias facturas);
 //   · y si no hay nada: si su fecha ya está cubierta por la cartola (ya debió llegar) o todavía puede llegar.
@@ -15,7 +15,7 @@ export const diasEntre = (a, b) => (dia(a) && dia(b) ? Math.round((utc(dia(b)) -
 const norm = t => s(t).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 const rutN = r => s(r).toUpperCase().replace(/[^0-9K]/g, '');
 
-export const VENTANA = [-10, 60];        // el cargo, de 10 días antes a 60 días después de la fecha del gasto
+export const VENTANA = [-20, 60];        // el cargo, de 20 días antes a 60 días después de la fecha del gasto
 export const DIAS_REPETIDO = 10;         // mismo monto con fechas a 10 días o menos
 export const MARGEN_LLEGAR = 10;         // si la cartola cubre hasta 10 días después del gasto, su cargo ya debió llegar
 export const MAX_COMBO = 4;              // hasta 4 gastos que juntos suman un cargo
@@ -72,16 +72,20 @@ export function revisar(E = {}) {
   const resultado = gastos.map(g => {
     const exactos = cargos.filter(c => Math.abs(c.monto - g.monto) <= 1 && enVentana(g, c)).sort((a, b) => Math.abs(diasEntre(g.fecha, a.fecha)) - Math.abs(diasEntre(g.fecha, b.fecha)));
     const yo = new Set(g.ids);
-    const repetidos = regs.filter(r => !(r.ids || []).some(id => yo.has(id)) && (
+    // v0.81.0 · El folio es único: dos facturas con folios distintos son compras distintas (aunque tengan el mismo monto)
+    const repetidos = regs.filter(r => !(r.ids || []).some(id => yo.has(id)) && !(g.folio && s(r.folio) && s(r.folio) !== g.folio) && (
       (g.folio && s(r.folio) === g.folio && (mismoProv(g, r) || (!r.rut && !g.rut))) ||
       (Math.abs(r.monto - g.monto) <= 1 && Math.abs(diasEntre(g.fecha, r.fecha)) <= DIAS_REPETIDO && (!g.rut || !r.rut || mismoProv(g, r)))))
-      .slice(0, 4).map(r => ({ fecha: r.fecha, monto: r.monto, folio: r.folio, razon: r.razon, items: r.items || [], conCargo: !!r.cargoId, estado: r.estado || '', porFolio: !!(g.folio && s(r.folio) === g.folio) }));
-    const hallazgos = exactos.slice(0, 3).map(c => ({ cargoId: c.id, fecha: c.fecha, monto: c.monto, descripcion: s(c.descripcion), estado: c.estado, accion: c.accion, que: queSeHizo(c),
-      ligados: (ligados[c.id] || []).slice(0, 4) }));
+      .slice(0, 4).map(r => ({ ids: (r.ids || []).slice(0, 40), fecha: r.fecha, monto: r.monto, folio: r.folio, razon: r.razon, items: r.items || [], conCargo: !!r.cargoId, estado: r.estado || '', porFolio: !!(g.folio && s(r.folio) === g.folio) }));
+    // v0.81.0 · Un cargo ya unido a otro gasto que no se parece (otro folio, otro proveedor y otro ítem) es una casualidad del monto
+    const parecido = l => (g.folio && s(l.folio) === g.folio) || (norm(l.razon) && norm(l.razon) === norm(g.razon)) || (s(l.item) && (g.items || []).some(i => norm(i) === norm(l.item)));
+    const hallazgos = exactos.slice(0, 3).map(c => { const lg = (ligados[c.id] || []).slice(0, 4);
+      return { cargoId: c.id, fecha: c.fecha, monto: c.monto, descripcion: s(c.descripcion), estado: c.estado, accion: c.accion, que: queSeHizo(c), ligados: lg, casualidad: c.estado !== 'POR_REVISAR' && lg.length > 0 && !lg.some(parecido) }; });
+    const reales = hallazgos.filter(h => !h.casualidad);
     let grupo;
-    if (hallazgos.some(h => h.estado === 'POR_REVISAR')) grupo = 'revisar';
-    else if (repetidos.length || hallazgos.some(h => h.accion === 'nuevo' || h.accion === 'sii_pend')) grupo = 'repetido';
-    else if (hallazgos.length) grupo = 'otro';
+    if (reales.some(h => h.estado === 'POR_REVISAR')) grupo = 'revisar';
+    else if (repetidos.length || reales.some(h => h.accion === 'nuevo' || h.accion === 'sii_pend')) grupo = 'repetido';
+    else if (reales.length) grupo = 'otro';
     else grupo = '';
     return { ...g, hallazgos, repetidos, grupo, combo: null };
   });

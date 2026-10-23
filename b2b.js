@@ -8,14 +8,14 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.80.3';
-import * as FB from './firebase-b2b.js?v=0.80.3';
-import * as Apps from './apps.js?v=0.80.3';
-import * as Mem from './fs-memoria.js?v=0.80.3';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.80.3';
-import { distanciaTef } from './feriados-cl.js?v=0.80.3';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.80.3';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.80.3';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.81.0';
+import * as FB from './firebase-b2b.js?v=0.81.0';
+import * as Apps from './apps.js?v=0.81.0';
+import * as Mem from './fs-memoria.js?v=0.81.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.81.0';
+import { distanciaTef } from './feriados-cl.js?v=0.81.0';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.81.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.81.0';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1129,7 +1129,7 @@ function campoResumen(filas, etiqueta) {
 }
 // v0.18.0 · De qué cuenta es: la cuenta corriente lo dice en el resumen ("N° Cuenta Corriente" o "Cuenta Corriente");
 // si no, es la Chequera Electrónica (como hasta ahora). El número se guarda para mostrar sus últimos 4 dígitos.
-export const NOMBRE_CUENTA = { cc: 'Cuenta corriente', chequera: 'Chequera Electrónica' };
+export const NOMBRE_CUENTA = { cc: 'Cuenta corriente', chequera: 'Chequera Electrónica', mp: 'Mercado Pago' };   // v0.81.0: Mercado Pago (solo cargos, en Gastos)
 function cuentaDeCartola(resumen, filasCrudas) {
   const num = v => (String(v || '').match(/\d{6,}/) || [''])[0] || null;
   const cc = campoResumen(resumen, 'N° Cuenta Corriente') || campoResumen(resumen, 'Cuenta Corriente') || (filasCrudas[0] && filasCrudas[0]['N° Cuenta Corriente']);

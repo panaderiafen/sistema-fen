@@ -2642,3 +2642,14 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .isc-cab b { min-width: 0; overflow-wrap: anywhere; }
 .isc-cab span { white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; }
 .isc-hall { margin: 6px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+/* v0.81.0 · No es gasto de la empresa (opciones con explicación) */
+.ne-opciones { display: flex; flex-direction: column; gap: 8px; }
+.ne-op { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--linea); border-radius: 12px; cursor: pointer; background: var(--tarjeta); }
+.ne-op:has(input:checked) { border-color: var(--acento); background: var(--acento-suave); }
+.ne-op input { margin-top: 3px; flex: none; }
+.ne-op span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ne-op small { color: var(--suave); font-size: 13px; line-height: 1.4; }
+.isc-acc { justify-content: flex-start; align-items: center; margin-top: 6px; flex-wrap: wrap; gap: 8px; }
+.isc-ok:empty { display: none; }
+.isc-hecho { opacity: .6; }
+.bu-aviso { margin: 8px 12px 0; }

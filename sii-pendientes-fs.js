@@ -15,19 +15,19 @@
 //  · v0.67.2: un documento cuyos gastos fueron todos anulados vuelve a por clasificar (contexto, una escritura por documento, una
 //    vez) y "Volver a clasificar" (infoVolver, volverAClasificar).
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.80.3';
-import * as M from './gastos-g2.js?v=0.80.3';
-import * as S from './gastos-sii.js?v=0.80.3';
-import * as SP from './sii-pendientes.js?v=0.80.3';
-import * as G3 from './gastos-g3.js?v=0.80.3';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo, abonoParcial } from './gastos-fs.js?v=0.80.3';
-import * as PM from './pagos-mixtos.js?v=0.80.3';   // v0.69.2: documentos pagados en partes con saldo
+import * as FB from './fs-gastos.js?v=0.81.0';
+import * as M from './gastos-g2.js?v=0.81.0';
+import * as S from './gastos-sii.js?v=0.81.0';
+import * as SP from './sii-pendientes.js?v=0.81.0';
+import * as G3 from './gastos-g3.js?v=0.81.0';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo, abonoParcial } from './gastos-fs.js?v=0.81.0';
+import * as PM from './pagos-mixtos.js?v=0.81.0';   // v0.69.2: documentos pagados en partes con saldo
 
 const s = v => String(v == null ? '' : v);
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const ahora = () => M.ahoraChile().texto;
 const hoy = () => M.ahoraChile().dia;
-const SIIF = () => import('./gastos-sii-fs.js?v=0.80.3');
+const SIIF = () => import('./gastos-sii-fs.js?v=0.81.0');
 export const COL_PAGOS = 'sii_pagos';
 
 // ── Configuración (días) ──
@@ -343,7 +343,7 @@ export async function clasificar(docId, lineas, pago, opc = {}) {
   const SF = await SIIF();
   await SF.importar([f], false, opc.marca || M.marcaNueva(), { formato: v.formato, archivo: v.archivo, cargaId: v.cargaId });
   const sn2 = await FB.getDoc(ref), im = (sn2.exists() && sn2.data().importado) || {};
-  try { import('./finanzas.js?v=0.80.3').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
+  try { import('./finanzas.js?v=0.81.0').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
   return { ok: true, gastos: im.gastos || [], vencimiento: im.vencimiento || '' };
 }
 
@@ -377,6 +377,37 @@ export async function marcarPago(x, medio, fecha, lineas, origen, detalle) {
   const reg = { docId: s(x.docId), rut: s(x.rut), folio: s(x.folio), razonSocial: s(x.razonSocial), monto: Math.round(Number(x.total) || 0), fecha, mes: fecha.slice(0, 7), medio, ...org, gastos: ids, fechaFactura: s(x.fecha), por, en,
     historial: [{ que: medio === 'efectivo' ? `pagada en efectivo (${SP.textoOrigen(org)})` : 'pagada con tarjeta de crédito', por, en }] };
   await FB.setDoc(FB.doc(d, COL_PAGOS, idPago(x.docId)), limpio(reg));
+  return { ok: true, gastos: ids };
+}
+// ═══ v0.81.0 · Un gasto que esperaba su cargo y no lo tendrá: cómo se pagó (Gastos → Bandeja) ═══
+// medio: 'efectivo' (con su origen) | 'tarjeta' (de crédito) | 'mercadopago' (descontado o pagado en Mercado Pago, sin cargo que calzar)
+//      | 'personal' (lo pagó el dueño con su plata: es gasto de la empresa, pero no salió de sus cuentas)
+// x = { gastos: [ids], folio, razonSocial, rut, total, fecha }. El gasto queda con su fecha de pago y medio; el pago, en sii_pagos (flujo de caja).
+export const MEDIOS_GASTO = { efectivo: 'Pagado en efectivo', tarjeta: 'Pagado con tarjeta de crédito', mercadopago: 'Pagado o descontado en Mercado Pago', personal: 'Pagado por el dueño con plata personal' };
+export async function marcarPagoGastos(x, medio, fecha, origen, nota) {
+  if (!MEDIOS_GASTO[medio]) throw error('Elige cómo se pagó', 'datos');
+  if (!M.esIso(fecha)) throw error('Elige la fecha del pago', 'datos');
+  const ids = (x && x.gastos) || [];
+  if (!ids.length || ids.length > 40) throw error('Faltan los gastos', 'datos');
+  let org = {};
+  if (medio === 'efectivo') { const r = SP.revisarOrigen(origen || {}); if (r.error) throw error(r.error, 'datos'); org = r.limpio; }
+  const d = await dbBase(), por = correo(), en = ahora(), nt = s(nota).replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, 200), que = MEDIOS_GASTO[medio].toLowerCase();
+  await FB.runTransaction(d, async tx => {
+    const refs = ids.map(id => FB.doc(d, 'gastos', id)), sns = [];
+    for (const r of refs) sns.push(await tx.get(r));
+    sns.forEach((g, i) => {
+      if (!g.exists()) throw error('Un gasto ya no está. Recarga.', 'cambio');
+      const a = g.data();
+      if (a.estado !== 'vigente') throw error('Ese gasto ya no está vigente (anulado). Recarga.', 'cambio');
+      if (s(a.cartolaCargo)) throw error('Ese gasto ya tiene su cargo del banco. Recarga.', 'cambio');
+      tx.update(refs[i], cambio(a, que, { fechaPago: fecha, esperaPago: false, esperaCargo: false, medioPago: medio, formaPago: medio === 'tarjeta' ? 'tarjeta' : 'contado', pagoSinBanco: { medio, fecha, ...org, ...(nt ? { nota: nt } : {}), por, en } }));
+    });
+  });
+  await despues(ids.length);
+  const docId = 'g:' + s(ids[0]);
+  const reg = { docId, rut: s(x.rut), folio: s(x.folio), razonSocial: s(x.razonSocial), monto: Math.round(Number(x.total) || 0), fecha, mes: fecha.slice(0, 7), medio, ...org, gastos: ids, fechaFactura: s(x.fecha), por, en,
+    ...(nt ? { nota: nt } : {}), historial: [{ que: medio === 'efectivo' ? `pagado en efectivo (${SP.textoOrigen(org)})` : que, por, en }] };
+  await FB.setDoc(FB.doc(d, COL_PAGOS, idPago(docId)), limpio(reg));
   return { ok: true, gastos: ids };
 }
 // v0.69.2 · El saldo de un documento pagado en partes, pagado en efectivo o con tarjeta: una parte más (abono con su medio), con
