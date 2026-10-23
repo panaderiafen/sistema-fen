@@ -15,19 +15,19 @@
 //  · v0.67.2: un documento cuyos gastos fueron todos anulados vuelve a por clasificar (contexto, una escritura por documento, una
 //    vez) y "Volver a clasificar" (infoVolver, volverAClasificar).
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.81.6';
-import * as M from './gastos-g2.js?v=0.81.6';
-import * as S from './gastos-sii.js?v=0.81.6';
-import * as SP from './sii-pendientes.js?v=0.81.6';
-import * as G3 from './gastos-g3.js?v=0.81.6';
-import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo, abonoParcial } from './gastos-fs.js?v=0.81.6';
-import * as PM from './pagos-mixtos.js?v=0.81.6';   // v0.69.2: documentos pagados en partes con saldo
+import * as FB from './fs-gastos.js?v=0.81.7';
+import * as M from './gastos-g2.js?v=0.81.7';
+import * as S from './gastos-sii.js?v=0.81.7';
+import * as SP from './sii-pendientes.js?v=0.81.7';
+import * as G3 from './gastos-g3.js?v=0.81.7';
+import { dbBase, todos, catalogo, nuevo, nuevoVenc, cambio, despues, limpio, correo, abonoParcial } from './gastos-fs.js?v=0.81.7';
+import * as PM from './pagos-mixtos.js?v=0.81.7';   // v0.69.2: documentos pagados en partes con saldo
 
 const s = v => String(v == null ? '' : v);
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const ahora = () => M.ahoraChile().texto;
 const hoy = () => M.ahoraChile().dia;
-const SIIF = () => import('./gastos-sii-fs.js?v=0.81.6');
+const SIIF = () => import('./gastos-sii-fs.js?v=0.81.7');
 export const COL_PAGOS = 'sii_pagos';
 
 // ── Configuración (días) ──
@@ -229,6 +229,22 @@ export async function volverAClasificar(docId, motivoP) {
   await despues(refs.length + 1 + (fi ? 1 : 0));
   return { ok: true, gastos: info.gastos.map(g => g.id), doc: info.doc };
 }
+// v0.81.7 · "No es una compra": un documento por clasificar que no es gasto (una guía de despacho, un documento duplicado del SII…).
+// No se borra: queda descartado con quién, cuándo y por qué, y sale de "Por clasificar".
+export async function descartar(docId, motivoP) {
+  const motivo = M.texto(motivoP, 300);
+  if (motivo.length < 3) throw error('Escribe el motivo', 'datos');
+  const d = await dbBase(), por = correo() || 'Sistema Fën', en = ahora(), ref = FB.doc(d, 'sii_docs', s(docId));
+  await FB.runTransaction(d, async tx => {
+    const sn = await tx.get(ref);
+    if (!sn.exists()) throw error('Ese documento ya no está. Recarga.', 'cambio');
+    const a = sn.data();
+    if (a.importado || SP.estaRegistrado(a)) throw error('Ese documento ya tiene su gasto: anúlalo en Registrados.', 'datos');
+    tx.update(ref, cambio(a, 'descartó: no es una compra', { descartado: { por, en, motivo } }, { motivo }));
+  });
+  await despues(1);
+  return { ok: true };
+}
 async function pagos() { try { return (await todos(COL_PAGOS)).filter(x => !x.d.quitado).map(x => ({ id: x.id, ...x.d })); } catch (e) { return []; } }
 // Lo que muestra la pestaña "Pagos sin banco"
 // v0.69.2 · La lista: las facturas sin pago del banco y los documentos pagados en partes con saldo cuya fecha ya pasó
@@ -343,7 +359,7 @@ export async function clasificar(docId, lineas, pago, opc = {}) {
   const SF = await SIIF();
   await SF.importar([f], false, opc.marca || M.marcaNueva(), { formato: v.formato, archivo: v.archivo, cargaId: v.cargaId });
   const sn2 = await FB.getDoc(ref), im = (sn2.exists() && sn2.data().importado) || {};
-  try { import('./finanzas.js?v=0.81.6').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
+  try { import('./finanzas.js?v=0.81.7').then(F => F.preciosTrasImportar()).catch(() => {}); } catch (e) {}
   return { ok: true, gastos: im.gastos || [], vencimiento: im.vencimiento || '' };
 }
 

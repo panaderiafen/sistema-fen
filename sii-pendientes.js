@@ -52,7 +52,9 @@ export function datosPendiente(f, origen = {}, ahora = '', por = '') {
 }
 // v0.67.1: un documento unido a un gasto ya registrado (registrado.gastos) tampoco está por clasificar
 export const estaRegistrado = d => !!(d && d.registrado && Array.isArray(d.registrado.gastos) && d.registrado.gastos.length && !d.registrado.quitado);
-export const esPendiente = d => !!(d && d.porClasificar && !d.importado && !estaRegistrado(d) && !d.quitadoEnPlanilla && !d.descartado);
+// v0.81.7 · Una guía de despacho (DTE 50/52) nunca queda por clasificar: no es compra (la que cuenta es su factura)
+export const esGuia = d => ['50', '52'].includes(String((d && d.porClasificar && d.porClasificar.tipoDoc) || (d && d.tipoDoc) || '').trim());
+export const esPendiente = d => !!(d && d.porClasificar && !d.importado && !estaRegistrado(d) && !d.quitadoEnPlanilla && !d.descartado && !esGuia(d));
 const esCredito = p => !!(p && ((p.fechaVenc && p.fecha && p.fechaVenc > p.fecha) || s(p.formaPagoSII) === '2'));
 const esContado = p => !!(p && s(p.formaPagoSII) === '1');
 // La vista de un documento por clasificar
