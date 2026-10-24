@@ -25,18 +25,18 @@
 //    salió: tipo, quién, cuándo y lo propio de cada origen); "origen" sigue siendo el texto de siempre (el script lo usa).
 //    Hoy: "Esperan cartola". detalleGasto(ids): las líneas y su origen, para el detalle del gasto.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.97.0';
-import * as FB from './fs-gastos.js?v=0.97.0';
-import * as GB from './gastos-base.js?v=0.97.0';
-import * as GP from './gastos-planilla.js?v=0.97.0';
-import * as M from './gastos-g2.js?v=0.97.0';
-import * as G3 from './gastos-g3.js?v=0.97.0';
-import * as G3D from './gastos-g3d.js?v=0.97.0';
-import * as B from './gastos-banco.js?v=0.97.0';
-import { dia } from './gastos-modelo.js?v=0.97.0';
-import * as AB from './gastos-abono.js?v=0.97.0';
-import * as PM from './pagos-mixtos.js?v=0.97.0';   // v0.69.2: pagos mixtos (partes de un documento)
-import * as BO from './boletas.js?v=0.97.0';      // v0.70.0: boletas de luz y agua (CGE, ESSBIO) y cuentas que nacen de su boleta
+import { auth as authSF } from './firebase.js?v=0.98.0';
+import * as FB from './fs-gastos.js?v=0.98.0';
+import * as GB from './gastos-base.js?v=0.98.0';
+import * as GP from './gastos-planilla.js?v=0.98.0';
+import * as M from './gastos-g2.js?v=0.98.0';
+import * as G3 from './gastos-g3.js?v=0.98.0';
+import * as G3D from './gastos-g3d.js?v=0.98.0';
+import * as B from './gastos-banco.js?v=0.98.0';
+import { dia } from './gastos-modelo.js?v=0.98.0';
+import * as AB from './gastos-abono.js?v=0.98.0';
+import * as PM from './pagos-mixtos.js?v=0.98.0';   // v0.69.2: pagos mixtos (partes de un documento)
+import * as BO from './boletas.js?v=0.98.0';      // v0.70.0: boletas de luz y agua (CGE, ESSBIO) y cuentas que nacen de su boleta
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';
@@ -255,7 +255,7 @@ export async function noEsDeLaEmpresa(ids, modo, nota) {
     const plan = M.planGuardarItem(items, { nombre: ITEM_RETIRO, categoria: 'VARIABLE', tipo: 'INDIRECTO', subTipo: 'OPERATIVO', area: 'SELECCIONAR' });
     if (plan.crear) await FB.runTransaction(d, async tx => { const ref = FB.doc(d, 'items', plan.crear.id); if (!(await tx.get(ref)).exists()) tx.set(ref, nuevo(plan.crear.doc, 'mano')); });
   }
-  const FR = await import('./finanzas-resultados.js?v=0.97.0'), refF = FB.doc(d, 'fin_items', FR.claveItem(ITEM_RETIRO));
+  const FR = await import('./finanzas-resultados.js?v=0.98.0'), refF = FB.doc(d, 'fin_items', FR.claveItem(ITEM_RETIRO));
   await FB.runTransaction(d, async tx => {
     const sns = []; for (const r of refs) sns.push(await tx.get(r));
     const snF = await tx.get(refF), prevF = snF.exists() ? snF.data() : null;

@@ -121,7 +121,9 @@ export function clasifDe(d, provs, reps) {
   const p = provDe(d, provs);
   if (!p || !p.item || modoProveedor(p) === 'item') return null;
   // v0.96.0 · Si alguna parte queda sin área (un producto nuevo de un proveedor que recuerda por producto), se pide clasificar
-  const partes = desdeProveedor(d, p, reps); return partes.length && partes.every(x => x.item && x.area) ? { item: p.item, areas: areasDe(p, reps), repartoId: p.repartoId || '', partes, de: 'proveedor', vivo: true } : null;
+  const ITEM_REC = 'MULTAS E INTERESES', aj = Number(d.ajuste && d.ajuste.recargo) || 0;   // v0.98.0: un compromiso ajustado al monto pagado
+  const partes = aj > 0 ? partesSimple(baseDe(d) - aj, p.item, areasDe(p, reps)).concat([{ item: ITEM_REC, area: 'ADMIN', monto: aj }]) : desdeProveedor(d, p, reps);
+  return partes.length && partes.every(x => x.item && x.area) ? { item: p.item, areas: areasDe(p, reps), repartoId: p.repartoId || '', partes, de: 'proveedor', vivo: true } : null;
 }
 // Previred: cada trabajador con el área (o reparto) de su ficha (la de su liquidación); las multas e intereses a ADMIN (financiero).
 // El ítem: el de la ficha de PREVIRED, si se fijó; si no, COTIZACIONES PREVISIONALES. Si a alguien le falta su ficha, se pide clasificar.
@@ -366,18 +368,27 @@ export function armar(D, { cuenta = '', excluir = null } = {}) {
 export const idCompromisoDoc = (cid, mes) => `d_cmp_${cid}_${mes.replace('-', '')}`;
 const ultimoDiaMes = mes => { const [y, m] = mes.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); };
 const sigMes = mes => { const [y, m] = mes.split('-').map(Number); return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`; };
+// v0.98.0 · Frecuencia: cada mes o cada 6 meses (meses de pago: el primero y el que está 6 meses después). El de 6 meses cubre su semestre
+// (periodo de 6 meses, prorratear: Finanzas lo reparte un sexto por mes). Rol y dirección para identificar el pago (patentes).
+// El día va del 1 al 31 (si el mes es más corto, su último día).
+export const semestral = c => c && c.frecuencia === 'semestral';
+export const mesesDe = c => { const m = Math.min(Math.max(1, Number(c.mesInicio) || 1), 12); return semestral(c) ? [m, ((m + 5) % 12) + 1] : null; };
+const sumarMeses = (mes, n) => { let m = mes; for (let i = 0; i < n; i++) m = sigMes(m); return m; };
 export function docDeCompromiso(c, mes) {
-  const dia = Math.min(Math.max(1, Number(c.dia) || 1), 28), fecha = `${mes}-${String(dia).padStart(2, '0')}`, monto = Math.round(Number(c.monto) || 0);
+  const dia = Math.min(Math.max(1, Number(c.dia) || 1), Number(ultimoDiaMes(mes).slice(8))), fecha = `${mes}-${String(dia).padStart(2, '0')}`, monto = Math.round(Number(c.monto) || 0);
+  const sem = semestral(c), hasta = sem ? ultimoDiaMes(sumarMeses(mes, 5)) : ultimoDiaMes(mes);
   return { id: idCompromisoDoc(c.id, mes), origen: 'compromiso', compromiso: c.id, formato: '', tipo: 'cmp', tipoTexto: s(c.nombre) || 'Compromiso', nc: false,
     rut: s(c.rut), rutN: rutN(c.rut), razon: s(c.aQuien) || s(c.nombre), folio: '', fecha, mes, neto: monto, exento: 0, iva: 0, otroImp: 0, total: monto,
-    vence: fecha, formaPago: '', referencias: [], detalle: [], descuadre: '', cargaId: '', cliente: '', direccion: '', periodo: { desde: mes + '-01', hasta: ultimoDiaMes(mes) } };
+    vence: fecha, formaPago: '', referencias: [], detalle: [], descuadre: '', cargaId: '', cliente: '', direccion: s(c.direccion).slice(0, 100), rol: s(c.rol).slice(0, 40),
+    periodo: { desde: mes + '-01', hasta }, ...(sem ? { prorratear: 6 } : {}) };
 }
 // Los documentos que faltan: de cada compromiso activo, sus meses desde max(inicio, su "desde") hasta el mes en curso
 export function compromisosPendientes(comps, docs, inicio, hoy) {
   const ya = new Set((docs || []).map(d => d.id)), mesHoy = s(hoy).slice(0, 7), mesIni = s(inicio).slice(0, 7), out = [];
   (comps || []).filter(c => c.estado !== 'archivado' && Number(c.monto) > 0).forEach(c => {
     let m = s(c.desde) > mesIni ? s(c.desde).slice(0, 7) : mesIni, n = 0;
-    while (m && m <= mesHoy && n++ < 24) { if (!ya.has(idCompromisoDoc(c.id, m))) out.push(docDeCompromiso(c, m)); m = sigMes(m); }
+    const meses = mesesDe(c);
+    while (m && m <= mesHoy && n++ < 24) { if ((!meses || meses.includes(Number(m.slice(5)))) && !ya.has(idCompromisoDoc(c.id, m))) out.push(docDeCompromiso(c, m)); m = sigMes(m); }
   });
   return out;
 }

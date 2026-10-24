@@ -1,9 +1,21 @@
-# Sistema Fën · v0.97.0
+# Sistema Fën · v0.98.0
 
-**App:** v0.97.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.98.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.98.0: compromisos cada 6 meses (patentes), rol y dirección, y ajustar al monto pagado
+
+- **Cada 6 meses:** en Compromisos, "Cada cuánto" → "Cada 6 meses" y los meses de pago (por ejemplo, enero y julio). El documento aparece en esos meses y cubre su semestre: Finanzas lo reparte un sexto por mes (Etapa 4), así una patente no carga todo un mes.
+- **Rol y dirección** (opcionales) para identificar el pago: se ven en Compromisos y en la tarjeta de la Bandeja (por ejemplo, "rol 2-37494 · BARROS ARANA 1399").
+- **El día de pago** va del 1 al 31: en los meses más cortos, su último día.
+- **Ajustar al monto pagado:** al unir un compromiso con un pago de otro monto (patente con IPC o multas, arriendo con reajuste), el sistema ofrece ajustar el documento a lo pagado. Lo pagado de más queda como **multas e intereses** (gasto financiero); de menos, el documento baja. El monto del compromiso para los próximos pagos no cambia (eso se cambia en Compromisos). También se puede "Unir sin ajustar".
+Cambian `gn-bandeja.js`, `gn-fs.js`, `vista-gn.js`, `config.js` y este README; los demás, solo la versión (`?v=0.98.0`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.98.0.
+- [ ] Compromisos → "Patente Barros Arana": a la municipalidad, $54.800 (el último semestre), día 31, cada 6 meses en enero y julio, rol 2-37494, BARROS ARANA 1399, con "Barros Arana común".
+- [ ] Lo mismo para la de Ainavillo, cuando tenga su orden de ingreso.
 
 ## Novedades de la v0.97.0: Previred, boletas de terceros, créditos, tarjeta de crédito y Por pagar
 

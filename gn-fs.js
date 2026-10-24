@@ -10,12 +10,12 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.97.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.97.0';
-import { ahoraChile } from './gastos-g2.js?v=0.97.0';
-import * as GN from './gn-modelo.js?v=0.97.0';
-import * as GB from './gn-bandeja.js?v=0.97.0';
-import * as GP from './gn-pdf.js?v=0.97.0';
+import * as FB from './fs-gastos.js?v=0.98.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.98.0';
+import { ahoraChile } from './gastos-g2.js?v=0.98.0';
+import * as GN from './gn-modelo.js?v=0.98.0';
+import * as GB from './gn-bandeja.js?v=0.98.0';
+import * as GP from './gn-pdf.js?v=0.98.0';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -350,11 +350,12 @@ export async function guardarCompromiso(c) {
   if (!nombre) throw error('Escriba el nombre (por ejemplo, Arriendo Ainavillo).', 'datos');
   if (!aQuien) throw error('Escriba a quién se le paga.', 'datos');
   if (!(monto > 0)) throw error('Escriba el monto.', 'datos');
-  if (!(dia >= 1 && dia <= 28)) throw error('El día de pago va del 1 al 28.', 'datos');
+  if (!(dia >= 1 && dia <= 31)) throw error('El día de pago va del 1 al 31.', 'datos');
+  const frecuencia = c.frecuencia === 'semestral' ? 'semestral' : 'mensual', mesInicio = Math.min(Math.max(1, Math.round(Number(c.mesInicio) || 1)), 6);
   if (!String(c.item || '').trim()) throw error('Elija el ítem.', 'datos');
   if (!c.repartoId) { const err = GB.repartoValido(c.areas); if (err) throw error(err, 'datos'); }
   const id = c.id || 'cp_' + GN.norm(nombre).toLowerCase().replace(/ /g, '_').slice(0, 30) + '_' + Date.now().toString(36);
-  const dato = { nombre, aQuien, rut: String(c.rut || '').trim().slice(0, 14), monto, dia, desde: /^\d{4}-\d{2}$/.test(c.desde || '') ? c.desde : '', item: String(c.item).trim(), repartoId: c.repartoId || '', areas: c.repartoId ? [] : c.areas, estado: 'activo' };
+  const dato = { nombre, aQuien, rut: String(c.rut || '').trim().slice(0, 14), monto, dia, frecuencia, mesInicio: frecuencia === 'semestral' ? mesInicio : 0, rol: String(c.rol || '').trim().slice(0, 40), direccion: String(c.direccion || '').trim().slice(0, 100), desde: /^\d{4}-\d{2}$/.test(c.desde || '') ? c.desde : '', item: String(c.item).trim(), repartoId: c.repartoId || '', areas: c.repartoId ? [] : c.areas, estado: 'activo' };
   const clave = GB.claveBase(GB.docDeCompromiso({ id, ...dato }, '2000-01'));
   await enTransaccion(async (tx, d) => {
     const ref = FB.doc(d, GN.COL.compromisos, id), sn = await tx.get(ref), a = sn.exists() ? sn.data() : null, pref = FB.doc(d, GN.COL.provs, clave), ps = await tx.get(pref), prev = ps.exists() ? ps.data() : null;
@@ -399,4 +400,16 @@ export async function guardarCredito(id, { nombre, montoOriginal, tasa }) {
   for (let i = 0; i < docs.length; i += 200) { const b = FB.writeBatch(dbb); docs.slice(i, i + 200).forEach(x => { const c = cuotas.find(q => String(q.n) === String(x.folio)); if (!c) return; const partes = GP.partesCuota(c);
     b.update(FB.doc(dbb, GN.COL.docs, x.id), { razon: String(nombre || x.razon).trim().slice(0, 100), clasif: { ...x.clasif, item: partes[0].item, partes, separado: partes.length > 1 }, historial: conHist(x, marca('cuota separada en interés y capital')) }); }); await b.commit(); }
   return docs.length;
+}
+
+// v0.98.0 · Ajustar un compromiso al monto pagado (la patente cambia cada año y a veces suma IPC o multas). Lo pagado de más queda como
+// multas e intereses (financiero); de menos, el documento baja a lo pagado. Queda el monto original en el historial.
+export async function ajustarCompromiso(docId, nuevoTotal) {
+  const t = Math.round(Number(nuevoTotal) || 0); if (!(t > 0)) throw error('El monto no es válido.', 'datos');
+  await enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.docs, docId), sn = await tx.get(ref); if (!sn.exists()) throw error('Ese documento ya no está.', 'cambio');
+    const a = sn.data(); if (a.origen !== 'compromiso') throw error('Solo se ajustan los compromisos.', 'datos');
+    const original = a.ajuste && a.ajuste.original ? a.ajuste.original : a.total, recargo = Math.max(0, t - original);
+    tx.update(ref, { total: t, neto: t, ajuste: { original, recargo }, historial: conHist(a, marca(`ajustado al monto pagado: ${original} → ${t}`)) });
+  });
 }
