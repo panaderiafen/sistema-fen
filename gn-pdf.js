@@ -5,7 +5,7 @@
 //    único, por el F29. Los datos se buscan por su etiqueta (toleran bonos, colación, transporte y cambios menores de formato).
 //  · F29 (formulario completo o certificado): el pago del mes con su reparto por código: IVA y PPM (fuera del resultado), retención de
 //    boletas de terceros (costo de los practicantes), impuesto único (costo de los sueldos), multas e intereses (financiero).
-import { idDoc, rutN, rutTexto, esIso, mesDe } from './gn-modelo.js?v=0.96.0';
+import { idDoc, rutN, rutTexto, esIso, mesDe } from './gn-modelo.js?v=0.97.0';
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const celdas = l => s(l).split(/\s{2,}/).map(x => x.trim()).filter(Boolean);
@@ -24,6 +24,7 @@ export function tipoPdf(lineas) {
   const T = norm((lineas || []).slice(0, 40).join('\n'));
   if (/LIQUIDACION DE (SUELDO|REMUNERACION)/.test(T)) return 'liquidacion';
   if (/FORMULARIO 29|DECLARACION MENSUAL Y PAGO SIMULTANEO/.test(T)) return 'f29';
+  if (/PRESTACION DE\s+(?:\n)?\s*SERVICIOS DE TERCEROS|SERVICIOS DE TERCEROS/.test(T) && /IMPUESTO RETENIDO/.test(norm((lineas || []).join('\n')))) return 'bte';
   return '';
 }
 
@@ -136,9 +137,81 @@ export function docDeF29(r, cargaId) {
 }
 
 // Una carga de un PDF: nueva, ya estaba, ya estaba distinta (no se pisa) o completa (el F29 que estaba como certificado y llega el formulario)
+// ═══════════════ v0.97.0 · Boleta de prestación de servicios de terceros (la que emite la empresa por un practicante) ═══════════════
+// El documento es lo que se le paga a la persona (el líquido); la retención se paga en el F29 (código 151). El costo completo es el bruto.
+const MESES_TXT = { ENERO: 1, FEBRERO: 2, MARZO: 3, ABRIL: 4, MAYO: 5, JUNIO: 6, JULIO: 7, AGOSTO: 8, SEPTIEMBRE: 9, SETIEMBRE: 9, OCTUBRE: 10, NOVIEMBRE: 11, DICIEMBRE: 12 };
+export function leerBTE(lineas0) {
+  const lineas = (lineas0 || []).map(l => s(l).replace(/\u00a0/g, ' ')).filter(l => l.trim()), T = lineas.join('\n');
+  const r = { tipo: 'bte', numero: '', fecha: '', nombre: '', rut: '', prestacion: '', bruto: 0, retencion: 0, tasa: '', liquido: 0, errores: [], avisos: [] };
+  r.numero = (/N[°º]\s*(\d{1,10})\b/.exec(T) || [])[1] || '';
+  const f = /Fecha:\s+(\d{1,2})\s+de\s+([A-Za-zÁÉÍÓÚáéíóú]+)\s+del?\s+(\d{4})/i.exec(T); if (f && MESES_TXT[norm(f[2])]) r.fecha = `${f[3]}-${String(MESES_TXT[norm(f[2])]).padStart(2, '0')}-${f[1].padStart(2, '0')}`;
+  const se = /Se[ñn]or(?:es|\(es\))?:\s+(.+?)\s{2,}Rut:\s+([\d.]+\s*-\s*[\dkK])/i.exec(T); if (se) { r.nombre = se[1].trim().slice(0, 100); r.rut = rutTexto(se[2].replace(/\s/g, '')); }
+  const pi = lineas.findIndex(l => /^Prestaci[oó]n\s{2,}Valor/i.test(l.trim())); if (pi >= 0) r.prestacion = lineas.slice(pi + 1, pi + 4).filter(l => !/^[\d.]+$/.test(l.trim()) && !/^Total/i.test(l.trim())).join(' ').replace(/\s+/g, ' ').trim().slice(0, 140);
+  const m = re => { const x = re.exec(T); return x ? num(x[1]) || 0 : 0; };
+  r.bruto = m(/Total Honorarios:\s+([\d.]+)/i); r.retencion = m(/Impuesto Retenido:\s+([\d.]+)/i); r.liquido = m(/\bTotal:\s+([\d.]+)/);
+  r.tasa = (/([\d.,]+\s*%)\s*Impuesto Retenido/i.exec(T) || [])[1] || '';
+  if (!r.numero) r.errores.push('No se encontró el N° de la boleta.');
+  if (!r.rut) r.errores.push('No se encontró el RUT de la persona.');
+  if (!r.fecha) r.errores.push('No se encontró la fecha de la boleta.');
+  if (!(r.bruto > 0)) r.errores.push('No se encontró el total de honorarios.');
+  if (r.bruto && Math.abs(r.bruto - r.retencion - r.liquido) > 1) r.errores.push('Honorarios − retención no da el total líquido: revise el PDF.');
+  r.bloquea = r.errores.length > 0;
+  return r;
+}
+export function docDeBTE(r, cargaId) {
+  return { id: idDoc(r.rut, 'bte', r.numero), origen: 'bte', formato: 'pdf', tipo: 'bte', tipoTexto: 'Boleta de terceros', nc: false, rut: rutTexto(r.rut), rutN: rutN(r.rut), razon: r.nombre || rutTexto(r.rut),
+    folio: r.numero, fecha: r.fecha, mes: mesDe(r.fecha), neto: r.liquido, exento: 0, iva: 0, otroImp: 0, total: r.liquido, vence: '', formaPago: '', referencias: [],
+    detalle: [{ descripcion: 'HONORARIOS LIQUIDOS', cantidad: 0, unidad: '', monto: r.liquido }], descuadre: '', cargaId: s(cargaId), cliente: '', direccion: '', periodo: null,
+    bte: { bruto: r.bruto, retencion: r.retencion, tasa: r.tasa, liquido: r.liquido, prestacion: r.prestacion } };
+}
+
+// ═══════════════ v0.97.0 · Previred (CSV de la nómina o comprobante de pago: lo que entregan previred.leerCsv / leerComprobante) ═══════════════
+// Un documento por mes: las cotizaciones de todos los trabajadores (lo descontado + el aporte del empleador) y, con el comprobante, las multas
+// e intereses. Fecha: la de pago (comprobante) o el vencimiento del mes (día 13 del siguiente, o el hábil que sigue). Se clasifica por
+// trabajador con la ficha de cada uno (la de su liquidación): ver gn-bandeja.clasifPrevired.
+export const ID_PREVIRED = mes => `d_previred_prev_${mes.replace('-', '')}`;
+export const ITEMS_PREVIRED = { cotizaciones: 'COTIZACIONES PREVISIONALES', recargos: 'MULTAS E INTERESES PREVIRED' };
+export function docDePrevired(r, vence, cargaId) {
+  const comp = r.tipoDoc === 'comprobante', trab = (r.trabajadores || []).map(t => ({ rut: rutTexto(t.rut), rutN: rutN(t.rut), nombre: s(t.nombre).slice(0, 100), total: Math.round(t.total || 0) })).filter(t => t.total > 0);
+  const cot = trab.reduce((a, t) => a + t.total, 0), recargos = comp ? Math.round(r.totalRecargos || 0) : 0, total = comp ? Math.round(r.totalPagado || cot + recargos) : cot;
+  const fecha = comp && esIso(r.fechaPago) ? r.fechaPago : esIso(vence) ? vence : `${mesSiguiente(r.periodo)}-13`;
+  return { id: ID_PREVIRED(r.periodo), origen: 'previred', formato: comp ? 'pdf' : 'csv', tipo: 'prev', tipoTexto: 'Previred ' + textoMes(r.periodo), nc: false, rut: '', rutN: '', razon: 'PREVIRED',
+    folio: '', fecha, mes: r.periodo, neto: total, exento: 0, iva: 0, otroImp: 0, total, vence: esIso(vence) ? vence : '', formaPago: '', referencias: [],
+    detalle: trab.map(t => ({ descripcion: 'COTIZACIONES ' + t.nombre, cantidad: 0, unidad: '', monto: t.total })).concat(recargos ? [{ descripcion: 'MULTAS E INTERESES', cantidad: 0, unidad: '', monto: recargos }] : []),
+    descuadre: '', cargaId: s(cargaId), cliente: '', direccion: '', periodo: { desde: r.periodo + '-01', hasta: ultimoDia(r.periodo) },
+    previred: { formato: comp ? 'comprobante' : r.tipoDoc === 'certificado' ? 'certificado' : 'csv', trabajadores: trab, cotizaciones: cot, recargos, fechaPago: comp ? s(r.fechaPago) : '', fueraDePlazo: !!r.fueraDePlazo } };
+}
+
+// ═══════════════ v0.97.0 · Créditos (el "Detalle Crédito" de BancoEstado en Excel: cuota, estado, vencimiento, monto) ═══════════════
+// filas: las de la hoja "Datos" (sheet_to_json con header: 1). El crédito se reconoce por su primera cuota y su número de cuotas.
+export function esDetalleCredito(filas) { const h = (filas && filas[0] || []).map(norm); return h[0] === 'CUOTAS' && h.includes('ESTADO') && h.some(x => /FECHA VENCIMIENTO/.test(x)) && h.some(x => /^MONTO CUOTA$/.test(x)); }
+export function leerCredito(filas, encabezado) {
+  const h = (filas[0] || []).map(norm), iE = h.indexOf('ESTADO'), iF = h.findIndex(x => /FECHA VENCIMIENTO/.test(x)), iM = h.findIndex(x => /^MONTO CUOTA$/.test(x));
+  const cuotas = filas.slice(1).filter(f => f && /^\d+$/.test(s(f[0]).trim())).map(f => ({ n: Number(f[0]), estado: s(f[iE]).trim(), fecha: dmyIso(s(f[iF])), monto: num(s(f[iM])) || 0 })).filter(c => c.fecha && c.monto > 0);
+  const r = { tipo: 'credito', banco: /BANCOESTADO|BANCO ESTADO/.test(norm(encabezado)) ? 'BancoEstado' : 'Banco', cuotas, errores: [] };
+  if (!cuotas.length) r.errores.push('No se encontraron cuotas en el detalle del crédito.');
+  const fr = {}; cuotas.forEach(c => { fr[c.monto] = (fr[c.monto] || 0) + 1; });
+  r.cuota = Number(Object.entries(fr).sort((a, b) => b[1] - a[1])[0]?.[0] || 0);
+  r.dia = cuotas.length ? Number(cuotas[Math.min(2, cuotas.length - 1)].fecha.slice(8)) : 0;
+  r.nombre = `Crédito ${r.banco} · ${cuotas.length} cuotas de $${r.cuota.toLocaleString('es-CL')}`;
+  r.bloquea = r.errores.length > 0;
+  return r;
+}
+// Interés y capital de cada cuota (sistema francés) con el monto original y la tasa mensual: interés = saldo × tasa; capital = cuota − interés.
+// La última cuota cierra el saldo. Sin esos datos, la cuota va completa.
+export function separarCuotas(cuotas, montoOriginal, tasaMensualPct) {
+  const P = Number(montoOriginal) || 0, i = (Number(tasaMensualPct) || 0) / 100; if (!(P > 0) || !(i > 0)) return cuotas.map(c => ({ ...c, interes: null, capital: null }));
+  let saldo = P;
+  return cuotas.map((c, k) => { const interes = Math.max(0, Math.round(saldo * i)), capital = k === cuotas.length - 1 ? Math.round(saldo) : Math.min(Math.round(saldo), c.monto - interes); saldo -= capital; return { ...c, interes: k === cuotas.length - 1 ? c.monto - capital : interes, capital }; });
+}
+export const ITEMS_CREDITO = { cuota: 'CUOTA DE CREDITO', interes: 'INTERESES DE CREDITO', capital: 'CAPITAL DE CREDITO' };
+export const partesCuota = c => (c.interes !== null && c.interes !== undefined ? [{ item: ITEMS_CREDITO.interes, area: 'ADMIN', monto: c.interes }, { item: ITEMS_CREDITO.capital, area: 'ADMIN', monto: c.capital }].filter(p => p.monto > 0) : [{ item: ITEMS_CREDITO.cuota, area: 'ADMIN', monto: c.monto }]);
+
 export function planPdf(d, existentes, inicio) {
   const e = (existentes || []).find(x => x.id === d.id);
   if (e) {
+    if (d.origen === 'previred' && e.previred && e.previred.formato !== 'comprobante' && d.previred.formato === 'comprobante')
+      return { que: 'completar', cambios: { previred: d.previred, detalle: d.detalle, total: d.total, neto: d.total, fecha: d.fecha } };
     if (d.origen === 'f29' && e.f29 && e.f29.formato === 'certificado' && d.formato === 'formulario') return { que: 'completar', cambios: { f29: d.f29, detalle: d.detalle, clasif: d.clasif, formato: d.formato, folio: d.folio || e.folio } };
     return { que: Math.abs((e.total || 0) - d.total) > 1 ? 'distinta' : 'ya', antes: e.total };
   }
@@ -147,5 +220,5 @@ export function planPdf(d, existentes, inicio) {
   if (d.fecha < anterior) return { que: 'antigua' };
   return { que: d.fecha < ini ? 'anterior' : 'nueva', doc: d.fecha < ini ? { ...d, anterior: true } : d };
 }
-export const textoPlanPdf = P => ({ nueva: 'nueva', anterior: 'entró como deuda anterior (es de antes del inicio)', ya: 'ya estaba (no se repite)', distinta: 'ya estaba con otro monto: no se reemplazó (revísela)', completar: 'ya estaba como certificado: se completó con el detalle del formulario', antigua: 'es de hace más de un año (no entra)', sin_fecha: 'no tiene fecha (no entra)' }[P.que] || P.que);
+export const textoPlanPdf = P => ({ nueva: 'nueva', anterior: 'entró como deuda anterior (es de antes del inicio)', ya: 'ya estaba (no se repite)', distinta: 'ya estaba con otro monto: no se reemplazó (revísela)', completar: 'ya estaba: se completó con el detalle (formulario o comprobante)', antigua: 'es de hace más de un año (no entra)', sin_fecha: 'no tiene fecha (no entra)' }[P.que] || P.que);
 export { mesDe };

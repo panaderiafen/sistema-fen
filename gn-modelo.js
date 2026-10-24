@@ -14,7 +14,7 @@
 // ═══════════════════════════════════════════════
 const s = v => String(v == null ? '' : v).trim();
 export const VERSION = '0.90.0';
-export const COL = { docs: 'gn_documentos', movs: 'gn_movimientos', cargas: 'gn_cargas', pagos: 'gn_pagos', provs: 'gn_proveedores', config: 'gn_config', repartos: 'gn_repartos', compromisos: 'gn_compromisos' };   // v0.91.0: pagos, proveedores y config
+export const COL = { docs: 'gn_documentos', movs: 'gn_movimientos', cargas: 'gn_cargas', pagos: 'gn_pagos', provs: 'gn_proveedores', config: 'gn_config', repartos: 'gn_repartos', compromisos: 'gn_compromisos', creditos: 'gn_creditos' };   // v0.91.0: pagos, proveedores y config
 export const CUENTAS = { cc: 'BancoEstado cta. cte.', chequera: 'BancoEstado chequera', mp: 'Mercado Pago', tc: 'Tarjeta de crédito' };
 export const TIPOS_DOC = { '33': 'Factura', '34': 'Factura exenta', '39': 'Boleta', '41': 'Boleta exenta', '46': 'Factura de compra', '56': 'Nota de débito', '61': 'Nota de crédito' };
 
@@ -83,6 +83,16 @@ export function docDeBoleta(b, emp, direccion, cargaId) {
 export function direccionDeBoleta(lineas) {
   for (const l of lineas || []) { const m = /direcci[oó]n\s+(?:de\s+)?(?:suministro|del\s+servicio|servicio)\s*:?\s+(.{4,90})$/i.exec(s(l)); if (m) return m[1].split(/\s{2,}/)[0].trim(); }
   return '';
+}
+// v0.97.0 · Compras de la tarjeta de crédito anotadas a mano desde el estado de cuenta (viene en PDF de imagen): [{ fecha, glosa, monto }] → movimientos
+export function movsDeTarjeta(filas, cargaId) {
+  const vistos = {};
+  return (filas || []).filter(f => esIso(f.fecha) && entero(f.monto) > 0 && s(f.glosa).trim()).map(f => {
+    const m0 = { cuenta: 'tc', cuentaN: '', fecha: f.fecha, hora: '', glosa: corto(f.glosa, 160).toUpperCase(), monto: entero(f.monto), saldo: 0, operacion: '', naturaleza: '', cargaId: s(cargaId) };
+    const k = m0.fecha + '|' + m0.glosa + '|' + m0.monto; vistos[k] = (vistos[k] || 0) + 1;
+    const m = { ...m0, operacion: 'tc' + vistos[k] };   // dos compras iguales el mismo día son dos
+    return { ...m, id: idMov(m), huella: huellaMov(m) };
+  });
 }
 // Una boleta en la base: nueva, ya estaba, deuda anterior (antes del inicio) o de hace más de un año (no entra)
 export function planBoleta(d, existentes, inicio) {
@@ -176,7 +186,8 @@ export function planMovs(movs, existentes, inicio) {
 export const idCarga = (tipo, ms = Date.now()) => `c_${tipo}_${ms.toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 export function textoCarga(k) {
   const n = (x, s1, p1) => `${x} ${x === 1 ? s1 : p1}`;
-  if (k.tipo === 'liquidacion' || k.tipo === 'f29') return s(k.texto) || s(k.que);
+  if (k.tipo === 'credito') return k.que === 'ya' ? 'ya estaba (cuotas actualizadas)' : 'nuevo';
+  if (k.tipo === 'liquidacion' || k.tipo === 'f29' || k.tipo === 'bte' || k.tipo === 'previred') return s(k.texto) || s(k.que);
   if (k.tipo === 'boleta') return k.que === 'ya' ? 'ya estaba (no se repite)' : k.que === 'antigua' ? 'es de hace más de un año (no entra)' : k.que === 'anterior' ? 'entró como deuda anterior (es de antes del inicio)' : k.que === 'sin_fecha' ? 'no tiene fecha de emisión ni período (no entra)' : 'nueva';
   if (k.tipo === 'sii') return [`${n(k.nuevos - (k.anteriores || 0), 'documento nuevo', 'documentos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.completados ? `${k.completados} ya estaban sin detalle y se completaron` : '', k.anteriores ? `${k.anteriores} anteriores al inicio (deuda anterior)` : '',
     k.antiguos ? `${k.antiguos} de hace más de un año (no entran)` : '', k.guias ? n(k.guias, 'guía de despacho fuera', 'guías de despacho fuera') : ''].filter(Boolean).join(' · ');

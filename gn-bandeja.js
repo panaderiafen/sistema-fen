@@ -117,12 +117,27 @@ export function productosARecordar(lineas, modo) {
 }
 export function clasifDe(d, provs, reps) {
   if (d.clasif && (d.clasif.item || (d.clasif.partes || []).length)) { const partes = partesDe(d, d.clasif); return { ...d.clasif, partes, item: principal(partes), de: d.clasif.de === 'proveedor' ? 'proveedor' : 'documento' }; }
+  if (d.origen === 'previred') return clasifPrevired(d, provs, reps);
   const p = provDe(d, provs);
   if (!p || !p.item || modoProveedor(p) === 'item') return null;
   // v0.96.0 · Si alguna parte queda sin área (un producto nuevo de un proveedor que recuerda por producto), se pide clasificar
   const partes = desdeProveedor(d, p, reps); return partes.length && partes.every(x => x.item && x.area) ? { item: p.item, areas: areasDe(p, reps), repartoId: p.repartoId || '', partes, de: 'proveedor', vivo: true } : null;
 }
-// v0.96.0 · Repartos con nombre: los iniciales (acordados el 23 oct; se crean la primera vez, después se editan en Gastos → Repartos)
+// Previred: cada trabajador con el área (o reparto) de su ficha (la de su liquidación); las multas e intereses a ADMIN (financiero).
+// El ítem: el de la ficha de PREVIRED, si se fijó; si no, COTIZACIONES PREVISIONALES. Si a alguien le falta su ficha, se pide clasificar.
+export const ITEM_COTIZACIONES = 'COTIZACIONES PREVISIONALES', ITEM_RECARGOS_PREVIRED = 'MULTAS E INTERESES PREVIRED';
+export function faltanFichasPrevired(d, provs, reps) {
+  return ((d.previred && d.previred.trabajadores) || []).filter(t => { const p = (provs || {})['r_' + t.rutN]; return !p || modoProveedor(p) === 'item' || !areasDe(p, reps).length; }).map(t => t.nombre || t.rut);
+}
+function clasifPrevired(d, provs, reps) {
+  const P = d.previred; if (!P || faltanFichasPrevired(d, provs, reps).length) return null;
+  const pp = (provs || {})[claveBase(d)], item = (pp && pp.item) || ITEM_COTIZACIONES;
+  const partes = juntar(P.trabajadores.flatMap(t => partesSimple(t.total, item, areasDe(provs['r_' + t.rutN], reps))).concat(P.recargos ? [{ item: ITEM_RECARGOS_PREVIRED, area: 'ADMIN', monto: P.recargos }] : []));
+  const dif = d.total - partes.reduce((a, x) => a + x.monto, 0);
+  if (dif && partes.length) partes[0] = { ...partes[0], monto: partes[0].monto + dif };   // redondeos o un total del comprobante distinto de la suma
+  return { item, areas: [], repartoId: '', partes, de: 'proveedor', vivo: true };
+}
+// v0.93.0 · Repartos con nombre: los iniciales (acordados el 23 oct; se crean la primera vez, después se editan en Gastos → Repartos)
 export const REPARTOS_INICIALES = [
   { id: 'rp_produccion_ainavillo', nombre: 'Producción Ainavillo', areas: [{ area: 'PAN', pct: 57 }, { area: 'BOL', pct: 43 }] },
   { id: 'rp_ainavillo_comun', nombre: 'Ainavillo común', areas: ['PAN', 'BOL', 'PAS', 'ADMIN', 'B2C-AI'].map(a => ({ area: a, pct: 20 })) },
@@ -319,7 +334,7 @@ export function repartirPago(docs, monto) {
 export function armar(D, { cuenta = '', excluir = null } = {}) {
   const I = indicePagos(D.pagos), provs = D.provs || {}, sug = D.sugeridas || {}, reps = D.repartos || {};
   const docs = (D.docs || []).map(d => { const e = estadoDoc(d, I), c = clasifDe(d, provs, reps); return { ...d, ...e, estadoPago: e.estado, clasifEf: c, sugerida: !c ? sug[claveProveedor(d)] || sug[claveBase(d)] || null : null,
-    soloItem: !c && provDe(d, provs) && provDe(d, provs).item ? provDe(d, provs).item : '' }; });
+    soloItem: !c && d.origen !== 'previred' && provDe(d, provs) && provDe(d, provs).item ? provDe(d, provs).item : '', faltanFichas: !c && d.origen === 'previred' ? faltanFichasPrevired(d, provs, reps) : null }; });
   const movs = (D.movs || []).map(m => ({ ...m, libre: libreMov(m, I), pagosM: I.porMov[m.id] || [] }));
   const abiertosD = docs.filter(d => d.estadoPago === 'sin_pago' || d.estadoPago === 'a_medias');
   const abiertosM = movs.filter(m => m.libre > 0 && m.estado !== 'no_va' && !m.naturaleza);
@@ -364,5 +379,19 @@ export function compromisosPendientes(comps, docs, inicio, hoy) {
     let m = s(c.desde) > mesIni ? s(c.desde).slice(0, 7) : mesIni, n = 0;
     while (m && m <= mesHoy && n++ < 24) { if (!ya.has(idCompromisoDoc(c.id, m))) out.push(docDeCompromiso(c, m)); m = sigMes(m); }
   });
+  return out;
+}
+
+// ═══════════════ v0.97.0 · Créditos: el documento de cada cuota se crea el mes en que vence (desde el inicio) ═══════════════
+export const idCuotaDoc = (cid, n) => `d_cred_${cid}_${n}`;
+export function docDeCuota(cr, c, partes) {
+  const mes = c.fecha.slice(0, 7);
+  return { id: idCuotaDoc(cr.id, c.n), origen: 'credito', credito: cr.id, formato: '', tipo: 'cuota', tipoTexto: `Cuota ${c.n} de ${cr.cuotas.length}`, nc: false, rut: '', rutN: '', razon: s(cr.nombre) || 'Crédito',
+    folio: String(c.n), fecha: c.fecha, mes, neto: c.monto, exento: 0, iva: 0, otroImp: 0, total: c.monto, vence: c.fecha, formaPago: '', referencias: [], detalle: [], descuadre: '', cargaId: '', cliente: '', direccion: '', periodo: null,
+    clasif: { item: partes[0].item, areas: [{ area: 'ADMIN', pct: 100 }], repartoId: '', partes, porLineas: false, separado: partes.length > 1, lineas: [], de: 'sistema' } };
+}
+export function cuotasPendientes(creds, docs, inicio, hoy, partesDe) {
+  const ya = new Set((docs || []).map(d => d.id)), mesHoy = s(hoy).slice(0, 7), out = [];
+  (creds || []).filter(cr => cr.estado !== 'archivado').forEach(cr => (cr.cuotas || []).forEach(c => { if (c.fecha >= s(inicio) && c.fecha.slice(0, 7) <= mesHoy && !ya.has(idCuotaDoc(cr.id, c.n))) out.push(docDeCuota(cr, c, partesDe(c))); }));
   return out;
 }

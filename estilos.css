@@ -2822,3 +2822,8 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 /* v0.96.0 · Compromisos */
 .gn-archivado { opacity: .6; }
 [aria-labelledby="t-gn-cp"] .gn-it { margin-bottom: 8px; }
+/* v0.97.0 · Tarjeta, Por pagar */
+.gn-tc-fila { grid-template-columns: minmax(130px, .9fr) minmax(0, 1.6fr) minmax(90px, .8fr); margin-bottom: 6px; }
+@media (max-width: 480px) { .gn-tc-fila { grid-template-columns: 1fr 1fr; } .gn-tc-fila [data-tg] { grid-column: 1 / -1; } }
+.gn-vencido { color: var(--rojo-t); }
+[aria-labelledby="t-gn-cr"] .gn-it, [aria-labelledby="t-gn-tc"] .btn { margin-bottom: 8px; }

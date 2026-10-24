@@ -1,9 +1,27 @@
-# Sistema Fën · v0.96.0
+# Sistema Fën · v0.97.0
 
-**App:** v0.96.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.97.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.97.0: Previred, boletas de terceros, créditos, tarjeta de crédito y Por pagar
+
+Tercera parte de la Etapa 3. Todo se arrastra al mismo recuadro de Gastos.
+- **Previred:** el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → un documento por mes con las cotizaciones de cada trabajador (y las multas e intereses, con el comprobante). Fecha: la de pago o el vencimiento (día 13 o el hábil siguiente).
+  - Se reparte solo con la ficha de cada trabajador (la que queda al clasificar su liquidación o su boleta, o directo en Proveedores). Si a alguien le falta, la tarjeta dice a quién.
+  - Si primero se sube el CSV y después el comprobante, el comprobante lo completa.
+- **Boletas de prestación de servicios de terceros (practicantes, PDF del SII):** el documento es lo que se le transfiere a la persona (el líquido). La retención va en el F29 (código 151): honorarios = líquido + retención.
+- **Créditos:** el "Detalle Crédito" de BancoEstado (Excel). Cada cuota entra a la Bandeja el mes en que vence (desde el inicio). En Compromisos → Créditos se escriben el monto original y la tasa mensual: cada cuota se separa en interés (gasto financiero) y capital (no es gasto). Sin esos datos, la cuota va completa.
+- **Tarjeta de crédito:** en Archivos subidos, "Anotar compras de la tarjeta" (su estado de cuenta es PDF de imagen). Cada compra queda como movimiento de la tarjeta; el pago de la tarjeta desde la cuenta corriente se marca "No es gasto".
+- **Por pagar (pestaña nueva):** lo que se debe y no tiene pago, por vencimiento: vencido, esta semana, más adelante; la deuda anterior aparte.
+Cambian `gn-pdf.js`, `gn-modelo.js`, `gn-bandeja.js`, `gn-fs.js`, `vista-gn.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.97.0`). Colección nueva en fen-gastos: `gn_creditos`.
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.97.0.
+- [ ] Arrastrar el CSV de Previred de septiembre (entra como deuda anterior) y, cuando llegue, el de octubre.
+- [ ] Arrastrar las boletas de terceros de los practicantes.
+- [ ] Arrastrar los dos "Detalle Crédito" y, cuando los tenga, escribir monto original y tasa de cada uno (Compromisos → Créditos).
+- [ ] Revisar que cada trabajador y practicante tenga su ficha (área o reparto).
 
 ## Novedades de la v0.96.0: liquidaciones de sueldo, F29 y compromisos (arriendos)
 
