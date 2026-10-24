@@ -69,9 +69,17 @@ export function partesSimple(base, item, areas) {
   return juntar(l.map((a, i) => ({ item: s(item), area: s(a.area), monto: m[i] })));
 }
 // Por líneas del detalle: asign[i] = { item, area } de cada línea → partes, ajustadas a la base (descuentos globales, redondeos)
-export function partesPorLineas(d, asign) {
+// v0.95.0 · Una línea puede ir a un reparto con nombre (area 'rp:<id>', con las áreas de hoy del reparto) o a varias áreas (asign[i].areas,
+// lo general de la factura). Si el reparto ya no está, la línea queda sin área (y se pide).
+export const AREA_REPARTO = 'rp:';
+export function partesPorLineas(d, asign, reps) {
   const det = d.detalle || [], w = det.map(x => entero(x.monto)), m = repartirMonto(baseDe(d), w);
-  return juntar(det.map((x, i) => ({ item: s(asign[i] && asign[i].item), area: s(asign[i] && asign[i].area), monto: m[i] })));
+  return juntar(det.flatMap((x, i) => {
+    const a = asign[i] || {}, item = s(a.item), ar = s(a.area);
+    if (ar.startsWith(AREA_REPARTO)) { const r = (reps || {})[ar.slice(AREA_REPARTO.length)]; return r ? partesSimple(m[i], item, r.areas) : [{ item, area: '', monto: m[i] }]; }
+    if (!ar && Array.isArray(a.areas) && a.areas.length) return partesSimple(m[i], item, a.areas);
+    return [{ item, area: ar, monto: m[i] }];
+  }));
 }
 export function partesValidas(partes, base) {
   if (!(partes || []).length) return 'Falta la clasificación.';
@@ -91,13 +99,13 @@ export function partesDe(d, c) {
 // ítem; las áreas cambian en cada compra: la factura llega con el ítem y pide el área). Sin modo (lo anterior) = fijo.
 // Un producto recuerda su ítem, y su área solo si es siempre la misma.
 export const modoProveedor = p => (p && p.modo === 'item' ? 'item' : 'fijo');
-// v0.94.0 · Las áreas de una ficha: las de su reparto con nombre (si usa uno, las de HOY: un cambio del reparto rige para lo que viene) o las suyas
+// v0.95.0 · Las áreas de una ficha: las de su reparto con nombre (si usa uno, las de HOY: un cambio del reparto rige para lo que viene) o las suyas
 export const areasDe = (p, reps) => (p && p.repartoId && reps && reps[p.repartoId] && (reps[p.repartoId].areas || []).length ? reps[p.repartoId].areas : (p && p.areas) || []);
 function desdeProveedor(d, p, reps) {
   const prods = p.productos || {}, det = d.detalle || [], usa = det.length > 1 && det.some(x => prods[normProducto(x.descripcion)]), ar = areasDe(p, reps);
   if (!usa) return partesSimple(baseDe(d), p.item, ar);
-  const gen = ar[0] ? { item: p.item, area: ar[0].area } : { item: p.item, area: '' };
-  return partesPorLineas(d, det.map(x => { const r = prods[normProducto(x.descripcion)]; return r ? { item: r.item || gen.item, area: r.area || gen.area } : gen; }));
+  // v0.95.0 · Lo que el producto no dice va con el reparto (o las áreas) del proveedor, no solo con su primera área
+  return partesPorLineas(d, det.map(x => { const r = prods[normProducto(x.descripcion)]; return r && r.area ? { item: r.item || p.item, area: r.area } : { item: (r && r.item) || p.item, areas: ar }; }), reps);
 }
 // Los productos que se recuerdan de una factura separada por líneas: ítem siempre; área solo si el proveedor es "fijo" y ese producto
 // fue a una sola área en la factura (el mismo producto en dos áreas no recuerda área)
@@ -111,10 +119,10 @@ export function clasifDe(d, provs, reps) {
   if (d.clasif && (d.clasif.item || (d.clasif.partes || []).length)) { const partes = partesDe(d, d.clasif); return { ...d.clasif, partes, item: principal(partes), de: d.clasif.de === 'proveedor' ? 'proveedor' : 'documento' }; }
   const p = provDe(d, provs);
   if (!p || !p.item || modoProveedor(p) === 'item') return null;
-  // v0.94.0 · Si alguna parte queda sin área (un producto nuevo de un proveedor que recuerda por producto), se pide clasificar
+  // v0.95.0 · Si alguna parte queda sin área (un producto nuevo de un proveedor que recuerda por producto), se pide clasificar
   const partes = desdeProveedor(d, p, reps); return partes.length && partes.every(x => x.item && x.area) ? { item: p.item, areas: areasDe(p, reps), repartoId: p.repartoId || '', partes, de: 'proveedor', vivo: true } : null;
 }
-// v0.94.0 · Repartos con nombre: los iniciales (acordados el 23 oct; se crean la primera vez, después se editan en Gastos → Repartos)
+// v0.95.0 · Repartos con nombre: los iniciales (acordados el 23 oct; se crean la primera vez, después se editan en Gastos → Repartos)
 export const REPARTOS_INICIALES = [
   { id: 'rp_produccion_ainavillo', nombre: 'Producción Ainavillo', areas: [{ area: 'PAN', pct: 57 }, { area: 'BOL', pct: 43 }] },
   { id: 'rp_ainavillo_comun', nombre: 'Ainavillo común', areas: ['PAN', 'BOL', 'PAS', 'ADMIN', 'B2C-AI'].map(a => ({ area: a, pct: 20 })) },
@@ -203,7 +211,7 @@ export function indiceSenas(provs) {
 }
 const subconjuntos = (l, max) => { const out = []; const ir = (i, act) => { if (act.length >= 2) out.push(act.slice()); if (act.length === max) return; for (let j = i; j < l.length; j++) { act.push(l[j]); ir(j + 1, act); act.pop(); } }; ir(0, []); return out; };
 // docs: documentos con saldo (abiertos), movs: movimientos con lo libre. → [{ docIds, movId, monto, afinidad, por }]
-// v0.94.0 · Un cargo anterior al inicio solo se une con documentos del inicio en adelante (lo de antes con lo de antes es del Gastos anterior).
+// v0.95.0 · Un cargo anterior al inicio solo se une con documentos del inicio en adelante (lo de antes con lo de antes es del Gastos anterior).
 // "No es este" queda guardado en el documento (descartes): ese par no se vuelve a proponer.
 export const compatible = (d, m) => !(d.anterior && m.anterior);
 export const descartado = (d, m) => (d.descartes || []).includes(m.id);
@@ -250,7 +258,7 @@ export function candidatosMov(d, movs, S) {
   return movs.filter(m => m.libre > 0 && compatible(d, m)).map(m => ({ m, a: afinidad(d, m, S), igual: m.libre === d.saldo, dentro: enVentana(d.fecha, m.fecha) }))
     .sort((x, y) => (y.igual - x.igual) || (y.dentro - x.dentro) || (y.a - x.a) || Math.abs(dias(d.fecha, x.m.fecha)) - Math.abs(dias(d.fecha, y.m.fecha)));
 }
-// ── v0.94.0 · Seleccionar y filtrar: lo elegido de un lado muestra los posibles del otro, para la suma ──
+// ── v0.95.0 · Seleccionar y filtrar: lo elegido de un lado muestra los posibles del otro, para la suma ──
 // Elegir documentos → los cargos posibles para la suma de sus saldos; elegir cargos → los documentos posibles para la suma de lo libre.
 // Orden: los no descartados, los que calzan (±$5), los de la ventana de fechas, los del proveedor (afinidad), los más cercanos.
 export function posiblesMovs(docs, movs, S) {
@@ -277,7 +285,7 @@ export function pagosDeVarios(d, movs) {
   return out;
 }
 
-// ── v0.94.0 · ¿Ya está en el Gastos anterior? (para un cargo anterior al inicio) ──
+// ── v0.95.0 · ¿Ya está en el Gastos anterior? (para un cargo anterior al inicio) ──
 // Los gastos del anterior se agrupan como un pago (misma fecha, hora, observación, RUT y folio: un pago repartido en varias líneas de área)
 export function resumenAnterior(gastos, desde, hasta) {
   const g = {};
@@ -315,7 +323,7 @@ export function armar(D, { cuenta = '', excluir = null } = {}) {
   const abiertosD = docs.filter(d => d.estadoPago === 'sin_pago' || d.estadoPago === 'a_medias');
   const abiertosM = movs.filter(m => m.libre > 0 && m.estado !== 'no_va' && !m.naturaleza);
   const S = indiceSenas(provs);
-  const pares = sugerirPares(abiertosD, abiertosM, S).filter(p => !excluir || !excluir.has(p.movId + '|' + p.docIds.join(',')));   // "No es este": guardado en el documento (v0.94.0)
+  const pares = sugerirPares(abiertosD, abiertosM, S).filter(p => !excluir || !excluir.has(p.movId + '|' + p.docIds.join(',')));   // "No es este": guardado en el documento (v0.95.0)
   const enPar = new Set(pares.flatMap(p => p.docIds)), movEnPar = new Set(pares.map(p => p.movId));
   const visible = d => !d.anterior;
   // v0.91.2 · "Listo" = pagado Y clasificado. Cada documento está en un solo grupo: en su par, sin pago (con su clasificación a la vista)

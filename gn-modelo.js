@@ -30,7 +30,7 @@ export function mesAnterior(mes) { const [y, m] = mes.split('-').map(Number); re
 const diasEntre = (a, b) => Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5);
 // Lo que cuenta desde el inicio, y desde cuándo entra la deuda anterior. v0.90.3: hasta un año antes del inicio (antes, solo el mes anterior:
 // el Registro de Compras de septiembre traía facturas de agosto que se pagan después y quedaban fuera)
-// v0.94.0 · movDesde: los cargos de los 20 días antes del inicio (la ventana de pares) entran como "cargos anteriores", solo para unirse
+// v0.95.0 · movDesde: los cargos de los 20 días antes del inicio (la ventana de pares) entran como "cargos anteriores", solo para unirse
 // con documentos del inicio en adelante (lo simétrico de la deuda anterior)
 export const DIAS_CARGOS_ANTERIORES = 20;
 export const sumarDias = (iso, n) => { const t = new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) + n * 864e5); return t.toISOString().slice(0, 10); };
@@ -60,6 +60,37 @@ export function docDeSii(f, cargaId) {
     cliente: s(f.cdgIntRecep).slice(0, 40), direccion: s(f.cdgIntRecep) ? corto([f.dirRecep, f.comunaRecep].filter(Boolean).join(', '), 100) : '',   // v0.92.4: la del servicio (solo si trae N° de cliente)
     periodo: esIso(f.periodoDesde) && esIso(f.periodoHasta) ? { desde: f.periodoDesde, hasta: f.periodoHasta } : null   // v0.92.3
   };
+}
+// v0.95.0 · Una boleta de luz o agua (lo que entrega boletas.leerBoleta) → documento. emp: { rut, nombre, servicio } de la empresa.
+// Su monto es la boleta del período (+ el ajuste de redondeo del total a pagar): el saldo anterior es lo que quedó sin pagar de las boletas
+// anteriores (sus propios documentos). Una boleta no da crédito de IVA: su costo es el total (neto = total).
+// El gasto es del mes en que termina el período (mes); la fecha es la de emisión (para unirla con su pago).
+// Los intereses por mora van en una línea aparte, para separarlos (como gasto financiero) al clasificar.
+export function docDeBoleta(b, emp, direccion, cargaId) {
+  const total = entero(b.boleta) + entero(b.ajuste), int = Math.max(0, entero(b.intereses)), serv = s(emp.servicio).toUpperCase() || 'SERVICIO';
+  const det = int > 0 ? [{ descripcion: 'CONSUMO ' + serv, cantidad: 0, unidad: '', monto: total - int }, { descripcion: 'INTERESES POR MORA', cantidad: 0, unidad: '', monto: int }]
+    : [{ descripcion: 'CONSUMO ' + serv, cantidad: 0, unidad: '', monto: total }];
+  const fecha = esIso(b.emision) ? b.emision : esIso(b.fechaGasto) ? b.fechaGasto : '';
+  return { id: idDoc(emp.rut, '39', b.numero || b.clave), origen: 'boleta', formato: 'pdf', tipo: '39', tipoTexto: 'Boleta de ' + (s(emp.servicio) || 'servicio'), nc: false,
+    rut: rutTexto(emp.rut), rutN: rutN(emp.rut), razon: corto(emp.nombre, 120), folio: s(b.numero), servicio: s(emp.servicio),
+    fecha, mes: s(b.mes) || mesDe(fecha), neto: total, exento: 0, iva: 0, otroImp: 0, total, ivaBoleta: entero(b.iva),
+    vence: esIso(b.vence) ? b.vence : '', formaPago: '', referencias: [], detalle: det, descuadre: '', cargaId: s(cargaId),
+    cliente: s(b.cliente).slice(0, 40), direccion: s(b.cliente) ? corto(direccion, 100) : '', periodo: esIso(b.desde) && esIso(b.hasta) ? { desde: b.desde, hasta: b.hasta } : null,
+    saldoAnterior: Math.max(0, entero(b.saldoAnterior)), totalPagar: entero(b.totalPagar),
+    corte: b.corte && (b.corte.enTramite || esIso(b.corte.desde)) ? { enTramite: !!b.corte.enTramite, desde: esIso(b.corte.desde) ? b.corte.desde : '' } : null };
+}
+// La dirección del servicio en el PDF (si la trae con su etiqueta)
+export function direccionDeBoleta(lineas) {
+  for (const l of lineas || []) { const m = /direcci[oó]n\s+(?:de\s+)?(?:suministro|del\s+servicio|servicio)\s*:?\s+(.{4,90})$/i.exec(s(l)); if (m) return m[1].split(/\s{2,}/)[0].trim(); }
+  return '';
+}
+// Una boleta en la base: nueva, ya estaba, deuda anterior (antes del inicio) o de hace más de un año (no entra)
+export function planBoleta(d, existentes, inicio) {
+  const C = corte(inicio);
+  if (!d.fecha) return { que: 'sin_fecha' };
+  if (d.fecha < C.anterior) return { que: 'antigua' };
+  if ((existentes || []).some(x => x.id === d.id)) return { que: 'ya' };
+  return { que: d.fecha < C.inicio ? 'anterior' : 'nueva', doc: d.fecha < C.inicio ? { ...d, anterior: true } : d };
 }
 // Plan de una carga del SII: qué entra nuevo, qué ya estaba, qué es deuda anterior y qué queda fuera por antiguo
 export function planDocs(facturas, existentes, inicio, cargaId) {
@@ -145,6 +176,7 @@ export function planMovs(movs, existentes, inicio) {
 export const idCarga = (tipo, ms = Date.now()) => `c_${tipo}_${ms.toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 export function textoCarga(k) {
   const n = (x, s1, p1) => `${x} ${x === 1 ? s1 : p1}`;
+  if (k.tipo === 'boleta') return k.que === 'ya' ? 'ya estaba (no se repite)' : k.que === 'antigua' ? 'es de hace más de un año (no entra)' : k.que === 'anterior' ? 'entró como deuda anterior (es de antes del inicio)' : k.que === 'sin_fecha' ? 'no tiene fecha de emisión ni período (no entra)' : 'nueva';
   if (k.tipo === 'sii') return [`${n(k.nuevos - (k.anteriores || 0), 'documento nuevo', 'documentos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.completados ? `${k.completados} ya estaban sin detalle y se completaron` : '', k.anteriores ? `${k.anteriores} anteriores al inicio (deuda anterior)` : '',
     k.antiguos ? `${k.antiguos} de hace más de un año (no entran)` : '', k.guias ? n(k.guias, 'guía de despacho fuera', 'guías de despacho fuera') : ''].filter(Boolean).join(' · ');
   return [`${n(k.nuevos - (k.anteriores || 0), 'movimiento nuevo', 'movimientos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.parecidos ? `${n(k.parecidos, 'ya llegó en otra cartola', 'ya llegaron en otra cartola')}` : '',

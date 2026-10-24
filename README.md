@@ -1,9 +1,30 @@
-# Sistema Fën · v0.94.0
+# Sistema Fën · v0.95.0
 
-**App:** v0.94.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.95.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.95.0: boletas de luz y agua en el Gastos nuevo; una línea puede ir a un reparto
+
+Primera parte de la Etapa 3.
+- **Boletas de luz (CGE) y agua (ESSBIO) en PDF:** se arrastran al recuadro de Gastos como cualquier archivo. Se leen con el mismo lector del Gastos anterior y entran como documento:
+  - con su N° de cliente (la ficha del proveedor las separa por servicio, como internet) y la dirección del suministro, si la boleta la trae;
+  - el monto es la boleta del período, más el ajuste de redondeo. Una boleta no da crédito de IVA, así que su costo es el total;
+  - el gasto es del mes en que termina el período; la fecha es la de emisión, para unirla con su pago;
+  - los intereses por mora van en una línea aparte, para clasificarlos como gasto financiero;
+  - la tarjeta muestra el saldo anterior y el aviso de corte (en rojo);
+  - la misma boleta no entra dos veces. Una de antes del inicio entra como deuda anterior.
+  - **Saldo anterior:** es lo que quedó sin pagar de boletas anteriores. Si esas boletas también están subidas, el pago (el total a pagar) se propone con todas juntas ("varios documentos del mismo proveedor").
+- **Reparto en una línea:** al separar por líneas, cada línea puede ir a un área o a un reparto con nombre (por ejemplo, el consumo de agua a "Ainavillo común" y los intereses a ADMIN). Se recuerda por producto.
+  - Una línea vacía toma lo de toda la factura: su área, o su reparto (y así se recuerda).
+  - Lo que el producto no dice va con el reparto del proveedor completo (antes iba solo a su primera área).
+- El PDF no se guarda en Drive (igual que los XML del SII): queda en su correo o donde lo descargó.
+Cambian `gn-modelo.js`, `gn-bandeja.js`, `gn-fs.js`, `vista-gn.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.95.0`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.95.0.
+- [ ] Arrastrar las boletas de luz y agua de octubre (y las de septiembre que tengan saldo pendiente).
+- [ ] Una vez por servicio, en Proveedores → CGE / ESSBIO: dejar cada N° de cliente con su ítem y su reparto.
 
 ## Novedades de la v0.94.0: elegir y unir, "No es este" se guarda, y cargos anteriores al inicio
 

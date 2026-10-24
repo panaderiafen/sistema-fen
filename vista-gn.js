@@ -7,23 +7,23 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.94.0';
-import * as GB from './gn-bandeja.js?v=0.94.0';
-import * as AR from './areas.js?v=0.94.0';
-import * as Sii from './sii.js?v=0.94.0';
-import * as MP from './mercadopago.js?v=0.94.0';
+import * as GN from './gn-modelo.js?v=0.95.0';
+import * as GB from './gn-bandeja.js?v=0.95.0';
+import * as AR from './areas.js?v=0.95.0';
+import * as Sii from './sii.js?v=0.95.0';
+import * as MP from './mercadopago.js?v=0.95.0';
 
 const st = { D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' } };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.94.0');
+const fsGN = () => import('./gn-fs.js?v=0.95.0');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
 export const olvidar = () => { st.D = null; };
 
-const TABS = [['bandeja', '', 'Bandeja'], ['proveedores', 'proveedores', 'Proveedores'], ['repartos', 'repartos', 'Repartos'], ['cargas', 'cargas', 'Archivos subidos']];   // v0.94.0
+const TABS = [['bandeja', '', 'Bandeja'], ['proveedores', 'proveedores', 'Proveedores'], ['repartos', 'repartos', 'Repartos'], ['cargas', 'cargas', 'Archivos subidos']];   // v0.95.0
 const hashDe = t => '#gastos' + (t === 'bandeja' ? '' : '/' + t);
-const TXT_SUBIR = 'Sirven:\n• Las compras del SII: el XML de documentos recibidos, el Registro de Compras (.csv) o los Documentos recibidos (.xls).\n• La cartola de BancoEstado (.xlsx), histórica o en línea, de la cuenta corriente o de la chequera. Sus abonos siguen pasando a Ventas B2B → Conciliación.\n• El reporte de liberaciones de Mercado Pago (.csv).\nSubir el mismo archivo dos veces no repite nada: cada documento se reconoce por RUT, tipo y folio, y cada movimiento por su línea exacta. Si la misma salida ya llegó en otra cartola (por ejemplo la en línea y después la histórica), no se guarda otra vez.\nLas guías de despacho no entran (no son compras: cuenta su factura).';
+const TXT_SUBIR = 'Sirven:\n• Las compras del SII: el XML de documentos recibidos, el Registro de Compras (.csv) o los Documentos recibidos (.xls).\n• La cartola de BancoEstado (.xlsx), histórica o en línea, de la cuenta corriente o de la chequera. Sus abonos siguen pasando a Ventas B2B → Conciliación.\n• El reporte de liberaciones de Mercado Pago (.csv).\n• Las boletas de luz (CGE) y agua (ESSBIO) en PDF: entran con su N° de cliente; el saldo anterior es de las boletas anteriores (súbalas también).\nSubir el mismo archivo dos veces no repite nada: cada documento se reconoce por RUT, tipo y folio, y cada movimiento por su línea exacta. Si la misma salida ya llegó en otra cartola (por ejemplo la en línea y después la histórica), no se guarda otra vez.\nLas guías de despacho no entran (no son compras: cuenta su factura).';
 const TXT_BANDEJA = 'A la izquierda, lo que se debe: los documentos de compra desde el inicio del sistema. A la derecha, lo que salió: los movimientos de cada cuenta.\nEn la Etapa 2 la Bandeja propone qué documento va con qué movimiento, y se confirma con un toque.\nLos traspasos entre cuentas propias (por ejemplo, el retiro de Mercado Pago a BancoEstado) no son gasto: se muestran aparte.';
 const TXT_ANTERIOR = 'Facturas anteriores al inicio del sistema (hasta un año antes). Si se pagan desde el inicio en adelante, son "deuda anterior": su pago no cuenta como gasto del mes nuevo.\n"Es de este documento" (en un movimiento) también las busca. Las que tienen el mismo monto que un cargo aparecen solas en Para confirmar.';
 const TXT_ANTIGUA = 'VENTAS y B2C (sin local) ya no se usan en el Gastos nuevo: el costo de atender clientes en tienda va al local que corresponde, B2C-BA (Tienda Barros Arana) o B2C-AI (Sala de ventas Ainavillo). Así se ve el margen de cada tienda.\nCambie la clasificación de estos documentos; si el proveedor lo recuerda, cámbielo también en su ficha (Proveedores).';
@@ -42,10 +42,10 @@ function cab(H, tab) {
         <span class="gn-drop-ic">${H.icono('subir', 26)}</span>
         <span class="gn-drop-txt"><b>${st.subiendo ? H.esc(st.subiendo === true ? 'Leyendo el archivo…' : st.subiendo) : '<span class="gn-pc">Arrastre aquí los archivos</span><span class="gn-cel">Toque para elegir los archivos</span>'}</b>
           <small>${st.subiendo ? 'No cierre esta pestaña' : '<span class="gn-pc">o haga clic para elegirlos · puede soltar varios a la vez</span><span class="gn-cel">Puede elegir varios a la vez</span>'}</small></span>
-        <span class="gn-drop-tipos"><span>SII</span><span>BancoEstado</span><span>Mercado Pago</span></span>
+        <span class="gn-drop-tipos"><span>SII</span><span>BancoEstado</span><span>Mercado Pago</span><span>Luz y agua</span></span>
       </label>
       ${H.info('Subir archivo', TXT_SUBIR)}
-      <input type="file" id="gn-archivo" class="sr" multiple accept=".xml,.csv,.txt,.xls,.xlsx,.html" ${st.subiendo ? 'disabled' : ''}>
+      <input type="file" id="gn-archivo" class="sr" multiple accept=".xml,.csv,.txt,.xls,.xlsx,.html,.pdf" ${st.subiendo ? 'disabled' : ''}>
     </div>
     <div id="gn-msg" role="status" aria-live="polite">${st.err ? `<p class="error" role="alert">${st.err}</p>` : ''}${st.msg ? `<div class="aviso gn-aviso">${st.msg}</div>` : ''}</div>`;
 }
@@ -81,8 +81,8 @@ function bandejaHtml(H) {
   const docDe = id => B.docs.find(d => d.id === id), movDe = id => B.movs.find(m => m.id === id);
   const cuentas = [['', 'Todas'], ...cob.map(c => [c.cuenta, c.nombre])];
   const nombreDoc = d => H.esc(d.razon || d.rut || 'Sin nombre');
-  // v0.94.0 · De dónde vino: XML (trae el detalle) o RCV (Registro de Compras: sin detalle; subir su XML lo completa)
-  const origenDoc = d => (d.origen !== 'sii' ? '' : (d.detalle || []).length ? ' · XML' : d.formato === 'registro' ? ' · RCV, sin detalle' : ' · sin detalle');
+  // v0.95.0 · De dónde vino: XML (trae el detalle) o RCV (Registro de Compras: sin detalle; subir su XML lo completa)
+  const origenDoc = d => (d.origen === 'boleta' ? ' · PDF' + (d.saldoAnterior ? ` · trae saldo anterior ${H.pesos(d.saldoAnterior)}` : '') + (d.corte ? ` · <span class="gn-corte">corte ${d.corte.desde ? 'desde el ' + H.esc(H.diaTexto(d.corte.desde)) : 'en trámite'}</span>` : '') : d.origen !== 'sii' ? '' : (d.detalle || []).length ? ' · XML' : d.formato === 'registro' ? ' · RCV, sin detalle' : ' · sin detalle');
   const lineaDoc = d => `${H.esc(d.tipoTexto)}${d.folio ? ' N° ' + H.esc(d.folio) : ''} · ${H.esc(H.diaTexto(d.fecha))}${d.vence && d.vence !== d.fecha ? ` · vence ${H.esc(H.diaTexto(d.vence))}` : ''}${d.nc && (d.referencias || []).length ? ` · corrige la N° ${H.esc(d.referencias.map(r => r.folio).join(', '))}` : ''}${d.cliente ? ` · cliente ${H.esc(d.cliente)}${d.direccion ? ' · ' + H.esc(d.direccion) : ''}` : ''}${d.periodo ? ` · período ${H.esc(H.diaTexto(d.periodo.desde))} al ${H.esc(H.diaTexto(d.periodo.hasta))}` : ''}${d.anterior ? ' · deuda anterior' : ''}${origenDoc(d)}`;
   // v0.92.0 · La clasificación de cada documento a la vista (con su detalle), y sus botones, en la misma tarjeta donde esté
   const bt = (attr, txt, pri) => `<button type="button" class="${pri ? 'btn btn-chico' : 'btn-sec btn-chico'}" ${attr}>${txt}</button>`;
@@ -96,7 +96,7 @@ function bandejaHtml(H) {
   const clasBtns = d => d.estado === 'no_va' ? '' : d.clasifEf ? bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Cambiar clasificación')
     : d.soloItem ? bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Elegir el área')
     : sugOk(d) ? bt(`data-gn-usar="${H.esc(d.id)}"`, 'Usar lo sugerido') + bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar') : bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar');
-  // v0.94.0 · Elegir (seleccionar y filtrar): la casilla va en lo que se puede unir (documentos con saldo, cargos con algo libre)
+  // v0.95.0 · Elegir (seleccionar y filtrar): la casilla va en lo que se puede unir (documentos con saldo, cargos con algo libre)
   const selD = new Set(st.sel.d), selM = new Set(st.sel.m), movsSel = st.sel.m.map(movDe).filter(Boolean), docsSel = st.sel.d.map(docDe).filter(Boolean);
   const puedeD = d => selD.has(d.id) || ((st.sel.m.length <= 1 || st.sel.d.length === 0) && movsSel.every(m => GB.compatible(d, m)) && !(st.sel.m.length > 1 && st.sel.d.length >= 1));
   const puedeM = m => selM.has(m.id) || (!(st.sel.d.length > 1 && st.sel.m.length >= 1) && docsSel.every(d => GB.compatible(d, m)));
@@ -119,7 +119,7 @@ function bandejaHtml(H) {
   const pagoTxt = p => p.movId ? `${H.esc(GN.CUENTAS[p.cuenta] || p.cuenta || 'Banco')} ${H.esc(H.diaTexto(p.fecha))}` : `${H.esc((p.medio === 'nc' ? 'Nota de crédito' : GB.MEDIOS[p.medio] || p.medio))} ${H.esc(H.diaTexto(p.fecha))}`;
   const listoHtml = d => docFila(d, d.estado === 'no_va' ? `<span class="gn-sug">Esto no va: ${H.esc(GB.MOTIVOS_NO_VA[(d.noVa || {}).motivo] || '')}${(d.noVa || {}).nota ? ' · ' + H.esc(d.noVa.nota) : ''}</span>${bt(`data-gn-volverdoc="${H.esc(d.id)}"`, 'Volver a la Bandeja')}`
     : d.pagos.map(p => `<span class="gn-sug">Pagado: ${H.pesos(p.monto)} · ${pagoTxt(p)}</span>${bt(`data-gn-deshacer="${H.esc(p.id)}"`, 'Deshacer el pago')}`).join('') + clasBtns(d));   // v0.92.2: también se cambia la clasificación
-  // v0.94.0 · Filtrar: lo elegido primero manda; el otro lado muestra sus posibles (lo elegido de ese lado, arriba)
+  // v0.95.0 · Filtrar: lo elegido primero manda; el otro lado muestra sus posibles (lo elegido de ese lado, arriba)
   const filtraMovs = st.sel.primero === 'd' && docsSel.length > 0, filtraDocs = st.sel.primero === 'm' && movsSel.length > 0;
   const posMovs = filtraMovs ? movsSel.map(m => ({ m, calza: false, dentro: true, desc: false })).concat(GB.posiblesMovs(docsSel, B.abiertosM.filter(m => !selM.has(m.id) && (!st.cuenta || m.cuenta === st.cuenta)), B.S).slice(0, 20)) : [];
   const posDocs = filtraDocs ? docsSel.map(d => ({ d, calza: false, dentro: true, desc: false })).concat(GB.posiblesDocs(movsSel, B.abiertosD.filter(d => !selD.has(d.id)), B.S).slice(0, 20)) : [];
@@ -212,7 +212,7 @@ const ext = f => (String(f.name || '').toLowerCase().match(/\.([a-z0-9]+)$/) || 
 async function procesar(f, H) {
   const e = ext(f);
   if (f.size > 10 * 1024 * 1024) throw new Error('el archivo pesa más de 10 MB.');
-  if (e === 'pdf') throw new Error('los PDF (boletas de luz y agua, Previred, liquidaciones) se suben en la Etapa 3.');
+  if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text(), tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -234,6 +234,22 @@ function esCartola(wb, XLSX, H) {
   if (wb.SheetNames.includes('Movimientos') || wb.SheetNames.includes('Registros')) return true;
   const filas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' }).slice(0, 30);
   return filas.some(r => { const n = r.map(x => H.B2b.normCartola(x)); return n.includes('DESCRIPCION') && (n.some(x => /^CARGOS?$|CHEQUES CARGOS/.test(x)) || n.some(x => /^ABONOS?$|DEPOSITOS ABONOS/.test(x))); });
+}
+// v0.95.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
+async function subirBoleta(f, H) {
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.95.0'), import('./boletas.js?v=0.95.0')]);
+  let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
+  const r = Bo.leerBoleta(lineas);
+  if (!r.reconocida) throw new Error('ese PDF no es una boleta de luz (CGE) ni de agua (ESSBIO). Previred, liquidaciones y la tarjeta de crédito llegan después.');
+  if (r.bloquea) throw new Error(`la boleta no se guardó. ${r.errores.join(' ')}`);
+  const emp = Bo.EMPRESAS[r.empresa], id = GN.idCarga('boleta');
+  const d = GN.docDeBoleta(r, { rut: emp.rut, nombre: emp.nombre, servicio: emp.servicio }, GN.direccionDeBoleta(lineas), id);
+  const k = await (await fsGN()).cargarBoleta(d, { nombre: f.name, tamano: f.size });
+  H.registrar('Gastos: cargó una boleta', `${d.razon} N° ${d.folio} · ${GN.textoCarga(k)}`);
+  return `<b>Boleta de ${H.esc(emp.servicio)} ${H.esc(emp.nombre)}</b> N° ${H.esc(d.folio)} · cliente ${H.esc(d.cliente)} · ${H.pesos(d.total)}: ${H.esc(GN.textoCarga(k))}.`
+    + (d.saldoAnterior ? `<br>Trae saldo anterior de ${H.pesos(d.saldoAnterior)} (total a pagar ${H.pesos(d.totalPagar)}): es lo que quedó sin pagar de boletas anteriores. Suba también esas boletas y el pago se une con todas.` : '')
+    + (d.corte ? `<br><b>Aviso de corte${d.corte.desde ? ' desde el ' + H.esc(H.diaTexto(d.corte.desde)) : ' en trámite'}.</b>` : '')
+    + (r.avisos.length ? '<br>' + H.esc(r.avisos.join(' ')) : '');
 }
 async function subirSii(f, txt, H) {
   const L = Sii.leer(txt);
@@ -324,7 +340,7 @@ async function confirmarPar(el, H, k) {
   return hacer(el, H, async () => { await (await fsGN()).pagar({ partes, movId: p.movId, enGastoAnterior: ga }); H.registrar('Gastos: confirmó un pago', `${nom(docs[0])} · ${p.monto}`); }, `Pagado: ${H.esc(nom(docs[0]))}${docs.length > 1 ? ` (${docs.length} documentos)` : ''} · ${H.pesos(p.monto)}.`);
 }
 async function confirmarSeguros(el, H) {
-  const l = st.B.pares.filter(p => p.por !== 'monto' && !p.faltaClasif && !(movDe(p.movId) || {}).anterior);   // v0.94.0: los cargos anteriores se revisan uno a uno
+  const l = st.B.pares.filter(p => p.por !== 'monto' && !p.faltaClasif && !(movDe(p.movId) || {}).anterior);   // v0.95.0: los cargos anteriores se revisan uno a uno
   return hacer(el, H, async () => { const F = await fsGN(); for (const p of l) await F.pagar({ partes: GB.repartirPago(p.docIds.map(docDe), p.monto), movId: p.movId }); H.registrar('Gastos: confirmó pagos', `${l.length} pares con RUT o nombre`); }, `Confirmados ${l.length} pagos con RUT o nombre en la glosa.`);
 }
 async function usarTodas(el, H) {
@@ -398,7 +414,7 @@ function conectarClasif(dlg, H, pre, pref) {
   ar0.forEach(a => { prev[a.area] = a.pct; });
   const elegidas = () => Array.from(dlg.querySelectorAll('[data-areas] input:checked')).map(x => x.value);
   const dibujar = () => { const l = elegidas(), ig = GB.repartoIgual(l); pcts.innerHTML = l.length > 1 ? l.map((a, i) => `<label class="gn-pct"><span>${H.esc(a)}</span><input type="number" min="1" max="100" step="1" data-pct="${a}" value="${prev[a] != null && l.length === Object.keys(prev).length ? prev[a] : ig[i].pct}" inputmode="numeric"><span>%</span></label>`).join('') : ''; };
-  // v0.94.0 · Elegir un reparto marca sus áreas y porcentajes; tocar las áreas a mano lo deja en "a mano"
+  // v0.95.0 · Elegir un reparto marca sus áreas y porcentajes; tocar las áreas a mano lo deja en "a mano"
   dlg.querySelectorAll('[data-areas] input').forEach(x => x.addEventListener('change', () => { if (rsel) rsel.value = ''; dibujar(); })); dibujar();
   if (rsel) rsel.addEventListener('change', () => { const r = st.D.repartos[rsel.value]; if (!r) return; Object.keys(prev).forEach(k => delete prev[k]); r.areas.forEach(a => { prev[a.area] = a.pct; });
     dlg.querySelectorAll('[data-areas] input').forEach(x => { x.checked = r.areas.some(a => a.area === x.value); }); dibujar(); dlg.dispatchEvent(new Event('change')); });
@@ -430,12 +446,12 @@ function pedirClasif(H, d, antesDePagar) {
     const modo0 = prov ? GB.modoProveedor(prov) : '';
     const lineasPrev = c0 && c0.lineas && c0.lineas.length === det.length ? c0.lineas : null;
     const empezarSeparado = !!(lineasPrev || (conLineas && det.some(x => prods[GB.normProducto(x.descripcion)])) || (c0 && new Set((c0.partes || []).map(p => p.item)).size > 1));
-    const items = st.D.items || [], areaSel = (v, k) => `<select data-${k} aria-label="Área"><option value="">Área</option>${AR.GASTO_GN.map(a => `<option value="${a}" ${a === v ? 'selected' : ''}>${H.esc(a)}</option>`).join('')}</select>`;
+    const items = st.D.items || [], repsL = Object.values(st.D.repartos || {}), areaSel = (v, k) => `<select data-${k} aria-label="Área"><option value="">Área</option>${k === 'la' && repsL.length ? `<optgroup label="Repartos">${repsL.map(r => `<option value="${GB.AREA_REPARTO}${H.esc(r.id)}" ${GB.AREA_REPARTO + r.id === v ? 'selected' : ''}>${H.esc(r.nombre)}</option>`).join('')}</optgroup><optgroup label="Un área">` : ''}${AR.GASTO_GN.map(a => `<option value="${a}" ${a === v ? 'selected' : ''}>${H.esc(a)}</option>`).join('')}${k === 'la' && repsL.length ? '</optgroup>' : ''}</select>`;
     const itemInp = (v, k) => `<input data-${k} list="cl-items" value="${H.esc(v || '')}" placeholder="Ítem" aria-label="Ítem" autocomplete="off">`;
     let idx = 0; const filaMonto = (x = {}) => `<div class="gn-sep-fila" data-parte="${idx++}"><input type="number" data-pm value="${x.monto || ''}" placeholder="Monto" aria-label="Monto" inputmode="numeric">${itemInp(x.item, 'pi')}${areaSel(x.area, 'pa')}<button type="button" class="gn-link" data-quitar>Quitar</button></div>`;
     const dlg = H.dialogo(`<form class="form-dialogo gn-dlg-ancho" novalidate><div class="titulo-fila"><h2>${antesDePagar ? 'Clasificar antes de confirmar' : 'Clasificar'}</h2>${H.info('Clasificar', TXT_CLASIF)}</div>
-      <p class="ayuda"><b>${H.esc(nom(d))}</b> · ${H.esc(d.tipoTexto)} ${H.esc(d.folio || '')} · neto ${H.pesos(base)}${sug && !c0 ? `<br>Sugerido por el Gastos anterior: ${H.esc(sug.item)} · ${H.esc(GB.textoReparto(sug.areas))}` : ''}</p>
-      ${det.length ? `<div class="gn-det-dlg"><b>Detalle de la factura (XML)</b><ul>${det.map(x => `<li><span>${H.esc(x.descripcion)}${x.cantidad ? ` · ${H.esc(String(x.cantidad).replace('.', ','))}${x.unidad ? ' ' + H.esc(x.unidad) : ''}` : ''}</span><span class="gn-m">${H.pesos(x.monto)}</span></li>`).join('')}</ul></div>`
+      <p class="ayuda"><b>${H.esc(nom(d))}</b> · ${H.esc(d.tipoTexto)} ${H.esc(d.folio || '')} · ${d.origen === 'boleta' ? 'total (sin crédito de IVA)' : 'neto'} ${H.pesos(base)}${sug && !c0 ? `<br>Sugerido por el Gastos anterior: ${H.esc(sug.item)} · ${H.esc(GB.textoReparto(sug.areas))}` : ''}</p>
+      ${det.length ? `<div class="gn-det-dlg"><b>${d.origen === 'boleta' ? 'Detalle de la boleta (PDF)' : 'Detalle de la factura (XML)'}</b><ul>${det.map(x => `<li><span>${H.esc(x.descripcion)}${x.cantidad ? ` · ${H.esc(String(x.cantidad).replace('.', ','))}${x.unidad ? ' ' + H.esc(x.unidad) : ''}` : ''}</span><span class="gn-m">${H.pesos(x.monto)}</span></li>`).join('')}</ul></div>`
         : `<p class="ayuda gn-sin-det">${d.formato === 'registro' ? 'Esta factura vino del Registro de Compras (RCV): no trae el detalle. Si tiene su XML, arrástrelo a Gastos y se completa solo.' : 'Esta factura no trae detalle.'}</p>`}
       ${camposClasif(H, pre, 'cl')}
       <label class="gn-check"><input type="checkbox" id="cl-sep" ${empezarSeparado ? 'checked' : ''}> ${conLineas ? 'La factura trae cosas distintas: separar por líneas' : 'Separar en partes (por montos)'}</label>
@@ -461,8 +477,11 @@ function pedirClasif(H, d, antesDePagar) {
       const g = leerGen();
       if (!sep.checked) return { general: g, partes: GB.partesSimple(base, g.item, g.areas), lineas: null };
       if (conLineas) {
-        const gp = generalPrimera(), asign = det.map((x, i) => { const f = dlg.querySelector(`[data-linea="${i}"]`); return { item: f.querySelector('[data-li]').value.trim() || gp.item, area: f.querySelector('[data-la]').value || gp.area }; });
-        return { general: g, separado: true, partes: GB.partesPorLineas(d, asign), lineas: det.map((x, i) => ({ descripcion: x.descripcion, ...asign[i] })) };
+        const asign = det.map((x, i) => { const f = dlg.querySelector(`[data-linea="${i}"]`), la = f.querySelector('[data-la]').value;   // v0.95.0: la línea vacía toma las áreas (o el reparto) de toda la factura
+          // vacía: un área → esa; un reparto → el reparto (así se recuerda); varias áreas a mano → esas, en %
+          const gArea = g.repartoId && st.D.repartos[g.repartoId] ? GB.AREA_REPARTO + g.repartoId : g.areas.length === 1 ? g.areas[0].area : '';
+          return { item: f.querySelector('[data-li]').value.trim() || g.item, ...(la || gArea ? { area: la || gArea } : { area: '', areas: g.areas }) }; });
+        return { general: g, separado: true, partes: GB.partesPorLineas(d, asign, st.D.repartos), lineas: det.map((x, i) => ({ descripcion: x.descripcion, ...asign[i] })) };
       }
       const partes = Array.from(dlg.querySelectorAll('[data-parte]')).map(f => ({ monto: Math.round(Number(f.querySelector('[data-pm]').value) || 0), item: f.querySelector('[data-pi]').value.trim(), area: f.querySelector('[data-pa]').value })).filter(x => x.monto);
       return { general: g, separado: true, partes, lineas: null };
@@ -586,7 +605,7 @@ function dlgDeshacer(el, H, pagoId) {
   });
 }
 
-// ═══════════════ v0.94.0 · Repartos con nombre ═══════════════
+// ═══════════════ v0.95.0 · Repartos con nombre ═══════════════
 function repartosHtml(H) {
   const R = Object.values(st.D.repartos || {}).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre))), uso = GB.usoRepartos(st.D.provs);
   const barra = r => `<div class="gn-barra">${r.areas.map((a, i) => `<span class="gn-b${i % 5}" style="width:${Number(a.pct)}%"></span>`).join('')}</div>`;
@@ -623,7 +642,7 @@ function ofrecerAplicar(el, H, id, mes, n) {
     try { const k = await (await fsGN()).aplicarRepartoAlMes(id, mes); dlg.close(); aviso(el, H, `Reparto cambiado y aplicado a ${k} ${k === 1 ? 'documento' : 'documentos'} de este mes.`); } catch (e) { falla(dlg, e, H); } });
 }
 
-// ═══════════════ v0.94.0 · Proveedores y su ficha ═══════════════
+// ═══════════════ v0.95.0 · Proveedores y su ficha ═══════════════
 function listaProveedores() {
   const por = {};
   (st.D.docs || []).forEach(d => { const k = GB.claveBase(d), x = por[k] || (por[k] = { clave: k, razon: d.razon || d.rut, rut: d.rut || '', n: 0, total: 0, ultima: '' }); x.n++; x.total += Number(d.total) || 0; if (d.fecha > x.ultima) x.ultima = d.fecha; if (!x.razon) x.razon = d.razon; });
@@ -659,7 +678,7 @@ function fichaHtml(H, base) {
             return `<div class="gn-serv"><div><b>Cliente ${H.esc(c.cliente)}</b>${c.direccion ? ` · ${H.esc(c.direccion)}` : ''}<br><small>${p && p.item ? `${H.esc(p.item)} · ${GB.modoProveedor(p) === 'item' ? 'solo el ítem' : H.esc(repTxt(p))}` : 'Sin clasificación: use la del proveedor o establézcala'}</small></div>
               <button type="button" class="btn-sec btn-chico" data-gn-ficha="${H.esc(k)}" data-razon="${H.esc(razon)}" data-rut="${H.esc(rut)}">${p && p.item ? 'Cambiar' : 'Establecer'}</button></div>`; }).join('')}</div>` : ''}
         <div class="gn-it"><span class="gn-sub">Cómo aparece en el banco</span>${glosas.length ? glosas.map(([k, g]) => `<div class="gn-fila"><span>${H.esc(g.sena)}</span><button type="button" class="gn-link" data-gn-olvidar="${H.esc(k)}" data-sena="${H.esc(g.sena)}">Olvidar</button></div>`).join('') : '<small>Todavía no aprende ninguna glosa (se aprende al confirmar un pago).</small>'}</div>
-        <div class="gn-it"><span class="gn-sub">Productos recordados</span>${prods.length ? prods.map(([k, pk, v]) => `<div class="gn-fila"><span>${H.esc(pk)}</span><span><small>${H.esc(v.item)}${v.area ? ' · ' + H.esc(v.area) : ''}</small> <button type="button" class="gn-link" data-gn-quitarprod="${H.esc(k)}" data-prod="${H.esc(pk)}">Quitar</button></span></div>`).join('') : '<small>Ninguno (se recuerdan al separar una factura por líneas).</small>'}</div>
+        <div class="gn-it"><span class="gn-sub">Productos recordados</span>${prods.length ? prods.map(([k, pk, v]) => `<div class="gn-fila"><span>${H.esc(pk)}</span><span><small>${H.esc(v.item)}${v.area ? ' · ' + H.esc(String(v.area).startsWith(GB.AREA_REPARTO) ? ((st.D.repartos[v.area.slice(GB.AREA_REPARTO.length)] || {}).nombre || 'reparto que ya no está') : v.area) : ''}</small> <button type="button" class="gn-link" data-gn-quitarprod="${H.esc(k)}" data-prod="${H.esc(pk)}">Quitar</button></span></div>`).join('') : '<small>Ninguno (se recuerdan al separar una factura por líneas).</small>'}</div>
       </div>
       <h3 class="gn-h3">Últimos documentos</h3>
       ${docs.slice(0, 12).map(d => `<div class="gn-fila gn-fila-doc"><span>${H.esc(d.tipoTexto)} ${H.esc(d.folio)} · ${H.esc(H.diaTexto(d.fecha))} ${estDoc(d)}</span><span class="gn-m">${H.pesos(d.total)}</span></div>`).join('') || '<p class="ayuda">Sin documentos desde el inicio.</p>'}
@@ -685,7 +704,7 @@ function dlgFicha(el, H, clave, razon, rut) {
   });
 }
 
-// ═══════════════ v0.94.0 · Seleccionar y unir; revisar el Gastos anterior ═══════════════
+// ═══════════════ v0.95.0 · Seleccionar y unir; revisar el Gastos anterior ═══════════════
 function repintarQuieto(el, H) { const y = window.scrollY; repintar(el, H); requestAnimationFrame(() => window.scrollTo(0, y)); }
 function elegir(el, H, tipo, id, on) {
   const S = st.sel, l = S[tipo];
