@@ -7,15 +7,15 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.92.3';
-import * as GB from './gn-bandeja.js?v=0.92.3';
-import * as AR from './areas.js?v=0.92.3';
-import * as Sii from './sii.js?v=0.92.3';
-import * as MP from './mercadopago.js?v=0.92.3';
+import * as GN from './gn-modelo.js?v=0.92.4';
+import * as GB from './gn-bandeja.js?v=0.92.4';
+import * as AR from './areas.js?v=0.92.4';
+import * as Sii from './sii.js?v=0.92.4';
+import * as MP from './mercadopago.js?v=0.92.4';
 
 const st = { D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, noEsEste: new Set(), ocupado: false };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.92.3');
+const fsGN = () => import('./gn-fs.js?v=0.92.4');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -74,7 +74,7 @@ function bandejaHtml(H) {
   const docDe = id => B.docs.find(d => d.id === id), movDe = id => B.movs.find(m => m.id === id);
   const cuentas = [['', 'Todas'], ...cob.map(c => [c.cuenta, c.nombre])];
   const nombreDoc = d => H.esc(d.razon || d.rut || 'Sin nombre');
-  const lineaDoc = d => `${H.esc(d.tipoTexto)}${d.folio ? ' N° ' + H.esc(d.folio) : ''} · ${H.esc(H.diaTexto(d.fecha))}${d.vence && d.vence !== d.fecha ? ` · vence ${H.esc(H.diaTexto(d.vence))}` : ''}${d.nc && (d.referencias || []).length ? ` · corrige la N° ${H.esc(d.referencias.map(r => r.folio).join(', '))}` : ''}${d.cliente ? ` · cliente ${H.esc(d.cliente)}` : ''}${d.periodo ? ` · período ${H.esc(H.diaTexto(d.periodo.desde))} al ${H.esc(H.diaTexto(d.periodo.hasta))}` : ''}${d.anterior ? ' · deuda anterior' : ''}${d.formato === 'registro' && !(d.detalle || []).length ? ' · sin detalle' : ''}`;
+  const lineaDoc = d => `${H.esc(d.tipoTexto)}${d.folio ? ' N° ' + H.esc(d.folio) : ''} · ${H.esc(H.diaTexto(d.fecha))}${d.vence && d.vence !== d.fecha ? ` · vence ${H.esc(H.diaTexto(d.vence))}` : ''}${d.nc && (d.referencias || []).length ? ` · corrige la N° ${H.esc(d.referencias.map(r => r.folio).join(', '))}` : ''}${d.cliente ? ` · cliente ${H.esc(d.cliente)}${d.direccion ? ' · ' + H.esc(d.direccion) : ''}` : ''}${d.periodo ? ` · período ${H.esc(H.diaTexto(d.periodo.desde))} al ${H.esc(H.diaTexto(d.periodo.hasta))}` : ''}${d.anterior ? ' · deuda anterior' : ''}${d.formato === 'registro' && !(d.detalle || []).length ? ' · sin detalle' : ''}`;
   // v0.92.0 · La clasificación de cada documento a la vista (con su detalle), y sus botones, en la misma tarjeta donde esté
   const bt = (attr, txt, pri) => `<button type="button" class="${pri ? 'btn btn-chico' : 'btn-sec btn-chico'}" ${attr}>${txt}</button>`;
   const sugOk = d => d.sugerida && (d.sugerida.areas || []).length;

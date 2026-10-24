@@ -1,9 +1,19 @@
-# Sistema Fën · v0.92.3
+# Sistema Fën · v0.92.4
 
-**App:** v0.92.3 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.92.4 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.92.4: la dirección del servicio en la tarjeta
+
+- **Dirección del servicio:** en las facturas que traen N° de cliente, la tarjeta muestra también la dirección del servicio, por ejemplo "cliente 148398220 · BARROS ARANA 1399, CONCEPCION". Movistar la pone en el XML y así se reconoce el local sin buscar en el correo.
+- **Facturas ya subidas:** volver a subir el XML les agrega la dirección.
+- **Pendiente:** lo mismo para las boletas de luz y agua llega en la Etapa 3.
+Cambian `gn-modelo.js`, `vista-gn.js`, `config.js` y este README; los demás, solo la versión (`?v=0.92.4`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.92.4.
+- [ ] Volver a subir los XML de octubre: los servicios quedan con su N° de cliente y su dirección.
 
 ## Novedades de la v0.92.3: servicios por N° de cliente; clasificación en rojo y verde
 

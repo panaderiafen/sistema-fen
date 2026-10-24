@@ -20,7 +20,7 @@
 //     despacho: { modo: 'pct'|'orden', valor }, margenObjetivo: { PAN, BOL, PAS, CAF, REVENTA } (% o null), redondeo: 10|50|100 }
 //  v0.69.1: área REVENTA (las de margen salen de areas.js): una reventa sin área cuenta en REVENTA; la elegida se respeta.
 // ═══════════════════════════════════════════════
-import { AREAS, NOMBRE_AREA, SUCS, canalDeSuc, claveProducto, upv, mesDe, ultimoDia, areaVinculo, vinculoDeLinea, esPendiente } from './finanzas-ventas.js?v=0.92.3';
+import { AREAS, NOMBRE_AREA, SUCS, canalDeSuc, claveProducto, upv, mesDe, ultimoDia, areaVinculo, vinculoDeLinea, esPendiente } from './finanzas-ventas.js?v=0.92.4';
 // v0.80.1 · Receta pendiente (Catálogo): una fila por producto (tipo 'pendiente', clave 'p:…') en su área, sin costo directo
 export const MOTIVO_PENDIENTE = 'sin costo (receta pendiente)';
 

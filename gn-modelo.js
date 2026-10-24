@@ -53,7 +53,8 @@ export function docDeSii(f, cargaId) {
     fecha, mes: mesDe(fecha), neto: entero(f.neto), exento: entero(f.exento), iva: entero(f.iva), otroImp: entero(f.otroImpuesto), total: entero(f.total),
     vence: esIso(f.fechaVencISO) ? f.fechaVencISO : '', formaPago: s(f.formaPagoSII), referencias: (f.referencias || []).map(r => ({ tipo: s(r.tipo), folio: s(r.folio) })),
     detalle: det, descuadre: s(f.descuadre), cargaId: s(cargaId),
-    cliente: s(f.cdgIntRecep).slice(0, 40), periodo: esIso(f.periodoDesde) && esIso(f.periodoHasta) ? { desde: f.periodoDesde, hasta: f.periodoHasta } : null   // v0.92.3
+    cliente: s(f.cdgIntRecep).slice(0, 40), direccion: s(f.cdgIntRecep) ? corto([f.dirRecep, f.comunaRecep].filter(Boolean).join(', '), 100) : '',   // v0.92.4: la del servicio (solo si trae N° de cliente)
+    periodo: esIso(f.periodoDesde) && esIso(f.periodoHasta) ? { desde: f.periodoDesde, hasta: f.periodoHasta } : null   // v0.92.3
   };
 }
 // Plan de una carga del SII: qué entra nuevo, qué ya estaba, qué es deuda anterior y qué queda fuera por antiguo
@@ -69,7 +70,7 @@ export function planDocs(facturas, existentes, inicio, cargaId) {
     if (e) {
       // v0.90.2 · Ya estaba sin detalle (vino del Registro de Compras) y ahora llega el XML con detalle: se completa (montos y todo lo demás no se tocan)
       // v0.92.3 · también el N° de cliente y el período, si faltaban (subir otra vez el XML se los agrega)
-      const falta = { ...(!(e.detalle || []).length && d.detalle.length ? { detalle: d.detalle } : {}), ...(!e.cliente && d.cliente ? { cliente: d.cliente } : {}), ...(!e.periodo && d.periodo ? { periodo: d.periodo } : {}) };
+      const falta = { ...(!(e.detalle || []).length && d.detalle.length ? { detalle: d.detalle } : {}), ...(!e.cliente && d.cliente ? { cliente: d.cliente } : {}), ...(!e.direccion && d.direccion ? { direccion: d.direccion } : {}), ...(!e.periodo && d.periodo ? { periodo: d.periodo } : {}) };
       if (Object.keys(falta).length) {
         visto.add(d.id);
         out.completar.push({ id: d.id, ...falta, ...(e.vence ? {} : d.vence ? { vence: d.vence } : {}), ...(e.formaPago ? {} : d.formaPago ? { formaPago: d.formaPago } : {}),
