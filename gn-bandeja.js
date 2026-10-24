@@ -91,7 +91,7 @@ export function partesDe(d, c) {
 // ítem; las áreas cambian en cada compra: la factura llega con el ítem y pide el área). Sin modo (lo anterior) = fijo.
 // Un producto recuerda su ítem, y su área solo si es siempre la misma.
 export const modoProveedor = p => (p && p.modo === 'item' ? 'item' : 'fijo');
-// v0.93.0 · Las áreas de una ficha: las de su reparto con nombre (si usa uno, las de HOY: un cambio del reparto rige para lo que viene) o las suyas
+// v0.93.1 · Las áreas de una ficha: las de su reparto con nombre (si usa uno, las de HOY: un cambio del reparto rige para lo que viene) o las suyas
 export const areasDe = (p, reps) => (p && p.repartoId && reps && reps[p.repartoId] && (reps[p.repartoId].areas || []).length ? reps[p.repartoId].areas : (p && p.areas) || []);
 function desdeProveedor(d, p, reps) {
   const prods = p.productos || {}, det = d.detalle || [], usa = det.length > 1 && det.some(x => prods[normProducto(x.descripcion)]), ar = areasDe(p, reps);
@@ -111,9 +111,10 @@ export function clasifDe(d, provs, reps) {
   if (d.clasif && (d.clasif.item || (d.clasif.partes || []).length)) { const partes = partesDe(d, d.clasif); return { ...d.clasif, partes, item: principal(partes), de: d.clasif.de === 'proveedor' ? 'proveedor' : 'documento' }; }
   const p = provDe(d, provs);
   if (!p || !p.item || modoProveedor(p) === 'item') return null;
-  const partes = desdeProveedor(d, p, reps); return partes.length ? { item: p.item, areas: areasDe(p, reps), repartoId: p.repartoId || '', partes, de: 'proveedor', vivo: true } : null;
+  // v0.93.1 · Si alguna parte queda sin área (un producto nuevo de un proveedor que recuerda por producto), se pide clasificar
+  const partes = desdeProveedor(d, p, reps); return partes.length && partes.every(x => x.item && x.area) ? { item: p.item, areas: areasDe(p, reps), repartoId: p.repartoId || '', partes, de: 'proveedor', vivo: true } : null;
 }
-// v0.93.0 · Repartos con nombre: los iniciales (acordados el 23 oct; se crean la primera vez, después se editan en Gastos → Repartos)
+// v0.93.1 · Repartos con nombre: los iniciales (acordados el 23 oct; se crean la primera vez, después se editan en Gastos → Repartos)
 export const REPARTOS_INICIALES = [
   { id: 'rp_produccion_ainavillo', nombre: 'Producción Ainavillo', areas: [{ area: 'PAN', pct: 57 }, { area: 'BOL', pct: 43 }] },
   { id: 'rp_ainavillo_comun', nombre: 'Ainavillo común', areas: ['PAN', 'BOL', 'PAS', 'ADMIN', 'B2C-AI'].map(a => ({ area: a, pct: 20 })) },
@@ -124,7 +125,7 @@ export const AREAS_ANTIGUAS = ['VENTAS', 'B2C'];
 export const tieneAreaAntigua = c => !!(c && (c.partes || []).some(p => AREAS_ANTIGUAS.includes(p.area)));
 // Cuántas fichas usan cada reparto
 export const usoRepartos = provs => { const u = {}; Object.values(provs || {}).forEach(p => { if (p && p.repartoId) u[p.repartoId] = (u[p.repartoId] || 0) + 1; }); return u; };
-const principal = partes => (partes.slice().sort((a, b) => Math.abs(b.monto) - Math.abs(a.monto))[0] || {}).item || '';
+export const principal = partes => (partes.slice().sort((a, b) => Math.abs(b.monto) - Math.abs(a.monto))[0] || {}).item || '';
 // "MATERIA PRIMA · PAN" · "MATERIA PRIMA · PAN 60% · BOL 40%" · "MATERIA PRIMA · PAN $40.000 + INSUMOS VARIOS · VENTAS $9.990"
 export function textoPartes(partes) {
   const l = partes || []; if (!l.length) return '';
@@ -259,7 +260,7 @@ export function repartirPago(docs, monto) {
 export function armar(D, { cuenta = '', excluir = null } = {}) {
   const I = indicePagos(D.pagos), provs = D.provs || {}, sug = D.sugeridas || {}, reps = D.repartos || {};
   const docs = (D.docs || []).map(d => { const e = estadoDoc(d, I), c = clasifDe(d, provs, reps); return { ...d, ...e, estadoPago: e.estado, clasifEf: c, sugerida: !c ? sug[claveProveedor(d)] || sug[claveBase(d)] || null : null,
-    soloItem: !c && provDe(d, provs) && modoProveedor(provDe(d, provs)) === 'item' ? provDe(d, provs).item : '' }; });
+    soloItem: !c && provDe(d, provs) && provDe(d, provs).item ? provDe(d, provs).item : '' }; });
   const movs = (D.movs || []).map(m => ({ ...m, libre: libreMov(m, I), pagosM: I.porMov[m.id] || [] }));
   const abiertosD = docs.filter(d => d.estadoPago === 'sin_pago' || d.estadoPago === 'a_medias');
   const abiertosM = movs.filter(m => m.libre > 0 && m.estado !== 'no_va' && !m.naturaleza);

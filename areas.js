@@ -25,7 +25,7 @@ export const CANAL = ['B2B', B2C];
 export const GASTO = ['BOL', 'PAN', 'CAF', 'PAS', 'ADMIN', 'VENTAS', 'B2B', B2C, REVENTA];
 export const NOMBRE = { PAN: 'Panadería', BOL: 'Bollería', PAS: 'Pastelería', CAF: 'Cafetería', REVENTA: 'Reventa', ADMIN: 'Administración', VENTAS: 'Ventas', B2B: 'Canal B2B', B2C: 'Canal B2C' };
 export const SOLO_A_MANO = [REVENTA, B2C];
-// v0.93.0 · Gastos nuevo: el canal B2C separado por local (para el margen de cada tienda) y sin VENTAS (se cruzaba con B2C).
+// v0.93.1 · Gastos nuevo: el canal B2C separado por local (para el margen de cada tienda) y sin VENTAS (se cruzaba con B2C).
 // Solo lo usa el Gastos nuevo; Finanzas los junta como B2C en la Etapa 4. El Gastos anterior sigue con GASTO.
 export const B2C_BA = 'B2C-BA', B2C_AI = 'B2C-AI';
 export const GASTO_GN = ['PAN', 'BOL', 'PAS', 'CAF', 'ADMIN', B2C_BA, B2C_AI, 'B2B', REVENTA];

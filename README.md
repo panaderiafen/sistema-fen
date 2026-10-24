@@ -1,9 +1,18 @@
-# Sistema Fën · v0.93.0
+# Sistema Fën · v0.93.1
 
-**App:** v0.93.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.93.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.93.1: separar por líneas ya no pide un área general
+
+- **Arreglo:** al separar una factura por líneas (o por montos) y darle a cada línea su ítem y su área, el sistema pedía igual "Elija al menos un área" arriba. Ahora lo de "toda la factura" es opcional: solo se usa para las líneas que queden vacías.
+- **Lo que recuerda el proveedor:** con la factura separada por líneas, el sistema propone "Recordar ítem y áreas": cada producto recuerda su área, y la próxima factura con los mismos productos llega clasificada. Si trae un producto nuevo, pide su área (no la inventa).
+Cambian `gn-fs.js`, `gn-bandeja.js`, `vista-gn.js`, `config.js` y este README; los demás, solo la versión (`?v=0.93.1`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.93.1.
+- [ ] Volver a clasificar la factura de Comercial Moreno separada por líneas.
 
 ## Novedades de la v0.93.0: ficha del proveedor, repartos con nombre y B2C por local
 

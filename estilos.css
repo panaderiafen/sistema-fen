@@ -2780,14 +2780,14 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-cl { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .gn-cl-falta { color: var(--rojo-t); }
 .gn-visto { flex: none; }
-/* v0.93.0 · El detalle de la factura a la vista en el diálogo de clasificar */
+/* v0.93.1 · El detalle de la factura a la vista en el diálogo de clasificar */
 .gn-det-dlg { border: 1px solid var(--linea); border-radius: 12px; padding: 10px 12px; font-size: 13px; }
 .gn-det-dlg ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 24vh; overflow-y: auto; }
 .gn-det-dlg li { display: flex; justify-content: space-between; gap: 10px; border-top: 1px dashed var(--linea); padding-top: 4px; }
 .gn-det-dlg li span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .gn-sin-det { color: var(--amarillo-t); }
 
-/* v0.93.0 · Gastos: proveedores, ficha y repartos */
+/* v0.93.1 · Gastos: proveedores, ficha y repartos */
 .gn-prov { text-decoration: none; color: inherit; margin-bottom: 8px; }
 .gn-prov:hover, .gn-prov:focus-visible { border-color: var(--acento); }
 .gn-ficha { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px; margin: 10px 0 16px; }

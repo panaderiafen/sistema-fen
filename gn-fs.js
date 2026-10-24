@@ -10,11 +10,11 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.93.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.93.0';
-import { ahoraChile } from './gastos-g2.js?v=0.93.0';
-import * as GN from './gn-modelo.js?v=0.93.0';
-import * as GB from './gn-bandeja.js?v=0.93.0';
+import * as FB from './fs-gastos.js?v=0.93.1';
+import { dbBase, correo } from './gastos-fs.js?v=0.93.1';
+import { ahoraChile } from './gastos-g2.js?v=0.93.1';
+import * as GN from './gn-modelo.js?v=0.93.1';
+import * as GB from './gn-bandeja.js?v=0.93.1';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -30,7 +30,7 @@ export async function leer() {
   const [docs, movs, cargas, pagos, provs, cfg, items, reps0] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.movs), todos(GN.COL.cargas), todos(GN.COL.pagos), todos(GN.COL.provs), todos(GN.COL.config), todos('items').catch(() => []), todos(GN.COL.repartos)]);
   let sug = cfg.find(x => x.id === 'sugerencias');
   if (!sug) { try { sug = await armarSugerencias(); } catch (e) { sug = { porProveedor: {} }; } }
-  // v0.93.0 · Los repartos iniciales se crean la primera vez (una sola vez: si ya hay alguno, no se toca)
+  // v0.93.1 · Los repartos iniciales se crean la primera vez (una sola vez: si ya hay alguno, no se toca)
   let reps = reps0;
   if (!reps.length) { try { await crearRepartosIniciales(); reps = await todos(GN.COL.repartos); } catch (e) { reps = []; } }
   return { docs, movs, cargas: cargas.sort((a, b) => String(b.en || '').localeCompare(String(a.en || ''))), pagos, provs: Object.fromEntries(provs.map(p => [p.id, p])),
@@ -131,7 +131,7 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
       const ref = movId || (medio + '|' + fecha), n = pagosAntes.filter(x => x.id === idPago(p.docId, ref) || x.id.startsWith(idPago(p.docId, ref) + '_')).length;
       tx.set(FB.doc(d, GN.COL.pagos, idPago(p.docId, ref, n)), limpio({ docId: p.docId, movId, medio: movId ? 'cargo' : medio, monto: Math.round(Number(p.monto) || 0), fecha: movId ? mov.fecha : fecha,
         cuenta: mov ? mov.cuenta : '', nota: String(nota || '').slice(0, 200), estado: 'vigente', creado: { por: h.por, en: h.en } }));
-      // v0.93.0 · Al pagarse, la clasificación que venía del proveedor queda guardada en el documento: un cambio posterior del proveedor
+      // v0.93.1 · Al pagarse, la clasificación que venía del proveedor queda guardada en el documento: un cambio posterior del proveedor
       // o de su reparto no mueve lo ya pagado (ni los meses cerrados de Finanzas)
       const dd = { id: refs[i].id, ...sn[i].data() }, c = dd.clasif ? null : GB.clasifDe(dd, provs, reps);
       tx.update(refs[i], { historial: conHist(sn[i].data(), h), ...(c ? { clasif: limpio({ item: c.item, areas: c.areas, repartoId: c.repartoId || '', partes: c.partes, de: 'proveedor', por: h.por, en: h.en }) } : {}) });
@@ -192,12 +192,15 @@ export async function volverMov(movId) {
 //  · lineas: [{ descripcion, item, area }] cuando se separó por líneas: el proveedor recuerda cada producto.
 export async function clasificar(doc, clasif, recordar = true) {   // recordar: 'fijo' | 'item' | false (true = 'fijo')
   const modo = recordar === 'item' ? 'item' : 'fijo';
-  const gen = clasif.general || { item: clasif.item, areas: clasif.areas };
-  const err = GB.repartoValido(gen.areas); if (err) throw error(err, 'datos');
-  if (!String(gen.item || '').trim()) throw error('Elija el ítem.', 'datos');
-  const general = { item: String(gen.item).trim(), areas: gen.areas.map(a => ({ area: String(a.area), pct: Math.round(Number(a.pct) * 100) / 100 })), repartoId: String(gen.repartoId || '') };
-  const base = GB.baseDe(doc), partes = (clasif.partes && clasif.partes.length ? clasif.partes : GB.partesSimple(base, general.item, general.areas))
+  // v0.93.1 · Separada por líneas o montos, cada parte trae su ítem y su área: lo de "toda la factura" es opcional (solo llena las vacías).
+  //   Sin áreas generales, el proveedor recuerda los productos con su área y el ítem más grande; lo que no reconozca, lo pide.
+  const gen = clasif.general || { item: clasif.item, areas: clasif.areas }, sep = !!clasif.separado && (clasif.partes || []).length > 0, genAreas = (gen.areas || []).filter(a => a && a.area);
+  if (!sep || genAreas.length) { const err = GB.repartoValido(gen.areas); if (err) throw error(err, 'datos'); }
+  const base = GB.baseDe(doc), partes = (sep ? clasif.partes : GB.partesSimple(base, String(gen.item || '').trim(), gen.areas))
     .map(x => ({ item: String(x.item).trim(), area: String(x.area), monto: Math.round(Number(x.monto) || 0) }));
+  const itemGen = String(gen.item || '').trim() || (sep ? GB.principal(partes) : '');
+  if (!itemGen) throw error('Elija el ítem.', 'datos');
+  const general = { item: itemGen, areas: genAreas.map(a => ({ area: String(a.area), pct: Math.round(Number(a.pct) * 100) / 100 })), repartoId: genAreas.length ? String(gen.repartoId || '') : '' };
   const e2 = GB.partesValidas(partes, base); if (e2) throw error(e2, 'datos');
   const lineas = (clasif.lineas || []).filter(l => l && l.descripcion && l.item && l.area);
   return enTransaccion(async (tx, d) => {
@@ -244,7 +247,7 @@ export async function olvidarSena(provKey, sena) {
   });
 }
 
-// ═══════════════ v0.93.0 · Repartos con nombre y ficha del proveedor ═══════════════
+// ═══════════════ v0.93.1 · Repartos con nombre y ficha del proveedor ═══════════════
 export async function guardarReparto({ id = '', nombre, areas }) {
   const n = String(nombre || '').trim().slice(0, 60); if (!n) throw error('Escriba el nombre del reparto.', 'datos');
   const err = GB.repartoValido(areas); if (err) throw error(err, 'datos');
