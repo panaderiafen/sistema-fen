@@ -2776,3 +2776,7 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 /* v0.92.1 · Recordar ítem y áreas / solo el ítem / no recordar; lo general en gris cuando se separa por líneas */
 .gn-recordar { display: flex; flex-direction: column; gap: 6px; }
 .gn-gris .chips, .gn-gris .gn-pcts { opacity: .55; }
+/* v0.92.3 · Clasificación: verde con visto (guardada por usted) · rojo (falta decidir: sugerido, sin clasificar, falta el área) */
+.gn-cl { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.gn-cl-falta { color: var(--rojo-t); }
+.gn-visto { flex: none; }

@@ -43,7 +43,11 @@ export function libreMov(m, I) {
 // ── Clasificación efectiva: la del documento, si no la del proveedor ──
 // v0.91.2 · Un pago solo se crea con cada documento clasificado (la regla vive también en gn-fs.pagar).
 export const faltaClasificar = (docs, provs) => (docs || []).filter(d => !clasifDe(d, provs));
-export const claveProveedor = d => (rutN(d.rutN || d.rut) ? 'r_' + rutN(d.rutN || d.rut) : 'n_' + norm(d.razon).replace(/ /g, '_').slice(0, 60));
+// v0.92.3 · Con N° de cliente (CdgIntRecep), la memoria es por proveedor Y cliente: los servicios de un mismo proveedor (el internet de
+// Ainavillo y el de Barros Arana) se clasifican cada uno con lo suyo. Lo guardado antes por proveedor sigue sirviendo de respaldo.
+export const claveBase = d => (rutN(d.rutN || d.rut) ? 'r_' + rutN(d.rutN || d.rut) : 'n_' + norm(d.razon).replace(/ /g, '_').slice(0, 60));
+export const claveProveedor = d => claveBase(d) + (s(d.cliente) ? '_c_' + s(d.cliente).replace(/[^0-9A-Za-z]/g, '').slice(0, 30) : '');
+export const provDe = (d, provs) => (provs && (provs[claveProveedor(d)] || provs[claveBase(d)])) || null;
 // v0.92.0 · La clasificación es POR PARTES: [{ item, area, monto }] en neto (neto + exento; una boleta o un pago sin documento, su total).
 // La suma de las partes es la base del documento. El caso simple (un ítem, una o varias áreas en %) es una clasificación más.
 // Lo antiguo ({ item, areas: [{ area, pct }] }) se lee igual. El proveedor recuerda su clasificación general y la de cada producto.
@@ -103,7 +107,7 @@ export function productosARecordar(lineas, modo) {
 }
 export function clasifDe(d, provs) {
   if (d.clasif && (d.clasif.item || (d.clasif.partes || []).length)) { const partes = partesDe(d, d.clasif); return { ...d.clasif, partes, item: principal(partes), de: 'documento' }; }
-  const p = provs && provs[claveProveedor(d)];
+  const p = provDe(d, provs);
   if (!p || !p.item || modoProveedor(p) === 'item') return null;
   const partes = desdeProveedor(d, p); return partes.length ? { item: p.item, areas: p.areas || [], partes, de: 'proveedor' } : null;
 }
@@ -164,7 +168,7 @@ const palabras = t => norm(t).split(' ').filter(w => w.length >= 4 && !PALABRAS_
 export function afinidad(d, m, S) {
   const g = norm(m.glosa), gd = g.replace(/ /g, ''), r = rutN(d.rutN || d.rut);
   if (r.length > 2 && (gd.includes(r) || gd.includes(r.slice(0, -1)))) return 50;
-  if (S) { const sn = senaDe(m.glosa), duenos = sn && S[sn]; if (duenos && duenos.length === 1 && duenos[0] === claveProveedor(d)) return 40; }
+  if (S) { const sn = senaDe(m.glosa), duenos = sn && S[sn]; if (duenos && duenos.length === 1 && (duenos[0] === claveProveedor(d) || duenos[0] === claveBase(d))) return 40; }
   return palabras(d.razon).some(w => g.split(' ').includes(w)) ? 30 : 0;
 }
 // ── v0.91.1 · Cómo aparece cada proveedor en el banco ──
@@ -241,8 +245,8 @@ export function repartirPago(docs, monto) {
 // D: { docs, movs, pagos, provs, sugeridas, inicio }  opts: { cuenta }
 export function armar(D, { cuenta = '', excluir = null } = {}) {
   const I = indicePagos(D.pagos), provs = D.provs || {}, sug = D.sugeridas || {};
-  const docs = (D.docs || []).map(d => { const e = estadoDoc(d, I), c = clasifDe(d, provs); return { ...d, ...e, estadoPago: e.estado, clasifEf: c, sugerida: !c ? sug[claveProveedor(d)] || null : null,
-    soloItem: !c && provs[claveProveedor(d)] && modoProveedor(provs[claveProveedor(d)]) === 'item' ? provs[claveProveedor(d)].item : '' }; });
+  const docs = (D.docs || []).map(d => { const e = estadoDoc(d, I), c = clasifDe(d, provs); return { ...d, ...e, estadoPago: e.estado, clasifEf: c, sugerida: !c ? sug[claveProveedor(d)] || sug[claveBase(d)] || null : null,
+    soloItem: !c && provDe(d, provs) && modoProveedor(provDe(d, provs)) === 'item' ? provDe(d, provs).item : '' }; });
   const movs = (D.movs || []).map(m => ({ ...m, libre: libreMov(m, I), pagosM: I.porMov[m.id] || [] }));
   const abiertosD = docs.filter(d => d.estadoPago === 'sin_pago' || d.estadoPago === 'a_medias');
   const abiertosM = movs.filter(m => m.libre > 0 && m.estado !== 'no_va' && !m.naturaleza);

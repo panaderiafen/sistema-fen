@@ -10,11 +10,11 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.92.2';
-import { dbBase, correo } from './gastos-fs.js?v=0.92.2';
-import { ahoraChile } from './gastos-g2.js?v=0.92.2';
-import * as GN from './gn-modelo.js?v=0.92.2';
-import * as GB from './gn-bandeja.js?v=0.92.2';
+import * as FB from './fs-gastos.js?v=0.92.3';
+import { dbBase, correo } from './gastos-fs.js?v=0.92.3';
+import { ahoraChile } from './gastos-g2.js?v=0.92.3';
+import * as GN from './gn-modelo.js?v=0.92.3';
+import * as GB from './gn-bandeja.js?v=0.92.3';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -112,7 +112,7 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
     sn.forEach((x, i) => { if (!x.exists()) throw error('Un documento ya no está.', 'cambio'); if (x.data().estado === 'no_va') throw error(`El documento N° ${x.data().folio || ''} se marcó "Esto no va".`, 'cambio'); });
     // v0.91.2 · Regla: cada documento pagado tiene que estar clasificado (por sí mismo o por su proveedor)
     const claves = [...new Set(sn.map(x => GB.claveProveedor(x.data())))], provs = {};
-    for (const k of claves) { const ps = await tx.get(FB.doc(d, GN.COL.provs, k)); if (ps.exists()) provs[k] = ps.data(); }
+    for (const k of [...new Set(claves.concat(sn.map(x => GB.claveBase(x.data()))))]) { const ps = await tx.get(FB.doc(d, GN.COL.provs, k)); if (ps.exists()) provs[k] = ps.data(); }
     const falta = GB.faltaClasificar(sn.map(x => ({ id: x.id, ...x.data() })), provs);
     if (falta.length) throw error(`Primero clasifique: ${falta.map(x => x.razon || x.folio).join(', ')}.`, 'clasificar');
     // v0.91.1 · El proveedor aprende cómo aparece en el banco (solo si todos los documentos son del mismo proveedor y la glosa tiene seña propia)

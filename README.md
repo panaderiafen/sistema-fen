@@ -1,9 +1,25 @@
-# Sistema Fën · v0.92.2
+# Sistema Fën · v0.92.3
 
-**App:** v0.92.2 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.92.3 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.92.3: servicios por N° de cliente; clasificación en rojo y verde
+
+- **N° de cliente y período:** el XML de los servicios trae el N° de cliente (`CdgIntRecep`) y el período facturado. La tarjeta los muestra, por ejemplo "cliente 138063585 · período 12 sep al 11 oct".
+- **Memoria por proveedor y cliente:**
+  - Cuando una factura trae N° de cliente, lo que se recuerda es para ese proveedor y ese cliente. El internet de Ainavillo y el de Barros Arana, aunque sean del mismo proveedor, se clasifican una vez cada uno, y desde ahí cada factura llega con lo suyo.
+  - Lo que ya estaba guardado por proveedor sigue sirviendo hasta que se clasifique por cliente.
+- **Facturas ya subidas:** volver a subir el XML les agrega el N° de cliente y el período, sin repetir nada. El mensaje lo cuenta como "se completaron".
+- **Colores de la clasificación:**
+  - **Verde con visto:** la guardó usted, en el documento o en su proveedor ("como siempre").
+  - **Rojo:** falta decidir ("Sugerido: …", "Sin clasificar", "… falta el área").
+Cambian `sii.js`, `gn-modelo.js`, `gn-bandeja.js`, `gn-fs.js`, `vista-gn.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.92.3`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.92.3.
+- [ ] Volver a subir los XML de octubre (y septiembre, si quiere): las facturas de servicios quedan con su N° de cliente.
+- [ ] Clasificar una vez cada servicio (internet de Ainavillo, de Barros Arana, telefonía) con "Recordar ítem y áreas".
 
 ## Novedades de la v0.92.2: en Listos también se cambia la clasificación
 

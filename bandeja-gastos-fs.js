@@ -6,21 +6,21 @@
 //  (±$1) en su ventana y no hay otro igual: por eso, abierta la Bandeja, Hoy usa los números de la Bandeja (más exactos).
 //  Solo con la base nueva. No escribe nada.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.92.2';
-import * as M from './gastos-g2.js?v=0.92.2';
-import * as G3 from './gastos-g3.js?v=0.92.2';
-import * as C from './gastos-cartola.js?v=0.92.2';
-import * as B from './gastos-banco.js?v=0.92.2';
-import * as BU from './bandeja-gastos-modelo.js?v=0.92.2';
-import { todos, documentosPendientes } from './gastos-fs.js?v=0.92.2';
-import { registradosGastos } from './bandeja.js?v=0.92.2';
+import * as FB from './fs-gastos.js?v=0.92.3';
+import * as M from './gastos-g2.js?v=0.92.3';
+import * as G3 from './gastos-g3.js?v=0.92.3';
+import * as C from './gastos-cartola.js?v=0.92.3';
+import * as B from './gastos-banco.js?v=0.92.3';
+import * as BU from './bandeja-gastos-modelo.js?v=0.92.3';
+import { todos, documentosPendientes } from './gastos-fs.js?v=0.92.3';
+import { registradosGastos } from './bandeja.js?v=0.92.3';
 
 const rutsSii = docs => { const m = {}; (docs || []).forEach(x => { const im = x.d && x.d.importado; if (im && im.vencimiento) m[im.vencimiento] = C.rutNorm(x.d.rut); }); return m; };
 // Las entradas del modelo, de la memoria
 export async function entradas() {
   const hoy = M.ahoraChile().dia;
-  try { const FS = await import('./gastos-fs.js?v=0.92.2'); await FS.vencimientosAlDia(); } catch (e) {}
-  const SPF = await import('./sii-pendientes-fs.js?v=0.92.2');
+  try { const FS = await import('./gastos-fs.js?v=0.92.3'); await FS.vencimientosAlDia(); } catch (e) {}
+  const SPF = await import('./sii-pendientes-fs.js?v=0.92.3');
   const [vencs, ps, siiDocs, gastos, cg, sb, dp] = await Promise.all([todos('vencimientos'), todos('obligaciones'), todos('sii_docs').catch(() => []), todos('gastos', FB.where('fecha', '>=', G3.sumarDias(hoy, -150))).catch(() => []),
     todos('cartola_cargos').catch(() => []), SPF.datos().catch(() => null), documentosPendientes().catch(() => ({ documentos: [] }))]);
   const abiertos = C.vencimientosAbiertos(vencs, ps, rutsSii(siiDocs), hoy);

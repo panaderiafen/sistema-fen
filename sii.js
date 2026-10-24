@@ -8,7 +8,7 @@
 //  v0.48.0 (etapa G3): con Gastos en la base nueva (config/gastos: fuente "base"), las llamadas van a fen-gastos
 //  (gastos-sii-fs.js) con las mismas respuestas; "Sugerir % según ventas" sigue con el script. Con la planilla, igual que antes.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.92.2';
+import * as Gastos from './gastos.js?v=0.92.3';
 
 export const VERSION_MINIMA = '2.4.0';
 // v0.10.0: un documento se reconoce por RUT, folio y si es nota de crédito (tipo 61):
@@ -151,6 +151,8 @@ export function parseXMLSII(texto) {
       otroImpuesto: Math.round(otroImpuesto) * signo, tasaOtroImpuesto: tasaImpuesto, codImpuesto, esHarina,
       fechaVencimiento: fchVenc ? fechaISOaDDMMYYYY(fchVenc) : '', fechaVencISO: /^\d{4}-\d{2}-\d{2}$/.test(fchVenc) ? fchVenc : '',
       formaPagoSII: txt(d, 'FmaPago'), termPago: limpiarTextoSII(txt(d, 'TermPagoGlosa')),
+      // v0.92.3 · N° de cliente del receptor (CdgIntRecep: con eso se distinguen los servicios de un mismo proveedor) y período facturado
+      cdgIntRecep: limpiarTextoSII(txt(d, 'CdgIntRecep')).slice(0, 40), periodoDesde: txt(d, 'PeriodoDesde'), periodoHasta: txt(d, 'PeriodoHasta'),
       dirRecep: limpiarTextoSII(txt(d, 'DirRecep')), comunaRecep: limpiarTextoSII(txt(d, 'CmnaRecep')), detalle: []
     };
     // v0.67.4 · Referencias (una nota de crédito dice qué factura corrige): tipo y folio del documento citado
@@ -435,7 +437,7 @@ const base64Utf8 = texto => { const b = new TextEncoder().encode(texto); let s =
 const docsDe = facturas => facturas.map(f => ({ rut: f.rut, folio: f.folio, tipo: f.tipoDoc === '61' ? '61' : '', total: f.total, fecha: fechaDDMMYYYYaISO(f.fecha), razonSocial: f.razonSocial }));
 
 // v0.48.0 · Con la base nueva, lo mismo en fen-gastos (gastos-sii-fs.js)
-const fsSii = () => import('./gastos-sii-fs.js?v=0.92.2');
+const fsSii = () => import('./gastos-sii-fs.js?v=0.92.3');
 const enBase = () => Gastos.enBase();
 export async function estado(facturas) { return (await enBase()) ? (await fsSii()).estado(docsDe(facturas)) : llamar('sii_estado', { documentos: docsDe(facturas) }); }
 export async function registrarCarga(facturas, nombre, tipo, contenido, idem) {
@@ -452,7 +454,7 @@ export async function importar(listas, omitirRepetidas, idem, origen) {
   if (await enBase()) {
     const r = await (await fsSii()).importar(listas, !!omitirRepetidas, await Gastos.marcaDe(idem), origen || null); Gastos.olvidarTodo();
     // v0.57.0 · Finanzas: con lo importado ya guardado, revisa los precios de las materias primas (sin esperar; si falla, solo avisa)
-    r.precios = import('./finanzas.js?v=0.92.2').then(F => F.preciosTrasImportar()).catch(e => ({ error: e.message || String(e) }));
+    r.precios = import('./finanzas.js?v=0.92.3').then(F => F.preciosTrasImportar()).catch(e => ({ error: e.message || String(e) }));
     return r;
   }
   const r = await llamar('sii_importar', { facturas: listas, omitirRepetidas: !!omitirRepetidas }, idem); Gastos.olvidar(); return r;
