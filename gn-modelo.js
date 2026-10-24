@@ -14,7 +14,7 @@
 // ═══════════════════════════════════════════════
 const s = v => String(v == null ? '' : v).trim();
 export const VERSION = '0.90.0';
-export const COL = { docs: 'gn_documentos', movs: 'gn_movimientos', cargas: 'gn_cargas', pagos: 'gn_pagos', provs: 'gn_proveedores', config: 'gn_config', repartos: 'gn_repartos' };   // v0.91.0: pagos, proveedores y config
+export const COL = { docs: 'gn_documentos', movs: 'gn_movimientos', cargas: 'gn_cargas', pagos: 'gn_pagos', provs: 'gn_proveedores', config: 'gn_config', repartos: 'gn_repartos', compromisos: 'gn_compromisos' };   // v0.91.0: pagos, proveedores y config
 export const CUENTAS = { cc: 'BancoEstado cta. cte.', chequera: 'BancoEstado chequera', mp: 'Mercado Pago', tc: 'Tarjeta de crédito' };
 export const TIPOS_DOC = { '33': 'Factura', '34': 'Factura exenta', '39': 'Boleta', '41': 'Boleta exenta', '46': 'Factura de compra', '56': 'Nota de débito', '61': 'Nota de crédito' };
 
@@ -30,7 +30,7 @@ export function mesAnterior(mes) { const [y, m] = mes.split('-').map(Number); re
 const diasEntre = (a, b) => Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5);
 // Lo que cuenta desde el inicio, y desde cuándo entra la deuda anterior. v0.90.3: hasta un año antes del inicio (antes, solo el mes anterior:
 // el Registro de Compras de septiembre traía facturas de agosto que se pagan después y quedaban fuera)
-// v0.95.0 · movDesde: los cargos de los 20 días antes del inicio (la ventana de pares) entran como "cargos anteriores", solo para unirse
+// v0.96.0 · movDesde: los cargos de los 20 días antes del inicio (la ventana de pares) entran como "cargos anteriores", solo para unirse
 // con documentos del inicio en adelante (lo simétrico de la deuda anterior)
 export const DIAS_CARGOS_ANTERIORES = 20;
 export const sumarDias = (iso, n) => { const t = new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) + n * 864e5); return t.toISOString().slice(0, 10); };
@@ -61,7 +61,7 @@ export function docDeSii(f, cargaId) {
     periodo: esIso(f.periodoDesde) && esIso(f.periodoHasta) ? { desde: f.periodoDesde, hasta: f.periodoHasta } : null   // v0.92.3
   };
 }
-// v0.95.0 · Una boleta de luz o agua (lo que entrega boletas.leerBoleta) → documento. emp: { rut, nombre, servicio } de la empresa.
+// v0.96.0 · Una boleta de luz o agua (lo que entrega boletas.leerBoleta) → documento. emp: { rut, nombre, servicio } de la empresa.
 // Su monto es la boleta del período (+ el ajuste de redondeo del total a pagar): el saldo anterior es lo que quedó sin pagar de las boletas
 // anteriores (sus propios documentos). Una boleta no da crédito de IVA: su costo es el total (neto = total).
 // El gasto es del mes en que termina el período (mes); la fecha es la de emisión (para unirla con su pago).
@@ -176,6 +176,7 @@ export function planMovs(movs, existentes, inicio) {
 export const idCarga = (tipo, ms = Date.now()) => `c_${tipo}_${ms.toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 export function textoCarga(k) {
   const n = (x, s1, p1) => `${x} ${x === 1 ? s1 : p1}`;
+  if (k.tipo === 'liquidacion' || k.tipo === 'f29') return s(k.texto) || s(k.que);
   if (k.tipo === 'boleta') return k.que === 'ya' ? 'ya estaba (no se repite)' : k.que === 'antigua' ? 'es de hace más de un año (no entra)' : k.que === 'anterior' ? 'entró como deuda anterior (es de antes del inicio)' : k.que === 'sin_fecha' ? 'no tiene fecha de emisión ni período (no entra)' : 'nueva';
   if (k.tipo === 'sii') return [`${n(k.nuevos - (k.anteriores || 0), 'documento nuevo', 'documentos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.completados ? `${k.completados} ya estaban sin detalle y se completaron` : '', k.anteriores ? `${k.anteriores} anteriores al inicio (deuda anterior)` : '',
     k.antiguos ? `${k.antiguos} de hace más de un año (no entran)` : '', k.guias ? n(k.guias, 'guía de despacho fuera', 'guías de despacho fuera') : ''].filter(Boolean).join(' · ');

@@ -69,7 +69,7 @@ export function partesSimple(base, item, areas) {
   return juntar(l.map((a, i) => ({ item: s(item), area: s(a.area), monto: m[i] })));
 }
 // Por líneas del detalle: asign[i] = { item, area } de cada línea → partes, ajustadas a la base (descuentos globales, redondeos)
-// v0.95.0 · Una línea puede ir a un reparto con nombre (area 'rp:<id>', con las áreas de hoy del reparto) o a varias áreas (asign[i].areas,
+// v0.96.0 · Una línea puede ir a un reparto con nombre (area 'rp:<id>', con las áreas de hoy del reparto) o a varias áreas (asign[i].areas,
 // lo general de la factura). Si el reparto ya no está, la línea queda sin área (y se pide).
 export const AREA_REPARTO = 'rp:';
 export function partesPorLineas(d, asign, reps) {
@@ -99,12 +99,12 @@ export function partesDe(d, c) {
 // ítem; las áreas cambian en cada compra: la factura llega con el ítem y pide el área). Sin modo (lo anterior) = fijo.
 // Un producto recuerda su ítem, y su área solo si es siempre la misma.
 export const modoProveedor = p => (p && p.modo === 'item' ? 'item' : 'fijo');
-// v0.95.0 · Las áreas de una ficha: las de su reparto con nombre (si usa uno, las de HOY: un cambio del reparto rige para lo que viene) o las suyas
+// v0.96.0 · Las áreas de una ficha: las de su reparto con nombre (si usa uno, las de HOY: un cambio del reparto rige para lo que viene) o las suyas
 export const areasDe = (p, reps) => (p && p.repartoId && reps && reps[p.repartoId] && (reps[p.repartoId].areas || []).length ? reps[p.repartoId].areas : (p && p.areas) || []);
 function desdeProveedor(d, p, reps) {
   const prods = p.productos || {}, det = d.detalle || [], usa = det.length > 1 && det.some(x => prods[normProducto(x.descripcion)]), ar = areasDe(p, reps);
   if (!usa) return partesSimple(baseDe(d), p.item, ar);
-  // v0.95.0 · Lo que el producto no dice va con el reparto (o las áreas) del proveedor, no solo con su primera área
+  // v0.96.0 · Lo que el producto no dice va con el reparto (o las áreas) del proveedor, no solo con su primera área
   return partesPorLineas(d, det.map(x => { const r = prods[normProducto(x.descripcion)]; return r && r.area ? { item: r.item || p.item, area: r.area } : { item: (r && r.item) || p.item, areas: ar }; }), reps);
 }
 // Los productos que se recuerdan de una factura separada por líneas: ítem siempre; área solo si el proveedor es "fijo" y ese producto
@@ -119,10 +119,10 @@ export function clasifDe(d, provs, reps) {
   if (d.clasif && (d.clasif.item || (d.clasif.partes || []).length)) { const partes = partesDe(d, d.clasif); return { ...d.clasif, partes, item: principal(partes), de: d.clasif.de === 'proveedor' ? 'proveedor' : 'documento' }; }
   const p = provDe(d, provs);
   if (!p || !p.item || modoProveedor(p) === 'item') return null;
-  // v0.95.0 · Si alguna parte queda sin área (un producto nuevo de un proveedor que recuerda por producto), se pide clasificar
+  // v0.96.0 · Si alguna parte queda sin área (un producto nuevo de un proveedor que recuerda por producto), se pide clasificar
   const partes = desdeProveedor(d, p, reps); return partes.length && partes.every(x => x.item && x.area) ? { item: p.item, areas: areasDe(p, reps), repartoId: p.repartoId || '', partes, de: 'proveedor', vivo: true } : null;
 }
-// v0.95.0 · Repartos con nombre: los iniciales (acordados el 23 oct; se crean la primera vez, después se editan en Gastos → Repartos)
+// v0.96.0 · Repartos con nombre: los iniciales (acordados el 23 oct; se crean la primera vez, después se editan en Gastos → Repartos)
 export const REPARTOS_INICIALES = [
   { id: 'rp_produccion_ainavillo', nombre: 'Producción Ainavillo', areas: [{ area: 'PAN', pct: 57 }, { area: 'BOL', pct: 43 }] },
   { id: 'rp_ainavillo_comun', nombre: 'Ainavillo común', areas: ['PAN', 'BOL', 'PAS', 'ADMIN', 'B2C-AI'].map(a => ({ area: a, pct: 20 })) },
@@ -150,7 +150,8 @@ export function repartoValido(areas) {
   if (l.some(a => !(Number(a.pct) > 0))) return 'Cada área necesita su porcentaje.';
   return Math.abs(t - 100) > 0.5 ? `Los porcentajes suman ${t}%: deben sumar 100%.` : '';
 }
-export const repartoIgual = areas => { const n = areas.length; return areas.map((a, i) => ({ area: a, pct: i < n - 1 ? Math.floor(100 / n) : 100 - Math.floor(100 / n) * (n - 1) })); };
+// v0.96.0 · Con dos decimales (seis partes: 16,67 · … · 16,65)
+export const repartoIgual = areas => { const n = areas.length, b = Math.floor(10000 / n) / 100; return areas.map((a, i) => ({ area: a, pct: i < n - 1 ? b : Math.round((100 - b * (n - 1)) * 100) / 100 })); };
 export const textoReparto = areas => (areas || []).map(a => (areas.length > 1 ? `${a.area} ${a.pct}%` : a.area)).join(' · ');
 
 // ── Sugerencias del Gastos anterior (solo sugieren): por RUT, el ítem más usado y el reparto de su última factura ──
@@ -211,7 +212,7 @@ export function indiceSenas(provs) {
 }
 const subconjuntos = (l, max) => { const out = []; const ir = (i, act) => { if (act.length >= 2) out.push(act.slice()); if (act.length === max) return; for (let j = i; j < l.length; j++) { act.push(l[j]); ir(j + 1, act); act.pop(); } }; ir(0, []); return out; };
 // docs: documentos con saldo (abiertos), movs: movimientos con lo libre. → [{ docIds, movId, monto, afinidad, por }]
-// v0.95.0 · Un cargo anterior al inicio solo se une con documentos del inicio en adelante (lo de antes con lo de antes es del Gastos anterior).
+// v0.96.0 · Un cargo anterior al inicio solo se une con documentos del inicio en adelante (lo de antes con lo de antes es del Gastos anterior).
 // "No es este" queda guardado en el documento (descartes): ese par no se vuelve a proponer.
 export const compatible = (d, m) => !(d.anterior && m.anterior);
 export const descartado = (d, m) => (d.descartes || []).includes(m.id);
@@ -258,7 +259,7 @@ export function candidatosMov(d, movs, S) {
   return movs.filter(m => m.libre > 0 && compatible(d, m)).map(m => ({ m, a: afinidad(d, m, S), igual: m.libre === d.saldo, dentro: enVentana(d.fecha, m.fecha) }))
     .sort((x, y) => (y.igual - x.igual) || (y.dentro - x.dentro) || (y.a - x.a) || Math.abs(dias(d.fecha, x.m.fecha)) - Math.abs(dias(d.fecha, y.m.fecha)));
 }
-// ── v0.95.0 · Seleccionar y filtrar: lo elegido de un lado muestra los posibles del otro, para la suma ──
+// ── v0.96.0 · Seleccionar y filtrar: lo elegido de un lado muestra los posibles del otro, para la suma ──
 // Elegir documentos → los cargos posibles para la suma de sus saldos; elegir cargos → los documentos posibles para la suma de lo libre.
 // Orden: los no descartados, los que calzan (±$5), los de la ventana de fechas, los del proveedor (afinidad), los más cercanos.
 export function posiblesMovs(docs, movs, S) {
@@ -285,7 +286,7 @@ export function pagosDeVarios(d, movs) {
   return out;
 }
 
-// ── v0.95.0 · ¿Ya está en el Gastos anterior? (para un cargo anterior al inicio) ──
+// ── v0.96.0 · ¿Ya está en el Gastos anterior? (para un cargo anterior al inicio) ──
 // Los gastos del anterior se agrupan como un pago (misma fecha, hora, observación, RUT y folio: un pago repartido en varias líneas de área)
 export function resumenAnterior(gastos, desde, hasta) {
   const g = {};
@@ -323,7 +324,7 @@ export function armar(D, { cuenta = '', excluir = null } = {}) {
   const abiertosD = docs.filter(d => d.estadoPago === 'sin_pago' || d.estadoPago === 'a_medias');
   const abiertosM = movs.filter(m => m.libre > 0 && m.estado !== 'no_va' && !m.naturaleza);
   const S = indiceSenas(provs);
-  const pares = sugerirPares(abiertosD, abiertosM, S).filter(p => !excluir || !excluir.has(p.movId + '|' + p.docIds.join(',')));   // "No es este": guardado en el documento (v0.95.0)
+  const pares = sugerirPares(abiertosD, abiertosM, S).filter(p => !excluir || !excluir.has(p.movId + '|' + p.docIds.join(',')));   // "No es este": guardado en el documento (v0.96.0)
   const enPar = new Set(pares.flatMap(p => p.docIds)), movEnPar = new Set(pares.map(p => p.movId));
   const visible = d => !d.anterior;
   // v0.91.2 · "Listo" = pagado Y clasificado. Cada documento está en un solo grupo: en su par, sin pago (con su clasificación a la vista)
@@ -342,4 +343,26 @@ export function armar(D, { cuenta = '', excluir = null } = {}) {
     usadosAnterior: new Set((D.pagos || []).filter(p => p.estado !== 'deshecho' && p.enGastoAnterior).map(p => p.enGastoAnterior.id)),
     conAreaAntigua: docs.filter(d => d.estado !== 'no_va' && tieneAreaAntigua(d.clasifEf)),
     n: { pares: paresV.length, clasificar: porClasificar.length, sinPago: sinPago.length, sinDoc: sinDoc.length, total: paresV.length + porClasificar.length + sinPago.length + sinDoc.length } };
+}
+
+// ═══════════════ v0.96.0 · Compromisos (pagos fijos sin documento: arriendos) ═══════════════
+// Un compromiso crea el documento de cada mes desde que el mes empieza (no antes): lo que se debe ese mes, con su día de pago.
+// Su clasificación vive en la ficha de "a quién se paga" (ítem y reparto): un cambio del reparto rige para lo que viene.
+export const idCompromisoDoc = (cid, mes) => `d_cmp_${cid}_${mes.replace('-', '')}`;
+const ultimoDiaMes = mes => { const [y, m] = mes.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); };
+const sigMes = mes => { const [y, m] = mes.split('-').map(Number); return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`; };
+export function docDeCompromiso(c, mes) {
+  const dia = Math.min(Math.max(1, Number(c.dia) || 1), 28), fecha = `${mes}-${String(dia).padStart(2, '0')}`, monto = Math.round(Number(c.monto) || 0);
+  return { id: idCompromisoDoc(c.id, mes), origen: 'compromiso', compromiso: c.id, formato: '', tipo: 'cmp', tipoTexto: s(c.nombre) || 'Compromiso', nc: false,
+    rut: s(c.rut), rutN: rutN(c.rut), razon: s(c.aQuien) || s(c.nombre), folio: '', fecha, mes, neto: monto, exento: 0, iva: 0, otroImp: 0, total: monto,
+    vence: fecha, formaPago: '', referencias: [], detalle: [], descuadre: '', cargaId: '', cliente: '', direccion: '', periodo: { desde: mes + '-01', hasta: ultimoDiaMes(mes) } };
+}
+// Los documentos que faltan: de cada compromiso activo, sus meses desde max(inicio, su "desde") hasta el mes en curso
+export function compromisosPendientes(comps, docs, inicio, hoy) {
+  const ya = new Set((docs || []).map(d => d.id)), mesHoy = s(hoy).slice(0, 7), mesIni = s(inicio).slice(0, 7), out = [];
+  (comps || []).filter(c => c.estado !== 'archivado' && Number(c.monto) > 0).forEach(c => {
+    let m = s(c.desde) > mesIni ? s(c.desde).slice(0, 7) : mesIni, n = 0;
+    while (m && m <= mesHoy && n++ < 24) { if (!ya.has(idCompromisoDoc(c.id, m))) out.push(docDeCompromiso(c, m)); m = sigMes(m); }
+  });
+  return out;
 }

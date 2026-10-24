@@ -1,9 +1,29 @@
-# Sistema Fën · v0.95.0
+# Sistema Fën · v0.96.0
 
-**App:** v0.95.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.96.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.96.0: liquidaciones de sueldo, F29 y compromisos (arriendos)
+
+Segunda parte de la Etapa 3. Todo entra como documento y la Bandeja lo une con su pago.
+- **Liquidaciones de sueldo (PDF del contador, una por trabajador):** lo que se le debe al trabajador en el mes = líquido + anticipos (los anticipos ya salieron en otra transferencia: los dos pagos se unen con la misma liquidación, "una factura con varios cargos").
+  - Los datos se buscan por su etiqueta (líquido a pagar, total haberes, total descuentos, anticipos), así que aceptan bonos, colación, transporte y cambios menores de formato.
+  - La fecha es el último día del mes de la liquidación: las de septiembre entran como deuda anterior.
+  - La primera vez se clasifica (ítem de remuneraciones y el área o reparto de esa persona) y queda en su ficha: las del mes siguiente llegan clasificadas.
+  - Las cotizaciones y el aporte del empleador entran por Previred (próxima versión). La misma liquidación no entra dos veces; una distinta con el mismo mes no se pisa (se avisa).
+- **F29 (PDF del SII):** el formulario completo o el certificado. Entra como el pago del mes, ya clasificado por código: IVA (089 menos los anticipos 543), PPM (062), retención de boletas de terceros (151), impuesto único (048), otros y multas. El certificado trae solo el total; si después llega el formulario, lo completa.
+  - En Finanzas (Etapa 4): IVA y PPM fuera del resultado; la retención es costo de los practicantes; el impuesto único, de los sueldos.
+- **Compromisos (pestaña nueva):** pagos fijos de cada mes sin documento, como los arriendos. Nombre, a quién se paga, monto, día, desde qué mes, ítem y reparto. El documento de cada mes se crea cuando el mes empieza (no antes) y llega clasificado desde la ficha de a quién se paga. Archivar deja de crear meses.
+- **Reparto en partes iguales con dos decimales** (seis áreas: 16,66 % cada una y la última 16,7 %).
+Cambian `gn-pdf.js` (nuevo), `gn-modelo.js`, `gn-bandeja.js`, `gn-fs.js`, `vista-gn.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.96.0`). Colección nueva en fen-gastos: `gn_compromisos` (las reglas actuales la permiten).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.96.0.
+- [ ] Repartos → Ainavillo común: agregar B2B (seis partes iguales, opción A).
+- [ ] Compromisos: crear los dos arriendos (Barros Arana $1.500.000 a la empresa, con "Barros Arana común"; Ainavillo $700.000 a la persona, con "Ainavillo común"; día 5).
+- [ ] Arrastrar las liquidaciones de septiembre y octubre, y clasificar cada persona una vez (ítem y área o reparto).
+- [ ] Arrastrar el F29 de septiembre (formulario completo).
 
 ## Novedades de la v0.95.0: boletas de luz y agua en el Gastos nuevo; una línea puede ir a un reparto
 

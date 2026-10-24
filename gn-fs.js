@@ -10,11 +10,11 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.95.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.95.0';
-import { ahoraChile } from './gastos-g2.js?v=0.95.0';
-import * as GN from './gn-modelo.js?v=0.95.0';
-import * as GB from './gn-bandeja.js?v=0.95.0';
+import * as FB from './fs-gastos.js?v=0.96.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.96.0';
+import { ahoraChile } from './gastos-g2.js?v=0.96.0';
+import * as GN from './gn-modelo.js?v=0.96.0';
+import * as GB from './gn-bandeja.js?v=0.96.0';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -27,17 +27,20 @@ const inicio = () => (typeof window !== 'undefined' && window.FEN_SIS && window.
 
 // ── Lecturas ──
 export async function leer() {
-  const [docs, movs, cargas, pagos, provs, cfg, items, reps0] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.movs), todos(GN.COL.cargas), todos(GN.COL.pagos), todos(GN.COL.provs), todos(GN.COL.config), todos('items').catch(() => []), todos(GN.COL.repartos)]);
+  const [docs0, movs, cargas, pagos, provs, cfg, items, reps0, comps] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.movs), todos(GN.COL.cargas), todos(GN.COL.pagos), todos(GN.COL.provs), todos(GN.COL.config), todos('items').catch(() => []), todos(GN.COL.repartos), todos(GN.COL.compromisos).catch(() => [])]);
+  // v0.96.0 · Los compromisos crean el documento del mes cuando el mes empieza (una vez: después ya está)
+  let docs = docs0; const faltan = GB.compromisosPendientes(comps, docs0, inicio(), ahoraChile().dia);
+  if (faltan.length) { try { await escribir(GN.COL.docs, faltan, nuevoExtra('compromiso', 'sistema', ahoraChile().texto)); docs = docs0.concat(faltan.map(d => ({ ...d, ...nuevoExtra('compromiso', 'sistema', '') }))); } catch (e) { /* sin permiso o sin red: se intenta en la próxima lectura */ } }
   let sug = cfg.find(x => x.id === 'sugerencias');
   if (!sug) { try { sug = await armarSugerencias(); } catch (e) { sug = { porProveedor: {} }; } }
-  // v0.95.0 · Los pagos del Gastos anterior cerca del inicio (para no contar dos veces un cargo anterior): se leen UNA vez y se guarda el resumen
+  // v0.96.0 · Los pagos del Gastos anterior cerca del inicio (para no contar dos veces un cargo anterior): se leen UNA vez y se guarda el resumen
   let ant = cfg.find(x => x.id === 'gastosAnteriores');
   if (!ant) { try { ant = await armarAnteriores(); } catch (e) { ant = { lista: [] }; } }
-  // v0.95.0 · Los repartos iniciales se crean la primera vez (una sola vez: si ya hay alguno, no se toca)
+  // v0.96.0 · Los repartos iniciales se crean la primera vez (una sola vez: si ya hay alguno, no se toca)
   let reps = reps0;
   if (!reps.length) { try { await crearRepartosIniciales(); reps = await todos(GN.COL.repartos); } catch (e) { reps = []; } }
   return { docs, movs, cargas: cargas.sort((a, b) => String(b.en || '').localeCompare(String(a.en || ''))), pagos, provs: Object.fromEntries(provs.map(p => [p.id, p])),
-    sugeridas: (sug && sug.porProveedor) || {}, gastosAnt: (ant && ant.lista) || [], items: itemsDe(items), repartos: Object.fromEntries(reps.filter(r => r.estado !== 'archivado').map(r => [r.id, r])), inicio: inicio() };
+    compromisos: comps.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre))), sugeridas: (sug && sug.porProveedor) || {}, gastosAnt: (ant && ant.lista) || [], items: itemsDe(items), repartos: Object.fromEntries(reps.filter(r => r.estado !== 'archivado').map(r => [r.id, r])), inicio: inicio() };
 }
 // El catálogo de ítems de siempre (Configuración → Ítems): los vivos, en su orden
 const itemsDe = l => l.filter(x => x.item && !x.archivado && !x.quitadoEnPlanilla && x.estado !== 'ARCHIVADO').sort((a, b) => (Number(a.orden) || 999) - (Number(b.orden) || 999)).map(x => ({ item: String(x.item), area: String(x.area || '') }))
@@ -92,12 +95,25 @@ export async function cargarSii(L, archivo) {
   await guardarCarga(k);
   return { ...k, plan: P };
 }
-// v0.95.0 · Una boleta de luz o agua ya armada (GN.docDeBoleta): entra una sola vez (empresa + N° de boleta)
+// v0.96.0 · Una boleta de luz o agua ya armada (GN.docDeBoleta): entra una sola vez (empresa + N° de boleta)
 export async function cargarBoleta(doc, archivo) {
   const ya = await todos(GN.COL.docs), por = quien(), en = ahoraChile().texto, P = GN.planBoleta(doc, ya, inicio());
   if (P.doc) await escribir(GN.COL.docs, [P.doc], nuevoExtra(doc.cargaId, por, en));
   const k = { id: doc.cargaId, tipo: 'boleta', archivo: String(archivo.nombre || '').slice(0, 120), tamano: Number(archivo.tamano) || 0, identificador: `${doc.razon} N° ${doc.folio} · cliente ${doc.cliente}`,
     desde: doc.fecha, hasta: doc.fecha, leidos: 1, nuevos: P.doc ? 1 : 0, yaEstaban: P.que === 'ya' ? 1 : 0, anteriores: P.que === 'anterior' ? 1 : 0, que: P.que, por, en };
+  await guardarCarga(k);
+  return k;
+}
+// v0.96.0 · Liquidación de sueldo o F29 ya armados (gn-pdf.js): entran una sola vez; uno distinto con la misma clave no se pisa;
+// el F29 que estaba como certificado se completa con el formulario (su reparto por código)
+export async function cargarPdf(doc, archivo, tipo) {
+  const GP = await import('./gn-pdf.js?v=0.96.0');
+  const ya = await todos(GN.COL.docs), por = quien(), en = ahoraChile().texto, P = GP.planPdf(doc, ya, inicio());
+  if (P.doc) await escribir(GN.COL.docs, [P.doc], nuevoExtra(doc.cargaId, por, en));
+  if (P.que === 'completar') await enTransaccion(async (tx, d) => { const ref = FB.doc(d, GN.COL.docs, doc.id), sn = await tx.get(ref); const a = sn.data();
+    tx.update(ref, { ...P.cambios, historial: conHist(a, marca('completado con el formulario del F29')) }); });
+  const k = { id: doc.cargaId, tipo, archivo: String(archivo.nombre || '').slice(0, 120), tamano: Number(archivo.tamano) || 0, identificador: `${doc.tipoTexto} · ${doc.razon}`,
+    desde: doc.fecha, hasta: doc.fecha, leidos: 1, nuevos: P.doc ? 1 : 0, yaEstaban: ['ya', 'distinta'].includes(P.que) ? 1 : 0, anteriores: P.que === 'anterior' ? 1 : 0, que: P.que, texto: GP.textoPlanPdf(P), por, en };
   await guardarCarga(k);
   return k;
 }
@@ -153,7 +169,7 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
       const ref = movId || (medio + '|' + fecha), n = pagosAntes.filter(x => x.id === idPago(p.docId, ref) || x.id.startsWith(idPago(p.docId, ref) + '_')).length;
       tx.set(FB.doc(d, GN.COL.pagos, idPago(p.docId, ref, n)), limpio({ docId: p.docId, movId, medio: movId ? 'cargo' : medio, monto: Math.round(Number(p.monto) || 0), fecha: movId ? mov.fecha : fecha,
         cuenta: mov ? mov.cuenta : '', anterior: !!(mov && mov.anterior), ...(ga ? { enGastoAnterior: ga } : {}), nota: String(nota || '').slice(0, 200), estado: 'vigente', creado: { por: h.por, en: h.en } }));
-      // v0.95.0 · Al pagarse, la clasificación que venía del proveedor queda guardada en el documento: un cambio posterior del proveedor
+      // v0.96.0 · Al pagarse, la clasificación que venía del proveedor queda guardada en el documento: un cambio posterior del proveedor
       // o de su reparto no mueve lo ya pagado (ni los meses cerrados de Finanzas)
       const dd = { id: refs[i].id, ...sn[i].data() }, c = dd.clasif ? null : GB.clasifDe(dd, provs, reps);
       tx.update(refs[i], { historial: conHist(sn[i].data(), h), ...(c ? { clasif: limpio({ item: c.item, areas: c.areas, repartoId: c.repartoId || '', partes: c.partes, de: 'proveedor', por: h.por, en: h.en }) } : {}) });
@@ -214,7 +230,7 @@ export async function volverMov(movId) {
 //  · lineas: [{ descripcion, item, area }] cuando se separó por líneas: el proveedor recuerda cada producto.
 export async function clasificar(doc, clasif, recordar = true) {   // recordar: 'fijo' | 'item' | false (true = 'fijo')
   const modo = recordar === 'item' ? 'item' : 'fijo';
-  // v0.95.0 · Separada por líneas o montos, cada parte trae su ítem y su área: lo de "toda la factura" es opcional (solo llena las vacías).
+  // v0.96.0 · Separada por líneas o montos, cada parte trae su ítem y su área: lo de "toda la factura" es opcional (solo llena las vacías).
   //   Sin áreas generales, el proveedor recuerda los productos con su área y el ítem más grande; lo que no reconozca, lo pide.
   const gen = clasif.general || { item: clasif.item, areas: clasif.areas }, sep = !!clasif.separado && (clasif.partes || []).length > 0, genAreas = (gen.areas || []).filter(a => a && a.area);
   if (!sep || genAreas.length) { const err = GB.repartoValido(gen.areas); if (err) throw error(err, 'datos'); }
@@ -269,7 +285,7 @@ export async function olvidarSena(provKey, sena) {
   });
 }
 
-// ═══════════════ v0.95.0 · Repartos con nombre y ficha del proveedor ═══════════════
+// ═══════════════ v0.96.0 · Repartos con nombre y ficha del proveedor ═══════════════
 export async function guardarReparto({ id = '', nombre, areas }) {
   const n = String(nombre || '').trim().slice(0, 60); if (!n) throw error('Escriba el nombre del reparto.', 'datos');
   const err = GB.repartoValido(areas); if (err) throw error(err, 'datos');
@@ -314,7 +330,7 @@ export async function quitarProducto(clave, k) {
   });
 }
 
-// v0.95.0 · "No es este": queda guardado en cada documento del par (no se vuelve a proponer). Se puede unir igual a mano.
+// v0.96.0 · "No es este": queda guardado en cada documento del par (no se vuelve a proponer). Se puede unir igual a mano.
 export async function descartarPar(docIds, movId) {
   await enTransaccion(async (tx, d) => {
     const refs = docIds.map(i => FB.doc(d, GN.COL.docs, i)), sn = [];
@@ -322,4 +338,32 @@ export async function descartarPar(docIds, movId) {
     sn.forEach((x, i) => { if (!x.exists()) return; const a = x.data(), l = Array.isArray(a.descartes) ? a.descartes : [];
       if (!l.includes(movId)) tx.update(refs[i], { descartes: l.concat([movId]).slice(-30), historial: conHist(a, marca('no es este cargo', { movId })) }); });
   });
+}
+
+// v0.96.0 · Compromiso (pago fijo sin documento): nombre, a quién se paga (nombre y RUT opcional), monto, día del mes, desde qué mes, ítem y
+// reparto. Su clasificación queda en la ficha de a quién se paga (así sus documentos llegan clasificados y un cambio del reparto rige para lo que viene).
+// Un cambio del monto o del día rige desde el próximo mes que se cree (lo ya creado no se toca).
+export async function guardarCompromiso(c) {
+  const nombre = String(c.nombre || '').trim().slice(0, 80), aQuien = String(c.aQuien || '').trim().slice(0, 120), monto = Math.round(Number(c.monto) || 0), dia = Math.round(Number(c.dia) || 0);
+  if (!nombre) throw error('Escriba el nombre (por ejemplo, Arriendo Ainavillo).', 'datos');
+  if (!aQuien) throw error('Escriba a quién se le paga.', 'datos');
+  if (!(monto > 0)) throw error('Escriba el monto.', 'datos');
+  if (!(dia >= 1 && dia <= 28)) throw error('El día de pago va del 1 al 28.', 'datos');
+  if (!String(c.item || '').trim()) throw error('Elija el ítem.', 'datos');
+  if (!c.repartoId) { const err = GB.repartoValido(c.areas); if (err) throw error(err, 'datos'); }
+  const id = c.id || 'cp_' + GN.norm(nombre).toLowerCase().replace(/ /g, '_').slice(0, 30) + '_' + Date.now().toString(36);
+  const dato = { nombre, aQuien, rut: String(c.rut || '').trim().slice(0, 14), monto, dia, desde: /^\d{4}-\d{2}$/.test(c.desde || '') ? c.desde : '', item: String(c.item).trim(), repartoId: c.repartoId || '', areas: c.repartoId ? [] : c.areas, estado: 'activo' };
+  const clave = GB.claveBase(GB.docDeCompromiso({ id, ...dato }, '2000-01'));
+  await enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.compromisos, id), sn = await tx.get(ref), a = sn.exists() ? sn.data() : null, pref = FB.doc(d, GN.COL.provs, clave), ps = await tx.get(pref), prev = ps.exists() ? ps.data() : null;
+    const h = marca(a ? 'cambió el compromiso' : 'creó el compromiso', { monto, dia });
+    tx.set(ref, limpio({ ...dato, ...(a ? {} : { creado: { por: h.por, en: h.en } }), historial: conHist(a, h) }), { merge: true });
+    tx.set(pref, limpio({ razon: aQuien, rut: dato.rut, item: dato.item, modo: 'fijo', por: h.por, en: h.en, historial: conHist(prev, marca('clasificación del compromiso ' + nombre)) }), { merge: true });
+    tx.update(pref, { repartoId: dato.repartoId, areas: dato.areas });
+  });
+  return id;
+}
+export async function archivarCompromiso(id, archivar = true) {
+  await enTransaccion(async (tx, d) => { const ref = FB.doc(d, GN.COL.compromisos, id), sn = await tx.get(ref); if (!sn.exists()) throw error('Ese compromiso ya no está.', 'cambio');
+    tx.update(ref, { estado: archivar ? 'archivado' : 'activo', historial: conHist(sn.data(), marca(archivar ? 'archivado (no crea más meses)' : 'vuelve a crear sus meses')) }); });
 }

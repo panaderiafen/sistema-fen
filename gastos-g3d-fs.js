@@ -24,13 +24,13 @@
 //    ya cargado (y, si se pide, en los otros meses del trabajador) por el camino de siempre: corregir con historial y versión,
 //    anular lo que sobra y crear lo que falta. Un mes cerrado en Finanzas (fin_cierres) bloquea.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.95.0';
-import * as M from './gastos-g2.js?v=0.95.0';
-import * as G3 from './gastos-g3.js?v=0.95.0';
-import * as D from './gastos-g3d.js?v=0.95.0';
-import * as C from './gastos-cartola.js?v=0.95.0';
-import * as AB from './gastos-abono.js?v=0.95.0';
-import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.95.0';
+import * as FB from './fs-gastos.js?v=0.96.0';
+import * as M from './gastos-g2.js?v=0.96.0';
+import * as G3 from './gastos-g3.js?v=0.96.0';
+import * as D from './gastos-g3d.js?v=0.96.0';
+import * as C from './gastos-cartola.js?v=0.96.0';
+import * as AB from './gastos-abono.js?v=0.96.0';
+import { dbBase, todos, catalogo, nuevo, cambio, despues, correo } from './gastos-fs.js?v=0.96.0';
 
 const error = (msg, code) => Object.assign(new Error(msg), { code });
 const s = v => String(v == null ? '' : v);
