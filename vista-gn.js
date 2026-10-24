@@ -7,15 +7,15 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.92.0';
-import * as GB from './gn-bandeja.js?v=0.92.0';
-import * as AR from './areas.js?v=0.92.0';
-import * as Sii from './sii.js?v=0.92.0';
-import * as MP from './mercadopago.js?v=0.92.0';
+import * as GN from './gn-modelo.js?v=0.92.1';
+import * as GB from './gn-bandeja.js?v=0.92.1';
+import * as AR from './areas.js?v=0.92.1';
+import * as Sii from './sii.js?v=0.92.1';
+import * as MP from './mercadopago.js?v=0.92.1';
 
 const st = { D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, noEsEste: new Set(), ocupado: false };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.92.0');
+const fsGN = () => import('./gn-fs.js?v=0.92.1');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -79,9 +79,11 @@ function bandejaHtml(H) {
   const bt = (attr, txt, pri) => `<button type="button" class="${pri ? 'btn btn-chico' : 'btn-sec btn-chico'}" ${attr}>${txt}</button>`;
   const sugOk = d => d.sugerida && (d.sugerida.areas || []).length;
   const clasTxt = d => (d.clasifEf ? `<span class="gn-cl">${H.esc(GB.textoPartes(d.clasifEf.partes))}${d.clasifEf.de === 'proveedor' ? ' <span class="gn-cl-de">(como siempre)</span>' : ''}</span>`
+    : d.soloItem ? `<span class="gn-cl gn-cl-falta">${H.esc(d.soloItem)} · falta el área</span>`
     : sugOk(d) ? `<span class="gn-cl gn-cl-falta">Sugerido: ${H.esc(d.sugerida.item)} · ${H.esc(GB.textoReparto(d.sugerida.areas))}</span>` : '<span class="gn-cl gn-cl-falta">Sin clasificar</span>');
   const detHtml = d => ((d.detalle || []).length ? `<details class="gn-detalle"><summary>Ver detalle (${d.detalle.length} ${d.detalle.length === 1 ? 'línea' : 'líneas'})</summary><ul>${d.detalle.map(x => `<li><span>${H.esc(x.descripcion)}${x.cantidad ? ` · ${H.esc(String(x.cantidad).replace('.', ','))}${x.unidad ? ' ' + H.esc(x.unidad) : ''}` : ''}</span><span class="gn-m">${H.pesos(x.monto)}</span></li>`).join('')}</ul></details>` : '');
   const clasBtns = d => d.estado === 'no_va' ? '' : d.clasifEf ? bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Cambiar clasificación')
+    : d.soloItem ? bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Elegir el área')
     : sugOk(d) ? bt(`data-gn-usar="${H.esc(d.id)}"`, 'Usar lo sugerido') + bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar') : bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar');
   const docFila = (d, acc) => `<div class="gn-it${d.nc ? ' gn-nc' : ''}" data-gn-doc="${H.esc(d.id)}"><div class="gn-fila"><b>${nombreDoc(d)}</b><span class="gn-m">${H.pesos(d.estadoPago === 'a_medias' ? d.saldo : d.total)}</span></div>
       <small>${lineaDoc(d)}${d.estadoPago === 'a_medias' ? ` · falta de ${H.pesos(d.total)}` : ''}</small>${clasTxt(d)}${detHtml(d)}${acc ? `<div class="gn-acc">${acc}</div>` : ''}</div>`;
@@ -245,6 +247,8 @@ async function hacer(el, H, fn, ok) {
   finally { st.ocupado = false; }
 }
 const B = () => st.B;
+// Lo sugerido con varias áreas se recuerda como "solo el ítem" (el reparto cambia de una compra a otra); con una sola área, entero
+const modoSug = sg => ((sg.areas || []).length > 1 ? 'item' : 'fijo');
 const docDe = id => B().docs.find(d => d.id === id), movDe = id => B().movs.find(m => m.id === id);
 const nom = d => d.razon || d.rut || 'Sin nombre';
 
@@ -260,7 +264,7 @@ function acciones(el, H) {
     if (ds.gnComo) return dlgComo(el, H, docDe(ds.gnComo));
     if (ds.gnNova) return dlgNoVa(el, H, docDe(ds.gnNova));
     if (ds.gnClasif) return dlgClasif(el, H, docDe(ds.gnClasif));
-    if (ds.gnUsar) { const d = docDe(ds.gnUsar); return hacer(el, H, async () => (await fsGN()).clasificar(d, d.sugerida, true), `Clasificado: ${H.esc(nom(d))} → ${H.esc(d.sugerida.item)}. Sus próximas facturas llegan así.`); }
+    if (ds.gnUsar) { const d = docDe(ds.gnUsar); return hacer(el, H, async () => (await fsGN()).clasificar(d, d.sugerida, modoSug(d.sugerida)), `Clasificado: ${H.esc(nom(d))} → ${H.esc(d.sugerida.item)}. Sus próximas facturas llegan así.`); }
     if (ds.gnUsarTodas !== undefined) return usarTodas(el, H);
     if (ds.gnNc) return dlgNC(el, H, docDe(ds.gnNc));
     if (ds.gnEsde) return dlgEsDe(el, H, movDe(ds.gnEsde));
@@ -285,7 +289,7 @@ async function confirmarSeguros(el, H) {
 }
 async function usarTodas(el, H) {
   const l = st.B.porClasificar.filter(d => d.sugerida && (d.sugerida.areas || []).length), hechos = new Set();
-  return hacer(el, H, async () => { const F = await fsGN(); for (const d of l) { await F.clasificar(d, d.sugerida, !hechos.has(GB.claveProveedor(d))); hechos.add(GB.claveProveedor(d)); } }, `Clasificados ${l.length} documentos con lo sugerido.`);
+  return hacer(el, H, async () => { const F = await fsGN(); for (const d of l) { await F.clasificar(d, d.sugerida, hechos.has(GB.claveProveedor(d)) ? false : modoSug(d.sugerida)); hechos.add(GB.claveProveedor(d)); } }, `Clasificados ${l.length} documentos con lo sugerido.`);
 }
 
 // ¿Cómo se pagó? (una sola puerta: con un cargo, en efectivo, con plata del dueño)
@@ -365,7 +369,7 @@ async function asegurarClasif(H, docs) {
   for (const d of docs) {
     if (!d || d.clasifEf || hechos.has(GB.claveProveedor(d))) continue;
     const r = await pedirClasif(H, d, true); if (!r) return false;
-    if (r.recordar) hechos.add(GB.claveProveedor(d));
+    if (r.recordar === 'fijo') hechos.add(GB.claveProveedor(d));   // en "solo el ítem", las otras facturas del proveedor piden su área
   }
   return true;
 }
@@ -374,8 +378,9 @@ async function asegurarClasif(H, docs) {
 function pedirClasif(H, d, antesDePagar) {
   return new Promise(resolve => {
     const base = GB.baseDe(d), det = d.detalle || [], conLineas = det.length >= 2, c0 = d.clasifEf || null, sug = d.sugerida && (d.sugerida.areas || []).length ? d.sugerida : null;
-    const pre = c0 ? { item: c0.item, areas: c0.areas && c0.areas.length ? c0.areas : [] } : sug;
     const prov = (st.D.provs || {})[GB.claveProveedor(d)] || null, prods = (prov && prov.productos) || {};
+    const pre = c0 ? { item: c0.item, areas: c0.areas && c0.areas.length ? c0.areas : [] } : d.soloItem ? { item: d.soloItem, areas: [] } : sug;
+    const modo0 = prov ? GB.modoProveedor(prov) : '';
     const lineasPrev = c0 && c0.lineas && c0.lineas.length === det.length ? c0.lineas : null;
     const empezarSeparado = !!(lineasPrev || (conLineas && det.some(x => prods[GB.normProducto(x.descripcion)])) || (c0 && new Set((c0.partes || []).map(p => p.item)).size > 1));
     const items = st.D.items || [], areaSel = (v, k) => `<select data-${k} aria-label="Área"><option value="">Área</option>${AR.GASTO.map(a => `<option value="${a}" ${a === v ? 'selected' : ''}>${H.esc(a)}</option>`).join('')}</select>`;
@@ -392,7 +397,11 @@ function pedirClasif(H, d, antesDePagar) {
         : `<div class="gn-montos" data-montos>${(c0 && (c0.partes || []).length > 1 ? c0.partes : [{}, {}]).map(filaMonto).join('')}</div><p><button type="button" class="btn-sec btn-chico" data-agregar>Agregar parte</button></p>`}
         <p class="ayuda" data-resumen></p>
       </div>
-      <label class="gn-check"><input type="checkbox" id="cl-rec" checked> Recordar para las próximas facturas de este proveedor${conLineas ? ' (también cada producto)' : ''}</label>
+      <fieldset class="campo gn-recordar"><legend>Para las próximas facturas de este proveedor</legend>
+        <label class="gn-opc"><input type="radio" name="cl-rec" value="fijo" ${modo0 !== 'item' ? 'checked' : ''}><span><b>Recordar ítem y áreas</b><small>Siempre se reparte igual (luz, agua, arriendo, o un proveedor de una sola área). La próxima factura llega clasificada.</small></span></label>
+        <label class="gn-opc"><input type="radio" name="cl-rec" value="item" ${modo0 === 'item' ? 'checked' : ''}><span><b>Recordar solo el ítem</b><small>Las áreas cambian en cada compra. La próxima factura llega con el ítem y pide el área.</small></span></label>
+        <label class="gn-opc"><input type="radio" name="cl-rec" value="no"><span><b>No recordar</b><small>Fue una compra excepcional.</small></span></label>
+      </fieldset>
       <p class="error" data-err role="alert"></p>
       <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">${antesDePagar ? 'Guardar y seguir' : 'Guardar'}</button></div></form>`);
     let listo = false; dlg.addEventListener('close', () => { if (!listo) resolve(null); });
@@ -410,7 +419,13 @@ function pedirClasif(H, d, antesDePagar) {
       return { general: g, partes, lineas: null };
     };
     const pintarResumen = () => { if (!sep.checked) return; const a = armar(), t = a.partes.reduce((x, p) => x + p.monto, 0); resumen.textContent = a.partes.length ? `${GB.textoPartes(a.partes)} · suma ${H.pesos(t)} de ${H.pesos(base)}${t !== base ? ` · ${t < base ? 'falta' : 'sobra'} ${H.pesos(Math.abs(base - t))}` : ''}` : ''; };
-    const mostrar = () => { caja.hidden = !sep.checked; pintarResumen(); };
+    const fsAreas = dlg.querySelector('[data-areas]').closest('fieldset');
+    const notaGen = document.createElement('p'); notaGen.className = 'ayuda gn-nota-gen'; notaGen.textContent = 'Con las líneas separadas, esto se usa solo para las líneas vacías.'; fsAreas.appendChild(notaGen);
+    const mostrar = () => { caja.hidden = !sep.checked; fsAreas.classList.toggle('gn-gris', sep.checked); notaGen.hidden = !sep.checked; pintarResumen(); };
+    // Sin ficha del proveedor: si la factura va a más de un área, lo más probable es que cambie en cada compra → "solo el ítem" (si no lo tocó)
+    let tocoRec = !!modo0; dlg.querySelectorAll('[name=cl-rec]').forEach(r => r.addEventListener('change', () => { tocoRec = true; }));
+    const proponerRec = () => { if (tocoRec) return; const a = armar(), n = new Set(a.partes.map(p => p.area)).size; dlg.querySelector(`[name=cl-rec][value="${n > 1 ? 'item' : 'fijo'}"]`).checked = true; };
+    dlg.addEventListener('change', ev => { if (!ev.target.matches('[name=cl-rec]')) proponerRec(); });
     sep.addEventListener('change', mostrar); mostrar();
     dlg.addEventListener('input', pintarResumen); dlg.addEventListener('change', pintarResumen);
     const ag = dlg.querySelector('[data-agregar]'); if (ag) ag.onclick = () => { dlg.querySelector('[data-montos]').insertAdjacentHTML('beforeend', filaMonto()); };
@@ -418,7 +433,7 @@ function pedirClasif(H, d, antesDePagar) {
     dlg.querySelector('form').addEventListener('submit', async ev => {
       ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
       try {
-        const a = armar(), rec = dlg.querySelector('#cl-rec').checked;
+        const a = armar(), rv = dlg.querySelector('[name=cl-rec]:checked').value, rec = rv === 'no' ? false : rv;
         await (await fsGN()).clasificar(d, a, rec);
         listo = true; dlg.close(); st.D = null; H.registrar('Gastos: clasificó', `${nom(d)} · ${GB.textoPartes(a.partes)}`);
         resolve({ partes: a.partes, recordar: rec });

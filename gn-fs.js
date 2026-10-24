@@ -10,11 +10,11 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.92.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.92.0';
-import { ahoraChile } from './gastos-g2.js?v=0.92.0';
-import * as GN from './gn-modelo.js?v=0.92.0';
-import * as GB from './gn-bandeja.js?v=0.92.0';
+import * as FB from './fs-gastos.js?v=0.92.1';
+import { dbBase, correo } from './gastos-fs.js?v=0.92.1';
+import { ahoraChile } from './gastos-g2.js?v=0.92.1';
+import * as GN from './gn-modelo.js?v=0.92.1';
+import * as GB from './gn-bandeja.js?v=0.92.1';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -179,7 +179,8 @@ export async function volverMov(movId) {
 //  · general: lo de "toda la factura" (lo que el proveedor recuerda para las próximas).
 //  · partes: [{ item, area, monto }] que suman la base del documento (si no vienen, salen de general).
 //  · lineas: [{ descripcion, item, area }] cuando se separó por líneas: el proveedor recuerda cada producto.
-export async function clasificar(doc, clasif, recordar = true) {
+export async function clasificar(doc, clasif, recordar = true) {   // recordar: 'fijo' | 'item' | false (true = 'fijo')
+  const modo = recordar === 'item' ? 'item' : 'fijo';
   const gen = clasif.general || { item: clasif.item, areas: clasif.areas };
   const err = GB.repartoValido(gen.areas); if (err) throw error(err, 'datos');
   if (!String(gen.item || '').trim()) throw error('Elija el ítem.', 'datos');
@@ -193,9 +194,11 @@ export async function clasificar(doc, clasif, recordar = true) {
     const pref = recordar ? FB.doc(d, GN.COL.provs, GB.claveProveedor(doc)) : null, ps = pref ? await tx.get(pref) : null, prev = ps && ps.exists() ? ps.data() : null;
     tx.update(ref, { clasif: { item: general.item, areas: general.areas, partes, porLineas: lineas.length > 0, lineas: lineas.map(l => ({ descripcion: String(l.descripcion).slice(0, 120), item: l.item, area: l.area })), por: h.por, en: h.en }, historial: conHist(a, h) });
     if (pref) {
-      const productos = { ...((prev && prev.productos) || {}) };
-      lineas.forEach(l => { const k = GB.normProducto(l.descripcion); if (k) productos[k] = { item: l.item, area: l.area }; });
-      tx.set(pref, limpio({ rut: doc.rut || '', razon: doc.razon || '', item: general.item, areas: general.areas, productos, por: h.por, en: h.en, historial: conHist(prev, h) }), { merge: true });
+      // En modo "solo el ítem", ningún producto guarda área (tampoco los que la tenían de antes)
+      const antes = Object.fromEntries(Object.entries((prev && prev.productos) || {}).map(([k, v]) => [k, modo === 'item' ? { item: v.item } : v]));
+      const productos = { ...antes, ...GB.productosARecordar(lineas, modo) };
+      tx.set(pref, limpio({ rut: doc.rut || '', razon: doc.razon || '', item: general.item, modo, por: h.por, en: h.en, historial: conHist(prev, h) }), { merge: true });
+      tx.update(pref, { areas: modo === 'fijo' ? general.areas : [], productos: limpio(productos) });   // estos dos se reemplazan enteros (merge mezclaría lo de antes)
     }
   });
 }
@@ -217,7 +220,7 @@ export async function registrarAMano(mov, p) {
     tx.set(FB.doc(d, GN.COL.pagos, idPago(docId, mov.id)), { docId, movId: mov.id, medio: 'cargo', monto, fecha: mov.fecha, cuenta: mov.cuenta, nota: '', estado: 'vigente', creado: { por: h.por, en: h.en } });
     tx.update(mref, { historial: conHist(m, marca('registrado a mano: ' + doc.razon, { docs: [docId] })) });
     if (pref) { const sena = GB.senaDe(mov.glosa), prev = ps && ps.exists() ? ps.data() : null;
-      tx.set(pref, limpio({ rut: doc.rut, razon: doc.razon, item: doc.clasif.item, areas: p.areas, por: h.por, en: h.en, historial: conHist(prev, h), ...(sena ? { glosas: conGlosa(prev, doc, sena, mov.id, h).glosas } : {}) }), { merge: true }); }
+      tx.set(pref, limpio({ rut: doc.rut, razon: doc.razon, item: doc.clasif.item, modo: (prev && prev.modo) || 'fijo', areas: prev && prev.modo === 'item' ? [] : p.areas, por: h.por, en: h.en, historial: conHist(prev, h), ...(sena ? { glosas: conGlosa(prev, doc, sena, mov.id, h).glosas } : {}) }), { merge: true }); }
     return { docId };
   });
 }

@@ -48,7 +48,8 @@ export const claveProveedor = d => (rutN(d.rutN || d.rut) ? 'r_' + rutN(d.rutN |
 // La suma de las partes es la base del documento. El caso simple (un ítem, una o varias áreas en %) es una clasificación más.
 // Lo antiguo ({ item, areas: [{ area, pct }] }) se lee igual. El proveedor recuerda su clasificación general y la de cada producto.
 export const baseDe = d => { const b = entero(d.neto) + entero(d.exento); return b || entero(d.total); };
-export const normProducto = t => norm(t).replace(/\b\d+([.,]\d+)?\b/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+// v0.92.1 · Con sus números: el tamaño o el formato distinguen un producto de otro ("CAJA MONACO 12" no es "CAJA MONACO 15")
+export const normProducto = t => norm(t).slice(0, 80);
 // Reparte un monto en partes enteras según pesos, sin perder pesos (lo que sobra del redondeo va a la parte más grande)
 export function repartirMonto(total, pesos) {
   const t = pesos.reduce((a, b) => a + b, 0); if (!t) return pesos.map(() => 0);
@@ -82,16 +83,28 @@ export function partesDe(d, c) {
   return partesSimple(baseDe(d), c.item, c.areas || []);
 }
 // Lo que dice la ficha del proveedor para un documento: su clasificación general y, por línea, la del producto si la recuerda
+// v0.92.1 · Lo que el proveedor recuerda: modo "fijo" (ítem y áreas, siempre igual: la factura llega clasificada) o "item" (solo el
+// ítem; las áreas cambian en cada compra: la factura llega con el ítem y pide el área). Sin modo (lo anterior) = fijo.
+// Un producto recuerda su ítem, y su área solo si es siempre la misma.
+export const modoProveedor = p => (p && p.modo === 'item' ? 'item' : 'fijo');
 function desdeProveedor(d, p) {
   const prods = p.productos || {}, det = d.detalle || [], usa = det.length > 1 && det.some(x => prods[normProducto(x.descripcion)]);
   if (!usa) return partesSimple(baseDe(d), p.item, p.areas || []);
   const gen = (p.areas || [])[0] ? { item: p.item, area: p.areas[0].area } : { item: p.item, area: '' };
-  return partesPorLineas(d, det.map(x => prods[normProducto(x.descripcion)] || gen));
+  return partesPorLineas(d, det.map(x => { const r = prods[normProducto(x.descripcion)]; return r ? { item: r.item || gen.item, area: r.area || gen.area } : gen; }));
+}
+// Los productos que se recuerdan de una factura separada por líneas: ítem siempre; área solo si el proveedor es "fijo" y ese producto
+// fue a una sola área en la factura (el mismo producto en dos áreas no recuerda área)
+export function productosARecordar(lineas, modo) {
+  const por = {};
+  (lineas || []).forEach(l => { const k = normProducto(l.descripcion); if (!k || !l.item) return; const x = por[k] || (por[k] = { item: l.item, areas: new Set() }); if (l.area) x.areas.add(l.area); });
+  const out = {}; Object.entries(por).forEach(([k, x]) => { out[k] = modo === 'fijo' && x.areas.size === 1 ? { item: x.item, area: [...x.areas][0] } : { item: x.item }; });
+  return out;
 }
 export function clasifDe(d, provs) {
   if (d.clasif && (d.clasif.item || (d.clasif.partes || []).length)) { const partes = partesDe(d, d.clasif); return { ...d.clasif, partes, item: principal(partes), de: 'documento' }; }
   const p = provs && provs[claveProveedor(d)];
-  if (!p || !p.item) return null;
+  if (!p || !p.item || modoProveedor(p) === 'item') return null;
   const partes = desdeProveedor(d, p); return partes.length ? { item: p.item, areas: p.areas || [], partes, de: 'proveedor' } : null;
 }
 const principal = partes => (partes.slice().sort((a, b) => Math.abs(b.monto) - Math.abs(a.monto))[0] || {}).item || '';
@@ -228,7 +241,8 @@ export function repartirPago(docs, monto) {
 // D: { docs, movs, pagos, provs, sugeridas, inicio }  opts: { cuenta }
 export function armar(D, { cuenta = '', excluir = null } = {}) {
   const I = indicePagos(D.pagos), provs = D.provs || {}, sug = D.sugeridas || {};
-  const docs = (D.docs || []).map(d => { const e = estadoDoc(d, I), c = clasifDe(d, provs); return { ...d, ...e, estadoPago: e.estado, clasifEf: c, sugerida: !c ? sug[claveProveedor(d)] || null : null }; });
+  const docs = (D.docs || []).map(d => { const e = estadoDoc(d, I), c = clasifDe(d, provs); return { ...d, ...e, estadoPago: e.estado, clasifEf: c, sugerida: !c ? sug[claveProveedor(d)] || null : null,
+    soloItem: !c && provs[claveProveedor(d)] && modoProveedor(provs[claveProveedor(d)]) === 'item' ? provs[claveProveedor(d)].item : '' }; });
   const movs = (D.movs || []).map(m => ({ ...m, libre: libreMov(m, I), pagosM: I.porMov[m.id] || [] }));
   const abiertosD = docs.filter(d => d.estadoPago === 'sin_pago' || d.estadoPago === 'a_medias');
   const abiertosM = movs.filter(m => m.libre > 0 && m.estado !== 'no_va' && !m.naturaleza);

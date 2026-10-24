@@ -1,9 +1,26 @@
-# Sistema Fën · v0.92.0
+# Sistema Fën · v0.92.1
 
-**App:** v0.92.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.92.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.92.1: el proveedor recuerda solo lo que es estable
+
+- Al clasificar, "Para las próximas facturas de este proveedor" tiene tres opciones:
+  - **Recordar ítem y áreas:** se reparte siempre igual (luz, agua, arriendo, o un proveedor de una sola área). La próxima factura llega clasificada.
+  - **Recordar solo el ítem:** las áreas cambian en cada compra. La próxima factura llega con el ítem puesto y dice "falta el área"; el botón "Elegir el área" abre la clasificación con el ítem ya escrito.
+  - **No recordar:** una compra excepcional.
+- Si la factura va a más de un área, el sistema propone "solo el ítem"; con una sola área, "ítem y áreas". Usted puede cambiarlo.
+- "Usar lo sugerido" con varias áreas también recuerda solo el ítem.
+- **Productos:** cada producto recuerda su ítem, y su área solo si el proveedor es "ítem y áreas" y el producto fue a una sola área en esa factura. Si el mismo producto va a dos áreas en una factura, no recuerda el área.
+- El producto se reconoce **con sus números**: "CAJA MONACO 12" y "CAJA MONACO 15" son productos distintos.
+- **Separar por líneas:** el ítem y las áreas de arriba quedan en gris con el aviso "se usa solo para las líneas vacías".
+- **Los proveedores ya clasificados** quedan como "ítem y áreas", igual que antes. Para cambiar uno, abra una de sus facturas, toque "Cambiar clasificación" y elija "Recordar solo el ítem".
+Cambian `gn-bandeja.js`, `gn-fs.js`, `vista-gn.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.92.1`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.92.1.
+- [ ] Paredes y Villegas (y otros cuyo reparto cambia): "Cambiar clasificación" → "Recordar solo el ítem".
 
 ## Novedades de la v0.92.0: listo = pagado y clasificado; clasificación por partes (líneas o montos)
 

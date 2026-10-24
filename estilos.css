@@ -2773,3 +2773,6 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-lin-desc { font-size: 13px; overflow-wrap: anywhere; }
 .gn-lin-desc small { display: block; color: var(--suave); font-size: 12px; }
 @media (max-width: 560px) { .gn-sep-fila, .gn-montos .gn-sep-fila { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .gn-lin-desc { grid-column: 1 / -1; } }
+/* v0.92.1 · Recordar ítem y áreas / solo el ítem / no recordar; lo general en gris cuando se separa por líneas */
+.gn-recordar { display: flex; flex-direction: column; gap: 6px; }
+.gn-gris .chips, .gn-gris .gn-pcts { opacity: .55; }
