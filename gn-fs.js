@@ -10,11 +10,11 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.92.5';
-import { dbBase, correo } from './gastos-fs.js?v=0.92.5';
-import { ahoraChile } from './gastos-g2.js?v=0.92.5';
-import * as GN from './gn-modelo.js?v=0.92.5';
-import * as GB from './gn-bandeja.js?v=0.92.5';
+import * as FB from './fs-gastos.js?v=0.93.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.93.0';
+import { ahoraChile } from './gastos-g2.js?v=0.93.0';
+import * as GN from './gn-modelo.js?v=0.93.0';
+import * as GB from './gn-bandeja.js?v=0.93.0';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -27,15 +27,23 @@ const inicio = () => (typeof window !== 'undefined' && window.FEN_SIS && window.
 
 // ── Lecturas ──
 export async function leer() {
-  const [docs, movs, cargas, pagos, provs, cfg, items] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.movs), todos(GN.COL.cargas), todos(GN.COL.pagos), todos(GN.COL.provs), todos(GN.COL.config), todos('items').catch(() => [])]);
+  const [docs, movs, cargas, pagos, provs, cfg, items, reps0] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.movs), todos(GN.COL.cargas), todos(GN.COL.pagos), todos(GN.COL.provs), todos(GN.COL.config), todos('items').catch(() => []), todos(GN.COL.repartos)]);
   let sug = cfg.find(x => x.id === 'sugerencias');
   if (!sug) { try { sug = await armarSugerencias(); } catch (e) { sug = { porProveedor: {} }; } }
+  // v0.93.0 · Los repartos iniciales se crean la primera vez (una sola vez: si ya hay alguno, no se toca)
+  let reps = reps0;
+  if (!reps.length) { try { await crearRepartosIniciales(); reps = await todos(GN.COL.repartos); } catch (e) { reps = []; } }
   return { docs, movs, cargas: cargas.sort((a, b) => String(b.en || '').localeCompare(String(a.en || ''))), pagos, provs: Object.fromEntries(provs.map(p => [p.id, p])),
-    sugeridas: (sug && sug.porProveedor) || {}, items: itemsDe(items), inicio: inicio() };
+    sugeridas: (sug && sug.porProveedor) || {}, items: itemsDe(items), repartos: Object.fromEntries(reps.filter(r => r.estado !== 'archivado').map(r => [r.id, r])), inicio: inicio() };
 }
 // El catálogo de ítems de siempre (Configuración → Ítems): los vivos, en su orden
 const itemsDe = l => l.filter(x => x.item && !x.archivado && !x.quitadoEnPlanilla && x.estado !== 'ARCHIVADO').sort((a, b) => (Number(a.orden) || 999) - (Number(b.orden) || 999)).map(x => ({ item: String(x.item), area: String(x.area || '') }))
   .filter((x, i, a) => a.findIndex(y => y.item === x.item) === i);
+async function crearRepartosIniciales() {
+  const d = await dbBase(), b = FB.writeBatch(d), h = { por: quien(), en: ahoraChile().texto };
+  GB.REPARTOS_INICIALES.forEach(r => b.set(FB.doc(d, GN.COL.repartos, r.id), { nombre: r.nombre, areas: r.areas, estado: 'activo', creado: h, historial: [{ que: 'creado (repartos iniciales acordados el 23 oct)', ...h }] }));
+  await b.commit();
+}
 // Las sugerencias del Gastos anterior: se leen sus gastos UNA vez y se guarda el resumen (un documento)
 async function armarSugerencias() {
   const g = await todos('gastos'), porProveedor = GB.sugerenciasDeAnterior(g.filter(x => !x.quitadoEnPlanilla));
@@ -103,7 +111,7 @@ const idPago = (docId, ref, n) => 'p_' + GN.hash(docId + '|' + ref) + (n ? '_' +
 // Pagar: partes = [{ docId, monto }], con un movimiento (movId) o un medio sin banco (efectivo, personal) y su fecha.
 export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', nota = '' }) {
   if (!partes || !partes.length) throw error('Nada que pagar.', 'datos');
-  const pagosAntes = await todos(GN.COL.pagos);
+  const pagosAntes = await todos(GN.COL.pagos), reps = Object.fromEntries((await todos(GN.COL.repartos)).map(r => [r.id, r]));
   return enTransaccion(async (tx, d) => {
     const refs = partes.map(p => FB.doc(d, GN.COL.docs, p.docId)), sn = [];
     for (const r of refs) sn.push(await tx.get(r));
@@ -113,7 +121,7 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
     // v0.91.2 · Regla: cada documento pagado tiene que estar clasificado (por sí mismo o por su proveedor)
     const claves = [...new Set(sn.map(x => GB.claveProveedor(x.data())))], provs = {};
     for (const k of [...new Set(claves.concat(sn.map(x => GB.claveBase(x.data()))))]) { const ps = await tx.get(FB.doc(d, GN.COL.provs, k)); if (ps.exists()) provs[k] = ps.data(); }
-    const falta = GB.faltaClasificar(sn.map(x => ({ id: x.id, ...x.data() })), provs);
+    const falta = GB.faltaClasificar(sn.map(x => ({ id: x.id, ...x.data() })), provs, reps);
     if (falta.length) throw error(`Primero clasifique: ${falta.map(x => x.razon || x.folio).join(', ')}.`, 'clasificar');
     // v0.91.1 · El proveedor aprende cómo aparece en el banco (solo si todos los documentos son del mismo proveedor y la glosa tiene seña propia)
     const sena = mov ? GB.senaDe(mov.glosa) : '';
@@ -123,7 +131,10 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
       const ref = movId || (medio + '|' + fecha), n = pagosAntes.filter(x => x.id === idPago(p.docId, ref) || x.id.startsWith(idPago(p.docId, ref) + '_')).length;
       tx.set(FB.doc(d, GN.COL.pagos, idPago(p.docId, ref, n)), limpio({ docId: p.docId, movId, medio: movId ? 'cargo' : medio, monto: Math.round(Number(p.monto) || 0), fecha: movId ? mov.fecha : fecha,
         cuenta: mov ? mov.cuenta : '', nota: String(nota || '').slice(0, 200), estado: 'vigente', creado: { por: h.por, en: h.en } }));
-      tx.update(refs[i], { historial: conHist(sn[i].data(), h) });
+      // v0.93.0 · Al pagarse, la clasificación que venía del proveedor queda guardada en el documento: un cambio posterior del proveedor
+      // o de su reparto no mueve lo ya pagado (ni los meses cerrados de Finanzas)
+      const dd = { id: refs[i].id, ...sn[i].data() }, c = dd.clasif ? null : GB.clasifDe(dd, provs, reps);
+      tx.update(refs[i], { historial: conHist(sn[i].data(), h), ...(c ? { clasif: limpio({ item: c.item, areas: c.areas, repartoId: c.repartoId || '', partes: c.partes, de: 'proveedor', por: h.por, en: h.en }) } : {}) });
     });
     if (mref) tx.update(mref, { historial: conHist(mov, marca('unido a ' + partes.length + (partes.length === 1 ? ' documento' : ' documentos'), { docs: partes.map(p => p.docId) })) });
     if (aprende) tx.set(aprende.ref, conGlosa(aprende.prev, aprende.dato, sena, movId, h), { merge: true });
@@ -184,7 +195,7 @@ export async function clasificar(doc, clasif, recordar = true) {   // recordar: 
   const gen = clasif.general || { item: clasif.item, areas: clasif.areas };
   const err = GB.repartoValido(gen.areas); if (err) throw error(err, 'datos');
   if (!String(gen.item || '').trim()) throw error('Elija el ítem.', 'datos');
-  const general = { item: String(gen.item).trim(), areas: gen.areas.map(a => ({ area: String(a.area), pct: Math.round(Number(a.pct) * 100) / 100 })) };
+  const general = { item: String(gen.item).trim(), areas: gen.areas.map(a => ({ area: String(a.area), pct: Math.round(Number(a.pct) * 100) / 100 })), repartoId: String(gen.repartoId || '') };
   const base = GB.baseDe(doc), partes = (clasif.partes && clasif.partes.length ? clasif.partes : GB.partesSimple(base, general.item, general.areas))
     .map(x => ({ item: String(x.item).trim(), area: String(x.area), monto: Math.round(Number(x.monto) || 0) }));
   const e2 = GB.partesValidas(partes, base); if (e2) throw error(e2, 'datos');
@@ -192,13 +203,13 @@ export async function clasificar(doc, clasif, recordar = true) {   // recordar: 
   return enTransaccion(async (tx, d) => {
     const ref = FB.doc(d, GN.COL.docs, doc.id), sn = await tx.get(ref), a = sn.data(), h = marca('clasificado', { clasificacion: GB.textoPartes(partes) });
     const pref = recordar ? FB.doc(d, GN.COL.provs, GB.claveProveedor(doc)) : null, ps = pref ? await tx.get(pref) : null, prev = ps && ps.exists() ? ps.data() : null;
-    tx.update(ref, { clasif: { item: general.item, areas: general.areas, partes, porLineas: lineas.length > 0, lineas: lineas.map(l => ({ descripcion: String(l.descripcion).slice(0, 120), item: l.item, area: l.area })), por: h.por, en: h.en }, historial: conHist(a, h) });
+    tx.update(ref, { clasif: { item: general.item, areas: general.areas, repartoId: general.repartoId, partes, porLineas: lineas.length > 0, separado: !!clasif.separado, lineas: lineas.map(l => ({ descripcion: String(l.descripcion).slice(0, 120), item: l.item, area: l.area })), por: h.por, en: h.en }, historial: conHist(a, h) });
     if (pref) {
       // En modo "solo el ítem", ningún producto guarda área (tampoco los que la tenían de antes)
       const antes = Object.fromEntries(Object.entries((prev && prev.productos) || {}).map(([k, v]) => [k, modo === 'item' ? { item: v.item } : v]));
       const productos = { ...antes, ...GB.productosARecordar(lineas, modo) };
       tx.set(pref, limpio({ rut: doc.rut || '', razon: doc.razon || '', item: general.item, modo, por: h.por, en: h.en, historial: conHist(prev, h) }), { merge: true });
-      tx.update(pref, { areas: modo === 'fijo' ? general.areas : [], productos: limpio(productos) });   // estos dos se reemplazan enteros (merge mezclaría lo de antes)
+      tx.update(pref, { areas: modo === 'fijo' ? general.areas : [], repartoId: modo === 'fijo' ? general.repartoId : '', productos: limpio(productos) });   // estos dos se reemplazan enteros (merge mezclaría lo de antes)
     }
   });
 }
@@ -230,5 +241,50 @@ export async function olvidarSena(provKey, sena) {
   return enTransaccion(async (tx, d) => {
     const ref = FB.doc(d, GN.COL.provs, provKey), sn = await tx.get(ref); if (!sn.exists()) return;
     const a = sn.data(); tx.update(ref, { glosas: (a.glosas || []).filter(g => g.sena !== sena), historial: conHist(a, marca('olvidó la glosa ' + sena)) });
+  });
+}
+
+// ═══════════════ v0.93.0 · Repartos con nombre y ficha del proveedor ═══════════════
+export async function guardarReparto({ id = '', nombre, areas }) {
+  const n = String(nombre || '').trim().slice(0, 60); if (!n) throw error('Escriba el nombre del reparto.', 'datos');
+  const err = GB.repartoValido(areas); if (err) throw error(err, 'datos');
+  const ar = areas.map(a => ({ area: String(a.area), pct: Math.round(Number(a.pct) * 100) / 100 }));
+  const rid = id || 'rp_' + GN.norm(n).toLowerCase().replace(/ /g, '_').slice(0, 40) + '_' + Date.now().toString(36);
+  await enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.repartos, rid), sn = await tx.get(ref), a = sn.exists() ? sn.data() : null, h = marca(a ? 'cambió el reparto' : 'creó el reparto', { areas: GB.textoReparto(ar) });
+    tx.set(ref, limpio({ nombre: n, areas: ar, estado: 'activo', ...(a ? {} : { creado: { por: h.por, en: h.en } }), historial: conHist(a, h) }), { merge: true });
+  });
+  return rid;
+}
+// Aplicar el reparto (cambiado) a lo ya pagado del mes abierto que lo usa (lo que no está pagado ya lo toma solo)
+export async function aplicarRepartoAlMes(rid, mes) {
+  const [docs, reps] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.repartos)]), r = reps.find(x => x.id === rid);
+  if (!r) throw error('Ese reparto ya no está.', 'cambio');
+  const l = docs.filter(x => x.clasif && x.clasif.repartoId === rid && x.mes === mes && !x.clasif.porLineas && !x.clasif.separado);
+  const d = await dbBase();
+  for (let i = 0; i < l.length; i += 200) {
+    const b = FB.writeBatch(d);
+    l.slice(i, i + 200).forEach(x => { const h = marca('reparto aplicado: ' + r.nombre, { areas: GB.textoReparto(r.areas) });
+      b.update(FB.doc(d, GN.COL.docs, x.id), { clasif: limpio({ ...x.clasif, areas: r.areas, partes: GB.partesSimple(GB.baseDe(x), x.clasif.item, r.areas), por: h.por, en: h.en }), historial: conHist(x, h) }); });
+    await b.commit();
+  }
+  return l.length;
+}
+// Ficha del proveedor (o de un servicio): ítem, modo y reparto (o áreas) — sin pasar por una factura
+export async function guardarFicha(clave, { item, modo, repartoId = '', areas = [], razon = '', rut = '' }) {
+  if (!String(item || '').trim()) throw error('Elija el ítem.', 'datos');
+  const m = modo === 'item' ? 'item' : 'fijo';
+  if (m === 'fijo' && !repartoId) { const err = GB.repartoValido(areas); if (err) throw error(err, 'datos'); }
+  await enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.provs, clave), sn = await tx.get(ref), a = sn.exists() ? sn.data() : null, h = marca('ficha editada', { item, modo: m });
+    tx.set(ref, limpio({ ...(a ? {} : { razon, rut }), item: String(item).trim(), modo: m, historial: conHist(a, h), por: h.por, en: h.en }), { merge: true });
+    tx.update(ref, { repartoId: m === 'fijo' ? repartoId : '', areas: m === 'fijo' && !repartoId ? areas : [] });
+  });
+}
+export async function quitarProducto(clave, k) {
+  await enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.provs, clave), sn = await tx.get(ref); if (!sn.exists()) return;
+    const a = sn.data(), prods = { ...(a.productos || {}) }; delete prods[k];
+    tx.update(ref, { productos: prods, historial: conHist(a, marca('olvidó el producto ' + k)) });
   });
 }

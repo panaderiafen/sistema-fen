@@ -1,9 +1,32 @@
-# Sistema Fën · v0.92.5
+# Sistema Fën · v0.93.0
 
-**App:** v0.92.5 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.93.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.93.0: ficha del proveedor, repartos con nombre y B2C por local
+
+- **Repartos con nombre** (pestaña **Repartos**): una forma fija de dividir un gasto entre áreas, con nombre propio. Vienen cuatro, los acordados:
+  - Producción Ainavillo: PAN 57 · BOL 43.
+  - Ainavillo común: PAN, BOL, PAS, ADMIN y B2C-AI, 20% cada una.
+  - Barros Arana común: B2C-BA 50 · CAF 50.
+  - Tienda Barros Arana: B2C-BA 100.
+  Se crean nuevos y se cambian ahí mismo. Un cambio rige para lo que viene; si hay documentos ya pagados del mes en curso con ese reparto, el sistema ofrece aplicarlo también a ellos. Los meses cerrados no cambian.
+- **Al clasificar:** se elige un reparto de la lista (marca las áreas y los porcentajes) o se eligen las áreas a mano. Con un reparto, el sistema propone "Recordar ítem y áreas", porque es una regla fija.
+- **Ficha del proveedor** (pestaña **Proveedores**, con buscador): todo lo que el sistema sabe de cada uno.
+  - Su clasificación y qué recuerda (ítem y áreas, o solo el ítem). Se establece o cambia sin esperar una factura.
+  - Sus servicios por N° de cliente y dirección, cada uno con su clasificación (por ejemplo, internet de Ainavillo con "Ainavillo común").
+  - Cómo aparece en el banco (con Olvidar) y los productos recordados (con Quitar).
+  - Sus últimos documentos y su estado, y el historial de la ficha.
+  Lo que cambie rige para sus facturas sin pagar; las pagadas quedan como estaban (al pagar, la clasificación queda fija en el documento).
+- **B2C por local:** VENTAS se reemplaza por **B2C-BA** (Tienda Barros Arana) y **B2C-AI** (Sala de ventas Ainavillo). Así se verá el margen de cada tienda. Lo ya clasificado con VENTAS o B2C aparece en la Bandeja en "Con área antigua", para cambiarlo. Finanzas junta los códigos en la Etapa 4.
+Cambian `vista-gn.js`, `gn-bandeja.js`, `gn-fs.js`, `gn-modelo.js`, `areas.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.93.0`). Nueva colección en fen-gastos: `gn_repartos` (las reglas actuales ya la permiten).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.93.0.
+- [ ] Abrir Gastos, pestaña Repartos: están los cuatro. Revisar los porcentajes.
+- [ ] Si hay documentos en "Con área antigua", cambiar su clasificación a B2C-BA o B2C-AI.
+- [ ] Una sola vez, en Proveedores: dejar la ficha de los servicios (internet, telefonía, arriendo) con su reparto.
 
 ## Novedades de la v0.92.5: de dónde vino cada factura (XML o RCV) y su detalle al clasificar
 

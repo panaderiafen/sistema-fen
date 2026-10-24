@@ -14,7 +14,7 @@
 // ═══════════════════════════════════════════════
 const s = v => String(v == null ? '' : v).trim();
 export const VERSION = '0.90.0';
-export const COL = { docs: 'gn_documentos', movs: 'gn_movimientos', cargas: 'gn_cargas', pagos: 'gn_pagos', provs: 'gn_proveedores', config: 'gn_config' };   // v0.91.0: pagos, proveedores y config
+export const COL = { docs: 'gn_documentos', movs: 'gn_movimientos', cargas: 'gn_cargas', pagos: 'gn_pagos', provs: 'gn_proveedores', config: 'gn_config', repartos: 'gn_repartos' };   // v0.91.0: pagos, proveedores y config
 export const CUENTAS = { cc: 'BancoEstado cta. cte.', chequera: 'BancoEstado chequera', mp: 'Mercado Pago', tc: 'Tarjeta de crédito' };
 export const TIPOS_DOC = { '33': 'Factura', '34': 'Factura exenta', '39': 'Boleta', '41': 'Boleta exenta', '46': 'Factura de compra', '56': 'Nota de débito', '61': 'Nota de crédito' };
 

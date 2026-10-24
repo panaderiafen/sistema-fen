@@ -42,7 +42,7 @@ export function libreMov(m, I) {
 
 // ── Clasificación efectiva: la del documento, si no la del proveedor ──
 // v0.91.2 · Un pago solo se crea con cada documento clasificado (la regla vive también en gn-fs.pagar).
-export const faltaClasificar = (docs, provs) => (docs || []).filter(d => !clasifDe(d, provs));
+export const faltaClasificar = (docs, provs, reps) => (docs || []).filter(d => !clasifDe(d, provs, reps));
 // v0.92.3 · Con N° de cliente (CdgIntRecep), la memoria es por proveedor Y cliente: los servicios de un mismo proveedor (el internet de
 // Ainavillo y el de Barros Arana) se clasifican cada uno con lo suyo. Lo guardado antes por proveedor sigue sirviendo de respaldo.
 export const claveBase = d => (rutN(d.rutN || d.rut) ? 'r_' + rutN(d.rutN || d.rut) : 'n_' + norm(d.razon).replace(/ /g, '_').slice(0, 60));
@@ -91,10 +91,12 @@ export function partesDe(d, c) {
 // ítem; las áreas cambian en cada compra: la factura llega con el ítem y pide el área). Sin modo (lo anterior) = fijo.
 // Un producto recuerda su ítem, y su área solo si es siempre la misma.
 export const modoProveedor = p => (p && p.modo === 'item' ? 'item' : 'fijo');
-function desdeProveedor(d, p) {
-  const prods = p.productos || {}, det = d.detalle || [], usa = det.length > 1 && det.some(x => prods[normProducto(x.descripcion)]);
-  if (!usa) return partesSimple(baseDe(d), p.item, p.areas || []);
-  const gen = (p.areas || [])[0] ? { item: p.item, area: p.areas[0].area } : { item: p.item, area: '' };
+// v0.93.0 · Las áreas de una ficha: las de su reparto con nombre (si usa uno, las de HOY: un cambio del reparto rige para lo que viene) o las suyas
+export const areasDe = (p, reps) => (p && p.repartoId && reps && reps[p.repartoId] && (reps[p.repartoId].areas || []).length ? reps[p.repartoId].areas : (p && p.areas) || []);
+function desdeProveedor(d, p, reps) {
+  const prods = p.productos || {}, det = d.detalle || [], usa = det.length > 1 && det.some(x => prods[normProducto(x.descripcion)]), ar = areasDe(p, reps);
+  if (!usa) return partesSimple(baseDe(d), p.item, ar);
+  const gen = ar[0] ? { item: p.item, area: ar[0].area } : { item: p.item, area: '' };
   return partesPorLineas(d, det.map(x => { const r = prods[normProducto(x.descripcion)]; return r ? { item: r.item || gen.item, area: r.area || gen.area } : gen; }));
 }
 // Los productos que se recuerdan de una factura separada por líneas: ítem siempre; área solo si el proveedor es "fijo" y ese producto
@@ -105,12 +107,23 @@ export function productosARecordar(lineas, modo) {
   const out = {}; Object.entries(por).forEach(([k, x]) => { out[k] = modo === 'fijo' && x.areas.size === 1 ? { item: x.item, area: [...x.areas][0] } : { item: x.item }; });
   return out;
 }
-export function clasifDe(d, provs) {
-  if (d.clasif && (d.clasif.item || (d.clasif.partes || []).length)) { const partes = partesDe(d, d.clasif); return { ...d.clasif, partes, item: principal(partes), de: 'documento' }; }
+export function clasifDe(d, provs, reps) {
+  if (d.clasif && (d.clasif.item || (d.clasif.partes || []).length)) { const partes = partesDe(d, d.clasif); return { ...d.clasif, partes, item: principal(partes), de: d.clasif.de === 'proveedor' ? 'proveedor' : 'documento' }; }
   const p = provDe(d, provs);
   if (!p || !p.item || modoProveedor(p) === 'item') return null;
-  const partes = desdeProveedor(d, p); return partes.length ? { item: p.item, areas: p.areas || [], partes, de: 'proveedor' } : null;
+  const partes = desdeProveedor(d, p, reps); return partes.length ? { item: p.item, areas: areasDe(p, reps), repartoId: p.repartoId || '', partes, de: 'proveedor', vivo: true } : null;
 }
+// v0.93.0 · Repartos con nombre: los iniciales (acordados el 23 oct; se crean la primera vez, después se editan en Gastos → Repartos)
+export const REPARTOS_INICIALES = [
+  { id: 'rp_produccion_ainavillo', nombre: 'Producción Ainavillo', areas: [{ area: 'PAN', pct: 57 }, { area: 'BOL', pct: 43 }] },
+  { id: 'rp_ainavillo_comun', nombre: 'Ainavillo común', areas: ['PAN', 'BOL', 'PAS', 'ADMIN', 'B2C-AI'].map(a => ({ area: a, pct: 20 })) },
+  { id: 'rp_barros_comun', nombre: 'Barros Arana común', areas: [{ area: 'B2C-BA', pct: 50 }, { area: 'CAF', pct: 50 }] },
+  { id: 'rp_tienda_barros', nombre: 'Tienda Barros Arana', areas: [{ area: 'B2C-BA', pct: 100 }] }];
+// Áreas que el Gastos nuevo ya no usa (VENTAS, B2C sin local): se piden pasar a su local
+export const AREAS_ANTIGUAS = ['VENTAS', 'B2C'];
+export const tieneAreaAntigua = c => !!(c && (c.partes || []).some(p => AREAS_ANTIGUAS.includes(p.area)));
+// Cuántas fichas usan cada reparto
+export const usoRepartos = provs => { const u = {}; Object.values(provs || {}).forEach(p => { if (p && p.repartoId) u[p.repartoId] = (u[p.repartoId] || 0) + 1; }); return u; };
 const principal = partes => (partes.slice().sort((a, b) => Math.abs(b.monto) - Math.abs(a.monto))[0] || {}).item || '';
 // "MATERIA PRIMA · PAN" · "MATERIA PRIMA · PAN 60% · BOL 40%" · "MATERIA PRIMA · PAN $40.000 + INSUMOS VARIOS · VENTAS $9.990"
 export function textoPartes(partes) {
@@ -244,8 +257,8 @@ export function repartirPago(docs, monto) {
 // ── La Bandeja completa ──
 // D: { docs, movs, pagos, provs, sugeridas, inicio }  opts: { cuenta }
 export function armar(D, { cuenta = '', excluir = null } = {}) {
-  const I = indicePagos(D.pagos), provs = D.provs || {}, sug = D.sugeridas || {};
-  const docs = (D.docs || []).map(d => { const e = estadoDoc(d, I), c = clasifDe(d, provs); return { ...d, ...e, estadoPago: e.estado, clasifEf: c, sugerida: !c ? sug[claveProveedor(d)] || sug[claveBase(d)] || null : null,
+  const I = indicePagos(D.pagos), provs = D.provs || {}, sug = D.sugeridas || {}, reps = D.repartos || {};
+  const docs = (D.docs || []).map(d => { const e = estadoDoc(d, I), c = clasifDe(d, provs, reps); return { ...d, ...e, estadoPago: e.estado, clasifEf: c, sugerida: !c ? sug[claveProveedor(d)] || sug[claveBase(d)] || null : null,
     soloItem: !c && provDe(d, provs) && modoProveedor(provDe(d, provs)) === 'item' ? provDe(d, provs).item : '' }; });
   const movs = (D.movs || []).map(m => ({ ...m, libre: libreMov(m, I), pagosM: I.porMov[m.id] || [] }));
   const abiertosD = docs.filter(d => d.estadoPago === 'sin_pago' || d.estadoPago === 'a_medias');
@@ -266,5 +279,6 @@ export function armar(D, { cuenta = '', excluir = null } = {}) {
   const paresV = pares.filter(p => !cuenta || (movs.find(m => m.id === p.movId) || {}).cuenta === cuenta).map(p => ({ ...p, faltaClasif: p.docIds.some(i => !porId[i].clasifEf) }));
   return { docs, movs, I, S, pares: paresV, porClasificar, sinPago, sinDoc, listosD, noGasto, abiertosD, abiertosM,
     anteriores: docs.filter(d => d.anterior && d.estadoPago !== 'pagado' && d.estado !== 'no_va'),
+    conAreaAntigua: docs.filter(d => d.estado !== 'no_va' && tieneAreaAntigua(d.clasifEf)),
     n: { pares: paresV.length, clasificar: porClasificar.length, sinPago: sinPago.length, sinDoc: sinDoc.length, total: paresV.length + porClasificar.length + sinPago.length + sinDoc.length } };
 }

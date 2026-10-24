@@ -2780,9 +2780,26 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-cl { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .gn-cl-falta { color: var(--rojo-t); }
 .gn-visto { flex: none; }
-/* v0.92.5 · El detalle de la factura a la vista en el diálogo de clasificar */
+/* v0.93.0 · El detalle de la factura a la vista en el diálogo de clasificar */
 .gn-det-dlg { border: 1px solid var(--linea); border-radius: 12px; padding: 10px 12px; font-size: 13px; }
 .gn-det-dlg ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 24vh; overflow-y: auto; }
 .gn-det-dlg li { display: flex; justify-content: space-between; gap: 10px; border-top: 1px dashed var(--linea); padding-top: 4px; }
 .gn-det-dlg li span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .gn-sin-det { color: var(--amarillo-t); }
+
+/* v0.93.0 · Gastos: proveedores, ficha y repartos */
+.gn-prov { text-decoration: none; color: inherit; margin-bottom: 8px; }
+.gn-prov:hover, .gn-prov:focus-visible { border-color: var(--acento); }
+.gn-ficha { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px; margin: 10px 0 16px; }
+.gn-ficha .gn-it > .gn-sub { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); margin-bottom: 4px; }
+.gn-serv { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 8px 0; border-top: 1px dashed var(--linea); font-size: 13px; overflow-wrap: anywhere; }
+.gn-serv:first-of-type { border-top: 0; }
+.gn-serv > div { min-width: 0; }
+.gn-h3 { margin: 6px 0 8px; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); }
+.gn-fila-doc { padding: 6px 0; border-bottom: 1px solid var(--linea); font-size: 13px; }
+.gn-fila-doc .chip { margin-left: 4px; }
+.gn-barra { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--linea); margin: 4px 0; }
+.gn-barra span { display: block; height: 100%; }
+.gn-b0 { background: var(--acento); } .gn-b1 { background: var(--azul-t); } .gn-b2 { background: var(--lila-t); } .gn-b3 { background: var(--amarillo-t); } .gn-b4 { background: var(--rojo-t); }
+[aria-labelledby="t-gn-rep"] .gn-it { margin-bottom: 8px; }
+#gn-antiguas .gn-grupo-t h3 { color: var(--rojo-t); }
