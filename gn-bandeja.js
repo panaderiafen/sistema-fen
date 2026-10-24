@@ -386,9 +386,11 @@ export function docDeCompromiso(c, mes) {
 export function compromisosPendientes(comps, docs, inicio, hoy) {
   const ya = new Set((docs || []).map(d => d.id)), mesHoy = s(hoy).slice(0, 7), mesIni = s(inicio).slice(0, 7), out = [];
   (comps || []).filter(c => c.estado !== 'archivado' && Number(c.monto) > 0).forEach(c => {
-    let m = s(c.desde) > mesIni ? s(c.desde).slice(0, 7) : mesIni, n = 0;
+    // v0.98.1 · "Desde" antes del inicio: esos meses entran como deuda anterior (hasta un año antes, como las facturas). Sin "Desde": el inicio.
+    const anteriorMin = (Number(mesIni.slice(0, 4)) - 1) + mesIni.slice(4);
+    let m = s(c.desde) ? (s(c.desde).slice(0, 7) < anteriorMin ? anteriorMin : s(c.desde).slice(0, 7)) : mesIni, n = 0;
     const meses = mesesDe(c);
-    while (m && m <= mesHoy && n++ < 24) { if ((!meses || meses.includes(Number(m.slice(5)))) && !ya.has(idCompromisoDoc(c.id, m))) out.push(docDeCompromiso(c, m)); m = sigMes(m); }
+    while (m && m <= mesHoy && n++ < 36) { if ((!meses || meses.includes(Number(m.slice(5)))) && !ya.has(idCompromisoDoc(c.id, m))) { const d = docDeCompromiso(c, m); out.push(d.fecha < s(inicio) ? { ...d, anterior: true } : d); } m = sigMes(m); }
   });
   return out;
 }
