@@ -1,9 +1,16 @@
-# Sistema Fën · v0.92.1
+# Sistema Fën · v0.92.2
 
-**App:** v0.92.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.92.2 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.92.2: en Listos también se cambia la clasificación
+
+- **Bandeja → Listos:** cada factura pagada tiene ahora **"Cambiar clasificación"**, además de **"Deshacer el pago"** (antes decía solo "Deshacer"). Cambiar la clasificación no toca el pago.
+Cambian `vista-gn.js`, `config.js` y este README; los demás, solo la versión (`?v=0.92.2`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.92.2.
 
 ## Novedades de la v0.92.1: el proveedor recuerda solo lo que es estable
 

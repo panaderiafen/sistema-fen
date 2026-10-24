@@ -7,8 +7,8 @@
 //  Lecturas: las recetas y los costos salen de la memoria compartida (Hoy, Producción, Finanzas); las versiones, al pedirlas.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.92.1';
-import * as RV from './recetas-ver-modelo.js?v=0.92.1';
+import * as P from './produccion.js?v=0.92.2';
+import * as RV from './recetas-ver-modelo.js?v=0.92.2';
 
 const S = { area: 'todas', tipo: 'todas', q: '', archivadas: false, recetas: null, costos: null, costosErr: '', err: '', vers: {}, comparar: {} };
 const $ = id => document.getElementById(id);
@@ -23,7 +23,7 @@ const TXT_RECETAS = 'Las recetas aprobadas de la base de Cocina (la maestra), so
 export async function pintar(el, H, { sub = '' } = {}) {
   el.innerHTML = '<section class="tarjeta"><div class="vacio" style="border:0" role="status">Abriendo las recetas…</div></section>';
   try {
-    const [recetas, costos] = await Promise.all([P.recetasCatalogo(), import('./finanzas.js?v=0.92.1').then(F => F.costosRecetas()).catch(e => { S.costosErr = (e && e.message) || ''; return null; })]);
+    const [recetas, costos] = await Promise.all([P.recetasCatalogo(), import('./finanzas.js?v=0.92.2').then(F => F.costosRecetas()).catch(e => { S.costosErr = (e && e.message) || ''; return null; })]);
     S.recetas = recetas; S.costos = costos; S.err = '';
   } catch (e) { S.err = (e && e.message) || H.mensajeError(e); }
   if (!/^#produccion\/recetas/.test(location.hash)) return;
