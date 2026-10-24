@@ -1,9 +1,30 @@
-# Sistema Fën · v0.93.1
+# Sistema Fën · v0.94.0
 
-**App:** v0.93.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.94.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.94.0: elegir y unir, "No es este" se guarda, y cargos anteriores al inicio
+
+Tres cambios chicos analizados juntos (método del 23 oct).
+- **Elegir y unir:** cada factura sin pago y cada cargo sin documento tiene una casilla.
+  - Al marcar una o varias facturas, la columna de la derecha muestra los cargos posibles para la suma de lo que falta pagar: primero los que calzan, después los de las fechas probables y los del proveedor.
+  - Al revés, al marcar un cargo aparecen sus facturas posibles, incluida la deuda anterior.
+  - Una barra abajo dice cuánto suma cada lado y si calza, falta o sobra, con el botón **Unir** (pide clasificar primero, como siempre).
+  - Se puede unir una factura con varios cargos (un pago en partes) o varias facturas con un cargo, también de proveedores distintos. Varios con varios no: se unen en dos pasos.
+- **"No es este" se guarda** en la factura, con su historial: ese par no se vuelve a proponer, ni al recargar ni en otro equipo. Si sí era, al elegir la factura ese cargo aparece al final, marcado "descartado antes", y se puede unir igual.
+- **Cargos anteriores al inicio:** los cargos de los 20 días antes del inicio (desde el 11 de septiembre) entran, pero solo para unirse con facturas desde el inicio. Por ejemplo, el abono de septiembre de una factura de octubre.
+  - Lo de antes con lo de antes no se une: es del Gastos anterior.
+  - No aparecen en "Movimientos sin documento" (van en un grupo cerrado) ni en "Hasta dónde llega cada cuenta".
+  - Al unir uno, el sistema revisa si ese pago ya está en el Gastos anterior (mismo monto, fecha parecida; "seguro" si además es del mismo RUT). Si es el mismo, el pago queda marcado: el gasto cuenta en el mes de la factura y Finanzas no contará el registro antiguo (Etapa 4). El Gastos anterior no se modifica.
+  - El resumen de esos pagos del Gastos anterior se lee una sola vez y se guarda (`gn_config/gastosAnteriores`).
+Cambian `gn-modelo.js`, `gn-bandeja.js`, `gn-fs.js`, `vista-gn.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.94.0`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.94.0.
+- [ ] Subir la cartola de cuenta corriente de septiembre (al menos desde el 11): el mensaje dice cuántos "de los 20 días antes del inicio" entraron.
+- [ ] Elegir la factura del 16 oct pagada en dos partes, marcar sus dos cargos (30 sep y 19 oct), revisar que diga "Calza" y Unir. Responder si el abono ya está en el Gastos anterior.
+- [ ] Los pares que no eran: "No es este" una vez; ya no vuelven.
 
 ## Novedades de la v0.93.1: separar por líneas ya no pide un área general
 

@@ -9,11 +9,11 @@
 //  Antes (v0.42.0 … v0.76.0): una sola página con tarjetas y pliegues (Desde Cocina, grupo Cocina y grupo Sistema).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.93.1';
+import * as P from './produccion.js?v=0.94.0';
 import * as K from './cocina/consumo.js?v=0.17.4';
-import { conBuscador, coincide } from './buscador.js?v=0.93.1';
-import * as FBQ from './fermentacion.js?v=0.93.1';
-import * as RV from './recetas-ver-modelo.js?v=0.93.1';
+import { conBuscador, coincide } from './buscador.js?v=0.94.0';
+import * as FBQ from './fermentacion.js?v=0.94.0';
+import * as RV from './recetas-ver-modelo.js?v=0.94.0';
 
 const st = { fb: null, sab: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', nRevisar: null, cfgMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -62,7 +62,7 @@ export async function pintar(el, sub, H) {
     el.addEventListener('click', ev => {
       if (!ev.target.closest('#prod-actualizar')) return;
       P.olvidarMemoria(); st.bodega.calc = null; st.merma.datos = null; st.fb = null; st.sab = null; st.costos = {}; st.mover = null;
-      import('./vista-prod-recetas.js?v=0.93.1').then(m => m.olvidar()).catch(() => {});
+      import('./vista-prod-recetas.js?v=0.94.0').then(m => m.olvidar()).catch(() => {});
       pintar(el, partes()[1] || '', H);
     });
   }
@@ -72,7 +72,7 @@ export async function pintar(el, sub, H) {
   const nav = el.querySelector('.pest-prod'), sel = nav && nav.querySelector('[aria-selected="true"]');
   if (nav && sel && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = Math.max(0, sel.offsetLeft - nav.offsetLeft - 16);
   // v0.71.1: Plan de Panadería (Etapa 1); desde la v0.77.1 es una pestaña (trae Finanzas y B2B: se carga recién al abrirla)
-  if (tab === 'plan-pan') { contarRevisar(); const VPP = await import('./vista-plan-pan.js?v=0.93.1'); VPP.fijarH(H); return VPP.pintar(cont, H); }
+  if (tab === 'plan-pan') { contarRevisar(); const VPP = await import('./vista-plan-pan.js?v=0.94.0'); VPP.fijarH(H); return VPP.pintar(cont, H); }
   // Materias primas: los precios están en Finanzas; sin la base de Cocina se ven igual (sin crear ni cambiar, lo dice el aviso)
   if (tab === 'mp') { contarRevisar(); return pintarTab(cont, tab, H); }
   let cx;
@@ -86,8 +86,8 @@ export async function pintar(el, sub, H) {
 function contarRevisar() { P.pendientesCocina().then(r => { if (r) ponerChip((r.nRecetas || 0) + (r.nMps || 0)); }).catch(() => {}); }
 function pintarTab(cont, tab, H) {
   if (tab === 'revisar') { cont.innerHTML = '<section class="tarjeta" aria-labelledby="t-prod-revision" id="prod-cocina"><div class="vacio" style="border:0">Revisando lo que llegó desde Cocina…</div></section>'; return pintarCocina(cont, H, true); }
-  if (tab === 'recetas') return import('./vista-prod-recetas.js?v=0.93.1').then(m => m.pintar(cont, H, { sub: partes().slice(2).join('/') }));
-  if (tab === 'mp') return import('./vista-finanzas.js?v=0.93.1').then(m => m.pintarMaestro(cont, H, { conteo: conteoMps }));
+  if (tab === 'recetas') return import('./vista-prod-recetas.js?v=0.94.0').then(m => m.pintar(cont, H, { sub: partes().slice(2).join('/') }));
+  if (tab === 'mp') return import('./vista-finanzas.js?v=0.94.0').then(m => m.pintarMaestro(cont, H, { conteo: conteoMps }));
   if (tab === 'bodega') { cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prod-bodega"><h2 id="t-prod-bodega">Bodega</h2><div id="prod-bodega">${seccionBodega(H)}</div></section>`; return conectarBodega(H); }
   if (tab === 'merma') { cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prod-merma"><h2 id="t-prod-merma">Merma</h2><div id="prod-merma">${seccionMerma(H)}</div></section>`; return conectarMerma(cont, H); }
   if (tab === 'config') return pintarConfigTab(cont, H);

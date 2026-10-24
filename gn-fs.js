@@ -10,11 +10,11 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.93.1';
-import { dbBase, correo } from './gastos-fs.js?v=0.93.1';
-import { ahoraChile } from './gastos-g2.js?v=0.93.1';
-import * as GN from './gn-modelo.js?v=0.93.1';
-import * as GB from './gn-bandeja.js?v=0.93.1';
+import * as FB from './fs-gastos.js?v=0.94.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.94.0';
+import { ahoraChile } from './gastos-g2.js?v=0.94.0';
+import * as GN from './gn-modelo.js?v=0.94.0';
+import * as GB from './gn-bandeja.js?v=0.94.0';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -30,11 +30,14 @@ export async function leer() {
   const [docs, movs, cargas, pagos, provs, cfg, items, reps0] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.movs), todos(GN.COL.cargas), todos(GN.COL.pagos), todos(GN.COL.provs), todos(GN.COL.config), todos('items').catch(() => []), todos(GN.COL.repartos)]);
   let sug = cfg.find(x => x.id === 'sugerencias');
   if (!sug) { try { sug = await armarSugerencias(); } catch (e) { sug = { porProveedor: {} }; } }
-  // v0.93.1 · Los repartos iniciales se crean la primera vez (una sola vez: si ya hay alguno, no se toca)
+  // v0.94.0 · Los pagos del Gastos anterior cerca del inicio (para no contar dos veces un cargo anterior): se leen UNA vez y se guarda el resumen
+  let ant = cfg.find(x => x.id === 'gastosAnteriores');
+  if (!ant) { try { ant = await armarAnteriores(); } catch (e) { ant = { lista: [] }; } }
+  // v0.94.0 · Los repartos iniciales se crean la primera vez (una sola vez: si ya hay alguno, no se toca)
   let reps = reps0;
   if (!reps.length) { try { await crearRepartosIniciales(); reps = await todos(GN.COL.repartos); } catch (e) { reps = []; } }
   return { docs, movs, cargas: cargas.sort((a, b) => String(b.en || '').localeCompare(String(a.en || ''))), pagos, provs: Object.fromEntries(provs.map(p => [p.id, p])),
-    sugeridas: (sug && sug.porProveedor) || {}, items: itemsDe(items), repartos: Object.fromEntries(reps.filter(r => r.estado !== 'archivado').map(r => [r.id, r])), inicio: inicio() };
+    sugeridas: (sug && sug.porProveedor) || {}, gastosAnt: (ant && ant.lista) || [], items: itemsDe(items), repartos: Object.fromEntries(reps.filter(r => r.estado !== 'archivado').map(r => [r.id, r])), inicio: inicio() };
 }
 // El catálogo de ítems de siempre (Configuración → Ítems): los vivos, en su orden
 const itemsDe = l => l.filter(x => x.item && !x.archivado && !x.quitadoEnPlanilla && x.estado !== 'ARCHIVADO').sort((a, b) => (Number(a.orden) || 999) - (Number(b.orden) || 999)).map(x => ({ item: String(x.item), area: String(x.area || '') }))
@@ -51,6 +54,14 @@ async function armarSugerencias() {
   b.set(FB.doc(d, GN.COL.config, 'sugerencias'), { porProveedor, n: Object.keys(porProveedor).length, de: g.length, armado: ahoraChile().texto });
   await b.commit();
   return { porProveedor };
+}
+
+async function armarAnteriores() {
+  const C = GN.corte(inicio()), g = await todos('gastos'), lista = GB.resumenAnterior(g, GN.sumarDias(C.movDesde, -5), C.inicio).slice(-400);
+  const d = await dbBase(), b = FB.writeBatch(d);
+  b.set(FB.doc(d, GN.COL.config, 'gastosAnteriores'), { lista, desde: GN.sumarDias(C.movDesde, -5), hasta: C.inicio, de: g.length, armado: ahoraChile().texto });
+  await b.commit();
+  return { lista };
 }
 
 // ── Escrituras ──
@@ -88,7 +99,7 @@ export async function cargarMovs(tipo, movs, meta) {
   await escribir(GN.COL.movs, P.nuevos, nuevoExtra(meta.id, por, en));
   const k = { id: meta.id, tipo, archivo: String(meta.archivo || '').slice(0, 120), tamano: Number(meta.tamano) || 0, identificador: String(meta.identificador || '').slice(0, 120),
     desde: meta.desde || '', hasta: meta.hasta || '', cuentas: [...new Set(movs.map(m => m.cuenta))], leidos: P.leidos, nuevos: P.nuevos.length, yaEstaban: P.yaEstaban,
-    parecidos: P.parecidos.length, parecidosLista: P.parecidos.slice(0, 50), antes: P.antes, traspasos: P.nuevos.filter(m => m.naturaleza === 'traspaso').length, por, en };
+    parecidos: P.parecidos.length, parecidosLista: P.parecidos.slice(0, 50), antes: P.antes, anteriores: P.anteriores, traspasos: P.nuevos.filter(m => m.naturaleza === 'traspaso').length, por, en };
   await guardarCarga(k);
   return { ...k, plan: P };
 }
@@ -109,7 +120,7 @@ function conGlosa(prev, doc, sena, movId, h) {
 const idPago = (docId, ref, n) => 'p_' + GN.hash(docId + '|' + ref) + (n ? '_' + n : '');
 
 // Pagar: partes = [{ docId, monto }], con un movimiento (movId) o un medio sin banco (efectivo, personal) y su fecha.
-export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', nota = '' }) {
+export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', nota = '', enGastoAnterior = null }) {
   if (!partes || !partes.length) throw error('Nada que pagar.', 'datos');
   const pagosAntes = await todos(GN.COL.pagos), reps = Object.fromEntries((await todos(GN.COL.repartos)).map(r => [r.id, r]));
   return enTransaccion(async (tx, d) => {
@@ -117,7 +128,8 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
     for (const r of refs) sn.push(await tx.get(r));
     let mov = null; const mref = movId ? FB.doc(d, GN.COL.movs, movId) : null;
     if (mref) { const ms = await tx.get(mref); if (!ms.exists()) throw error('Ese movimiento ya no está.', 'cambio'); mov = ms.data(); if (mov.naturaleza || mov.estado === 'no_va') throw error('Ese movimiento ya se marcó como "no es gasto".', 'cambio'); }
-    sn.forEach((x, i) => { if (!x.exists()) throw error('Un documento ya no está.', 'cambio'); if (x.data().estado === 'no_va') throw error(`El documento N° ${x.data().folio || ''} se marcó "Esto no va".`, 'cambio'); });
+    sn.forEach((x, i) => { if (!x.exists()) throw error('Un documento ya no está.', 'cambio'); if (x.data().estado === 'no_va') throw error(`El documento N° ${x.data().folio || ''} se marcó "Esto no va".`, 'cambio');
+      if (mov && !GB.compatible(x.data(), mov)) throw error('Un cargo anterior al inicio solo se une con documentos desde el inicio: lo de antes con lo de antes es del Gastos anterior.', 'datos'); });
     // v0.91.2 · Regla: cada documento pagado tiene que estar clasificado (por sí mismo o por su proveedor)
     const claves = [...new Set(sn.map(x => GB.claveProveedor(x.data())))], provs = {};
     for (const k of [...new Set(claves.concat(sn.map(x => GB.claveBase(x.data()))))]) { const ps = await tx.get(FB.doc(d, GN.COL.provs, k)); if (ps.exists()) provs[k] = ps.data(); }
@@ -126,12 +138,13 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
     // v0.91.1 · El proveedor aprende cómo aparece en el banco (solo si todos los documentos son del mismo proveedor y la glosa tiene seña propia)
     const sena = mov ? GB.senaDe(mov.glosa) : '';
     const aprende = sena && claves.length === 1 ? { ref: FB.doc(d, GN.COL.provs, claves[0]), dato: sn[0].data(), prev: provs[claves[0]] || null } : null;
-    const h = marca(movId ? 'pagado con un movimiento' : 'pagado sin banco', { medio, movId, nota: String(nota || '').slice(0, 200) });
+    const ga = enGastoAnterior && enGastoAnterior.id ? { id: String(enGastoAnterior.id), fecha: String(enGastoAnterior.fecha || ''), monto: Math.round(Number(enGastoAnterior.monto) || 0) } : null;
+    const h = marca(movId ? 'pagado con un movimiento' : 'pagado sin banco', { medio, movId, nota: String(nota || '').slice(0, 200), ...(ga ? { enGastoAnterior: ga } : {}) });
     partes.forEach((p, i) => {
       const ref = movId || (medio + '|' + fecha), n = pagosAntes.filter(x => x.id === idPago(p.docId, ref) || x.id.startsWith(idPago(p.docId, ref) + '_')).length;
       tx.set(FB.doc(d, GN.COL.pagos, idPago(p.docId, ref, n)), limpio({ docId: p.docId, movId, medio: movId ? 'cargo' : medio, monto: Math.round(Number(p.monto) || 0), fecha: movId ? mov.fecha : fecha,
-        cuenta: mov ? mov.cuenta : '', nota: String(nota || '').slice(0, 200), estado: 'vigente', creado: { por: h.por, en: h.en } }));
-      // v0.93.1 · Al pagarse, la clasificación que venía del proveedor queda guardada en el documento: un cambio posterior del proveedor
+        cuenta: mov ? mov.cuenta : '', anterior: !!(mov && mov.anterior), ...(ga ? { enGastoAnterior: ga } : {}), nota: String(nota || '').slice(0, 200), estado: 'vigente', creado: { por: h.por, en: h.en } }));
+      // v0.94.0 · Al pagarse, la clasificación que venía del proveedor queda guardada en el documento: un cambio posterior del proveedor
       // o de su reparto no mueve lo ya pagado (ni los meses cerrados de Finanzas)
       const dd = { id: refs[i].id, ...sn[i].data() }, c = dd.clasif ? null : GB.clasifDe(dd, provs, reps);
       tx.update(refs[i], { historial: conHist(sn[i].data(), h), ...(c ? { clasif: limpio({ item: c.item, areas: c.areas, repartoId: c.repartoId || '', partes: c.partes, de: 'proveedor', por: h.por, en: h.en }) } : {}) });
@@ -192,7 +205,7 @@ export async function volverMov(movId) {
 //  · lineas: [{ descripcion, item, area }] cuando se separó por líneas: el proveedor recuerda cada producto.
 export async function clasificar(doc, clasif, recordar = true) {   // recordar: 'fijo' | 'item' | false (true = 'fijo')
   const modo = recordar === 'item' ? 'item' : 'fijo';
-  // v0.93.1 · Separada por líneas o montos, cada parte trae su ítem y su área: lo de "toda la factura" es opcional (solo llena las vacías).
+  // v0.94.0 · Separada por líneas o montos, cada parte trae su ítem y su área: lo de "toda la factura" es opcional (solo llena las vacías).
   //   Sin áreas generales, el proveedor recuerda los productos con su área y el ítem más grande; lo que no reconozca, lo pide.
   const gen = clasif.general || { item: clasif.item, areas: clasif.areas }, sep = !!clasif.separado && (clasif.partes || []).length > 0, genAreas = (gen.areas || []).filter(a => a && a.area);
   if (!sep || genAreas.length) { const err = GB.repartoValido(gen.areas); if (err) throw error(err, 'datos'); }
@@ -247,7 +260,7 @@ export async function olvidarSena(provKey, sena) {
   });
 }
 
-// ═══════════════ v0.93.1 · Repartos con nombre y ficha del proveedor ═══════════════
+// ═══════════════ v0.94.0 · Repartos con nombre y ficha del proveedor ═══════════════
 export async function guardarReparto({ id = '', nombre, areas }) {
   const n = String(nombre || '').trim().slice(0, 60); if (!n) throw error('Escriba el nombre del reparto.', 'datos');
   const err = GB.repartoValido(areas); if (err) throw error(err, 'datos');
@@ -289,5 +302,15 @@ export async function quitarProducto(clave, k) {
     const ref = FB.doc(d, GN.COL.provs, clave), sn = await tx.get(ref); if (!sn.exists()) return;
     const a = sn.data(), prods = { ...(a.productos || {}) }; delete prods[k];
     tx.update(ref, { productos: prods, historial: conHist(a, marca('olvidó el producto ' + k)) });
+  });
+}
+
+// v0.94.0 · "No es este": queda guardado en cada documento del par (no se vuelve a proponer). Se puede unir igual a mano.
+export async function descartarPar(docIds, movId) {
+  await enTransaccion(async (tx, d) => {
+    const refs = docIds.map(i => FB.doc(d, GN.COL.docs, i)), sn = [];
+    for (const r of refs) sn.push(await tx.get(r));
+    sn.forEach((x, i) => { if (!x.exists()) return; const a = x.data(), l = Array.isArray(a.descartes) ? a.descartes : [];
+      if (!l.includes(movId)) tx.update(refs[i], { descartes: l.concat([movId]).slice(-30), historial: conHist(a, marca('no es este cargo', { movId })) }); });
   });
 }

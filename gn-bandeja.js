@@ -91,7 +91,7 @@ export function partesDe(d, c) {
 // ítem; las áreas cambian en cada compra: la factura llega con el ítem y pide el área). Sin modo (lo anterior) = fijo.
 // Un producto recuerda su ítem, y su área solo si es siempre la misma.
 export const modoProveedor = p => (p && p.modo === 'item' ? 'item' : 'fijo');
-// v0.93.1 · Las áreas de una ficha: las de su reparto con nombre (si usa uno, las de HOY: un cambio del reparto rige para lo que viene) o las suyas
+// v0.94.0 · Las áreas de una ficha: las de su reparto con nombre (si usa uno, las de HOY: un cambio del reparto rige para lo que viene) o las suyas
 export const areasDe = (p, reps) => (p && p.repartoId && reps && reps[p.repartoId] && (reps[p.repartoId].areas || []).length ? reps[p.repartoId].areas : (p && p.areas) || []);
 function desdeProveedor(d, p, reps) {
   const prods = p.productos || {}, det = d.detalle || [], usa = det.length > 1 && det.some(x => prods[normProducto(x.descripcion)]), ar = areasDe(p, reps);
@@ -111,10 +111,10 @@ export function clasifDe(d, provs, reps) {
   if (d.clasif && (d.clasif.item || (d.clasif.partes || []).length)) { const partes = partesDe(d, d.clasif); return { ...d.clasif, partes, item: principal(partes), de: d.clasif.de === 'proveedor' ? 'proveedor' : 'documento' }; }
   const p = provDe(d, provs);
   if (!p || !p.item || modoProveedor(p) === 'item') return null;
-  // v0.93.1 · Si alguna parte queda sin área (un producto nuevo de un proveedor que recuerda por producto), se pide clasificar
+  // v0.94.0 · Si alguna parte queda sin área (un producto nuevo de un proveedor que recuerda por producto), se pide clasificar
   const partes = desdeProveedor(d, p, reps); return partes.length && partes.every(x => x.item && x.area) ? { item: p.item, areas: areasDe(p, reps), repartoId: p.repartoId || '', partes, de: 'proveedor', vivo: true } : null;
 }
-// v0.93.1 · Repartos con nombre: los iniciales (acordados el 23 oct; se crean la primera vez, después se editan en Gastos → Repartos)
+// v0.94.0 · Repartos con nombre: los iniciales (acordados el 23 oct; se crean la primera vez, después se editan en Gastos → Repartos)
 export const REPARTOS_INICIALES = [
   { id: 'rp_produccion_ainavillo', nombre: 'Producción Ainavillo', areas: [{ area: 'PAN', pct: 57 }, { area: 'BOL', pct: 43 }] },
   { id: 'rp_ainavillo_comun', nombre: 'Ainavillo común', areas: ['PAN', 'BOL', 'PAS', 'ADMIN', 'B2C-AI'].map(a => ({ area: a, pct: 20 })) },
@@ -203,11 +203,15 @@ export function indiceSenas(provs) {
 }
 const subconjuntos = (l, max) => { const out = []; const ir = (i, act) => { if (act.length >= 2) out.push(act.slice()); if (act.length === max) return; for (let j = i; j < l.length; j++) { act.push(l[j]); ir(j + 1, act); act.pop(); } }; ir(0, []); return out; };
 // docs: documentos con saldo (abiertos), movs: movimientos con lo libre. → [{ docIds, movId, monto, afinidad, por }]
+// v0.94.0 · Un cargo anterior al inicio solo se une con documentos del inicio en adelante (lo de antes con lo de antes es del Gastos anterior).
+// "No es este" queda guardado en el documento (descartes): ese par no se vuelve a proponer.
+export const compatible = (d, m) => !(d.anterior && m.anterior);
+export const descartado = (d, m) => (d.descartes || []).includes(m.id);
 export function sugerirPares(docs, movs, S) {
   const cand = [];
   docs.forEach(d => movs.forEach(m => {
     const dif = m.libre - d.saldo;
-    if (d.saldo <= 0 || m.libre <= 0 || Math.abs(dif) > TOLERANCIA || !enVentana(d.fecha, m.fecha)) return;
+    if (!compatible(d, m) || descartado(d, m) || d.saldo <= 0 || m.libre <= 0 || Math.abs(dif) > TOLERANCIA || !enVentana(d.fecha, m.fecha)) return;
     const a = afinidad(d, m, S), dd = Math.abs(dias(d.fecha, m.fecha));
     cand.push({ docIds: [d.id], movId: m.id, monto: m.libre, dif, afinidad: a, distancia: dd + Math.abs(dif) * 3, por: a >= 50 ? 'rut' : a >= 40 ? 'glosa' : a ? 'nombre' : 'monto' });
   }));
@@ -222,7 +226,7 @@ export function sugerirPares(docs, movs, S) {
   movs.filter(m => !usadoM.has(m.id) && m.libre > 0).forEach(m => {
     let mejor = null;
     Object.values(porRut).forEach(l => {
-      const ok = l.filter(d => !usadoD.has(d.id) && enVentana(d.fecha, m.fecha)).sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, 8);
+      const ok = l.filter(d => !usadoD.has(d.id) && enVentana(d.fecha, m.fecha) && compatible(d, m) && !descartado(d, m)).sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, 8);
       if (ok.length < 2) return;
       const a = afinidad(ok[0], m, S);
       subconjuntos(ok, 4).forEach(sc => {
@@ -238,14 +242,60 @@ export function sugerirPares(docs, movs, S) {
 }
 // Para "Es de este documento" (desde un movimiento): los abiertos, primero los del mismo monto y del proveedor de la glosa
 export function candidatosDoc(m, docs, S) {
-  return docs.filter(d => d.saldo > 0).map(d => ({ d, a: afinidad(d, m, S), igual: d.saldo === m.libre, dentro: enVentana(d.fecha, m.fecha) }))
+  return docs.filter(d => d.saldo > 0 && compatible(d, m)).map(d => ({ d, a: afinidad(d, m, S), igual: d.saldo === m.libre, dentro: enVentana(d.fecha, m.fecha) }))
     .sort((x, y) => (y.igual - x.igual) || (y.a - x.a) || (y.dentro - x.dentro) || Math.abs(dias(x.d.fecha, m.fecha)) - Math.abs(dias(y.d.fecha, m.fecha)));
 }
 // Para "¿Cómo se pagó? → Con un cargo" (desde un documento): los movimientos con algo libre, primero los del mismo monto en la ventana
 export function candidatosMov(d, movs, S) {
-  return movs.filter(m => m.libre > 0).map(m => ({ m, a: afinidad(d, m, S), igual: m.libre === d.saldo, dentro: enVentana(d.fecha, m.fecha) }))
+  return movs.filter(m => m.libre > 0 && compatible(d, m)).map(m => ({ m, a: afinidad(d, m, S), igual: m.libre === d.saldo, dentro: enVentana(d.fecha, m.fecha) }))
     .sort((x, y) => (y.igual - x.igual) || (y.dentro - x.dentro) || (y.a - x.a) || Math.abs(dias(d.fecha, x.m.fecha)) - Math.abs(dias(d.fecha, y.m.fecha)));
 }
+// ── v0.94.0 · Seleccionar y filtrar: lo elegido de un lado muestra los posibles del otro, para la suma ──
+// Elegir documentos → los cargos posibles para la suma de sus saldos; elegir cargos → los documentos posibles para la suma de lo libre.
+// Orden: los no descartados, los que calzan (±$5), los de la ventana de fechas, los del proveedor (afinidad), los más cercanos.
+export function posiblesMovs(docs, movs, S) {
+  const T = docs.reduce((a, d) => a + d.saldo, 0), f0 = docs.map(d => d.fecha).sort()[0] || '';
+  return movs.filter(m => m.libre > 0 && docs.every(d => compatible(d, m))).map(m => ({ m, calza: Math.abs(m.libre - T) <= TOLERANCIA, dentro: docs.some(d => enVentana(d.fecha, m.fecha)),
+    a: Math.max(0, ...docs.map(d => afinidad(d, m, S))), desc: docs.some(d => descartado(d, m)), dist: Math.abs(dias(f0, m.fecha)) }))
+    .sort((x, y) => (x.desc - y.desc) || (y.calza - x.calza) || (y.dentro - x.dentro) || (y.a - x.a) || (x.dist - y.dist));
+}
+export function posiblesDocs(movs, docs, S) {
+  const T = movs.reduce((a, m) => a + m.libre, 0), f0 = movs.map(m => m.fecha).sort()[0] || '';
+  return docs.filter(d => d.saldo > 0 && movs.every(m => compatible(d, m))).map(d => ({ d, calza: Math.abs(d.saldo - T) <= TOLERANCIA, dentro: movs.some(m => enVentana(d.fecha, m.fecha)),
+    a: Math.max(0, ...movs.map(m => afinidad(d, m, S))), desc: movs.some(m => descartado(d, m)), dist: Math.abs(dias(d.fecha, f0)) }))
+    .sort((x, y) => (x.desc - y.desc) || (y.calza - x.calza) || (y.a - x.a) || (y.dentro - x.dentro) || (x.dist - y.dist));
+}
+// Cómo queda lo elegido: diferencia entre lo libre de los cargos y lo que falta pagar de los documentos
+export function balance(docs, movs) {
+  const td = docs.reduce((a, d) => a + d.saldo, 0), tm = movs.reduce((a, m) => a + m.libre, 0), dif = tm - td;
+  return { td, tm, dif, calza: Math.abs(dif) <= TOLERANCIA, valido: docs.length > 0 && movs.length > 0 && !(docs.length > 1 && movs.length > 1) && docs.every(d => movs.every(m => compatible(d, m))) };
+}
+// Un documento con varios cargos: se paga cargo por cargo (por fecha), cada uno con lo que falta (el último puede quedar a medias)
+export function pagosDeVarios(d, movs) {
+  let resto = d.saldo; const out = [];
+  movs.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)).forEach(m => { if (resto <= 0) return; const p = repartirPago([{ ...d, saldo: resto }], m.libre)[0]; if (!p) return; out.push({ movId: m.id, partes: [p] }); resto -= p.monto; });
+  return out;
+}
+
+// ── v0.94.0 · ¿Ya está en el Gastos anterior? (para un cargo anterior al inicio) ──
+// Los gastos del anterior se agrupan como un pago (misma fecha, hora, observación, RUT y folio: un pago repartido en varias líneas de área)
+export function resumenAnterior(gastos, desde, hasta) {
+  const g = {};
+  (gastos || []).forEach(x => {
+    const f = s(x.fecha).slice(0, 10); if (!f || f < desde || f >= hasta || x.estado === 'anulado' || x.estado === 'ANULADO' || x.quitadoEnPlanilla) return;
+    const k = [f, s(x.hora), s(x.observacion), rutN(x.rutProveedor), s(x.folio)].join('|'), y = g[k] || (g[k] = { id: x.id, fecha: f, monto: 0, rut: rutN(x.rutProveedor), razon: s(x.razonSocial), folio: s(x.folio), item: s(x.itemGasto), obs: s(x.observacion).slice(0, 80) });
+    y.monto += Math.abs(Number(x.montoFinal) || 0);
+  });
+  return Object.values(g).map(y => ({ ...y, monto: Math.round(y.monto) })).sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+// Los del Gastos anterior que pueden ser este mismo cargo: mismo monto (±$5) y fecha (±3 días); "seguro" si además es del RUT del documento.
+// Los ya marcados en otro pago no se repiten.
+export function enAnterior(m, docs, G, usados) {
+  const ruts = new Set(docs.map(d => rutN(d.rutN || d.rut)).filter(Boolean));
+  return (G || []).filter(g => !(usados && usados.has(g.id)) && Math.abs(g.monto - m.monto) <= TOLERANCIA && Math.abs(dias(g.fecha, m.fecha)) <= 3)
+    .map(g => ({ g, seguro: !!g.rut && ruts.has(g.rut) })).sort((a, b) => b.seguro - a.seguro);
+}
+
 // Cómo se reparte un movimiento entre documentos: en orden, a cada uno lo que le falta (lo último puede quedar a medias)
 export function repartirPago(docs, monto) {
   let resto = entero(monto); const out = [];
@@ -265,7 +315,7 @@ export function armar(D, { cuenta = '', excluir = null } = {}) {
   const abiertosD = docs.filter(d => d.estadoPago === 'sin_pago' || d.estadoPago === 'a_medias');
   const abiertosM = movs.filter(m => m.libre > 0 && m.estado !== 'no_va' && !m.naturaleza);
   const S = indiceSenas(provs);
-  const pares = sugerirPares(abiertosD, abiertosM, S).filter(p => !excluir || !excluir.has(p.movId + '|' + p.docIds.join(',')));   // "No es este": ese par no se vuelve a proponer (en esta sesión)
+  const pares = sugerirPares(abiertosD, abiertosM, S).filter(p => !excluir || !excluir.has(p.movId + '|' + p.docIds.join(',')));   // "No es este": guardado en el documento (v0.94.0)
   const enPar = new Set(pares.flatMap(p => p.docIds)), movEnPar = new Set(pares.map(p => p.movId));
   const visible = d => !d.anterior;
   // v0.91.2 · "Listo" = pagado Y clasificado. Cada documento está en un solo grupo: en su par, sin pago (con su clasificación a la vista)
@@ -273,13 +323,15 @@ export function armar(D, { cuenta = '', excluir = null } = {}) {
   const tocado = d => visible(d) || d.pagos.length || d.estado === 'no_va';
   const porClasificar = docs.filter(d => tocado(d) && d.estado !== 'no_va' && d.estadoPago === 'pagado' && !d.clasifEf && entero(d.total) !== 0).sort((a, b) => b.fecha.localeCompare(a.fecha));
   const sinPago = abiertosD.filter(d => visible(d) && !enPar.has(d.id)).sort((a, b) => b.fecha.localeCompare(a.fecha));
-  const sinDoc = abiertosM.filter(m => !movEnPar.has(m.id) && (!cuenta || m.cuenta === cuenta)).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const sinDoc = abiertosM.filter(m => !m.anterior && !movEnPar.has(m.id) && (!cuenta || m.cuenta === cuenta)).sort((a, b) => b.fecha.localeCompare(a.fecha));
   const listosD = docs.filter(d => tocado(d) && ((d.estadoPago === 'pagado' && (d.clasifEf || entero(d.total) === 0)) || d.estado === 'no_va')).sort((a, b) => b.fecha.localeCompare(a.fecha));
   const noGasto = movs.filter(m => m.naturaleza || m.estado === 'no_va').sort((a, b) => b.fecha.localeCompare(a.fecha));
   const porId = Object.fromEntries(docs.map(d => [d.id, d]));
   const paresV = pares.filter(p => !cuenta || (movs.find(m => m.id === p.movId) || {}).cuenta === cuenta).map(p => ({ ...p, faltaClasif: p.docIds.some(i => !porId[i].clasifEf) }));
   return { docs, movs, I, S, pares: paresV, porClasificar, sinPago, sinDoc, listosD, noGasto, abiertosD, abiertosM,
     anteriores: docs.filter(d => d.anterior && d.estadoPago !== 'pagado' && d.estado !== 'no_va'),
+    movsAnteriores: abiertosM.filter(m => m.anterior && !movEnPar.has(m.id) && (!cuenta || m.cuenta === cuenta)).sort((a, b) => b.fecha.localeCompare(a.fecha)),
+    usadosAnterior: new Set((D.pagos || []).filter(p => p.estado !== 'deshecho' && p.enGastoAnterior).map(p => p.enGastoAnterior.id)),
     conAreaAntigua: docs.filter(d => d.estado !== 'no_va' && tieneAreaAntigua(d.clasifEf)),
     n: { pares: paresV.length, clasificar: porClasificar.length, sinPago: sinPago.length, sinDoc: sinDoc.length, total: paresV.length + porClasificar.length + sinPago.length + sinDoc.length } };
 }

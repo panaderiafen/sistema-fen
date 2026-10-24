@@ -30,7 +30,11 @@ export function mesAnterior(mes) { const [y, m] = mes.split('-').map(Number); re
 const diasEntre = (a, b) => Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5);
 // Lo que cuenta desde el inicio, y desde cuándo entra la deuda anterior. v0.90.3: hasta un año antes del inicio (antes, solo el mes anterior:
 // el Registro de Compras de septiembre traía facturas de agosto que se pagan después y quedaban fuera)
-export function corte(inicio) { const ini = esIso(inicio) ? inicio : '2026-10-01'; return { inicio: ini, anterior: (Number(ini.slice(0, 4)) - 1) + ini.slice(4, 8) + '01' }; }
+// v0.94.0 · movDesde: los cargos de los 20 días antes del inicio (la ventana de pares) entran como "cargos anteriores", solo para unirse
+// con documentos del inicio en adelante (lo simétrico de la deuda anterior)
+export const DIAS_CARGOS_ANTERIORES = 20;
+export const sumarDias = (iso, n) => { const t = new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) + n * 864e5); return t.toISOString().slice(0, 10); };
+export function corte(inicio) { const ini = esIso(inicio) ? inicio : '2026-10-01'; return { inicio: ini, anterior: (Number(ini.slice(0, 4)) - 1) + ini.slice(4, 8) + '01', movDesde: sumarDias(ini, -DIAS_CARGOS_ANTERIORES) }; }
 
 // ── RUT ──
 export const rutN = r => s(r).toUpperCase().replace(/[^0-9K]/g, '');
@@ -125,13 +129,14 @@ export function mismaSalida(a, b) {
 // Plan de una carga de movimientos
 export function planMovs(movs, existentes, inicio) {
   const C = corte(inicio), porId = new Map((existentes || []).map(x => [x.id, x])), visto = new Set(), tomados = new Set();
-  const out = { nuevos: [], yaEstaban: 0, parecidos: [], antes: 0, leidos: (movs || []).length };
-  (movs || []).forEach(m => {
-    if (m.fecha < C.inicio) { out.antes++; return; }
+  const out = { nuevos: [], yaEstaban: 0, parecidos: [], antes: 0, anteriores: 0, leidos: (movs || []).length };
+  (movs || []).forEach(m0 => {
+    let m = m0;
+    if (m.fecha < C.inicio) { if (m.fecha < C.movDesde || m.naturaleza) { out.antes++; return; } m = { ...m, anterior: true }; }
     if (porId.has(m.id) || visto.has(m.id)) { out.yaEstaban++; return; }
     const otro = (existentes || []).find(e => !tomados.has(e.id) && e.cargaId !== m.cargaId && mismaSalida(e, m));
     if (otro) { tomados.add(otro.id); out.parecidos.push({ fecha: m.fecha, monto: m.monto, glosa: m.glosa, cuenta: m.cuenta, de: otro.id }); return; }
-    visto.add(m.id); out.nuevos.push(m);
+    visto.add(m.id); out.nuevos.push(m); if (m.anterior) out.anteriores++;
   });
   return out;
 }
@@ -142,15 +147,15 @@ export function textoCarga(k) {
   const n = (x, s1, p1) => `${x} ${x === 1 ? s1 : p1}`;
   if (k.tipo === 'sii') return [`${n(k.nuevos - (k.anteriores || 0), 'documento nuevo', 'documentos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.completados ? `${k.completados} ya estaban sin detalle y se completaron` : '', k.anteriores ? `${k.anteriores} anteriores al inicio (deuda anterior)` : '',
     k.antiguos ? `${k.antiguos} de hace más de un año (no entran)` : '', k.guias ? n(k.guias, 'guía de despacho fuera', 'guías de despacho fuera') : ''].filter(Boolean).join(' · ');
-  return [`${n(k.nuevos, 'movimiento nuevo', 'movimientos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.parecidos ? `${n(k.parecidos, 'ya llegó en otra cartola', 'ya llegaron en otra cartola')}` : '',
-    k.antes ? `${k.antes} antes del inicio (no entran)` : '', k.traspasos ? n(k.traspasos, 'traspaso al banco', 'traspasos al banco') : ''].filter(Boolean).join(' · ');
+  return [`${n(k.nuevos - (k.anteriores || 0), 'movimiento nuevo', 'movimientos nuevos')}`, k.yaEstaban ? `${k.yaEstaban} ya estaban` : '', k.parecidos ? `${n(k.parecidos, 'ya llegó en otra cartola', 'ya llegaron en otra cartola')}` : '',
+    k.anteriores ? `${k.anteriores} de los ${DIAS_CARGOS_ANTERIORES} días antes del inicio (cargos anteriores: solo para facturas desde el inicio)` : '', k.antes ? `${k.antes} antes del inicio (no entran)` : '', k.traspasos ? n(k.traspasos, 'traspaso al banco', 'traspasos al banco') : ''].filter(Boolean).join(' · ');
 }
 
 // ═══════════════ La Bandeja (Etapa 1: los dos lados, sin unir todavía) ═══════════════
 // Cobertura: por cuenta, el primer y el último día con movimientos y la última carga
 export function cobertura(movs, cargas) {
   const out = {};
-  (movs || []).forEach(m => { const c = out[m.cuenta] || (out[m.cuenta] = { cuenta: m.cuenta, nombre: CUENTAS[m.cuenta] || m.cuenta, desde: m.fecha, hasta: m.fecha, n: 0 }); c.n++; if (m.fecha < c.desde) c.desde = m.fecha; if (m.fecha > c.hasta) c.hasta = m.fecha; });
+  (movs || []).filter(m => !m.anterior).forEach(m => { const c = out[m.cuenta] || (out[m.cuenta] = { cuenta: m.cuenta, nombre: CUENTAS[m.cuenta] || m.cuenta, desde: m.fecha, hasta: m.fecha, n: 0 }); c.n++; if (m.fecha < c.desde) c.desde = m.fecha; if (m.fecha > c.hasta) c.hasta = m.fecha; });
   (cargas || []).forEach(k => { if (k.tipo === 'sii') return; (k.cuentas || []).forEach(cu => { const c = out[cu]; if (c && (!c.ultimaCarga || s(k.en) > c.ultimaCarga)) c.ultimaCarga = s(k.en); }); });
   return ['cc', 'chequera', 'mp', 'tc'].filter(k => out[k]).map(k => out[k]);
 }

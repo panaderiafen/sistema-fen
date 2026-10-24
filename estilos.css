@@ -2780,14 +2780,14 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-cl { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .gn-cl-falta { color: var(--rojo-t); }
 .gn-visto { flex: none; }
-/* v0.93.1 · El detalle de la factura a la vista en el diálogo de clasificar */
+/* v0.94.0 · El detalle de la factura a la vista en el diálogo de clasificar */
 .gn-det-dlg { border: 1px solid var(--linea); border-radius: 12px; padding: 10px 12px; font-size: 13px; }
 .gn-det-dlg ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 24vh; overflow-y: auto; }
 .gn-det-dlg li { display: flex; justify-content: space-between; gap: 10px; border-top: 1px dashed var(--linea); padding-top: 4px; }
 .gn-det-dlg li span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .gn-sin-det { color: var(--amarillo-t); }
 
-/* v0.93.1 · Gastos: proveedores, ficha y repartos */
+/* v0.94.0 · Gastos: proveedores, ficha y repartos */
 .gn-prov { text-decoration: none; color: inherit; margin-bottom: 8px; }
 .gn-prov:hover, .gn-prov:focus-visible { border-color: var(--acento); }
 .gn-ficha { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px; margin: 10px 0 16px; }
@@ -2803,3 +2803,17 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-b0 { background: var(--acento); } .gn-b1 { background: var(--azul-t); } .gn-b2 { background: var(--lila-t); } .gn-b3 { background: var(--amarillo-t); } .gn-b4 { background: var(--rojo-t); }
 [aria-labelledby="t-gn-rep"] .gn-it { margin-bottom: 8px; }
 #gn-antiguas .gn-grupo-t h3 { color: var(--rojo-t); }
+
+/* v0.94.0 · Gastos: elegir y unir */
+.gn-elegir { display: inline-flex; align-items: center; flex: 0 0 auto; margin-right: 8px; min-height: 24px; cursor: pointer; }
+.gn-elegir input { width: 18px; height: 18px; accent-color: var(--acento); cursor: pointer; }
+.gn-elegir input:disabled { cursor: not-allowed; opacity: .4; }
+.gn-it .gn-fila:has(.gn-elegir) { justify-content: flex-start; }
+.gn-it .gn-fila:has(.gn-elegir) .gn-m { margin-left: auto; }
+.gn-elegido { border-color: var(--acento); box-shadow: 0 0 0 1px var(--acento) inset; }
+.gn-barra-sel { position: sticky; bottom: 0; z-index: 5; margin: 12px -4px 0; padding: 10px 12px; border: 1px solid var(--acento); border-radius: 12px; background: var(--tarjeta); box-shadow: 0 -6px 18px rgba(0,0,0,.08);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.gn-barra-t { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; min-width: 0; }
+.gn-barra-t b { flex-basis: 100%; font-weight: 600; color: var(--amarillo-t); overflow-wrap: anywhere; }
+.gn-barra-t b.gn-ok { color: var(--verde-t); }
+.gn-barra-sel .gn-acc { margin-top: 0; }
