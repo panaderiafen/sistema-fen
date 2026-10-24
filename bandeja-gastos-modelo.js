@@ -15,7 +15,7 @@
 //   · gasto ↔ cargo del banco: la propuesta de la Bandeja para ese cargo (o, sin propuesta, el mismo monto en su ventana).
 //  Todo lo unido por alguno de esos campos es UN ítem (aunque esté en tres colecciones).
 // ═══════════════════════════════════════════════
-import { VENTANAS, claveFactura } from './gastos-banco.js?v=0.92.4';
+import { VENTANAS, claveFactura } from './gastos-banco.js?v=0.92.5';
 
 const s = v => String(v == null ? '' : v);
 const n = v => Number(v) || 0;

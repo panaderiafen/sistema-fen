@@ -1,9 +1,20 @@
-# Sistema Fën · v0.92.4
+# Sistema Fën · v0.92.5
 
-**App:** v0.92.4 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.92.5 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.92.5: de dónde vino cada factura (XML o RCV) y su detalle al clasificar
+
+- **De dónde vino cada factura:** la tarjeta lo dice.
+  - **"XML":** vino con su detalle.
+  - **"RCV, sin detalle":** vino solo del Registro de Compras. Si arrastra su XML a Gastos, se completa sola con el detalle.
+- **El detalle al clasificar:** el diálogo de Clasificar muestra arriba el **detalle de la factura** (producto, cantidad y monto), también cuando es una sola línea. Antes solo se veía al separar por líneas, y con una sola línea no aparecía. Si la factura no trae detalle, el diálogo lo dice y explica cómo completarlo.
+Cambian `vista-gn.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.92.5`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda), esperar Actions y abrir con Cmd + Shift + R: abajo dice v0.92.5.
+- [ ] Las facturas "RCV, sin detalle" que sí tienen XML: arrastrar su XML a Gastos.
 
 ## Novedades de la v0.92.4: la dirección del servicio en la tarjeta
 

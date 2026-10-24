@@ -14,8 +14,8 @@
 //  · rescatar limpia también el registro de envíos (la caja lo dejaba y la próxima
 //    merma de ese producto salía con cantidades y motivos viejos).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, updateDoc, query, where, Timestamp, runTransaction } from './firebase.js?v=0.92.4';
-import { diaLocal, productos, normalizarArea } from './caja.js?v=0.92.4';
+import { auth, db, collection, doc, getDoc, getDocs, updateDoc, query, where, Timestamp, runTransaction } from './firebase.js?v=0.92.5';
+import { diaLocal, productos, normalizarArea } from './caja.js?v=0.92.5';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 export const CATEGORIAS = [
