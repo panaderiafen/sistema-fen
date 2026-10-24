@@ -7,15 +7,15 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.98.1';
-import * as GB from './gn-bandeja.js?v=0.98.1';
-import * as AR from './areas.js?v=0.98.1';
-import * as Sii from './sii.js?v=0.98.1';
-import * as MP from './mercadopago.js?v=0.98.1';
+import * as GN from './gn-modelo.js?v=0.99.0';
+import * as GB from './gn-bandeja.js?v=0.99.0';
+import * as AR from './areas.js?v=0.99.0';
+import * as Sii from './sii.js?v=0.99.0';
+import * as MP from './mercadopago.js?v=0.99.0';
 
 const st = { D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' } };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.98.1');
+const fsGN = () => import('./gn-fs.js?v=0.99.0');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -33,6 +33,7 @@ const TXT_ELEGIR = 'Marque una o varias facturas y aquí aparecen los cargos que
 const TXT_CARGOS_ANT = 'Cargos de los 20 días antes del inicio. Entran solo para unirse con facturas desde el inicio (por ejemplo, un abono de septiembre de una factura de octubre). No cuentan como salida de plata del mes nuevo.\nAl unir uno, el sistema revisa si ese pago ya está en el Gastos anterior, para no contarlo dos veces.';
 const TXT_COMPROMISOS = 'Un compromiso es un pago fijo de cada mes que no trae documento (por ejemplo, un arriendo). El sistema crea el documento de cada mes cuando el mes empieza, con su día de pago, y la Bandeja lo une con la transferencia como cualquier factura.\nSu ítem y su reparto quedan en la ficha de a quién se le paga: sus meses llegan clasificados. Un cambio del monto o del día rige desde el próximo mes que se cree. Archivar deja de crear meses; lo ya creado sigue.';
 const MESES_TXT = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const TXT_COB_SII = '"Documentos hasta" es la fecha de la factura más reciente que está cargada. No asegura que estén todas: una factura puede llegar al SII días después.\nSu método: al bajar el XML, incluya siempre el último día de la descarga anterior, así se capta lo que llegó después (lo que ya estaba no se repite). A fin de mes, el RCV completa lo que falte.';
 const TXT_TARJETA = 'Cada compra anotada es un movimiento de la tarjeta (cuenta "Tarjeta de crédito"): se une con su factura en la Bandeja como cualquier cargo.\nEl pago de la tarjeta desde la cuenta corriente no es gasto: márquelo "No es gasto → pago de la tarjeta", así nada se cuenta dos veces.\nAnotar la misma compra dos veces no la repite.';
 const TXT_CREDITOS = 'Los créditos se cargan arrastrando el "Detalle Crédito" de BancoEstado (Excel). Cada cuota entra a la Bandeja el mes en que vence, para unirla con su cargo.\nCon el monto original y la tasa mensual, cada cuota se separa en interés (gasto financiero) y capital (no es gasto: es devolver el préstamo). Sin esos datos, la cuota va completa.';
 const TXT_PORPAGAR = 'Lo que se debe y todavía no tiene su pago: facturas y boletas, sueldos, Previred, F29, arriendos y cuotas, por su fecha de vencimiento (o la del documento si no trae).\nLa deuda anterior al inicio va aparte. Para registrar un pago, use la Bandeja.';
@@ -85,6 +86,9 @@ function bandejaHtml(H) {
   const B = st.B = GB.armar(D, { cuenta: st.cuenta }), pares = B.pares; st.antG = D.gastosAnt || [];
   const docDe = id => B.docs.find(d => d.id === id), movDe = id => B.movs.find(m => m.id === id);
   const cuentas = [['', 'Todas'], ...cob.map(c => [c.cuenta, c.nombre])];
+  // v0.99.0 · Las compras del SII: hasta qué fecha llegan los documentos cargados y el último archivo subido
+  const fsii = (D.docs || []).filter(d => d.origen === 'sii' && !d.anterior).map(d => d.fecha).sort(), ksii = (D.cargas || []).find(k => k.tipo === 'sii');
+  const sii = fsii.length ? `<div class="gn-cob-c"><b>Compras del SII ${H.info('Compras del SII', TXT_COB_SII)}</b><span>documentos hasta el ${H.esc(H.diaTexto(fsii[fsii.length - 1]))}${ksii ? ` · último archivo ${H.esc(String(ksii.en || '').slice(0, 10) ? H.diaTexto(String(ksii.en).slice(0, 10)) : '')}${ksii.formato === 'registro' ? ' (RCV)' : ksii.formato ? ' (XML)' : ''}` : ''}</span></div>` : '';
   const nombreDoc = d => H.esc(d.razon || d.rut || 'Sin nombre');
   // v0.96.0 · De dónde vino: XML (trae el detalle) o RCV (Registro de Compras: sin detalle; subir su XML lo completa)
   const origenDoc = d => (d.origen === 'bte' && d.bte ? ` · honorarios ${H.pesos(d.bte.bruto)} − retención ${H.pesos(d.bte.retencion)} (va en el F29)`
@@ -141,7 +145,7 @@ function bandejaHtml(H) {
     return `<div class="gn-barra-sel" role="region" aria-label="Lo elegido"><div class="gn-barra-t"><span>${n(docsSel.length, 'documento', 'documentos')} · ${H.pesos(b.td)}</span><span>${n(movsSel.length, 'cargo', 'cargos')} · ${H.pesos(b.tm)}</span><b class="${b.valido && b.calza ? 'gn-ok' : ''}">${estado}</b></div>
       <div class="gn-acc"><button type="button" class="btn btn-chico" data-gn-unir ${b.valido ? '' : 'disabled'}>Unir</button><button type="button" class="btn-sec btn-chico" data-gn-limpiar>Limpiar</button></div></div>`; };
   return `<section class="tarjeta" aria-labelledby="t-gn-cob"><div class="titulo-fila"><h2 id="t-gn-cob">Hasta dónde llega cada cuenta</h2></div>
-      ${cob.length ? `<div class="gn-cob">${cob.map(c => `<div class="gn-cob-c"><b>${H.esc(c.nombre)}</b><span>${H.esc(H.diaTexto(c.desde))} al ${H.esc(H.diaTexto(c.hasta))} · ${c.n} ${c.n === 1 ? 'movimiento' : 'movimientos'}</span></div>`).join('')}</div>` : '<p class="ayuda">Todavía no se sube ninguna cartola.</p>'}</section>
+      ${cob.length || sii ? `<div class="gn-cob">${sii}${cob.map(c => `<div class="gn-cob-c"><b>${H.esc(c.nombre)}</b><span>${H.esc(H.diaTexto(c.desde))} al ${H.esc(H.diaTexto(c.hasta))} · ${c.n} ${c.n === 1 ? 'movimiento' : 'movimientos'}</span></div>`).join('')}</div>` : '<p class="ayuda">Todavía no se sube ninguna cartola.</p>'}</section>
     <section class="tarjeta" aria-labelledby="t-gn-bandeja"><div class="titulo-fila"><h2 id="t-gn-bandeja">Bandeja</h2><span>${pares.length + B.n.clasificar + B.n.sinPago + B.n.sinDoc} por hacer</span></div>
       ${cuentas.length > 2 ? `<div class="gn-filtro" role="group" aria-label="Cuenta">${cuentas.map(([k, t]) => `<button type="button" class="chip ${st.cuenta === k ? 'c-verde' : 'c-gris'}" data-gn-cuenta="${k}" aria-pressed="${st.cuenta === k}">${H.esc(t)}</button>`).join('')}</div>` : ''}
       <div class="gn-grupo" id="gn-pares"><div class="gn-grupo-t"><h3>Para confirmar · ${pares.length} ${H.info('Para confirmar', TXT_PARES)}</h3>${seguros.length > 1 ? `<button type="button" class="btn btn-chico gn-btn-seguro" data-gn-confirmar-seguros>Confirmar los ${seguros.length} en verde ya clasificados</button>` : ''}</div>
@@ -229,7 +233,7 @@ async function procesar(f, H) {
   if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text();
-    const Pv = await import('./previred.js?v=0.98.1');
+    const Pv = await import('./previred.js?v=0.99.0');
     if (Pv.esCsvNomina(Pv.textoDeArchivo(await f.arrayBuffer()))) return subirPrevired(f, H, Pv.leerCsv(Pv.textoDeArchivo(await f.arrayBuffer())));
     const tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -243,7 +247,7 @@ async function procesar(f, H) {
   if (wb) {
     const tefs = H.B2b.leerTransferencias(wb, XLSX);
     if (tefs) { const r = await H.B2b.guardarTransferencias(tefs); H.registrar('Cargó transferencias recibidas', `${r.leidas} leídas · ${r.nuevas} nuevas`); return `<b>Transferencias recibidas</b>: ${r.leidas} en el archivo · ${r.nuevas} nuevas. Sirven a Ventas B2B → Conciliación (quién pagó cada abono).`; }
-    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.98.1'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
+    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.99.0'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
       if (GP.esDetalleCredito(filas)) { const enc = wb.SheetNames.includes('Encabezados') ? XLSX.utils.sheet_to_csv(wb.Sheets.Encabezados) : '', r = GP.leerCredito(filas, enc);
         if (r.bloquea) throw new Error(r.errores.join(' '));
         const k = await (await fsGN()).cargarCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó un crédito', r.nombre);
@@ -259,9 +263,9 @@ function esCartola(wb, XLSX, H) {
 }
 // v0.96.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
 async function subirBoleta(f, H) {
-  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.98.1'), import('./boletas.js?v=0.98.1')]);
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.99.0'), import('./boletas.js?v=0.99.0')]);
   let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
-  const GP = await import('./gn-pdf.js?v=0.98.1'), tipo = GP.tipoPdf(lineas);
+  const GP = await import('./gn-pdf.js?v=0.99.0'), tipo = GP.tipoPdf(lineas);
   if (tipo) return subirOtroPdf(f, H, GP, tipo, lineas);
   if (Pv.esComprobante(lineas) || Pv.esCertificado(lineas)) { let r; try { r = Pv.leerPdf(lineas); } catch (x) { throw new Error(x.message); } return subirPrevired(f, H, r); }
   const r = Bo.leerBoleta(lineas);
@@ -295,7 +299,7 @@ async function subirOtroPdf(f, H, GP, tipo, lineas) {
 // v0.97.0 · Previred: el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → el documento del mes
 async function subirPrevired(f, H, r) {
   if (r.bloquea) throw new Error(`Previred no se guardó. ${(r.avisos || []).join(' ')}`);
-  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.98.1'), import('./gastos-g3d.js?v=0.98.1')]);
+  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.99.0'), import('./gastos-g3d.js?v=0.99.0')]);
   const id = GN.idCarga('previred'), d = GP.docDePrevired(r, G3D.venceDe(r.periodo), id);
   const k = await (await fsGN()).cargarPdf(d, { nombre: f.name, tamano: f.size }, 'previred');
   H.registrar('Gastos: cargó Previred', `${d.tipoTexto} · ${k.texto}`);
@@ -816,7 +820,7 @@ function compromisosHtml(H) {
   const repTxt = c => (c.repartoId && reps[c.repartoId] ? `${reps[c.repartoId].nombre} · ${GB.textoReparto(reps[c.repartoId].areas)}` : GB.textoReparto(c.areas || []));
   return `<section class="tarjeta" aria-labelledby="t-gn-cp"><div class="titulo-fila"><h2 id="t-gn-cp">Compromisos ${H.info('Compromisos', TXT_COMPROMISOS)}</h2><button type="button" class="btn btn-chico" data-gn-compromiso="">Nuevo compromiso</button></div>
     ${L.length ? L.map(c => `<div class="gn-it${c.estado === 'archivado' ? ' gn-archivado' : ''}"><div class="gn-fila"><b>${H.esc(c.nombre)}</b><span class="gn-m">${H.pesos(c.monto)}</span></div>
-      <small>A ${H.esc(c.aQuien)}${c.rut ? ' · RUT ' + H.esc(c.rut) : ''} · ${c.frecuencia === 'semestral' ? `día ${H.esc(c.dia)} de ${MESES_TXT[(Number(c.mesInicio) || 1) - 1]} y ${MESES_TXT[(Number(c.mesInicio) || 1) + 5]}` : `día ${H.esc(c.dia)} de cada mes`}${c.rol ? ' · rol ' + H.esc(c.rol) : ''}${c.direccion ? ' · ' + H.esc(c.direccion) : ''}${c.desde ? ' · desde ' + H.esc(c.desde) : ''}${c.estado === 'archivado' ? ' · archivado' : ''}</small>
+      <small>A ${H.esc(c.aQuien)}${c.rut ? ' · RUT ' + H.esc(c.rut) : ''} · ${c.frecuencia === 'semestral' ? `día ${H.esc(c.dia)} de ${MESES_TXT[(Number(c.mesInicio) || 1) - 1]} y ${MESES_TXT[(Number(c.mesInicio) || 1) + 5]}` : c.frecuencia === 'anual' ? `día ${H.esc(c.dia)} de ${MESES_TXT[(Number(c.mesInicio) || 1) - 1]}, una vez al año` : `día ${H.esc(c.dia)} de cada mes`}${c.rol ? ' · rol ' + H.esc(c.rol) : ''}${c.direccion ? ' · ' + H.esc(c.direccion) : ''}${c.desde ? ' · desde ' + H.esc(c.desde) : ''}${c.estado === 'archivado' ? ' · archivado' : ''}</small>
       <span class="gn-cl">${H.esc(c.item)} · ${H.esc(repTxt(c))}</span>
       <div class="gn-acc"><button type="button" class="btn-sec btn-chico" data-gn-compromiso="${H.esc(c.id)}">Cambiar</button><button type="button" class="btn-sec btn-chico" data-gn-archivarcp="${H.esc(c.id)}" data-archivar="${c.estado === 'archivado' ? '0' : '1'}">${c.estado === 'archivado' ? 'Reactivar' : 'Archivar'}</button></div></div>`).join('')
     : '<div class="vacio" style="border:0">Todavía no hay compromisos. Por ejemplo: los arriendos.</div>'}</section>
@@ -836,8 +840,8 @@ function dlgCompromiso(el, H, cid) {
       <div class="campo"><label for="cp-rut">RUT (opcional)</label><input id="cp-rut" maxlength="14" value="${H.esc(c ? c.rut : '')}"></div></div>
     <div class="gn-dos"><div class="campo"><label for="cp-monto">Monto de cada pago</label><input id="cp-monto" type="number" min="1" inputmode="numeric" value="${c ? H.esc(c.monto) : ''}"></div>
       <div class="campo"><label for="cp-dia">Día de pago</label><input id="cp-dia" type="number" min="1" max="31" inputmode="numeric" value="${c ? H.esc(c.dia) : '5'}"></div></div>
-    <div class="gn-dos"><div class="campo"><label for="cp-frec">Cada cuánto</label><select id="cp-frec"><option value="mensual">Cada mes</option><option value="semestral" ${c && c.frecuencia === 'semestral' ? 'selected' : ''}>Cada 6 meses</option></select></div>
-      <div class="campo" data-cp-sem ${c && c.frecuencia === 'semestral' ? '' : 'hidden'}><label for="cp-mes">Meses de pago</label><select id="cp-mes">${[1, 2, 3, 4, 5, 6].map(m => `<option value="${m}" ${c && Number(c.mesInicio) === m ? 'selected' : ''}>${MESES_TXT[m - 1]} y ${MESES_TXT[m + 5]}</option>`).join('')}</select></div></div>
+    <div class="gn-dos"><div class="campo"><label for="cp-frec">Cada cuánto</label><select id="cp-frec"><option value="mensual">Cada mes</option><option value="semestral" ${c && c.frecuencia === 'semestral' ? 'selected' : ''}>Cada 6 meses</option><option value="anual" ${c && c.frecuencia === 'anual' ? 'selected' : ''}>Una vez al año</option></select></div>
+      <div class="campo" data-cp-sem ${c && c.frecuencia && c.frecuencia !== 'mensual' ? '' : 'hidden'}><label for="cp-mes">Meses de pago</label><select id="cp-mes"></select></div></div>
     <div class="gn-dos"><div class="campo"><label for="cp-rol">Rol o N° (opcional)</label><input id="cp-rol" maxlength="40" value="${H.esc(c && c.rol ? c.rol : '')}" placeholder="Por ejemplo: rol de la patente"></div>
       <div class="campo"><label for="cp-dir">Dirección (opcional)</label><input id="cp-dir" maxlength="100" value="${H.esc(c && c.direccion ? c.direccion : '')}"></div></div>
     <div class="campo"><label for="cp-desde">Desde (mes)</label><input id="cp-desde" type="month" value="${H.esc(c && c.desde ? c.desde : '')}"><p class="ayuda">Vacío: desde el inicio del sistema. Un mes anterior al inicio (hasta un año antes) entra como deuda anterior: úselo para lo que quedó sin pagar.</p></div>
@@ -845,7 +849,11 @@ function dlgCompromiso(el, H, cid) {
     <p class="error" data-err role="alert"></p>
     <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
   const leer = conectarClasif(dlg, H, pre, 'cp'); dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
-  dlg.querySelector('#cp-frec').addEventListener('change', ev => { dlg.querySelector('[data-cp-sem]').hidden = ev.target.value !== 'semestral'; });
+  // Los meses de pago según cada cuánto: cada 6 meses, un par (enero y julio…); una vez al año, un mes
+  const frec = dlg.querySelector('#cp-frec'), mesSel = dlg.querySelector('#cp-mes');
+  const meses = () => { const f = frec.value, v = Number(mesSel.value) || (c && Number(c.mesInicio)) || 1; dlg.querySelector('[data-cp-sem]').hidden = f === 'mensual';
+    mesSel.innerHTML = (f === 'anual' ? MESES_TXT.map((t, i) => [i + 1, t]) : [1, 2, 3, 4, 5, 6].map(m => [m, `${MESES_TXT[m - 1]} y ${MESES_TXT[m + 5]}`])).map(([m, t]) => `<option value="${m}" ${m === v ? 'selected' : ''}>${t}</option>`).join(''); };
+  frec.addEventListener('change', meses); meses();
   dlg.querySelector('form').addEventListener('submit', async ev => {
     ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
     try { const a = leer(), v = id => dlg.querySelector(id).value;

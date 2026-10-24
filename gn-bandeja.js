@@ -372,15 +372,16 @@ const sigMes = mes => { const [y, m] = mes.split('-').map(Number); return m === 
 // (periodo de 6 meses, prorratear: Finanzas lo reparte un sexto por mes). Rol y dirección para identificar el pago (patentes).
 // El día va del 1 al 31 (si el mes es más corto, su último día).
 export const semestral = c => c && c.frecuencia === 'semestral';
-export const mesesDe = c => { const m = Math.min(Math.max(1, Number(c.mesInicio) || 1), 12); return semestral(c) ? [m, ((m + 5) % 12) + 1] : null; };
+export const anual = c => c && c.frecuencia === 'anual';   // v0.99.0 · una vez al año, en su mes (permiso de circulación, seguros anuales)
+export const mesesDe = c => { const m = Math.min(Math.max(1, Number(c.mesInicio) || 1), 12); return semestral(c) ? [m, ((m + 5) % 12) + 1] : anual(c) ? [m] : null; };
 const sumarMeses = (mes, n) => { let m = mes; for (let i = 0; i < n; i++) m = sigMes(m); return m; };
 export function docDeCompromiso(c, mes) {
   const dia = Math.min(Math.max(1, Number(c.dia) || 1), Number(ultimoDiaMes(mes).slice(8))), fecha = `${mes}-${String(dia).padStart(2, '0')}`, monto = Math.round(Number(c.monto) || 0);
-  const sem = semestral(c), hasta = sem ? ultimoDiaMes(sumarMeses(mes, 5)) : ultimoDiaMes(mes);
+  const sem = semestral(c), an = anual(c), hasta = sem ? ultimoDiaMes(sumarMeses(mes, 5)) : an ? ultimoDiaMes(sumarMeses(mes, 11)) : ultimoDiaMes(mes);
   return { id: idCompromisoDoc(c.id, mes), origen: 'compromiso', compromiso: c.id, formato: '', tipo: 'cmp', tipoTexto: s(c.nombre) || 'Compromiso', nc: false,
     rut: s(c.rut), rutN: rutN(c.rut), razon: s(c.aQuien) || s(c.nombre), folio: '', fecha, mes, neto: monto, exento: 0, iva: 0, otroImp: 0, total: monto,
     vence: fecha, formaPago: '', referencias: [], detalle: [], descuadre: '', cargaId: '', cliente: '', direccion: s(c.direccion).slice(0, 100), rol: s(c.rol).slice(0, 40),
-    periodo: { desde: mes + '-01', hasta }, ...(sem ? { prorratear: 6 } : {}) };
+    periodo: { desde: mes + '-01', hasta }, ...(sem ? { prorratear: 6 } : an ? { prorratear: 12 } : {}) };
 }
 // Los documentos que faltan: de cada compromiso activo, sus meses desde max(inicio, su "desde") hasta el mes en curso
 export function compromisosPendientes(comps, docs, inicio, hoy) {

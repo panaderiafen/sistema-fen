@@ -8,10 +8,10 @@
 //  Reglas puras en finanzas-resultados.js; datos en finanzas.js (fen-gastos). No cambia ningún gasto.
 //  ctx = { cab, error, conexion, sinBase } de vista-finanzas.js; H = ayudas de app.js.
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.98.1';
-import * as FR from './finanzas-resultados.js?v=0.98.1';
-import * as FC from './finanzas-costos.js?v=0.98.1';
-import * as VE from './vista-finanzas-eerr.js?v=0.98.1';
+import * as F from './finanzas.js?v=0.99.0';
+import * as FR from './finanzas-resultados.js?v=0.99.0';
+import * as FC from './finanzas-costos.js?v=0.99.0';
+import * as VE from './vista-finanzas-eerr.js?v=0.99.0';
 
 const RS = { datos: null, filtro: 'todos', q: '', msg: '', err: '', sel: null, anioDep: '' };
 const $ = id => document.getElementById(id);

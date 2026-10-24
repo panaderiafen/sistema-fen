@@ -10,12 +10,12 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.98.1';
-import { dbBase, correo } from './gastos-fs.js?v=0.98.1';
-import { ahoraChile } from './gastos-g2.js?v=0.98.1';
-import * as GN from './gn-modelo.js?v=0.98.1';
-import * as GB from './gn-bandeja.js?v=0.98.1';
-import * as GP from './gn-pdf.js?v=0.98.1';
+import * as FB from './fs-gastos.js?v=0.99.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.99.0';
+import { ahoraChile } from './gastos-g2.js?v=0.99.0';
+import * as GN from './gn-modelo.js?v=0.99.0';
+import * as GB from './gn-bandeja.js?v=0.99.0';
+import * as GP from './gn-pdf.js?v=0.99.0';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -42,7 +42,16 @@ export async function leer() {
   let reps = reps0;
   if (!reps.length) { try { await crearRepartosIniciales(); reps = await todos(GN.COL.repartos); } catch (e) { reps = []; } }
   return { docs, movs, cargas: cargas.sort((a, b) => String(b.en || '').localeCompare(String(a.en || ''))), pagos, provs: Object.fromEntries(provs.map(p => [p.id, p])),
-    creditos: creds.map(cr => ({ ...cr, cuotas: GP.separarCuotas(cr.cuotas || [], cr.montoOriginal, cr.tasa) })), compromisos: comps.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre))), sugeridas: (sug && sug.porProveedor) || {}, gastosAnt: (ant && ant.lista) || [], items: itemsDe(items), repartos: Object.fromEntries(reps.filter(r => r.estado !== 'archivado').map(r => [r.id, r])), inicio: inicio() };
+    creditos: creds.map(cr => ({ ...cr, cuotas: GP.separarCuotas(cr.cuotas || [], cr.montoOriginal, cr.tasa) })), compromisos: comps.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre))), sugeridas: (sug && sug.porProveedor) || {}, gastosAnt: (ant && ant.lista) || [], items: itemsConUsados(itemsDe(items), docs, provs, comps), repartos: Object.fromEntries(reps.filter(r => r.estado !== 'archivado').map(r => [r.id, r])), inicio: inicio() };
+}
+// v0.99.0 · La lista de ítems para clasificar: el catálogo de siempre y, después, los que ya se usaron en el Gastos nuevo (clasificaciones,
+// fichas, productos y compromisos) aunque no estén en el catálogo: así un ítem nuevo se reutiliza igual. En la Etapa 4 pasan al catálogo nuevo.
+function itemsConUsados(cat, docs, provs, comps) {
+  const ya = new Set(cat.map(x => x.item.toUpperCase())), extra = new Set(), ag = v => { const t = String(v || '').trim(); if (t && !ya.has(t.toUpperCase())) extra.add(t); };
+  (docs || []).forEach(d => ((d.clasif && d.clasif.partes) || []).forEach(p => ag(p.item)));
+  (provs || []).forEach(p => { ag(p.item); Object.values(p.productos || {}).forEach(x => ag(x && x.item)); });
+  (comps || []).forEach(c => ag(c.item));
+  return cat.concat([...extra].sort().map(item => ({ item, area: '', usado: true })));
 }
 // El catálogo de ítems de siempre (Configuración → Ítems): los vivos, en su orden
 const itemsDe = l => l.filter(x => x.item && !x.archivado && !x.quitadoEnPlanilla && x.estado !== 'ARCHIVADO').sort((a, b) => (Number(a.orden) || 999) - (Number(b.orden) || 999)).map(x => ({ item: String(x.item), area: String(x.area || '') }))
@@ -351,11 +360,11 @@ export async function guardarCompromiso(c) {
   if (!aQuien) throw error('Escriba a quién se le paga.', 'datos');
   if (!(monto > 0)) throw error('Escriba el monto.', 'datos');
   if (!(dia >= 1 && dia <= 31)) throw error('El día de pago va del 1 al 31.', 'datos');
-  const frecuencia = c.frecuencia === 'semestral' ? 'semestral' : 'mensual', mesInicio = Math.min(Math.max(1, Math.round(Number(c.mesInicio) || 1)), 6);
+  const frecuencia = ['semestral', 'anual'].includes(c.frecuencia) ? c.frecuencia : 'mensual', mesInicio = Math.min(Math.max(1, Math.round(Number(c.mesInicio) || 1)), frecuencia === 'anual' ? 12 : 6);
   if (!String(c.item || '').trim()) throw error('Elija el ítem.', 'datos');
   if (!c.repartoId) { const err = GB.repartoValido(c.areas); if (err) throw error(err, 'datos'); }
   const id = c.id || 'cp_' + GN.norm(nombre).toLowerCase().replace(/ /g, '_').slice(0, 30) + '_' + Date.now().toString(36);
-  const dato = { nombre, aQuien, rut: String(c.rut || '').trim().slice(0, 14), monto, dia, frecuencia, mesInicio: frecuencia === 'semestral' ? mesInicio : 0, rol: String(c.rol || '').trim().slice(0, 40), direccion: String(c.direccion || '').trim().slice(0, 100), desde: /^\d{4}-\d{2}$/.test(c.desde || '') ? c.desde : '', item: String(c.item).trim(), repartoId: c.repartoId || '', areas: c.repartoId ? [] : c.areas, estado: 'activo' };
+  const dato = { nombre, aQuien, rut: String(c.rut || '').trim().slice(0, 14), monto, dia, frecuencia, mesInicio: frecuencia !== 'mensual' ? mesInicio : 0, rol: String(c.rol || '').trim().slice(0, 40), direccion: String(c.direccion || '').trim().slice(0, 100), desde: /^\d{4}-\d{2}$/.test(c.desde || '') ? c.desde : '', item: String(c.item).trim(), repartoId: c.repartoId || '', areas: c.repartoId ? [] : c.areas, estado: 'activo' };
   const clave = GB.claveBase(GB.docDeCompromiso({ id, ...dato }, '2000-01'));
   await enTransaccion(async (tx, d) => {
     const ref = FB.doc(d, GN.COL.compromisos, id), sn = await tx.get(ref), a = sn.exists() ? sn.data() : null, pref = FB.doc(d, GN.COL.provs, clave), ps = await tx.get(pref), prev = ps.exists() ? ps.data() : null;

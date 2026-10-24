@@ -1,9 +1,21 @@
-# Sistema Fën · v0.98.1
+# Sistema Fën · v0.99.0
 
-**App:** v0.98.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.99.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.99.0: compromisos anuales, el SII en "Hasta dónde llega" y los ítems ya usados en la lista
+
+Grupo de cambios chicos analizado el 24 oct (el catálogo de ítems en una pantalla nueva quedó para la Etapa 4, con los libros).
+- **Compromisos una vez al año:** "Cada cuánto" → "Una vez al año" y su mes (por ejemplo, el permiso de circulación en marzo). Cubre sus 12 meses: Finanzas lo reparte un doceavo por mes (Etapa 4). Igual que los otros: ajuste al monto pagado y "Desde" antes del inicio = deuda anterior.
+- **Compras del SII en "Hasta dónde llega cada cuenta":** la fecha del documento más reciente cargado y el último archivo subido (XML o RCV). En su (i), el método: al bajar el XML, incluir siempre el último día de la descarga anterior (lo que ya estaba no se repite); a fin de mes, el RCV.
+- **Lista de ítems al clasificar:** además del catálogo de siempre, los ítems que ya usó en el Gastos nuevo (clasificaciones, fichas, productos y compromisos). Así un ítem nuevo, como el de la patente, se reutiliza igual. En la Etapa 4 pasan al catálogo nuevo.
+- **Ajuste visual:** el visto verde va junto al texto aunque la clasificación sea larga.
+Cambian `gn-bandeja.js`, `gn-fs.js`, `vista-gn.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.99.0`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda) y abrir con Cmd + Shift + R: abajo dice v0.99.0.
+- [ ] Revisar "Hasta dónde llega cada cuenta": aparece "Compras del SII".
 
 ## Novedades de la v0.98.1: compromisos atrasados como deuda anterior
 

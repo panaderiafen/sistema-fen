@@ -2777,7 +2777,8 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-recordar { display: flex; flex-direction: column; gap: 6px; }
 .gn-gris .chips, .gn-gris .gn-pcts { opacity: .55; }
 /* v0.92.3 · Clasificación: verde con visto (guardada por usted) · rojo (falta decidir: sugerido, sin clasificar, falta el área) */
-.gn-cl { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.gn-cl { display: block; }   /* v0.99.0: el visto va junto al texto aunque la clasificación sea larga */
+.gn-cl .gn-visto { vertical-align: -2px; margin-right: 4px; }
 .gn-cl-falta { color: var(--rojo-t); }
 .gn-visto { flex: none; }
 /* v0.96.0 · El detalle de la factura a la vista en el diálogo de clasificar */
