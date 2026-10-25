@@ -2841,18 +2841,3 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .fila-caja-rep.no-cuadra { background: var(--rojo); border-radius: 8px; padding: 8px; }
 .fila-caja-rep .valor-chico { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .error-texto { color: var(--rojo-t); }
-
-/* v0.101.0 · Gastos: revisión de octubre del Gastos anterior (temporal) */
-.gn-rev-tots { display: grid; gap: 4px; margin: 10px 0; max-width: 520px; }
-.gn-rev-tot { display: grid; grid-template-columns: 1fr auto minmax(96px, auto); gap: 10px; align-items: center; font-size: 14px; }
-.gn-rev-tot b { text-align: right; font-variant-numeric: tabular-nums; }
-.gn-rev-suma { border-top: 1px solid var(--linea); padding-top: 6px; font-weight: 600; }
-.gn-rev-it { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
-.gn-rev-it .gn-fila { width: 100%; }
-.gn-rev-dec { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; margin: 2px 0; font-size: 13px; color: var(--texto); }
-.gn-rev-dec small { color: var(--suave); }
-.gn-rev-par { width: 100%; display: flex; flex-direction: column; gap: 6px; }
-.gn-rev-par .gn-fila { gap: 8px; align-items: center; font-size: 13px; }
-.gn-rev-card .btn { margin-top: 4px; }
-.gn-rev-h { font-size: 15px; margin: 18px 0 2px; }
-.gn-rev-nota { margin: 2px 0; }

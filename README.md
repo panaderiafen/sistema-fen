@@ -1,11 +1,30 @@
-# Sistema Fën · v0.101.0
+# Sistema Fën · v0.101.1
 
-**App:** v0.101.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 25 de octubre de 2026
+**App:** v0.101.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 25 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
 
-## Novedades de la v0.101.0: Finanzas lee el Gastos nuevo desde octubre (Etapa 4, primera parte)
+## Novedades de la v0.101.1: desde cero en octubre (reemplaza el empalme de la v0.101.0)
+
+Decidido por Emmanuel el 25 oct: Finanzas parte en octubre y no se rescata lo anterior (no hay enero a agosto; septiembre no se cierra).
+- **Finanzas parte en octubre.** El estado de resultados y el cierre de mes muestran desde el mes del inicio. Los gastos salen solo del Gastos nuevo.
+- **Lo de antes de octubre no entra al resultado.** La deuda anterior queda solo para pagarla (Por pagar). De un pago que cubre varios meses (una patente de junio a noviembre), solo cuentan los meses desde octubre. Una factura de octubre cuenta entera en octubre aunque se haya abonado en septiembre.
+- **Se retira la Revisión de octubre** (los gastos de octubre del Gastos anterior se ignoran: las facturas llegan por el SII y lo pagado por el banco aparece en la Bandeja; el cierre no deja cargos sin explicar). Lo que se haya decidido ahí queda guardado y sin uso.
+- **Se retira la pregunta "¿Ya está en el Gastos anterior?"** al unir un cargo de antes del inicio.
+- **El Gastos anterior queda apagado:** no se puede anotar ni corregir nada desde octubre, y ya no se lee para nada. Solo quedan dos cosas: la lista de ítems (pasa al catálogo del Gastos nuevo en la v0.102.0) y las inversiones ya registradas (siguen depreciándose: son equipos que se usan hoy). No se borró nada.
+- **Arreglo importante: precios de las materias primas.** Desde que se usa el Gastos nuevo, las compras del SII no actualizaban los precios de las materias primas (Finanzas los leía del Gastos anterior), y el costo de las recetas se quedaba quieto. Ahora, al subir compras del SII en Gastos, Finanzas revisa los precios con el detalle de esas facturas (como antes) y lo avisa en el mensaje.
+- Las facturas del SII ahora guardan el código y el precio unitario de cada producto (las asociaciones de Finanzas usan el código). Las de octubre ya cargadas se completan al subir otra vez su XML.
+- Hoy ya no muestra el avance de la conciliación antigua.
+Cambian `gn-modelo.js`, `gn-finanzas.js`, `finanzas.js`, `finanzas-sii.js`, `finanzas-eerr.js`, `vista-finanzas-eerr.js`, `gn-fs.js`, `gn-bandeja.js`, `vista-gn.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.101.1`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda) y abrir con Cmd + Shift + R: abajo dice v0.101.1.
+- [ ] Gastos → Archivos subidos: ya no aparece la Revisión de octubre.
+- [ ] Subir otra vez los XML de compras de octubre (no se repite nada: solo se completa el código de cada producto).
+- [ ] Finanzas → Costos → Compras del SII → "Revisar compras de los últimos 90 días": que aparezcan las compras de octubre del Gastos nuevo y se actualicen los precios.
+- [ ] Finanzas → Resultados: el selector de mes parte en octubre; revisar los avisos y la cuadratura.
+
+## Novedades de la v0.101.0: Finanzas lee el Gastos nuevo desde octubre (Etapa 4, primera parte) — el empalme con el Gastos anterior se reemplazó en la v0.101.1
 
 Acordado con Emmanuel el 25 oct (propuesta en el proyecto: `claude/gastos-etapa4-propuesta.md`).
 - **Corte por mes:** hasta septiembre, el estado de resultados y el cierre leen el Gastos anterior (como siempre); desde octubre, **solo el Gastos nuevo**. Cada parte de cada documento clasificado (ítem, área, neto) entra en el mes del documento. Así nada se cuenta dos veces.

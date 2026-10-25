@@ -10,7 +10,7 @@
 //  · armarAsociacion: el documento de costos_asoc y su historial (costos_asoc_hist).
 //  Todo en neto. Se prueba solo: pruebas/sistemafen/finanzas-f1b.test.js.
 // ═══════════════════════════════════════════════
-import { num, parsearContenido, contenidoValido, IVA } from './finanzas-costos.js?v=0.101.0';
+import { num, parsearContenido, contenidoValido, IVA } from './finanzas-costos.js?v=0.101.1';
 
 export const DIAS_COMPRAS = 90;
 export const LIMITE_PCT = 40;
@@ -88,6 +88,15 @@ export function precioPorBaseLinea(l, contenido) {
 const dmaIso = t => { const m = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(s(t)); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : ''; };
 const isoDe = t => (/^\d{4}-\d{2}-\d{2}/.test(s(t)) ? s(t).slice(0, 10) : dmaIso(t));
 export function restarDias(iso, n) { const [y, m, d] = iso.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d - n)).toISOString().slice(0, 10); }
+// v0.101.1 · Con el Gastos nuevo, las compras del SII de desde el inicio están en gn_documentos (no en sii_docs). Se entregan en la misma forma
+// para los precios de las materias primas: una línea por producto del detalle (el XML trae descripción, cantidad, unidad y monto neto).
+// Lo cargado sin detalle (el RCV) queda en "sin detalle", como antes. Las notas de crédito no dan precio.
+export const fechaDocSii = d => isoDe(d && d.fecha) || isoDe(d && d.importado && d.importado.fechaDocto);
+export function siiDocsDeGN(docs, inicio = '') {
+  return (docs || []).filter(d => d && d.origen === 'sii' && d.estado !== 'no_va' && s(d.fecha) >= s(inicio)).map(d => ({ id: 'gn_' + d.id, d: {
+    fecha: s(d.fecha), tipo: s(d.tipo), tiposDoc: [s(d.tipo)], rut: s(d.rut), razonSocial: s(d.razon), folio: s(d.folio), importado: { fechaDocto: s(d.fecha) },
+    lineas: (d.detalle || []).map(l => ({ descripcion: s(l.descripcion), codigo: s(l.codigo), unidad: s(l.unidad), cantidad: num(l.cantidad), montoNeto: num(l.monto), precioUnitario: num(l.precioUnitario) || (num(l.cantidad) ? num(l.monto) / num(l.cantidad) : 0), tipoDoc: s(d.tipo) })) } }));
+}
 export function lineasCompras(siiDocs, { hoy, dias = DIAS_COMPRAS } = {}) {
   const desde = restarDias(hoy, dias), lineas = [], sinDetalle = [];
   (siiDocs || []).forEach(({ id, d }) => {

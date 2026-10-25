@@ -5,7 +5,7 @@
 //  reglas de Firestore y la cuenta de administración.
 // ═══════════════════════════════════════════════
 window.FEN_SIS = {
-  VERSION: '0.101.0',
+  VERSION: '0.101.1',
   // v0.82.0 · El sistema empieza el 1 de octubre de 2026: lo anterior (septiembre, mes de transición) queda guardado, pero la Bandeja,
   // el informe y los avisos ya no lo piden. Se queda lo que todavía se debe (vencimientos y facturas del SII esperando su pago).
   INICIO: '2026-10-01',

@@ -50,7 +50,8 @@ export const idDoc = (rut, tipo, folio) => `d_${rutN(rut)}_${s(tipo) || '33'}_${
 // Un documento del SII (lo que entrega sii.leer: fecha dd-mm-aaaa, montos con signo) → documento nuevo
 export function docDeSii(f, cargaId) {
   const tipo = s(f.tipoDoc) || '33', fecha = aIso(f.fecha), nc = tipo === '61';
-  const det = (f.detalle || []).slice(0, 40).map(d => ({ descripcion: corto(d.descripcion, 120), cantidad: Number(d.cantidad) || 0, unidad: corto(d.unidad, 12), monto: entero(d.monto) }));
+  const det = (f.detalle || []).slice(0, 40).map(d => ({ descripcion: corto(d.descripcion, 120), cantidad: Number(d.cantidad) || 0, unidad: corto(d.unidad, 12), monto: entero(d.monto),
+    ...(s(d.codigo) ? { codigo: corto(d.codigo, 40) } : {}), ...(Number(d.precioUnitario) ? { precioUnitario: Number(d.precioUnitario) } : {}) }));   // v0.101.1: código y precio unitario (para los precios de las materias primas en Finanzas)
   return {
     id: idDoc(f.rut, tipo, f.folio), origen: 'sii', tipo, tipoTexto: TIPOS_DOC[tipo] || ('Documento ' + tipo), nc,
     rut: rutTexto(f.rut), rutN: rutN(f.rut), razon: corto(f.razonSocial, 120), folio: s(f.folio).replace(/^0+(?=\d)/, ''),
@@ -115,7 +116,9 @@ export function planDocs(facturas, existentes, inicio, cargaId) {
     if (e) {
       // v0.90.2 · Ya estaba sin detalle (vino del Registro de Compras) y ahora llega el XML con detalle: se completa (montos y todo lo demás no se tocan)
       // v0.92.3 · también el N° de cliente y el período, si faltaban (subir otra vez el XML se los agrega)
-      const falta = { ...(!(e.detalle || []).length && d.detalle.length ? { detalle: d.detalle } : {}), ...(!e.cliente && d.cliente ? { cliente: d.cliente } : {}), ...(!e.direccion && d.direccion ? { direccion: d.direccion } : {}), ...(!e.periodo && d.periodo ? { periodo: d.periodo } : {}) };
+      // v0.101.1 · y el código y el precio unitario de cada producto si faltaban (el mismo detalle: Finanzas los usa para los precios)
+      const sinCodigo = (e.detalle || []).length && (e.detalle || []).length === d.detalle.length && !e.detalle.some(x => x.codigo || x.precioUnitario) && d.detalle.some(x => x.codigo || x.precioUnitario);
+      const falta = { ...((!(e.detalle || []).length && d.detalle.length) || sinCodigo ? { detalle: d.detalle } : {}), ...(!e.cliente && d.cliente ? { cliente: d.cliente } : {}), ...(!e.direccion && d.direccion ? { direccion: d.direccion } : {}), ...(!e.periodo && d.periodo ? { periodo: d.periodo } : {}) };
       if (Object.keys(falta).length) {
         visto.add(d.id);
         out.completar.push({ id: d.id, ...falta, ...(e.vence ? {} : d.vence ? { vence: d.vence } : {}), ...(e.formaPago ? {} : d.formaPago ? { formaPago: d.formaPago } : {}),

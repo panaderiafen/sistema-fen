@@ -183,34 +183,6 @@ export function repartoValido(areas) {
 export const repartoIgual = areas => { const n = areas.length, b = Math.floor(10000 / n) / 100; return areas.map((a, i) => ({ area: a, pct: i < n - 1 ? b : Math.round((100 - b * (n - 1)) * 100) / 100 })); };
 export const textoReparto = areas => (areas || []).map(a => (areas.length > 1 ? `${a.area} ${a.pct}%` : a.area)).join(' · ');
 
-// ── Sugerencias del Gastos anterior (solo sugieren): por RUT, el ítem más usado y el reparto de su última factura ──
-// gastos: filas del Gastos anterior { rutProveedor, itemGasto, area, montoFinal, fecha, estado, folio/observacion }
-export function sugerenciasDeAnterior(gastos) {
-  const por = {};
-  (gastos || []).forEach(g => {
-    const r = rutN(g.rutProveedor); if (!r || !s(g.itemGasto) || g.estado === 'anulado' || g.estado === 'ANULADO') return;
-    const monto = Math.abs(Number(g.montoFinal) || 0); if (!monto) return;
-    const x = por[r] || (por[r] = { items: {}, ultima: '', folios: {} });
-    x.items[g.itemGasto] = (x.items[g.itemGasto] || 0) + monto;
-    const folio = s(g.folio) || s((/(?:F|NC)\.?\s*(\d+)/.exec(s(g.observacion)) || [])[1]) || s(g.fecha);
-    const f = x.folios[folio] || (x.folios[folio] = { fecha: s(g.fecha), areas: {} });
-    if (s(g.area) && !['SELECCIONAR', 'PRORRATEADO'].includes(s(g.area))) f.areas[g.area] = (f.areas[g.area] || 0) + monto;
-    if (s(g.fecha) > f.fecha) f.fecha = s(g.fecha);
-  });
-  const out = {};
-  Object.entries(por).forEach(([r, x]) => {
-    const item = Object.entries(x.items).sort((a, b) => b[1] - a[1])[0][0];
-    const ult = Object.values(x.folios).filter(f => Object.keys(f.areas).length).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
-    let areas = [];
-    if (ult) {
-      const tot = Object.values(ult.areas).reduce((a, b) => a + b, 0), l = Object.entries(ult.areas).sort((a, b) => b[1] - a[1]);
-      areas = l.map(([area, m]) => ({ area, pct: Math.round(m / tot * 100) }));
-      const dif = 100 - areas.reduce((a, b) => a + b.pct, 0); if (areas.length) areas[0].pct += dif;
-    }
-    out['r_' + r] = { item, areas };
-  });
-  return out;
-}
 
 // ── Pares sugeridos ──
 const PALABRAS_VACIAS = new Set(['SPA', 'LTDA', 'LIMITADA', 'EIRL', 'SA', 'S', 'A', 'Y', 'DE', 'DEL', 'LA', 'LAS', 'LOS', 'EL', 'COMERCIAL', 'SOCIEDAD', 'EMPRESA', 'EMPRESAS', 'SERVICIOS', 'CIA', 'COMPANIA', 'INVERSIONES', 'DISTRIBUIDORA', 'CHILE']);
@@ -315,24 +287,6 @@ export function pagosDeVarios(d, movs) {
   return out;
 }
 
-// ── v0.96.0 · ¿Ya está en el Gastos anterior? (para un cargo anterior al inicio) ──
-// Los gastos del anterior se agrupan como un pago (misma fecha, hora, observación, RUT y folio: un pago repartido en varias líneas de área)
-export function resumenAnterior(gastos, desde, hasta) {
-  const g = {};
-  (gastos || []).forEach(x => {
-    const f = s(x.fecha).slice(0, 10); if (!f || f < desde || f >= hasta || x.estado === 'anulado' || x.estado === 'ANULADO' || x.quitadoEnPlanilla) return;
-    const k = [f, s(x.hora), s(x.observacion), rutN(x.rutProveedor), s(x.folio)].join('|'), y = g[k] || (g[k] = { id: x.id, fecha: f, monto: 0, rut: rutN(x.rutProveedor), razon: s(x.razonSocial), folio: s(x.folio), item: s(x.itemGasto), obs: s(x.observacion).slice(0, 80) });
-    y.monto += Math.abs(Number(x.montoFinal) || 0);
-  });
-  return Object.values(g).map(y => ({ ...y, monto: Math.round(y.monto) })).sort((a, b) => a.fecha.localeCompare(b.fecha));
-}
-// Los del Gastos anterior que pueden ser este mismo cargo: mismo monto (±$5) y fecha (±3 días); "seguro" si además es del RUT del documento.
-// Los ya marcados en otro pago no se repiten.
-export function enAnterior(m, docs, G, usados) {
-  const ruts = new Set(docs.map(d => rutN(d.rutN || d.rut)).filter(Boolean));
-  return (G || []).filter(g => !(usados && usados.has(g.id)) && Math.abs(g.monto - m.monto) <= TOLERANCIA && Math.abs(dias(g.fecha, m.fecha)) <= 3)
-    .map(g => ({ g, seguro: !!g.rut && ruts.has(g.rut) })).sort((a, b) => b.seguro - a.seguro);
-}
 
 // Cómo se reparte un movimiento entre documentos: en orden, a cada uno lo que le falta (lo último puede quedar a medias)
 export function repartirPago(docs, monto) {
@@ -369,7 +323,6 @@ export function armar(D, { cuenta = '', excluir = null } = {}) {
   return { docs, movs, I, S, pares: paresV, porClasificar, sinPago, sinDoc, listosD, noGasto, abiertosD, abiertosM,
     anteriores: docs.filter(d => d.anterior && d.estadoPago !== 'pagado' && d.estado !== 'no_va'),
     movsAnteriores: abiertosM.filter(m => m.anterior && !movEnPar.has(m.id) && (!cuenta || m.cuenta === cuenta)).sort((a, b) => b.fecha.localeCompare(a.fecha)),
-    usadosAnterior: new Set((D.pagos || []).filter(p => p.estado !== 'deshecho' && p.enGastoAnterior).map(p => p.enGastoAnterior.id)),
     conAreaAntigua: docs.filter(d => d.estado !== 'no_va' && tieneAreaAntigua(d.clasifEf)),
     n: { pares: paresV.length, clasificar: porClasificar.length, sinPago: sinPago.length, sinDoc: sinDoc.length, total: paresV.length + porClasificar.length + sinPago.length + sinDoc.length } };
 }

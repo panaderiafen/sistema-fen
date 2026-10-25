@@ -6,11 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.101.0';
-import * as FR from './finanzas-resultados.js?v=0.101.0';
-import * as FE from './finanzas-eerr.js?v=0.101.0';
-import * as FC from './finanzas-costos.js?v=0.101.0';
-import * as SP from './sii-pendientes.js?v=0.101.0';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.101.1';
+import * as FR from './finanzas-resultados.js?v=0.101.1';
+import * as FE from './finanzas-eerr.js?v=0.101.1';
+import * as FC from './finanzas-costos.js?v=0.101.1';
+import * as SP from './sii-pendientes.js?v=0.101.1';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
 const $ = id => document.getElementById(id);
@@ -29,7 +29,10 @@ const PI = {
 const ic = (n, t = 18) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${PI[n] || ''}</svg>`;
 const mapaAreas = R => (R.datos.config && R.datos.config.areasGasto) || {};
 const mesHoy = () => hoyTxt().slice(0, 7);
-const mesDefecto = () => FE.mesMas(mesHoy(), -1) >= `${FR.ANIO}-01` ? FE.mesMas(mesHoy(), -1) : mesHoy();
+// v0.101.1 · Con el Gastos nuevo, Finanzas parte en el mes del inicio (desde cero en octubre)
+const mesDesde = () => F.mesInicioGN() || `${FR.ANIO}-01`;
+const mesDefecto = () => (FE.mesMas(mesHoy(), -1) >= mesDesde() ? FE.mesMas(mesHoy(), -1) : mesHoy());
+const mesValido = m => (/^\d{4}-\d{2}$/.test(String(m || '')) && m >= mesDesde() ? m : mesDefecto());
 const cerrado = m => !!(ES.cierres && ES.cierres[m] && ES.cierres[m].estado === 'cerrado');
 const mensajes = H => `<p class="ok-texto" id="e-msg" role="status">${H.esc(ES.msg)}</p><p class="error" id="e-err" role="alert">${H.esc(ES.err)}</p>`;
 // v0.69.3 · Finanzas → Resumen del mes: "Ir a Cierre de mes" abre el mismo mes
@@ -39,6 +42,8 @@ export function olvidar() { ES.cierres = null; ES.cartola = null; ES.sii = null;
 // ── Datos comunes (una vez por entrada a Resultados) ──
 async function base() {
   if (!ES.cierres) { const x = await F.leerCierres(); ES.cierres = x.cierres; ES.claves = x.claves || {}; }
+  // v0.101.1 · Con el Gastos nuevo, la cartola y el SII del Gastos anterior ya no se leen (las revisiones salen del Gastos nuevo)
+  if (F.gnActivo()) return;
   if (!ES.cartola) ES.cartola = await F.cargosCartola();
   if (!ES.siiPend) { try { ES.siiPend = await F.siiPorClasificar(); } catch (e) { ES.siiPend = null; } }
 }
@@ -49,19 +54,16 @@ async function vivo(R, mes) {
   const D = R.datos, mapa = mapaAreas(R);
   // v0.101.0 · Desde el inicio (octubre) manda el Gastos nuevo: el interés de los créditos va en sus cuotas (Gastos → Compromisos → Créditos),
   // no en la tabla de Finanzas → Créditos (sería doble); los pagos de la tarjeta son los movimientos marcados así en la Bandeja.
+  // v0.101.1 · Desde cero en octubre: con el Gastos nuevo, Finanzas no muestra meses anteriores al inicio.
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo (desde ${FE.mesTxt(D.gn.inicio.slice(0, 7))} los gastos salen de ahí): ${D.gn.error}. Revise la conexión y toque "Leer de nuevo".`);
-  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.101.0') : null;
-  const pagosTarjeta = nuevo ? GF.pagosTarjetaGN(D.gn.D) : (ES.cartola.pagosTarjeta || []).filter(p => !F.delGastosNuevo(FE.mesDe(p.fecha)));
+  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.101.1') : null;
+  const pagosTarjeta = nuevo ? GF.pagosTarjetaGN(D.gn.D) : ((ES.cartola && ES.cartola.pagosTarjeta) || []);
   const e = FE.armarEERR({ mes, margen: dm.margen, merma: dm.merma, gastos: D.gastos, fin: D.fin, items: D.items, mapa, creditosMes: nuevo ? [] : FE.creditosDelMes(D.creditos, D.vencimientos, D.gastos, mes),
     invs: FR.inversiones(D.gastos, D.fin, D.invGuardadas, mapa), pagosTarjeta });
   e.ventasInfo = dm.ventasInfo;
   if (nuevo) {
-    const sc = GF.sinClasificarDelMes(D.gn.D, mes), aj = D.gn.ajuste, av = [];
+    const sc = GF.sinClasificarDelMes(D.gn.D, mes), av = [];
     if (sc.n) av.push({ k: 'gn_sin_clasificar', texto: `${sc.n} ${sc.n === 1 ? 'documento' : 'documentos'} de ${FE.mesTxt(mes)} sin clasificar en Gastos (${pesos(sc.monto)}): no están en este estado de resultados. Clasifíquelos en Gastos → Bandeja.` });
-    const enIni = mes === D.gn.inicio.slice(0, 7);
-    if (enIni && aj && aj.total) av.push({ k: 'gn_ajuste_anterior', texto: `Incluye ${pesos(aj.total)} de meses anteriores (${aj.n} ${aj.n === 1 ? 'documento' : 'documentos'}: ${Object.entries(aj.porMes).sort().map(([m, v]) => `${GF.mesCorto(m)} ${pesos(v)}`).join(' · ')}). Es lo de antes de octubre que usted marcó "no estaba en el Gastos anterior"; en el detalle de cada gasto dice "Ajuste de meses anteriores".` });
-    if (enIni && D.gn.porDecidir && D.gn.porDecidir.n) av.push({ k: 'gn_por_decidir', texto: `${D.gn.porDecidir.n} ${D.gn.porDecidir.n === 1 ? 'documento' : 'documentos'} del Gastos nuevo de antes de octubre sin decidir si estaban en el Gastos anterior: todavía no entran. Decídalo en Gastos → Archivos subidos → Revisión de octubre.` });
-    if (D.gn.yaAnterior && D.gn.yaAnterior.total && enIni) av.push({ k: 'gn_ya_anterior', texto: `${pesos(D.gn.yaAnterior.total)} pagados con cargos de antes de octubre que ya eran gasto en el Gastos anterior (${D.gn.yaAnterior.n} ${D.gn.yaAnterior.n === 1 ? 'documento' : 'documentos'}): esa parte no se cuenta otra vez.` });
     if ((D.gn.errores || []).length) av.push({ k: 'gn_errores', texto: `${D.gn.errores.length} ${D.gn.errores.length === 1 ? 'documento del Gastos nuevo no se pudo leer' : 'documentos del Gastos nuevo no se pudieron leer'} (no están en el estado de resultados): ${D.gn.errores.slice(0, 5).join(', ')}.` });
     // Un crédito de Finanzas → Créditos con cuota este mes y ninguna cuota del Gastos nuevo: su interés faltaría sin aviso
     const viejo = (D.creditos || []).filter(c => c.estado !== 'archivado' && (c.tabla || []).some(f => String(f.fecha || '').slice(0, 7) === mes)), cuotasGN = (D.gastos || []).some(g => FE.mesDe(g.fecha) === mes && g.origenGN === 'credito');
@@ -81,7 +83,7 @@ async function vivo(R, mes) {
 // Ajustes de meses cerrados que van en el mes abierto M (cálculo de hoy − snapshot − lo ya informado)
 async function ajustesPara(R, M) {
   const porMes = {};
-  for (const X of Object.keys(ES.cierres || {}).filter(x => x < M && cerrado(x)).sort()) {
+  for (const X of Object.keys(ES.cierres || {}).filter(x => x < M && x >= mesDesde() && cerrado(x)).sort()) {   // v0.101.1: los cierres de antes del inicio no se recalculan
     if (FE.mesDeAjuste(X, ES.cierres) !== M) continue;
     const v = await vivo(R, X);
     porMes[X] = FE.ajusteDe(v, ES.cierres[X], FE.yaInformado(ES.cierres, X));
@@ -98,18 +100,18 @@ async function delMes(R, mes) {
 // ═══════════════ Estado de resultados ═══════════════
 const TXT_EERR = 'El estado de resultados del mes por área (la que produce) y el total, en tres pisos, todo en neto:\nLa columna Reventa (lo que se compra hecho y se vende tal cual) aparece solo si el mes tiene ventas, costo o gastos de Reventa. Sus compras no son una línea de gasto (van a "Fuera del resultado"): entra el costo de lo vendido.\n1. Ventas netas − costo directo de lo vendido (receta × unidades al costo del mes; reventa a su costo de compra) − costos de venta (comisión de tarjeta, despacho) − merma valorizada = margen de contribución.\n2. − remuneraciones propias del área − otros fijos propios − depreciación del área = margen del área.\nCanal B2B (en Total, solo si el mes lo tiene): + despacho cobrado (el cargo del Catálogo que se cobra a los clientes B2B) − costos del canal B2B (remuneraciones y fijos con área B2B: atención de clientes, órdenes y despacho) = resultado del canal B2B.\n3. + resultado del canal B2B − comunes sin repartir (remuneraciones comunes con el sueldo empresarial, fijos comunes, depreciación común) = resultado operacional; − financieros (interés de las cuotas pagadas en el mes según la tabla del crédito + gastos financieros) = resultado del mes.\nCada cifra se puede tocar para ver de dónde sale.\nUn mes cerrado se ve congelado (como quedó al cerrarlo).';
 function selectorMes(H, id = 'e-mes') {
-  const meses = FE.mesesDelAnio(FR.ANIO, hoyTxt());
+  const meses = FE.mesesDelAnio(FR.ANIO, hoyTxt()).filter(m => m >= mesDesde());
   return `<div class="campo fin-emes"><label for="${id}">Mes</label><select id="${id}">${meses.map(m => `<option value="${m}" ${m === ES.mes ? 'selected' : ''}>${H.esc(FE.mesTxt(m))}${cerrado(m) ? ' · cerrado' : m === mesHoy() ? ' · en curso' : ''}</option>`).join('')}</select></div>`;
 }
 export async function pintarEERR(el, H, ctx, R) {
-  if (!ES.mes) ES.mes = mesDefecto();
+  ES.mes = mesValido(ES.mes);
   const tope = (cuerpo) => R.cabecera() + cuerpo;
   el.innerHTML = tope(`<section class="tarjeta"><div class="vacio" style="border:0" role="status" id="e-leyendo">Calculando el estado de resultados de ${H.esc(FE.mesTxt(ES.mes))}…</div></section>`);
   let e, prev = null;
   try {
     await base();
     e = await delMes(R, ES.mes);
-    if (ES.comparar) prev = await delMes(R, FE.mesMas(ES.mes, -1)).catch(() => null);
+    if (ES.comparar && FE.mesMas(ES.mes, -1) >= mesDesde()) prev = await delMes(R, FE.mesMas(ES.mes, -1)).catch(() => null);
   } catch (er) { el.innerHTML = tope(`<section class="tarjeta"><p class="error" role="alert">${H.esc(ctx.error(er, H))}</p></section>`); return; }
   if (!/^#finanzas\/resultados\/?$/.test(location.hash) && !/^#finanzas\/resultados\/eerr/.test(location.hash)) return;
   el.innerHTML = tope(htmlEERR(H, e, prev, R));
@@ -324,13 +326,13 @@ async function datosCierre(R, mes) {
   const D = R.datos;
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo: ${D.gn.error}`);
   if (F.delGastosNuevo(mes) && D.gn) {
-    const GF = await import('./gn-finanzas.js?v=0.101.0');
-    const [e, dm, conteos, rev] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes), mes === D.gn.inicio.slice(0, 7) ? F.revisionAnterior().catch(() => null) : Promise.resolve(undefined)]);
+    const GF = await import('./gn-finanzas.js?v=0.101.1');
+    const [e, dm, conteos] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes)]);
     ES.conteos[mes] = conteos;
-    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.101.0')).indicePagos(G.pagos || []) : null;
+    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.101.1')).indicePagos(G.pagos || []) : null;
     const pagado = pv ? (I.porDoc[pv.id] || []).reduce((a, p) => a + (Number(p.monto) || 0), 0) : 0;
     const gn = { sii: GF.siiDelMes(G.cargas, mes), movs: GF.movsSinRevisarDelMes(G, mes), sinClas: GF.sinClasificarDelMes(G, mes),
-      previred: pv ? { total: Number(pv.total) || 0, pagado, completo: pagado >= (Number(pv.total) || 0) - GF.TOL } : null, ...(rev !== undefined ? { revision: rev } : {}) };
+      previred: pv ? { total: Number(pv.total) || 0, pagado, completo: pagado >= (Number(pv.total) || 0) - GF.TOL } : null };
     const checks = FE.checksCierre({ mes, gn, ventas: dm.ventasInfo, conteos, sinClasificar: e.info.sinClasificar });
     return { e, checks };
   }
@@ -341,7 +343,7 @@ async function datosCierre(R, mes) {
   return { e, checks };
 }
 export async function pintarCierre(el, H, ctx, R) {
-  if (!ES.mes) ES.mes = mesDefecto();
+  ES.mes = mesValido(ES.mes);
   const tope = cuerpo => R.cabecera() + cuerpo;
   el.innerHTML = tope(`<section class="tarjeta"><div class="vacio" style="border:0" role="status">Revisando ${H.esc(FE.mesTxt(ES.mes))}…</div></section>`);
   let x = null, hist = [];
