@@ -2831,3 +2831,13 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 /* v0.100.0 · Gasto sin banco; deuda con el dueño */
 .gn-sinbanco { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-bottom: -2px; }
 .gn-dueno { margin-top: 12px; border-top: 1px solid var(--linea); padding-top: 10px; }
+
+/* v0.100.1 · Ventas por caja (Hoy y Ventas de caja) */
+#c-hoy-suc span, .cajas-lineas span { display: block; font-size: 12px; line-height: 1.5; }
+.cajas-lineas { display: block; }
+.fila-caja-rep { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--linea); font-size: 13px; flex-wrap: wrap; }
+.fila-caja-rep:last-child { border-bottom: 0; }
+.fila-caja-rep > span:first-child { min-width: 0; overflow-wrap: anywhere; flex: 1; }
+.fila-caja-rep.no-cuadra { background: var(--rojo); border-radius: 8px; padding: 8px; }
+.fila-caja-rep .valor-chico { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.error-texto { color: var(--rojo-t); }

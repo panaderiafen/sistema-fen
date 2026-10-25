@@ -1,9 +1,22 @@
-# Sistema Fën · v0.100.0
+# Sistema Fën · v0.100.1
 
-**App:** v0.100.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.100.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.100.1: la cartola desde B2B va al Gastos nuevo; ventas por caja y cierres que no cuadran
+
+- **Arreglo importante:** al subir la cartola en Ventas B2B → Conciliación, los cargos se iban al Gastos anterior y no aparecían en el Gastos nuevo. Ahora van a la Bandeja de Gastos (lo mismo que si se sube desde Gastos). Los abonos siguen igual.
+- **Ventas por caja en Hoy:** el total del día grande y, abajo y más chico, cuánto vendió cada caja (sucursal y hora de apertura), ayer y hoy, también cuando hay una sola.
+- **Ayer se calcula con las ventas de cada caja**, no solo con su resumen del cierre. Si el resumen de un cierre no cuadra con sus ventas (por ejemplo, ventas que llegaron después del cierre), Hoy lo avisa en rojo con los dos montos.
+- **Ventas de caja → "Por caja":** cada cierre del período con lo que vendió. "Revisar con las ventas" muestra si cada resumen cuadra; si no, **"Regenerar"** rehace el resumen con todas sus ventas. Así cuadran también Finanzas y el Plan de Panadería, que leen los resúmenes.
+- Costo: Hoy suma 2 lecturas por cada caja de ayer (agregaciones, no una por venta).
+Cambian `app.js`, `caja.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.100.1`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda) y abrir con Cmd + Shift + R: abajo dice v0.100.1.
+- [ ] Abrir Hoy: si aparece "El resumen de … no cuadra", ir a Ventas de caja (Ayer) → Revisar con las ventas → Regenerar.
+- [ ] En Ventas de caja, elegir "Este mes" → Revisar con las ventas: regenerar los cierres de octubre que no cuadren (para Finanzas).
 
 ## Novedades de la v0.100.0: gasto sin banco, devolución al dueño, y Gastos en Hoy y la Agenda
 

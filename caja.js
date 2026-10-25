@@ -15,8 +15,8 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
-} from './firebase.js?v=0.100.0';
-import * as AR from './areas.js?v=0.100.0';
+} from './firebase.js?v=0.100.1';
+import * as AR from './areas.js?v=0.100.1';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -477,6 +477,37 @@ export async function generarResumenes(cajas, avance) {
   return { hechos, fallas };
 }
 
+// ── v0.100.1 · Revisar una caja contra sus ventas ──
+// Lo vendido en una caja según sus ventas (sin anuladas): dos consultas de agregación (1 lectura cada 1000 ventas); si fallan, sus ventas.
+export async function sumarVentasCaja(id) {
+  const vq = query(collection(db, 'ventas'), where('cajaId', '==', id));
+  try {
+    const [todas, anul] = await Promise.all([getAggregateFromServer(vq, { bruto: sum('total'), n: count() }), getAggregateFromServer(query(collection(db, 'ventas'), where('cajaId', '==', id), where('anulada', '==', true)), { bruto: sum('total'), n: count() })]);
+    const a = todas.data(), b = anul.data();
+    return { bruto: (Number(a.bruto) || 0) - (Number(b.bruto) || 0), n: (Number(a.n) || 0) - (Number(b.n) || 0) };
+  } catch (e) {
+    const sn = await getDocs(vq); let bruto = 0, n = 0;
+    sn.docs.forEach(d => { const v = d.data(); if (v.anulada === true) return; bruto += parseInt(v.total) || 0; n++; });
+    return { bruto, n };
+  }
+}
+// Cada caja con lo que dicen sus ventas y lo que dice su resumen del cierre (si lo tiene). cuadra: el resumen suma lo mismo que las ventas.
+export async function revisarCajas(cajas, resumenes = {}) {
+  return Promise.all((cajas || []).map(async c => {
+    const real = await sumarVentasCaja(c.id), r = resumenes[c.id] || null;
+    return { id: c.id, sucursal: c.sucursal || (r && r.sucursal) || '', usuario: c.usuario || '', estado: c.estado || '', apertura: c.apertura && c.apertura.toDate ? c.apertura.toDate() : null,
+      fecha: normalizarFechaCaja(c.fecha) || '', bruto: real.bruto, nVentas: real.n, resumen: r ? Number(r.totalBruto) || 0 : null, nResumen: r ? Number(r.nVentas) || 0 : null,
+      cuadra: !r || ((Number(r.totalBruto) || 0) === real.bruto && (Number(r.nVentas) || 0) === real.n) };
+  }));
+}
+// Rehacer el resumen de un cierre con todas sus ventas (cuando no cuadra): el mismo cálculo del cierre
+export async function regenerarResumen(cajaId) {
+  const c = await getDoc(doc(db, 'cajas', cajaId)); if (!c.exists()) throw new Error('Esa caja ya no está.');
+  const vs = await getDocs(query(collection(db, 'ventas'), where('cajaId', '==', cajaId)));
+  if (!(await guardarResumenCaja(cajaId, c.data(), vs.docs))) throw new Error('No se pudo guardar el resumen.');
+  return true;
+}
+
 // ── v0.55.0: ventas de hoy (bruto con IVA, sin anuladas), para la tarjeta de Hoy ──
 // Hoy todavía no hay resúmenes (se escriben al cerrar), así que por cada caja de hoy:
 //  · cerrada y con resumen → se usa el resumen (ya descuenta anuladas; 0 lecturas extra);
@@ -506,9 +537,9 @@ export async function ventasDeHoy(cajasHoy, resumenes = {}) {
       return { suc: c.sucursal || '', bruto, n };
     }
   };
-  const partes = await Promise.all(cajasHoy.map(una));
+  const partes = await Promise.all(cajasHoy.map(async c => ({ ...(await una(c)), id: c.id, usuario: c.usuario || '', estado: c.estado || '', apertura: c.apertura && c.apertura.toDate ? c.apertura.toDate() : null })));
   const porSuc = {};
   let total = 0, nVentas = 0;
   partes.forEach(p => { total += p.bruto; nVentas += p.n; if (p.bruto || p.n) porSuc[p.suc] = (porSuc[p.suc] || 0) + p.bruto; });
-  return { total, porSuc, nVentas, cajas: cajasHoy.length };
+  return { total, porSuc, nVentas, cajas: cajasHoy.length, partes };   // v0.100.1: partes = cada caja
 }

@@ -9,57 +9,57 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.100.0';
-import * as Caja from './caja.js?v=0.100.0';
-import * as Stock from './stock.js?v=0.100.0';
-import * as Ajustes from './ajustes.js?v=0.100.0';
-import * as Apps from './apps.js?v=0.100.0';
-import * as Agenda from './agenda.js?v=0.100.0';
-import * as Gastos from './gastos.js?v=0.100.0';
-import * as G3 from './gastos-g3.js?v=0.100.0';
-import * as G3D from './gastos-g3d.js?v=0.100.0';
-import * as GBanco from './gastos-banco.js?v=0.100.0';
-import * as TE from './tef-enviadas.js?v=0.100.0';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.100.0';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.100.0';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.100.0';
-import * as AR from './areas.js?v=0.100.0';   // v0.69.1: una sola lista de áreas (con REVENTA)
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.100.0';
-import * as Sii from './sii.js?v=0.100.0';
-import * as GSii from './gastos-sii.js?v=0.100.0';
-import * as SP from './sii-pendientes.js?v=0.100.0';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.100.0');
-import * as Previred from './previred.js?v=0.100.0';
-import * as B2b from './b2b.js?v=0.100.0';
-import * as Cartola from './cartola.js?v=0.100.0';
-import * as RD from './registro-detalle.js?v=0.100.0';   // v0.67.7: "Ver el registro" (B2B y Gastos)
-import * as BJ from './bandeja.js?v=0.100.0';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
-import * as RC from './reglas-conc.js?v=0.100.0';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
-import * as PT from './puntaje.js?v=0.100.0';       // v0.69.0: el puntaje explicado de cada propuesta
-import * as PM from './pagos-mixtos.js?v=0.100.0';  // v0.69.2: pagos mixtos (un documento pagado en partes)
-import * as CR from './conc-resumen.js?v=0.100.0';  // v0.69.3: Finanzas → Resumen del mes (de la memoria)
-import * as BO from './boletas.js?v=0.100.0';      // v0.70.0: boletas de luz y agua, cuentas recurrentes y por pagar
-import * as SiiFactura from './sii-factura.js?v=0.100.0';
-import * as PdfOrden from './pdf-orden.js?v=0.100.0';
-import * as Prod from './produccion.js?v=0.100.0';
-import * as Mem from './fs-memoria.js?v=0.100.0';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.100.0';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.100.1';
+import * as Caja from './caja.js?v=0.100.1';
+import * as Stock from './stock.js?v=0.100.1';
+import * as Ajustes from './ajustes.js?v=0.100.1';
+import * as Apps from './apps.js?v=0.100.1';
+import * as Agenda from './agenda.js?v=0.100.1';
+import * as Gastos from './gastos.js?v=0.100.1';
+import * as G3 from './gastos-g3.js?v=0.100.1';
+import * as G3D from './gastos-g3d.js?v=0.100.1';
+import * as GBanco from './gastos-banco.js?v=0.100.1';
+import * as TE from './tef-enviadas.js?v=0.100.1';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.100.1';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.100.1';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.100.1';
+import * as AR from './areas.js?v=0.100.1';   // v0.69.1: una sola lista de áreas (con REVENTA)
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.100.1';
+import * as Sii from './sii.js?v=0.100.1';
+import * as GSii from './gastos-sii.js?v=0.100.1';
+import * as SP from './sii-pendientes.js?v=0.100.1';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.100.1');
+import * as Previred from './previred.js?v=0.100.1';
+import * as B2b from './b2b.js?v=0.100.1';
+import * as Cartola from './cartola.js?v=0.100.1';
+import * as RD from './registro-detalle.js?v=0.100.1';   // v0.67.7: "Ver el registro" (B2B y Gastos)
+import * as BJ from './bandeja.js?v=0.100.1';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
+import * as RC from './reglas-conc.js?v=0.100.1';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
+import * as PT from './puntaje.js?v=0.100.1';       // v0.69.0: el puntaje explicado de cada propuesta
+import * as PM from './pagos-mixtos.js?v=0.100.1';  // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as CR from './conc-resumen.js?v=0.100.1';  // v0.69.3: Finanzas → Resumen del mes (de la memoria)
+import * as BO from './boletas.js?v=0.100.1';      // v0.70.0: boletas de luz y agua, cuentas recurrentes y por pagar
+import * as SiiFactura from './sii-factura.js?v=0.100.1';
+import * as PdfOrden from './pdf-orden.js?v=0.100.1';
+import * as Prod from './produccion.js?v=0.100.1';
+import * as Mem from './fs-memoria.js?v=0.100.1';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.100.1';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.4';
-import * as VistaProd from './vista-produccion.js?v=0.100.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B, planPreciosPorId, precioEsDe, productoDePrecio } from './b2b-modelo.js?v=0.100.0';
-import * as RespM from './respaldo-modelo.js?v=0.100.0';   // v0.73.0: recordatorio del respaldo mensual en la Agenda (puro)
-import * as RT from './rutas.js?v=0.100.0';   // v0.78.0: Gastos, etapa A (las pantallas de Conciliación en Gastos, B2B y Finanzas)
-import * as BU from './bandeja-gastos-modelo.js?v=0.100.0';   // v0.79.0: Gastos, etapa B (la Bandeja única: un ítem por gasto, con su ruta)
+import * as VistaProd from './vista-produccion.js?v=0.100.1';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B, planPreciosPorId, precioEsDe, productoDePrecio } from './b2b-modelo.js?v=0.100.1';
+import * as RespM from './respaldo-modelo.js?v=0.100.1';   // v0.73.0: recordatorio del respaldo mensual en la Agenda (puro)
+import * as RT from './rutas.js?v=0.100.1';   // v0.78.0: Gastos, etapa A (las pantallas de Conciliación en Gastos, B2B y Finanzas)
+import * as BU from './bandeja-gastos-modelo.js?v=0.100.1';   // v0.79.0: Gastos, etapa B (la Bandeja única: un ítem por gasto, con su ruta)
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.100.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.100.1');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.100.0');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.100.1');
 // v0.72.0 · Catálogo (Etapa 0, "Qué está vivo"): se carga recién al abrirlo
-const vistaCatalogo = () => import('./vista-catalogo.js?v=0.100.0');
+const vistaCatalogo = () => import('./vista-catalogo.js?v=0.100.1');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.100.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.100.1')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -394,7 +394,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.100.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.100.1" alt="Fën"><span>Sistema de administración</span></div>
     ${SECCIONES.map(([v, ic, nom]) => `<a class="nav-item" href="#${v}" data-vista="${v}">${icono(ic)}${nom}</a>`).join('')}
     <div class="grupo">Abren la app actual</div>
     ${apps}
@@ -502,9 +502,28 @@ async function pintarVentasHoy(leyoCajas, cajas, resumenesHoy, hoy) {
   if (!t) { $('c-hoy').textContent = '—'; n.textContent = 'No se pudo leer la caja'; return; }
   $('c-hoy').textContent = pesos(t.total);
   n.textContent = t.nVentas ? `${t.nVentas} ${t.nVentas === 1 ? 'venta' : 'ventas'} hasta ahora · bruto, con IVA` : 'Sin ventas aún';
-  const sucs = Object.keys(t.porSuc);
-  suc.hidden = sucs.length < 2;
-  suc.innerHTML = sucs.length < 2 ? '' : sucs.sort().reverse().map(k => `<span class="nowrap">${esc(SUC_CORTA[k] || sucursal(k))} ${pesos(t.porSuc[k])}</span>`).join(' · ');
+  // v0.100.1 · Abajo y más chico, cuánto lleva cada caja (también si hay una sola)
+  const ps = (t.partes || []).filter(p => p.bruto || p.n || p.estado === 'abierta');
+  suc.hidden = !ps.length;
+  suc.innerHTML = ps.map(p => `<span class="nowrap">${esc(nombreCaja(p))} ${pesos(p.bruto)}</span>`).join('');
+}
+// v0.100.1 · El nombre corto de una caja: sucursal y hora de apertura (Barros 08:02)
+const nombreCaja = c => { const h = c.apertura instanceof Date ? c.apertura : c.apertura && c.apertura.toDate ? c.apertura.toDate() : null;
+  return `${SUC_CORTA[c.sucursal || c.suc] || sucursal(c.sucursal || c.suc) || 'Caja'}${h ? ' ' + String(h.getHours()).padStart(2, '0') + ':' + String(h.getMinutes()).padStart(2, '0') : ''}`; };
+// v0.100.1 · Ayer: cada caja según sus ventas (no solo su resumen) y si su resumen del cierre cuadra. Hoy lo suma y avisa si no cuadra.
+async function pintarVentasAyer(cajasAyer, resumenesAyer, pend, pintarLista) {
+  const res = {}; resumenesAyer.forEach(x => { res[x.cajaId || x.id] = x; });
+  let l = null; try { l = await Caja.revisarCajas(cajasAyer, res); } catch (e) { l = null; }
+  if (!$('c-ventas')) return;
+  const sinCaja = resumenesAyer.filter(x => !cajasAyer.some(c => c.id === (x.cajaId || x.id)));   // un resumen cuya caja no se leyó: se suma como está
+  if (!l) { $('c-ventas').textContent = pesos(resumenesAyer.reduce((a, x) => a + (Number(x.totalBruto) || 0), 0)); return; }
+  const total = l.reduce((a, x) => a + x.bruto, 0) + sinCaja.reduce((a, x) => a + (Number(x.totalBruto) || 0), 0);
+  $('c-ventas').textContent = pesos(total);
+  const lineas = l.filter(x => x.bruto || x.nVentas).map(x => `<span class="nowrap">${esc(nombreCaja(x))} ${pesos(x.bruto)}${x.estado === 'abierta' ? ' (sin cerrar)' : ''}</span>`).concat(sinCaja.map(x => `<span class="nowrap">${esc(SUC_CORTA[x.sucursal] || sucursal(x.sucursal))} ${pesos(Number(x.totalBruto) || 0)}</span>`));
+  $('c-ventas-n').innerHTML = lineas.length ? `<span class="cajas-lineas">${lineas.join('')}</span>` : 'Sin ventas';
+  const mal = l.filter(x => !x.cuadra);
+  if (mal.length) { pend.push({ orden: 0.4, color: 'rojo', icono: 'cajon', chip: 'Revisar', url: '#caja/reportes/ayer', origen: 'Caja', titulo: `El resumen de ${mal.length === 1 ? 'un cierre' : mal.length + ' cierres'} de ayer no cuadra con sus ventas`,
+    detalle: mal.map(x => `${nombreCaja(x)}: resumen ${pesos(x.resumen)}, ventas ${pesos(x.bruto)}`).join(' · ') + ' · En Ventas de caja: Regenerar' }); pintarLista(); }
 }
 
 async function pintarHoy() {
@@ -593,6 +612,8 @@ async function pintarHoy() {
   pintarVentasHoy(r[1].status === 'fulfilled' || r[2].status === 'fulfilled', [...docs(1), ...docs(2)], docs(4).filter(x => x.fecha === hoy), hoy);
   $('c-ventas').textContent = r[4].status === 'fulfilled' ? pesos(resumenes.reduce((a, x) => a + (Number(x.totalBruto) || 0), 0)) : '—';
   $('c-ventas-n').textContent = `${resumenes.length} ${resumenes.length === 1 ? 'cierre' : 'cierres'} · bruto, con IVA`;
+  { const vistas = new Set(), cajasAyer = [...docs(1), ...docs(2)].filter(c => !vistas.has(c.id) && vistas.add(c.id) && Caja.normalizarFechaCaja(c.fecha) === ayer);
+    if (r[2].status === 'fulfilled') pintarVentasAyer(cajasAyer, resumenes, pend, pintarLista); }
   $('c-abiertas').textContent = r[1].status === 'fulfilled' ? String(abiertas.filter(c => c.fecha === hoy).length) : '—';
 
   function pintarFuentes() {
@@ -663,14 +684,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.100.0').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.100.1').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.100.0').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.100.1').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -678,7 +699,7 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.80.1 · Catálogo: productos que se venden con la receta pendiente (sin costo ni margen hasta unirlos con su receta)
-  import('./finanzas.js?v=0.100.0').then(F => F.recetaPendienteParaHoy()).then(l => {
+  import('./finanzas.js?v=0.100.1').then(F => F.recetaPendienteParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.3, color: 'amarillo', icono: 'libro', chip: 'Unir', url: '#catalogo/productos/falta-receta', origen: 'Catálogo', titulo: `${l.length} ${l.length === 1 ? 'producto del catálogo' : 'productos del catálogo'} sin receta`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · se venden sin costo hasta unirlos con su receta` });
@@ -713,7 +734,7 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.100.0 · Gastos nuevo en Hoy: lo vencido, lo de esta semana y la Bandeja (del resumen que se guarda al abrir Gastos: una lectura)
-  if (GN_ACTIVO()) import('./gn-fs.js?v=0.100.0').then(F => F.resumenHoy()).then(R => {
+  if (GN_ACTIVO()) import('./gn-fs.js?v=0.100.1').then(F => F.resumenHoy()).then(R => {
     if (!R) return;
     const hoyD = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }), en7 = new Date(Date.now() + 7 * 864e5).toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
     const ab = (R.abiertos || []).filter(x => !x.a), venc = ab.filter(x => x.f < hoyD), sem = ab.filter(x => x.f >= hoyD && x.f <= en7), tot = l => l.reduce((t, x) => t + x.m, 0);
@@ -769,7 +790,7 @@ const partesDia = d => { const [y, m, dd] = d.split('-').map(Number); return new
 // Pagos de Gastos de esta semana (llegan con el resumen de Gastos: hasta 5, los más próximos)
 // v0.73.0 · Respaldo mensual: el día 1 de cada mes "Bajar respaldo de <mes anterior>" (hecho si ya se bajó; config/respaldo, 1 lectura cada 6 horas)
 let respHechos = null;
-const cargarRespHechos = () => import('./respaldo.js?v=0.100.0').then(R => R.hechos()).then(h => { respHechos = h || {}; return respHechos; }).catch(() => { respHechos = respHechos || {}; return respHechos; });
+const cargarRespHechos = () => import('./respaldo.js?v=0.100.1').then(R => R.hechos()).then(h => { respHechos = h || {}; return respHechos; }).catch(() => { respHechos = respHechos || {}; return respHechos; });
 const itemsRespaldo = (desde, hasta) => RespM.itemsAgenda(desde, hasta, respHechos || {});
 function itemsAuto(estados, desde, hasta) {
   const g = estados && estados.gastos;
@@ -843,7 +864,7 @@ async function pintarAgendaMes() {
   // v0.49.0: con Gastos en la base nueva, solo los vencimientos que existen (sin proyectar las obligaciones) y los
   // recordatorios "Subir boleta" (se calculan de los vencimientos que esperan su boleta). Con la planilla, como antes.
   // v0.100.0 · Con el Gastos nuevo, lo que vence (del resumen que se guarda al abrir Gastos)
-  const gnAgenda = !GN_ACTIVO() ? Promise.resolve([]) : import('./gn-fs.js?v=0.100.0').then(F => F.resumenHoy()).then(R => (R && R.abiertos || []).filter(x => x.f >= desde && x.f <= hasta)
+  const gnAgenda = !GN_ACTIVO() ? Promise.resolve([]) : import('./gn-fs.js?v=0.100.1').then(F => F.resumenHoy()).then(R => (R && R.abiertos || []).filter(x => x.f >= desde && x.f <= hasta)
     .map(x => ({ auto: true, cat: 'pago', tipo: 'fen', fecha: x.f, hora: '', titulo: `Pago de ${x.q}`, origen: `Desde Gastos${x.t ? ' · ' + x.t : ''}`, monto: x.m, pagado: false, vencido: x.f < hoy }))).catch(() => []);
   const autoPromesa0 = enMemoria ? Promise.resolve(enMemoria) : agFiltro() === 'personal' ? Promise.resolve([]) : Promise.all([
     (GN_ACTIVO() ? Promise.resolve(null) : Gastos.datos().then(d => d || null).catch(() => null)),   // v0.90.0: los vencimientos del Gastos anterior ya no van a la Agenda
@@ -1095,16 +1116,16 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.100.0').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.100.1').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.100.0').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.100.1').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 // ═══ v0.90.0 · Gastos nuevo (desde cero): vista-gn.js. El Gastos anterior queda fuera de la vista (sus datos no se borran) ═══
 let vistaGN = null;
 async function pintarGastosNuevo() {
   const el = $('v-gastos');
-  try { if (!vistaGN) vistaGN = await import('./vista-gn.js?v=0.100.0'); }
+  try { if (!vistaGN) vistaGN = await import('./vista-gn.js?v=0.100.1'); }
   catch (e) { el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1></div></div><section class="tarjeta"><p class="error">No se pudo abrir Gastos (${esc(e.message || e)}). Revise la conexión y recargue.</p></section>`; return; }
   const cargarXLSX = async () => { await cargarScriptExterno('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', () => window.XLSX); return window.XLSX; };
   vistaGN.pintar(el, subVista(), { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola, dialogo });
@@ -2994,7 +3015,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar cuentas recurrentes se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las cuentas recurrentes no tienen tipo.</p><p><a href="#gastos/config/cuentas">Volver a Cuentas recurrentes</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.100.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.100.1')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 // v0.70.0 · En el formulario de la cuenta: si es de boleta (luz o agua), su empresa, local y reparto en %
@@ -4173,7 +4194,7 @@ async function informeSinCargo(M) {
   d.classList.add('dialogo-ancho', 'isc-dlg');
   d.querySelector('#isc-cerrar').addEventListener('click', () => d.close());
   try {
-    const RS = await import('./revision-sin-cargo-modelo.js?v=0.100.0');
+    const RS = await import('./revision-sin-cargo-modelo.js?v=0.100.1');
     const R = RS.revisar({ items: M.items, cargos: (D && (D.todosCargos || D.cargos)) || [], registrados: (D && D.registrados) || [], ligados: (D && D.ligados) || {}, cartolas: (D && D.cartolas) || [], hoy: Caja.diaLocal() });
     const meses = Object.entries(R.porMes).sort().map(([m, k]) => `${MESES_LARGOS[Number(m.slice(5, 7)) - 1] || m}: ${k}`).join(' · ');
     const linea = r => {
@@ -4201,7 +4222,7 @@ async function informeSinCargo(M) {
       const ok = d.querySelector(`[data-isc-ok="${CSS.escape(r.key)}"]`), fila = b.closest('.isc-fila');
       fila.querySelectorAll('button').forEach(x => { x.disabled = true; });
       try {
-        await (await import('./gastos-fs.js?v=0.100.0')).anularRepetido(ids, motivo);
+        await (await import('./gastos-fs.js?v=0.100.1')).anularRepetido(ids, motivo);
         registrar('Gastos: anuló un gasto repetido', `${desc(otro || r)} · ${motivo}`);
         if (ok) ok.textContent = `Anulado ${otro ? 'el otro' : 'este'}: queda en Gastos anulados (no se borra).`; fila.classList.add("isc-hecho"); huboCambio = true;
       } catch (e) { if (ok) { ok.className = 'error isc-ok'; ok.textContent = e.message || mensajeError(e); } fila.querySelectorAll('button').forEach(x => { x.disabled = false; }); }
@@ -4282,7 +4303,7 @@ function dialogoNoEmpresa(key) {
     const modo = d.querySelector('input[name="ne-modo"]:checked').value, nota = d.querySelector('#ne-nota').value;
     b.disabled = true; b.textContent = 'Guardando…';
     try {
-      await (await import('./gastos-fs.js?v=0.100.0')).noEsDeLaEmpresa(D0.x.gastos, modo, nota);
+      await (await import('./gastos-fs.js?v=0.100.1')).noEsDeLaEmpresa(D0.x.gastos, modo, nota);
       registrar(modo === 'retiro' ? 'Gastos: pasó un gasto a retiro del dueño' : 'Gastos: anuló un gasto que no es de la empresa', `${D0.nombre} · ${pesos(D0.x.total)}${nota ? ' · ' + nota : ''}`);
       d.close(); bu.sel = ''; bu.err = '';
       bu.msg = modo === 'retiro' ? `Listo: ${esc(D0.nombre)} quedó como Retiro del dueño (fuera del resultado). Si salió por el banco o Mercado Pago, cálzalo con su cargo; si fue en efectivo, dilo con "¿Cómo se pagó?".` : `Listo: ${esc(D0.nombre)} se anuló (no era de la empresa). Queda en Gastos anulados.`;
@@ -4855,7 +4876,7 @@ function conectarResumenConc(el) {
     resConc.contando = false; refrescarResumenConc();
   });
   const ic = R0.querySelector('[data-res-cierre]');
-  if (ic) ic.addEventListener('click', async ev => { ev.preventDefault(); const m = ic.dataset.resCierre; try { (await import('./vista-finanzas-eerr.js?v=0.100.0')).elegirMes(m); } catch (e) {} location.hash = '#finanzas/resultados/cierre'; });
+  if (ic) ic.addEventListener('click', async ev => { ev.preventDefault(); const m = ic.dataset.resCierre; try { (await import('./vista-finanzas-eerr.js?v=0.100.1')).elegirMes(m); } catch (e) {} location.hash = '#finanzas/resultados/cierre'; });
 }
 // La bandeja filtrada por el mes del resumen: "Solo octubre" con su X
 const filtroMesBjHtml = st => (st.bjMes ? `<button type="button" class="bj-filtro bj-f-mes" data-bj-mes-quitar aria-pressed="true" title="Mostrar todos los meses"><span>Solo ${esc(CR.mesCorto(st.bjMes))}</span>${icono('anular', 14)}</button>` : '');
@@ -7429,7 +7450,7 @@ function pintarB2bProductos(el, sub) {
 // ── v0.80.0 · Listas de precios (vista-listas-precios.js) ──
 function pintarB2bListas(el, sub) {
   if (!catOk()) return sinActivar(el, sub);
-  import('./vista-listas-precios.js?v=0.100.0').then(m => m.pintar(el, { esc, info, icono, registrar, mensajeError, dialogo },
+  import('./vista-listas-precios.js?v=0.100.1').then(m => m.pintar(el, { esc, info, icono, registrar, mensajeError, dialogo },
     { cab: () => cabB2b(sub).replace('class="cabecera"', 'class="cabecera lp-raiz"'), datos: () => b2b.datos, errorB2b, abrirWhatsapp, esCelular, copiarTexto }))
     .catch(e => { el.innerHTML = cabB2b(sub) + `<section class="tarjeta"><p class="error">No se pudo abrir Listas de precios (${esc(e.message || e)}). Revisa la conexión y recarga.</p></section>`; });
 }
@@ -7590,7 +7611,7 @@ async function subirArchivoConc(f) {
   // v0.81.0 · El reporte de Mercado Pago (CSV): el de liberaciones se carga como la cuenta "Mercado Pago"; el de liquidaciones se avisa
   if (ext === 'csv' && f.size <= 8 * 1024 * 1024) {
     let txt = ''; try { txt = await f.text(); } catch (e) { txt = ''; }
-    const MPx = await import('./mercadopago.js?v=0.100.0'), tipo = txt ? MPx.tipoReporte(txt) : '';
+    const MPx = await import('./mercadopago.js?v=0.100.1'), tipo = txt ? MPx.tipoReporte(txt) : '';
     if (tipo === 'liquidaciones') { conc.err = MPx.leer(txt).error; repintarConc(); return; }
     if (tipo === 'liberaciones') return subirMercadoPago(f, txt, MPx);
   }
@@ -7706,7 +7727,7 @@ function repintarConcVivo() {
 }
 // La tarjeta de arriba (subir cartola, días de conciliar, hasta dónde está revisada cada cuenta): la misma en las dos pestañas
 function tarjetaConcHtml(d, conf, sinMsg) {   // v0.68.0 · sinMsg: en Abonos el mensaje va en la línea de la bandeja
-  return `<section class="tarjeta" aria-labelledby="t-conc"><div class="titulo-fila"><h2 id="t-conc">Cargar cartola ${info('Conciliación bancaria', 'Sube la cartola de BancoEstado tal como la descargas (histórica o en línea), de la cuenta corriente o de la Chequera Electrónica. Una sola subida: los abonos van a "Abonos (B2B)" y los cargos a "Cargos (Gastos)". Se pueden subir las dos aunque se repitan días: nada se cuenta dos veces.\nSolo se miran los abonos (lo que entra). Los de Transbank y los que marques "No es de B2B" se ignoran.\nEl cliente se reconoce por lo aprendido antes, por el RUT que trae la descripción o por su nombre o razón social. Cuando lo eliges a mano, se aprende para la próxima.\nAl confirmar, el pago queda con la fecha del banco: si cubre el saldo del folio queda PAGADO; si no, como abono (PARCIAL). Todo pasa solo a la planilla.')}</h2></div>
+  return `<section class="tarjeta" aria-labelledby="t-conc"><div class="titulo-fila"><h2 id="t-conc">Cargar cartola ${info('Conciliación bancaria', 'Sube la cartola de BancoEstado tal como la descargas (histórica o en línea), de la cuenta corriente o de la Chequera Electrónica. Una sola subida: los abonos van a "Abonos (B2B)" y los cargos a la Bandeja de Gastos (también se puede subir desde Gastos). Se pueden subir las dos aunque se repitan días: nada se cuenta dos veces.\nSolo se miran los abonos (lo que entra). Los de Transbank y los que marques "No es de B2B" se ignoran.\nEl cliente se reconoce por lo aprendido antes, por el RUT que trae la descripción o por su nombre o razón social. Cuando lo eliges a mano, se aprende para la próxima.\nAl confirmar, el pago queda con la fecha del banco: si cubre el saldo del folio queda PAGADO; si no, como abono (PARCIAL). Todo pasa solo a la planilla.')}</h2></div>
       <div class="fila-cartola"><label class="btn" for="conc-archivo">${b2bConc.cargando ? 'Leyendo…' : 'Elegir cartola (.xlsx)'}</label><input id="conc-archivo" type="file" accept=".xlsx,.xls" class="sr" ${b2bConc.cargando ? 'disabled' : ''}>
         <span class="ayuda">${d.movimientos.length ? `${d.movimientos.length} ${d.movimientos.length === 1 ? 'abono pendiente' : 'abonos pendientes'} de cartolas anteriores` : 'No hay abonos pendientes.'}</span></div>
       ${!sinMsg && b2bConc.msg ? `<p class="ayuda" role="status">${b2bConc.msg}</p>` : ''}${!sinMsg && b2bConc.error ? `<p class="error" role="alert">${esc(b2bConc.error)}</p>` : ''}
@@ -8578,15 +8599,20 @@ async function subirCartola(file, conf) {
   if (conf && conf.importado) {
     try { out.abonos = await B2b.cargarCartola(c, conf); } catch (e) { out.errAbonos = errorB2b(e); }
   } else out.errAbonos = conf ? 'la conciliación de B2B todavía no se empieza (B2B → Conciliación)' : 'no se pudo leer B2B';
-  if (c.filas.some(f => f.cargos > 0)) {
+  // v0.100.1 · Con el Gastos nuevo, los cargos van al Gastos nuevo (los mismos que si la cartola se subiera en Gastos), no al anterior
+  if (GN_ACTIVO() && c.filas.some(f => f.cargos > 0)) {
+    try { const [GN, F] = await Promise.all([import('./gn-modelo.js?v=0.100.1'), import('./gn-fs.js?v=0.100.1')]), id = GN.idCarga('be'), movs = GN.movsDeCartola(c, id);
+      const k = await F.cargarMovs('bancoestado', movs, { id, archivo: file.name, tamano: file.size, desde: c.desde, hasta: c.hasta, identificador: c.identificador });
+      out.cargosGN = GN.textoCarga(k); } catch (e) { out.errCargos = e.message || mensajeError(e); }
+  } else if (c.filas.some(f => f.cargos > 0)) {
     try { out.cargos = await Cartola.cargar(c, 'cartola-' + Gastos.nuevaClave()); } catch (e) { out.errCargos = e.code === 'sin_url' ? 'falta conectar Gastos (Configuración → Conexiones)' : (e.message || mensajeError(e)); }
   } else out.cargos = { cargos: 0, nuevos: 0, yaVistos: 0, ignorados: 0 };
   // v0.44.0: el archivo original va a Drive ("Fën · Gastos / Cartolas / año", privado). Si falla, lo cargado queda igual.
-  if (!out.errCargos) {
+  if (!out.errCargos && !out.cargosGN) {
     try { out.archivo = await Cartola.guardarArchivo(file, c, 'cartola-archivo-' + Gastos.nuevaClave()); }
     catch (e) { out.errArchivo = e.code === 'sin_url' ? 'falta conectar Gastos (Configuración → Conexiones)' : (e.message || mensajeError(e)); }
   }
-  registrar('Cargó cartola', `${c.identificador} · ${out.abonos ? out.abonos.nuevos + ' abonos nuevos' : 'abonos sin pasar'} · ${out.cargos ? out.cargos.nuevos + ' cargos nuevos' : 'cargos sin pasar'}`);
+  registrar('Cargó cartola', `${c.identificador} · ${out.abonos ? out.abonos.nuevos + ' abonos nuevos' : 'abonos sin pasar'} · ${out.cargosGN ? 'cargos al Gastos nuevo: ' + out.cargosGN : out.cargos ? out.cargos.nuevos + ' cargos nuevos' : 'cargos sin pasar'}`);
   return out;
 }
 function msgCartola(x, aqui) {
@@ -8596,7 +8622,7 @@ function msgCartola(x, aqui) {
   const cg = g ? `${n(g.cargos, 'cargo', 'cargos')} · <b>${n(g.nuevos, 'nuevo', 'nuevos')}</b> · ${g.yaVistos} ya ${g.yaVistos === 1 ? 'visto' : 'vistos'} antes${g.ignorados ? ` · ${n(g.ignorados, 'ignorado', 'ignorados')} (lo que marcaste "siempre")` : ''}${g.repetidos ? ` · ${n(g.repetidos, 'repetido', 'repetidos')} de otra cartola (ya estaban: no aparecen en Para revisar)` : ''}${g.parecidos ? ` · ${g.parecidos} ${g.parecidos === 1 ? 'parece repetido' : 'parecen repetidos'}: revísalos arriba en Para revisar` : ''}` : `los cargos no se pasaron a Gastos: ${esc(x.errCargos)}`;
   const cuenta = x.c.cuenta && x.c.cuenta.tipo === 'cc' ? ` (${B2b.NOMBRE_CUENTA.cc}${x.c.cuenta.numero ? ' ' + B2b.ultimos4(x.c.cuenta.numero) : ''})` : '';
   const ar = x.archivo ? `<br>Archivo: ${x.archivo.ya ? 'ya estaba guardado' : 'guardado'} en Drive (privado).` : x.errArchivo ? `<br>Archivo: <b>no se pudo guardar en Drive</b> (${esc(String(x.errArchivo).replace(/\.$/, ''))}). Lo leído de la cartola sí quedó.` : '';
-  return `<b>${esc(x.c.identificador)}</b>${cuenta}:<br>Abonos (<a href="#b2b/conciliacion">pagos de clientes</a>): ${ab}.<br>Cargos (<a href="#gastos">gastos</a>): ${cg}.${ar}`;
+  return `<b>${esc(x.c.identificador)}</b>${cuenta}:<br>Abonos (<a href="#b2b/conciliacion">pagos de clientes</a>): ${ab}.<br>Cargos (<a href="#gastos">gastos</a>): ${x.cargosGN ? esc(x.cargosGN) + ' en la Bandeja de Gastos' : cg}.${ar}`;
 }
 // ═══ v0.64.0 · Proveedores (Gastos → Proveedores): lista, buscar, detalle y fichas a mano ═══
 const provSt = { datos: null, buscar: '', err: '' };
@@ -9014,6 +9040,11 @@ async function pintarReportes(el, sub) {
     return ` <small class="agotado-hora">agotado ${esc(p.agotados.slice().sort((a, b) => a.hora.localeCompare(b.hora)).map(a => a.hora + (a.otra ? ' y de nuevo ' + a.otra : '') + (varias ? ' en ' + sucursal(a.sucursal) : '')).join(' · '))}</small>`;
   };
   const hayAgotado = desde === hasta && prods.some(p => p.agotados && p.agotados.length);
+  // v0.100.1 · Por caja: cada cierre con lo que vendió (de su resumen), y "Revisar con las ventas" para ver si cada resumen cuadra
+  const cajaDe = Object.fromEntries(cajas.map(c => [c.id, c])), resAct = actuales.slice().sort((a, b) => (a.fecha + a.id).localeCompare(b.fecha + b.id));
+  const porCajaHtml = () => (!resAct.length && !abiertas.length ? '' : `<section class="tarjeta" aria-labelledby="t-rep-cajas"><div class="titulo-fila"><h2 id="t-rep-cajas">Por caja ${info('Por caja', 'Cada cierre del período con lo que vendió según su resumen (bruto, con IVA).\n"Revisar con las ventas" suma las ventas de cada caja (unas pocas lecturas por caja) y muestra si su resumen cuadra. Si no cuadra (por ejemplo, ventas que llegaron después del cierre), "Regenerar" rehace el resumen con todas sus ventas: así cuadran también Finanzas y el Plan de Panadería.')}</h2><button type="button" class="btn-sec btn-chico" id="rep-revisar">Revisar con las ventas</button></div>
+    <div id="rep-cajas">${resAct.map(x => { const c = cajaDe[x.id] || { sucursal: x.sucursal }; return `<div class="fila-caja-rep" data-rep-caja="${esc(x.id)}"><span>${desde === hasta ? '' : esc(diaCorto(x.fecha)) + ' · '}<b>${esc(nombreCaja(c))}</b>${c.usuario ? ' · ' + esc(c.usuario) : ''} · ${Number(x.nVentas) || 0} ventas</span><span class="valor-chico">${pesos(Number(x.totalBruto) || 0)}</span></div>`; }).join('')}
+    ${abiertas.map(c => `<div class="fila-caja-rep"><span><b>${esc(nombreCaja(c))}</b> · abierta (sin cierre: no suma arriba)</span><span></span></div>`).join('')}</div></section>`);
 
   el.innerHTML = `<div class="cabecera"><div><h1 id="t-caja">Ventas de caja</h1><p>Lo que antes hacías como administrador en la caja</p></div>${pestanasCaja(sub)}</div>
     <div class="filtros" role="group" aria-label="Período y sucursal">
@@ -9030,6 +9061,7 @@ async function pintarReportes(el, sub) {
       <div class="tarjeta cifra"><span class="rotulo">Ventas</span><span class="valor">${t.nVentas.toLocaleString('es-CL')}</span><span class="nota">${t.nAnuladas ? `${t.nAnuladas} anuladas, no suman` : 'Sin anuladas'}</span></div>
       <div class="tarjeta cifra"><span class="rotulo">Ticket promedio ${info('Ticket promedio', 'Cuánto gasta en promedio cada cliente: ventas brutas divididas por el número de ventas (boletas) del período.\nSirve para ver si la gente compra más por visita, no solo si vienen más.')}</span><span class="valor">${pesos(ticket)}</span><span class="nota">Bruto por venta</span></div>
     </div>
+    ${porCajaHtml()}
     ${t.nVentas ? `
     <section class="tarjeta" aria-labelledby="t-rep-dias">
       <div class="titulo-fila"><h2 id="t-rep-dias">${porMes ? 'Por mes' : 'Por día'}</h2><span>Bruto · ${actuales.length} ${actuales.length === 1 ? 'cierre' : 'cierres'}</span></div>
@@ -9074,6 +9106,17 @@ async function pintarReportes(el, sub) {
   if ($('rep-desde')) { $('rep-desde').addEventListener('change', cambiaFecha); $('rep-hasta').addEventListener('change', cambiaFecha); }
   $('rep-suc').addEventListener('change', e => { repEstado.suc = e.target.value; pintarCaja('reportes'); });
   if ($('rep-area')) $('rep-area').addEventListener('change', e => { repEstado.area = e.target.value; pintarCaja('reportes'); });
+  if ($('rep-revisar')) $('rep-revisar').addEventListener('click', async e => {
+    const b = e.currentTarget; b.disabled = true; b.textContent = 'Revisando…';
+    const res = Object.fromEntries(actuales.map(x => [x.id, x])), revisar = cajasSuc.filter(c => res[c.id] || c.estado === 'abierta');
+    let l; try { l = await Caja.revisarCajas(revisar, res); } catch (x) { b.disabled = false; b.textContent = 'Revisar con las ventas'; alert('No se pudo revisar: ' + mensajeError(x)); return; }
+    const mal = l.filter(x => !x.cuadra);
+    $('rep-cajas').innerHTML = l.map(x => `<div class="fila-caja-rep${x.cuadra ? '' : ' no-cuadra'}"><span>${desde === hasta ? '' : esc(diaCorto(x.fecha)) + ' · '}<b>${esc(nombreCaja(x))}</b>${x.usuario ? ' · ' + esc(x.usuario) : ''} · ${x.nVentas} ventas${x.estado === 'abierta' ? ' · abierta' : x.cuadra ? ' · <span class="ok-texto">cuadra</span>' : ` · <b class="error-texto">el resumen dice ${pesos(x.resumen)} (${x.nResumen} ventas)</b> <button type="button" class="btn btn-chico" data-regenerar="${esc(x.id)}">Regenerar</button>`}</span><span class="valor-chico">${pesos(x.bruto)}</span></div>`).join('');
+    b.textContent = mal.length ? `${mal.length} no ${mal.length === 1 ? 'cuadra' : 'cuadran'}` : 'Todo cuadra';
+    registrar('Revisó las cajas con sus ventas', `${titulo} · ${mal.length} no cuadran`);
+    $('rep-cajas').querySelectorAll('[data-regenerar]').forEach(x => x.addEventListener('click', async () => { x.disabled = true; x.textContent = 'Regenerando…';
+      try { await Caja.regenerarResumen(x.dataset.regenerar); registrar('Regeneró el resumen de una caja', x.dataset.regenerar); pintarCaja('reportes'); } catch (er) { x.disabled = false; x.textContent = 'Regenerar'; alert(mensajeError(er)); } }));
+  });
   if ($('rep-generar')) $('rep-generar').addEventListener('click', async e => {
     const b = e.currentTarget; b.disabled = true;
     const r = await Caja.generarResumenes(faltan, (n, tot) => { b.textContent = `Generando ${n} de ${tot}…`; });
@@ -9260,7 +9303,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.100.0')).dbBase(); const FG = await import('./fs-gastos.js?v=0.100.0'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.100.1')).dbBase(); const FG = await import('./fs-gastos.js?v=0.100.1'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }
@@ -9353,7 +9396,7 @@ async function pintarAjustes(sub) {
     .then(() => { if (sub === 'cocina' && $('cocina')) $('cocina').scrollIntoView({ block: 'start' }); })
     .catch(e => { if ($('cocina')) $('cocina').innerHTML = `<p class="error">${esc(mensajeError(e))}</p>`; });
   // v0.73.0 · Respaldo mensual en Excel (reemplaza a las copias en vivo a las planillas)
-  import('./vista-respaldo.js?v=0.100.0').then(m => m.pintar($('respaldo'), { esc, info, icono, registrar, mensajeError, dialogo }))
+  import('./vista-respaldo.js?v=0.100.1').then(m => m.pintar($('respaldo'), { esc, info, icono, registrar, mensajeError, dialogo }))
     .then(() => { if (sub === 'respaldo' && $('respaldo')) $('respaldo').scrollIntoView({ block: 'start' }); })
     .catch(e => { if ($('respaldo')) $('respaldo').innerHTML = `<p class="error">No se pudo abrir el Respaldo (${esc(e.message || e)}).</p>`; });
 

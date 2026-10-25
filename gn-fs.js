@@ -10,12 +10,12 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.100.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.100.0';
-import { ahoraChile } from './gastos-g2.js?v=0.100.0';
-import * as GN from './gn-modelo.js?v=0.100.0';
-import * as GB from './gn-bandeja.js?v=0.100.0';
-import * as GP from './gn-pdf.js?v=0.100.0';
+import * as FB from './fs-gastos.js?v=0.100.1';
+import { dbBase, correo } from './gastos-fs.js?v=0.100.1';
+import { ahoraChile } from './gastos-g2.js?v=0.100.1';
+import * as GN from './gn-modelo.js?v=0.100.1';
+import * as GB from './gn-bandeja.js?v=0.100.1';
+import * as GP from './gn-pdf.js?v=0.100.1';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
