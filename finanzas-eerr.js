@@ -28,8 +28,8 @@
 //  canal B2B. El despacho ya no está en Común ni en el margen de contribución. El resultado operacional y el del mes no cambian.
 //  Un mes cerrado antes de la v0.75.1 se ve como quedó; sus ajustes se comparan en la forma de entonces (sin ruido por el cambio).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.100.1';
-import * as AR from './areas.js?v=0.100.1';
+import * as FR from './finanzas-resultados.js?v=0.101.0';
+import * as AR from './areas.js?v=0.101.0';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -95,7 +95,7 @@ export function lineasGastosMes(gastos, mes, fin = {}, mapa = {}, items = null) 
   const out = [], porClave = {};
   (items || []).forEach(i => { if (i && i.item) porClave[FR.claveItem(i.item)] = i; });
   (gastos || []).filter(FR.vigente).filter(g => FR.fechaGasto(g).slice(0, 7) === mes).forEach(g => {
-    const clave = FR.claveItem(g.itemGasto), tipo = FR.tipoResultado(g.itemGasto, fin, porClave[clave] || g).tipo;
+    const clave = FR.claveItem(g.itemGasto), tipo = FR.tipoResultado(g.itemGasto, fin, porClave[clave] || g, !!g.origenGN).tipo;
     FR.lineasArea(g).forEach(l => out.push({ id: s(g.id), fecha: FR.fechaGasto(g), item: s(g.itemGasto).trim() || '(sin ítem)', clave, tipo, grupo: tipo ? FR.TIPO[tipo].grupo : 'sin', area: l.area,
       col: FR.destinoArea(l.area, mapa), neto: num(l.neto), proveedor: s(g.razonSocial), obs: s(g.observacion).slice(0, 120) }));
   });
@@ -371,11 +371,38 @@ export const CHECKS_CONCILIACION = ['sii', 'cartola', 'sii_clasif', 'previred'];
 export function checksConciliacion(D) {
   return [checkSiiCargado(D), checkCartolaConciliada(D)].concat(D.siiPendientes ? [checkSiiClasificados(D)] : [], 'planillas' in D ? [checkPrevired(D)] : []);
 }
+// ── v0.101.0 · Las revisiones de Gastos desde el inicio (octubre): del Gastos nuevo. D.gn = { sii (gn-finanzas.siiDelMes), movs { n, monto },
+// sinClas { n, monto }, previred { total, pagado, completo } | null, revision (gn-finanzas.revisarAnterior, solo el mes del inicio) }
+export const TXT_SII_GN = 'Que las compras del SII de todo el mes estén en Gastos. Su método: al bajar el XML incluya siempre el último día de la descarga anterior y, terminado el mes, suba el RCV (Registro de Compras) del mes completo: así entra lo que llegó atrasado.\nCuenta como listo si alguna carga del SII se subió después del último día del mes y trae documentos de ese mes.';
+export function checksGastosNuevo(D) {
+  const mes = D.mes, G = D.gn || {}, out = [], nm = mesTxt(mes), fin = ultimoDia(mes);
+  const S = G.sii || {};
+  out.push(itemCheck('sii', 'SII del mes cargado', S.ok, S.ok ? `Cargado después del cierre del mes (${fechaCorta(S.ultima)}${S.rcv ? ', con el RCV' : ''}).` : S.hasta ? `Hay documentos hasta el ${fechaCorta(S.hasta)}, pero falta una carga hecha después del ${fechaCorta(fin)} (el RCV del mes).` : `No hay ninguna carga del SII con documentos de ${nm}.`, '#gastos/cargas', TXT_SII_GN));
+  const M = G.movs || {};
+  out.push(itemCheck('cartola', 'Cartola conciliada', !num(M.n), num(M.n) ? `${M.n} ${M.n === 1 ? 'movimiento' : 'movimientos'} de ${nm} sin explicar en la Bandeja (${pesosTxt(M.monto)}).` : 'Todos los movimientos del mes están unidos a su documento o marcados "No es gasto".',
+    '#gastos', 'Que cada cargo del mes (cuenta corriente, Mercado Pago, tarjeta) esté unido a su documento en Gastos → Bandeja, o marcado "No es gasto" (traspaso, retiro, pago de la tarjeta, devolución al dueño).'));
+  const C = G.sinClas || {};
+  out.push(itemCheck('sii_clasif', `Documentos de ${nm} sin clasificar: ${num(C.n)}`, !num(C.n), num(C.n) ? `${C.n} ${C.n === 1 ? 'documento' : 'documentos'} de ${nm} sin clasificar (${pesosTxt(C.monto)}): no están en el estado de resultados.` : `Todos los documentos de ${nm} están clasificados.`,
+    '#gastos', 'Un documento sin clasificar (proveedor nuevo o que recuerda solo el ítem) no tiene ítem ni área: no entra al estado de resultados. Clasifíquelo en Gastos → Bandeja ("Clasificar").'));
+  const t = tituloPrevired(mes), sig = MESES_L[Number(mesMas(mes, 1).slice(5, 7)) - 1], P = G.previred;
+  out.push(!P ? itemCheck('previred', t, false, `Las cotizaciones de ${MESES_L[Number(mes.slice(5, 7)) - 1]} no están en Gastos (se pagan hasta el 13 de ${sig}).`, '#gastos/cargas', TXT_PREVIRED_MES)
+    : P.completo ? itemCheck('previred', t, true, `Cargado (${pesosTxt(P.total)}) y pagado.`, '#gastos', TXT_PREVIRED_MES)
+      : itemCheck('previred', t, false, `Cargado (${pesosTxt(P.total)}), ${num(P.pagado) ? `pagado ${pesosTxt(P.pagado)}, faltan ${pesosTxt(P.total - P.pagado)}` : 'todavía sin unir a su pago'}.`, '#gastos', TXT_PREVIRED_MES, 'aviso'));
+  if ('revision' in G) {
+    const R = G.revision;
+    out.push(!R ? itemCheck('anterior', 'Gastos de octubre del Gastos anterior revisados', false, 'No se pudo leer la revisión. Ábrala en Gastos → Archivos subidos → Revisión de octubre.', '#gastos/anterior', TXT_REVISION_ANTERIOR)
+      : itemCheck('anterior', 'Revisión de octubre (Gastos anterior y Gastos nuevo)', !R.pendientes, R.pendientes ? `Faltan ${R.pendientes}: ${num(R.A && R.A.pendientes)} de ${num(R.A && R.A.n)} gastos anotados en el Gastos anterior y ${num(R.B && R.B.pendientes)} de ${num(R.B && R.B.n)} documentos del nuevo de antes de octubre.` : `Todo resuelto (${num(R.A && R.A.n)} gastos del anterior · ${num(R.B && R.B.n)} documentos de antes de octubre).`, '#gastos/anterior', TXT_REVISION_ANTERIOR));
+  }
+  return out;
+}
+export const TXT_REVISION_ANTERIOR = 'Desde octubre el estado de resultados lee solo el Gastos nuevo. Se revisa una vez, para que nada se pierda ni se cuente dos veces:\n• Lo que se anotó en octubre en el Gastos anterior (antes de que existiera el nuevo): si ya está en el nuevo, nada; si no, se pasa al nuevo o se marca que no va.\n• Los documentos del Gastos nuevo de antes de octubre (deuda anterior, la parte de meses anteriores de una patente): si ya estaban en el Gastos anterior no entran; si no, entran en octubre como "Ajuste de meses anteriores".';
 export function checksCierre(D) {
   const mes = D.mes, out = [];
   const add = (...a) => out.push(itemCheck(...a));
+  // v0.101.0 · Desde el inicio (D.gn): SII, cartola, documentos sin clasificar, Previred y la revisión del anterior, del Gastos nuevo
+  const G = D.gn ? checksGastosNuevo(D) : null, deG = k => G.find(c => c.k === k);
   // 1. SII del mes cargado: alguna carga cubre hasta el último día del mes
-  out.push(checkSiiCargado(D));
+  out.push(G ? deG('sii') : checkSiiCargado(D));
   // 2. Ventas completas (las dos sucursales y B2B): sin cajas abiertas ni cierres sin resumen
   const v = D.ventas || {};
   add('ventas', 'Ventas completas', !v.abiertas && !v.faltan,
@@ -385,9 +412,10 @@ export function checksCierre(D) {
     num(v.nAinavillo) > 0 ? `${num(v.nAinavillo).toLocaleString('es-CL')} productos vendidos · ${pesosTxt(v.netoAinavillo)} neto.` : 'Ainavillo no tiene ventas registradas en la caja este mes.',
     '#caja/reportes', 'Ainavillo tiene que registrar sus ventas en la caja: si no, su venta no está en el estado de resultados. Es un aviso: no impide cerrar.', 'aviso');
   // 3. Cartola conciliada: ningún cargo del mes por revisar
-  out.push(checkCartolaConciliada(D));
+  out.push(G ? deG('cartola') : checkCartolaConciliada(D));
   // v0.69.5 · Previred del mes cargado (el de ese mismo mes: es su costo). Lo pasa Cierre de mes; sin el dato no se agrega.
-  if ('planillas' in D) out.push(checkPrevired(D));
+  if (G) out.push(deG('previred')); else if ('planillas' in D) out.push(checkPrevired(D));
+  if (G && deG('anterior')) out.push(deG('anterior'));
   // 4. Conteo de bodega hecho (cada bodega): un conteo en los últimos 3 días del mes o los primeros 3 del siguiente
   const w = ventanaConteo(mes), C = D.conteos || {}, bods = C.bodegas && C.bodegas.length ? C.bodegas : ['PROD', 'CAF'];
   const sinConteo = bods.filter(b => !((C.porBodega || {})[b] || []).some(f => f >= w.desde && f <= w.hasta));
@@ -399,7 +427,7 @@ export function checksCierre(D) {
   add('clasificar', 'Gastos clasificados', !num(sc.n), num(sc.n) ? `${sc.n} ${sc.n === 1 ? 'ítem' : 'ítems'} sin tipo para resultados (${pesosTxt(sc.neto)}).` : 'Todos los gastos del mes tienen tipo.',
     '#finanzas/resultados/clasificacion', 'Cada ítem de gasto del mes con su tipo para resultados (Resultados → Clasificación). Lo sin clasificar no entra al resultado.');
   // v0.66.0 · Documentos del SII de ese mes sin clasificar = 0 (su gasto todavía no existe)
-  if (D.siiPendientes) out.push(checkSiiClasificados(D));
+  if (G) out.push(deG('sii_clasif')); else if (D.siiPendientes) out.push(checkSiiClasificados(D));
   // 6. Productos vendidos sin asociar < 10 % de la venta
   const pctSin = num(v.netoTotal) > 0 ? num(v.netoSinAsociar) / num(v.netoTotal) * 100 : 0;
   add('asociar', 'Productos vendidos asociados', pctSin < 10, `${String(Math.round(pctSin * 10) / 10).replace('.', ',')} % de la venta neta sin asociar (${pesosTxt(v.netoSinAsociar)}); el límite es menos de 10 %.`,

@@ -6,11 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.100.1';
-import * as FR from './finanzas-resultados.js?v=0.100.1';
-import * as FE from './finanzas-eerr.js?v=0.100.1';
-import * as FC from './finanzas-costos.js?v=0.100.1';
-import * as SP from './sii-pendientes.js?v=0.100.1';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.101.0';
+import * as FR from './finanzas-resultados.js?v=0.101.0';
+import * as FE from './finanzas-eerr.js?v=0.101.0';
+import * as FC from './finanzas-costos.js?v=0.101.0';
+import * as SP from './sii-pendientes.js?v=0.101.0';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
 const $ = id => document.getElementById(id);
@@ -47,9 +47,31 @@ async function vivo(R, mes) {
   if (ES.vivo[mes]) return ES.vivo[mes];
   const dm = await F.datosMes(mes);
   const D = R.datos, mapa = mapaAreas(R);
-  const e = FE.armarEERR({ mes, margen: dm.margen, merma: dm.merma, gastos: D.gastos, fin: D.fin, items: D.items, mapa, creditosMes: FE.creditosDelMes(D.creditos, D.vencimientos, D.gastos, mes),
-    invs: FR.inversiones(D.gastos, D.fin, D.invGuardadas, mapa), pagosTarjeta: ES.cartola.pagosTarjeta });
+  // v0.101.0 · Desde el inicio (octubre) manda el Gastos nuevo: el interés de los créditos va en sus cuotas (Gastos → Compromisos → Créditos),
+  // no en la tabla de Finanzas → Créditos (sería doble); los pagos de la tarjeta son los movimientos marcados así en la Bandeja.
+  if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo (desde ${FE.mesTxt(D.gn.inicio.slice(0, 7))} los gastos salen de ahí): ${D.gn.error}. Revise la conexión y toque "Leer de nuevo".`);
+  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.101.0') : null;
+  const pagosTarjeta = nuevo ? GF.pagosTarjetaGN(D.gn.D) : (ES.cartola.pagosTarjeta || []).filter(p => !F.delGastosNuevo(FE.mesDe(p.fecha)));
+  const e = FE.armarEERR({ mes, margen: dm.margen, merma: dm.merma, gastos: D.gastos, fin: D.fin, items: D.items, mapa, creditosMes: nuevo ? [] : FE.creditosDelMes(D.creditos, D.vencimientos, D.gastos, mes),
+    invs: FR.inversiones(D.gastos, D.fin, D.invGuardadas, mapa), pagosTarjeta });
   e.ventasInfo = dm.ventasInfo;
+  if (nuevo) {
+    const sc = GF.sinClasificarDelMes(D.gn.D, mes), aj = D.gn.ajuste, av = [];
+    if (sc.n) av.push({ k: 'gn_sin_clasificar', texto: `${sc.n} ${sc.n === 1 ? 'documento' : 'documentos'} de ${FE.mesTxt(mes)} sin clasificar en Gastos (${pesos(sc.monto)}): no están en este estado de resultados. Clasifíquelos en Gastos → Bandeja.` });
+    const enIni = mes === D.gn.inicio.slice(0, 7);
+    if (enIni && aj && aj.total) av.push({ k: 'gn_ajuste_anterior', texto: `Incluye ${pesos(aj.total)} de meses anteriores (${aj.n} ${aj.n === 1 ? 'documento' : 'documentos'}: ${Object.entries(aj.porMes).sort().map(([m, v]) => `${GF.mesCorto(m)} ${pesos(v)}`).join(' · ')}). Es lo de antes de octubre que usted marcó "no estaba en el Gastos anterior"; en el detalle de cada gasto dice "Ajuste de meses anteriores".` });
+    if (enIni && D.gn.porDecidir && D.gn.porDecidir.n) av.push({ k: 'gn_por_decidir', texto: `${D.gn.porDecidir.n} ${D.gn.porDecidir.n === 1 ? 'documento' : 'documentos'} del Gastos nuevo de antes de octubre sin decidir si estaban en el Gastos anterior: todavía no entran. Decídalo en Gastos → Archivos subidos → Revisión de octubre.` });
+    if (D.gn.yaAnterior && D.gn.yaAnterior.total && enIni) av.push({ k: 'gn_ya_anterior', texto: `${pesos(D.gn.yaAnterior.total)} pagados con cargos de antes de octubre que ya eran gasto en el Gastos anterior (${D.gn.yaAnterior.n} ${D.gn.yaAnterior.n === 1 ? 'documento' : 'documentos'}): esa parte no se cuenta otra vez.` });
+    if ((D.gn.errores || []).length) av.push({ k: 'gn_errores', texto: `${D.gn.errores.length} ${D.gn.errores.length === 1 ? 'documento del Gastos nuevo no se pudo leer' : 'documentos del Gastos nuevo no se pudieron leer'} (no están en el estado de resultados): ${D.gn.errores.slice(0, 5).join(', ')}.` });
+    // Un crédito de Finanzas → Créditos con cuota este mes y ninguna cuota del Gastos nuevo: su interés faltaría sin aviso
+    const viejo = (D.creditos || []).filter(c => c.estado !== 'archivado' && (c.tabla || []).some(f => String(f.fecha || '').slice(0, 7) === mes)), cuotasGN = (D.gastos || []).some(g => FE.mesDe(g.fecha) === mes && g.origenGN === 'credito');
+    if (viejo.length && !cuotasGN) av.push({ k: 'gn_credito_falta', texto: `${viejo.map(c => c.nombre).join(', ')}: tiene cuota en ${FE.mesTxt(mes)} en Finanzas → Créditos, pero no hay cuotas en el Gastos nuevo. Desde octubre el interés sale de Gastos → Compromisos → Créditos (súbalo ahí).` });
+    const cuotas = (D.gastos || []).filter(g => FE.mesDe(g.fecha) === mes && FR.normalizar(g.itemGasto) === 'CUOTA DE CREDITO');
+    if (cuotas.length) av.push({ k: 'gn_cuota_sin_separar', texto: `${cuotas.length} ${cuotas.length === 1 ? 'cuota de crédito va completa' : 'cuotas de crédito van completas'} (${pesos(cuotas.reduce((a, g) => a + (Number(g.montoNeto) || 0), 0))}) fuera del resultado: falta separar su interés. Anote el monto original y la tasa del crédito en Gastos → Compromisos → Créditos.` });
+    e.avisos = (e.avisos || []).concat(av);
+    ES.vivo[mes] = e;
+    return e;
+  }
   // v0.66.0 · Documentos del SII de ese mes por clasificar: su gasto todavía no existe (no están en este estado de resultados)
   const sp = ES.siiPend ? SP.pendientesDelMes(ES.siiPend, mes) : null;
   if (sp && sp.n) e.avisos = (e.avisos || []).concat([{ k: 'sii_por_clasificar', texto: `${sp.n} ${sp.n === 1 ? 'documento del SII' : 'documentos del SII'} de ${FE.mesTxt(mes)} sin clasificar (${SP.fmt(sp.monto)}): su gasto todavía no existe y no está en este estado de resultados. Clasifícalos al conciliar la cartola o en Gastos → Bandeja → Cargas del SII.` }]);
@@ -297,6 +319,21 @@ function conectarEERR(el, H, ctx, R, e, prev) {
 const TXT_CIERRE = 'Lo acordado (Cómo trabajamos): el mes se cierra después de pagar y cargar su Previred, a más tardar el día 13 del mes siguiente. Orden recomendado: (1) pagar Previred, ojalá antes del día 10; (2) subir el comprobante o el CSV en Gastos → Previred; (3) revisar que esté todo y cerrar el mes.\nAl cerrarlo queda congelado: el estado de resultados de ese mes se guarda tal cual (ventas, costos usados, gastos, créditos, quién y cuándo) y no cambia más.\nLo que aparezca después (una factura atrasada, un gasto corregido) no cambia el mes cerrado: entra como "Ajustes de meses cerrados" en el primer mes abierto siguiente.\nSi una revisión no se cumple, se puede cerrar igual marcando "Cerrar igual" y escribiendo el motivo (queda guardado).';
 async function datosCierre(R, mes) {
   // v0.69.5 · Previred del mes (planillas): de la memoria de la sesión, sin lecturas nuevas (lo que falte se lee)
+  // v0.101.0 · Desde el inicio (octubre) las revisiones de Gastos salen del Gastos nuevo (gn-finanzas.js); lo demás (ventas, conteos,
+  // asociar, clasificar) es igual.
+  const D = R.datos;
+  if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo: ${D.gn.error}`);
+  if (F.delGastosNuevo(mes) && D.gn) {
+    const GF = await import('./gn-finanzas.js?v=0.101.0');
+    const [e, dm, conteos, rev] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes), mes === D.gn.inicio.slice(0, 7) ? F.revisionAnterior().catch(() => null) : Promise.resolve(undefined)]);
+    ES.conteos[mes] = conteos;
+    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.101.0')).indicePagos(G.pagos || []) : null;
+    const pagado = pv ? (I.porDoc[pv.id] || []).reduce((a, p) => a + (Number(p.monto) || 0), 0) : 0;
+    const gn = { sii: GF.siiDelMes(G.cargas, mes), movs: GF.movsSinRevisarDelMes(G, mes), sinClas: GF.sinClasificarDelMes(G, mes),
+      previred: pv ? { total: Number(pv.total) || 0, pagado, completo: pagado >= (Number(pv.total) || 0) - GF.TOL } : null, ...(rev !== undefined ? { revision: rev } : {}) };
+    const checks = FE.checksCierre({ mes, gn, ventas: dm.ventasInfo, conteos, sinClasificar: e.info.sinClasificar });
+    return { e, checks };
+  }
   const [e, dm, conteos, sii, planillas] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes), ES.sii ? Promise.resolve(ES.sii) : F.cargasSii(), F.planillasPrevired()]);
   ES.conteos[mes] = conteos; ES.sii = sii;
   const checks = FE.checksCierre({ mes, cargasSii: sii, ventas: dm.ventasInfo, cargosPorRevisar: FE.cargosPorRevisarDelMes(ES.cartola.porRevisar, mes), conteos, sinClasificar: e.info.sinClasificar,

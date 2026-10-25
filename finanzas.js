@@ -47,22 +47,22 @@
 //  v0.76.0: materias primas e insumos nuevos desde Finanzas → Costos (crearMateriaPrima, crearDesdeLinea): costos_mp con origen 'manual'
 //   (o 'sii' si el precio es el de la línea de factura), creadaDesde 'sistema-fen' y su historial; datosMpEnCostos copia nombre y estado.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.100.1';
-import * as FB from './fs-gastos.js?v=0.100.1';
-import * as GB from './gastos-base.js?v=0.100.1';
-import * as P from './produccion.js?v=0.100.1';
-import * as FC from './finanzas-costos.js?v=0.100.1';
-import * as FS from './finanzas-sii.js?v=0.100.1';
-import * as FM from './finanzas-motor.js?v=0.100.1';
-import * as FV from './finanzas-ventas.js?v=0.100.1';
-import * as FMG from './finanzas-margenes.js?v=0.100.1';
-import * as FR from './finanzas-resultados.js?v=0.100.1';
-import * as FE from './finanzas-eerr.js?v=0.100.1';
-import * as CPM from './catalogo-productos-modelo.js?v=0.100.1';
-import * as Caja from './caja.js?v=0.100.1';
-import * as B from './b2b.js?v=0.100.1';
-import * as FBB from './firebase-b2b.js?v=0.100.1';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.100.1';
+import { auth as authSF } from './firebase.js?v=0.101.0';
+import * as FB from './fs-gastos.js?v=0.101.0';
+import * as GB from './gastos-base.js?v=0.101.0';
+import * as P from './produccion.js?v=0.101.0';
+import * as FC from './finanzas-costos.js?v=0.101.0';
+import * as FS from './finanzas-sii.js?v=0.101.0';
+import * as FM from './finanzas-motor.js?v=0.101.0';
+import * as FV from './finanzas-ventas.js?v=0.101.0';
+import * as FMG from './finanzas-margenes.js?v=0.101.0';
+import * as FR from './finanzas-resultados.js?v=0.101.0';
+import * as FE from './finanzas-eerr.js?v=0.101.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.101.0';
+import * as Caja from './caja.js?v=0.101.0';
+import * as B from './b2b.js?v=0.101.0';
+import * as FBB from './firebase-b2b.js?v=0.101.0';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.101.0';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -654,20 +654,43 @@ export async function guardarAjustesMargenes(datos) {
 //  · fin_creditos_hist/{autoId}   solo agregar: { credito, accion, antes, despues, fecha, por, en }.
 //  · fin_inversiones/{gastoId}    { vidaUtilMeses, fechaInicio, nota, item, valorNeto, fecha, por, historial }.
 //  Lee (solo lectura): gastos, items, obligaciones y vencimientos de fen-gastos. No cambia ningún gasto.
+// v0.101.0 · Etapa 4 (el puente): desde el inicio (octubre) los gastos salen del Gastos nuevo (gn-finanzas.js); hasta septiembre, del
+// Gastos anterior. gastos = los dos juntos, en la misma forma: el estado de resultados, la cuadratura y los cierres no cambian.
+// gn = { D (lo que lee la Bandeja: docs, movs, pagos, cargas, provs, repartos), ajuste (meses anteriores), inicio } | null (sin el Gastos nuevo).
 let resCache = null;
 export const olvidarResultados = () => { resCache = null; };
+export const gnActivo = () => typeof window === 'undefined' || !window.FEN_SIS || window.FEN_SIS.GASTOS_NUEVO !== false;
+export const inicioGN = () => (typeof window !== 'undefined' && window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
+// Desde qué mes manda el Gastos nuevo ('' = nunca: sin el Gastos nuevo todo sigue en el anterior)
+export const mesInicioGN = () => (gnActivo() ? inicioGN().slice(0, 7) : '');
+export const delGastosNuevo = mes => !!mesInicioGN() && String(mes || '') >= mesInicioGN();
 export async function leerResultados(forzar) {
   if (resCache && !forzar) return resCache;
   const db = await dbG();
   const col = n => FB.getDocs(FB.collection(db, n));
-  const [g, it, ob, ve, fi, cf, cr, inv] = await Promise.all(['gastos', 'items', 'obligaciones', 'vencimientos', 'fin_items'].map(col)
-    .concat([FB.getDoc(FB.doc(db, 'fin_config', 'resultados')), col('fin_creditos'), col('fin_inversiones')]));
+  const [g, it, ob, ve, fi, cf, cr, inv, gn] = await Promise.all(['gastos', 'items', 'obligaciones', 'vencimientos', 'fin_items'].map(col)
+    .concat([FB.getDoc(FB.doc(db, 'fin_config', 'resultados')), col('fin_creditos'), col('fin_inversiones'), gnActivo() ? import('./gn-fs.js?v=0.101.0').then(m => m.leer()).catch(e => ({ error: e.message || String(e) })) : Promise.resolve(null)]));
   const lista = sn => sn.docs.map(d => ({ id: d.id, ...d.data() }));
+  let gastos = lista(g), gnInfo = null;
+  if (gn && gn.error) {
+    // Sin el Gastos nuevo: los meses anteriores al inicio se ven igual; desde el inicio, Finanzas avisa que no pudo leerlo (no muestra números a medias)
+    gnInfo = { error: gn.error, inicio: inicioGN(), gastosAnteriores: gastos };
+    gastos = gastos.filter(x => !(String(x.fecha || '').slice(0, 10) >= inicioGN()));
+  } else if (gn) {
+    const GF = await import('./gn-finanzas.js?v=0.101.0'), P = GF.gastosParaFinanzas(gastos, gn, inicioGN());
+    gnInfo = { D: gn, ajuste: P.ajuste, yaAnterior: P.yaAnterior, porDecidir: P.porDecidir, errores: P.errores, inicio: inicioGN(), deGN: P.deGN.length, gastosAnteriores: gastos };
+    gastos = P.gastos;
+  }
   resCache = {
-    gastos: lista(g), items: lista(it).filter(x => !x.quitadoEnPlanilla), obligaciones: lista(ob).filter(x => !x.quitadoEnPlanilla), vencimientos: lista(ve),
-    fin: mapa(fi), config: cf.exists() ? cf.data() : {}, creditos: lista(cr), invGuardadas: mapa(inv), leido: Date.now()
+    gastos, items: lista(it).filter(x => !x.quitadoEnPlanilla), obligaciones: lista(ob).filter(x => !x.quitadoEnPlanilla), vencimientos: lista(ve),
+    fin: mapa(fi), config: cf.exists() ? cf.data() : {}, creditos: lista(cr), invGuardadas: mapa(inv), gn: gnInfo, leido: Date.now()
   };
   return resCache;
+}
+// v0.101.0 · La revisión de los gastos de octubre del Gastos anterior (para el cierre del mes del inicio), con lo que ya se leyó
+export async function revisionAnterior() {
+  const g = resCache && resCache.gn, F = await import('./gn-fs.js?v=0.101.0');
+  return F.revisionAnterior(g && g.D ? { gastos: g.gastosAnteriores, docs: g.D.docs, provs: g.D.provs, repartos: g.D.repartos } : null);
 }
 // Guarda el tipo de varios ítems (uno o "Aplicar propuestas"): cada uno en transacción por lotes, con su historial
 export async function guardarTipos(lista) {
@@ -787,14 +810,14 @@ export async function cargosCartola() {
 // v0.66.0 · Documentos del SII por clasificar (subidos, sin gasto todavía), de la memoria: para el cierre y el estado de resultados
 // v0.67.1: lo mismo que Conciliación (sin lo que ya tiene su gasto registrado: eso no se cuenta en el cierre)
 export async function siiPorClasificar() {
-  try { return await (await import('./sii-pendientes-fs.js?v=0.100.1')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
-  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.100.1');
+  try { return await (await import('./sii-pendientes-fs.js?v=0.101.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
+  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.101.0');
   const sn = await FB.getDocs(FB.collection(db, 'sii_docs'));
   return SP.pendientesDe(sn.docs.map(d => ({ id: d.id, d: d.data() })));
 }
 // v0.69.5 · Las planillas de Previred para Cierre de mes (de la memoria de la sesión; lo que falte se lee). null si no se puede.
 export async function planillasPrevired() {
-  try { return await (await import('./gastos-cartola-fs.js?v=0.100.1')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
+  try { return await (await import('./gastos-cartola-fs.js?v=0.101.0')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
 }
 export async function cargasSii() {
   const db = await dbG();

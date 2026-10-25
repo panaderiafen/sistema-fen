@@ -11,8 +11,8 @@
 //  Todo en neto. Nada de esto cambia los gastos: es una capa de Finanzas (fen-gastos: fin_items, fin_config,
 //  fin_creditos, fin_inversiones).
 // ═══════════════════════════════════════════════
-import { idLimpio } from './gastos-modelo.js?v=0.100.1';
-import * as AR from './areas.js?v=0.100.1';
+import { idLimpio } from './gastos-modelo.js?v=0.101.0';
+import * as AR from './areas.js?v=0.101.0';
 
 export const ANIO = 2026;
 // v0.69.1: las áreas propias son las de margen (las 4 de producción + REVENTA), de areas.js
@@ -63,8 +63,21 @@ const REGLAS = [
 const PALABRA = { compras_mp: 'materias primas', compras_reventa: 'reventa', remuneraciones: 'remuneración', fijo: 'gasto fijo', en_margen: 'comisión de tarjeta o despacho', financiero: 'interés o banco',
   fuera_capital_credito: 'crédito o cuota', fuera_impuestos: 'impuesto', inversion: 'inversión', retiro: 'retiro' };
 // item: nombre del ítem; ref: el ítem de la lista (categoria, tipo, subTipo) si existe
+// v0.101.0 · Ítems que crea el sistema (Gastos nuevo: F29, créditos, Previred). Tienen su tipo fijo (acordado con Emmanuel el 25 oct):
+// el IVA y el PPM no son gasto; la retención de las boletas de terceros y el impuesto único son parte del costo de pagar a las
+// personas (remuneraciones); multas e intereses, financiero; el capital de un crédito no es gasto. Lo guardado en Clasificación manda igual.
+// Los nombres son los de gn-pdf.js (ITEMS_F29, ITEMS_CREDITO) y gn-bandeja.js (ITEM_COTIZACIONES...): una prueba revisa que calcen.
+export const TIPOS_SISTEMA = {
+  'IVA (F29)': 'fuera_impuestos', 'PPM (F29)': 'fuera_impuestos', 'OTROS IMPUESTOS (F29)': 'fuera_impuestos', 'IMPUESTOS (F29)': 'fuera_impuestos',
+  'RETENCION BOLETAS DE TERCEROS (F29)': 'remuneraciones', 'IMPUESTO UNICO TRABAJADORES (F29)': 'remuneraciones', 'MULTAS E INTERESES (F29)': 'financiero',
+  'INTERESES DE CREDITO': 'financiero', 'CAPITAL DE CREDITO': 'fuera_capital_credito', 'CUOTA DE CREDITO': 'fuera_capital_credito',
+  'COTIZACIONES PREVISIONALES': 'remuneraciones', 'MULTAS E INTERESES PREVIRED': 'financiero', 'MULTAS E INTERESES': 'financiero'
+};
+const SISTEMA_N = Object.fromEntries(Object.entries(TIPOS_SISTEMA).map(([k, v]) => [normalizar(k), v]));
+export const tipoSistema = item => SISTEMA_N[normalizar(item)] || '';
 export function proponer(item, ref = null) {
   const n = normalizar(item), sub = normalizar(ref && ref.subTipo), cat = normalizar(ref && ref.categoria);
+  if (SISTEMA_N[n]) return { tipo: SISTEMA_N[n], por: 'sistema', motivo: 'ítem del sistema (Gastos nuevo): su tipo está acordado' };
   // Lo que Emmanuel ya clasificó como inversión en Gastos (subtipo INVERSIÓN) manda
   if (sub === 'INVERSION') return { tipo: 'inversion', por: 'subtipo', motivo: 'el ítem tiene subtipo INVERSIÓN en Gastos' };
   for (const [tipo, re] of REGLAS) {
@@ -92,9 +105,12 @@ export function proponer(item, ref = null) {
 // nombre: el ítem; fin: fin_items por clave; ref: el ítem de Gastos ({ subTipo }) o el gasto mismo (trae su subTipo).
 // → { tipo, por: 'clasificacion' | 'subtipo' | '' }
 export const subtipoFinanciero = ref => normalizar(ref && ref.subTipo) === 'FINANCIERO';
-export function tipoResultado(nombre, fin, ref) {
+// v0.101.0 · deGN: la línea viene del Gastos nuevo (solo ahí cuentan los tipos fijos del sistema: un ítem antiguo con el mismo nombre
+// no cambia, y los meses cerrados quedan iguales)
+export function tipoResultado(nombre, fin, ref, deGN = false) {
   const g = (fin || {})[claveItem(nombre)];
   if (g && TIPO[g.tipo]) return { tipo: g.tipo, por: 'clasificacion' };
+  if (deGN && tipoSistema(nombre)) return { tipo: tipoSistema(nombre), por: 'sistema' };
   if (subtipoFinanciero(ref) && proponer(nombre, ref).tipo === 'financiero') return { tipo: 'financiero', por: 'subtipo' };
   return { tipo: '', por: '' };
 }
@@ -168,14 +184,14 @@ export function resumenItems(gastos, items, fin = {}, { anio = ANIO, mapa = {} }
   (items || []).forEach(i => { if (s(i.item).trim()) { const f = fila(i.item, i); f.ref = i; } });
   (gastos || []).filter(vigente).filter(g => fechaGasto(g).startsWith(String(anio))).forEach(g => {
     const f = fila(g.itemGasto, null);
-    f.n++; f.neto += netoGasto(g);
+    f.n++; f.neto += netoGasto(g); if (g.origenGN) f.deGN = true;
     lineasArea(g).forEach(l => { f.porArea[l.area] = (f.porArea[l.area] || 0) + l.neto; const d = destinoArea(l.area, mapa); f.porDestino[d] = (f.porDestino[d] || 0) + l.neto; });
   });
   return Object.values(r).map(f => {
     const prop = proponer(f.item, f.ref), g = fin[f.clave] || null;
     const actual = g && TIPO[g.tipo] ? g : null;
     // v0.67.1: sin clasificar, lo que igual cuenta (subtipo FINANCIERO → financiero) para decirlo en la fila
-    const cuenta = actual ? null : tipoResultado(f.item, fin, f.ref);
+    const cuenta = actual ? null : tipoResultado(f.item, fin, f.ref, !!f.deGN);
     return { ...f, propuesta: prop, guardado: actual, tipo: actual ? actual.tipo : '', clasificado: !!actual, archivado: !!(f.ref && f.ref.archivado), cuentaComo: cuenta && cuenta.tipo ? cuenta.tipo : '',
       distinta: !!(actual && prop.tipo && actual.tipo !== prop.tipo) };
   }).sort((a, b) => b.neto - a.neto || a.item.localeCompare(b.item, 'es'));

@@ -1,9 +1,32 @@
-# Sistema Fën · v0.100.1
+# Sistema Fën · v0.101.0
 
-**App:** v0.100.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.101.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 25 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.101.0: Finanzas lee el Gastos nuevo desde octubre (Etapa 4, primera parte)
+
+Acordado con Emmanuel el 25 oct (propuesta en el proyecto: `claude/gastos-etapa4-propuesta.md`).
+- **Corte por mes:** hasta septiembre, el estado de resultados y el cierre leen el Gastos anterior (como siempre); desde octubre, **solo el Gastos nuevo**. Cada parte de cada documento clasificado (ítem, área, neto) entra en el mes del documento. Así nada se cuenta dos veces.
+- **Lo del Gastos nuevo de antes de octubre** (deuda anterior, la parte de junio a septiembre de una patente) se decide uno por uno en la Revisión de octubre: con el mismo RUT y folio que un gasto del anterior (también si el folio está en la observación) ya estaba y no entra; los demás quedan "por decidir" (no entran) hasta que usted elige "Ya estaba en el anterior" o "No estaba: entra en octubre" (como **"Ajuste de meses anteriores"**, con aviso y en el detalle de cada gasto).
+- **Lo pagado con un cargo de antes de octubre que ya era gasto en el anterior** ("ya está en el Gastos anterior" al pagar): esa parte del documento no se cuenta otra vez.
+- **Patentes y permisos (cada 6 o 12 meses):** se reparten un sexto o un doceavo por mes.
+- **Tipos fijos de lo que crea el sistema:** del F29, IVA, PPM y otros impuestos quedan fuera del resultado; la retención de las boletas de terceros y el impuesto único son remuneraciones; multas e intereses, financiero. Cuotas: el interés es financiero y el capital queda fuera. Cotizaciones de Previred: remuneraciones. Lo guardado en Finanzas → Clasificación manda igual.
+- **Créditos:** desde octubre, el interés sale de cada cuota del Gastos nuevo (Gastos → Compromisos → Créditos), no de Finanzas → Créditos (si no, saldría doble). Si una cuota va completa porque falta el monto original y la tasa, el estado de resultados lo avisa.
+- **Cierre de mes desde octubre:** SII del mes (una carga hecha después de terminar el mes, ojalá el RCV), movimientos sin explicar en la Bandeja, documentos sin clasificar, Previred del mes y, solo en octubre, la revisión del Gastos anterior.
+- **Revisión de octubre** (Gastos → Archivos subidos → Revisar; temporal), en dos partes: (1) cada gasto anotado en el anterior con fecha de octubre queda "En el Gastos nuevo", "No va" o "Por resolver", y la suma da el total: con factura, llega por el SII; pagado por el banco, se registra desde su cargo y se confirma ("Es este"); en efectivo o con su plata, "Pasar al Gastos nuevo" abre el gasto sin banco ya lleno. Un documento del nuevo se une con un solo gasto del anterior. (2) Los documentos del nuevo de antes de octubre. Las decisiones quedan con su historial completo; "Volver a revisar" no borra nada. Los gastos del anterior no se tocan.
+- **El Gastos anterior queda solo para consultar desde octubre:** ya no acepta gastos con fecha desde el 1 de octubre, ni corregir uno para llevarlo a octubre.
+- **Si Finanzas no puede leer el Gastos nuevo**, los meses hasta septiembre se ven igual y desde octubre avisa (no muestra números a medias). Un documento con datos raros no deja a Finanzas sin nada: se avisa cuál.
+- Los tipos fijos del sistema solo valen para lo que viene del Gastos nuevo: los meses ya cerrados no cambian. Si un crédito de Finanzas → Créditos tiene cuota en el mes y no hay cuotas en el Gastos nuevo, se avisa (el interés faltaría).
+- Costo: Finanzas lee los documentos del Gastos nuevo una vez por sesión (los mismos que lee la Bandeja); la revisión lee los gastos del anterior desde la memoria de la sesión.
+Archivo nuevo `gn-finanzas.js`. Cambian `finanzas.js`, `finanzas-eerr.js`, `finanzas-resultados.js`, `vista-finanzas-eerr.js`, `gn-fs.js`, `vista-gn.js`, `gastos-fs.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.101.0`).
+Queda para la v0.102.0: el bloque de costos por tienda, elegir el tipo para el resultado al crear un ítem y retirar las pantallas antiguas (Resumen del mes, reglas de conciliación antiguas, Finanzas → Créditos desde octubre).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda) y abrir con Cmd + Shift + R: abajo dice v0.101.0.
+- [ ] Gastos → Archivos subidos → "Revisión de octubre" → Revisar: resolver las dos partes hasta que diga "Todo resuelto".
+- [ ] Finanzas → Resultados → octubre: revisar los avisos (ajuste de meses anteriores, documentos sin clasificar, cuotas sin separar) y que la cuadratura cuadre. Los ítems nuevos sin tipo se clasifican en Resultados → Clasificación.
+- [ ] Cerrar septiembre (está listo).
 
 ## Novedades de la v0.100.1: la cartola desde B2B va al Gastos nuevo; ventas por caja y cierres que no cuadran
 

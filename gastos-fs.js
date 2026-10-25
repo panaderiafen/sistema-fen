@@ -25,18 +25,18 @@
 //    salió: tipo, quién, cuándo y lo propio de cada origen); "origen" sigue siendo el texto de siempre (el script lo usa).
 //    Hoy: "Esperan cartola". detalleGasto(ids): las líneas y su origen, para el detalle del gasto.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.100.1';
-import * as FB from './fs-gastos.js?v=0.100.1';
-import * as GB from './gastos-base.js?v=0.100.1';
-import * as GP from './gastos-planilla.js?v=0.100.1';
-import * as M from './gastos-g2.js?v=0.100.1';
-import * as G3 from './gastos-g3.js?v=0.100.1';
-import * as G3D from './gastos-g3d.js?v=0.100.1';
-import * as B from './gastos-banco.js?v=0.100.1';
-import { dia } from './gastos-modelo.js?v=0.100.1';
-import * as AB from './gastos-abono.js?v=0.100.1';
-import * as PM from './pagos-mixtos.js?v=0.100.1';   // v0.69.2: pagos mixtos (partes de un documento)
-import * as BO from './boletas.js?v=0.100.1';      // v0.70.0: boletas de luz y agua (CGE, ESSBIO) y cuentas que nacen de su boleta
+import { auth as authSF } from './firebase.js?v=0.101.0';
+import * as FB from './fs-gastos.js?v=0.101.0';
+import * as GB from './gastos-base.js?v=0.101.0';
+import * as GP from './gastos-planilla.js?v=0.101.0';
+import * as M from './gastos-g2.js?v=0.101.0';
+import * as G3 from './gastos-g3.js?v=0.101.0';
+import * as G3D from './gastos-g3d.js?v=0.101.0';
+import * as B from './gastos-banco.js?v=0.101.0';
+import { dia } from './gastos-modelo.js?v=0.101.0';
+import * as AB from './gastos-abono.js?v=0.101.0';
+import * as PM from './pagos-mixtos.js?v=0.101.0';   // v0.69.2: pagos mixtos (partes de un documento)
+import * as BO from './boletas.js?v=0.101.0';      // v0.70.0: boletas de luz y agua (CGE, ESSBIO) y cuentas que nacen de su boleta
 
 const s = v => String(v || '');
 const correo = () => (authSF.currentUser && authSF.currentUser.email) || '';
@@ -67,7 +67,14 @@ function limpio(v) {
   return v;
 }
 // Documento nuevo: origen, quién y cuándo, versión 0 y la marca para la planilla
-const nuevo = (datos, origen, por) => limpio({ ...datos, origen, creado: { por: por || correo(), en: FB.serverTimestamp() }, version: 0, historial: [], ...GB.marcaBase(por) });
+// v0.101.0 · Con el Gastos nuevo activo, el Gastos anterior queda solo para consultar desde el inicio (octubre): un gasto con fecha desde
+// el inicio ya no se crea aquí (Finanzas lee esos meses solo del Gastos nuevo; si entrara aquí, no se vería). Lo de antes sigue igual.
+const INI_GN = () => (typeof window !== 'undefined' && window.FEN_SIS && window.FEN_SIS.GASTOS_NUEVO !== false && window.FEN_SIS.INICIO) || '';
+function soloLectura(datos) {
+  const ini = INI_GN(), f = String((datos && datos.fecha) || '').slice(0, 10);
+  if (ini && datos && 'itemGasto' in datos && f >= ini) throw Object.assign(new Error(`Desde el ${ini.split('-').reverse().join('-')} los gastos se registran en el Gastos nuevo (Gastos → Bandeja). El Gastos anterior queda solo para consultar.`), { code: 'solo_lectura' });
+}
+const nuevo = (datos, origen, por) => (soloLectura(datos), limpio({ ...datos, origen, creado: { por: por || correo(), en: FB.serverTimestamp() }, version: 0, historial: [], ...GB.marcaBase(por) }));
 // Cambio: campos nuevos + versión siguiente + historial (quién, cuándo, antes y después de lo que cambió) + marca para la planilla
 const cambio = (a, que, campos, extra, por) => limpio({ ...campos, version: (Number(a && a.version) || 0) + 1,
   historial: M.conHistorial(a && a.historial, { que, por: por || correo(), en: M.ahoraChile().texto, cambios: M.diferencias(a, campos), ...(extra || {}) }), ...GB.marcaBase(por) });
@@ -163,6 +170,7 @@ export async function registrar(p, marca, subir) {
   if (!p.imageData && !yaEnDrive) throw error('Falta la foto o el archivo de la boleta', 'datos');
   if (!/^\d{2}-\d{2}-\d{4}$/.test(String(p.fecha || ''))) throw error('Falta la fecha de compra', 'datos');
   const fecha = dia(p.fecha);
+  soloLectura({ itemGasto: '', fecha });   // v0.101.0: antes de subir la boleta
   const forma = ['contado', 'tarjeta', 'proveedor'].includes(p.formaPago) ? p.formaPago : 'contado';
   if (forma !== 'contado' && !M.esIso(p.fechaPago)) throw error('Falta la fecha de pago del crédito', 'datos');
   // v0.63.1: al contado, en efectivo o por banco (transferencia): lo de banco espera su cargo en la cartola
@@ -205,6 +213,9 @@ export async function editar(g, c) {
     const x = M.corregirGasto(a, c, cat.lista.filter(i => !i.archivado));
     if (x.error) throw error(x.error, 'datos');
     if (!Object.keys(x.campos).length) return { ok: true, sinCambios: true, antes: x.antes, despues: x.despues };
+    // v0.101.0 · Un gasto del anterior no se lleva a una fecha desde el inicio (saldría de su mes y no entraría a ninguno), ni se corrige
+    // uno que ya tiene fecha desde el inicio (está en la revisión de octubre)
+    soloLectura({ itemGasto: '', fecha: a.fecha }); if (x.campos.fecha) soloLectura({ itemGasto: '', fecha: x.campos.fecha });
     tx.update(ref, cambio(a, 'corrigió', x.campos));
     return { ok: true, antes: x.antes, despues: x.despues };
   });
@@ -255,7 +266,7 @@ export async function noEsDeLaEmpresa(ids, modo, nota) {
     const plan = M.planGuardarItem(items, { nombre: ITEM_RETIRO, categoria: 'VARIABLE', tipo: 'INDIRECTO', subTipo: 'OPERATIVO', area: 'SELECCIONAR' });
     if (plan.crear) await FB.runTransaction(d, async tx => { const ref = FB.doc(d, 'items', plan.crear.id); if (!(await tx.get(ref)).exists()) tx.set(ref, nuevo(plan.crear.doc, 'mano')); });
   }
-  const FR = await import('./finanzas-resultados.js?v=0.100.1'), refF = FB.doc(d, 'fin_items', FR.claveItem(ITEM_RETIRO));
+  const FR = await import('./finanzas-resultados.js?v=0.101.0'), refF = FB.doc(d, 'fin_items', FR.claveItem(ITEM_RETIRO));
   await FB.runTransaction(d, async tx => {
     const sns = []; for (const r of refs) sns.push(await tx.get(r));
     const snF = await tx.get(refF), prevF = snF.exists() ? snF.data() : null;
