@@ -1,9 +1,22 @@
-# Sistema Fën · v0.99.0
+# Sistema Fën · v0.100.0
 
-**App:** v0.99.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
+**App:** v0.100.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 23 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.100.0: gasto sin banco, devolución al dueño, y Gastos en Hoy y la Agenda
+
+Grupo de cambios chicos del 24 oct (lo que faltaba de la Etapa 3).
+- **Registrar gasto sin banco** (botón sobre "Documentos sin pago"): una compra pagada en efectivo de la caja (feria, boleta en papel) o con plata del dueño, sin factura. Nace pagada y clasificada (ítem y área o reparto), y el proveedor la recuerda.
+- **Lo que se le debe al dueño:** lo pagado con su plata (en "¿Cómo se pagó?" o aquí) queda como deuda de la empresa con usted. Se ve en Por pagar → "Se le debe al dueño". Cuando la empresa se lo devuelve, esa transferencia se marca **"No es gasto → Devolución al dueño"** (no es un retiro).
+- **Hoy:** con el Gastos nuevo vuelven los avisos: lo vencido por pagar (rojo), lo que vence esta semana (amarillo) y "Bandeja de Gastos: N por hacer". **Agenda:** cada pago pendiente en su fecha.
+  - Para no gastar lecturas, Hoy y la Agenda leen un solo documento (`gn_config/resumen`) que se actualiza cada vez que abre Gastos. Si pasa días sin abrir Gastos, el aviso muestra la fecha del resumen.
+Cambian `gn-bandeja.js`, `gn-fs.js`, `vista-gn.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.100.0`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda) y abrir con Cmd + Shift + R: abajo dice v0.100.0.
+- [ ] Abrir Gastos una vez (arma el resumen) y después Hoy: aparecen los avisos de Gastos.
+- [ ] Si alguna vez pagó algo de la empresa con su plata: revisar "Se le debe al dueño" en Por pagar.
 
 ## Novedades de la v0.99.0: compromisos anuales, el SII en "Hasta dónde llega" y los ítems ya usados en la lista
 

@@ -19,7 +19,19 @@ export const VENTANA = { antes: 20, despues: 60 };
 export const TOLERANCIA = 5;
 export const enVentana = (docFecha, movFecha) => { const d = dias(docFecha, movFecha); return d >= -VENTANA.antes && d <= VENTANA.despues; };
 export const MOTIVOS_NO_VA = { repetido: 'Repetido', no_empresa: 'No es de la empresa', no_compra: 'No es una compra' };
-export const NO_GASTO = { traspaso: 'Traspaso entre cuentas propias', retiro: 'Retiro del dueño', tarjeta: 'Pago de la tarjeta de crédito', otro: 'Otro (no es gasto)' };
+// v0.100.0 · devolucion: la empresa le devuelve al dueño lo que él pagó con su plata (baja lo que se le debe; no es retiro)
+export const NO_GASTO = { traspaso: 'Traspaso entre cuentas propias', retiro: 'Retiro del dueño', devolucion: 'Devolución al dueño (de lo que pagó con su plata)', tarjeta: 'Pago de la tarjeta de crédito', otro: 'Otro (no es gasto)' };
+// Lo que la empresa le debe al dueño: lo que él pagó con su plata (pagos "personal" vigentes) menos lo que se le ha devuelto
+export function deudaDueno(pagos, movs) {
+  const pagado = (pagos || []).filter(p => p.estado !== 'deshecho' && p.medio === 'personal').reduce((a, p) => a + (Number(p.monto) || 0), 0);
+  const devuelto = (movs || []).filter(m => m.naturaleza === 'devolucion' && m.estado !== 'no_va').reduce((a, m) => a + (Number(m.monto) || 0), 0);
+  return { pagado, devuelto, saldo: pagado - devuelto };
+}
+// Resumen para Hoy y la Agenda (se guarda al abrir Gastos: Hoy lee un solo documento). abiertos: [{ f: vence o fecha, m: saldo, q: a quién, a: anterior, t: tipo }]
+export function resumenHoy(B, D, dia) {
+  const ab = B.abiertosD.filter(d => !d.nc && d.saldo > 0 && d.estado !== 'no_va').map(d => ({ f: d.vence || d.fecha, m: d.saldo, q: s(d.razon || d.rut).slice(0, 40), a: d.anterior ? 1 : 0, t: s(d.tipoTexto).slice(0, 30) })).sort((a, b) => a.f.localeCompare(b.f)).slice(0, 300);   // Firestore no guarda listas dentro de listas
+  return { dia, porHacer: B.n.total, abiertos: ab, deudaDueno: deudaDueno(D.pagos, D.movs).saldo };
+}
 export const MEDIOS = { cargo: 'Con un cargo', efectivo: 'En efectivo', personal: 'Con plata del dueño' };
 
 // ── Estados (de los pagos vigentes) ──

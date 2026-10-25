@@ -7,15 +7,15 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.99.0';
-import * as GB from './gn-bandeja.js?v=0.99.0';
-import * as AR from './areas.js?v=0.99.0';
-import * as Sii from './sii.js?v=0.99.0';
-import * as MP from './mercadopago.js?v=0.99.0';
+import * as GN from './gn-modelo.js?v=0.100.0';
+import * as GB from './gn-bandeja.js?v=0.100.0';
+import * as AR from './areas.js?v=0.100.0';
+import * as Sii from './sii.js?v=0.100.0';
+import * as MP from './mercadopago.js?v=0.100.0';
 
 const st = { D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' } };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.99.0');
+const fsGN = () => import('./gn-fs.js?v=0.100.0');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -34,6 +34,7 @@ const TXT_CARGOS_ANT = 'Cargos de los 20 días antes del inicio. Entran solo par
 const TXT_COMPROMISOS = 'Un compromiso es un pago fijo de cada mes que no trae documento (por ejemplo, un arriendo). El sistema crea el documento de cada mes cuando el mes empieza, con su día de pago, y la Bandeja lo une con la transferencia como cualquier factura.\nSu ítem y su reparto quedan en la ficha de a quién se le paga: sus meses llegan clasificados. Un cambio del monto o del día rige desde el próximo mes que se cree. Archivar deja de crear meses; lo ya creado sigue.';
 const MESES_TXT = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const TXT_COB_SII = '"Documentos hasta" es la fecha de la factura más reciente que está cargada. No asegura que estén todas: una factura puede llegar al SII días después.\nSu método: al bajar el XML, incluya siempre el último día de la descarga anterior, así se capta lo que llegó después (lo que ya estaba no se repite). A fin de mes, el RCV completa lo que falte.';
+const TXT_SINBANCO = 'Para un gasto que no pasa por el banco ni trae factura: una compra en la feria o con boleta en papel pagada en efectivo (de la caja), o algo que usted pagó con su plata.\nNace pagado y clasificado. Lo pagado con su plata queda como deuda de la empresa con usted (Por pagar → "Se le debe al dueño"); cuando la empresa se lo devuelva, marque esa transferencia "No es gasto → Devolución al dueño".\nSi el gasto tiene factura, no lo registre aquí: llega por el SII.';
 const TXT_TARJETA = 'Cada compra anotada es un movimiento de la tarjeta (cuenta "Tarjeta de crédito"): se une con su factura en la Bandeja como cualquier cargo.\nEl pago de la tarjeta desde la cuenta corriente no es gasto: márquelo "No es gasto → pago de la tarjeta", así nada se cuenta dos veces.\nAnotar la misma compra dos veces no la repite.';
 const TXT_CREDITOS = 'Los créditos se cargan arrastrando el "Detalle Crédito" de BancoEstado (Excel). Cada cuota entra a la Bandeja el mes en que vence, para unirla con su cargo.\nCon el monto original y la tasa mensual, cada cuota se separa en interés (gasto financiero) y capital (no es gasto: es devolver el préstamo). Sin esos datos, la cuota va completa.';
 const TXT_PORPAGAR = 'Lo que se debe y todavía no tiene su pago: facturas y boletas, sueldos, Previred, F29, arriendos y cuotas, por su fecha de vencimiento (o la del documento si no trae).\nLa deuda anterior al inicio va aparte. Para registrar un pago, use la Bandeja.';
@@ -153,7 +154,7 @@ function bandejaHtml(H) {
       ${B.conAreaAntigua.length ? `<div class="gn-grupo" id="gn-antiguas"><div class="gn-grupo-t"><h3>Con área antigua · ${B.conAreaAntigua.length} ${H.info('Área antigua', TXT_ANTIGUA)}</h3></div>${B.conAreaAntigua.map(d => docFila(d, bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Cambiar clasificación', true))).join('')}</div>` : ''}
       ${B.porClasificar.length ? `<div class="gn-grupo" id="gn-clasificar"><div class="gn-grupo-t"><h3>Pagados, falta clasificar · ${B.porClasificar.length} ${H.info('Pagados, falta clasificar', TXT_CLASIF)}</h3>${B.porClasificar.filter(sugOk).length > 1 ? bt('data-gn-usar-todas', `Usar lo sugerido en ${B.porClasificar.filter(sugOk).length}`) : ''}</div>${B.porClasificar.map(clasifHtml).join('')}</div>` : ''}
       <div class="gn-lados" id="gn-lados">
-        <div class="gn-lado">${filtraDocs ? `<div class="gn-lado-t">Documentos posibles para ${movsSel.length === 1 ? 'el cargo elegido' : 'los cargos elegidos'} ${H.info('Elegir', TXT_ELEGIR)}</div>${posDocs.map(x => docFila(x.d, x.desc ? '<span class="chip c-gris chip-chico">descartado antes</span>' : x.calza ? '<span class="chip c-verde chip-chico">calza</span>' : (!x.dentro ? '<span class="gn-sug">fuera de las fechas</span>' : ''), true)).join('') || '<div class="vacio">Ningún documento con saldo para esto.</div>'}`
+        <div class="gn-lado">${filtraDocs ? '' : `<div class="gn-sinbanco"><button type="button" class="btn-sec btn-chico" data-gn-sinbanco>Registrar gasto sin banco</button>${H.info('Gasto sin banco', TXT_SINBANCO)}</div>`}${filtraDocs ? `<div class="gn-lado-t">Documentos posibles para ${movsSel.length === 1 ? 'el cargo elegido' : 'los cargos elegidos'} ${H.info('Elegir', TXT_ELEGIR)}</div>${posDocs.map(x => docFila(x.d, x.desc ? '<span class="chip c-gris chip-chico">descartado antes</span>' : x.calza ? '<span class="chip c-verde chip-chico">calza</span>' : (!x.dentro ? '<span class="gn-sug">fuera de las fechas</span>' : ''), true)).join('') || '<div class="vacio">Ningún documento con saldo para esto.</div>'}`
           : `<div class="gn-lado-t">Documentos sin pago · ${B.sinPago.length} ${H.info('Documentos sin pago', TXT_SINPAGO)}</div>
           ${B.sinPago.length ? B.sinPago.map(d => docFila(d, accDoc(d), true)).join('') : `<div class="vacio">${D.docs.length ? 'Todos los documentos tienen su pago.' : 'Todavía no hay documentos. Suba las compras del SII.'}</div>`}
           ${B.anteriores.length ? `<details class="gn-det"${B.anteriores.some(d => selD.has(d.id)) ? ' open' : ''}><summary>${B.anteriores.length} de deuda anterior sin pago ${H.info('Deuda anterior', TXT_ANTERIOR)}</summary>${B.anteriores.map(d => docFila(d, accDoc(d), true)).join('')}</details>` : ''}`}</div>
@@ -233,7 +234,7 @@ async function procesar(f, H) {
   if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text();
-    const Pv = await import('./previred.js?v=0.99.0');
+    const Pv = await import('./previred.js?v=0.100.0');
     if (Pv.esCsvNomina(Pv.textoDeArchivo(await f.arrayBuffer()))) return subirPrevired(f, H, Pv.leerCsv(Pv.textoDeArchivo(await f.arrayBuffer())));
     const tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -247,7 +248,7 @@ async function procesar(f, H) {
   if (wb) {
     const tefs = H.B2b.leerTransferencias(wb, XLSX);
     if (tefs) { const r = await H.B2b.guardarTransferencias(tefs); H.registrar('Cargó transferencias recibidas', `${r.leidas} leídas · ${r.nuevas} nuevas`); return `<b>Transferencias recibidas</b>: ${r.leidas} en el archivo · ${r.nuevas} nuevas. Sirven a Ventas B2B → Conciliación (quién pagó cada abono).`; }
-    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.99.0'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
+    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.100.0'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
       if (GP.esDetalleCredito(filas)) { const enc = wb.SheetNames.includes('Encabezados') ? XLSX.utils.sheet_to_csv(wb.Sheets.Encabezados) : '', r = GP.leerCredito(filas, enc);
         if (r.bloquea) throw new Error(r.errores.join(' '));
         const k = await (await fsGN()).cargarCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó un crédito', r.nombre);
@@ -263,9 +264,9 @@ function esCartola(wb, XLSX, H) {
 }
 // v0.96.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
 async function subirBoleta(f, H) {
-  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.99.0'), import('./boletas.js?v=0.99.0')]);
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.100.0'), import('./boletas.js?v=0.100.0')]);
   let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
-  const GP = await import('./gn-pdf.js?v=0.99.0'), tipo = GP.tipoPdf(lineas);
+  const GP = await import('./gn-pdf.js?v=0.100.0'), tipo = GP.tipoPdf(lineas);
   if (tipo) return subirOtroPdf(f, H, GP, tipo, lineas);
   if (Pv.esComprobante(lineas) || Pv.esCertificado(lineas)) { let r; try { r = Pv.leerPdf(lineas); } catch (x) { throw new Error(x.message); } return subirPrevired(f, H, r); }
   const r = Bo.leerBoleta(lineas);
@@ -299,7 +300,7 @@ async function subirOtroPdf(f, H, GP, tipo, lineas) {
 // v0.97.0 · Previred: el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → el documento del mes
 async function subirPrevired(f, H, r) {
   if (r.bloquea) throw new Error(`Previred no se guardó. ${(r.avisos || []).join(' ')}`);
-  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.99.0'), import('./gastos-g3d.js?v=0.99.0')]);
+  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.100.0'), import('./gastos-g3d.js?v=0.100.0')]);
   const id = GN.idCarga('previred'), d = GP.docDePrevired(r, G3D.venceDe(r.periodo), id);
   const k = await (await fsGN()).cargarPdf(d, { nombre: f.name, tamano: f.size }, 'previred');
   H.registrar('Gastos: cargó Previred', `${d.tipoTexto} · ${k.texto}`);
@@ -386,6 +387,7 @@ function acciones(el, H) {
     if (ds.gnCompromiso !== undefined) return dlgCompromiso(el, H, ds.gnCompromiso);
     if (ds.gnCredito) return dlgCredito(el, H, ds.gnCredito);
     if (ds.gnTarjeta !== undefined) return dlgTarjeta(el, H);
+    if (ds.gnSinbanco !== undefined) return dlgSinBanco(el, H);
     if (ds.gnArchivarcp) return hacer(el, H, async () => (await fsGN()).archivarCompromiso(ds.gnArchivarcp, ds.archivar === '1'), ds.archivar === '1' ? 'Compromiso archivado: no crea más meses (lo ya creado sigue).' : 'El compromiso vuelve a crear sus meses.');
     if (ds.gnFicha) return dlgFicha(el, H, ds.gnFicha, ds.razon || '', ds.rut || '');
     if (ds.gnQuitarprod) return hacer(el, H, async () => (await fsGN()).quitarProducto(ds.gnQuitarprod, ds.prod), `Producto olvidado: ${H.esc(ds.prod)}.`);
@@ -903,10 +905,11 @@ function porPagarHtml(H) {
   const ahora = l.filter(x => !x.d.anterior).sort((a, b) => a.f.localeCompare(b.f)), ant = l.filter(x => x.d.anterior);
   const grupos = [['Vencido', x => x.f < hoy], ['Esta semana', x => x.f >= hoy && x.f <= en7], ['Más adelante', x => x.f > en7]];
   const fila = x => `<div class="gn-fila gn-fila-doc"><span><b>${H.esc(x.d.razon || x.d.rut)}</b> · ${H.esc(x.d.tipoTexto)}${x.d.folio && x.d.origen !== 'credito' ? ' ' + H.esc(x.d.folio) : ''} · ${x.d.vence ? 'vence' : 'del'} ${H.esc(H.diaTexto(x.f))}</span><span class="gn-m">${H.pesos(x.d.saldo)}</span></div>`;
-  const tot = a => a.reduce((t, x) => t + x.d.saldo, 0);
+  const tot = a => a.reduce((t, x) => t + x.d.saldo, 0), dd = GB.deudaDueno(st.D.pagos, st.D.movs);
   return `<section class="tarjeta" aria-labelledby="t-gn-pp"><div class="titulo-fila"><h2 id="t-gn-pp">Por pagar ${H.info('Por pagar', TXT_PORPAGAR)}</h2><span class="gn-m">${H.pesos(tot(ahora))}</span></div>
     ${ahora.length ? grupos.map(([t, f]) => { const g = ahora.filter(f); return g.length ? `<h3 class="gn-h3${t === 'Vencido' ? ' gn-vencido' : ''}">${t} · ${H.pesos(tot(g))}</h3>${g.map(fila).join('')}` : ''; }).join('') : '<div class="vacio" style="border:0">Nada por pagar.</div>'}
-    ${ant.length ? `<details class="gn-det"><summary>Deuda anterior al inicio · ${H.pesos(tot(ant))}</summary>${ant.map(fila).join('')}</details>` : ''}</section>`;
+    ${ant.length ? `<details class="gn-det"><summary>Deuda anterior al inicio · ${H.pesos(tot(ant))}</summary>${ant.map(fila).join('')}</details>` : ''}
+    ${dd.pagado ? `<div class="gn-fila gn-fila-doc gn-dueno"><span><b>Se le debe al dueño</b> · pagado con su plata ${H.pesos(dd.pagado)}${dd.devuelto ? ` − devuelto ${H.pesos(dd.devuelto)}` : ''} ${H.info('Deuda con el dueño', TXT_SINBANCO)}</span><span class="gn-m">${H.pesos(dd.saldo)}</span></div>` : ''}</section>`;
 }
 
 // v0.98.0 · Un compromiso pagado por otro monto (patente con IPC o multas, arriendo con reajuste): ajustar el documento a lo pagado.
@@ -924,4 +927,27 @@ function ofrecerAjuste(H, d, pagado) {
     dlg.querySelector('form').addEventListener('submit', async ev => { ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
       try { await (await fsGN()).ajustarCompromiso(d.id, d.total + dif); listo = true; dlg.close(); resolve(true); } catch (e) { falla(dlg, e, H); } });
   });
+}
+
+// ═══════════════ v0.100.0 · Gasto sin banco (efectivo o plata del dueño) ═══════════════
+function dlgSinBanco(el, H) {
+  const hoy = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }), provs = Object.values(st.D.provs || {});
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>Gasto sin banco</h2>${H.info('Gasto sin banco', TXT_SINBANCO)}</div>
+    <div class="chips" role="radiogroup" aria-label="Con qué se pagó"><label class="chip-radio"><input type="radio" name="sb-m" value="efectivo" checked><span>En efectivo</span></label><label class="chip-radio"><input type="radio" name="sb-m" value="personal"><span>Con plata del dueño</span></label></div>
+    <div class="chips" role="radiogroup" aria-label="Documento"><label class="chip-radio"><input type="radio" name="sb-t" value="boleta" checked><span>Boleta en papel</span></label><label class="chip-radio"><input type="radio" name="sb-t" value="sin"><span>Sin documento</span></label></div>
+    <div class="gn-dos"><div class="campo"><label for="sb-fecha">Fecha</label><input id="sb-fecha" type="date" value="${hoy}" max="${hoy}"></div><div class="campo"><label for="sb-monto">Monto</label><input id="sb-monto" type="number" min="1" inputmode="numeric"></div></div>
+    <div class="campo"><label for="sb-prov">A quién se le pagó</label><input id="sb-prov" list="sb-provs" maxlength="120" autocomplete="off"><datalist id="sb-provs">${provs.map(p => `<option value="${H.esc(p.razon)}">`).join('')}</datalist></div>
+    <div class="gn-dos"><div class="campo"><label for="sb-rut">RUT (opcional)</label><input id="sb-rut" maxlength="14"></div><div class="campo"><label for="sb-folio">N° de boleta (opcional)</label><input id="sb-folio" maxlength="30"></div></div>
+    <div class="campo"><label for="sb-nota">Qué se compró (opcional)</label><input id="sb-nota" maxlength="120"></div>
+    ${camposClasif(H, null, 'sb')}
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Registrar</button></div></form>`);
+  const leer = conectarClasif(dlg, H, null, 'sb'); dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async ev => { ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
+    try { const a = leer(), v = id => dlg.querySelector(id).value, medio = dlg.querySelector('[name=sb-m]:checked').value;
+      const areas = a.repartoId && st.D.repartos[a.repartoId] ? st.D.repartos[a.repartoId].areas : a.areas;
+      await (await fsGN()).registrarSinBanco({ medio, tipo: dlg.querySelector('[name=sb-t]:checked').value, fecha: v('#sb-fecha'), monto: v('#sb-monto'), proveedor: v('#sb-prov'), rut: v('#sb-rut'), folio: v('#sb-folio'), nota: v('#sb-nota'), item: a.item, areas, repartoId: a.repartoId });
+      dlg.close(); H.registrar('Gastos: registró un gasto sin banco', `${v('#sb-prov')} · ${v('#sb-monto')} · ${medio}`);
+      aviso(el, H, `Registrado: ${H.esc(v('#sb-prov'))} · ${H.pesos(Number(v('#sb-monto')))} ${medio === 'personal' ? 'con plata del dueño (queda en "Se le debe al dueño")' : 'en efectivo'}.`); }
+    catch (e) { falla(dlg, e, H); } });
 }

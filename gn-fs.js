@@ -10,12 +10,12 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.99.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.99.0';
-import { ahoraChile } from './gastos-g2.js?v=0.99.0';
-import * as GN from './gn-modelo.js?v=0.99.0';
-import * as GB from './gn-bandeja.js?v=0.99.0';
-import * as GP from './gn-pdf.js?v=0.99.0';
+import * as FB from './fs-gastos.js?v=0.100.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.100.0';
+import { ahoraChile } from './gastos-g2.js?v=0.100.0';
+import * as GN from './gn-modelo.js?v=0.100.0';
+import * as GB from './gn-bandeja.js?v=0.100.0';
+import * as GP from './gn-pdf.js?v=0.100.0';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -41,6 +41,10 @@ export async function leer() {
   // v0.96.0 · Los repartos iniciales se crean la primera vez (una sola vez: si ya hay alguno, no se toca)
   let reps = reps0;
   if (!reps.length) { try { await crearRepartosIniciales(); reps = await todos(GN.COL.repartos); } catch (e) { reps = []; } }
+  // v0.100.0 · El resumen para Hoy y la Agenda (un documento): se guarda solo si cambió
+  try { const D0 = { docs, movs, pagos, provs: Object.fromEntries(provs.map(p => [p.id, p])), repartos: Object.fromEntries(reps.map(r => [r.id, r])) }, R = GB.resumenHoy(GB.armar(D0, {}), D0, hoyCl), prev = cfg.find(x => x.id === 'resumen');
+    const sin = o => JSON.stringify({ ...(o || {}), dia: '', _m: null, id: null });
+    if (!prev || sin(prev) !== sin(R) || prev.dia !== R.dia) { const dd = await dbBase(), b = FB.writeBatch(dd); b.set(FB.doc(dd, GN.COL.config, 'resumen'), R); await b.commit(); } } catch (e) { /* el resumen es solo un aviso */ }
   return { docs, movs, cargas: cargas.sort((a, b) => String(b.en || '').localeCompare(String(a.en || ''))), pagos, provs: Object.fromEntries(provs.map(p => [p.id, p])),
     creditos: creds.map(cr => ({ ...cr, cuotas: GP.separarCuotas(cr.cuotas || [], cr.montoOriginal, cr.tasa) })), compromisos: comps.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre))), sugeridas: (sug && sug.porProveedor) || {}, gastosAnt: (ant && ant.lista) || [], items: itemsConUsados(itemsDe(items), docs, provs, comps), repartos: Object.fromEntries(reps.filter(r => r.estado !== 'archivado').map(r => [r.id, r])), inicio: inicio() };
 }
@@ -421,4 +425,31 @@ export async function ajustarCompromiso(docId, nuevoTotal) {
     const original = a.ajuste && a.ajuste.original ? a.ajuste.original : a.total, recargo = Math.max(0, t - original);
     tx.update(ref, { total: t, neto: t, ajuste: { original, recargo }, historial: conHist(a, marca(`ajustado al monto pagado: ${original} → ${t}`)) });
   });
+}
+
+// v0.100.0 · Hoy y la Agenda: el resumen guardado al abrir Gastos (una sola lectura)
+export async function resumenHoy() {
+  const d = await dbBase(), sn = await FB.getDoc(FB.doc(d, GN.COL.config, 'resumen'));
+  return sn.exists() ? sn.data() : null;
+}
+// v0.100.0 · Un gasto sin banco: en efectivo (caja) o con plata del dueño, con boleta en papel o sin documento. Nace pagado.
+export async function registrarSinBanco(p) {
+  const err = GB.repartoValido(p.areas); if (err && !p.repartoId) throw error(err, 'datos');
+  if (!String(p.proveedor || '').trim()) throw error('Escriba a quién se le pagó.', 'datos');
+  if (!String(p.item || '').trim()) throw error('Elija el ítem.', 'datos');
+  if (!GN.esIso(p.fecha)) throw error('Elija la fecha.', 'datos');
+  const monto = Math.round(Number(p.monto) || 0); if (!(monto > 0)) throw error('Escriba el monto.', 'datos');
+  const medio = p.medio === 'personal' ? 'personal' : 'efectivo', tipo = p.tipo === 'boleta' ? '39m' : 'sd', docId = `d_mano_${medio}_${GN.hash(p.fecha + '|' + p.proveedor + '|' + monto + '|' + Date.now())}`, h = marca('registrado sin banco', { medio });
+  const rut = GN.rutN(p.rut), areas = p.repartoId ? [] : p.areas;
+  const doc = { origen: 'mano', tipo, tipoTexto: p.tipo === 'boleta' ? 'Boleta' : 'Sin documento', nc: false, rut: rut ? GN.rutTexto(rut) : '', rutN: rut, razon: String(p.proveedor).trim().slice(0, 120), folio: String(p.folio || '').slice(0, 30),
+    fecha: p.fecha, mes: p.fecha.slice(0, 7), neto: 0, exento: 0, iva: 0, otroImp: 0, total: monto, vence: '', formaPago: '', referencias: [], detalle: p.nota ? [{ descripcion: String(p.nota).slice(0, 120), cantidad: 1, unidad: '', monto }] : [],
+    estado: 'vigente', clasif: { item: String(p.item).trim(), areas: p.areas, repartoId: p.repartoId || '', partes: GB.partesSimple(monto, String(p.item).trim(), p.areas), por: h.por, en: h.en }, creado: { por: h.por, en: h.en }, version: 0, historial: [h] };
+  if (!doc.clasif.partes.length) throw error('Elija el área o el reparto.', 'datos');
+  await enTransaccion(async (tx, d) => {
+    const pref = p.recordar !== false ? FB.doc(d, GN.COL.provs, GB.claveProveedor(doc)) : null, ps = pref ? await tx.get(pref) : null, prev = ps && ps.exists() ? ps.data() : null;
+    tx.set(FB.doc(d, GN.COL.docs, docId), limpio(doc));
+    tx.set(FB.doc(d, GN.COL.pagos, idPago(docId, medio + '|' + p.fecha)), { docId, movId: '', medio, monto, fecha: p.fecha, cuenta: '', nota: '', estado: 'vigente', creado: { por: h.por, en: h.en } });
+    if (pref) tx.set(pref, limpio({ rut: doc.rut, razon: doc.razon, item: doc.clasif.item, modo: (prev && prev.modo) || 'fijo', areas: prev && prev.modo === 'item' ? [] : areas, repartoId: p.repartoId || '', por: h.por, en: h.en, historial: conHist(prev, h) }), { merge: true });
+  });
+  return docId;
 }

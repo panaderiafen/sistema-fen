@@ -2828,3 +2828,6 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 @media (max-width: 480px) { .gn-tc-fila { grid-template-columns: 1fr 1fr; } .gn-tc-fila [data-tg] { grid-column: 1 / -1; } }
 .gn-vencido { color: var(--rojo-t); }
 [aria-labelledby="t-gn-cr"] .gn-it, [aria-labelledby="t-gn-tc"] .btn { margin-bottom: 8px; }
+/* v0.100.0 · Gasto sin banco; deuda con el dueño */
+.gn-sinbanco { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-bottom: -2px; }
+.gn-dueno { margin-top: 12px; border-top: 1px solid var(--linea); padding-top: 10px; }
