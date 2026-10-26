@@ -2865,3 +2865,20 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-trab .gn-fila { font-size: 13px; padding: 3px 0; flex-wrap: wrap; }
 .gn-trab .gn-fila b { font-weight: 600; text-align: right; }
 .gn-aviso-c { color: var(--amarillo-t); }
+/* v0.105.0 · Conciliar por cartola: avance, cuadre de saldo */
+.gn-avance { margin: 8px 0; }
+.gn-avance-t { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; margin-bottom: 4px; }
+.gn-avance-t b { font-weight: 600; }
+.gn-avance-p { height: 8px; border-radius: 4px; background: var(--linea); overflow: hidden; }
+.gn-avance-p span { display: block; height: 100%; background: var(--verde-t); border-radius: 4px; }
+.gn-cuadre { max-width: 520px; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--linea); border-radius: 10px; font-size: 13px; }
+.gn-cuadre-t { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.gn-cuadre dl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; margin: 0 0 6px; }
+.gn-cuadre dt { color: var(--suave); }
+.gn-cuadre dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.gn-cuadre p { margin: 4px 0 0; overflow-wrap: anywhere; }
+.gn-ok { color: var(--verde-t); font-weight: 600; }
+.gn-no { color: var(--rojo-t); font-weight: 600; }
+.gn-cartola { margin: 10px 0 14px; padding: 12px; border: 1px solid var(--acento); border-radius: 12px; background: var(--tarjeta); min-width: 0; }
+.gn-cartola > .gn-fila b { overflow-wrap: anywhere; }
+.gn-cartola .gn-filtro { margin: 8px 0 0; }

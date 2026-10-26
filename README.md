@@ -1,9 +1,24 @@
-# Sistema Fën · v0.104.0
+# Sistema Fën · v0.105.0
 
-**App:** v0.104.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 25 de octubre de 2026
+**App:** v0.105.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.105.0: conciliación por cartola y pagos a cuenta
+
+Aprobado por Emmanuel el 26 oct (hoja de ruta v8, antes de la v0.106.0). Lo bueno de Nubox, con la Bandeja de siempre.
+- **Archivos subidos → cada cartola** muestra su **avance** (cuántos movimientos están conciliados, con barra) y su **cuadre de saldo**: saldo inicial + abonos − cargos = saldo final, fila por fila (si una fila no calza, falta un movimiento o el archivo viene cortado), y los cargos de la cartola desde el inicio contra los que están en Gastos. Las cartolas subidas antes no traen el cuadre: súbalas otra vez (no se repite nada). Mercado Pago y la tarjeta muestran solo el avance.
+- **"Conciliar esta cartola"** abre la Bandeja con solo los movimientos de esa cartola (los documentos siguen todos, para unirlos), con **"Por conciliar"** y **"Lo conciliado"** (cada movimiento con lo que se le unió o qué es). "Ver toda la Bandeja" vuelve a la vista completa.
+- **"Conciliar"** reemplaza a Confirmar y Unir. La lupa queda a la vista: **"Buscar su documento"** en cada movimiento sin documento.
+- **"Pago a cuenta"** en un movimiento: plata que salió para un proveedor o trabajador antes de su documento (un anticipo, una parte, un abono). Se propone a quién por la glosa (RUT, glosa aprendida o nombre); también se puede escribir alguien nuevo con nombre y RUT. Queda conciliado y como **saldo a favor** (en la Bandeja y en su ficha). Cuando llega su documento, la Bandeja muestra **"Aplicar pago a cuenta"** en él. No es gasto del mes: el gasto es el documento. Ya aplicado, no vuelve a la Bandeja hasta deshacer ese pago.
+- Las cuentas bancarias nuevas no se agregan con un formulario: cuando abra otra cuenta, súbame una cartola de ejemplo y la agrego con su formato.
+Cambian `gn-modelo.js`, `gn-bandeja.js`, `gn-fs.js`, `vista-gn.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.105.0`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda) y abrir con Cmd + Shift + R: abajo dice v0.105.0.
+- [ ] Volver a subir la cartola de octubre de la cuenta corriente (y la de la chequera): en Gastos → Archivos subidos, la nueva muestra el cuadre de saldo. Revise que diga "calza" en las dos líneas.
+- [ ] "Conciliar esta cartola": revise la barra, "Lo conciliado" y "Ver toda la Bandeja".
+- [ ] Si tiene un anticipo o un pago sin su factura todavía: en ese movimiento, "Pago a cuenta" → a quién. Cuando llegue la factura, "Aplicar pago a cuenta" en ella.
 
 ## Novedades de la v0.104.0: ficha del trabajador y provisión de vacaciones y finiquitos
 

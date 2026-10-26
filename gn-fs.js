@@ -10,14 +10,14 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.104.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.104.0';
-import { ahoraChile } from './gastos-g2.js?v=0.104.0';
-import * as GN from './gn-modelo.js?v=0.104.0';
-import * as GB from './gn-bandeja.js?v=0.104.0';
-import * as GP from './gn-pdf.js?v=0.104.0';
-import * as GI from './gn-items.js?v=0.104.0';
-import * as TR from './trabajadores.js?v=0.104.0';
+import * as FB from './fs-gastos.js?v=0.105.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.105.0';
+import { ahoraChile } from './gastos-g2.js?v=0.105.0';
+import * as GN from './gn-modelo.js?v=0.105.0';
+import * as GB from './gn-bandeja.js?v=0.105.0';
+import * as GP from './gn-pdf.js?v=0.105.0';
+import * as GI from './gn-items.js?v=0.105.0';
+import * as TR from './trabajadores.js?v=0.105.0';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -133,6 +133,8 @@ export async function cargarMovs(tipo, movs, meta) {
   const k = { id: meta.id, tipo, archivo: String(meta.archivo || '').slice(0, 120), tamano: Number(meta.tamano) || 0, identificador: String(meta.identificador || '').slice(0, 120),
     desde: meta.desde || '', hasta: meta.hasta || '', cuentas: [...new Set(movs.map(m => m.cuenta))], leidos: P.leidos, nuevos: P.nuevos.length, yaEstaban: P.yaEstaban,
     parecidos: P.parecidos.length, parecidosLista: P.parecidos.slice(0, 50), antes: P.antes, anteriores: P.anteriores, traspasos: P.nuevos.filter(m => m.naturaleza === 'traspaso').length, por, en };
+  // v0.105.0 · El cuadre de saldo de la cartola (GN.cuadreCartola) y lo que salió desde el inicio, para compararlo con lo que está en Gastos
+  if (meta.cuadre) { const ini = inicio(); k.cuadre = { ...meta.cuadre, inicio: ini, cargosDesde: movs.filter(m => m.fecha >= ini).reduce((a, m) => a + (Number(m.monto) || 0), 0) }; }
   await guardarCarga(k);
   return { ...k, plan: P };
 }
@@ -160,7 +162,7 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
     const refs = partes.map(p => FB.doc(d, GN.COL.docs, p.docId)), sn = [];
     for (const r of refs) sn.push(await tx.get(r));
     let mov = null; const mref = movId ? FB.doc(d, GN.COL.movs, movId) : null;
-    if (mref) { const ms = await tx.get(mref); if (!ms.exists()) throw error('Ese movimiento ya no está.', 'cambio'); mov = ms.data(); if (mov.naturaleza || mov.estado === 'no_va') throw error('Ese movimiento ya se marcó como "no es gasto".', 'cambio'); }
+    if (mref) { const ms = await tx.get(mref); if (!ms.exists()) throw error('Ese movimiento ya no está.', 'cambio'); mov = ms.data(); if ((mov.naturaleza && mov.naturaleza !== 'acuenta') || mov.estado === 'no_va') throw error('Ese movimiento ya se marcó como "no es gasto".', 'cambio'); }
     sn.forEach((x, i) => { if (!x.exists()) throw error('Un documento ya no está.', 'cambio'); if (x.data().estado === 'no_va') throw error(`El documento N° ${x.data().folio || ''} se marcó "Esto no va".`, 'cambio');
       if (mov && !GB.compatible(x.data(), mov)) throw error('Un cargo anterior al inicio solo se une con documentos desde el inicio: lo de antes con lo de antes es del Gastos anterior.', 'datos'); });
     // v0.91.2 · Regla: cada documento pagado tiene que estar clasificado (por sí mismo o por su proveedor)
@@ -226,9 +228,27 @@ export async function noEsGasto(movId, tipo, nota) {
   });
 }
 export async function volverMov(movId) {
+  // v0.105.0 · Un pago a cuenta ya aplicado a un documento no vuelve: primero se deshace lo aplicado (queda la huella)
+  const aplicados = (await todos(GN.COL.pagos)).filter(p => p.movId === movId && p.estado !== 'deshecho');
   return enTransaccion(async (tx, d) => {
     const ref = FB.doc(d, GN.COL.movs, movId), sn = await tx.get(ref), a = sn.data();
-    tx.update(ref, { naturaleza: '', naturalezaNota: '', historial: conHist(a, marca('vuelve a la Bandeja')) });
+    if (a && a.naturaleza === 'acuenta' && aplicados.length) throw error('Este pago a cuenta ya se aplicó a un documento: primero deshaga ese pago (en el documento, "Deshacer el pago").', 'cambio');
+    tx.update(ref, { naturaleza: '', naturalezaNota: '', aCuenta: null, historial: conHist(a, marca('vuelve a la Bandeja')) });
+  });
+}
+// v0.105.0 · Pago a cuenta: lo que se le pagó a un proveedor o trabajador antes de su documento (un anticipo, una parte de algo que se
+// factura después, un abono). Queda conciliado y como saldo a favor de esa parte; cuando llega su documento, se aplica con un toque.
+// parte = { clave, razon, rut }. No es gasto del mes: el gasto es el documento cuando llegue.
+export async function pagoACuenta(movId, parte, nota) {
+  const razon = String((parte && parte.razon) || '').trim().slice(0, 120), rut = String((parte && parte.rut) || '').trim().slice(0, 14);
+  if (!razon && !GN.rutN(rut)) throw error('Elija a quién se le pagó (o escriba su nombre o RUT).', 'datos');
+  const clave = (parte && parte.clave) || GB.claveParte(razon, rut);
+  return enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.movs, movId), sn = await tx.get(ref);
+    if (!sn.exists()) throw error('Ese movimiento ya no está.', 'cambio');
+    const a = sn.data(); if (a.naturaleza || a.estado === 'no_va') throw error('Ese movimiento ya está explicado.', 'cambio');
+    const h = marca('pago a cuenta de ' + (razon || rut), { nota: String(nota || '').slice(0, 200) });
+    tx.update(ref, { naturaleza: 'acuenta', naturalezaNota: h.nota, aCuenta: limpio({ clave, razon, rut, por: h.por, en: h.en }), historial: conHist(a, h) });
   });
 }
 // Clasificar: ítem y reparto en el documento; "recordar" lo deja en su proveedor para los que vienen

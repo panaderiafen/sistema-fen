@@ -47,8 +47,11 @@ export function estadoDoc(d, I) {
   const listo = total >= 0 ? saldo <= TOLERANCIA : saldo >= -TOLERANCIA;   // una nota de crédito (negativa) queda "pagada" al descontarse
   return { estado: listo ? 'pagado' : pagado ? 'a_medias' : 'sin_pago', pagado, saldo: listo ? 0 : saldo, pagos: ps };
 }
+// v0.105.0 · Un pago a cuenta (naturaleza 'acuenta') queda conciliado al marcarlo, pero su saldo a favor sigue libre para aplicarlo a los
+// documentos de ese proveedor o trabajador cuando lleguen
+export const esACuenta = m => !!(m && m.naturaleza === 'acuenta' && m.estado !== 'no_va');
 export function libreMov(m, I) {
-  if (m.estado === 'no_va' || m.naturaleza) return 0;
+  if (m.estado === 'no_va' || (m.naturaleza && m.naturaleza !== 'acuenta')) return 0;
   return entero(m.monto) - (I.porMov[m.id] || []).reduce((a, p) => a + entero(p.monto), 0);
 }
 
@@ -322,14 +325,51 @@ export function armar(D, { cuenta = '', excluir = null } = {}) {
   const sinPago = abiertosD.filter(d => visible(d) && !enPar.has(d.id)).sort((a, b) => b.fecha.localeCompare(a.fecha));
   const sinDoc = abiertosM.filter(m => !m.anterior && !movEnPar.has(m.id) && (!cuenta || m.cuenta === cuenta)).sort((a, b) => b.fecha.localeCompare(a.fecha));
   const listosD = docs.filter(d => tocado(d) && ((d.estadoPago === 'pagado' && (d.clasifEf || sinEfecto(d) || entero(d.total) === 0)) || d.estado === 'no_va')).sort((a, b) => b.fecha.localeCompare(a.fecha));
-  const noGasto = movs.filter(m => m.naturaleza || m.estado === 'no_va').sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const noGasto = movs.filter(m => (m.naturaleza && m.naturaleza !== 'acuenta') || m.estado === 'no_va').sort((a, b) => b.fecha.localeCompare(a.fecha));
   const porId = Object.fromEntries(docs.map(d => [d.id, d]));
   const paresV = pares.filter(p => !cuenta || (movs.find(m => m.id === p.movId) || {}).cuenta === cuenta).map(p => ({ ...p, faltaClasif: p.docIds.some(i => !porId[i].clasifEf && !sinEfecto(porId[i])) }));
-  return { docs, movs, I, S, pares: paresV, porClasificar, sinPago, sinDoc, listosD, noGasto, abiertosD, abiertosM,
+  const aCuenta = movs.filter(esACuenta).filter(m => !cuenta || m.cuenta === cuenta).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  return { docs, movs, I, S, pares: paresV, aCuenta, porClasificar, sinPago, sinDoc, listosD, noGasto, abiertosD, abiertosM,
     anteriores: docs.filter(d => d.anterior && d.estadoPago !== 'pagado' && d.estado !== 'no_va'),
     movsAnteriores: abiertosM.filter(m => m.anterior && !movEnPar.has(m.id) && (!cuenta || m.cuenta === cuenta)).sort((a, b) => b.fecha.localeCompare(a.fecha)),
     conAreaAntigua: docs.filter(d => d.estado !== 'no_va' && tieneAreaAntigua(d.clasifEf)),
     n: { pares: paresV.length, clasificar: porClasificar.length, sinPago: sinPago.length, sinDoc: sinDoc.length, total: paresV.length + porClasificar.length + sinPago.length + sinDoc.length } };
+}
+
+// ═══════════════ v0.105.0 · Pagos a cuenta y conciliación por cartola ═══════════════
+// La parte de un pago a cuenta: un proveedor (clave de su ficha) o un trabajador (r_<RUT>). Sus documentos se reconocen por su clave base.
+export const claveParte = (razon, rut) => (rutN(rut) ? 'r_' + rutN(rut) : 'n_' + norm(razon).replace(/ /g, '_').slice(0, 60));
+export const esDeLaParte = (d, m) => !!(d && esACuenta(m) && m.aCuenta && (m.aCuenta.clave === claveBase(d) || m.aCuenta.clave === claveProveedor(d)));
+// Los pagos a cuenta con saldo a favor que sirven para un documento (de su misma parte)
+export const aCuentaPara = (d, movsACuenta) => (movsACuenta || []).filter(m => m.libre > 0 && esDeLaParte(d, m));
+// Saldo a favor por parte (para la ficha): { clave: { monto, movs } }
+export function saldosAFavor(movs) {
+  const out = {};
+  (movs || []).filter(m => esACuenta(m) && m.aCuenta && m.libre > 0).forEach(m => { const o = out[m.aCuenta.clave] || (out[m.aCuenta.clave] = { monto: 0, movs: [] }); o.monto += m.libre; o.movs.push(m); });
+  return out;
+}
+// Quién puede ser la parte de un pago a cuenta, según la glosa: el RUT en la glosa (50), la seña aprendida (40), una palabra del nombre (30).
+// partes: [{ clave, razon, rut }] (fichas de proveedores y trabajadores, y los proveedores de los documentos)
+export function partesPosibles(m, partes, S) {
+  const vistos = new Set();
+  return (partes || []).filter(p => p && p.clave && !vistos.has(p.clave) && vistos.add(p.clave))
+    .map(p => ({ p, a: afinidad({ rut: p.rut, razon: p.razon, rutN: rutN(p.rut) }, m, S) || (S && S[senaDe(m.glosa)] && S[senaDe(m.glosa)].includes(p.clave) ? 40 : 0) }))
+    .sort((x, y) => y.a - x.a || s(x.p.razon).localeCompare(s(y.p.razon)));
+}
+// Conciliado: explicado (no es gasto, pago a cuenta) o unido entero con sus documentos
+export const conciliado = m => m.estado === 'no_va' || !!m.naturaleza || m.libre <= TOLERANCIA;
+// Los movimientos de una cartola (o reporte) subida: los de sus cuentas entre sus fechas, desde el inicio. Incluye los que llegaron antes
+// en otra cartola del mismo período (la misma salida no se guarda dos veces).
+export const movsDeCarga = (k, movs) => (movs || []).filter(m => !m.anterior && (k.cuentas || []).includes(m.cuenta) && s(k.desde) && m.fecha >= k.desde && m.fecha <= (s(k.hasta) || k.desde));
+export function avanceCarga(k, movs) {
+  const l = movsDeCarga(k, movs), ok = l.filter(conciliado), monto = l.reduce((a, m) => a + entero(m.monto), 0);
+  return { n: l.length, listos: ok.length, faltan: l.length - ok.length, monto, montoListo: ok.reduce((a, m) => a + entero(m.monto), 0), pct: l.length ? Math.round(ok.length * 100 / l.length) : 100 };
+}
+// Lo que está en Gastos de esa cartola, contra lo que salió según la cartola (desde el inicio): si no calza, falta un cargo o sobra uno
+export function cuadreEnGastos(k, movs) {
+  if (!k || !k.cuadre) return null;
+  const l = movsDeCarga(k, movs).filter(m => m.estado !== 'no_va' && m.fecha >= s(k.cuadre.inicio || '')), en = l.reduce((a, m) => a + entero(m.monto), 0);
+  return { ...k.cuadre, enGastos: en, dif: en - entero(k.cuadre.cargosDesde) };
 }
 
 // ═══════════════ v0.96.0 · Compromisos (pagos fijos sin documento: arriendos) ═══════════════

@@ -154,6 +154,19 @@ export function movsDeCartola(c, cargaId) {
     return { ...m, id: idMov(m), huella: huellaMov(m) };
   });
 }
+// v0.105.0 · Cuadre de saldo de una cartola: saldo inicial + abonos − cargos = saldo final, y cada fila calza con la anterior
+// (si una fila no calza, falta un movimiento o el archivo viene cortado). El banco entrega las filas de la más nueva a la más antigua
+// o al revés: se prueban los dos órdenes y se toma el que calza mejor. Sin la columna de saldo no hay cuadre (null).
+export function cuadreCartola(c) {
+  const filas = ((c && c.filas) || []).filter(f => entero(f.cargos) > 0 || entero(f.abonos) > 0);
+  if (!filas.length || !filas.some(f => s(f.saldo) !== '' && f.saldo !== null && f.saldo !== undefined && entero(f.saldo) !== 0)) return null;
+  const saltos = l => { let n = 0; for (let i = 1; i < l.length; i++) if (Math.abs(entero(l[i - 1].saldo) + entero(l[i].abonos) - entero(l[i].cargos) - entero(l[i].saldo)) > 1) n++; return n; };
+  const asc = filas, desc = filas.slice().reverse(), sa = saltos(asc), sd = saltos(desc);
+  const l = sd < sa ? desc : asc, n = Math.min(sa, sd), p = l[0];
+  const abonos = filas.reduce((a, f) => a + entero(f.abonos), 0), cargos = filas.reduce((a, f) => a + entero(f.cargos), 0);
+  const inicial = entero(p.saldo) - entero(p.abonos) + entero(p.cargos), final = entero(l[l.length - 1].saldo);
+  return { inicial, abonos, cargos, final, saltos: n, filas: filas.length, cuadra: n === 0 && Math.abs(inicial + abonos - cargos - final) <= 1 };
+}
 // El reporte de liberaciones de Mercado Pago (lo que entrega mercadopago.leer) → movimientos. El retiro al banco es un traspaso.
 export function movsDeMP(L, cargaId) {
   return ((L && L.cargos) || []).filter(x => entero(x.monto) > 0 && esIso(x.fecha)).map(x => {
