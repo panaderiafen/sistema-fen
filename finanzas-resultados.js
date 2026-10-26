@@ -11,9 +11,9 @@
 //  Todo en neto. Nada de esto cambia los gastos: es una capa de Finanzas (fen-gastos: fin_items, fin_config,
 //  fin_creditos, fin_inversiones).
 // ═══════════════════════════════════════════════
-import { idLimpio } from './gastos-modelo.js?v=0.103.0';
-import * as AR from './areas.js?v=0.103.0';
-import * as PC from './plan-cuentas.js?v=0.103.0';   // v0.102.0: con el catálogo de ítems, el tipo sale de la cuenta
+import { idLimpio } from './gastos-modelo.js?v=0.104.0';
+import * as AR from './areas.js?v=0.104.0';
+import * as PC from './plan-cuentas.js?v=0.104.0';   // v0.102.0: con el catálogo de ítems, el tipo sale de la cuenta
 
 export const ANIO = 2026;
 // v0.69.1: las áreas propias son las de margen (las 4 de producción + REVENTA), de areas.js
@@ -34,6 +34,7 @@ export const TIPOS = [
   { k: 'financiero', t: 'Gasto financiero', corto: 'Financiero', grupo: 'costo', ayuda: 'Intereses, multas (como las de Previred por pagar atrasado), comisiones y mantención de la cuenta del banco. Entran al resultado como gasto común (debajo de los tres pisos).' },
   { k: 'fuera_capital_credito', t: 'Cuota de crédito', corto: 'Cuota de crédito', grupo: 'fuera', ayuda: 'El capital de la cuota no es gasto: es devolver el préstamo (va al flujo de caja). El interés sí es gasto financiero: se separa con la tabla del crédito (pestaña Créditos).' },
   { k: 'fuera_impuestos', t: 'Impuestos (F29, IVA, PPM)', corto: 'Impuestos', grupo: 'fuera', ayuda: 'El pago del F29 (IVA y PPM) no es gasto del mes: todo se mide en neto y el IVA va al flujo de caja. El PPM es un anticipo del impuesto a la renta.' },
+  { k: 'fuera_provision', t: 'Pagado con la provisión de los trabajadores', corto: 'Usa la provisión', grupo: 'fuera', ayuda: 'La liquidación de un reemplazo de vacaciones o un finiquito: ya se cargó al resultado mes a mes (provisión de vacaciones y finiquitos). No es gasto otra vez.' },
   { k: 'fuera_deuda', t: 'Deuda con el fisco (convenio TGR)', corto: 'Deuda con el fisco', grupo: 'fuera', ayuda: 'La cuota de un convenio de pago con la TGR baja una deuda: no es gasto del mes. Sus intereses y multas sí son gasto financiero.' },
   { k: 'inversion', t: 'Inversión', corto: 'Inversión', grupo: 'fuera', ayuda: 'Equipos, maquinaria, muebles, computadores o remodelaciones que duran años. No entran enteros al mes en que se compran: entran como depreciación mensual según su vida útil (pestaña Inversiones).' },
   { k: 'retiro', t: 'Retiro del dueño', corto: 'Retiro', grupo: 'fuera', ayuda: 'Plata que sale para el dueño. No es gasto del negocio (el sueldo empresarial sí lo es: va como remuneración).' },

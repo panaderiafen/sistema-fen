@@ -24,6 +24,7 @@ export const CUENTAS = {
   '2.5': { n: 'Impuestos por pagar (F29)', tipo: 'fuera_impuestos' },
   '2.5.1': { n: 'IVA por pagar (F29)', tipo: 'fuera_impuestos' },
   '2.6': { n: 'Créditos bancarios (capital)', tipo: 'fuera_capital_credito' },
+  '2.8': { n: 'Provisiones de los trabajadores (vacaciones y finiquitos)', tipo: 'fuera_provision', ayuda: 'Lo que se acumula cada mes para las vacaciones (con su reemplazo) y los finiquitos. Un pago que sale de aquí no es gasto del mes: ya se cargó antes.' },
   '2.9': { n: 'Deuda con el fisco (convenios TGR)', tipo: 'fuera_deuda', ayuda: 'Pagar la deuda no es gasto: baja lo que se debe. Solo sus intereses y multas son gasto (Multas e intereses, 7.3).' },
   // v0.102.0 · Las facturas de comisiones (Transbank, Mercado Pago) ya están en el margen: el margen resta la comisión como % de la venta.
   // Se registran (cuadran con Gastos y quedan para comparar lo real con lo estimado) pero no suman otra vez. El arriendo del POS sí suma.

@@ -33,9 +33,9 @@
 //  líneas del catálogo usan el área tal cual (el mapa de áreas de Clasificación ya no se usa: una sola regla). La cuota de un convenio de
 //  la TGR (2.9) va fuera del resultado. Un cierre anterior a la v0.102.0 se compara en su forma (las filas nuevas se suman donde estaban).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.103.0';
-import * as AR from './areas.js?v=0.103.0';
-import * as PC from './plan-cuentas.js?v=0.103.0';
+import * as FR from './finanzas-resultados.js?v=0.104.0';
+import * as AR from './areas.js?v=0.104.0';
+import * as PC from './plan-cuentas.js?v=0.104.0';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -57,6 +57,9 @@ export const FILAS = [
   { k: 'merma', t: 'Merma valorizada', piso: 1, signo: '−', cols: 'todas' },
   { k: 'mc', t: 'Margen de contribución', piso: 1, signo: '=', cols: 'todas', resultado: true, pct: true },
   { k: 'rem', t: 'Remuneraciones propias del área', piso: 2, signo: '−', cols: 'areas' },
+  // v0.104.0: la provisión de vacaciones (con su reemplazo) y de la indemnización por años de servicio de los trabajadores del área
+  // (los de áreas comunes, en Común)
+  { k: 'provision', t: 'Provisión de vacaciones y finiquitos', piso: 2, signo: '−', cols: 'todas', opcional: true },
   { k: 'fijos', t: 'Otros fijos propios del área', piso: 2, signo: '−', cols: 'areas' },
   { k: 'dep', t: 'Depreciación del área', piso: 2, signo: '−', cols: 'areas' },
   { k: 'ma', t: 'Margen del área', piso: 2, signo: '=', cols: 'todas', resultado: true, pct: true },
@@ -151,7 +154,7 @@ export function armarEERR(E) {
   const mes = E.mes, F = {}, D = {}, avisos = [];
   const fila = k => F[k] || (F[k] = vacia());
   const det = (k, col, ref) => { const kk = k + '.' + col; (D[kk] || (D[kk] = [])).push(ref); };
-  ['ventas', 'cargos', 'canalB2B', 'costoDirecto', 'costosVenta', 'packaging', 'merma', 'rem', 'fijos', 'dep', 'tiendaBA', 'tiendaAI', 'remComun', 'fijosComun', 'marketing', 'seguros', 'transporte', 'capacitacion', 'depComun', 'financieros'].forEach(fila);
+  ['ventas', 'cargos', 'canalB2B', 'costoDirecto', 'costosVenta', 'packaging', 'merma', 'rem', 'provision', 'fijos', 'dep', 'tiendaBA', 'tiendaAI', 'remComun', 'fijosComun', 'marketing', 'seguros', 'transporte', 'capacitacion', 'depComun', 'financieros'].forEach(fila);
   const canal = Object.fromEntries(SUCS.map(x => [x, vacia()]));
   const costosUsados = {};
   let sinCostoNeto = 0, nSinCosto = 0, sinAsocNeto = 0, pendNeto = 0, nPend = 0;
@@ -185,7 +188,7 @@ export function armarEERR(E) {
   if (num(M.sinCosto)) avisos.push({ k: 'merma_sin_costo', texto: `${M.sinCosto} ${M.sinCosto === 1 ? 'anotación' : 'anotaciones'} de merma sin costo (no suman).` });
   // Gastos del mes
   const lineas = lineasGastosMes(E.gastos, mes, E.fin, E.mapa, E.items);
-  const info = { compras: { mp: 0, reventa: 0, total: 0 }, enMargen: 0, fuera: { cuotas: 0, capital: 0, impuestos: 0, deuda: 0, inversion: 0, retiro: 0, otro: 0, total: 0 }, interes: 0, pagosTarjeta: { n: 0, monto: 0 }, sinClasificar: { n: 0, neto: 0 }, canalB2B: { rem: 0, fijos: 0, total: 0 },
+  const info = { compras: { mp: 0, reventa: 0, total: 0 }, enMargen: 0, fuera: { cuotas: 0, capital: 0, impuestos: 0, deuda: 0, provision: 0, inversion: 0, retiro: 0, otro: 0, total: 0 }, interes: 0, pagosTarjeta: { n: 0, monto: 0 }, sinClasificar: { n: 0, neto: 0 }, canalB2B: { rem: 0, fijos: 0, total: 0 },
     tiendas: { tiendaBA: { rem: 0, fijos: 0 }, tiendaAI: { rem: 0, fijos: 0 } }, costoVentaGastos: 0 };
   const refG = l => ({ tipo: 'gasto', id: l.id, fecha: l.fecha, item: l.item, clave: l.clave, tipoRes: l.tipo, area: l.area, neto: r0(l.neto), proveedor: l.proveedor, obs: l.obs, ...(l.cuenta ? { cuenta: l.cuenta } : {}), ...(l.itemOriginal ? { itemOriginal: l.itemOriginal } : {}) });
   const sinClas = {};
@@ -213,6 +216,7 @@ export function armarEERR(E) {
     else if (t === 'fuera_capital_credito') { info.fuera.cuotas += l.neto; det('fuera', 'capital', refG(l)); }
     else if (t === 'fuera_impuestos') { info.fuera.impuestos += l.neto; det('fuera', 'impuestos', refG(l)); }
     else if (t === 'fuera_deuda') { info.fuera.deuda += l.neto; det('fuera', 'deuda', refG(l)); }
+    else if (t === 'fuera_provision') { info.fuera.provision += l.neto; det('fuera', 'provision', refG(l)); }
     else if (t === 'inversion') { info.fuera.inversion += l.neto; det('fuera', 'inversion', refG(l)); }
     else if (t === 'retiro') { info.fuera.retiro += l.neto; det('fuera', 'retiro', refG(l)); }
     else if (t === 'otro_fuera') { info.fuera.otro += l.neto; det('fuera', 'otro', refG(l)); }
@@ -223,6 +227,9 @@ export function armarEERR(E) {
   (E.creditosMes || []).forEach(c => { if (!c.interes) return; F.financieros.comun += c.interes; info.interes += c.interes; det('financieros', 'comun', { tipo: 'credito', nombre: c.nombre, neto: c.interes, capital: c.capital, cuotas: c.cuotas }); });
   info.fuera.capital = info.fuera.cuotas - info.interes;
   if (info.interes > info.fuera.cuotas + 1) avisos.push({ k: 'interes', texto: `El interés de las cuotas del mes (${pesosTxt(info.interes)}) es mayor que las cuotas clasificadas como "Cuota de crédito" (${pesosTxt(info.fuera.cuotas)}): revisa que el ítem de la cuota esté clasificado así.` });
+  // v0.104.0 · Provisión de los trabajadores (calculada desde sus fichas y liquidaciones: trabajadores.js), por área
+  (E.provision || []).forEach(x => (x.partes || []).forEach(p => { const col = colDe(p.area); F.provision[col] += num(p.monto);
+    det('provision', col, { tipo: 'provision', nombre: s(x.nombre), area: p.area, neto: r0(p.monto), vac: r0(x.vac), ias: r0(x.ias), base: r0(x.base), sinFicha: !!x.sinFicha }); }));
   // Depreciación
   depreciacionDelMes(E.invs, mes).forEach(d => {
     const k = d.col === 'comun' ? 'depComun' : 'dep';
@@ -234,7 +241,7 @@ export function armarEERR(E) {
   Object.keys(F).forEach(k => { F[k] = conTotal(F[k]); });
   SUCS.forEach(x => { canal[x] = conTotal(canal[x]); });
   F.mc = conTotal(Object.fromEntries(COLS.map(c => [c, F.ventas[c] - F.costoDirecto[c] - F.costosVenta[c] - F.packaging[c] - F.merma[c]])));
-  F.ma = conTotal(Object.fromEntries(COLS.map(c => [c, F.mc[c] - F.rem[c] - F.fijos[c] - F.dep[c]])));
+  F.ma = conTotal(Object.fromEntries(COLS.map(c => [c, F.mc[c] - F.rem[c] - F.provision[c] - F.fijos[c] - F.dep[c]])));
   // v0.75.1: el bloque del canal B2B: despacho cobrado − costos del canal B2B
   F.resCanalB2B = { ...vacia(), total: F.cargos.total - F.canalB2B.total };
   const comunes = F.remComun.total + FILAS_COMUNES_FIJOS.reduce((a, k) => a + F[k].total, 0) + F.depComun.total, tiendas = F.tiendaBA.total + F.tiendaAI.total;
@@ -245,9 +252,9 @@ export function armarEERR(E) {
   info.canalB2B = { rem: r0(info.canalB2B.rem), fijos: r0(info.canalB2B.fijos) }; info.canalB2B.total = F.canalB2B.total;
   FILAS_TIENDAS.forEach(k => { info.tiendas[k] = { rem: r0(info.tiendas[k].rem), fijos: r0(info.tiendas[k].fijos), total: F[k].total }; }); info.costoVentaGastos = r0(info.costoVentaGastos);
   info.enMargen = r0(info.enMargen); info.interes = r0(info.interes); info.sinClasificar.neto = r0(info.sinClasificar.neto); info.pagosTarjeta.monto = r0(info.pagosTarjeta.monto);
-  ['cuotas', 'impuestos', 'deuda', 'inversion', 'retiro', 'otro'].forEach(k => { info.fuera[k] = r0(info.fuera[k]); });
+  ['cuotas', 'impuestos', 'deuda', 'provision', 'inversion', 'retiro', 'otro'].forEach(k => { info.fuera[k] = r0(info.fuera[k]); });
   info.fuera.capital = info.fuera.cuotas - info.interes;
-  info.fuera.total = info.fuera.capital + info.fuera.impuestos + info.fuera.deuda + info.fuera.inversion + info.fuera.retiro + info.fuera.otro;
+  info.fuera.total = info.fuera.capital + info.fuera.impuestos + info.fuera.deuda + info.fuera.provision + info.fuera.inversion + info.fuera.retiro + info.fuera.otro;
   info.sinClasificarLista = Object.values(sinClas).map(x => ({ ...x, neto: r0(x.neto) })).sort((a, b) => b.neto - a.neto);
   info.ventasSinAsociar = r0(sinAsocNeto); info.ventasSinCosto = r0(sinCostoNeto);
   if (nPend) info.ventasRecetaPendiente = { neto: r0(pendNeto), n: nPend };   // v0.80.1

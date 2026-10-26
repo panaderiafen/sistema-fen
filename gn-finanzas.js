@@ -13,8 +13,9 @@
 //  Finanzas lee el tipo desde la cuenta (plan-cuentas.js), ya no desde Clasificación. catalogo: true marca esas líneas. Un ítem sin cuenta
 //  (por ubicar en Gastos → Ítems) entra sin cuenta: queda "sin clasificar" en el estado de resultados.
 // ═══════════════════════════════════════════════
-import * as GB from './gn-bandeja.js?v=0.103.0';
-import * as GI from './gn-items.js?v=0.103.0';
+import * as GB from './gn-bandeja.js?v=0.104.0';
+import * as GI from './gn-items.js?v=0.104.0';
+import * as TR from './trabajadores.js?v=0.104.0';   // v0.104.0: los pagos que usan la provisión de los trabajadores
 
 const s = v => String(v == null ? '' : v).trim();
 const entero = v => { const x = Math.round(Number(v)); return isFinite(x) ? x : 0; };
@@ -66,7 +67,8 @@ export function lineasDoc(d, provs, reps, { inicio, I = null, porId = null } = {
   const mesIni = s(inicio).slice(0, 7), meses = mesesDoc(d), n = meses.length;
   if (meses[n - 1] < mesIni) return [];   // todo es de antes del inicio
   const c = GB.clasifDe(d, provs, reps), pf = porId && d.flete ? partesFlete(d, porId, provs, reps) : null;
-  const partes = pf || (c && c.partes) || []; if (!partes.length) return [];
+  // v0.104.0 · Un pago que usa la provisión (reemplazo de vacaciones o finiquito): sale de lo acumulado (2.8), no es gasto del mes
+  const usa = TR.usaProvision(d), partes = usa ? [{ item: 'USO DE LA PROVISIÓN (' + TR.USOS[d.provision.uso].toUpperCase() + ')', area: (((c && c.partes) || [])[0] || {}).area || 'ADMIN', monto: GB.baseDe(d) }] : pf || (c && c.partes) || []; if (!partes.length) return [];
   const de = pf ? ' · flete de ' + d.flete.docs.map(i => porId[i]).filter(Boolean).map(x => `${s(x.razon).slice(0, 30)} N° ${s(x.folio)}`).join(', ') : '';
   const ref = `${s(d.tipoTexto)}${d.folio && d.origen !== 'credito' ? ' N° ' + s(d.folio) : ''}${de}`;
   const out = [], vistos = {};
@@ -77,7 +79,7 @@ export function lineasDoc(d, provs, reps, { inicio, I = null, porId = null } = {
       if (!montos[i] || m < mesIni) return;
       const fecha = s(d.fecha).slice(0, 7) === m ? s(d.fecha) : ultimoDia(m);
       const obs = [ref, n > 1 ? `${i + 1}/${n} (${mesCorto(meses[0])} a ${mesCorto(meses[n - 1])})` : ''].filter(Boolean).join(' · ');
-      const r = I ? GI.resolver(p.item, I) : null, cat = r ? { catalogo: true, cuenta: r.ok ? r.cuenta : '', ...(r.ok && r.nombre !== s(p.item) ? { itemOriginal: s(p.item) } : {}) } : {};
+      const r = usa ? { ok: true, nombre: p.item, cuenta: '2.8' } : I ? GI.resolver(p.item, I) : null, cat = r ? { catalogo: true, cuenta: r.ok ? r.cuenta : '', ...(r.ok && r.nombre !== s(p.item) ? { itemOriginal: s(p.item) } : {}) } : {};
       out.push({ id: `gn_${d.id}_${k}${n > 1 ? '_' + m.replace('-', '') : ''}`, fecha, itemGasto: r && r.ok ? r.nombre : s(p.item), area: s(p.area).toUpperCase(), montoNeto: montos[i], razonSocial: s(d.razon), observacion: obs,
         estado: 'vigente', origenGN: s(d.origen) || 'sii', docId: s(d.id), mesOriginal: m, ...cat });
     });

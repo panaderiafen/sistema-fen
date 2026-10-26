@@ -10,13 +10,14 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.103.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.103.0';
-import { ahoraChile } from './gastos-g2.js?v=0.103.0';
-import * as GN from './gn-modelo.js?v=0.103.0';
-import * as GB from './gn-bandeja.js?v=0.103.0';
-import * as GP from './gn-pdf.js?v=0.103.0';
-import * as GI from './gn-items.js?v=0.103.0';
+import * as FB from './fs-gastos.js?v=0.104.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.104.0';
+import { ahoraChile } from './gastos-g2.js?v=0.104.0';
+import * as GN from './gn-modelo.js?v=0.104.0';
+import * as GB from './gn-bandeja.js?v=0.104.0';
+import * as GP from './gn-pdf.js?v=0.104.0';
+import * as GI from './gn-items.js?v=0.104.0';
+import * as TR from './trabajadores.js?v=0.104.0';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -49,7 +50,7 @@ export async function leer() {
   let reps = reps0;
   if (!reps.length) { try { await crearRepartosIniciales(); reps = await todos(GN.COL.repartos); } catch (e) { reps = []; } }
   // v0.100.0 · El resumen para Hoy y la Agenda (un documento): se guarda solo si cambió
-  try { const D0 = { docs, movs, pagos, provs: Object.fromEntries(provs.map(p => [p.id, p])), repartos: Object.fromEntries(reps.map(r => [r.id, r])) }, R = GB.resumenHoy(GB.armar(D0, {}), D0, hoyCl), prev = cfg.find(x => x.id === 'resumen');
+  try { const D0 = { docs, movs, pagos, provs: Object.fromEntries(provs.map(p => [p.id, p])), repartos: Object.fromEntries(reps.map(r => [r.id, r])) }, R = { ...GB.resumenHoy(GB.armar(D0, {}), D0, hoyCl), contratos: TR.avisosContratos(D0, hoyCl) }, prev = cfg.find(x => x.id === 'resumen');
     const sin = o => JSON.stringify({ ...(o || {}), dia: '', _m: null, id: null });
     if (!prev || sin(prev) !== sin(R) || prev.dia !== R.dia) { const dd = await dbBase(), b = FB.writeBatch(dd); b.set(FB.doc(dd, GN.COL.config, 'resumen'), R); await b.commit(); } } catch (e) { /* el resumen es solo un aviso */ }
   return { docs, movs, cargas: cargas.sort((a, b) => String(b.en || '').localeCompare(String(a.en || ''))), pagos, provs: Object.fromEntries(provs.map(p => [p.id, p])),
@@ -556,5 +557,26 @@ export async function unirFlete(docId, docIds) {
     const h = marca(ok.length ? 'flete unido a: ' + txt : 'flete desunido de sus compras');
     tx.update(ref, { flete: ok.length ? { docs: ok.map(x => x.id), por: h.por, en: h.en } : null, historial: conHist(sn.data(), h) });
     return ok.length;
+  });
+}
+
+// ═══════════════ v0.104.0 · Ficha del trabajador y provisión ═══════════════
+// Los datos del contrato van en la ficha del trabajador (gn_proveedores/r_<RUT>.trabajador), con su historial
+export async function guardarTrabajador(clave, datos, { razon = '', rut = '' } = {}) {
+  const x = TR.validarFicha(datos);
+  await enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.provs, clave), sn = await tx.get(ref), a = sn.exists() ? sn.data() : null;
+    const h = marca(a && a.trabajador ? 'datos del trabajador cambiados' : 'datos del trabajador', { contrato: x.contrato, ingreso: x.ingreso });
+    tx.set(ref, limpio({ ...(a ? {} : { razon, rut }), trabajador: x, historial: conHist(a, h) }), { merge: true });
+  });
+}
+// Un pago (liquidación o finiquito) que sale de la provisión: { uso: 'vacaciones' | 'finiquito' | '', de: clave del trabajador }
+export async function marcarProvision(docId, { uso = '', de = '' } = {}) {
+  if (uso && !TR.USOS[uso]) throw error('Elija el uso.', 'datos');
+  if (uso && !de) throw error('Elija de qué trabajador es la provisión.', 'datos');
+  await enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.docs, docId), sn = await tx.get(ref); if (!sn.exists()) throw error('Ese documento ya no está.', 'cambio');
+    const h = marca(uso ? `usa la provisión: ${TR.USOS[uso].toLowerCase()} (${de})` : 'ya no usa la provisión');
+    tx.update(ref, { provision: uso ? { uso, de, por: h.por, en: h.en } : null, historial: conHist(sn.data(), h) });
   });
 }

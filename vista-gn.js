@@ -7,19 +7,20 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.103.0';
-import * as GB from './gn-bandeja.js?v=0.103.0';
-import * as AR from './areas.js?v=0.103.0';
-import * as Sii from './sii.js?v=0.103.0';
-import * as MP from './mercadopago.js?v=0.103.0';
-import * as GI from './gn-items.js?v=0.103.0';   // v0.102.0: catálogo de ítems
-import * as GF from './gn-finanzas.js?v=0.103.0';
-import * as PC from './plan-cuentas.js?v=0.103.0';
-import * as FR from './finanzas-resultados.js?v=0.103.0';
+import * as GN from './gn-modelo.js?v=0.104.0';
+import * as GB from './gn-bandeja.js?v=0.104.0';
+import * as AR from './areas.js?v=0.104.0';
+import * as Sii from './sii.js?v=0.104.0';
+import * as MP from './mercadopago.js?v=0.104.0';
+import * as GI from './gn-items.js?v=0.104.0';   // v0.102.0: catálogo de ítems
+import * as GF from './gn-finanzas.js?v=0.104.0';
+import * as PC from './plan-cuentas.js?v=0.104.0';
+import * as FR from './finanzas-resultados.js?v=0.104.0';
+import * as TR from './trabajadores.js?v=0.104.0';   // v0.104.0: ficha del trabajador y provisión
 
 const st = { D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' } };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.103.0');
+const fsGN = () => import('./gn-fs.js?v=0.104.0');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -114,14 +115,18 @@ function bandejaHtml(H) {
   const docPorId = Object.fromEntries((D.docs || []).map(x => [x.id, x])), esFl = d => d.estado !== 'no_va' && d.clasifEf && (d.clasifEf.partes || []).some(p => GN.norm(p.item) === GN.norm(GI.FLETE));
   const fleteTxt = d => { if (!esFl(d)) return ''; const l = ((d.flete && d.flete.docs) || []).map(i => docPorId[i]).filter(Boolean);
     return l.length ? `<span class="gn-cl">${visto}Flete de: ${H.esc(l.map(x => `${x.razon || x.rut} N° ${x.folio}`).join(', '))} (se suma a su costo)</span>` : '<span class="gn-cl gn-cl-falta">Flete por unir a su compra: mientras, no entra al costo</span>'; };
-  const clasTxt = d => (d.clasifEf ? `<span class="gn-cl">${visto}${H.esc(GB.textoPartes(d.clasifEf.partes))}${d.clasifEf.de === 'proveedor' ? ' <span class="gn-cl-de">(como siempre)</span>' : ''}</span>${revItem(d)}${fleteTxt(d)}`
+  // v0.104.0 · Un pago que sale de la provisión de los trabajadores (reemplazo de vacaciones o finiquito)
+  const nombreTrab = k => ((D.provs || {})[k] || {}).razon || (D.docs || []).find(x => 'r_' + x.rutN === k && x.origen === 'liquidacion')?.razon || k;
+  const puedeProv = d => d.estado !== 'no_va' && (d.origen === 'liquidacion' || (d.clasifEf && (d.clasifEf.partes || []).some(p => /FINIQUITO/.test(GN.norm(p.item)))));
+  const provTxt = d => (TR.usaProvision(d) ? `<span class="gn-cl">${visto}Sale de la provisión: ${H.esc(TR.USOS[d.provision.uso].toLowerCase())} de ${H.esc(nombreTrab(d.provision.de))} (no es gasto del mes)</span>` : '');
+  const clasTxt = d => (d.clasifEf ? `<span class="gn-cl">${visto}${H.esc(GB.textoPartes(d.clasifEf.partes))}${d.clasifEf.de === 'proveedor' ? ' <span class="gn-cl-de">(como siempre)</span>' : ''}</span>${revItem(d)}${fleteTxt(d)}${provTxt(d)}`
     : d.faltanFichas && d.faltanFichas.length ? `<span class="gn-cl gn-cl-falta">Falta el área de: ${H.esc(d.faltanFichas.join(', '))} (se toma de su ficha)</span>`
     : d.soloItem ? `<span class="gn-cl gn-cl-falta">${H.esc(d.soloItem)} · falta el área</span>`
     : sugOk(d) ? `<span class="gn-cl gn-cl-falta">Sugerido: ${H.esc(d.sugerida.item)} · ${H.esc(GB.textoReparto(d.sugerida.areas))}</span>` : '<span class="gn-cl gn-cl-falta">Sin clasificar</span>');
   const detHtml = d => ((d.detalle || []).length ? `<details class="gn-detalle"><summary>Ver detalle (${d.detalle.length} ${d.detalle.length === 1 ? 'línea' : 'líneas'})</summary><ul>${d.detalle.map(x => `<li><span>${H.esc(x.descripcion)}${x.cantidad ? ` · ${H.esc(String(x.cantidad).replace('.', ','))}${x.unidad ? ' ' + H.esc(x.unidad) : ''}` : ''}</span><span class="gn-m">${H.pesos(x.monto)}</span></li>`).join('')}</ul></details>` : '');
-  const clasBtns = d => d.estado === 'no_va' ? '' : d.clasifEf ? (esFl(d) ? bt(`data-gn-flete="${H.esc(d.id)}"`, (d.flete && (d.flete.docs || []).length) ? 'Cambiar sus compras' : '¿De qué compra es?', !(d.flete && (d.flete.docs || []).length)) : '') + bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Cambiar clasificación')
-    : d.soloItem ? bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Elegir el área')
-    : sugOk(d) ? bt(`data-gn-usar="${H.esc(d.id)}"`, 'Usar lo sugerido') + bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar') : bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar');
+  const clasBtns = d => d.estado === 'no_va' ? '' : (puedeProv(d) ? bt(`data-gn-prov="${H.esc(d.id)}"`, TR.usaProvision(d) ? 'Cambiar uso de la provisión' : '¿Usa la provisión?') : '') + (d.clasifEf ? (esFl(d) ? bt(`data-gn-flete="${H.esc(d.id)}"`, (d.flete && (d.flete.docs || []).length) ? 'Cambiar sus compras' : '¿De qué compra es?', !(d.flete && (d.flete.docs || []).length)) : '') + bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Cambiar clasificación')
+    : '') + (d.clasifEf ? '' : d.soloItem ? bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Elegir el área')
+    : sugOk(d) ? bt(`data-gn-usar="${H.esc(d.id)}"`, 'Usar lo sugerido') + bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar') : bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar'));
   // v0.96.0 · Elegir (seleccionar y filtrar): la casilla va en lo que se puede unir (documentos con saldo, cargos con algo libre)
   const selD = new Set(st.sel.d), selM = new Set(st.sel.m), movsSel = st.sel.m.map(movDe).filter(Boolean), docsSel = st.sel.d.map(docDe).filter(Boolean);
   const puedeD = d => selD.has(d.id) || ((st.sel.m.length <= 1 || st.sel.d.length === 0) && movsSel.every(m => GB.compatible(d, m)) && !(st.sel.m.length > 1 && st.sel.d.length >= 1));
@@ -248,7 +253,7 @@ async function procesar(f, H) {
   if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text();
-    const Pv = await import('./previred.js?v=0.103.0');
+    const Pv = await import('./previred.js?v=0.104.0');
     if (Pv.esCsvNomina(Pv.textoDeArchivo(await f.arrayBuffer()))) return subirPrevired(f, H, Pv.leerCsv(Pv.textoDeArchivo(await f.arrayBuffer())));
     const tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -262,7 +267,7 @@ async function procesar(f, H) {
   if (wb) {
     const tefs = H.B2b.leerTransferencias(wb, XLSX);
     if (tefs) { const r = await H.B2b.guardarTransferencias(tefs); H.registrar('Cargó transferencias recibidas', `${r.leidas} leídas · ${r.nuevas} nuevas`); return `<b>Transferencias recibidas</b>: ${r.leidas} en el archivo · ${r.nuevas} nuevas. Sirven a Ventas B2B → Conciliación (quién pagó cada abono).`; }
-    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.103.0'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
+    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.104.0'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
       if (GP.esDetalleCredito(filas)) { const enc = wb.SheetNames.includes('Encabezados') ? XLSX.utils.sheet_to_csv(wb.Sheets.Encabezados) : '', r = GP.leerCredito(filas, enc);
         if (r.bloquea) throw new Error(r.errores.join(' '));
         const k = await (await fsGN()).cargarCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó un crédito', r.nombre);
@@ -278,9 +283,9 @@ function esCartola(wb, XLSX, H) {
 }
 // v0.96.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
 async function subirBoleta(f, H) {
-  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.103.0'), import('./boletas.js?v=0.103.0')]);
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.104.0'), import('./boletas.js?v=0.104.0')]);
   let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
-  const GP = await import('./gn-pdf.js?v=0.103.0'), tipo = GP.tipoPdf(lineas);
+  const GP = await import('./gn-pdf.js?v=0.104.0'), tipo = GP.tipoPdf(lineas);
   if (tipo) return subirOtroPdf(f, H, GP, tipo, lineas);
   if (Pv.esComprobante(lineas) || Pv.esCertificado(lineas)) { let r; try { r = Pv.leerPdf(lineas); } catch (x) { throw new Error(x.message); } return subirPrevired(f, H, r); }
   const r = Bo.leerBoleta(lineas);
@@ -314,7 +319,7 @@ async function subirOtroPdf(f, H, GP, tipo, lineas) {
 // v0.97.0 · Previred: el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → el documento del mes
 async function subirPrevired(f, H, r) {
   if (r.bloquea) throw new Error(`Previred no se guardó. ${(r.avisos || []).join(' ')}`);
-  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.103.0'), import('./gastos-g3d.js?v=0.103.0')]);
+  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.104.0'), import('./gastos-g3d.js?v=0.104.0')]);
   const id = GN.idCarga('previred'), d = GP.docDePrevired(r, G3D.venceDe(r.periodo), id);
   const k = await (await fsGN()).cargarPdf(d, { nombre: f.name, tamano: f.size }, 'previred');
   H.registrar('Gastos: cargó Previred', `${d.tipoTexto} · ${k.texto}`);
@@ -333,7 +338,7 @@ async function subirSii(f, txt, H) {
 }
 // v0.101.1 · Después de subir compras del SII: Finanzas revisa los precios de las materias primas (sin esperar; nunca falla hacia afuera)
 function preciosDeMP(H) {
-  import('./finanzas.js?v=0.103.0').then(F => F.preciosTrasImportar()).then(x => {
+  import('./finanzas.js?v=0.104.0').then(F => F.preciosTrasImportar()).then(x => {
     if (!x || (!x.error && !(x.aplicadas.length || x.porConfirmar || x.sinAsociar))) return;
     const t = x.error ? `No se pudieron revisar los precios de las materias primas (${H.esc(x.error)}): hágalo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.`
       : `Precios de materias primas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'actualizado' : 'actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver en Finanzas</a>.`;
@@ -417,6 +422,8 @@ function acciones(el, H) {
     if (ds.gnFicha) return dlgFicha(el, H, ds.gnFicha, ds.razon || '', ds.rut || '');
     if (ds.gnQuitarprod) return hacer(el, H, async () => (await fsGN()).quitarProducto(ds.gnQuitarprod, ds.prod), `Producto olvidado: ${H.esc(ds.prod)}.`);
     if (ds.gnFlete) return dlgFlete(el, H, ds.gnFlete);
+    if (ds.gnProv) return dlgProvision(el, H, ds.gnProv);
+    if (ds.gnTrab) return dlgTrabajador(el, H, ds.gnTrab, ds.razon || '', ds.rut || '');
     if (ds.gnPrevia !== undefined) return abrirPrevia(el, H);
     if (ds.gnPasar !== undefined) return pasarCatalogo(el, H);
     if (ds.gnPreviaCerrar !== undefined) { st.previa = null; return repintarQuieto(el, H); }
@@ -747,7 +754,9 @@ function listaProveedores() {
 }
 function proveedoresHtml(H) {
   const L = listaProveedores(), q = GN.norm(st.buscaProv || ''), l = L.filter(x => !q || GN.norm(x.razon + ' ' + x.rut).includes(q));
-  const estado = x => { const p = st.D.provs[x.clave]; return p && p.item ? `<span class="chip ${GB.modoProveedor(p) === 'item' ? 'c-amarillo' : 'c-verde'} chip-chico">${GB.modoProveedor(p) === 'item' ? 'Solo el ítem' : 'Ítem y áreas'}</span>` : '<span class="chip c-gris chip-chico">Sin ficha</span>'; };
+  const trabs = new Set(TR.equipo(st.D).map(x => x.clave));   // v0.104.0
+  const estado = x => (trabs.has(x.clave) ? '<span class="chip c-azul chip-chico">Trabajador</span> ' : '') + estado0(x);
+  const estado0 = x => { const p = st.D.provs[x.clave]; return p && p.item ? `<span class="chip ${GB.modoProveedor(p) === 'item' ? 'c-amarillo' : 'c-verde'} chip-chico">${GB.modoProveedor(p) === 'item' ? 'Solo el ítem' : 'Ítem y áreas'}</span>` : '<span class="chip c-gris chip-chico">Sin ficha</span>'; };
   return `<section class="tarjeta" aria-labelledby="t-gn-provs"><div class="titulo-fila"><h2 id="t-gn-provs">Proveedores</h2><span>${L.length}</span></div>
     <div class="campo"><label class="sr" for="gn-buscar-prov">Buscar proveedor</label><input id="gn-buscar-prov" type="search" value="${H.esc(st.buscaProv || '')}" placeholder="Nombre o RUT"></div>
     ${l.length ? l.slice(0, 300).map(x => `<a class="gn-it gn-prov" href="#gastos/proveedores/${encodeURIComponent(x.clave)}"><div class="gn-fila"><b>${H.esc(x.razon)}</b>${estado(x)}</div><small>${x.rut ? 'RUT ' + H.esc(x.rut) + ' · ' : ''}${x.n} ${x.n === 1 ? 'documento' : 'documentos'}${x.n ? ' · ' + H.pesos(x.total) : ''}${x.ultima ? ' · último ' + H.esc(H.diaTexto(x.ultima)) : ''}</small></a>`).join('') : '<div class="vacio" style="border:0">Ningún proveedor con eso.</div>'}</section>`;
@@ -769,6 +778,7 @@ function fichaHtml(H, base) {
     <section class="tarjeta" aria-labelledby="t-gn-ficha"><div class="titulo-fila"><h2 id="t-gn-ficha">${H.esc(razon)} ${H.info('Ficha del proveedor', TXT_FICHA)}</h2></div>
       <p class="ayuda">${rut ? 'RUT ' + H.esc(rut) + ' · ' : ''}${docs.length} ${docs.length === 1 ? 'documento' : 'documentos'} desde el inicio</p>
       <div class="gn-ficha">
+        ${trabajadorHtml(H, base, razon, rut)}
         ${clasif(gen, base, 'Clasificación')}
         ${Object.keys(clientes).length ? `<div class="gn-it"><span class="gn-sub">Servicios (por N° de cliente)</span>${Object.values(clientes).map(c => { const k = base + '_c_' + String(c.cliente).replace(/[^0-9A-Za-z]/g, '').slice(0, 30), p = provs[k];
             return `<div class="gn-serv"><div><b>Cliente ${H.esc(c.cliente)}</b>${c.direccion ? ` · ${H.esc(c.direccion)}` : ''}<br><small>${p && p.item ? `${H.esc(p.item)} · ${GB.modoProveedor(p) === 'item' ? 'solo el ítem' : H.esc(repTxt(p))}` : 'Sin clasificación: use la del proveedor o establézcala'}</small></div>
@@ -1147,5 +1157,63 @@ function dlgFlete(el, H, id) {
   dlg.querySelector('form').addEventListener('submit', async ev => { ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
     try { const l = elegidos(), n = await (await fsGN()).unirFlete(d.id, l.map(x => x.id)); dlg.close(); H.registrar('Gastos: unió un flete', `${nom(d)} → ${n} compras`);
       preciosDeMP(H); aviso(el, H, n ? `Flete unido: ${H.esc(nom(d))} se suma al costo de ${n === 1 ? H.esc(nom(l[0])) + ' N° ' + H.esc(l[0].folio) : n + ' compras'}.` : 'Flete desunido: queda por unir a su compra.'); }
+    catch (e) { falla(dlg, e, H); } });
+}
+
+// ═══════════════ v0.104.0 · Ficha del trabajador y provisión ═══════════════
+const TXT_TRAB = 'Los datos de su contrato (en su contrato de trabajo): fecha de ingreso, tipo (plazo fijo o indefinido) y, si es a plazo fijo, hasta cuándo. El sueldo sale solo de sus liquidaciones.\nCon esto el sistema calcula su antigüedad, avisa en Hoy cuando un plazo fijo está por vencer y provisiona cada mes sus vacaciones (con reemplazo) y, si es indefinido, su indemnización por años de servicio.\nPor ley, un plazo fijo que se renueva por segunda vez, o en que el trabajador sigue después del vencimiento, pasa a ser indefinido.';
+const TXT_PROV = 'La liquidación de quien reemplaza a alguien en sus vacaciones, o un finiquito, ya se cargó al resultado mes a mes (provisión de vacaciones y finiquitos). Márquelo aquí para que no se cuente dos veces: sale de lo acumulado.\nSe puede cambiar o quitar después; queda en el historial.';
+const mesActual = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }).slice(0, 7);
+function trabajadorHtml(H, base, razon, rut) {
+  const x = TR.equipo(st.D).find(t => t.clave === base); if (!x) return '';
+  const t = x.ficha, hoy = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }), ult = x.liqs[x.liqs.length - 1], ant = t ? TR.antiguedad(t.ingreso, hoy) : null, e = TR.estadoContrato(t, hoy);
+  const areas = clave => GB.areasDe((st.D.provs || {})[clave], st.D.repartos || {}), ini = (st.D.inicio || INICIO()).slice(0, 7), S = TR.saldo(st.D, ini, mesActual(), areas).porTrabajador[base] || { prov: 0, usado: 0 };
+  const pm = ult ? TR.provisionMes(t, x.liqs, ult.mes) : null, antes = TR.iasAntesDe(t, x.liqs, st.D.inicio || INICIO());
+  const fila = (k, v) => `<div class="gn-fila"><span>${k}</span><b>${v}</b></div>`;
+  return `<div class="gn-it gn-trab"><span class="gn-sub">Trabajador ${H.info('Datos del trabajador', TXT_TRAB)}</span>
+    ${t ? `${t.cargo ? fila('Cargo', H.esc(t.cargo)) : ''}${fila('Ingreso', `${H.esc(TR.fechaTxt(t.ingreso))} · ${H.esc(ant.texto)}`)}${fila('Contrato', H.esc(TR.CONTRATOS[t.contrato]))}
+      <p class="${e.nivel === 'vencido' ? 'gn-cl gn-cl-falta' : e.nivel === 'pronto' ? 'gn-cl gn-aviso-c' : 'ayuda'}">${H.esc(e.texto)}</p>` : '<p class="gn-cl gn-cl-falta">Faltan los datos de su contrato: sin ellos no se provisiona su indemnización ni se avisa el vencimiento.</p>'}
+    ${ult ? fila(`Sueldo base (${H.esc(GF.mesCorto(ult.mes))})`, H.pesos(TR.sueldoBase(ult))) + fila('Remuneración (promedio de hasta 3 meses)', H.pesos(TR.remuneracionBase(x.liqs, ult.mes))) : '<p class="ayuda">Sin liquidaciones desde el inicio.</p>'}
+    ${pm ? fila('Provisión de cada mes', `${H.pesos(pm.total)} <small>(vacaciones ${H.pesos(pm.vac)}${pm.ias ? ` · años de servicio ${H.pesos(pm.ias)}` : ''})</small>`) : ''}
+    ${S.prov || S.usado ? fila('Acumulado desde el inicio', `${H.pesos(S.prov)}${S.usado ? ` − usado ${H.pesos(S.usado)}` : ''}`) : ''}
+    ${antes ? `<p class="ayuda">Antes del inicio ya llevaba años con contrato indefinido: unos ${H.pesos(antes)} de indemnización acumulada (estimado). Va al balance de apertura.</p>` : ''}
+    <div class="gn-acc"><button type="button" class="btn-sec btn-chico" data-gn-trab="${H.esc(base)}" data-razon="${H.esc(razon)}" data-rut="${H.esc(rut)}">${t ? 'Cambiar datos del trabajador' : 'Anotar datos del trabajador'}</button></div></div>`;
+}
+function dlgTrabajador(el, H, clave, razon, rut) {
+  const t = ((st.D.provs || {})[clave] || {}).trabajador || {};
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>${H.esc(razon || 'Trabajador')}</h2>${H.info('Datos del trabajador', TXT_TRAB)}</div>
+    <div class="campo"><label for="tr-cargo">Cargo (opcional)</label><input id="tr-cargo" maxlength="60" value="${H.esc(t.cargo || '')}" placeholder="Por ejemplo: maestro panadero"></div>
+    <div class="campo"><label for="tr-ingreso">Fecha de ingreso</label><input id="tr-ingreso" type="date" value="${H.esc(t.ingreso || '')}"></div>
+    <div class="chips" role="radiogroup" aria-label="Contrato">${Object.entries(TR.CONTRATOS).map(([k, v]) => `<label class="chip-radio"><input type="radio" name="tr-c" value="${k}" ${t.contrato === k ? 'checked' : ''}><span>${v}</span></label>`).join('')}</div>
+    <div data-tr="plazo_fijo" class="gn-dlg-bloque" ${t.contrato === 'plazo_fijo' ? '' : 'hidden'}><div class="gn-dos"><div class="campo"><label for="tr-vence">Vence el</label><input id="tr-vence" type="date" value="${H.esc(t.vence || '')}"></div>
+      <div class="campo"><label for="tr-renov">Renovaciones</label><select id="tr-renov">${[0, 1].map(n => `<option value="${n}" ${Number(t.renovaciones || 0) === n ? 'selected' : ''}>${n === 0 ? 'Ninguna' : 'Una'}</option>`).join('')}</select></div></div></div>
+    <div data-tr="indefinido" class="gn-dlg-bloque" ${t.contrato === 'indefinido' ? '' : 'hidden'}><div class="campo"><label for="tr-indef">Indefinido desde</label><input id="tr-indef" type="date" value="${H.esc(t.indefinidoDesde || '')}"><p class="ayuda">Si empezó a plazo fijo, la fecha en que pasó a indefinido. Vacío: desde el ingreso.</p></div></div>
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
+  const c = () => (dlg.querySelector('[name=tr-c]:checked') || {}).value || '';
+  dlg.querySelectorAll('[name=tr-c]').forEach(r => r.addEventListener('change', () => dlg.querySelectorAll('[data-tr]').forEach(b => { b.hidden = b.dataset.tr !== c(); })));
+  dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async ev => { ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
+    try { const v = q => dlg.querySelector(q).value;
+      await (await fsGN()).guardarTrabajador(clave, { cargo: v('#tr-cargo'), ingreso: v('#tr-ingreso'), contrato: c(), vence: v('#tr-vence'), renovaciones: v('#tr-renov'), indefinidoDesde: v('#tr-indef') }, { razon, rut });
+      dlg.close(); H.registrar('Gastos: datos del trabajador', razon); aviso(el, H, `Datos guardados: ${H.esc(razon)}.`); }
+    catch (e) { falla(dlg, e, H); } });
+}
+function dlgProvision(el, H, id) {
+  const d = (st.D.docs || []).find(x => x.id === id); if (!d) return;
+  const eq = TR.equipo(st.D), p = d.provision || {}, propio = 'r_' + (d.rutN || '');
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>¿Usa la provisión?</h2>${H.info('Provisión de los trabajadores', TXT_PROV)}</div>
+    <p class="ayuda"><b>${H.esc(nom(d))}</b> · ${H.esc(d.tipoTexto)} · ${H.pesos(d.total)}</p>
+    <div class="chips" role="radiogroup" aria-label="Uso"><label class="chip-radio"><input type="radio" name="pv-u" value="" ${!p.uso ? 'checked' : ''}><span>No: es gasto del mes</span></label>${Object.entries(TR.USOS).map(([k, v]) => `<label class="chip-radio"><input type="radio" name="pv-u" value="${k}" ${p.uso === k ? 'checked' : ''}><span>${v}</span></label>`).join('')}</div>
+    <div class="campo" data-pv-de ${p.uso ? '' : 'hidden'}><label for="pv-de">Provisión de</label><select id="pv-de">${eq.map(x => `<option value="${H.esc(x.clave)}" ${(p.de || (d.origen === 'liquidacion' && p.uso !== 'vacaciones' ? propio : '')) === x.clave ? 'selected' : ''}>${H.esc(x.nombre)}</option>`).join('')}</select>
+      <p class="ayuda">Reemplazo de vacaciones: el trabajador que salió de vacaciones. Finiquito: quien se va.</p></div>
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
+  const u = () => dlg.querySelector('[name=pv-u]:checked').value;
+  dlg.querySelectorAll('[name=pv-u]').forEach(r => r.addEventListener('change', () => { dlg.querySelector('[data-pv-de]').hidden = !u(); }));
+  dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async ev => { ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
+    try { const de = u() ? dlg.querySelector('#pv-de').value : ''; await (await fsGN()).marcarProvision(d.id, { uso: u(), de }); dlg.close(); H.registrar('Gastos: uso de la provisión', `${nom(d)} · ${u() || 'no'}`);
+      aviso(el, H, u() ? `${H.esc(nom(d))}: sale de la provisión (${H.esc(TR.USOS[u()].toLowerCase())}).` : `${H.esc(nom(d))}: es gasto del mes.`); }
     catch (e) { falla(dlg, e, H); } });
 }
