@@ -2903,3 +2903,25 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-trib > span:first-child { color: var(--suave); }
 .gn-trib small { color: var(--suave); overflow-wrap: anywhere; }
 .fin-trib-h { margin: 14px 0 4px; font-size: 14px; }
+/* v0.109.1 · Bandeja de abonos en dos lados: a la izquierda el abono (lo que se sabe de él), a la derecha las facturas */
+.bj-lista details.mov > .ab-izq { padding: 8px 14px 12px 17px; background: var(--acento-suave); box-shadow: inset 3px 0 0 var(--bj-c); font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
+.ab-izq .bj-datos { margin: 0; }
+.ab-izq .bj-explica { margin: 0; }
+.ab-puntaje > summary { cursor: pointer; font-size: 12.5px; color: var(--suave); }
+.ab-der-cab .bj-cab-l1 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ab-der-cli { margin: 4px 0 0; font-size: 15px; overflow-wrap: anywhere; }
+.ab-prop { display: flex; flex-direction: column; gap: 6px; }
+.ab-fol { border: 1px solid var(--linea); border-radius: 10px; padding: 8px 10px; background: var(--tarjeta); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ab-fol small { color: var(--suave); overflow-wrap: anywhere; }
+.ab-vendido > summary { cursor: pointer; font-size: 12.5px; color: var(--acento); margin-top: 4px; }
+.ab-orden { padding: 4px 0 0 8px; font-size: 12.5px; }
+.ab-orden ul { margin: 2px 0 0; padding-left: 18px; color: var(--suave); }
+.mov-folio { flex-wrap: wrap; }
+.mov-folio .ab-vendido { margin: 0 0 4px 10px; flex-basis: 100%; order: 3; }
+.ab-cli { padding: 10px 0; border-top: 1px solid var(--linea); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ab-cli > small { color: var(--suave); }
+@media (min-width: 1024px) {
+  .bj-vacio-det.ab-fols { display: block; text-align: left; align-items: stretch; overflow-y: auto; overscroll-behavior: contain; padding: 16px 22px 28px; color: var(--texto); min-height: 0; }
+  .bj-vacio-det.ab-fols > .ayuda { margin: 0 0 8px; }
+  .bj-angosta .bj-vacio-det.ab-fols { display: none; }
+}

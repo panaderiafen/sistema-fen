@@ -12,17 +12,17 @@
 //  Escrituras: archivar o reactivar = 1 por receta o producto (+1 de la marca de recetas en fen-produccion); "Vivo" = 1 en
 //  cat_revision. Cada acción deja 1 línea en el historial de Sistema Fën (la escribe la pantalla).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, getDocs, query, where } from './firebase.js?v=0.109.0';
-import * as P from './produccion.js?v=0.109.0';
-import * as Caja from './caja.js?v=0.109.0';
-import * as B from './b2b.js?v=0.109.0';
-import * as F from './finanzas.js?v=0.109.0';
-import * as GB from './gastos-base.js?v=0.109.0';
-import * as FBG from './fs-gastos.js?v=0.109.0';
-import * as M from './fs-memoria.js?v=0.109.0';
-import * as Cuota from './fs-cuota.js?v=0.109.0';
-import * as CM from './catalogo-modelo.js?v=0.109.0';
-import * as RV from './reventa-modelo.js?v=0.109.0';
+import { auth, db, collection, getDocs, query, where } from './firebase.js?v=0.109.1';
+import * as P from './produccion.js?v=0.109.1';
+import * as Caja from './caja.js?v=0.109.1';
+import * as B from './b2b.js?v=0.109.1';
+import * as F from './finanzas.js?v=0.109.1';
+import * as GB from './gastos-base.js?v=0.109.1';
+import * as FBG from './fs-gastos.js?v=0.109.1';
+import * as M from './fs-memoria.js?v=0.109.1';
+import * as Cuota from './fs-cuota.js?v=0.109.1';
+import * as CM from './catalogo-modelo.js?v=0.109.1';
+import * as RV from './reventa-modelo.js?v=0.109.1';
 
 export const TTL_VENTAS = 6 * 3600e3;
 const PRE = 'cat:';

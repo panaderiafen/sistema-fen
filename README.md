@@ -1,9 +1,22 @@
-# Sistema Fën · v0.109.0
+# Sistema Fën · v0.109.1
 
-**App:** v0.109.0 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
+**App:** v0.109.1 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.109.1: la Bandeja de abonos en dos lados
+
+Pedido por Emmanuel el 26 oct ("el abono aparecía en los dos lados"). Igual que en Gastos: cada lado muestra una cosa.
+- **A la izquierda, los abonos de la cartola** y, al abrir uno, todo lo que se sabe de él: cuenta, cartola, N° de operación, "Qué es", "Qué propongo" y por qué. El puntaje queda en "Ver el puntaje", plegado.
+- **A la derecha, las facturas:**
+  - **sin abono elegido:** los folios por cobrar de todos los clientes (cliente, RUT, folio, fecha de emisión, saldo) con "Lo vendido" desplegable (cada orden con sus productos);
+  - **con un abono elegido:** el cliente y su RUT, **"Lo que propongo"** (los folios con su emisión, total, saldo y lo vendido) y **"Conciliar: …"**; debajo, todas sus facturas abiertas para cambiar la propuesta (marcar folios, montos, saldo a favor), "Buscar su folio", "Ya estaba registrado" y "No es de B2B".
+- El abono ya no se repite a la derecha, y no queda ningún "Confirmar".
+Cambian `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.109.1`). No cambian los datos ni las reglas.
+
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.109.1.
+- [ ] Ventas B2B → Conciliación: sin elegir nada, a la derecha los folios por cobrar; al tocar un abono, a la izquierda lo que se sabe de él y a la derecha sus facturas.
 
 ## Novedades de la v0.109.0: Ventas B2B → Conciliación, como Gastos (revisión de B2B, Etapa A)
 

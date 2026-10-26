@@ -8,9 +8,9 @@
 //  Datos en listas-precios.js; reglas en listas-precios-modelo.js; el PDF en pdf-lista-precios.js.
 //  H = ayudas de app.js { esc, info, icono, registrar, mensajeError, dialogo }; X = { cab(), datos(), errorB2b, abrirWhatsapp, esCelular, copiarTexto }
 // ═══════════════════════════════════════════════
-import * as L from './listas-precios.js?v=0.109.0';
-import * as LM from './listas-precios-modelo.js?v=0.109.0';
-import * as AR from './areas.js?v=0.109.0';
+import * as L from './listas-precios.js?v=0.109.1';
+import * as LM from './listas-precios-modelo.js?v=0.109.1';
+import * as AR from './areas.js?v=0.109.1';
 
 const st = { ed: null, maestro: null, ocupado: false, listos: new Map(), aviso: null };   // maestro: se vuelve a pedir en cada apertura (la memoria de Gastos y Finanzas solo trae lo que cambió)
 export const estado = st;
@@ -58,7 +58,7 @@ function sinReglas(el, e) {
 function noEsta(el) { el.innerHTML = X.cab() + `<section class="tarjeta"><p class="aviso">Esa lista ya no está (o es de hace más de 60 listas). <a href="#b2b/listas">Volver a las listas</a></p></section>`; }
 async function maestro() {
   if (st.maestro) return st.maestro;
-  const F = await import('./finanzas.js?v=0.109.0');
+  const F = await import('./finanzas.js?v=0.109.1');
   const m = await F.leerMaestro();
   st.maestro = m.lista || [];
   return st.maestro;
@@ -277,7 +277,7 @@ async function guardarEditor() {
 
 // ═══════════════ Vista previa (las mismas hojas del PDF, achicadas) ═══════════════
 async function hojas(lista) {
-  const PDF = await import('./pdf-lista-precios.js?v=0.109.0');
+  const PDF = await import('./pdf-lista-precios.js?v=0.109.1');
   const [fotos, cfg] = await Promise.all([L.leerFotos(lista.items.map(it => ({ catalogoId: it.catalogoId, conFoto: (itemDe(it.catalogoId) || {}).conFoto !== false }))), L.leerConfig()]);
   return { PDF, fotos, portada: cfg.portada, html: PDF.paginasHtml(lista, { fotos, portada: cfg.portada, areaNombre }) };
 }
@@ -336,7 +336,7 @@ async function pdfDe(l) {
 }
 async function descargar(l, b) {
   const t = b.innerHTML; b.disabled = true; b.textContent = 'Generando…'; $('lp-err').textContent = '';
-  try { const PDF = await import('./pdf-lista-precios.js?v=0.109.0'); const r = await pdfDe(l); PDF.bajar(r.blob, r.nombre); window.__lpUltimoPdf = { bytes: r.bytes, paginas: r.paginas, nombre: r.nombre };
+  try { const PDF = await import('./pdf-lista-precios.js?v=0.109.1'); const r = await pdfDe(l); PDF.bajar(r.blob, r.nombre); window.__lpUltimoPdf = { bytes: r.bytes, paginas: r.paginas, nombre: r.nombre };
     H.registrar('Listas de precios: descargó el PDF', `${l.cliente.nombre} · ${r.paginas} hojas`); $('lp-msg').textContent = `PDF descargado (${r.paginas} hojas, ${nf(Math.round(r.bytes / 1024))} KB).`; }
   catch (x) { $('lp-err').textContent = 'No se pudo hacer el PDF: ' + error(x); }
   b.disabled = false; b.innerHTML = t;
@@ -358,7 +358,7 @@ async function enviar(l, b) {
         throw x;
       }
     } else {
-      const PDF = await import('./pdf-lista-precios.js?v=0.109.0');
+      const PDF = await import('./pdf-lista-precios.js?v=0.109.1');
       PDF.bajar(archivo, archivo.name);
       const r = await X.abrirWhatsapp(cl || {}, texto);
       msg.textContent = r === 'grupo' ? 'PDF descargado y mensaje copiado: en el grupo, pega el mensaje y adjunta el PDF.' : 'PDF descargado: adjúntalo en el chat de WhatsApp que se abrió.';
@@ -403,7 +403,7 @@ async function duplicarLista(id) {
 async function subirPortada(archivo) {
   const info = $('lp-portada-info'), err = $('lpc-err'); err.textContent = ''; info.textContent = 'Achicando la imagen…';
   try {
-    const IM = await import('./imagenes.js?v=0.109.0');
+    const IM = await import('./imagenes.js?v=0.109.1');
     const p = await IM.portada(archivo);
     info.textContent = 'Guardando…';
     await L.guardarConfig({ portada: p });
