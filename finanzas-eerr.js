@@ -33,10 +33,10 @@
 //  líneas del catálogo usan el área tal cual (el mapa de áreas de Clasificación ya no se usa: una sola regla). La cuota de un convenio de
 //  la TGR (2.9) va fuera del resultado. Un cierre anterior a la v0.102.0 se compara en su forma (las filas nuevas se suman donde estaban).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.109.1';
-import * as AR from './areas.js?v=0.109.1';
-import * as PC from './plan-cuentas.js?v=0.109.1';
-import * as GT from './tributario.js?v=0.109.1';   // v0.108.0: gestión y tributario
+import * as FR from './finanzas-resultados.js?v=0.109.2';
+import * as AR from './areas.js?v=0.109.2';
+import * as PC from './plan-cuentas.js?v=0.109.2';
+import * as GT from './tributario.js?v=0.109.2';   // v0.108.0: gestión y tributario
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;

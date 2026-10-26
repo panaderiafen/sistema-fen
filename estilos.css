@@ -2925,3 +2925,10 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
   .bj-vacio-det.ab-fols > .ayuda { margin: 0 0 8px; }
   .bj-angosta .bj-vacio-det.ab-fols { display: none; }
 }
+/* v0.109.2 · Abonos: las facturas (lo que está en el sistema) a la izquierda y los abonos (lo que llega de la cartola) a la derecha, como se lee */
+@media (min-width: 1024px) {
+  .tarjeta.bandeja[data-bandeja="ab"] .bj-cuerpo { grid-template-columns: minmax(0, 1fr) var(--bj-izq); }
+  .tarjeta.bandeja[data-bandeja="ab"] .bj-lista { grid-column: 2; grid-row: 1; border-right: 0; border-left: 1px solid var(--linea); }
+  .tarjeta.bandeja[data-bandeja="ab"] .bj-vacio-det { grid-column: 1; grid-row: 1; }
+  .tarjeta.bandeja[data-bandeja="ab"] .bj-lista .bj-det { left: 0; right: calc(var(--bj-izq) + 1px); }
+}

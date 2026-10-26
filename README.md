@@ -1,9 +1,15 @@
-# Sistema Fën · v0.109.1
+# Sistema Fën · v0.109.2
 
-**App:** v0.109.1 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
+**App:** v0.109.2 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.109.2: en la Bandeja de abonos, las facturas a la izquierda
+
+Pedido por Emmanuel el 26 oct: se lee de izquierda a derecha, primero lo que está en el sistema (las facturas) y después lo que llega (los abonos de la cartola). En el computador, las facturas quedan a la izquierda y los abonos a la derecha; en el celular no cambia. Solo cambia `estilos.css` (más `config.js`, este README y la versión `?v=0.109.2`).
+
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.109.2.
 
 ## Novedades de la v0.109.1: la Bandeja de abonos en dos lados
 
