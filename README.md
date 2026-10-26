@@ -1,9 +1,17 @@
-# Sistema Fën · v0.106.1
+# Sistema Fën · v0.106.2
 
-**App:** v0.106.1 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
+**App:** v0.106.2 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.106.2: la tarjeta Cartolas se pliega
+
+- **Gastos → Bandeja → Cartolas** se abre y se cierra tocando su título. Cada equipo recuerda cómo la dejó; la primera vez se abre sola si hay cartolas con pendientes. Cerrada, el título dice cuántas tienen pendientes.
+Cambian `vista-gn.js`, `config.js` y este README; los demás, solo la versión (`?v=0.106.2`).
+
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.106.2.
+- [ ] Bandeja: tocar "Cartolas" la cierra; al volver a entrar sigue cerrada.
 
 ## Novedades de la v0.106.1: las cartolas pasan a la Bandeja
 
