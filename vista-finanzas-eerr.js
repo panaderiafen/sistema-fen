@@ -6,11 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.101.1';
-import * as FR from './finanzas-resultados.js?v=0.101.1';
-import * as FE from './finanzas-eerr.js?v=0.101.1';
-import * as FC from './finanzas-costos.js?v=0.101.1';
-import * as SP from './sii-pendientes.js?v=0.101.1';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.102.0';
+import * as FR from './finanzas-resultados.js?v=0.102.0';
+import * as FE from './finanzas-eerr.js?v=0.102.0';
+import * as FC from './finanzas-costos.js?v=0.102.0';
+import * as SP from './sii-pendientes.js?v=0.102.0';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
 const $ = id => document.getElementById(id);
@@ -28,6 +28,8 @@ const PI = {
 };
 const ic = (n, t = 18) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${PI[n] || ''}</svg>`;
 const mapaAreas = R => (R.datos.config && R.datos.config.areasGasto) || {};
+// v0.102.0 · ¿Ya se pasó al catálogo de ítems? (entonces el tipo de cada gasto sale de la cuenta de su ítem, no de Clasificación)
+const conCatalogo = R => !!(R.datos.gn && R.datos.gn.D && (R.datos.gn.D.catalogo || []).length);
 const mesHoy = () => hoyTxt().slice(0, 7);
 // v0.101.1 · Con el Gastos nuevo, Finanzas parte en el mes del inicio (desde cero en octubre)
 const mesDesde = () => F.mesInicioGN() || `${FR.ANIO}-01`;
@@ -56,7 +58,7 @@ async function vivo(R, mes) {
   // no en la tabla de Finanzas → Créditos (sería doble); los pagos de la tarjeta son los movimientos marcados así en la Bandeja.
   // v0.101.1 · Desde cero en octubre: con el Gastos nuevo, Finanzas no muestra meses anteriores al inicio.
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo (desde ${FE.mesTxt(D.gn.inicio.slice(0, 7))} los gastos salen de ahí): ${D.gn.error}. Revise la conexión y toque "Leer de nuevo".`);
-  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.101.1') : null;
+  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.102.0') : null;
   const pagosTarjeta = nuevo ? GF.pagosTarjetaGN(D.gn.D) : ((ES.cartola && ES.cartola.pagosTarjeta) || []);
   const e = FE.armarEERR({ mes, margen: dm.margen, merma: dm.merma, gastos: D.gastos, fin: D.fin, items: D.items, mapa, creditosMes: nuevo ? [] : FE.creditosDelMes(D.creditos, D.vencimientos, D.gastos, mes),
     invs: FR.inversiones(D.gastos, D.fin, D.invGuardadas, mapa), pagosTarjeta });
@@ -68,9 +70,10 @@ async function vivo(R, mes) {
     // Un crédito de Finanzas → Créditos con cuota este mes y ninguna cuota del Gastos nuevo: su interés faltaría sin aviso
     const viejo = (D.creditos || []).filter(c => c.estado !== 'archivado' && (c.tabla || []).some(f => String(f.fecha || '').slice(0, 7) === mes)), cuotasGN = (D.gastos || []).some(g => FE.mesDe(g.fecha) === mes && g.origenGN === 'credito');
     if (viejo.length && !cuotasGN) av.push({ k: 'gn_credito_falta', texto: `${viejo.map(c => c.nombre).join(', ')}: tiene cuota en ${FE.mesTxt(mes)} en Finanzas → Créditos, pero no hay cuotas en el Gastos nuevo. Desde octubre el interés sale de Gastos → Compromisos → Créditos (súbalo ahí).` });
+    if (!conCatalogo(R)) av.push({ k: 'gn_sin_catalogo', texto: 'Falta pasar al catálogo de ítems (Gastos → Ítems). Mientras tanto, el tipo de cada gasto sale de Clasificación y no se ven las líneas nuevas (packaging, tiendas, marketing…).' });
     const cuotas = (D.gastos || []).filter(g => FE.mesDe(g.fecha) === mes && FR.normalizar(g.itemGasto) === 'CUOTA DE CREDITO');
     if (cuotas.length) av.push({ k: 'gn_cuota_sin_separar', texto: `${cuotas.length} ${cuotas.length === 1 ? 'cuota de crédito va completa' : 'cuotas de crédito van completas'} (${pesos(cuotas.reduce((a, g) => a + (Number(g.montoNeto) || 0), 0))}) fuera del resultado: falta separar su interés. Anote el monto original y la tasa del crédito en Gastos → Compromisos → Créditos.` });
-    e.avisos = (e.avisos || []).concat(av);
+    e.avisos = (e.avisos || []).concat(av); e.conCatalogo = conCatalogo(R);
     ES.vivo[mes] = e;
     return e;
   }
@@ -98,7 +101,7 @@ async function delMes(R, mes) {
 }
 
 // ═══════════════ Estado de resultados ═══════════════
-const TXT_EERR = 'El estado de resultados del mes por área (la que produce) y el total, en tres pisos, todo en neto:\nLa columna Reventa (lo que se compra hecho y se vende tal cual) aparece solo si el mes tiene ventas, costo o gastos de Reventa. Sus compras no son una línea de gasto (van a "Fuera del resultado"): entra el costo de lo vendido.\n1. Ventas netas − costo directo de lo vendido (receta × unidades al costo del mes; reventa a su costo de compra) − costos de venta (comisión de tarjeta, despacho) − merma valorizada = margen de contribución.\n2. − remuneraciones propias del área − otros fijos propios − depreciación del área = margen del área.\nCanal B2B (en Total, solo si el mes lo tiene): + despacho cobrado (el cargo del Catálogo que se cobra a los clientes B2B) − costos del canal B2B (remuneraciones y fijos con área B2B: atención de clientes, órdenes y despacho) = resultado del canal B2B.\n3. + resultado del canal B2B − comunes sin repartir (remuneraciones comunes con el sueldo empresarial, fijos comunes, depreciación común) = resultado operacional; − financieros (interés de las cuotas pagadas en el mes según la tabla del crédito + gastos financieros) = resultado del mes.\nCada cifra se puede tocar para ver de dónde sale.\nUn mes cerrado se ve congelado (como quedó al cerrarlo).';
+const TXT_EERR = 'El estado de resultados del mes por área (la que produce) y el total, en tres pisos, todo en neto. Cada gasto va a su línea según la cuenta de su ítem (Gastos → Ítems).\nLa columna Reventa (lo que se compra hecho y se vende tal cual) aparece solo si el mes tiene ventas, costo o gastos de Reventa. Sus compras no son una línea de gasto (van a "Fuera del resultado"): entra el costo de lo vendido.\n1. Ventas netas − costo directo de lo vendido (receta × unidades al costo del mes; reventa a su costo de compra) − comisiones y despacho (comisión de tarjeta, despacho, arriendo del POS) − packaging − merma valorizada = margen de contribución.\n2. − remuneraciones propias del área − otros fijos propios − depreciación del área = margen del área.\nCanal B2B (en Total, solo si el mes lo tiene): + despacho cobrado (el cargo del Catálogo que se cobra a los clientes B2B) − costos del canal B2B (remuneraciones y fijos con área B2B: atención de clientes, órdenes y despacho) = resultado del canal B2B.\nTiendas (en Total, solo si el mes lo tiene): los costos propios de la Tienda Barros Arana y de la Sala de ventas Ainavillo (remuneraciones y fijos con área B2C-BA o B2C-AI): lo que cuesta vender ahí.\n3. + resultado del canal B2B − tiendas − comunes sin repartir (remuneraciones comunes con el sueldo empresarial, fijos comunes, marketing, seguros, transporte, capacitación, depreciación común) = resultado operacional; − financieros (intereses, multas y banco) = resultado del mes.\nCada cifra se puede tocar para ver de dónde sale.\nUn mes cerrado se ve congelado (como quedó al cerrarlo).';
 function selectorMes(H, id = 'e-mes') {
   const meses = FE.mesesDelAnio(FR.ANIO, hoyTxt()).filter(m => m >= mesDesde());
   return `<div class="campo fin-emes"><label for="${id}">Mes</label><select id="${id}">${meses.map(m => `<option value="${m}" ${m === ES.mes ? 'selected' : ''}>${H.esc(FE.mesTxt(m))}${cerrado(m) ? ' · cerrado' : m === mesHoy() ? ' · en curso' : ''}</option>`).join('')}</select></div>`;
@@ -140,7 +143,9 @@ function htmlEERR(H, e, prev, R) {
   let pisoAnt = 0;
   // v0.75.1: el bloque del canal B2B (despacho cobrado y costos del canal) solo cuando el mes (o el anterior) tiene algo
   const conB2B = x => x && (valorFila(x, 'cargos', 'total') || valorFila(x, 'canalB2B', 'total'));
-  const filasVer = FE.FILAS.filter(f => !FE.FILAS_B2B.includes(f.k) || conB2B(e) || conB2B(prev));
+  // v0.102.0: las filas opcionales (tiendas, marketing, seguros, transporte, capacitación) solo cuando el mes (o el anterior) tiene algo
+  const conFila = (x, k) => x && valorFila(x, k, 'total');
+  const filasVer = FE.FILAS.filter(f => (!FE.FILAS_B2B.includes(f.k) || conB2B(e) || conB2B(prev)) && (!f.opcional || conFila(e, f.k) || conFila(prev, f.k)));
   const fila = (f, cls = '') => {
     const cmp = ES.comparar ? (() => { const a = prev ? valorFila(prev, f.k, 'total') : null, b = valorFila(e, f.k, 'total'); return `<td class="fin-enum fin-ecmp">${a === null ? '—' : f.signo === '−' ? (a ? '−' + pesos(a) : '—') : pesos(a)}</td><td class="fin-enum fin-ecmp">${a === null ? '—' : varTxt(b, a, f)}</td>`; })() : '';
     return `<tr class="${f.resultado ? 'fin-eres' : ''} ${cls}" data-e-fila="${f.k}"><th scope="row">${f.signo && f.signo !== '' ? `<span class="fin-esig" aria-hidden="true">${f.signo}</span>` : ''}${H.esc(f.t)}${f.abre ? ` <button type="button" class="fin-eabre" id="e-abre-canal" aria-expanded="${!!ES.abiertas.canal}" aria-controls="e-canal">${ic('abajo', 14)}<span class="sr">Ver por canal</span></button>` : ''}</th>${cols.map(c => celda(H, e, f, c)).join('')}<td class="fin-epres" hidden>sin presupuesto</td>${cmp}</tr>`;
@@ -187,7 +192,7 @@ function htmlInfo(H, e) {
         <div class="fin-einfo-l fin-einfo-t"><span>Total compras</span><b>${pesos(I.compras.total)}</b></div>
         ${l('enMargen', 'total', 'Ya en el margen (comisión Transbank, despacho)', I.enMargen, 'Gastos clasificados como "Ya incluido en el margen": su costo ya se resta como costo de venta (Márgenes → Ajustes). No se cuentan dos veces.')}</div>
       <div><h3>Fuera del resultado</h3>${l('fuera', 'capital', 'Capital de créditos', I.fuera.capital, `Cuotas de crédito del mes (${pesos(I.fuera.cuotas)}) menos su interés según la tabla de cada crédito (${pesos(I.interes)}, que va a financieros).`)}
-        ${l('fuera', 'impuestos', 'Impuestos (F29, IVA, PPM)', I.fuera.impuestos)}${l('fuera', 'inversion', 'Inversiones (entran como depreciación)', I.fuera.inversion)}${l('fuera', 'retiro', 'Retiros', I.fuera.retiro)}${l('fuera', 'otro', 'Otros fuera del resultado', I.fuera.otro)}
+        ${l('fuera', 'impuestos', 'Impuestos (F29, IVA, PPM)', I.fuera.impuestos)}${I.fuera.deuda ? l('fuera', 'deuda', 'Deuda con el fisco (convenio TGR)', I.fuera.deuda, 'La cuota de un convenio de pago con la TGR baja una deuda: no es gasto del mes. Sus intereses y multas sí son gasto financiero.') : ''}${l('fuera', 'inversion', 'Inversiones (entran como depreciación)', I.fuera.inversion)}${l('fuera', 'retiro', 'Retiros', I.fuera.retiro)}${l('fuera', 'otro', 'Otros fuera del resultado', I.fuera.otro)}
         <div class="fin-einfo-l fin-einfo-t"><span>Total fuera del resultado</span><b>${pesos(I.fuera.total)}</b></div>
         ${l('pagosTarjeta', 'total', `Pagos de tarjeta de crédito (cartola · ${nf(I.pagosTarjeta.n)})`, I.pagosTarjeta.monto, 'Cargos de la cartola marcados "Pago de tarjeta". No son gasto: las compras con tarjeta ya entraron como gasto el día de la compra (por el SII). Solo mueven plata: van al flujo de caja. No son parte de Gastos, por eso no entran en la cuadratura.')}</div>
     </div></section>`;
@@ -200,11 +205,11 @@ function htmlCuadratura(H, e) {
       <span class="chip ${C.cuadra ? 'c-verde' : C.diferencia ? 'c-rojo' : 'c-amarillo'}" id="e-cuadra">${C.diferencia ? `No cuadra: ${pesos(C.diferencia)}` : C.cuadra ? 'Cuadra' : 'Cuadra, con gastos sin clasificar'}</span></div>
     <div class="fin-ecuad" id="e-cuad">
       ${l('Total de gastos del mes en Gastos', C.totalGastos, 'e-cuad-total')}
-      ${l('= En el resultado (remuneraciones, fijos, financieros)', C.enResultado)}${l('+ Interés dentro de las cuotas de crédito', C.interesCuotas)}${l('+ Compras de MP y reventa', C.compras)}${l('+ Ya en el margen', C.enMargen)}${l('+ Fuera del resultado', C.fuera)}${l('+ Sin clasificar', C.sinClasificar)}
+      ${l('= En el resultado (remuneraciones, fijos, costos de venta, financieros)', C.enResultado)}${l('+ Interés dentro de las cuotas de crédito', C.interesCuotas)}${l('+ Compras de MP y reventa', C.compras)}${l('+ Ya en el margen', C.enMargen)}${l('+ Fuera del resultado', C.fuera)}${l('+ Sin clasificar', C.sinClasificar)}
       <div class="fin-einfo-l fin-einfo-t"><span>Diferencia</span><b id="e-cuad-dif">${pesos(C.diferencia)}</b></div></div>
     ${I.sinClasificar.n ? `<div class="fin-esin" id="e-sin"><p class="aviso">${nf(I.sinClasificar.n)} ${I.sinClasificar.n === 1 ? 'ítem sin clasificar' : 'ítems sin clasificar'} (${pesos(I.sinClasificar.neto)}): no entran al resultado.</p>
       <ul>${I.sinClasificarLista.map(x => `<li><span>${H.esc(x.item)} · ${nf(x.n)} ${x.n === 1 ? 'línea' : 'líneas'}</span><b>${pesos(x.neto)}</b></li>`).join('')}</ul>
-      <a class="btn-sec" href="#finanzas/resultados/clasificacion">${ic('ir', 16)} Ir a Clasificación</a></div>` : ''}
+      ${e.conCatalogo ? `<a class="btn-sec" href="#gastos/catalogo">${ic('ir', 16)} Ir a Gastos → Ítems</a>` : `<a class="btn-sec" href="#finanzas/resultados/clasificacion">${ic('ir', 16)} Ir a Clasificación</a>`}</div>` : ''}
   </section>`;
 }
 // ── Vista secundaria: comunes repartidos por causa ──
@@ -234,7 +239,7 @@ function htmlClaves(H, e) {
   const selAsig = (id, asig, conTipo) => `<select id="${id}" data-e-asig="${id}">${conTipo ? `<option value="">Como su tipo</option>` : '<option value="">Sin repartir</option>'}${FE.BASES.map(b => `<option value="${b.k}" ${asig && asig.base === b.k ? 'selected' : ''}>${H.esc(b.t)}</option>`).join('')}</select>`;
   const manual = (id, asig) => `<div class="fin-epcts ${asig && asig.base === 'manual' ? '' : 'oculto'}" data-e-man="${id}">${A.map(a => `<label><span>${FE.NOMBRE_COL[a]} %</span><input type="number" inputmode="decimal" min="0" max="100" step="any" data-e-pct="${id}" data-area="${a}" value="${asig && asig.base === 'manual' && asig.pct ? H.esc(String(asig.pct[a] ?? '')) : ''}"></label>`).join('')}</div>`;
   const items = [];
-  ['remComun', 'fijosComun', 'depComun'].forEach(k => { const vistos = new Set(); ((e.detalle || {})[k + '.comun'] || []).forEach(r => { const c = r.clave || FR.claveItem(r.item || r.nombre); if (c && !vistos.has(c)) { vistos.add(c); items.push({ clave: c, item: r.item || r.nombre || c }); } }); });
+  ['remComun', ...FE.FILAS_COMUNES_FIJOS, 'depComun'].forEach(k => { const vistos = new Set(); ((e.detalle || {})[k + '.comun'] || []).forEach(r => { const c = r.clave || FR.claveItem(r.item || r.nombre); if (c && !vistos.has(c)) { vistos.add(c); items.push({ clave: c, item: r.item || r.nombre || c }); } }); });
   return `<details class="tarjeta plegable fin-eclaves" id="e-claves" ${ES.abiertas.claves ? 'open' : ''}><summary class="titulo-fila"><h3>Claves de reparto ${H.info('Claves de reparto', 'Con qué se reparte cada común entre las áreas, solo para la vista secundaria:\n· Metros cuadrados: arriendo, aseo, seguros del local.\n· Maquinaria (kWh): luz, gas, mantención de equipos.\n· Horas de trabajo: remuneraciones comunes, administración.\n· % a mano: lo que quieras (tiene que sumar 100).\nCada tipo de común tiene su clave; un ítem puede tener una propia que manda sobre la del tipo. Sin clave, queda sin repartir.')}</h3></summary>
     <form id="e-claves-f" novalidate>
       <h4>Bases por área</h4>
@@ -248,7 +253,7 @@ function htmlClaves(H, e) {
 }
 
 // ── Detalle de una cifra ──
-const NOMBRE_DET = { compras: 'Compras', enMargen: 'Ya en el margen', fuera: 'Fuera del resultado', pagosTarjeta: 'Pagos de tarjeta de crédito', sinClasificar: 'Sin clasificar' };
+const NOMBRE_DET = { compras: 'Compras', enMargen: 'Ya en el margen', fuera: 'Fuera del resultado', pagosTarjeta: 'Pagos de tarjeta de crédito', sinClasificar: 'Sin clasificar' };   // las filas (packaging, tiendas…) usan su texto de FE.FILA
 function refsDe(e, k, col) {
   const D = e.detalle || {};
   if (col === 'total' && !D[k + '.total']) return FE.COLS.flatMap(c => D[k + '.' + c] || []);
@@ -257,11 +262,11 @@ function refsDe(e, k, col) {
 function dialogoDetalle(H, e, k, col) {
   const refs = refsDe(e, k, col);
   const f = FE.FILA[k], tit = f ? f.t : k.startsWith('ventasCanal_') ? `Ventas netas · ${FE.NOMBRE_SUC[k.slice(12)]}` : (NOMBRE_DET[k] || k);
-  const colTxt = FE.NOMBRE_COL[col] || ({ mp: 'materias primas', reventa: 'reventa', capital: 'capital de créditos', impuestos: 'impuestos', inversion: 'inversiones', retiro: 'retiros', otro: 'otros' }[col] || col);
-  const tot = refs.reduce((a, r) => a + (k.startsWith('costoDirecto') ? r.costo : k === 'costosVenta' ? r.costoVenta : r.neto), 0);
+  const colTxt = FE.NOMBRE_COL[col] || ({ mp: 'materias primas', reventa: 'reventa', capital: 'capital de créditos', impuestos: 'impuestos', deuda: 'deuda con el fisco', inversion: 'inversiones', retiro: 'retiros', otro: 'otros' }[col] || col);
+  const tot = refs.reduce((a, r) => a + (r.tipo !== 'venta' ? r.neto : k.startsWith('costoDirecto') ? r.costo : k === 'costosVenta' ? r.costoVenta : r.neto), 0);   // v0.102.0: costos de venta también desde Gastos
   const linea = r => {
     if (r.tipo === 'venta') { const v = k === 'costoDirecto' ? r.costo : k === 'costosVenta' ? r.costoVenta : r.neto; return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(FE.NOMBRE_SUC[r.suc] || r.suc)}</div><span class="ayuda">${nf(r.unidades)} un · venta ${pesos(r.neto)} · costo ${pesos(r.costo)} · costos de venta ${pesos(r.costoVenta)}${r.ok ? '' : ` · ${H.esc(r.motivo || 'sin costo')}`}</span><b class="fin-edval">${pesos(v)}</b></li>`; }
-    if (r.tipo === 'gasto') return `<li><div><b>${H.esc(r.item)}</b> · ${fechaTxt(r.fecha)} · ${H.esc(r.area)}</div><span class="ayuda">${H.esc([r.proveedor, r.obs].filter(Boolean).join(' · ') || '—')} · ${H.esc(FR.textoTipo(r.tipoRes))}</span><span class="fin-edacc"><b class="fin-edval">${pesos(r.neto)}</b><button type="button" class="fin-mlink" data-e-ver="${H.esc(r.item)}" data-e-vermes="${H.esc(String(r.fecha).slice(0, 7))}">Ver en Gastos</button></span></li>`;
+    if (r.tipo === 'gasto') return `<li><div><b>${H.esc(r.item)}</b>${r.itemOriginal ? ` <small>(guardado como ${H.esc(r.itemOriginal)})</small>` : ''} · ${fechaTxt(r.fecha)} · ${H.esc(r.area)}</div><span class="ayuda">${H.esc([r.proveedor, r.obs].filter(Boolean).join(' · ') || '—')} · ${H.esc(FR.textoLinea(r.tipoRes, r.cuenta))}</span><span class="fin-edacc"><b class="fin-edval">${pesos(r.neto)}</b><button type="button" class="fin-mlink" data-e-ver="${H.esc(r.item)}" data-e-vermes="${H.esc(String(r.fecha).slice(0, 7))}">Ver en Gastos</button></span></li>`;
     if (r.tipo === 'cargo') return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(FE.NOMBRE_SUC[r.suc] || r.suc)}${r.catalogoId ? ` · ${H.esc(r.catalogoId)}` : ''}</div><span class="ayuda">${nf(r.unidades)} cobrados · cargo del Catálogo (no es venta de un producto)</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
     if (r.tipo === 'merma') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">${r.cantidad ? `${nf(r.cantidad)} ${H.esc(r.unidad || '')} · ` : ''}merma de Producción, neto</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
     if (r.tipo === 'credito') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">Interés de ${nf(r.cuotas)} ${r.cuotas === 1 ? 'cuota pagada' : 'cuotas pagadas'} en el mes (capital ${pesos(r.capital)}, fuera del resultado) · tabla del crédito</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
@@ -326,14 +331,14 @@ async function datosCierre(R, mes) {
   const D = R.datos;
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo: ${D.gn.error}`);
   if (F.delGastosNuevo(mes) && D.gn) {
-    const GF = await import('./gn-finanzas.js?v=0.101.1');
+    const GF = await import('./gn-finanzas.js?v=0.102.0');
     const [e, dm, conteos] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes)]);
     ES.conteos[mes] = conteos;
-    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.101.1')).indicePagos(G.pagos || []) : null;
+    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.102.0')).indicePagos(G.pagos || []) : null;
     const pagado = pv ? (I.porDoc[pv.id] || []).reduce((a, p) => a + (Number(p.monto) || 0), 0) : 0;
     const gn = { sii: GF.siiDelMes(G.cargas, mes), movs: GF.movsSinRevisarDelMes(G, mes), sinClas: GF.sinClasificarDelMes(G, mes),
       previred: pv ? { total: Number(pv.total) || 0, pagado, completo: pagado >= (Number(pv.total) || 0) - GF.TOL } : null };
-    const checks = FE.checksCierre({ mes, gn, ventas: dm.ventasInfo, conteos, sinClasificar: e.info.sinClasificar });
+    const checks = FE.checksCierre({ mes, gn, ventas: dm.ventasInfo, conteos, sinClasificar: e.info.sinClasificar, catalogo: conCatalogo(R) });
     return { e, checks };
   }
   const [e, dm, conteos, sii, planillas] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes), ES.sii ? Promise.resolve(ES.sii) : F.cargasSii(), F.planillasPrevired()]);
@@ -382,7 +387,7 @@ function htmlCierre(H, x, hist) {
       <div class="botones fin-cbot"><button type="button" class="btn" id="c-cerrar">${ic('candado', 16)} Cerrar ${H.esc(FE.mesTxt(ES.mes))}</button></div>`;
   }
   return `<section class="tarjeta" aria-labelledby="t-c-cierre">
-    <div class="titulo-fila fin-titulo"><h2 id="t-c-cierre">Cierre de mes ${H.info('Cierre de mes', TXT_CIERRE)}</h2><a class="btn-link" href="#finanzas/resumen" id="c-ir-resumen">Ver el Resumen del mes</a></div>
+    <div class="titulo-fila fin-titulo"><h2 id="t-c-cierre">Cierre de mes ${H.info('Cierre de mes', TXT_CIERRE)}</h2>${F.gnActivo() ? '' : '<a class="btn-link" href="#finanzas/resumen" id="c-ir-resumen">Ver el Resumen del mes</a>'}</div>
     <div class="fin-ecab">${selectorMes(H, 'c-mes')}</div>
     <p class="ok-texto" id="c-msg" role="status">${H.esc(ES.msg)}</p>
     ${cuerpo}

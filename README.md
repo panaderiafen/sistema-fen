@@ -1,9 +1,32 @@
-# Sistema Fën · v0.101.1
+# Sistema Fën · v0.102.0
 
-**App:** v0.101.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 25 de octubre de 2026
+**App:** v0.102.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 25 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.102.0: catálogo de ítems = entrada al plan de cuentas
+
+Aprobado por Emmanuel el 25 oct (hoja de ruta, sección 5, paso 2; tabla en `claude/revision-items-contra-mapa.md`).
+- **Gastos → Ítems (pestaña nueva).** El catálogo aprobado: 29 ítems en 9 grupos ("personal" se dice "trabajadores"). Cada ítem apunta a una cuenta del plan de cuentas, y la cuenta dice dónde va en los estados financieros. El ítem dice qué es; el área o el reparto dicen dónde (hay un solo LUZ, no uno por local). Se crean ítems nuevos, se cambia la cuenta, se archivan (con su reemplazo). Los ítems del sistema (F29, Previred, créditos) tienen su cuenta fija.
+- **El paso al catálogo nuevo se hace una vez, con vista previa.** Muestra el total de cada mes antes y después (no cambia: solo cambia dónde queda cada peso), lo que pasa solo, OTROS INSUMOS por proveedor (packaging o insumos de aseo; se sugiere cuando el detalle de la factura es claro) y los nombres que no están en la tabla. Nada se escribe hasta "Pasar al catálogo nuevo".
+- **Nada se borra.** Los nombres antiguos quedan archivados y apuntan al nuevo: los documentos ya clasificados no se reescriben (cuentan con el ítem nuevo). Las fichas de los proveedores y los compromisos pasan al nombre nuevo, con su historial. Solo se cambian los documentos con OTROS INSUMOS (lo que usted decide por proveedor).
+- **Revisar ítem.** Un nombre en uso que no llega a un ítem con cuenta aparece en Gastos → Ítems para ubicarlo (pasa a un ítem, o es uno nuevo). Mientras, su gasto queda "sin clasificar" en el estado de resultados.
+- **Al clasificar**, el ítem se elige del catálogo (la lista muestra su grupo). Un nombre antiguo se guarda con el nuevo; uno que no existe no se acepta (se crea antes en Gastos → Ítems, con su cuenta). Esto cambia un poco la forma de trabajar: antes se podía escribir cualquier nombre.
+- **Finanzas lee la cuenta de cada ítem** (ya no Finanzas → Clasificación). El estado de resultados suma líneas nuevas: **packaging** en el piso 1 (por área), el **arriendo del POS** con las comisiones, el **bloque de cada tienda** (costos con área B2C-BA o B2C-AI, como el canal B2B) y, entre los comunes, **marketing, seguros, transporte y capacitación** (estas aparecen solo cuando el mes tiene algo). Si el gasto tiene un área de producción (por ejemplo, fotos solo de café o una capacitación de panadería), lo asume esa área, en sus gastos fijos; con área ADMIN, va a su línea entre los comunes. La cuota de un **convenio de la TGR** queda fuera del resultado (baja una deuda). Las inversiones (equipos, habilitación, intangible) salen de su cuenta. El mapa de áreas de Clasificación ya no se usa.
+- **Comisiones de Transbank y Mercado Pago (ítem COMISIONES DE TARJETA Y MERCADO PAGO):** sus facturas se registran, pero no suman otra vez: el margen ya resta la comisión como % de la venta (quedan en "Ya en el margen"). El **arriendo del POS** sí suma (el % no lo incluye). El **flete de lo que se compra a Santiago** va en TRANSPORTE Y COMBUSTIBLE: no es el despacho a clientes B2B que resta el margen.
+- **OTROS INSUMOS ya no se pierde:** antes contaba como compra de materias primas y no entraba al resultado (no está en ninguna receta).
+- **Deuda anterior con cargo anterior:** una factura de septiembre pagada en septiembre se une con su cargo (deja los dos cerrados, sin efecto en el resultado). La deuda anterior ya no pide clasificación (salvo un pago que se reparte en varios meses).
+- **Cierre de mes:** el conteo de bodega de las jefas pasa a aviso (no impide cerrar): sirve para el punto de pedido; el inventario se cuenta completo en cada balance. "Gastos clasificados" pasa a "Ítems con su cuenta" y lleva a Gastos → Ítems.
+- **Se retiran:** Finanzas → Clasificación (queda solo como historial), Finanzas → Créditos (solo consulta; desde octubre los créditos están en Gastos → Compromisos → Créditos) y Finanzas → Resumen del mes (sus revisiones están en Cierre de mes; el enlace desde Ventas B2B → Conciliación también se quitó). Las reglas de conciliación antiguas ya no se podían abrir con el Gastos nuevo.
+- Costo: el catálogo es una lectura de unos 50 documentos al abrir Gastos. La vista previa lee una vez lo guardado en Clasificación.
+Archivos nuevos `plan-cuentas.js` y `gn-items.js`. Cambian `gn-fs.js`, `gn-bandeja.js`, `gn-finanzas.js`, `vista-gn.js`, `finanzas-resultados.js`, `finanzas-eerr.js`, `vista-finanzas-eerr.js`, `vista-finanzas-resultados.js`, `vista-finanzas.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.102.0`). Colección nueva en fen-gastos: `gn_items` (las reglas actuales la permiten).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda) y abrir con Cmd + Shift + R: abajo dice v0.102.0.
+- [ ] Gastos → Ítems → "Ver la vista previa": revisar el total de octubre, decidir OTROS INSUMOS de cada proveedor y ubicar los nombres que no están en la tabla (o dejarlos para después).
+- [ ] "Pasar al catálogo nuevo". Después, en Gastos → Ítems, revisar que no quede nada en "Revisar ítem".
+- [ ] Finanzas → Resultados → octubre: ver las líneas nuevas (packaging, tiendas, marketing…) y que la cuadratura dé $0.
+- [ ] Si algún ítem quedó en otra cuenta de lo que usted espera, cámbielo en Gastos → Ítems (rige para los meses abiertos).
 
 ## Novedades de la v0.101.1: desde cero en octubre (reemplaza el empalme de la v0.101.0)
 
@@ -16,7 +39,7 @@ Decidido por Emmanuel el 25 oct: Finanzas parte en octubre y no se rescata lo an
 - **Arreglo importante: precios de las materias primas.** Desde que se usa el Gastos nuevo, las compras del SII no actualizaban los precios de las materias primas (Finanzas los leía del Gastos anterior), y el costo de las recetas se quedaba quieto. Ahora, al subir compras del SII en Gastos, Finanzas revisa los precios con el detalle de esas facturas (como antes) y lo avisa en el mensaje.
 - Las facturas del SII ahora guardan el código y el precio unitario de cada producto (las asociaciones de Finanzas usan el código). Las de octubre ya cargadas se completan al subir otra vez su XML.
 - Hoy ya no muestra el avance de la conciliación antigua.
-Cambian `gn-modelo.js`, `gn-finanzas.js`, `finanzas.js`, `finanzas-sii.js`, `finanzas-eerr.js`, `vista-finanzas-eerr.js`, `gn-fs.js`, `gn-bandeja.js`, `vista-gn.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.101.1`).
+Cambian `gn-modelo.js`, `gn-finanzas.js`, `finanzas.js`, `finanzas-sii.js`, `finanzas-eerr.js`, `vista-finanzas-eerr.js`, `gn-fs.js`, `gn-bandeja.js`, `vista-gn.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.102.0`).
 
 - [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda) y abrir con Cmd + Shift + R: abajo dice v0.101.1.
 - [ ] Gastos → Archivos subidos: ya no aparece la Revisión de octubre.

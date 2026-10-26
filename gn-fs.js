@@ -10,12 +10,13 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.101.1';
-import { dbBase, correo } from './gastos-fs.js?v=0.101.1';
-import { ahoraChile } from './gastos-g2.js?v=0.101.1';
-import * as GN from './gn-modelo.js?v=0.101.1';
-import * as GB from './gn-bandeja.js?v=0.101.1';
-import * as GP from './gn-pdf.js?v=0.101.1';
+import * as FB from './fs-gastos.js?v=0.102.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.102.0';
+import { ahoraChile } from './gastos-g2.js?v=0.102.0';
+import * as GN from './gn-modelo.js?v=0.102.0';
+import * as GB from './gn-bandeja.js?v=0.102.0';
+import * as GP from './gn-pdf.js?v=0.102.0';
+import * as GI from './gn-items.js?v=0.102.0';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -28,7 +29,9 @@ const inicio = () => (typeof window !== 'undefined' && window.FEN_SIS && window.
 
 // ── Lecturas ──
 export async function leer() {
-  const [docs0, movs, cargas, pagos, provs, cfg, items, reps0, comps, creds] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.movs), todos(GN.COL.cargas), todos(GN.COL.pagos), todos(GN.COL.provs), todos(GN.COL.config), todos('items').catch(() => []), todos(GN.COL.repartos), todos(GN.COL.compromisos).catch(() => []), todos(GN.COL.creditos).catch(() => [])]);
+  // v0.102.0 · El catálogo de ítems (gn_items). Mientras no se pase al catálogo nuevo, la lista de siempre (la del Gastos anterior) se sigue leyendo.
+  const cat = await todos(GI.COL), conCat = GI.activo(cat);   // si no se puede leer, Gastos avisa el error (no vuelve en silencio a la lista antigua)
+  const [docs0, movs, cargas, pagos, provs, cfg, items, reps0, comps, creds] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.movs), todos(GN.COL.cargas), todos(GN.COL.pagos), todos(GN.COL.provs), todos(GN.COL.config), conCat ? Promise.resolve([]) : todos('items').catch(() => []), todos(GN.COL.repartos), todos(GN.COL.compromisos).catch(() => []), todos(GN.COL.creditos).catch(() => [])]);
   // v0.96.0 · Los compromisos crean el documento del mes cuando el mes empieza (una vez: después ya está)
   let docs = docs0; const hoyCl = ahoraChile().dia, faltan = GB.compromisosPendientes(comps, docs0, inicio(), hoyCl)
     .concat(GB.cuotasPendientes(creds, docs0, inicio(), hoyCl, c => GP.partesCuota(c)));   // v0.97.0: y la cuota de cada crédito, el mes en que vence
@@ -36,6 +39,8 @@ export async function leer() {
   // v0.101.1 · Desde cero en octubre: el Gastos anterior ya no se lee. Las sugerencias que se armaron con él (una vez) quedan guardadas y se
   // siguen usando; si no existen, no se arman. El índice "¿ya está en el Gastos anterior?" (gastosAnteriores) ya no se usa.
   const sug = cfg.find(x => x.id === 'sugerencias') || { porProveedor: {} };
+  // v0.102.0 · Con el catálogo, lo sugerido usa el ítem que cuenta (un nombre antiguo pasa al nuevo); lo que no tiene ítem activo no se sugiere
+  const I = conCat ? GI.indice(cat) : null, sugeridas = !I ? (sug.porProveedor || {}) : Object.fromEntries(Object.entries(sug.porProveedor || {}).map(([k, v]) => { const r = v && GI.resolver(v.item, I); return r && r.ok ? [k, { ...v, item: r.nombre }] : null; }).filter(Boolean));
   // v0.96.0 · Los repartos iniciales se crean la primera vez (una sola vez: si ya hay alguno, no se toca)
   let reps = reps0;
   if (!reps.length) { try { await crearRepartosIniciales(); reps = await todos(GN.COL.repartos); } catch (e) { reps = []; } }
@@ -44,7 +49,8 @@ export async function leer() {
     const sin = o => JSON.stringify({ ...(o || {}), dia: '', _m: null, id: null });
     if (!prev || sin(prev) !== sin(R) || prev.dia !== R.dia) { const dd = await dbBase(), b = FB.writeBatch(dd); b.set(FB.doc(dd, GN.COL.config, 'resumen'), R); await b.commit(); } } catch (e) { /* el resumen es solo un aviso */ }
   return { docs, movs, cargas: cargas.sort((a, b) => String(b.en || '').localeCompare(String(a.en || ''))), pagos, provs: Object.fromEntries(provs.map(p => [p.id, p])),
-    creditos: creds.map(cr => ({ ...cr, cuotas: GP.separarCuotas(cr.cuotas || [], cr.montoOriginal, cr.tasa) })), compromisos: comps.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre))), sugeridas: (sug && sug.porProveedor) || {}, items: itemsConUsados(itemsDe(items), docs, provs, comps), repartos: Object.fromEntries(reps.filter(r => r.estado !== 'archivado').map(r => [r.id, r])), inicio: inicio() };
+    creditos: creds.map(cr => ({ ...cr, cuotas: GP.separarCuotas(cr.cuotas || [], cr.montoOriginal, cr.tasa) })), compromisos: comps.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre))), sugeridas, items: conCat ? GI.paraElegir(cat) : itemsConUsados(itemsDe(items), docs, provs, comps), catalogo: cat, itemsViejos: conCat ? [] : items.filter(x => x.item && !x.quitadoEnPlanilla).map(x => ({ item: String(x.item), archivado: !!x.archivado || x.estado === 'ARCHIVADO' })),
+    repartos: Object.fromEntries(reps.filter(r => r.estado !== 'archivado').map(r => [r.id, r])), inicio: inicio() };
 }
 // v0.99.0 · La lista de ítems para clasificar: el catálogo de siempre y, después, los que ya se usaron en el Gastos nuevo (clasificaciones,
 // fichas, productos y compromisos) aunque no estén en el catálogo: así un ítem nuevo se reutiliza igual. En la Etapa 4 pasan al catálogo nuevo.
@@ -434,4 +440,101 @@ export async function registrarSinBanco(p) {
     if (pref) tx.set(pref, limpio({ rut: doc.rut, razon: doc.razon, item: doc.clasif.item, modo: (prev && prev.modo) || 'fijo', areas: prev && prev.modo === 'item' ? [] : areas, repartoId: p.repartoId || '', por: h.por, en: h.en, historial: conHist(prev, h) }), { merge: true });
   });
   return docId;
+}
+
+// ═══════════════ v0.102.0 · Catálogo de ítems (gn_items) ═══════════════
+// Para la vista previa: el tipo con que contaba cada ítem en Finanzas → Clasificación (solo se lee, una vez, al abrir la vista previa)
+export async function leerFinItems() {
+  try { return Object.fromEntries((await todos('fin_items')).map(x => [x.id, x])); } catch (e) { return {}; }
+}
+// Pasar al catálogo nuevo (una sola vez). plan: GI.planMigracion. dec: { otros: { claveProveedor: ítem }, revisar: { NOMBRE: ítem } }.
+// Escribe: los ítems nuevos y los del sistema; los nombres antiguos archivados (con su reemplazo); las fichas de los proveedores y los
+// compromisos con el nombre nuevo; y solo los documentos con OTROS INSUMOS (lo que se decidió para su proveedor). Todo con historial.
+export async function aplicarCatalogo(plan, dec = {}) {
+  const d = await dbBase(), h = marca('pasó al catálogo nuevo de ítems (v0.102.0)');
+  // Se puede repetir si se cortó a medias: las fichas, compromisos y documentos van primero (lo ya cambiado no se vuelve a tocar) y el
+  // catálogo al final, así queda activo solo cuando todo lo demás está escrito.
+  const cfg = await FB.getDoc(FB.doc(d, GN.COL.config, 'catalogo'));
+  if (cfg.exists() && cfg.data().migrado) throw error('El catálogo nuevo ya se había creado: recargue Gastos.', 'cambio');
+  const [docs, provs, comps] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.provs), todos(GN.COL.compromisos).catch(() => [])]);
+  const ops = [], fin = [], hist = (que, extra) => [{ ...h, que, ...(extra || {}) }];
+  plan.crear.forEach(x => fin.push(['set', GI.COL, x.clave, limpio({ nombre: x.nombre, grupo: x.grupo, cuenta: x.cuenta, estado: 'activo', sistema: !!x.sistema, elegible: !!x.elegible, area: '', creado: { por: h.por, en: h.en }, historial: hist('creado en el catálogo nuevo') })]));
+  const creados = new Set(plan.crear.map(x => x.clave));
+  plan.archivar.forEach(x => { if (creados.has(x.clave)) return; fin.push(['set', GI.COL, x.clave, limpio({ nombre: x.nombre, grupo: '', cuenta: '', estado: 'archivado', pasaA: x.pasaA || '', motivo: x.motivo, deAnterior: true, creado: { por: h.por, en: h.en }, historial: hist('archivado al pasar al catálogo nuevo' + (x.pasaA ? ': pasa a ' + x.pasaA : '')) })]); });
+  // Los nombres por ubicar que se decidieron: archivados con su reemplazo (así sus documentos ya clasificados cuentan con el nuevo)
+  Object.entries(dec.revisar || {}).forEach(([k, nuevo]) => { const r = plan.revisar.find(x => GN.norm(x.nombre) === k); if (!r || !nuevo) return; const c = GI.claveItem(r.nombre); if (creados.has(c)) return;
+    fin.push(['set', GI.COL, c, limpio({ nombre: r.nombre, grupo: '', cuenta: '', estado: 'archivado', pasaA: nuevo, motivo: 'ubicado al pasar al catálogo nuevo', creado: { por: h.por, en: h.en }, historial: hist('ubicado: pasa a ' + nuevo) })]); });
+  let fichas = 0, ncomps = 0, ndocs = 0;
+  provs.forEach(p => { const c = GI.cambiosFicha(p, dec, p.id); if (!c) return; fichas++; ops.push(['update', GN.COL.provs, p.id, { ...limpio(c.cambios), historial: conHist(p, marca('ítems del catálogo nuevo: ' + c.texto)) }]); });
+  const P = Object.fromEntries(provs.map(p => [p.id, p]));
+  comps.forEach(x => { const f = GI.nombreFinal(x.item, dec, GI.claveGrupo(GB.docDeCompromiso(x, '2000-01'), P)); if (!f || GN.norm(f) === GN.norm(x.item)) return; ncomps++; ops.push(['update', GN.COL.compromisos, x.id, { item: f, historial: conHist(x, marca(`ítem del catálogo nuevo: ${x.item} → ${f}`)) }]); });
+  docs.forEach(x => { const c = GI.cambiosDoc(x, dec, GI.claveGrupo(x, P)); if (!c) return; ndocs++; ops.push(['update', GN.COL.docs, x.id, { clasif: limpio(c), historial: conHist(x, marca('OTROS INSUMOS pasa a ' + GB.textoPartes(c.partes || []))) }]); });
+  fin.push(['set', GN.COL.config, 'catalogo', { migrado: { por: h.por, en: h.en, version: '0.102.0', items: plan.crear.length, archivados: plan.archivar.length, fichas, compromisos: ncomps, documentos: ndocs } }]);
+  await enLotes(d, ops); await enLotes(d, fin);
+  return { items: plan.crear.length, archivados: plan.archivar.length, fichas, compromisos: ncomps, documentos: ndocs };
+}
+// Crear o cambiar un ítem (el nombre no cambia: para otro nombre se crea uno nuevo y el antiguo se archiva apuntando a él)
+export async function guardarItem(clave, datos) {
+  const cat = await todos(GI.COL);
+  return enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GI.COL, clave || GI.claveItem(datos.nombre)), sn = await tx.get(ref), prev = sn.exists() ? sn.data() : null;
+    if (!clave && prev) throw error(`Ya existe un ítem «${prev.nombre}» (puede estar archivado).`, 'datos');
+    if (clave && !prev) throw error('Ese ítem ya no está.', 'cambio');
+    const x = GI.validarItem(datos, prev, cat), h = marca(prev ? 'cambió el ítem' : 'creó el ítem', { grupo: x.grupo, cuenta: x.cuenta });
+    tx.set(ref, limpio({ ...x, estado: (prev && prev.estado) || 'activo', sistema: false, ...(prev ? {} : { creado: { por: h.por, en: h.en } }), historial: conHist(prev, h) }), { merge: true });
+    return ref.id;
+  });
+}
+// Archivar (con su reemplazo, opcional) o reactivar. Con reemplazo, las fichas y los compromisos que lo usan pasan al nuevo (con historial);
+// los documentos ya clasificados no se tocan (el archivado apunta al nuevo).
+export async function archivarItem(clave, { archivar = true, pasaA = '' } = {}) {
+  const [cat, provs, comps] = await Promise.all([todos(GI.COL), todos(GN.COL.provs), todos(GN.COL.compromisos).catch(() => [])]);
+  const x = cat.find(i => i.id === clave); if (!x) throw error('Ese ítem ya no está.', 'cambio');
+  if (x.sistema) throw error('Los ítems del sistema no se archivan.', 'datos');
+  const err = archivar ? GI.validarArchivo(x.nombre, pasaA, cat) : ''; if (err) throw error(err, 'datos');
+  const nuevo = pasaA ? cat.find(i => GN.norm(i.nombre) === GN.norm(pasaA)).nombre : '';
+  if (!archivar && !(x.grupo && x.cuenta)) throw error('Este nombre se archivó al pasar al catálogo nuevo y no tiene grupo ni cuenta: si se reactiva, sus documentos dejarían de contar con su reemplazo. Cree un ítem nuevo si lo necesita.', 'datos');
+  const d = await dbBase(), ops = [], h = marca(archivar ? `archivado${nuevo ? ': pasa a ' + nuevo : ''}` : 'reactivado');
+  const b = { update: (col, id, dato) => ops.push(['set', col, id, dato]) };
+  b.update(GI.COL, clave, { estado: archivar ? 'archivado' : 'activo', pasaA: archivar ? nuevo : '', historial: conHist(x, h) });
+  let n = 0;
+  if (archivar && nuevo) {
+    const sol = n0 => (GN.norm(n0) === GN.norm(x.nombre) ? nuevo : '');
+    provs.forEach(p => { const c = cambiosNombre(p, sol); if (c) { n++; b.update(GN.COL.provs, p.id, { ...limpio(c.cambios), historial: conHist(p, marca('ítem archivado: ' + c.texto)) }); } });
+    comps.forEach(c => { if (GN.norm(c.item) === GN.norm(x.nombre)) { n++; b.update(GN.COL.compromisos, c.id, { item: nuevo, historial: conHist(c, marca(`ítem archivado: ${c.item} → ${nuevo}`)) }); } });
+  }
+  await enLotes(d, ops);
+  return n;
+}
+// Escribe en tandas de 400 (el límite de Firestore es 500). set con merge: un documento que ya no está no corta la tanda.
+async function enLotes(d, ops) {
+  for (let i = 0; i < ops.length; i += 400) {
+    const b = FB.writeBatch(d);
+    ops.slice(i, i + 400).forEach(([, col, id, dato]) => b.set(FB.doc(d, col, id), dato, { merge: true }));
+    await b.commit();
+  }
+}
+const cambiosNombre = (p, f) => {
+  const out = {}, txt = [];
+  if (p.item && f(p.item)) { out.item = f(p.item); txt.push(`${p.item} → ${out.item}`); }
+  let cp = false; const np = {}; Object.entries(p.productos || {}).forEach(([k, v]) => { const z = v && v.item ? f(v.item) : ''; np[k] = z ? { ...v, item: z } : v; if (z) { cp = true; txt.push(`${k}: ${v.item} → ${z}`); } });
+  if (cp) out.productos = np;
+  return Object.keys(out).length ? { cambios: out, texto: txt.slice(0, 6).join(' · ') } : null;
+};
+// Un nombre en uso que no está en el catálogo ("Revisar ítem"): pasa a un ítem que existe, o se crea como ítem nuevo con su grupo y cuenta
+export async function ubicarItem(nombre, { pasaA = '', grupo = '', cuenta = '' } = {}) {
+  const cat = await todos(GI.COL), clave = GI.claveItem(nombre), prev = cat.find(i => i.id === clave) || null;
+  if (pasaA) {
+    const err = GI.validarArchivo(nombre, pasaA, cat); if (err) throw error(err, 'datos');
+    const nuevo = cat.find(i => GN.norm(i.nombre) === GN.norm(pasaA)).nombre, h = marca('ubicado: pasa a ' + nuevo);
+    const d = await dbBase(), b = FB.writeBatch(d);
+    b.set(FB.doc(d, GI.COL, clave), limpio({ nombre: prev ? prev.nombre : String(nombre).trim(), grupo: '', cuenta: '', estado: 'archivado', pasaA: nuevo, ...(prev ? {} : { creado: { por: h.por, en: h.en } }), historial: conHist(prev, h) }), { merge: true });
+    await b.commit();
+    return clave;
+  }
+  const x = GI.validarItem({ nombre, grupo, cuenta }, prev && prev.estado === 'activo' ? prev : null, prev ? cat.filter(i => i.id !== clave) : cat), h = marca('ubicado: ítem nuevo', { grupo: x.grupo, cuenta: x.cuenta });
+  const d = await dbBase(), b = FB.writeBatch(d);
+  b.set(FB.doc(d, GI.COL, clave), limpio({ ...x, nombre: prev ? prev.nombre : x.nombre, estado: 'activo', pasaA: '', sistema: false, ...(prev ? {} : { creado: { por: h.por, en: h.en } }), historial: conHist(prev, h) }), { merge: true });
+  await b.commit();
+  return clave;
 }

@@ -11,8 +11,9 @@
 //  Todo en neto. Nada de esto cambia los gastos: es una capa de Finanzas (fen-gastos: fin_items, fin_config,
 //  fin_creditos, fin_inversiones).
 // ═══════════════════════════════════════════════
-import { idLimpio } from './gastos-modelo.js?v=0.101.1';
-import * as AR from './areas.js?v=0.101.1';
+import { idLimpio } from './gastos-modelo.js?v=0.102.0';
+import * as AR from './areas.js?v=0.102.0';
+import * as PC from './plan-cuentas.js?v=0.102.0';   // v0.102.0: con el catálogo de ítems, el tipo sale de la cuenta
 
 export const ANIO = 2026;
 // v0.69.1: las áreas propias son las de margen (las 4 de producción + REVENTA), de areas.js
@@ -27,10 +28,13 @@ export const TIPOS = [
   { k: 'compras_reventa', t: 'Compras de productos de reventa', corto: 'Compras reventa', grupo: 'compra', ayuda: 'Bebidas y otros productos que se compran hechos. Su costo ya está en el margen de la reventa; las compras se usan después para la desviación.' },
   { k: 'remuneraciones', t: 'Remuneraciones', corto: 'Remuneraciones', grupo: 'costo', ayuda: 'Sueldos, cotizaciones (Previred), finiquitos y bonos. Van al área del gasto: fijo propio si es Panadería, Bollería, Pastelería o Cafetería; común si es Administración o Ventas. El sueldo empresarial va como común.' },
   { k: 'fijo', t: 'Gasto fijo', corto: 'Fijo', grupo: 'costo', ayuda: 'Arriendo, luz, agua, gas, internet, teléfono, contabilidad, seguros, mantención. Fijo propio si el área del gasto es una de producción (según el mapa de áreas); común si es Administración, Ventas u otra.' },
+  // v0.102.0 · Desde la cuenta del ítem (plan-cuentas.js): comisiones de medios de pago y arriendo del POS (5.4) y packaging (5.7)
+  { k: 'costo_venta', t: 'Costo de venta', corto: 'Costo de venta', grupo: 'costo', ayuda: 'Lo que lleva consigo cada venta y no está en la receta: comisiones y arriendo del POS (5.4) y packaging (5.7). Va al piso 1, en el área del gasto.' },
   { k: 'en_margen', t: 'Ya incluido en el margen', corto: 'En el margen', grupo: 'margen', ayuda: 'Comisiones de tarjeta y despacho B2B: ya se restan en el margen de contribución (Márgenes → Ajustes). No se cuentan dos veces.' },
   { k: 'financiero', t: 'Gasto financiero', corto: 'Financiero', grupo: 'costo', ayuda: 'Intereses, multas (como las de Previred por pagar atrasado), comisiones y mantención de la cuenta del banco. Entran al resultado como gasto común (debajo de los tres pisos).' },
   { k: 'fuera_capital_credito', t: 'Cuota de crédito', corto: 'Cuota de crédito', grupo: 'fuera', ayuda: 'El capital de la cuota no es gasto: es devolver el préstamo (va al flujo de caja). El interés sí es gasto financiero: se separa con la tabla del crédito (pestaña Créditos).' },
   { k: 'fuera_impuestos', t: 'Impuestos (F29, IVA, PPM)', corto: 'Impuestos', grupo: 'fuera', ayuda: 'El pago del F29 (IVA y PPM) no es gasto del mes: todo se mide en neto y el IVA va al flujo de caja. El PPM es un anticipo del impuesto a la renta.' },
+  { k: 'fuera_deuda', t: 'Deuda con el fisco (convenio TGR)', corto: 'Deuda con el fisco', grupo: 'fuera', ayuda: 'La cuota de un convenio de pago con la TGR baja una deuda: no es gasto del mes. Sus intereses y multas sí son gasto financiero.' },
   { k: 'inversion', t: 'Inversión', corto: 'Inversión', grupo: 'fuera', ayuda: 'Equipos, maquinaria, muebles, computadores o remodelaciones que duran años. No entran enteros al mes en que se compran: entran como depreciación mensual según su vida útil (pestaña Inversiones).' },
   { k: 'retiro', t: 'Retiro del dueño', corto: 'Retiro', grupo: 'fuera', ayuda: 'Plata que sale para el dueño. No es gasto del negocio (el sueldo empresarial sí lo es: va como remuneración).' },
   { k: 'otro_fuera', t: 'Otro fuera del resultado', corto: 'Otro fuera', grupo: 'fuera', ayuda: 'Cualquier otra salida de plata que no es gasto del mes (por ejemplo, una garantía que se devuelve). Pide un motivo.' }
@@ -214,6 +218,8 @@ export function armarClasificacion(prev, datos, { hoy = '', por = '' } = {}) {
   const hist = igual ? null : { clave: doc.clave, item: doc.item, antes: prev ? { tipo: prev.tipo, motivo: s(prev.motivo) } : null, despues: { tipo: doc.tipo, motivo: doc.motivo }, origen: doc.origen, fecha: hoy, por };
   return { doc, hist, igual: !!igual };
 }
+// v0.102.0 · El texto de una línea: su cuenta (con el catálogo) o su tipo
+export const textoLinea = (tipo, cuenta, motivo) => (cuenta ? PC.texto(cuenta) : textoTipo(tipo, motivo));
 export const textoTipo = (tipo, motivo) => (TIPO[tipo] ? TIPO[tipo].t + (tipo === 'otro_fuera' && motivo ? `: ${motivo}` : '') : 'Sin clasificar');
 
 // ── 3. Créditos ──
@@ -388,12 +394,14 @@ export function vidaDefecto(texto) {
 export const mesDe = f => s(f).slice(0, 7);
 export const mesMas = (m, k) => sumarMeses(m + '-01', k).slice(0, 7);
 // Gastos clasificados como inversión (por su ítem) con su vida útil (guardada o por defecto) y la depreciación mensual
+// v0.102.0 · Con el catálogo (g.catalogo), lo que es inversión lo dice la cuenta del ítem (1.5.x) y el área va tal cual (sin el mapa)
+export const tipoDeGasto = (g, fin = {}) => (g && g.catalogo ? PC.tipoDeCuenta(g.cuenta) : ((fin || {})[claveItem(g && g.itemGasto)] || {}).tipo || '');
 export function inversiones(gastos, fin = {}, guardadas = {}, mapa = {}) {
-  return (gastos || []).filter(vigente).filter(g => (fin[claveItem(g.itemGasto)] || {}).tipo === 'inversion').map(g => {
+  return (gastos || []).filter(vigente).filter(g => tipoDeGasto(g, fin) === 'inversion').map(g => {
     const gu = guardadas[g.id] || null, texto = [g.itemGasto, g.observacion, g.razonSocial].map(s).join(' '), def = vidaDefecto(texto);
     const meses = gu && num(gu.vidaUtilMeses) > 0 ? Math.round(num(gu.vidaUtilMeses)) : def.meses;
     const inicio = (gu && /^\d{4}-\d{2}-\d{2}$/.test(s(gu.fechaInicio)) && gu.fechaInicio) || fechaGasto(g);
-    const valor = netoGasto(g), lineas = lineasArea(g).map(l => ({ ...l, destino: destinoArea(l.area, mapa) }));
+    const valor = netoGasto(g), lineas = lineasArea(g).map(l => ({ ...l, destino: destinoArea(l.area, g.catalogo ? {} : mapa) }));
     return { id: g.id, fecha: fechaGasto(g), item: s(g.itemGasto), detalle: s(g.observacion), proveedor: s(g.razonSocial), area: s(g.area), lineas, valor, meses, inicio,
       mensual: meses > 0 ? valor / meses : 0, defecto: def, guardada: !!gu, porDefecto: !(gu && num(gu.vidaUtilMeses) > 0), nota: s(gu && gu.nota), fin: mesMas(mesDe(inicio), meses - 1) };
   }).sort((a, b) => b.fecha.localeCompare(a.fecha) || b.valor - a.valor);

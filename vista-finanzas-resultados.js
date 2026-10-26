@@ -8,10 +8,10 @@
 //  Reglas puras en finanzas-resultados.js; datos en finanzas.js (fen-gastos). No cambia ningún gasto.
 //  ctx = { cab, error, conexion, sinBase } de vista-finanzas.js; H = ayudas de app.js.
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.101.1';
-import * as FR from './finanzas-resultados.js?v=0.101.1';
-import * as FC from './finanzas-costos.js?v=0.101.1';
-import * as VE from './vista-finanzas-eerr.js?v=0.101.1';
+import * as F from './finanzas.js?v=0.102.0';
+import * as FR from './finanzas-resultados.js?v=0.102.0';
+import * as FC from './finanzas-costos.js?v=0.102.0';
+import * as VE from './vista-finanzas-eerr.js?v=0.102.0';
 
 const RS = { datos: null, filtro: 'todos', q: '', msg: '', err: '', sel: null, anioDep: '' };
 const $ = id => document.getElementById(id);
@@ -33,11 +33,16 @@ const ic = (n, t = 18) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" f
 const GRUPO_CHIP = { costo: 'c-azul', compra: 'c-verde', margen: 'c-lila', fuera: 'c-gris' };
 const destinoTxt = d => FR.NOMBRE_AREA[d] || d;
 
+// v0.102.0 · Con el catálogo de ítems, Clasificación se retira (el tipo sale de la cuenta del ítem, en Gastos → Ítems). Con el Gastos nuevo,
+// Créditos también (desde octubre los créditos están en Gastos → Compromisos → Créditos). Sus rutas siguen: muestran dónde quedó cada cosa.
+const conCatalogo = () => !!(RS.datos && RS.datos.gn && RS.datos.gn.D && (RS.datos.gn.D.catalogo || []).length);
 function subRes(parte, n) {
   const pill = (k, href, txt, extra = '') => `<a class="pastilla" href="#finanzas/resultados${href}" aria-current="${parte === k ? 'page' : 'false'}" aria-pressed="${parte === k}">${txt}${extra}</a>`;
+  const sinClasif = conCatalogo() && parte !== 'clasificacion', sinCred = F.gnActivo() && parte !== 'creditos';
   return `<div class="pastillas fin-sub" role="group" aria-label="Partes de Resultados">
-    ${pill('eerr', '', 'Estado de resultados')}${pill('cierre', '/cierre', 'Cierre de mes')}${pill('clasificacion', '/clasificacion', 'Clasificación', n ? ` <span class="chip c-amarillo chip-chico" title="Ítems sin clasificar">${n}</span>` : '')}${pill('creditos', '/creditos', 'Créditos')}${pill('inversiones', '/inversiones', 'Inversiones')}</div>`;
+    ${pill('eerr', '', 'Estado de resultados')}${pill('cierre', '/cierre', 'Cierre de mes')}${sinClasif ? '' : pill('clasificacion', '/clasificacion', 'Clasificación', n ? ` <span class="chip c-amarillo chip-chico" title="Ítems sin clasificar">${n}</span>` : '')}${sinCred ? '' : pill('creditos', '/creditos', 'Créditos')}${pill('inversiones', '/inversiones', 'Inversiones')}</div>`;
 }
+const TXT_RETIRADA_CLASIF = 'Desde la v0.102.0 cada ítem de Gastos apunta a una cuenta del plan de cuentas, y la cuenta dice dónde va en el estado de resultados. Ya no hace falta clasificar dos veces.\nLo que se guardó aquí queda como historial (no se borra), pero ya no cuenta.';
 
 export async function pintarResultados(el, parte, H, ctx) {
   const base = cuerpo => ctx.cab('resultados') + subRes(parte, RS.datos ? sinClasificar().length : 0) + cuerpo;
@@ -59,7 +64,11 @@ function dibujar(el, parte, H, ctx) {
   const p = partes();
   let html;
   if (parte === 'creditos' && p[3]) html = htmlCredito(decodeURIComponent(p[3]), H);
-  else html = parte === 'creditos' ? htmlCreditos(H) : parte === 'inversiones' ? htmlInversiones(H) : htmlClasificacion(H);
+  else if (parte === 'clasificacion' && conCatalogo()) html = `<section class="tarjeta" aria-labelledby="t-r-ret"><h2 id="t-r-ret">La clasificación pasó a Gastos → Ítems ${H.info('Clasificación', TXT_RETIRADA_CLASIF)}</h2>
+    <p>Cada ítem apunta a una cuenta del plan, y de ahí sale su lugar en el estado de resultados. Un ítem nuevo, o un cambio de cuenta, se hace en Gastos → Ítems.</p>
+    <a class="btn" href="#gastos/catalogo">Ir a Gastos → Ítems</a></section>`;
+  else html = (parte === 'creditos' && F.gnActivo() ? `<section class="tarjeta"><p class="aviso">Solo consulta. Desde octubre los créditos están en <a href="#gastos/compromisos">Gastos → Compromisos → Créditos</a>: ahí se anota el monto original y la tasa, y cada cuota se separa en interés y capital. Lo de aquí ya no entra al estado de resultados.</p></section>` : '')
+    + (parte === 'creditos' ? htmlCreditos(H) : parte === 'inversiones' ? htmlInversiones(H) : htmlClasificacion(H));
   el.innerHTML = ctx.cab('resultados') + subRes(parte, sinClasificar().length) + html;
   const volver = () => dibujar(el, parte, H, ctx);
   const releer = $('r-releer');
@@ -71,7 +80,7 @@ function dibujar(el, parte, H, ctx) {
   if (parte === 'creditos' && p[3]) conectarCredito(el, decodeURIComponent(p[3]), H, ctx, volver);
   else if (parte === 'creditos') conectarCreditos(el, H, ctx, volver);
   else if (parte === 'inversiones') conectarInversiones(el, H, ctx, volver);
-  else conectarClasificacion(el, H, ctx, volver);
+  else if (!conCatalogo()) conectarClasificacion(el, H, ctx, volver);
 }
 const mapaAreas = () => (RS.datos.config && RS.datos.config.areasGasto) || {};
 const resumen = () => FR.resumenItems(RS.datos.gastos, RS.datos.items, RS.datos.fin, { anio: FR.ANIO, mapa: mapaAreas() });
@@ -386,7 +395,7 @@ function htmlInversiones(H) {
   const meses = Array.from({ length: 12 }, (_, k) => `${RS.anioDep}-${String(k + 1).padStart(2, '0')}`);
   const tab = FR.depreciacionPorMes(invs, meses), tot = tab.reduce((a, f) => a + f.total, 0);
   const deEste = FR.depreciacionPorMes(invs, [mesHoy])[0];
-  const itemsInv = Object.values(RS.datos.fin || {}).filter(x => x.tipo === 'inversion').length;
+  const itemsInv = conCatalogo() ? RS.datos.gn.D.catalogo.filter(x => x.estado !== 'archivado' && FR.tipoDeGasto({ catalogo: true, cuenta: x.cuenta }) === 'inversion').length : Object.values(RS.datos.fin || {}).filter(x => x.tipo === 'inversion').length;
   const cifra = (t, v, nota = '') => `<div class="tarjeta cifra"><span class="rotulo">${t}</span><span class="valor">${v}</span>${nota ? `<span class="nota">${nota}</span>` : ''}</div>`;
   const cols = FR.AREAS.filter(a => a !== 'REVENTA' || tab.some(f => f.REVENTA)).concat('comun');   // v0.69.1: Reventa solo si tiene depreciación
   const fila = i => `<div class="fin-compra fin-rinv" data-r-inv="${H.esc(i.id)}">
@@ -400,8 +409,8 @@ function htmlInversiones(H) {
     <p class="ayuda">Los gastos clasificados como inversión, su vida útil y cuánto entra al resultado cada mes.</p>
     ${mensajes(H)}
     ${fuente(H)}
-    <div class="cifras fin-dcifras" id="r-inv-cifras">${cifra('Inversiones', nf(invs.length), `${nf(itemsInv)} ${itemsInv === 1 ? 'ítem' : 'ítems'} clasificados como inversión`)}${cifra('Valor neto', pesos(invs.reduce((a, i) => a + i.valor, 0)))}${cifra('Depreciación de este mes', pesos(deEste.total), H.esc(mesTxt(mesHoy)))}${cifra(`Depreciación ${H.esc(RS.anioDep)}`, pesos(tot))}</div>
-    <div class="fin-compras" id="r-invs">${invs.length ? invs.map(fila).join('') : `<div class="vacio">No hay gastos clasificados como inversión. ${itemsInv ? '' : 'Marca sus ítems como "Inversión" en '}<a href="#finanzas/resultados/clasificacion">Clasificación</a>.</div>`}</div>
+    <div class="cifras fin-dcifras" id="r-inv-cifras">${cifra('Inversiones', nf(invs.length), `${nf(itemsInv)} ${itemsInv === 1 ? 'ítem' : 'ítems'} de inversión`)}${cifra('Valor neto', pesos(invs.reduce((a, i) => a + i.valor, 0)))}${cifra('Depreciación de este mes', pesos(deEste.total), H.esc(mesTxt(mesHoy)))}${cifra(`Depreciación ${H.esc(RS.anioDep)}`, pesos(tot))}</div>
+    <div class="fin-compras" id="r-invs">${invs.length ? invs.map(fila).join('') : `<div class="vacio">${conCatalogo() ? 'No hay gastos con un ítem de inversión (Equipos y maquinaria, Habilitación de locales o Activo intangible, en <a href="#gastos/catalogo">Gastos → Ítems</a>).' : `No hay gastos clasificados como inversión. ${itemsInv ? '' : 'Marca sus ítems como "Inversión" en '}<a href="#finanzas/resultados/clasificacion">Clasificación</a>.`}</div>`}</div>
   </section>
   ${invs.length ? `<section class="tarjeta" aria-labelledby="t-r-dep">
     <div class="titulo-fila fin-titulo"><h2 id="t-r-dep">Depreciación mensual por área ${H.info('Depreciación por área', 'Cada inversión se deprecia en partes iguales cada mes de su vida útil, y va al área de su gasto (si el gasto se prorrateó, a cada área en su %). Común = Administración, Ventas y lo demás, según el mapa de áreas.')}</h2></div>

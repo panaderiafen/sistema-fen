@@ -7,21 +7,25 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.101.1';
-import * as GB from './gn-bandeja.js?v=0.101.1';
-import * as AR from './areas.js?v=0.101.1';
-import * as Sii from './sii.js?v=0.101.1';
-import * as MP from './mercadopago.js?v=0.101.1';
+import * as GN from './gn-modelo.js?v=0.102.0';
+import * as GB from './gn-bandeja.js?v=0.102.0';
+import * as AR from './areas.js?v=0.102.0';
+import * as Sii from './sii.js?v=0.102.0';
+import * as MP from './mercadopago.js?v=0.102.0';
+import * as GI from './gn-items.js?v=0.102.0';   // v0.102.0: catálogo de ítems
+import * as GF from './gn-finanzas.js?v=0.102.0';
+import * as PC from './plan-cuentas.js?v=0.102.0';
+import * as FR from './finanzas-resultados.js?v=0.102.0';
 
 const st = { D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' } };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.101.1');
+const fsGN = () => import('./gn-fs.js?v=0.102.0');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
 export const olvidar = () => { st.D = null; };
 
-const TABS = [['bandeja', '', 'Bandeja'], ['proveedores', 'proveedores', 'Proveedores'], ['repartos', 'repartos', 'Repartos'], ['porpagar', 'porpagar', 'Por pagar'], ['compromisos', 'compromisos', 'Compromisos'], ['cargas', 'cargas', 'Archivos subidos']];   // v0.96.0
+const TABS = [['bandeja', '', 'Bandeja'], ['proveedores', 'proveedores', 'Proveedores'], ['catalogo', 'catalogo', 'Ítems'], ['repartos', 'repartos', 'Repartos'], ['porpagar', 'porpagar', 'Por pagar'], ['compromisos', 'compromisos', 'Compromisos'], ['cargas', 'cargas', 'Archivos subidos']];   // v0.96.0 · v0.102.0: Ítems
 const hashDe = t => '#gastos' + (t === 'bandeja' ? '' : '/' + t);
 const TXT_SUBIR = 'Sirven:\n• Las compras del SII: el XML de documentos recibidos, el Registro de Compras (.csv) o los Documentos recibidos (.xls).\n• La cartola de BancoEstado (.xlsx), histórica o en línea, de la cuenta corriente o de la chequera. Sus abonos siguen pasando a Ventas B2B → Conciliación.\n• El reporte de liberaciones de Mercado Pago (.csv).\n• Las liquidaciones de sueldo del contador (PDF, una por trabajador): entran por el líquido + anticipos.\n• El F29 (formulario completo o certificado, PDF): su pago repartido por impuesto.\n• Las boletas de luz (CGE) y agua (ESSBIO) en PDF: entran con su N° de cliente; el saldo anterior es de las boletas anteriores (súbalas también).\nSubir el mismo archivo dos veces no repite nada: cada documento se reconoce por RUT, tipo y folio, y cada movimiento por su línea exacta. Si la misma salida ya llegó en otra cartola (por ejemplo la en línea y después la histórica), no se guarda otra vez.\nLas guías de despacho no entran (no son compras: cuenta su factura).';
 const TXT_BANDEJA = 'A la izquierda, lo que se debe: los documentos de compra desde el inicio del sistema. A la derecha, lo que salió: los movimientos de cada cuenta.\nEn la Etapa 2 la Bandeja propone qué documento va con qué movimiento, y se confirma con un toque.\nLos traspasos entre cuentas propias (por ejemplo, el retiro de Mercado Pago a BancoEstado) no son gasto: se muestran aparte.';
@@ -30,7 +34,7 @@ const TXT_ANTIGUA = 'VENTAS y B2C (sin local) ya no se usan en el Gastos nuevo: 
 const TXT_REPARTOS = 'Un reparto es una forma fija de dividir un gasto entre áreas, con nombre propio (por ejemplo, Ainavillo común). Se define una vez y se elige al clasificar o en la ficha del proveedor.\nSi un reparto cambia, rige para lo que viene: lo ya pagado queda como estaba, y se ofrece aplicarlo también a lo pagado del mes abierto. Los meses cerrados no cambian.';
 const TXT_FICHA = 'Todo lo que el sistema sabe de este proveedor: su clasificación (y si recuerda ítem y áreas o solo el ítem), sus servicios por N° de cliente, los productos que recuerda y cómo aparece en el banco. Lo que cambie aquí rige para sus facturas sin pagar; las pagadas quedan como estaban.';
 const TXT_ELEGIR = 'Marque una o varias facturas y aquí aparecen los cargos que pueden ser su pago, para la suma de lo que falta pagar (al revés también: marque un cargo y aparecen sus posibles facturas). Primero los que calzan, después los de las fechas probables y los del proveedor.\nSe puede unir una factura con varios cargos (un pago en partes) o varias facturas con un cargo. Varios con varios no: únalos en dos pasos.\nLos pares descartados con "No es este" aparecen al final, por si sí era.';
-const TXT_CARGOS_ANT = 'Cargos de los 20 días antes del inicio. Entran solo para unirse con facturas desde el inicio (por ejemplo, un abono de septiembre de una factura de octubre). No cuentan como salida de plata del mes nuevo.\nAl unir uno, el sistema revisa si ese pago ya está en el Gastos anterior, para no contarlo dos veces.';
+const TXT_CARGOS_ANT = 'Cargos de los 20 días antes del inicio. Se unen con facturas desde el inicio (por ejemplo, un abono de septiembre de una factura de octubre) o con la deuda anterior (una factura de septiembre pagada en septiembre): eso solo deja los dos cerrados. No cuentan como salida de plata del mes nuevo.\nUna deuda anterior no se clasifica: no entra al estado de resultados (salvo un pago que se reparte en varios meses, como una patente semestral).';
 const TXT_COMPROMISOS = 'Un compromiso es un pago fijo de cada mes que no trae documento (por ejemplo, un arriendo). El sistema crea el documento de cada mes cuando el mes empieza, con su día de pago, y la Bandeja lo une con la transferencia como cualquier factura.\nSu ítem y su reparto quedan en la ficha de a quién se le paga: sus meses llegan clasificados. Un cambio del monto o del día rige desde el próximo mes que se cree. Archivar deja de crear meses; lo ya creado sigue.';
 const MESES_TXT = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const TXT_COB_SII = '"Documentos hasta" es la fecha de la factura más reciente que está cargada. No asegura que estén todas: una factura puede llegar al SII días después.\nSu método: al bajar el XML, incluya siempre el último día de la descarga anterior, así se capta lo que llegó después (lo que ya estaba no se repite). A fin de mes, el RCV completa lo que falte.';
@@ -58,7 +62,7 @@ function cab(H, tab) {
 }
 
 export async function pintar(el, sub, H) {
-  const tab = ['cargas', 'proveedores', 'repartos', 'compromisos', 'porpagar'].includes(sub) ? sub : 'bandeja';
+  const tab = ['cargas', 'proveedores', 'repartos', 'compromisos', 'porpagar', 'catalogo'].includes(sub) ? sub : 'bandeja';
   if (sub && tab === 'bandeja') { location.replace('#gastos'); return; }
   if (!st.D) {
     el.innerHTML = cab(H, tab) + '<section class="tarjeta"><div class="vacio" style="border:0">Cargando Gastos…</div></section>';
@@ -69,7 +73,7 @@ export async function pintar(el, sub, H) {
   }
   const clave = decodeURIComponent((location.hash || '').split('/')[2] || '');
   const lugar = tab + '/' + clave; if (st.lugar && st.lugar !== lugar) { st.msg = ''; st.err = ''; } st.lugar = lugar;   // el aviso es de la pantalla donde se hizo
-  el.innerHTML = cab(H, tab) + (tab === 'cargas' ? cargasHtml(H) : tab === 'repartos' ? repartosHtml(H) : tab === 'compromisos' ? compromisosHtml(H) : tab === 'porpagar' ? porPagarHtml(H) : tab === 'proveedores' ? (clave ? fichaHtml(H, clave) : proveedoresHtml(H)) : bandejaHtml(H));
+  el.innerHTML = cab(H, tab) + (tab === 'cargas' ? cargasHtml(H) : tab === 'repartos' ? repartosHtml(H) : tab === 'compromisos' ? compromisosHtml(H) : tab === 'porpagar' ? porPagarHtml(H) : tab === 'catalogo' ? itemsHtml(H) : tab === 'proveedores' ? (clave ? fichaHtml(H, clave) : proveedoresHtml(H)) : bandejaHtml(H));
   conectar(el, H);
 }
 const enGastos = () => (location.hash || '').replace('#', '').split('/')[0] === 'gastos';
@@ -104,7 +108,9 @@ function bandejaHtml(H) {
   const sugOk = d => d.sugerida && (d.sugerida.areas || []).length;
   // v0.92.3 · Verde con visto: lo que usted guardó (en el documento o en su proveedor). Rojo: lo que falta decidir (sugerido, sin clasificar, falta el área)
   const visto = '<svg class="gn-visto" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
-  const clasTxt = d => (d.clasifEf ? `<span class="gn-cl">${visto}${H.esc(GB.textoPartes(d.clasifEf.partes))}${d.clasifEf.de === 'proveedor' ? ' <span class="gn-cl-de">(como siempre)</span>' : ''}</span>`
+  const Icat = catI(), sinCuenta = c => (Icat && c ? [...new Set((c.partes || []).map(p => p.item))].filter(n => !GI.resolver(n, Icat).ok) : []);
+  const revItem = d => { const l = sinCuenta(d.clasifEf); return l.length ? `<span class="gn-cl gn-cl-falta">Revisar ítem: ${H.esc(l.join(', '))} no está en el catálogo (Gastos → Ítems)</span>` : ''; };
+  const clasTxt = d => (d.clasifEf ? `<span class="gn-cl">${visto}${H.esc(GB.textoPartes(d.clasifEf.partes))}${d.clasifEf.de === 'proveedor' ? ' <span class="gn-cl-de">(como siempre)</span>' : ''}</span>${revItem(d)}`
     : d.faltanFichas && d.faltanFichas.length ? `<span class="gn-cl gn-cl-falta">Falta el área de: ${H.esc(d.faltanFichas.join(', '))} (se toma de su ficha)</span>`
     : d.soloItem ? `<span class="gn-cl gn-cl-falta">${H.esc(d.soloItem)} · falta el área</span>`
     : sugOk(d) ? `<span class="gn-cl gn-cl-falta">Sugerido: ${H.esc(d.sugerida.item)} · ${H.esc(GB.textoReparto(d.sugerida.areas))}</span>` : '<span class="gn-cl gn-cl-falta">Sin clasificar</span>');
@@ -145,7 +151,8 @@ function bandejaHtml(H) {
       : b.calza ? 'Calza.' : b.dif < 0 ? `Falta ${H.pesos(-b.dif)}: ${docsSel.length > 1 ? 'el último documento' : 'el documento'} queda pagado en parte.` : `Sobran ${H.pesos(b.dif)}: quedan libres en el cargo.`;
     return `<div class="gn-barra-sel" role="region" aria-label="Lo elegido"><div class="gn-barra-t"><span>${n(docsSel.length, 'documento', 'documentos')} · ${H.pesos(b.td)}</span><span>${n(movsSel.length, 'cargo', 'cargos')} · ${H.pesos(b.tm)}</span><b class="${b.valido && b.calza ? 'gn-ok' : ''}">${estado}</b></div>
       <div class="gn-acc"><button type="button" class="btn btn-chico" data-gn-unir ${b.valido ? '' : 'disabled'}>Unir</button><button type="button" class="btn-sec btn-chico" data-gn-limpiar>Limpiar</button></div></div>`; };
-  return `<section class="tarjeta" aria-labelledby="t-gn-cob"><div class="titulo-fila"><h2 id="t-gn-cob">Hasta dónde llega cada cuenta</h2></div>
+  const avisoCat = GI.activo(D.catalogo) ? '' : `<section class="tarjeta gn-aviso-cat" aria-labelledby="t-gn-avcat"><h2 id="t-gn-avcat">Falta un paso: el catálogo de ítems</h2><p class="ayuda">Cada ítem pasa a apuntar a una cuenta del plan, y Finanzas lee de ahí. Antes de pasar se ve una vista previa: nada cambia hasta que usted confirme.</p><a class="btn btn-chico" href="#gastos/catalogo">Ir a Gastos → Ítems</a></section>`;
+  return `${avisoCat}<section class="tarjeta" aria-labelledby="t-gn-cob"><div class="titulo-fila"><h2 id="t-gn-cob">Hasta dónde llega cada cuenta</h2></div>
       ${cob.length || sii ? `<div class="gn-cob">${sii}${cob.map(c => `<div class="gn-cob-c"><b>${H.esc(c.nombre)}</b><span>${H.esc(H.diaTexto(c.desde))} al ${H.esc(H.diaTexto(c.hasta))} · ${c.n} ${c.n === 1 ? 'movimiento' : 'movimientos'}</span></div>`).join('')}</div>` : '<p class="ayuda">Todavía no se sube ninguna cartola.</p>'}</section>
     <section class="tarjeta" aria-labelledby="t-gn-bandeja"><div class="titulo-fila"><h2 id="t-gn-bandeja">Bandeja</h2><span>${pares.length + B.n.clasificar + B.n.sinPago + B.n.sinDoc} por hacer</span></div>
       ${cuentas.length > 2 ? `<div class="gn-filtro" role="group" aria-label="Cuenta">${cuentas.map(([k, t]) => `<button type="button" class="chip ${st.cuenta === k ? 'c-verde' : 'c-gris'}" data-gn-cuenta="${k}" aria-pressed="${st.cuenta === k}">${H.esc(t)}</button>`).join('')}</div>` : ''}
@@ -193,6 +200,9 @@ function conectar(el, H) {
   if (bp) bp.addEventListener('input', () => { st.buscaProv = bp.value; const pos = bp.selectionStart; pintar(el, subActual(), H).then(() => { const n = el.querySelector('#gn-buscar-prov'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }); });
   el.querySelectorAll('[data-gn-sel-d], [data-gn-sel-m]').forEach(x => x.addEventListener('change', () => elegir(el, H, x.dataset.gnSelD ? 'd' : 'm', x.dataset.gnSelD || x.dataset.gnSelM, x.checked)));
   el.querySelectorAll('[data-gn-cuenta]').forEach(b => b.addEventListener('click', () => { st.cuenta = b.dataset.gnCuenta; pintar(el, subActual(), H); }));
+  // v0.102.0 · Vista previa del catálogo: lo que se decide se guarda en la vista (nada se escribe hasta confirmar)
+  el.querySelectorAll('[data-gn-pv-otro]').forEach(x => x.addEventListener('change', () => { if (st.previa && x.checked) { st.previa.dec.otros[x.dataset.gnPvOtro] = x.value; repintarQuieto(el, H); } }));
+  el.querySelectorAll('[data-gn-pv-rev]').forEach(x => x.addEventListener('change', () => { if (st.previa) { st.previa.dec.revisar[x.dataset.gnPvRev] = x.value; repintarQuieto(el, H); } }));
 }
 const repintar = (el, H) => { if (enGastos()) pintar(el, subActual(), H); };
 
@@ -234,7 +244,7 @@ async function procesar(f, H) {
   if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text();
-    const Pv = await import('./previred.js?v=0.101.1');
+    const Pv = await import('./previred.js?v=0.102.0');
     if (Pv.esCsvNomina(Pv.textoDeArchivo(await f.arrayBuffer()))) return subirPrevired(f, H, Pv.leerCsv(Pv.textoDeArchivo(await f.arrayBuffer())));
     const tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -248,7 +258,7 @@ async function procesar(f, H) {
   if (wb) {
     const tefs = H.B2b.leerTransferencias(wb, XLSX);
     if (tefs) { const r = await H.B2b.guardarTransferencias(tefs); H.registrar('Cargó transferencias recibidas', `${r.leidas} leídas · ${r.nuevas} nuevas`); return `<b>Transferencias recibidas</b>: ${r.leidas} en el archivo · ${r.nuevas} nuevas. Sirven a Ventas B2B → Conciliación (quién pagó cada abono).`; }
-    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.101.1'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
+    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.102.0'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
       if (GP.esDetalleCredito(filas)) { const enc = wb.SheetNames.includes('Encabezados') ? XLSX.utils.sheet_to_csv(wb.Sheets.Encabezados) : '', r = GP.leerCredito(filas, enc);
         if (r.bloquea) throw new Error(r.errores.join(' '));
         const k = await (await fsGN()).cargarCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó un crédito', r.nombre);
@@ -264,9 +274,9 @@ function esCartola(wb, XLSX, H) {
 }
 // v0.96.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
 async function subirBoleta(f, H) {
-  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.101.1'), import('./boletas.js?v=0.101.1')]);
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.102.0'), import('./boletas.js?v=0.102.0')]);
   let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
-  const GP = await import('./gn-pdf.js?v=0.101.1'), tipo = GP.tipoPdf(lineas);
+  const GP = await import('./gn-pdf.js?v=0.102.0'), tipo = GP.tipoPdf(lineas);
   if (tipo) return subirOtroPdf(f, H, GP, tipo, lineas);
   if (Pv.esComprobante(lineas) || Pv.esCertificado(lineas)) { let r; try { r = Pv.leerPdf(lineas); } catch (x) { throw new Error(x.message); } return subirPrevired(f, H, r); }
   const r = Bo.leerBoleta(lineas);
@@ -300,7 +310,7 @@ async function subirOtroPdf(f, H, GP, tipo, lineas) {
 // v0.97.0 · Previred: el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → el documento del mes
 async function subirPrevired(f, H, r) {
   if (r.bloquea) throw new Error(`Previred no se guardó. ${(r.avisos || []).join(' ')}`);
-  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.101.1'), import('./gastos-g3d.js?v=0.101.1')]);
+  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.102.0'), import('./gastos-g3d.js?v=0.102.0')]);
   const id = GN.idCarga('previred'), d = GP.docDePrevired(r, G3D.venceDe(r.periodo), id);
   const k = await (await fsGN()).cargarPdf(d, { nombre: f.name, tamano: f.size }, 'previred');
   H.registrar('Gastos: cargó Previred', `${d.tipoTexto} · ${k.texto}`);
@@ -319,7 +329,7 @@ async function subirSii(f, txt, H) {
 }
 // v0.101.1 · Después de subir compras del SII: Finanzas revisa los precios de las materias primas (sin esperar; nunca falla hacia afuera)
 function preciosDeMP(H) {
-  import('./finanzas.js?v=0.101.1').then(F => F.preciosTrasImportar()).then(x => {
+  import('./finanzas.js?v=0.102.0').then(F => F.preciosTrasImportar()).then(x => {
     if (!x || (!x.error && !(x.aplicadas.length || x.porConfirmar || x.sinAsociar))) return;
     const t = x.error ? `No se pudieron revisar los precios de las materias primas (${H.esc(x.error)}): hágalo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.`
       : `Precios de materias primas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'actualizado' : 'actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver en Finanzas</a>.`;
@@ -402,6 +412,13 @@ function acciones(el, H) {
     if (ds.gnArchivarcp) return hacer(el, H, async () => (await fsGN()).archivarCompromiso(ds.gnArchivarcp, ds.archivar === '1'), ds.archivar === '1' ? 'Compromiso archivado: no crea más meses (lo ya creado sigue).' : 'El compromiso vuelve a crear sus meses.');
     if (ds.gnFicha) return dlgFicha(el, H, ds.gnFicha, ds.razon || '', ds.rut || '');
     if (ds.gnQuitarprod) return hacer(el, H, async () => (await fsGN()).quitarProducto(ds.gnQuitarprod, ds.prod), `Producto olvidado: ${H.esc(ds.prod)}.`);
+    if (ds.gnPrevia !== undefined) return abrirPrevia(el, H);
+    if (ds.gnPasar !== undefined) return pasarCatalogo(el, H);
+    if (ds.gnPreviaCerrar !== undefined) { st.previa = null; return repintarQuieto(el, H); }
+    if (ds.gnItem !== undefined) return dlgItem(el, H, ds.gnItem);
+    if (ds.gnArchivaritem) return dlgArchivarItem(el, H, ds.gnArchivaritem);
+    if (ds.gnReactivaritem) return hacer(el, H, async () => (await fsGN()).archivarItem(ds.gnReactivaritem, { archivar: false }), 'El ítem vuelve a estar activo.');
+    if (ds.gnUbicar) return dlgUbicar(el, H, ds.gnUbicar);
     if (ds.gnOlvidar) return hacer(el, H, async () => (await fsGN()).olvidarSena(ds.gnOlvidar, ds.sena), `Olvidada la glosa "${H.esc(ds.sena)}": ya no cuenta como de ese proveedor.`);
   });
 }
@@ -478,7 +495,7 @@ function dlgNoVa(el, H, d) {
 // Ítem y reparto por área (lo usan Clasificar y Registrar a mano)
 function camposClasif(H, pre, pref, sinItem) {
   const items = st.D.items || [], reps = Object.values(st.D.repartos || {}), rid = (pre && pre.repartoId) || '', areas = rid && st.D.repartos[rid] ? st.D.repartos[rid].areas : (pre && pre.areas) || [];
-  return `${sinItem ? '' : `<div class="campo"><label for="${pref}-item">Ítem</label><input id="${pref}-item" list="${pref}-items" value="${H.esc((pre && pre.item) || '')}" autocomplete="off" placeholder="Escriba o elija"><datalist id="${pref}-items">${items.map(i => `<option value="${H.esc(i.item)}">`).join('')}</datalist></div>`}
+  return `${sinItem ? '' : `<div class="campo"><label for="${pref}-item">Ítem</label><input id="${pref}-item" list="${pref}-items" value="${H.esc((pre && pre.item) || '')}" autocomplete="off" placeholder="Escriba o elija"><datalist id="${pref}-items">${items.map(i => `<option value="${H.esc(i.item)}"${i.grupo ? ` label="${H.esc(i.grupo)}"` : ''}>`).join('')}</datalist></div>`}
     ${reps.length ? `<div class="campo"><label for="${pref}-reparto">Reparto</label><select id="${pref}-reparto" data-reparto><option value="">Elegir las áreas a mano</option>${reps.map(r => `<option value="${H.esc(r.id)}" ${r.id === rid ? 'selected' : ''}>${H.esc(r.nombre)} · ${H.esc(GB.textoReparto(r.areas))}</option>`).join('')}</select></div>` : ''}
     <fieldset class="campo"><legend>Área</legend><div class="chips" data-areas>${AR.GASTO_GN.map(a => `<label class="chip-radio"><input type="checkbox" value="${a}" ${areas.some(x => x.area === a) ? 'checked' : ''}><span>${H.esc(nombreArea(a))}</span></label>`).join('')}</div>
       <div class="gn-pcts" data-pcts></div><span class="ayuda">Con varias áreas, el reparto en %. Debe sumar 100.</span></fieldset>`;
@@ -505,7 +522,7 @@ function dlgClasif(el, H, d) {
 async function asegurarClasif(H, docs) {
   const hechos = new Set();
   for (const d of docs) {
-    if (!d || d.clasifEf || hechos.has(GB.claveProveedor(d))) continue;
+    if (!d || d.clasifEf || GB.sinEfecto(d) || hechos.has(GB.claveProveedor(d))) continue;   // v0.102.0: la deuda anterior no se clasifica
     const r = await pedirClasif(H, d, true); if (!r) return false;
     if (r.recordar === 'fijo') hechos.add(GB.claveProveedor(d));   // en "solo el ítem", las otras facturas del proveedor piden su área
   }
@@ -577,7 +594,7 @@ function pedirClasif(H, d, antesDePagar) {
     dlg.querySelector('form').addEventListener('submit', async ev => {
       ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
       try {
-        const a = armar(), rv = dlg.querySelector('[name=cl-rec]:checked').value, rec = rv === 'no' ? false : rv;
+        const a = conItemsValidos(armar(), ['f29', 'previred', 'credito'].includes(d.origen) || (d.clasif && d.clasif.de === 'sistema') || !!(d.ajuste && d.ajuste.recargo)), rv = dlg.querySelector('[name=cl-rec]:checked').value, rec = rv === 'no' ? false : rv;
         await (await fsGN()).clasificar(d, a, rec);
         listo = true; dlg.close(); st.D = null; H.registrar('Gastos: clasificó', `${nom(d)} · ${GB.textoPartes(a.partes)}`);
         resolve({ partes: a.partes, recordar: rec });
@@ -643,7 +660,7 @@ function dlgMano(el, H, m) {
     dlg.querySelectorAll('[data-areas] input').forEach(x => { x.checked = (p.areas || []).some(a => a.area === x.value); }); dlg.querySelector('[data-areas] input').dispatchEvent(new Event('change')); });
   dlg.querySelector('form').addEventListener('submit', async ev => {
     ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
-    try { const c = leer();
+    try { const c = leer(); c.item = itemValido(c.item);
       await (await fsGN()).registrarAMano(m, { tipo: dlg.querySelector('[name=am-t]:checked').value, proveedor: prov.value, rut: dlg.querySelector('#am-rut').value, folio: dlg.querySelector('#am-folio').value,
         monto: dlg.querySelector('#am-monto').value, nota: dlg.querySelector('#am-nota').value, item: c.item, areas: c.areas });
       dlg.close(); H.registrar('Gastos: registró a mano', `${prov.value} · ${m.libre}`); aviso(el, H, `Registrado: ${H.esc(prov.value)} · ${H.esc(c.item)}, pagado con ${H.esc(m.glosa)}.`); }
@@ -772,7 +789,7 @@ function dlgFicha(el, H, clave, razon, rut) {
   const leer = conectarClasif(dlg, H, pre, 'fi'); dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
   dlg.querySelector('form').addEventListener('submit', async ev => {
     ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
-    try { const a = leer(), modo = dlg.querySelector('[name=fi-modo]:checked').value;
+    try { const a = leer(), modo = dlg.querySelector('[name=fi-modo]:checked').value; a.item = itemValido(a.item);
       await (await fsGN()).guardarFicha(clave, { item: a.item, modo, repartoId: a.repartoId, areas: a.areas, razon, rut }); dlg.close(); H.registrar('Gastos: ficha de proveedor', `${razon} · ${a.item}`); aviso(el, H, `Ficha guardada: ${H.esc(razon)}. Rige para sus facturas sin pagar.`); }
     catch (e) { falla(dlg, e, H); }
   });
@@ -843,7 +860,7 @@ function dlgCompromiso(el, H, cid) {
   frec.addEventListener('change', meses); meses();
   dlg.querySelector('form').addEventListener('submit', async ev => {
     ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
-    try { const a = leer(), v = id => dlg.querySelector(id).value;
+    try { const a = leer(), v = id => dlg.querySelector(id).value; a.item = itemValido(a.item);
       await (await fsGN()).guardarCompromiso({ id: cid || '', nombre: v('#cp-nombre'), aQuien: v('#cp-aquien'), rut: v('#cp-rut'), monto: v('#cp-monto'), dia: v('#cp-dia'), desde: v('#cp-desde'), frecuencia: v('#cp-frec'), mesInicio: v('#cp-mes'), rol: v('#cp-rol'), direccion: v('#cp-dir'), item: a.item, repartoId: a.repartoId, areas: a.areas });
       dlg.close(); H.registrar(c ? 'Gastos: cambió un compromiso' : 'Gastos: creó un compromiso', v('#cp-nombre')); aviso(el, H, c ? 'Compromiso cambiado. Rige desde el próximo mes que se cree.' : 'Compromiso creado. Su documento del mes ya está en la Bandeja.'); }
     catch (e) { falla(dlg, e, H); }
@@ -929,10 +946,177 @@ function dlgSinBanco(el, H) {
     <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Registrar</button></div></form>`);
   const leer = conectarClasif(dlg, H, null, 'sb'); dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
   dlg.querySelector('form').addEventListener('submit', async ev => { ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
-    try { const a = leer(), v = id => dlg.querySelector(id).value, medio = dlg.querySelector('[name=sb-m]:checked').value;
+    try { const a = leer(), v = id => dlg.querySelector(id).value, medio = dlg.querySelector('[name=sb-m]:checked').value; a.item = itemValido(a.item);
       const areas = a.repartoId && st.D.repartos[a.repartoId] ? st.D.repartos[a.repartoId].areas : a.areas;
       await (await fsGN()).registrarSinBanco({ medio, tipo: dlg.querySelector('[name=sb-t]:checked').value, fecha: v('#sb-fecha'), monto: v('#sb-monto'), proveedor: v('#sb-prov'), rut: v('#sb-rut'), folio: v('#sb-folio'), nota: v('#sb-nota'), item: a.item, areas, repartoId: a.repartoId });
       dlg.close(); H.registrar('Gastos: registró un gasto sin banco', `${v('#sb-prov')} · ${v('#sb-monto')} · ${medio}`);
       aviso(el, H, `Registrado: ${H.esc(v('#sb-prov'))} · ${H.pesos(Number(v('#sb-monto')))} ${medio === 'personal' ? 'con plata del dueño (queda en "Se le debe al dueño")' : 'en efectivo'}.`); }
+    catch (e) { falla(dlg, e, H); } });
+}
+
+// ═══════════════ v0.102.0 · Catálogo de ítems (Gastos → Ítems) ═══════════════
+// Cada ítem apunta a una cuenta del plan de cuentas (plan-cuentas.js): la cuenta dice dónde va en los estados financieros. Finanzas lee
+// de aquí (ya no de Finanzas → Clasificación). El paso desde la lista de siempre se hace una vez, con una vista previa.
+const TXT_ITEMS = 'Cada ítem apunta a una cuenta del plan de cuentas, y la cuenta dice dónde va en los estados financieros: en qué línea del estado de resultados, o si va al inventario, al activo fijo o fuera del resultado (balance y flujo de caja). Así nada se clasifica dos veces.\nEl ítem dice qué es; el área o el reparto dicen dónde (por eso hay un solo LUZ, no uno por local).\nNada se borra: un ítem que sobra se archiva, y si tiene reemplazo apunta a él. Los documentos ya clasificados con el nombre antiguo cuentan con el nuevo.\nCambiar la cuenta de un ítem rige para los meses abiertos. Un mes cerrado no cambia: la diferencia entra como "Ajustes de meses cerrados".';
+const TXT_REVISAR_IT = 'Nombres que se usan en documentos, fichas o compromisos y no llegan a un ítem del catálogo con cuenta. Mientras no se ubiquen, su gasto queda "sin clasificar" en el estado de resultados.\nUbicar: decir a qué ítem del catálogo pasa (lo más común) o crearlo como ítem nuevo con su grupo y su cuenta.';
+const TXT_PREVIA = 'Lo que pasa al confirmar:\n• Se crea el catálogo aprobado el 25 de octubre (y los ítems del sistema: F29, Previred y créditos, con su cuenta fija).\n• Cada nombre de la lista anterior queda archivado y, si tiene reemplazo, apunta al nuevo. Los documentos ya clasificados no se reescriben: cuentan con el ítem nuevo.\n• Las fichas de los proveedores y los compromisos pasan al nombre nuevo, con su historial.\n• OTROS INSUMOS no tiene un reemplazo único (parte es packaging, parte aseo): se decide por proveedor, y solo esos documentos se cambian.\n• Desde ese momento, Finanzas lee el tipo de cada gasto desde la cuenta del ítem (Finanzas → Clasificación queda solo como historial).';
+const catI = () => (st.D && GI.activo(st.D.catalogo) ? GI.indice(st.D.catalogo) : null);
+// El ítem escrito o elegido → el nombre que se guarda (un nombre antiguo pasa al nuevo). Sin catálogo todavía: tal cual.
+function itemValido(t, sistema = false) { const I = catI(); if (!I) return String(t || '').trim(); const r = GI.entrada(t, I, { sistema }); if (r.error) throw new Error(r.error); return r.nombre; }
+function conItemsValidos(a, sistema = false) {
+  const f = x => (String(x || '').trim() ? itemValido(x, sistema) : '');
+  const general = { ...a.general, item: f(a.general && a.general.item) };
+  return { ...a, general, partes: (a.partes || []).map(p => ({ ...p, item: f(p.item) || general.item })), lineas: a.lineas ? a.lineas.map(l => ({ ...l, item: f(l.item) || general.item })) : a.lineas };
+}
+const NOMBRE_TIPO = t => (t && FR.TIPO[t] ? FR.TIPO[t].corto : 'Sin clasificar');
+const GRUPO_TXT = { costo: 'En el resultado', compra: 'Compras (inventario)', margen: 'Ya en el margen', fuera: 'Fuera del resultado', sin: 'Sin clasificar' };
+const grupoDeTipo = t => (t && FR.TIPO[t] ? FR.TIPO[t].grupo : 'sin');
+const lineasCrudas = () => GF.gastosParaFinanzas(st.D, st.D.inicio || INICIO(), { conCatalogo: false }).lineas;
+
+function itemsHtml(H) {
+  const D = st.D, cat = D.catalogo || [];
+  if (!GI.activo(cat)) return previaHtml(H);
+  const I = GI.indice(cat), U = GI.usos({ lineas: lineasCrudas(), provs: D.provs, comps: D.compromisos }), rev = GI.porRevisar(U, I);
+  // Uso de cada ítem activo: lo suyo y lo de los nombres antiguos que apuntan a él
+  const uso = {}; Object.values(U).forEach(u => { const r = GI.resolver(u.nombre, I); if (!r.ok) return; const k = GN.norm(r.nombre), x = uso[k] || (uso[k] = { docs: 0, fichas: 0, comps: 0, monto: 0 }); x.docs += u.docs; x.fichas += u.fichas; x.comps += u.comps; x.monto += u.monto; });
+  const usoTxt = n => { const x = uso[GN.norm(n)]; if (!x || !(x.docs + x.fichas + x.comps)) return 'sin uso todavía'; return [x.docs ? `${x.docs} ${x.docs === 1 ? 'documento' : 'documentos'} (${H.pesos(x.monto)})` : '', x.fichas ? `${x.fichas} ${x.fichas === 1 ? 'ficha' : 'fichas'}` : '', x.comps ? `${x.comps} ${x.comps === 1 ? 'compromiso' : 'compromisos'}` : ''].filter(Boolean).join(' · '); };
+  const activos = GI.ordenar(cat.filter(x => x.estado !== 'archivado' && !x.sistema)), sistema = cat.filter(x => x.sistema), archivados = cat.filter(x => x.estado === 'archivado').sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+  const filaItem = x => `<div class="gn-it gn-item"><div class="gn-fila"><b>${H.esc(x.nombre)}</b><span class="chip ${PC.existe(x.cuenta) ? 'c-gris' : 'c-rojo'} chip-chico">${H.esc(PC.existe(x.cuenta) ? x.cuenta : 'sin cuenta')}</span></div>
+    <small>${H.esc(PC.nombre(x.cuenta) || 'Sin cuenta')} · ${H.esc(PC.dondeVa(x.cuenta))}${x.area ? ' · área sugerida ' + H.esc(x.area) : ''}</small><small class="gn-uso">${H.esc(usoTxt(x.nombre))}</small>
+    <div class="gn-acc"><button type="button" class="btn-sec btn-chico" data-gn-item="${H.esc(x.id)}">Cambiar</button><button type="button" class="btn-sec btn-chico" data-gn-archivaritem="${H.esc(x.id)}">Archivar</button></div></div>`;
+  const MOT = { desconocido: 'no está en el catálogo', archivado: 'está archivado sin reemplazo', sin_cuenta: 'no tiene cuenta' };
+  return `${rev.length ? `<section class="tarjeta gn-revisar-it" aria-labelledby="t-gn-revit"><div class="titulo-fila"><h2 id="t-gn-revit">Revisar ítem · ${rev.length} ${H.info('Revisar ítem', TXT_REVISAR_IT)}</h2></div>
+      ${rev.map(x => `<div class="gn-it"><div class="gn-fila"><b>${H.esc(x.nombre)}</b><span class="gn-m">${H.pesos(x.monto)}</span></div><small>${H.esc(MOT[x.motivo] || '')} · ${[x.docs ? `${x.docs} ${x.docs === 1 ? 'documento' : 'documentos'}` : '', x.fichas ? `${x.fichas} ${x.fichas === 1 ? 'ficha' : 'fichas'}` : '', x.comps ? `${x.comps} ${x.comps === 1 ? 'compromiso' : 'compromisos'}` : ''].filter(Boolean).join(' · ')}</small>
+        <div class="gn-acc"><button type="button" class="btn btn-chico" data-gn-ubicar="${H.esc(x.nombre)}">Ubicar</button></div></div>`).join('')}</section>` : ''}
+    <section class="tarjeta" aria-labelledby="t-gn-items"><div class="titulo-fila"><h2 id="t-gn-items">Ítems ${H.info('Catálogo de ítems', TXT_ITEMS)}</h2><button type="button" class="btn btn-chico" data-gn-item="">Nuevo ítem</button></div>
+      <p class="ayuda">${activos.length} ítems en ${GI.GRUPOS.filter(g => activos.some(x => x.grupo === g)).length} grupos. Cada uno con su cuenta del plan.</p>
+      ${GI.GRUPOS.map(g => { const l = activos.filter(x => x.grupo === g); return l.length ? `<h3 class="gn-h3">${H.esc(g)}</h3>${l.map(filaItem).join('')}` : ''; }).join('')}
+      <details class="gn-det"><summary>Del sistema · ${sistema.length} (cuenta fija)</summary>${sistema.map(x => `<div class="gn-fila gn-fila-doc"><span><b>${H.esc(x.nombre)}</b> · ${H.esc(PC.texto(x.cuenta))}</span><small>${H.esc(usoTxt(x.nombre))}</small></div>`).join('')}
+        <p class="ayuda">Los crean el F29, Previred, los créditos y el ajuste de un compromiso. ${sistema.filter(x => x.elegible).map(x => H.esc(x.nombre)).join(' y ')} también se pueden elegir a mano.</p></details>
+      ${archivados.length ? `<details class="gn-det"><summary>Archivados · ${archivados.length}</summary>${archivados.map(x => `<div class="gn-fila gn-fila-doc gn-archivado"><span><b>${H.esc(x.nombre)}</b> · ${x.pasaA ? 'pasa a ' + H.esc(x.pasaA) : 'sin reemplazo'}</span>${x.grupo && PC.existe(x.cuenta) ? `<button type="button" class="gn-link" data-gn-reactivaritem="${H.esc(x.id)}">Reactivar</button>` : ''}</div>`).join('')}</details>` : ''}
+    </section>`;
+}
+
+// ── El paso al catálogo nuevo: vista previa y confirmar ──
+async function abrirPrevia(el, H) {
+  if (st.ocupado) return; st.ocupado = true;
+  try {
+    const fin = await (await fsGN()).leerFinItems(), D = st.D, lineas = lineasCrudas();
+    const tipoAntes = n => FR.tipoResultado(n, fin, null, true).tipo;
+    const plan = GI.planMigracion({ viejos: D.itemsViejos || [], lineas, docs: D.docs, provs: D.provs, comps: D.compromisos, tipoAntes });
+    st.previa = { plan, lineas, tipoAntes, dec: { otros: Object.fromEntries(plan.otros.grupos.filter(g => g.sugerido).map(g => [g.clave, g.sugerido])), revisar: {} } };
+  } catch (e) { st.err = H.esc(e.message || H.mensajeError(e)); }
+  finally { st.ocupado = false; }
+  repintarQuieto(el, H);
+}
+// El total del mes por dónde queda (antes: Finanzas → Clasificación; después: la cuenta del ítem nuevo)
+function totalesPrevia() {
+  const P = st.previa, pl = P.plan, dec = P.dec, cat = pl.crear.concat(pl.archivar.map(x => ({ nombre: x.nombre, estado: 'archivado', pasaA: x.pasaA })))
+    .concat(Object.entries(dec.revisar).filter(([, v]) => v).map(([k, v]) => ({ nombre: (pl.revisar.find(r => GN.norm(r.nombre) === k) || {}).nombre || k, estado: 'archivado', pasaA: v })));
+  const I = GI.indice(cat), docPor = Object.fromEntries((st.D.docs || []).map(d => [d.id, d])), out = {};
+  const sumar = (mes, lado, g, v) => { const m = out[mes] || (out[mes] = { antes: {}, despues: {}, total: 0 }); m[lado][g] = (m[lado][g] || 0) + v; };
+  P.lineas.forEach(l => {
+    const n = l.itemOriginal || l.itemGasto, mes = String(l.fecha).slice(0, 7), v = Number(l.montoNeto) || 0, d = docPor[l.docId];
+    let nuevo = GN.norm(n) === GN.norm(GI.OTROS_INSUMOS) ? (dec.otros[d ? GI.claveGrupo(d, st.D.provs) : ''] || '') : n;
+    const r = nuevo ? GI.resolver(nuevo, I) : { ok: false };
+    sumar(mes, 'antes', grupoDeTipo(P.tipoAntes(n)), v); sumar(mes, 'despues', r.ok ? grupoDeTipo(PC.tipoDeCuenta(r.cuenta)) : 'sin', v); out[mes].total += v;
+  });
+  return out;
+}
+function previaHtml(H) {
+  const intro = `<section class="tarjeta" aria-labelledby="t-gn-cat"><div class="titulo-fila"><h2 id="t-gn-cat">Catálogo de ítems ${H.info('Pasar al catálogo nuevo', TXT_PREVIA)}</h2></div>
+    <p>Desde esta versión, cada ítem apunta a una cuenta del plan de cuentas y Finanzas lee de ahí. Es el catálogo que usted aprobó el 25 de octubre (9 grupos; "personal" se dice "trabajadores").</p>
+    <p class="ayuda">Antes de pasar, revise la vista previa: qué pasa solo, qué necesita su decisión y cómo queda el total de cada mes. Nada cambia hasta que confirme.</p>
+    ${st.previa ? '' : '<button type="button" class="btn" data-gn-previa>Ver la vista previa</button>'}</section>`;
+  if (!st.previa) return intro;
+  const P = st.previa, pl = P.plan, dec = P.dec, sel = (k, v, nombre) => `<select data-gn-pv-rev="${H.esc(k)}" aria-label="Pasa a, para ${H.esc(nombre)}"><option value="">Dejar para después (Revisar ítem)</option>${GI.GRUPOS.map(g => `<optgroup label="${H.esc(g)}">${GI.CATALOGO.filter(x => x.grupo === g).map(x => `<option value="${H.esc(x.nombre)}" ${x.nombre === v ? 'selected' : ''}>${H.esc(x.nombre)}</option>`).join('')}</optgroup>`).join('')}</select>`;
+  const usosTxt = x => [x.docs ? `${x.docs} ${x.docs === 1 ? 'documento' : 'documentos'}` : '', x.fichas ? `${x.fichas} ${x.fichas === 1 ? 'ficha' : 'fichas'}` : '', x.comps ? `${x.comps} ${x.comps === 1 ? 'compromiso' : 'compromisos'}` : ''].filter(Boolean).join(' · ') || 'sin uso';
+  const cambio = x => { const a = grupoDeTipo(x.antes), b = grupoDeTipo(PC.tipoDeCuenta(x.cuenta)); return a !== b && x.monto ? ` · <b class="gn-cambia">antes ${H.esc(GRUPO_TXT[a].toLowerCase())}, ahora ${H.esc(GRUPO_TXT[b].toLowerCase())}</b>` : ''; };
+  const faltan = pl.otros.grupos.filter(g => !dec.otros[g.clave]).length;
+  const T = totalesPrevia(), meses = Object.keys(T).sort(), G = ['costo', 'compra', 'margen', 'fuera', 'sin'];
+  const tabla = m => { const x = T[m], fila = g => (x.antes[g] || x.despues[g]) ? `<tr><th scope="row">${GRUPO_TXT[g]}</th><td class="gn-num">${H.pesos(x.antes[g] || 0)}</td><td class="gn-num">${H.pesos(x.despues[g] || 0)}</td></tr>` : '';
+    return `<div class="gn-pv-mes"><h3 class="gn-h3">${H.esc(GF.mesCorto(m))}</h3><table class="gn-pv-tabla"><thead><tr><th scope="col">Dónde queda</th><th scope="col" class="gn-num">Antes</th><th scope="col" class="gn-num">Después</th></tr></thead><tbody>${G.map(fila).join('')}
+      <tr class="gn-pv-tot"><th scope="row">Total del mes</th><td class="gn-num">${H.pesos(G.reduce((a, g) => a + (x.antes[g] || 0), 0))}</td><td class="gn-num">${H.pesos(G.reduce((a, g) => a + (x.despues[g] || 0), 0))}</td></tr></tbody></table></div>`; };
+  return intro + `<section class="tarjeta" aria-labelledby="t-gn-pv1"><div class="titulo-fila"><h2 id="t-gn-pv1">Vista previa</h2><button type="button" class="btn-sec btn-chico" data-gn-previa-cerrar>Cerrar</button></div>
+      <p>Se crean <b>${pl.crear.filter(x => !x.sistema).length} ítems</b> en 9 grupos y <b>${pl.crear.filter(x => x.sistema).length} del sistema</b>. Se archivan <b>${pl.archivar.length} nombres</b> de la lista anterior (${pl.archivar.filter(x => x.pasaA).length} con su reemplazo).</p>
+      <h3 class="gn-h3">El total de cada mes, antes y después</h3>
+      <div class="gn-pv-meses">${meses.length ? meses.map(tabla).join('') : '<p class="ayuda">Todavía no hay gastos clasificados desde el inicio.</p>'}</div>
+      <p class="ayuda">El total no cambia: solo cambia dónde queda cada peso. "Antes" es lo que decía Finanzas → Clasificación; "después", la cuenta del ítem nuevo.</p></section>
+    ${pl.otros.grupos.length ? `<section class="tarjeta" aria-labelledby="t-gn-pv2"><div class="titulo-fila"><h2 id="t-gn-pv2">OTROS INSUMOS · ${H.pesos(pl.otros.monto)}</h2><span>${faltan ? `${faltan} por decidir` : 'decidido'}</span></div>
+      <p class="ayuda">Antes contaba como "${H.esc(NOMBRE_TIPO(pl.otros.antes))}"${grupoDeTipo(pl.otros.antes) === 'compra' ? ': no entraba al resultado, porque no está en ninguna receta' : ''}. Elija, por proveedor, a qué pasa. Lo que elija queda en su ficha y en sus documentos.</p>
+      ${pl.otros.grupos.map(g => `<div class="gn-it" data-gn-pv-grupo="${H.esc(g.clave)}"><div class="gn-fila"><b>${H.esc(g.razon)}</b><span class="gn-m">${H.pesos(g.monto)}</span></div>
+        <small>${g.docs.length ? `${g.docs.length} ${g.docs.length === 1 ? 'documento' : 'documentos'}` : 'sin documentos desde el inicio'}${g.ficha ? ' · su ficha recuerda OTROS INSUMOS' : ''}${g.sugerido ? ` · sugerido por el detalle: ${H.esc(g.sugerido)}` : ''}</small>
+        ${g.docs.some(x => x.detalle.length) ? `<details class="gn-detalle"><summary>Ver el detalle</summary><ul>${g.docs.map(x => `<li><span>${H.esc(x.tipo)} ${H.esc(x.folio)} · ${H.esc(H.diaTexto(x.fecha))}: ${H.esc(x.detalle.join(', ') || 'sin detalle')}</span><span class="gn-m">${H.pesos(x.monto)}</span></li>`).join('')}</ul></details>` : ''}
+        <div class="chips" role="radiogroup" aria-label="OTROS INSUMOS de ${H.esc(g.razon)} pasa a">${GI.OPCIONES_OTROS.map(o => `<label class="chip-radio"><input type="radio" name="pv-${H.esc(g.clave)}" value="${H.esc(o)}" data-gn-pv-otro="${H.esc(g.clave)}" ${dec.otros[g.clave] === o ? 'checked' : ''}><span>${H.esc(o)}</span></label>`).join('')}</div></div>`).join('')}</section>` : ''}
+    ${pl.revisar.length ? `<section class="tarjeta" aria-labelledby="t-gn-pv3"><div class="titulo-fila"><h2 id="t-gn-pv3">Para ubicar · ${pl.revisar.length}</h2></div>
+      <p class="ayuda">Nombres en uso que no están en la tabla aprobada. Elija a qué ítem pasan, o déjelos para después: quedan en "Revisar ítem" y su gasto, sin clasificar, hasta ubicarlos.</p>
+      ${pl.revisar.map(x => `<div class="gn-it"><div class="gn-fila"><b>${H.esc(x.nombre)}</b><span class="gn-m">${H.pesos(x.monto)}</span></div><small>${H.esc(usosTxt(x))} · ${H.esc(x.motivo)} · antes: ${H.esc(NOMBRE_TIPO(x.antes))}</small>
+        <div class="campo"><label class="sr" for="pv-r-${H.esc(GI.claveItem(x.nombre))}">Pasa a</label>${sel(GN.norm(x.nombre), dec.revisar[GN.norm(x.nombre)] || '', x.nombre).replace('<select', `<select id="pv-r-${H.esc(GI.claveItem(x.nombre))}"`)}</div></div>`).join('')}</section>` : ''}
+    <section class="tarjeta" aria-labelledby="t-gn-pv4"><div class="titulo-fila"><h2 id="t-gn-pv4">Pasan solos · ${pl.pasan.length}</h2></div>
+      <p class="ayuda">Los nombres en uso con su reemplazo en la tabla aprobada. Sus documentos no se reescriben: cuentan con el ítem nuevo.</p>
+      ${pl.pasan.map(x => `<div class="gn-fila gn-fila-doc"><span><b>${H.esc(x.viejo)}</b>${GN.norm(x.viejo) !== GN.norm(x.nuevo) ? ` → ${H.esc(x.nuevo)}` : ' (queda igual)'} · ${H.esc(PC.texto(x.cuenta))}<br><small>${H.esc(usosTxt(x))}${cambio(x)}</small></span><span class="gn-m">${x.monto ? H.pesos(x.monto) : ''}</span></div>`).join('') || '<p class="ayuda">Ninguno.</p>'}
+      ${pl.sinUso.length ? `<details class="gn-det"><summary>Se archivan sin uso · ${pl.sinUso.length}</summary><p class="ayuda">${H.esc(pl.sinUso.join(' · '))}</p></details>` : ''}</section>
+    <section class="tarjeta" aria-labelledby="t-gn-pv5"><h2 id="t-gn-pv5">Confirmar</h2>
+      <p class="ayuda">${faltan ? `Falta decidir OTROS INSUMOS de ${faltan} ${faltan === 1 ? 'proveedor' : 'proveedores'}.` : 'Todo listo. Nada se borra: los nombres antiguos quedan archivados y cada cambio queda en el historial de su ficha o documento.'}</p>
+      <button type="button" class="btn" data-gn-pasar ${faltan ? 'disabled' : ''}>Pasar al catálogo nuevo</button></section>`;
+}
+async function pasarCatalogo(el, H) {
+  const P = st.previa; if (!P || P.plan.otros.grupos.some(g => !P.dec.otros[g.clave])) return;
+  return hacer(el, H, async () => { const r = await (await fsGN()).aplicarCatalogo(P.plan, P.dec); st.previa = null; H.registrar('Gastos: pasó al catálogo nuevo de ítems', `${r.items} ítems · ${r.fichas} fichas · ${r.documentos} documentos`); st.ultimoPaso = r; },
+    'Listo: el catálogo nuevo está activo. Las fichas, los compromisos y los documentos de OTROS INSUMOS pasaron al nombre nuevo. Finanzas ya lee la cuenta de cada ítem.');
+}
+// ── Crear o cambiar un ítem ──
+function selCuenta(H, id, v) {
+  const sec = {}; PC.CODIGOS.forEach(c => { const k = PC.seccion(c); (sec[k] = sec[k] || []).push(c); });
+  return `<select id="${id}"><option value="">Elija la cuenta</option>${Object.entries(sec).map(([k, l]) => `<optgroup label="${H.esc(k)}">${l.map(c => `<option value="${c}" ${c === v ? 'selected' : ''}>${H.esc(PC.texto(c))}</option>`).join('')}</optgroup>`).join('')}</select>`;
+}
+function dlgItem(el, H, id) {
+  const x = id ? (st.D.catalogo || []).find(i => i.id === id) : null;
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>${x ? H.esc(x.nombre) : 'Nuevo ítem'}</h2>${H.info('Catálogo de ítems', TXT_ITEMS)}</div>
+    ${x ? '<p class="ayuda">El nombre no cambia: para otro nombre, cree un ítem nuevo y archive este con su reemplazo.</p>' : '<div class="campo"><label for="it-nombre">Nombre</label><input id="it-nombre" maxlength="60" placeholder="Por ejemplo: SEGUROS" autocomplete="off"></div>'}
+    <div class="campo"><label for="it-grupo">Grupo</label><select id="it-grupo"><option value="">Elija el grupo</option>${GI.GRUPOS.map(g => `<option ${x && x.grupo === g ? 'selected' : ''}>${H.esc(g)}</option>`).join('')}</select></div>
+    <div class="campo"><label for="it-cuenta">Cuenta</label>${selCuenta(H, 'it-cuenta', x ? x.cuenta : '')}<p class="ayuda" data-donde></p></div>
+    <div class="campo"><label for="it-area">Área sugerida (opcional)</label><select id="it-area"><option value="">Ninguna</option>${AR.GASTO_GN.map(a => `<option value="${a}" ${x && x.area === a ? 'selected' : ''}>${H.esc(nombreArea(a))}</option>`).join('')}</select></div>
+    ${x ? '<p class="ayuda">Un cambio de cuenta rige para los meses abiertos. Un mes cerrado no cambia: la diferencia entra como "Ajustes de meses cerrados".</p>' : ''}
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
+  const cu = dlg.querySelector('#it-cuenta'), donde = () => { dlg.querySelector('[data-donde]').textContent = cu.value ? PC.dondeVa(cu.value) + (PC.CUENTAS[cu.value] && PC.CUENTAS[cu.value].ayuda ? '. ' + PC.CUENTAS[cu.value].ayuda : '') : ''; };
+  cu.addEventListener('change', donde); donde(); dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async ev => { ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
+    try { const v = q => (dlg.querySelector(q) || {}).value || '';
+      await (await fsGN()).guardarItem(x ? x.id : '', { nombre: x ? x.nombre : v('#it-nombre'), grupo: v('#it-grupo'), cuenta: v('#it-cuenta'), area: v('#it-area') });
+      dlg.close(); H.registrar(x ? 'Gastos: cambió un ítem' : 'Gastos: creó un ítem', x ? x.nombre : v('#it-nombre')); aviso(el, H, x ? `Ítem cambiado: ${H.esc(x.nombre)} · ${H.esc(PC.texto(v('#it-cuenta')))}.` : `Ítem creado: ${H.esc(v('#it-nombre').toUpperCase())}. Ya se puede elegir al clasificar.`); }
+    catch (e) { falla(dlg, e, H); } });
+}
+const opcionesActivos = (H, excepto) => GI.GRUPOS.map(g => { const l = GI.ordenar((st.D.catalogo || []).filter(x => x.estado !== 'archivado' && !x.sistema && x.grupo === g && x.id !== excepto)); return l.length ? `<optgroup label="${H.esc(g)}">${l.map(x => `<option value="${H.esc(x.nombre)}">${H.esc(x.nombre)}</option>`).join('')}</optgroup>` : ''; }).join('');
+function dlgArchivarItem(el, H, id) {
+  const x = (st.D.catalogo || []).find(i => i.id === id); if (!x) return;
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>Archivar ${H.esc(x.nombre)}</h2></div>
+    <p class="ayuda">No se borra: deja de aparecer al clasificar. Si tiene reemplazo, sus documentos ya clasificados cuentan con el nuevo, y las fichas y compromisos que lo usan pasan al nuevo (con su historial). Sin reemplazo, lo que lo use queda en "Revisar ítem".</p>
+    <div class="campo"><label for="ai-pasa">Pasa a</label><select id="ai-pasa"><option value="">Sin reemplazo</option>${opcionesActivos(H, x.id)}</select></div>
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Archivar</button></div></form>`);
+  dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async ev => { ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
+    try { const pasa = dlg.querySelector('#ai-pasa').value, n = await (await fsGN()).archivarItem(x.id, { archivar: true, pasaA: pasa }); dlg.close(); H.registrar('Gastos: archivó un ítem', `${x.nombre}${pasa ? ' → ' + pasa : ''}`);
+      aviso(el, H, `Archivado: ${H.esc(x.nombre)}${pasa ? ` · pasa a ${H.esc(pasa)}${n ? ` (${n} ${n === 1 ? 'ficha o compromiso cambió' : 'fichas o compromisos cambiaron'})` : ''}` : ''}.`); }
+    catch (e) { falla(dlg, e, H); } });
+}
+function dlgUbicar(el, H, nombre) {
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>Ubicar ${H.esc(nombre)}</h2>${H.info('Revisar ítem', TXT_REVISAR_IT)}</div>
+    <div class="chips" role="radiogroup" aria-label="Cómo"><label class="chip-radio"><input type="radio" name="ub-m" value="pasa" checked><span>Pasa a un ítem del catálogo</span></label><label class="chip-radio"><input type="radio" name="ub-m" value="nuevo"><span>Es un ítem nuevo</span></label></div>
+    <div data-ub="pasa" class="gn-dlg-bloque"><div class="campo"><label for="ub-pasa">Pasa a</label><select id="ub-pasa"><option value="">Elija el ítem</option>${opcionesActivos(H, '')}</select></div><p class="ayuda">Sus documentos ya clasificados cuentan con ese ítem; no se reescriben.</p></div>
+    <div data-ub="nuevo" class="gn-dlg-bloque" hidden><div class="campo"><label for="ub-grupo">Grupo</label><select id="ub-grupo"><option value="">Elija el grupo</option>${GI.GRUPOS.map(g => `<option>${H.esc(g)}</option>`).join('')}</select></div>
+      <div class="campo"><label for="ub-cuenta">Cuenta</label>${selCuenta(H, 'ub-cuenta', '')}</div></div>
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
+  const modo = () => dlg.querySelector('[name=ub-m]:checked').value;
+  dlg.querySelectorAll('[name=ub-m]').forEach(r => r.addEventListener('change', () => { dlg.querySelectorAll('[data-ub]').forEach(b => { b.hidden = b.dataset.ub !== modo(); }); }));
+  dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('form').addEventListener('submit', async ev => { ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
+    try { const v = q => dlg.querySelector(q).value, F = await fsGN();
+      if (modo() === 'pasa') { if (!v('#ub-pasa')) throw new Error('Elija el ítem.'); await F.ubicarItem(nombre, { pasaA: v('#ub-pasa') }); }
+      else await F.ubicarItem(nombre, { grupo: v('#ub-grupo'), cuenta: v('#ub-cuenta') });
+      dlg.close(); H.registrar('Gastos: ubicó un ítem', `${nombre} → ${modo() === 'pasa' ? v('#ub-pasa') : 'ítem nuevo ' + v('#ub-cuenta')}`); aviso(el, H, `Ubicado: ${H.esc(nombre)}${modo() === 'pasa' ? ' pasa a ' + H.esc(v('#ub-pasa')) : ' es un ítem nuevo (' + H.esc(PC.texto(v('#ub-cuenta'))) + ')'}.`); }
     catch (e) { falla(dlg, e, H); } });
 }

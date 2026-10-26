@@ -9,8 +9,12 @@
 //  · Un documento que se reparte en 6 o 12 meses (patentes, permisos) entrega una línea por mes (el último absorbe el redondeo).
 //  · Sin clasificar o "Esto no va": no entrega líneas (el cierre avisa lo sin clasificar).
 //  · Las notas de crédito vienen en negativo desde el SII: sus partes restan solas.
+//  v0.102.0 · Con el catálogo de ítems (gn_items), cada línea lleva el ítem que cuenta (un nombre antiguo pasa al nuevo) y su CUENTA:
+//  Finanzas lee el tipo desde la cuenta (plan-cuentas.js), ya no desde Clasificación. catalogo: true marca esas líneas. Un ítem sin cuenta
+//  (por ubicar en Gastos → Ítems) entra sin cuenta: queda "sin clasificar" en el estado de resultados.
 // ═══════════════════════════════════════════════
-import * as GB from './gn-bandeja.js?v=0.101.1';
+import * as GB from './gn-bandeja.js?v=0.102.0';
+import * as GI from './gn-items.js?v=0.102.0';
 
 const s = v => String(v == null ? '' : v).trim();
 const entero = v => { const x = Math.round(Number(v)); return isFinite(x) ? x : 0; };
@@ -34,9 +38,11 @@ export function mesesDoc(d) {
 const repartirEn = (monto, n) => { const b = Math.trunc(monto / n), out = Array(n).fill(b); out[n - 1] = monto - b * (n - 1); return out; };
 
 // ── Las líneas de un documento para Finanzas (solo los meses desde el inicio) ──
-// → [{ id, fecha, itemGasto, area, montoNeto, razonSocial, observacion, estado, origenGN, docId, mesOriginal }]
-// El id no depende del orden de las partes (ítem y área): reclasificar no cambia la llave de lo que sigue igual.
-export function lineasDoc(d, provs, reps, { inicio } = {}) {
+// → [{ id, fecha, itemGasto, area, montoNeto, razonSocial, observacion, estado, origenGN, docId, mesOriginal [, catalogo, cuenta, itemOriginal] }]
+// El id no depende del orden de las partes (ítem y área): reclasificar no cambia la llave de lo que sigue igual. El id sale del nombre
+// guardado (no del que cuenta): pasar al catálogo nuevo no cambia las llaves.
+// I: el índice del catálogo (GI.indice) o null (todavía sin catálogo: los nombres tal cual)
+export function lineasDoc(d, provs, reps, { inicio, I = null } = {}) {
   if (!d || d.estado === 'no_va') return [];
   const mesIni = s(inicio).slice(0, 7), meses = mesesDoc(d), n = meses.length;
   if (meses[n - 1] < mesIni) return [];   // todo es de antes del inicio
@@ -50,18 +56,20 @@ export function lineasDoc(d, provs, reps, { inicio } = {}) {
       if (!montos[i] || m < mesIni) return;
       const fecha = s(d.fecha).slice(0, 7) === m ? s(d.fecha) : ultimoDia(m);
       const obs = [ref, n > 1 ? `${i + 1}/${n} (${mesCorto(meses[0])} a ${mesCorto(meses[n - 1])})` : ''].filter(Boolean).join(' · ');
-      out.push({ id: `gn_${d.id}_${k}${n > 1 ? '_' + m.replace('-', '') : ''}`, fecha, itemGasto: s(p.item), area: s(p.area).toUpperCase(), montoNeto: montos[i], razonSocial: s(d.razon), observacion: obs,
-        estado: 'vigente', origenGN: s(d.origen) || 'sii', docId: s(d.id), mesOriginal: m });
+      const r = I ? GI.resolver(p.item, I) : null, cat = r ? { catalogo: true, cuenta: r.ok ? r.cuenta : '', ...(r.ok && r.nombre !== s(p.item) ? { itemOriginal: s(p.item) } : {}) } : {};
+      out.push({ id: `gn_${d.id}_${k}${n > 1 ? '_' + m.replace('-', '') : ''}`, fecha, itemGasto: r && r.ok ? r.nombre : s(p.item), area: s(p.area).toUpperCase(), montoNeto: montos[i], razonSocial: s(d.razon), observacion: obs,
+        estado: 'vigente', origenGN: s(d.origen) || 'sii', docId: s(d.id), mesOriginal: m, ...cat });
     });
   });
   return out;
 }
 
 // ── Todo para Finanzas: las líneas del Gastos nuevo desde el inicio ──
-// D: { docs, provs, repartos }. → { lineas, errores [docId] } (un documento raro se salta y se avisa: no deja a Finanzas sin nada)
-export function gastosParaFinanzas(D, inicio) {
-  const lineas = [], errores = [];
-  ((D && D.docs) || []).forEach(d => { try { lineas.push(...lineasDoc(d, D.provs || {}, D.repartos || {}, { inicio })); } catch (e) { errores.push(d && d.id); } });
+// D: { docs, provs, repartos, catalogo }. → { lineas, errores [docId] } (un documento raro se salta y se avisa: no deja a Finanzas sin nada)
+// conCatalogo false: los nombres tal cual (lo usa la vista previa del paso al catálogo)
+export function gastosParaFinanzas(D, inicio, { conCatalogo = true } = {}) {
+  const lineas = [], errores = [], I = conCatalogo && D && GI.activo(D.catalogo) ? GI.indice(D.catalogo) : null;
+  ((D && D.docs) || []).forEach(d => { try { lineas.push(...lineasDoc(d, D.provs || {}, D.repartos || {}, { inicio, I })); } catch (e) { errores.push(d && d.id); } });
   return { lineas, errores };
 }
 

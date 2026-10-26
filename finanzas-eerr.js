@@ -27,9 +27,15 @@
 //  del Catálogo, solo a B2B) − costos del canal B2B (remuneraciones y fijos con área B2B, que antes iban en Común) = resultado del
 //  canal B2B. El despacho ya no está en Común ni en el margen de contribución. El resultado operacional y el del mes no cambian.
 //  Un mes cerrado antes de la v0.75.1 se ve como quedó; sus ajustes se comparan en la forma de entonces (sin ruido por el cambio).
+//  v0.102.0 (catálogo de ítems = entrada al plan de cuentas, hoja de ruta sección 1.1): cada línea del Gastos nuevo trae su CUENTA y de ahí
+//  sale su lugar: packaging (5.7) en el piso 1, junto a las comisiones el arriendo del POS (5.4.2); las facturas de comisiones (5.4) ya están en el margen; el bloque de cada tienda (costos con área
+//  B2C-BA o B2C-AI, como el canal B2B); y, entre los comunes, marketing (6.9), seguros (6.10), transporte (6.11) y capacitación (6.12). Las
+//  líneas del catálogo usan el área tal cual (el mapa de áreas de Clasificación ya no se usa: una sola regla). La cuota de un convenio de
+//  la TGR (2.9) va fuera del resultado. Un cierre anterior a la v0.102.0 se compara en su forma (las filas nuevas se suman donde estaban).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.101.1';
-import * as AR from './areas.js?v=0.101.1';
+import * as FR from './finanzas-resultados.js?v=0.102.0';
+import * as AR from './areas.js?v=0.102.0';
+import * as PC from './plan-cuentas.js?v=0.102.0';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -46,7 +52,8 @@ export const mesTxt = m => { const [y, n] = String(m).split('-'); return `${MESE
 export const FILAS = [
   { k: 'ventas', t: 'Ventas netas', piso: 1, signo: '', cols: 'todas', abre: true },
   { k: 'costoDirecto', t: 'Costo directo de lo vendido', piso: 1, signo: '−', cols: 'todas' },
-  { k: 'costosVenta', t: 'Costos de venta (comisión de tarjeta, despacho)', piso: 1, signo: '−', cols: 'todas' },
+  { k: 'costosVenta', t: 'Comisiones y despacho', piso: 1, signo: '−', cols: 'todas' },
+  { k: 'packaging', t: 'Packaging', piso: 1, signo: '−', cols: 'todas' },   // v0.102.0 (cuenta 5.7)
   { k: 'merma', t: 'Merma valorizada', piso: 1, signo: '−', cols: 'todas' },
   { k: 'mc', t: 'Margen de contribución', piso: 1, signo: '=', cols: 'todas', resultado: true, pct: true },
   { k: 'rem', t: 'Remuneraciones propias del área', piso: 2, signo: '−', cols: 'areas' },
@@ -58,16 +65,27 @@ export const FILAS = [
   { k: 'cargos', t: 'Despacho cobrado', piso: 'b2b', signo: '+', cols: 'total' },
   { k: 'canalB2B', t: 'Costos del canal B2B (atención, órdenes y despacho)', piso: 'b2b', signo: '−', cols: 'total' },
   { k: 'resCanalB2B', t: 'Resultado del canal B2B', piso: 'b2b', signo: '=', cols: 'total', resultado: true },
+  // v0.102.0: el bloque de cada tienda (costos con área B2C-BA o B2C-AI: lo que cuesta vender ahí), igual que el canal B2B
+  { k: 'tiendaBA', t: 'Tienda Barros Arana: costos propios', piso: 'tiendas', signo: '−', cols: 'total', opcional: true },
+  { k: 'tiendaAI', t: 'Sala de ventas Ainavillo: costos propios', piso: 'tiendas', signo: '−', cols: 'total', opcional: true },
   { k: 'remComun', t: 'Remuneraciones comunes (incluye sueldo empresarial)', piso: 3, signo: '−', cols: 'comun' },
-  { k: 'fijosComun', t: 'Fijos comunes', piso: 3, signo: '−', cols: 'comun' },
+  { k: 'fijosComun', t: 'Fijos comunes (administración y otros)', piso: 3, signo: '−', cols: 'comun' },
+  { k: 'marketing', t: 'Marketing y publicidad', piso: 3, signo: '−', cols: 'comun', opcional: true },
+  { k: 'seguros', t: 'Seguros', piso: 3, signo: '−', cols: 'comun', opcional: true },
+  { k: 'transporte', t: 'Transporte y movilización', piso: 3, signo: '−', cols: 'comun', opcional: true },
+  { k: 'capacitacion', t: 'Capacitación, uniformes y seguridad', piso: 3, signo: '−', cols: 'comun', opcional: true },
   { k: 'depComun', t: 'Depreciación común', piso: 3, signo: '−', cols: 'comun' },
   { k: 'resOp', t: 'Resultado operacional', piso: 3, signo: '=', cols: 'total', resultado: true, pct: true },
   { k: 'financieros', t: 'Financieros (intereses, multas y banco)', piso: 3, signo: '−', cols: 'comun' },
   { k: 'resultado', t: 'Resultado del mes', piso: 3, signo: '=', cols: 'total', resultado: true, pct: true }
 ];
 export const FILA = Object.fromEntries(FILAS.map(f => [f.k, f]));
-export const NOMBRE_PISO = { 1: 'Piso 1 · Margen de contribución', 2: 'Piso 2 · Margen del área', b2b: 'Canal B2B · despacho y costos del canal', 3: 'Piso 3 · Comunes y resultado' };
+export const NOMBRE_PISO = { 1: 'Piso 1 · Margen de contribución', 2: 'Piso 2 · Margen del área', b2b: 'Canal B2B · despacho y costos del canal', tiendas: 'Tiendas · costos propios de cada una', 3: 'Piso 3 · Comunes y resultado' };
 export const FILAS_B2B = ['cargos', 'canalB2B', 'resCanalB2B'];
+// v0.102.0 · Los comunes con fila propia (por la cuenta del ítem) y las tiendas (por el área)
+export const FILAS_COMUNES_FIJOS = ['fijosComun', 'marketing', 'seguros', 'transporte', 'capacitacion'];
+export const FILAS_TIENDAS = ['tiendaBA', 'tiendaAI'];
+export const TIENDA_DE_AREA = { 'B2C-BA': 'tiendaBA', 'B2C-AI': 'tiendaAI' };
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
@@ -95,9 +113,10 @@ export function lineasGastosMes(gastos, mes, fin = {}, mapa = {}, items = null) 
   const out = [], porClave = {};
   (items || []).forEach(i => { if (i && i.item) porClave[FR.claveItem(i.item)] = i; });
   (gastos || []).filter(FR.vigente).filter(g => FR.fechaGasto(g).slice(0, 7) === mes).forEach(g => {
-    const clave = FR.claveItem(g.itemGasto), tipo = FR.tipoResultado(g.itemGasto, fin, porClave[clave] || g, !!g.origenGN).tipo;
-    FR.lineasArea(g).forEach(l => out.push({ id: s(g.id), fecha: FR.fechaGasto(g), item: s(g.itemGasto).trim() || '(sin ítem)', clave, tipo, grupo: tipo ? FR.TIPO[tipo].grupo : 'sin', area: l.area,
-      col: FR.destinoArea(l.area, mapa), neto: num(l.neto), proveedor: s(g.razonSocial), obs: s(g.observacion).slice(0, 120) }));
+    // v0.102.0 · Con el catálogo de ítems, el tipo sale de la cuenta del ítem (y el área va tal cual)
+    const clave = FR.claveItem(g.itemGasto), tipo = g.catalogo ? PC.tipoDeCuenta(g.cuenta) : FR.tipoResultado(g.itemGasto, fin, porClave[clave] || g, !!g.origenGN).tipo;
+    FR.lineasArea(g).forEach(l => out.push({ id: s(g.id), fecha: FR.fechaGasto(g), item: s(g.itemGasto).trim() || '(sin ítem)', clave, tipo, grupo: tipo ? FR.TIPO[tipo].grupo : 'sin', area: l.area, cuenta: s(g.cuenta),
+      col: FR.destinoArea(l.area, g.catalogo ? {} : mapa), neto: num(l.neto), proveedor: s(g.razonSocial), obs: s(g.observacion).slice(0, 120), ...(g.itemOriginal ? { itemOriginal: s(g.itemOriginal) } : {}) }));
   });
   return out.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.item.localeCompare(b.item, 'es') || a.id.localeCompare(b.id));
 }
@@ -132,7 +151,7 @@ export function armarEERR(E) {
   const mes = E.mes, F = {}, D = {}, avisos = [];
   const fila = k => F[k] || (F[k] = vacia());
   const det = (k, col, ref) => { const kk = k + '.' + col; (D[kk] || (D[kk] = [])).push(ref); };
-  ['ventas', 'cargos', 'canalB2B', 'costoDirecto', 'costosVenta', 'merma', 'rem', 'fijos', 'dep', 'remComun', 'fijosComun', 'depComun', 'financieros'].forEach(fila);
+  ['ventas', 'cargos', 'canalB2B', 'costoDirecto', 'costosVenta', 'packaging', 'merma', 'rem', 'fijos', 'dep', 'tiendaBA', 'tiendaAI', 'remComun', 'fijosComun', 'marketing', 'seguros', 'transporte', 'capacitacion', 'depComun', 'financieros'].forEach(fila);
   const canal = Object.fromEntries(SUCS.map(x => [x, vacia()]));
   const costosUsados = {};
   let sinCostoNeto = 0, nSinCosto = 0, sinAsocNeto = 0, pendNeto = 0, nPend = 0;
@@ -166,15 +185,25 @@ export function armarEERR(E) {
   if (num(M.sinCosto)) avisos.push({ k: 'merma_sin_costo', texto: `${M.sinCosto} ${M.sinCosto === 1 ? 'anotación' : 'anotaciones'} de merma sin costo (no suman).` });
   // Gastos del mes
   const lineas = lineasGastosMes(E.gastos, mes, E.fin, E.mapa, E.items);
-  const info = { compras: { mp: 0, reventa: 0, total: 0 }, enMargen: 0, fuera: { cuotas: 0, capital: 0, impuestos: 0, inversion: 0, retiro: 0, otro: 0, total: 0 }, interes: 0, pagosTarjeta: { n: 0, monto: 0 }, sinClasificar: { n: 0, neto: 0 }, canalB2B: { rem: 0, fijos: 0, total: 0 } };
-  const refG = l => ({ tipo: 'gasto', id: l.id, fecha: l.fecha, item: l.item, clave: l.clave, tipoRes: l.tipo, area: l.area, neto: r0(l.neto), proveedor: l.proveedor, obs: l.obs });
+  const info = { compras: { mp: 0, reventa: 0, total: 0 }, enMargen: 0, fuera: { cuotas: 0, capital: 0, impuestos: 0, deuda: 0, inversion: 0, retiro: 0, otro: 0, total: 0 }, interes: 0, pagosTarjeta: { n: 0, monto: 0 }, sinClasificar: { n: 0, neto: 0 }, canalB2B: { rem: 0, fijos: 0, total: 0 },
+    tiendas: { tiendaBA: { rem: 0, fijos: 0 }, tiendaAI: { rem: 0, fijos: 0 } }, costoVentaGastos: 0 };
+  const refG = l => ({ tipo: 'gasto', id: l.id, fecha: l.fecha, item: l.item, clave: l.clave, tipoRes: l.tipo, area: l.area, neto: r0(l.neto), proveedor: l.proveedor, obs: l.obs, ...(l.cuenta ? { cuenta: l.cuenta } : {}), ...(l.itemOriginal ? { itemOriginal: l.itemOriginal } : {}) });
   const sinClas = {};
   lineas.forEach(l => {
-    const t = l.tipo, propio = AREAS.includes(l.col);
+    const t = l.tipo, propio = AREAS.includes(l.col), A = s(l.area).toUpperCase(), fc = PC.filaDeCuenta(l.cuenta);
+    // v0.102.0 · Costos de venta desde la cuenta: packaging (5.7) en su fila; arriendo del POS (5.4.2) con las comisiones (las facturas de comisiones, 5.4, ya están en el margen: no suman)
+    if (t === 'costo_venta') { const k = fc === 'packaging' ? 'packaging' : 'costosVenta'; F[k][l.col] += l.neto; if (k === 'costosVenta') info.costoVentaGastos += l.neto; det(k, l.col, refG(l)); return; }
     // v0.75.1: remuneraciones y fijos con área B2B (costo del canal B2B) que irían a Común → el bloque del canal B2B
-    if ((t === 'remuneraciones' || t === 'fijo') && !propio && s(l.area).toUpperCase() === 'B2B') {
+    if ((t === 'remuneraciones' || t === 'fijo') && !propio && A === 'B2B') {
       F.canalB2B.comun += l.neto; info.canalB2B[t === 'remuneraciones' ? 'rem' : 'fijos'] += l.neto; det('canalB2B', 'comun', refG(l)); return;
     }
+    // v0.102.0 · Con área de una tienda (B2C-BA, B2C-AI): el bloque de esa tienda (lo que cuesta vender ahí)
+    if ((t === 'remuneraciones' || t === 'fijo') && !propio && TIENDA_DE_AREA[A]) {
+      const k = TIENDA_DE_AREA[A]; F[k].comun += l.neto; info.tiendas[k][t === 'remuneraciones' ? 'rem' : 'fijos'] += l.neto; det(k, 'comun', refG(l)); return;
+    }
+    // v0.102.0 · Marketing, seguros, transporte y capacitación: con área de producción, los asume esa área (sus fijos, piso 2; decidido por
+    // Emmanuel el 25 oct: "el ítem dice qué es; el área dice dónde"). Con área común, su propia fila entre los comunes.
+    if (t === 'fijo' && fc && !propio) { F[fc].comun += l.neto; det(fc, 'comun', refG(l)); return; }
     if (t === 'remuneraciones') { if (propio) { F.rem[l.col] += l.neto; det('rem', l.col, refG(l)); } else { F.remComun.comun += l.neto; det('remComun', 'comun', refG(l)); } }
     else if (t === 'fijo') { if (propio) { F.fijos[l.col] += l.neto; det('fijos', l.col, refG(l)); } else { F.fijosComun.comun += l.neto; det('fijosComun', 'comun', refG(l)); } }
     else if (t === 'financiero') { F.financieros.comun += l.neto; det('financieros', 'comun', refG(l)); }
@@ -183,6 +212,7 @@ export function armarEERR(E) {
     else if (t === 'en_margen') { info.enMargen += l.neto; det('enMargen', 'total', refG(l)); }
     else if (t === 'fuera_capital_credito') { info.fuera.cuotas += l.neto; det('fuera', 'capital', refG(l)); }
     else if (t === 'fuera_impuestos') { info.fuera.impuestos += l.neto; det('fuera', 'impuestos', refG(l)); }
+    else if (t === 'fuera_deuda') { info.fuera.deuda += l.neto; det('fuera', 'deuda', refG(l)); }
     else if (t === 'inversion') { info.fuera.inversion += l.neto; det('fuera', 'inversion', refG(l)); }
     else if (t === 'retiro') { info.fuera.retiro += l.neto; det('fuera', 'retiro', refG(l)); }
     else if (t === 'otro_fuera') { info.fuera.otro += l.neto; det('fuera', 'otro', refG(l)); }
@@ -203,20 +233,21 @@ export function armarEERR(E) {
   // Redondeo por celda y filas derivadas
   Object.keys(F).forEach(k => { F[k] = conTotal(F[k]); });
   SUCS.forEach(x => { canal[x] = conTotal(canal[x]); });
-  F.mc = conTotal(Object.fromEntries(COLS.map(c => [c, F.ventas[c] - F.costoDirecto[c] - F.costosVenta[c] - F.merma[c]])));
+  F.mc = conTotal(Object.fromEntries(COLS.map(c => [c, F.ventas[c] - F.costoDirecto[c] - F.costosVenta[c] - F.packaging[c] - F.merma[c]])));
   F.ma = conTotal(Object.fromEntries(COLS.map(c => [c, F.mc[c] - F.rem[c] - F.fijos[c] - F.dep[c]])));
   // v0.75.1: el bloque del canal B2B: despacho cobrado − costos del canal B2B
   F.resCanalB2B = { ...vacia(), total: F.cargos.total - F.canalB2B.total };
-  const comunes = F.remComun.total + F.fijosComun.total + F.depComun.total;
-  F.resOp = { ...vacia(), total: F.ma.total + F.resCanalB2B.total - comunes };
+  const comunes = F.remComun.total + FILAS_COMUNES_FIJOS.reduce((a, k) => a + F[k].total, 0) + F.depComun.total, tiendas = F.tiendaBA.total + F.tiendaAI.total;
+  F.resOp = { ...vacia(), total: F.ma.total + F.resCanalB2B.total - tiendas - comunes };
   F.resultado = { ...vacia(), total: F.resOp.total - F.financieros.total };
   // Info redondeada
   info.compras.mp = r0(info.compras.mp); info.compras.reventa = r0(info.compras.reventa); info.compras.total = info.compras.mp + info.compras.reventa;
   info.canalB2B = { rem: r0(info.canalB2B.rem), fijos: r0(info.canalB2B.fijos) }; info.canalB2B.total = F.canalB2B.total;
+  FILAS_TIENDAS.forEach(k => { info.tiendas[k] = { rem: r0(info.tiendas[k].rem), fijos: r0(info.tiendas[k].fijos), total: F[k].total }; }); info.costoVentaGastos = r0(info.costoVentaGastos);
   info.enMargen = r0(info.enMargen); info.interes = r0(info.interes); info.sinClasificar.neto = r0(info.sinClasificar.neto); info.pagosTarjeta.monto = r0(info.pagosTarjeta.monto);
-  ['cuotas', 'impuestos', 'inversion', 'retiro', 'otro'].forEach(k => { info.fuera[k] = r0(info.fuera[k]); });
+  ['cuotas', 'impuestos', 'deuda', 'inversion', 'retiro', 'otro'].forEach(k => { info.fuera[k] = r0(info.fuera[k]); });
   info.fuera.capital = info.fuera.cuotas - info.interes;
-  info.fuera.total = info.fuera.capital + info.fuera.impuestos + info.fuera.inversion + info.fuera.retiro + info.fuera.otro;
+  info.fuera.total = info.fuera.capital + info.fuera.impuestos + info.fuera.deuda + info.fuera.inversion + info.fuera.retiro + info.fuera.otro;
   info.sinClasificarLista = Object.values(sinClas).map(x => ({ ...x, neto: r0(x.neto) })).sort((a, b) => b.neto - a.neto);
   info.ventasSinAsociar = r0(sinAsocNeto); info.ventasSinCosto = r0(sinCostoNeto);
   if (nPend) info.ventasRecetaPendiente = { neto: r0(pendNeto), n: nPend };   // v0.80.1
@@ -232,7 +263,8 @@ const pesosTxt = v => '$' + r0(v).toLocaleString('es-CL');
 export function cuadratura(eerr, gastos) {
   const F = eerr.filas, I = eerr.info;
   const totalGastos = r0((gastos || []).filter(FR.vigente).filter(g => FR.fechaGasto(g).slice(0, 7) === eerr.mes).reduce((a, g) => a + FR.netoGasto(g), 0));
-  const enResultado = F.rem.total + F.fijos.total + F.remComun.total + F.fijosComun.total + num((F.canalB2B || {}).total) + (F.financieros.total - I.interes);
+  const T = k => num((F[k] || {}).total);   // v0.102.0: con las filas nuevas (packaging, tiendas, marketing…) y los costos de venta que vienen de Gastos
+  const enResultado = T('rem') + T('fijos') + T('remComun') + FILAS_COMUNES_FIJOS.reduce((a, k) => a + T(k), 0) + T('canalB2B') + FILAS_TIENDAS.reduce((a, k) => a + T(k), 0) + T('packaging') + num(I.costoVentaGastos) + (T('financieros') - I.interes);
   const partes = { enResultado, interesCuotas: I.interes, compras: I.compras.total, enMargen: I.enMargen, fuera: I.fuera.total, sinClasificar: I.sinClasificar.neto };
   const suma = Object.values(partes).reduce((a, v) => a + v, 0);
   return { totalGastos, ...partes, suma, diferencia: totalGastos - suma, cuadra: Math.abs(totalGastos - suma) <= 1 && !I.sinClasificar.n };
@@ -243,7 +275,8 @@ export function cuadratura(eerr, gastos) {
 //   porTipo: { remuneraciones: asig, fijo: asig, depreciacion: asig }, porItem: { claveItem: asig } }
 //   asig = { base: 'm2'|'kwh'|'horas' } | { base: 'manual', pct: { PAN, BOL, PAS, CAF } } (suma 100). Sin asig = sin repartir.
 export const BASES = [{ k: 'm2', t: 'Metros cuadrados (m²)', u: 'm²' }, { k: 'kwh', t: 'Maquinaria (kWh)', u: 'kWh' }, { k: 'horas', t: 'Horas de trabajo', u: 'h' }, { k: 'manual', t: '% a mano', u: '%' }];
-export const TIPOS_COMUNES = [{ k: 'remuneraciones', t: 'Remuneraciones comunes', fila: 'remComun' }, { k: 'fijo', t: 'Fijos comunes', fila: 'fijosComun' }, { k: 'depreciacion', t: 'Depreciación común', fila: 'depComun' }];
+// v0.102.0: los fijos comunes incluyen marketing, seguros, transporte y capacitación (sus filas propias)
+export const TIPOS_COMUNES = [{ k: 'remuneraciones', t: 'Remuneraciones comunes', fila: 'remComun' }, { k: 'fijo', t: 'Fijos comunes', fila: 'fijosComun', filas: FILAS_COMUNES_FIJOS }, { k: 'depreciacion', t: 'Depreciación común', fila: 'depComun' }];
 // % por área de una asignación (suma 100) o null
 export function pctDe(asig, bases = {}) {
   if (!asig || !asig.base) return null;
@@ -286,14 +319,15 @@ export function repartirComunes(eerr, claves = {}) {
   const porArea = Object.fromEntries(AREAS_REPARTO.map(a => [a, { rem: 0, fijos: 0, dep: 0, total: 0 }])), sin = { rem: 0, fijos: 0, dep: 0, total: 0, lineas: [] }, lineas = [];
   const key = { remuneraciones: 'rem', fijo: 'fijos', depreciacion: 'dep' };
   TIPOS_COMUNES.forEach(t => {
-    const refs = (eerr.detalle || {})[t.fila + '.comun'] || [];
+    const filasT = t.filas || [t.fila], refs = filasT.flatMap(f => (eerr.detalle || {})[f + '.comun'] || []);
     // Agrupadas por ítem (una clave por ítem)
     const grupos = {};
-    refs.forEach(r => { const k = r.clave || FR.claveItem(r.item || r.nombre); const g = grupos[k] || (grupos[k] = { clave: k, item: r.item || r.nombre || k, neto: 0 }); g.neto += num(r.neto); });
-    const totFila = num((eerr.filas[t.fila] || {}).total), sumaRefs = Object.values(grupos).reduce((a, g) => a + g.neto, 0);
+    // v0.102.0: un ítem que pasó a otro nombre en el catálogo conserva la clave propia guardada con su nombre antiguo (orig)
+    refs.forEach(r => { const k = r.clave || FR.claveItem(r.item || r.nombre); const g = grupos[k] || (grupos[k] = { clave: k, item: r.item || r.nombre || k, neto: 0, orig: [] }); g.neto += num(r.neto); if (r.itemOriginal) g.orig.push(FR.claveItem(r.itemOriginal)); });
+    const totFila = filasT.reduce((a, f) => a + num((eerr.filas[f] || {}).total), 0), sumaRefs = Object.values(grupos).reduce((a, g) => a + g.neto, 0);
     if (Math.abs(totFila - sumaRefs) >= 1) { const g = grupos.__ajuste || (grupos.__ajuste = { clave: '__ajuste', item: 'Redondeo', neto: 0 }); g.neto += totFila - sumaRefs; }
     Object.values(grupos).forEach(g => {
-      const asig = ((claves.porItem || {})[g.clave]) || ((claves.porTipo || {})[t.k]) || null;
+      const asig = ((claves.porItem || {})[g.clave]) || (g.orig || []).map(o => (claves.porItem || {})[o]).find(Boolean) || ((claves.porTipo || {})[t.k]) || null;
       const pct = pctDe(asig, claves.bases), neto = r0(g.neto);
       if (!pct) { sin[key[t.k]] += neto; sin.lineas.push({ tipo: t.k, item: g.item, neto }); lineas.push({ tipo: t.k, item: g.item, clave: g.clave, base: '', neto, partes: null }); return; }
       let resto = neto; const partes = {};
@@ -310,8 +344,10 @@ export function repartirComunes(eerr, claves = {}) {
   const reventa = num((eerr.filas.ma || {})[REVENTA]);
   // v0.75.1: el resultado del canal B2B (despacho − costos del canal) no se reparte: va en Común (así el total sigue siendo el operacional)
   const canalB2B = num((eerr.filas.resCanalB2B || {}).total);
-  const comunResto = eerr.filas.ma.comun - sin.total + reventa + canalB2B;
-  return { porArea, sinRepartir: sin, resultadoArea, comunResto, reventa, canalB2B, total: AREAS_REPARTO.reduce((x, a) => x + resultadoArea[a], 0) + comunResto, lineas };
+  // v0.102.0: los costos propios de las tiendas tampoco se reparten: van en Común (restan)
+  const tiendas = FILAS_TIENDAS.reduce((a, k) => a + num((eerr.filas[k] || {}).total), 0);
+  const comunResto = eerr.filas.ma.comun - sin.total + reventa + canalB2B - tiendas;
+  return { porArea, sinRepartir: sin, resultadoArea, comunResto, reventa, canalB2B, tiendas, total: AREAS_REPARTO.reduce((x, a) => x + resultadoArea[a], 0) + comunResto, lineas };
 }
 
 // ═══════════════ Cierre de mes: lo que se revisa antes de cerrar ═══════════════
@@ -413,12 +449,17 @@ export function checksCierre(D) {
   // 4. Conteo de bodega hecho (cada bodega): un conteo en los últimos 3 días del mes o los primeros 3 del siguiente
   const w = ventanaConteo(mes), C = D.conteos || {}, bods = C.bodegas && C.bodegas.length ? C.bodegas : ['PROD', 'CAF'];
   const sinConteo = bods.filter(b => !((C.porBodega || {})[b] || []).some(f => f >= w.desde && f <= w.hasta));
+  // v0.102.0 · Decidido por Emmanuel el 25 oct: el conteo de las jefas (materias primas críticas) es para el punto de pedido. El inventario se
+  // valoriza con el teórico cada mes y con un conteo completo en cada balance (30 de junio y 31 de diciembre): aquí es un aviso, no impide cerrar.
   add('conteo', 'Conteo de bodega hecho', C.disponible !== false && !sinConteo.length,
-    C.disponible === false ? 'No se pudo leer Producción (bodegas).' : sinConteo.length ? `Falta el conteo de ${sinConteo.map(b => (C.nombres || {})[b] || b).join(' y ')} (del ${fechaCorta(w.desde)} al ${fechaCorta(w.hasta)}).` : `Contado: ${bods.map(b => `${(C.nombres || {})[b] || b} ${fechaCorta(((C.porBodega || {})[b] || []).filter(f => f >= w.desde && f <= w.hasta).sort().pop())}`).join(' · ')}.`,
-    '#produccion/bodega', `Un conteo en cada bodega (Producción y Cafetería) entre el ${fechaCorta(w.desde)} y el ${fechaCorta(w.hasta)}: los últimos ${VENTANA_CONTEO} días del mes o los primeros ${VENTANA_CONTEO} del siguiente. Lo anotan las jefas en Cocina → Bodega.`);
+    C.disponible === false ? 'No se pudo leer Producción (bodegas).' : sinConteo.length ? `Falta el conteo de ${sinConteo.map(b => (C.nombres || {})[b] || b).join(' y ')} (del ${fechaCorta(w.desde)} al ${fechaCorta(w.hasta)}). Es un aviso: no impide cerrar.` : `Contado: ${bods.map(b => `${(C.nombres || {})[b] || b} ${fechaCorta(((C.porBodega || {})[b] || []).filter(f => f >= w.desde && f <= w.hasta).sort().pop())}`).join(' · ')}.`,
+    '#produccion/bodega', `Un conteo en cada bodega (Producción y Cafetería) entre el ${fechaCorta(w.desde)} y el ${fechaCorta(w.hasta)}: los últimos ${VENTANA_CONTEO} días del mes o los primeros ${VENTANA_CONTEO} del siguiente. Lo anotan las jefas en Cocina → Bodega.\nEs un aviso: el conteo de las jefas sirve para el punto de pedido. El inventario se valoriza con el teórico (compras, recetas y merma) y con un conteo completo en cada balance (30 de junio y 31 de diciembre).`, 'aviso');
   // 5. Gastos sin clasificar = 0
   const sc = D.sinClasificar || {};
-  add('clasificar', 'Gastos clasificados', !num(sc.n), num(sc.n) ? `${sc.n} ${sc.n === 1 ? 'ítem' : 'ítems'} sin tipo para resultados (${pesosTxt(sc.neto)}).` : 'Todos los gastos del mes tienen tipo.',
+  // v0.102.0 · Con el catálogo de ítems (D.catalogo), un gasto sin tipo es un ítem sin cuenta: se ubica en Gastos → Ítems ("Revisar ítem")
+  if (D.catalogo) add('clasificar', 'Ítems con su cuenta', !num(sc.n), num(sc.n) ? `${sc.n} ${sc.n === 1 ? 'ítem' : 'ítems'} sin cuenta (${pesosTxt(sc.neto)}): no están en el catálogo.` : 'Todos los gastos del mes tienen un ítem con cuenta.',
+    '#gastos/catalogo', 'Cada gasto del mes con un ítem del catálogo que tenga su cuenta (Gastos → Ítems). Un nombre que no está en el catálogo aparece en "Revisar ítem": se ubica ahí. Lo que no tiene cuenta no entra al resultado.');
+  else add('clasificar', 'Gastos clasificados', !num(sc.n), num(sc.n) ? `${sc.n} ${sc.n === 1 ? 'ítem' : 'ítems'} sin tipo para resultados (${pesosTxt(sc.neto)}).` : 'Todos los gastos del mes tienen tipo.',
     '#finanzas/resultados/clasificacion', 'Cada ítem de gasto del mes con su tipo para resultados (Resultados → Clasificación). Lo sin clasificar no entra al resultado.');
   // v0.66.0 · Documentos del SII de ese mes sin clasificar = 0 (su gasto todavía no existe)
   if (G) out.push(deG('sii_clasif')); else if (D.siiPendientes) out.push(checkSiiClasificados(D));
@@ -465,12 +506,23 @@ export function filasFormaAntigua(vivo) {
   out.remComun = { total: t('remComun') + num(cb.rem) }; out.fijosComun = { total: t('fijosComun') + num(cb.fijos) };
   return out;
 }
+// v0.102.0 · Un cierre de antes de la v0.102.0 (sin filas.packaging): el packaging iba con los costos de venta, las tiendas y los comunes con
+// fila propia (marketing, seguros, transporte, capacitación) iban en los comunes. El cálculo de hoy se lleva a esa forma para comparar.
+export const formaPre102 = snap => !!(snap && snap.filas && !snap.filas.packaging);
+export function filasComoSnap(vivo, snap) {
+  const F = formaAntigua(snap) ? filasFormaAntigua(vivo) : Object.fromEntries(FILAS.map(f => [f.k, { total: num((vivo.filas[f.k] || {}).total) }]));
+  if (!formaPre102(snap)) return F;
+  const t = k => num((F[k] || {}).total), ti = (vivo.info && vivo.info.tiendas) || {}, tt = c => FILAS_TIENDAS.reduce((a, k) => a + num((ti[k] || {})[c]), 0), cero = { total: 0 };
+  return { ...F, costosVenta: { total: t('costosVenta') + t('packaging') }, packaging: cero, remComun: { total: t('remComun') + tt('rem') }, fijosComun: { total: FILAS_COMUNES_FIJOS.reduce((a, k) => a + t(k), 0) + tt('fijos') },
+    ...Object.fromEntries(FILAS_TIENDAS.concat(FILAS_COMUNES_FIJOS.slice(1)).map(k => [k, cero])) };
+}
 // Diferencia de un mes cerrado: cálculo de hoy − snapshot − lo ya informado. Por fila (Total) y los gastos que cambiaron.
 export function ajusteDe(vivo, snap, informado = {}) {
-  const porFila = {}, antigua = formaAntigua(snap), FV = antigua ? filasFormaAntigua(vivo) : vivo.filas;
-  FILAS.forEach(f => { if (antigua && (f.k === 'canalB2B' || f.k === 'resCanalB2B')) return; const d = num(FV[f.k].total) - num((snap.filas[f.k] || {}).total) - num(informado[f.k]); if (Math.abs(d) >= 1) porFila[f.k] = r0(d); });
+  const porFila = {}, antigua = formaAntigua(snap), pre102 = formaPre102(snap), FV = filasComoSnap(vivo, snap);
+  FILAS.forEach(f => { if (antigua && (f.k === 'canalB2B' || f.k === 'resCanalB2B')) return; const d = num((FV[f.k] || {}).total) - num((snap.filas[f.k] || {}).total) - num(informado[f.k]); if (Math.abs(d) >= 1) porFila[f.k] = r0(d); });
   // Gastos que cambiaron (por id): agregados, quitados o con otro monto/tipo/área
-  const donde = (k, r) => (antigua && k === 'canalB2B' ? (r.tipoRes === 'remuneraciones' ? 'remComun' : 'fijosComun') : k);
+  const donde = (k, r) => { const k1 = pre102 && FILAS_TIENDAS.includes(k) ? (r.tipoRes === 'remuneraciones' ? 'remComun' : 'fijosComun') : pre102 && FILAS_COMUNES_FIJOS.includes(k) ? 'fijosComun' : pre102 && k === 'packaging' ? 'costosVenta' : k;
+    return antigua && k1 === 'canalB2B' ? (r.tipoRes === 'remuneraciones' ? 'remComun' : 'fijosComun') : k1; };
   const mapa = det => { const m = {}; Object.entries(det || {}).forEach(([k, refs]) => (refs || []).forEach(r => { if (r.tipo !== 'gasto') return; const x = m[r.id] || (m[r.id] = { id: r.id, item: r.item, fecha: r.fecha, neto: 0, donde: [] }); x.neto += num(r.neto); x.donde.push(donde(k.split('.')[0], r)); })); return m; };
   const a = mapa(snap.detalle), b = mapa(vivo.detalle), gastos = [];
   new Set([...Object.keys(a), ...Object.keys(b)]).forEach(id => {

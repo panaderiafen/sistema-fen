@@ -15,15 +15,15 @@
 //  línea" y las 3 más parecidas al asociar. Reglas puras en mp-alta-modelo.js; escribe en la base de Cocina (produccion.js) y aquí.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.101.1';
-import * as FC from './finanzas-costos.js?v=0.101.1';
-import * as FS from './finanzas-sii.js?v=0.101.1';
-import * as FM from './finanzas-motor.js?v=0.101.1';
-import * as FV from './finanzas-ventas.js?v=0.101.1';
-import * as FMG from './finanzas-margenes.js?v=0.101.1';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.101.1';
-import * as VR from './vista-finanzas-resultados.js?v=0.101.1';
-import * as MA from './mp-alta-modelo.js?v=0.101.1';
+import * as F from './finanzas.js?v=0.102.0';
+import * as FC from './finanzas-costos.js?v=0.102.0';
+import * as FS from './finanzas-sii.js?v=0.102.0';
+import * as FM from './finanzas-motor.js?v=0.102.0';
+import * as FV from './finanzas-ventas.js?v=0.102.0';
+import * as FMG from './finanzas-margenes.js?v=0.102.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.102.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.102.0';
+import * as MA from './mp-alta-modelo.js?v=0.102.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -69,7 +69,7 @@ const cab = (tab) => `<div class="cabecera"><div><h1 id="t-finanzas">Finanzas</h
     <a role="tab" href="#finanzas/costos/productos" aria-selected="${tab === 'costos'}">Costos</a>
     <a role="tab" href="#finanzas/margenes" aria-selected="${tab === 'margenes'}">Márgenes</a>
     <a role="tab" href="#finanzas/resultados" aria-selected="${tab === 'resultados'}">Resultados</a>
-    <a role="tab" href="#finanzas/resumen" aria-selected="${tab === 'resumen'}">Resumen del mes</a></div></div>
+    ${F.gnActivo() ? '' : `<a role="tab" href="#finanzas/resumen" aria-selected="${tab === 'resumen'}">Resumen del mes</a>`}</div></div>
   <p class="fin-pronto">Próximamente: Flujo de caja, Metas</p>`;
 
 export async function pintar(el, sub, H) {
@@ -82,6 +82,8 @@ export async function pintar(el, sub, H) {
   st.tabPrev = tab;
   if (tab === 'como') { el.innerHTML = cab(tab) + comoTrabajamos(H); return; }
   // v0.78.0 (Gastos, etapa A): Resumen del mes (antes en Conciliación), junto al Cierre de mes; lo dibuja app.js con lo de la conciliación
+  // v0.102.0 · Con el Gastos nuevo, el Resumen del mes (de la conciliación antigua) se retira: sus revisiones están en Resultados → Cierre de mes
+  if (tab === 'resumen' && F.gnActivo()) { location.replace('#finanzas/resultados/cierre'); return; }
   if (tab === 'resumen') { if (H.resumenMes) H.resumenMes(el, cab(tab), p[2] || ''); else el.innerHTML = cab(tab); return; }
   // v0.61.0: Resultados (F3 paso 1): Clasificación, Créditos e Inversiones
   // v0.62.0: Estado de resultados (primera parte) y Cierre de mes; Clasificación pasa a #finanzas/resultados/clasificacion
@@ -1311,7 +1313,7 @@ function dialogoVinculo(p, el, volver, H) {
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
   // v0.73.0: la lista de reventa (cat_reventa, de la memoria de fs-gastos): activas, más la que ya tenía este producto
   const selRev = d.querySelector('#m-v-revid');
-  import('./reventa.js?v=0.101.1').then(R => R.leer()).then(({ lista }) => {
+  import('./reventa.js?v=0.102.0').then(R => R.leer()).then(({ lista }) => {
     MS.reventa = lista;
     const ofrecer = lista.filter(x => x.estado !== 'archivado' || (v && v.reventaId === x.id)).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
     selRev.innerHTML = `<option value="">${ofrecer.length ? 'Elige…' : 'La lista de reventa está vacía (Catálogo → Reventa)'}</option>` + ofrecer.map(x => `<option value="${H.esc(x.id)}" data-costo="${x.costoNeto ?? ''}" data-nombre="${H.esc(x.nombre)}" ${v && v.reventaId === x.id ? 'selected' : ''}>${H.esc(x.nombre)} · ${H.esc(x.id)} · $${(Math.round(Number(x.costoNeto || 0) * 100) / 100).toLocaleString('es-CL')} / ${H.esc(x.unidad || 'un')}${x.estado === 'archivado' ? ' · archivada' : ''}</option>`).join('');

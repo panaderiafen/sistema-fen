@@ -54,7 +54,10 @@ export function libreMov(m, I) {
 
 // ── Clasificación efectiva: la del documento, si no la del proveedor ──
 // v0.91.2 · Un pago solo se crea con cada documento clasificado (la regla vive también en gn-fs.pagar).
-export const faltaClasificar = (docs, provs, reps) => (docs || []).filter(d => !clasifDe(d, provs, reps));
+// v0.102.0 · Una deuda anterior que no cuenta en ningún mes desde el inicio (no se reparte en varios meses) no se clasifica: no entra al
+// resultado. Se paga igual (también con un cargo anterior: lo de antes con lo de antes, decidido por Emmanuel el 25 oct).
+export const sinEfecto = d => !!(d && d.anterior && !(Number(d.prorratear) > 1));
+export const faltaClasificar = (docs, provs, reps) => (docs || []).filter(d => !sinEfecto(d) && !clasifDe(d, provs, reps));
 // v0.92.3 · Con N° de cliente (CdgIntRecep), la memoria es por proveedor Y cliente: los servicios de un mismo proveedor (el internet de
 // Ainavillo y el de Barros Arana) se clasifican cada uno con lo suyo. Lo guardado antes por proveedor sigue sirviendo de respaldo.
 export const claveBase = d => (rutN(d.rutN || d.rut) ? 'r_' + rutN(d.rutN || d.rut) : 'n_' + norm(d.razon).replace(/ /g, '_').slice(0, 60));
@@ -213,9 +216,11 @@ export function indiceSenas(provs) {
 }
 const subconjuntos = (l, max) => { const out = []; const ir = (i, act) => { if (act.length >= 2) out.push(act.slice()); if (act.length === max) return; for (let j = i; j < l.length; j++) { act.push(l[j]); ir(j + 1, act); act.pop(); } }; ir(0, []); return out; };
 // docs: documentos con saldo (abiertos), movs: movimientos con lo libre. → [{ docIds, movId, monto, afinidad, por }]
-// v0.96.0 · Un cargo anterior al inicio solo se une con documentos del inicio en adelante (lo de antes con lo de antes es del Gastos anterior).
+// v0.96.0 · Un cargo anterior al inicio solo se unía con documentos del inicio en adelante. v0.102.0 (desde cero en octubre, decidido por
+// Emmanuel el 25 oct): también se une una deuda anterior con un cargo anterior (una factura de septiembre pagada en septiembre). No cuenta en
+// el resultado (los dos son de antes del inicio): solo deja ambos cerrados. Queda la función para que un cambio futuro tenga un solo lugar.
 // "No es este" queda guardado en el documento (descartes): ese par no se vuelve a proponer.
-export const compatible = (d, m) => !(d.anterior && m.anterior);
+export const compatible = (d, m) => !!(d && m);
 export const descartado = (d, m) => (d.descartes || []).includes(m.id);
 export function sugerirPares(docs, movs, S) {
   const cand = [];
@@ -313,13 +318,13 @@ export function armar(D, { cuenta = '', excluir = null } = {}) {
   // v0.91.2 · "Listo" = pagado Y clasificado. Cada documento está en un solo grupo: en su par, sin pago (con su clasificación a la vista)
   // o, si ya está pagado y le falta el ítem, en "Pagados sin clasificar".
   const tocado = d => visible(d) || d.pagos.length || d.estado === 'no_va';
-  const porClasificar = docs.filter(d => tocado(d) && d.estado !== 'no_va' && d.estadoPago === 'pagado' && !d.clasifEf && entero(d.total) !== 0).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const porClasificar = docs.filter(d => tocado(d) && d.estado !== 'no_va' && d.estadoPago === 'pagado' && !d.clasifEf && !sinEfecto(d) && entero(d.total) !== 0).sort((a, b) => b.fecha.localeCompare(a.fecha));
   const sinPago = abiertosD.filter(d => visible(d) && !enPar.has(d.id)).sort((a, b) => b.fecha.localeCompare(a.fecha));
   const sinDoc = abiertosM.filter(m => !m.anterior && !movEnPar.has(m.id) && (!cuenta || m.cuenta === cuenta)).sort((a, b) => b.fecha.localeCompare(a.fecha));
-  const listosD = docs.filter(d => tocado(d) && ((d.estadoPago === 'pagado' && (d.clasifEf || entero(d.total) === 0)) || d.estado === 'no_va')).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const listosD = docs.filter(d => tocado(d) && ((d.estadoPago === 'pagado' && (d.clasifEf || sinEfecto(d) || entero(d.total) === 0)) || d.estado === 'no_va')).sort((a, b) => b.fecha.localeCompare(a.fecha));
   const noGasto = movs.filter(m => m.naturaleza || m.estado === 'no_va').sort((a, b) => b.fecha.localeCompare(a.fecha));
   const porId = Object.fromEntries(docs.map(d => [d.id, d]));
-  const paresV = pares.filter(p => !cuenta || (movs.find(m => m.id === p.movId) || {}).cuenta === cuenta).map(p => ({ ...p, faltaClasif: p.docIds.some(i => !porId[i].clasifEf) }));
+  const paresV = pares.filter(p => !cuenta || (movs.find(m => m.id === p.movId) || {}).cuenta === cuenta).map(p => ({ ...p, faltaClasif: p.docIds.some(i => !porId[i].clasifEf && !sinEfecto(porId[i])) }));
   return { docs, movs, I, S, pares: paresV, porClasificar, sinPago, sinDoc, listosD, noGasto, abiertosD, abiertosM,
     anteriores: docs.filter(d => d.anterior && d.estadoPago !== 'pagado' && d.estado !== 'no_va'),
     movsAnteriores: abiertosM.filter(m => m.anterior && !movEnPar.has(m.id) && (!cuenta || m.cuenta === cuenta)).sort((a, b) => b.fecha.localeCompare(a.fecha)),
