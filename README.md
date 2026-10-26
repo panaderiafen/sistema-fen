@@ -1,9 +1,25 @@
-# Sistema Fën · v0.108.0
+# Sistema Fën · v0.109.0
 
-**App:** v0.108.0 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
+**App:** v0.109.0 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.109.0: Ventas B2B → Conciliación, como Gastos (revisión de B2B, Etapa A)
+
+Aprobada por Emmanuel el 26 oct (`claude/b2b-revision-propuesta.md`). Cambian las pantallas, no los datos: lo ya conciliado, las reglas y lo aprendido siguen igual.
+- **Arriba, "Hasta dónde llega cada cuenta" en chico**, con "Toca conciliar" o "Al día".
+- **Tarjeta Cartolas** (se pliega; cada equipo la recuerda): las que tienen abonos por conciliar, con su barra de avance, "Saldo calza" o no, "Ver cuadre" y **"Conciliar esta cartola"**; las conciliadas al 100 % con **"Ver lo conciliado"**. Es la misma cartola de Gastos (se sube una vez). Las cartolas subidas antes no traen el cuadre: súbalas otra vez (no se repite nada).
+- **"Conciliar esta cartola"** deja solo sus abonos (su cuenta y sus fechas), con **"Por conciliar"** y **"Lo conciliado"** (lo ya resuelto, con Deshacer) y "Ver toda la conciliación".
+- **"Ajustes de la conciliación"** (plegado): cargar cartola, días de conciliar, cuentas que se revisan y cartolas cargadas. "Subir archivo" sigue arriba.
+- **Las palabras de Gastos:** "Para conciliar" (antes "Listos para confirmar"), "Para revisar", "Sin cliente"; el botón **"Conciliar"** (antes "Confirmar") y **"Conciliar los N listos"**. La lupa dice **"Buscar su folio"**. El puntaje ya no va en la lista: está en el detalle del abono.
+- Se quitó "¿Volviste a usar la app antigua? Traer otra vez lo conciliado allá".
+Cambian `app.js`, `b2b.js` (el cuadre de saldo al subir la cartola), `config.js` y este README; los demás, solo la versión (`?v=0.109.0`).
+
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.109.0.
+- [ ] Ventas B2B → Conciliación: "Hasta dónde llega cada cuenta", la tarjeta Cartolas y los ajustes plegados.
+- [ ] Volver a subir la cartola de septiembre (y la de octubre): su cartola muestra "Saldo calza".
+- [ ] "Conciliar esta cartola" en la de septiembre: concilie sus abonos y revise "Lo conciliado".
 
 ## Novedades de la v0.108.0: gestión y tributario
 
