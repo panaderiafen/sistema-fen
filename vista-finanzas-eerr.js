@@ -6,13 +6,13 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.105.0';
-import * as FR from './finanzas-resultados.js?v=0.105.0';
-import * as FE from './finanzas-eerr.js?v=0.105.0';
-import * as FC from './finanzas-costos.js?v=0.105.0';
-import * as SP from './sii-pendientes.js?v=0.105.0';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.106.0';
+import * as FR from './finanzas-resultados.js?v=0.106.0';
+import * as FE from './finanzas-eerr.js?v=0.106.0';
+import * as FC from './finanzas-costos.js?v=0.106.0';
+import * as SP from './sii-pendientes.js?v=0.106.0';   // v0.66.0: documentos del SII por clasificar
 
-const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {} };
+const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {}, otros: null, renta: null, incob: {} };
 const $ = id => document.getElementById(id);
 const nf = v => Number(v || 0).toLocaleString('es-CL');
 const pesos = v => FC.pesos(Math.round(Number(v) || 0));
@@ -39,11 +39,14 @@ const cerrado = m => !!(ES.cierres && ES.cierres[m] && ES.cierres[m].estado === 
 const mensajes = H => `<p class="ok-texto" id="e-msg" role="status">${H.esc(ES.msg)}</p><p class="error" id="e-err" role="alert">${H.esc(ES.err)}</p>`;
 // v0.69.3 · Finanzas → Resumen del mes: "Ir a Cierre de mes" abre el mismo mes
 export function elegirMes(m) { if (/^\d{4}-\d{2}$/.test(String(m || ''))) { ES.mes = m; ES.msg = ''; ES.err = ''; } }
-export function olvidar() { ES.cierres = null; ES.cartola = null; ES.sii = null; ES.siiPend = null; ES.vivo = {}; ES.checks = {}; ES.conteos = {}; ES.msg = ''; ES.err = ''; F.olvidarMeses(); }
+export function olvidar() { ES.cierres = null; ES.cartola = null; ES.sii = null; ES.siiPend = null; ES.vivo = {}; ES.checks = {}; ES.conteos = {}; ES.otros = null; ES.renta = null; ES.incob = {}; ES.msg = ''; ES.err = ''; F.olvidarMeses(); }
 
 // ── Datos comunes (una vez por entrada a Resultados) ──
 async function base() {
   if (!ES.cierres) { const x = await F.leerCierres(); ES.cierres = x.cierres; ES.claves = x.claves || {}; }
+  // v0.106.0 · Otros ingresos y gastos (no del giro) y la tasa del impuesto a la renta: una lectura cada uno al entrar
+  if (!ES.otros) { try { ES.otros = await F.leerOtros(); } catch (e) { console.warn('Otros ingresos', e); ES.otros = []; } }
+  if (!ES.renta) { try { ES.renta = await F.leerRenta(); } catch (e) { console.warn('Tasa de renta', e); ES.renta = { tasa: 0 }; } }
   // v0.101.1 · Con el Gastos nuevo, la cartola y el SII del Gastos anterior ya no se leen (las revisiones salen del Gastos nuevo)
   if (F.gnActivo()) return;
   if (!ES.cartola) ES.cartola = await F.cargosCartola();
@@ -58,13 +61,16 @@ async function vivo(R, mes) {
   // no en la tabla de Finanzas → Créditos (sería doble); los pagos de la tarjeta son los movimientos marcados así en la Bandeja.
   // v0.101.1 · Desde cero en octubre: con el Gastos nuevo, Finanzas no muestra meses anteriores al inicio.
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo (desde ${FE.mesTxt(D.gn.inicio.slice(0, 7))} los gastos salen de ahí): ${D.gn.error}. Revise la conexión y toque "Leer de nuevo".`);
-  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.105.0') : null;
+  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.106.0') : null;
   const pagosTarjeta = nuevo ? GF.pagosTarjetaGN(D.gn.D) : ((ES.cartola && ES.cartola.pagosTarjeta) || []);
   // v0.104.0 · Provisión de vacaciones y finiquitos (fichas y liquidaciones de los trabajadores)
-  const TR = nuevo ? await import('./trabajadores.js?v=0.105.0') : null, GBm = nuevo ? await import('./gn-bandeja.js?v=0.105.0') : null;
+  const TR = nuevo ? await import('./trabajadores.js?v=0.106.0') : null, GBm = nuevo ? await import('./gn-bandeja.js?v=0.106.0') : null;
   const areasT = clave => GBm.areasDe((D.gn.D.provs || {})[clave], D.gn.D.repartos || {}), provision = nuevo ? TR.provisionesDelMes(D.gn.D, mes, areasT) : [];
+  // v0.106.0 · Incobrables (Ventas B2B → Cobranza), otros ingresos y gastos, y la tasa del impuesto a la renta
+  if (!(mes in ES.incob)) ES.incob[mes] = await F.incobrablesMes(mes);
   const e = FE.armarEERR({ mes, margen: dm.margen, merma: dm.merma, gastos: D.gastos, fin: D.fin, items: D.items, mapa, creditosMes: nuevo ? [] : FE.creditosDelMes(D.creditos, D.vencimientos, D.gastos, mes),
-    invs: FR.inversiones(D.gastos, D.fin, D.invGuardadas, mapa), pagosTarjeta, provision });
+    invs: FR.inversiones(D.gastos, D.fin, D.invGuardadas, mapa), pagosTarjeta, provision, incobrables: ES.incob[mes] || [], otros: ES.otros || [], renta: ES.renta || { tasa: 0 } });
+  if (ES.incob[mes] === null) e.avisos.push({ k: 'incobrables', texto: 'No se pudieron leer las facturas dadas por perdidas en Ventas B2B: los incobrables van en $0.' });
   e.ventasInfo = dm.ventasInfo;
   if (nuevo) {
     const sc = GF.sinClasificarDelMes(D.gn.D, mes), av = [];
@@ -139,7 +145,7 @@ function celda(H, e, f, col, extra = '') {
   if (!usaCol(f, col)) return `<td class="fin-evacia"${extra}></td>`;
   const v = valorFila(e, f.k, col), venta = col === 'total' ? e.filas.ventas.total : e.filas.ventas[col];
   const detKey = f.k.startsWith('canal_') ? 'ventasCanal_' + f.k.slice(6) : f.k;
-  const conDet = !['mc', 'ma', 'resCanalB2B', 'resOp', 'resultado', 'resultadoAj'].includes(f.k) && v !== 0;
+  const conDet = !['mc', 'ma', 'resCanalB2B', 'resOp', 'resAntesImp', 'resultado', 'resultadoAj'].includes(f.k) && v !== 0;
   const txt = f.signo === '−' ? (v ? `−${pesos(v)}` : '—') : f.signo === '±' ? `${v > 0 ? '+' : v < 0 ? '−' : ''}${pesos(Math.abs(v))}` : pesos(v);
   const p = f.pct && venta ? `<small class="fin-epct">${pct(v / venta * 100)}</small>` : '';
   return `<td class="fin-enum${v < 0 && f.resultado ? ' fin-eneg' : ''}"${extra}>${conDet ? `<button type="button" class="fin-ecel" data-e-det="${H.esc(detKey)}" data-e-col="${col}" aria-label="${H.esc(f.t)} · ${H.esc(FE.NOMBRE_COL[col])}: ver de dónde sale">${txt}</button>` : `<span>${txt}</span>`}${p}</td>`;
@@ -150,9 +156,10 @@ function htmlEERR(H, e, prev, R) {
   const filasT = [];
   let pisoAnt = 0;
   // v0.75.1: el bloque del canal B2B (despacho cobrado y costos del canal) solo cuando el mes (o el anterior) tiene algo
-  const conB2B = x => x && (valorFila(x, 'cargos', 'total') || valorFila(x, 'canalB2B', 'total'));
+  const conB2B = x => x && (valorFila(x, 'cargos', 'total') || valorFila(x, 'canalB2B', 'total') || valorFila(x, 'incobrables', 'total'));
   // v0.102.0: las filas opcionales (tiendas, marketing, seguros, transporte, capacitación) solo cuando el mes (o el anterior) tiene algo
-  const conFila = (x, k) => x && valorFila(x, k, 'total');
+  // v0.106.0: "Resultado antes de impuesto" solo cuando hay otros ingresos o gastos, o impuesto (si no, es igual al resultado del mes)
+  const conFila = (x, k) => x && (k === 'resAntesImp' ? ['otrosIngresos', 'otrosGastos', 'impuesto'].some(j => valorFila(x, j, 'total')) : valorFila(x, k, 'total'));
   const filasVer = FE.FILAS.filter(f => (!FE.FILAS_B2B.includes(f.k) || conB2B(e) || conB2B(prev)) && (!f.opcional || conFila(e, f.k) || conFila(prev, f.k)));
   const fila = (f, cls = '') => {
     const cmp = ES.comparar ? (() => { const a = prev ? valorFila(prev, f.k, 'total') : null, b = valorFila(e, f.k, 'total'); return `<td class="fin-enum fin-ecmp">${a === null ? '—' : f.signo === '−' ? (a ? '−' + pesos(a) : '—') : pesos(a)}</td><td class="fin-enum fin-ecmp">${a === null ? '—' : varTxt(b, a, f)}</td>`; })() : '';
@@ -188,10 +195,70 @@ function htmlEERR(H, e, prev, R) {
   </section>
   ${htmlInfo(H, e)}
   ${htmlProvision(H, e)}
+  ${htmlOtros(H, e)}
   ${htmlCuadratura(H, e)}`;
 }
 const varTxt = (b, a, f) => { const d = b - a; if (!d) return '='; const signo = f.signo === '−' ? -1 : 1; const bueno = d * signo > 0; return `<span class="${bueno ? 'fin-ebien' : 'fin-emal'}">${d > 0 ? '+' : '−'}${pesos(Math.abs(d))}${a ? ` <small>(${d > 0 ? '+' : '−'}${pct(Math.abs(d / a) * 100)})</small>` : ''}</span>`; };
 
+// ── v0.106.0 · Otros ingresos y gastos (no del giro) e impuesto a la renta estimado ──
+const TXT_OTROS = 'Lo que entra o sale y no es de la panadería: vender un equipo usado, un evento puntual, intereses ganados, una multa que no es del giro. Va debajo del resultado operacional, para que no se confunda con lo que da el negocio.\nNada se borra: se anula, con quién y cuándo.';
+const TXT_RENTA = 'Una estimación mensual del impuesto a la renta (Primera Categoría), para no llevarse la sorpresa en abril: la tasa de su régimen sobre el resultado antes de impuesto del mes, solo si es positivo. La tasa la confirma su contador (por ejemplo, el régimen Pro Pyme tiene una tasa distinta del general).\nEs de gestión: el impuesto real sale del F22, sobre la renta tributaria (con sus propias reglas). Un cambio de tasa rige para los meses abiertos; los cerrados quedan como se cerraron.';
+function htmlOtros(H, e) {
+  const l = (ES.otros || []).filter(x => x.mes === ES.mes), tasa = Number((ES.renta || {}).tasa) || 0, editable = !e.congelado;
+  return `<section class="tarjeta" aria-labelledby="t-e-otros"><div class="titulo-fila fin-titulo"><h2 id="t-e-otros">Otros ingresos y gastos ${H.info('Otros ingresos y gastos', TXT_OTROS)}</h2>${editable ? '<button type="button" class="btn-sec btn-chico" id="e-otro-nuevo">Anotar</button>' : ''}</div>
+    <ul class="fin-hist-lista" id="e-otros">${l.map(x => `<li><div><b>${H.esc(x.descripcion)}</b> · ${fechaTxt(x.fecha)}${x.estado === 'anulado' ? ' · <span class="chip c-gris chip-chico">anulado</span>' : ''}</div><span class="ayuda">${x.tipo === 'gasto' ? 'Gasto' : 'Ingreso'} · ${H.esc((x.creado || {}).por || '')}${x.estado === 'anulado' && x.anulado ? ` · anulado por ${H.esc(x.anulado.por || '')}${x.anulado.motivo ? ': ' + H.esc(x.anulado.motivo) : ''}` : ''}</span><b class="fin-edval">${x.tipo === 'gasto' ? '−' : '+'}${pesos(x.monto)}</b>${editable && x.estado !== 'anulado' ? `<button type="button" class="btn-link btn-chico" data-e-anular="${H.esc(x.id)}">Anular</button>` : ''}</li>`).join('') || `<li class="ayuda">Nada anotado en ${H.esc(FE.mesTxt(ES.mes))}.</li>`}</ul>
+    <div class="fin-renta" id="e-renta"><span>Impuesto a la renta estimado ${H.info('Impuesto a la renta estimado', TXT_RENTA)}: ${tasa ? `tasa <b>${String(tasa).replace('.', ',')}%</b>${(ES.renta || {}).nota ? ' · ' + H.esc(ES.renta.nota) : ''}` : '<b>sin tasa</b> (confírmela con su contador; mientras, va en $0)'}</span>${editable ? '<button type="button" class="btn-link btn-chico" id="e-renta-cambiar">Cambiar la tasa</button>' : ''}</div></section>`;
+}
+function conectarOtros(el, H, ctx, repintar) {
+  const nuevo = $('e-otro-nuevo');
+  if (nuevo) nuevo.addEventListener('click', () => {
+    const d = H.dialogo(`<form class="form-dialogo" novalidate><h2>Otro ingreso o gasto</h2><p class="ayuda">Solo lo que no es de la panadería. Una venta o una compra del negocio va por Ventas o por Gastos.</p>
+      <div class="chips" role="radiogroup" aria-label="Tipo"><label class="chip-radio"><input type="radio" name="eo-t" value="ingreso" checked><span>Ingreso</span></label><label class="chip-radio"><input type="radio" name="eo-t" value="gasto"><span>Gasto</span></label></div>
+      <div class="campo"><label for="eo-desc">De qué es</label><input id="eo-desc" maxlength="160" placeholder="Por ejemplo: venta de la batidora antigua"></div>
+      <div class="fila-campos"><div class="campo"><label for="eo-fecha">Fecha</label><input id="eo-fecha" type="date" value="${ES.mes === mesHoy() ? hoyTxt() : ES.mes + '-01'}" min="${ES.mes}-01" max="${ES.mes}-${String(new Date(Number(ES.mes.slice(0, 4)), Number(ES.mes.slice(5, 7)), 0).getDate())}"></div>
+      <div class="campo"><label for="eo-monto">Monto</label><input id="eo-monto" inputmode="numeric" placeholder="Ej: 150000"></div></div>
+      <p class="error" id="eo-err" role="alert"></p>
+      <div class="botones"><button type="button" class="btn-sec" id="eo-cancelar">Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
+    d.querySelector('#eo-cancelar').addEventListener('click', () => d.close());
+    d.querySelector('form').addEventListener('submit', async ev => {
+      ev.preventDefault(); const err = d.querySelector('#eo-err'), b = d.querySelector('[type=submit]');
+      const x = { tipo: d.querySelector('[name=eo-t]:checked').value, descripcion: d.querySelector('#eo-desc').value, fecha: d.querySelector('#eo-fecha').value, monto: d.querySelector('#eo-monto').value };
+      try { F.validarOtro(x); } catch (e) { err.textContent = e.message; return; }
+      b.disabled = true;
+      try { const g = await F.guardarOtro(x); ES.otros = (ES.otros || []).concat([g]); ES.vivo = {}; H.registrar('Finanzas: anotó otro ingreso o gasto', `${g.tipo} · ${g.descripcion} · ${g.monto}`); ES.msg = `Anotado: ${g.descripcion} (${g.tipo === 'gasto' ? '−' : '+'}${pesos(g.monto)}).`; ES.err = ''; d.close(); repintar(); }
+      catch (e) { err.textContent = ctx.error(e, H); b.disabled = false; }
+    });
+  });
+  el.querySelectorAll('[data-e-anular]').forEach(b => b.addEventListener('click', () => {
+    const x = (ES.otros || []).find(o => o.id === b.dataset.eAnular); if (!x) return;
+    const d = H.dialogo(`<form class="form-dialogo" novalidate><h2>Anular</h2><p class="ayuda"><b>${H.esc(x.descripcion)}</b> · ${pesos(x.monto)}. No se borra: queda anulado, con quién y cuándo.</p>
+      <div class="campo"><label for="ea-mot">Motivo (opcional)</label><input id="ea-mot" maxlength="200"></div><p class="error" id="ea-err" role="alert"></p>
+      <div class="botones"><button type="button" class="btn-sec" id="ea-cancelar">Cancelar</button><button type="submit" class="btn">Anular</button></div></form>`);
+    d.querySelector('#ea-cancelar').addEventListener('click', () => d.close());
+    d.querySelector('form').addEventListener('submit', async ev => {
+      ev.preventDefault(); const bt = d.querySelector('[type=submit]'); bt.disabled = true;
+      try { await F.anularOtro(x.id, d.querySelector('#ea-mot').value); ES.otros = await F.leerOtros(); ES.vivo = {}; H.registrar('Finanzas: anuló otro ingreso o gasto', x.descripcion); ES.msg = `Anulado: ${x.descripcion}.`; d.close(); repintar(); }
+      catch (e) { d.querySelector('#ea-err').textContent = ctx.error(e, H); bt.disabled = false; }
+    });
+  }));
+  const ct = $('e-renta-cambiar');
+  if (ct) ct.addEventListener('click', () => {
+    const r = ES.renta || {};
+    const d = H.dialogo(`<form class="form-dialogo" novalidate><h2>Tasa del impuesto a la renta</h2><p class="ayuda">El % que su contador le confirme para su régimen. Rige para los meses abiertos; los cerrados quedan como se cerraron.</p>
+      <div class="fila-campos"><div class="campo"><label for="er-tasa">Tasa (%)</label><input id="er-tasa" inputmode="decimal" value="${H.esc(String(Number(r.tasa) || 0).replace('.', ','))}"></div>
+      <div class="campo"><label for="er-nota">Nota (opcional)</label><input id="er-nota" maxlength="200" value="${H.esc(r.nota || '')}" placeholder="Ej: confirmada por el contador"></div></div>
+      <p class="error" id="er-err" role="alert"></p>
+      <div class="botones"><button type="button" class="btn-sec" id="er-cancelar">Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
+    d.querySelector('#er-cancelar').addEventListener('click', () => d.close());
+    d.querySelector('form').addEventListener('submit', async ev => {
+      ev.preventDefault(); const err = d.querySelector('#er-err'), v = d.querySelector('#er-tasa').value;
+      try { F.validarTasa(v); } catch (e) { err.textContent = e.message; return; }
+      const bt = d.querySelector('[type=submit]'); bt.disabled = true;
+      try { ES.renta = await F.guardarRenta(v, d.querySelector('#er-nota').value); ES.vivo = {}; H.registrar('Finanzas: cambió la tasa del impuesto a la renta', `${ES.renta.tasa}%`); ES.msg = `Tasa del impuesto a la renta: ${String(ES.renta.tasa).replace('.', ',')}%.`; d.close(); repintar(); }
+      catch (e) { err.textContent = ctx.error(e, H); bt.disabled = false; }
+    });
+  });
+}
 // ── Información (no está en el resultado) ──
 function htmlProvision(H, e) {
   const P = e.provisionInfo; if (!P || !(P.provisionado || P.usado)) return '';
@@ -291,6 +358,10 @@ function dialogoDetalle(H, e, k, col) {
     if (r.tipo === 'credito') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">Interés de ${nf(r.cuotas)} ${r.cuotas === 1 ? 'cuota pagada' : 'cuotas pagadas'} en el mes (capital ${pesos(r.capital)}, fuera del resultado) · tabla del crédito</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
     if (r.tipo === 'provision') return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(r.area)}</div><span class="ayuda">Remuneración ${pesos(r.base)} · vacaciones ${pesos(r.vac)}${r.ias ? ` · años de servicio ${pesos(r.ias)}` : r.sinFicha ? ' · sin datos de contrato: falta la indemnización' : ''}</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
     if (r.tipo === 'depreciacion') return `<li><div><b>${H.esc(r.item)}</b> · compra del ${fechaTxt(r.fecha)}</div><span class="ayuda">${pesos(r.valor)} ÷ ${nf(r.meses)} meses${r.area ? ' · ' + H.esc(r.area) : ''}</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
+    if (r.tipo === 'regalado') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">${r.cantidad ? `${nf(r.cantidad)} ${H.esc(r.unidad || '')} · ` : ''}regalo o consumo interno (anotado en Cocina), neto</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
+    if (r.tipo === 'incobrable') return `<li><div><b>${H.esc(r.nombre)}</b> · ${fechaTxt(r.fecha)}</div><span class="ayuda">Dada por perdida${r.motivo ? ': ' + H.esc(r.motivo) : ''} · saldo con IVA</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
+    if (r.tipo === 'otro') return `<li><div><b>${H.esc(r.nombre)}</b> · ${fechaTxt(r.fecha)}</div><span class="ayuda">Anotado en Finanzas (no es del giro)</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
+    if (r.tipo === 'impuesto') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">Estimación de gestión: el real sale del F22</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
     if (r.tipo === 'cartola') return `<li><div><b>${H.esc(r.nombre)}</b> · ${fechaTxt(r.fecha)}</div><span class="ayuda">Cargo de la cartola marcado "Pago de tarjeta"</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
     return '';
   };
@@ -316,6 +387,7 @@ function conectarEERR(el, H, ctx, R, e, prev) {
   const ab = $('e-abre-canal'); if (ab) ab.addEventListener('click', () => { ES.abiertas.canal = !ES.abiertas.canal; el.innerHTML = R.cabecera() + htmlEERR(H, e, prev, R); conectarEERR(el, H, ctx, R, e, prev); });
   el.querySelectorAll('[data-e-vista]').forEach(b => b.addEventListener('click', () => { ES.vista = b.dataset.eVista; el.innerHTML = R.cabecera() + htmlEERR(H, e, prev, R); conectarEERR(el, H, ctx, R, e, prev); }));
   el.querySelectorAll('[data-e-det]').forEach(b => b.addEventListener('click', () => (b.dataset.eDet === 'ajustes' ? dialogoAjustes(H, e) : dialogoDetalle(H, e, b.dataset.eDet, b.dataset.eCol))));
+  conectarOtros(el, H, ctx, repintar);
   const rl = $('e-releer');
   if (rl) rl.addEventListener('click', async () => {
     rl.disabled = true; olvidar();
@@ -351,10 +423,10 @@ async function datosCierre(R, mes) {
   const D = R.datos;
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo: ${D.gn.error}`);
   if (F.delGastosNuevo(mes) && D.gn) {
-    const GF = await import('./gn-finanzas.js?v=0.105.0');
+    const GF = await import('./gn-finanzas.js?v=0.106.0');
     const [e, dm, conteos] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes)]);
     ES.conteos[mes] = conteos;
-    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.105.0')).indicePagos(G.pagos || []) : null;
+    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.106.0')).indicePagos(G.pagos || []) : null;
     const pagado = pv ? (I.porDoc[pv.id] || []).reduce((a, p) => a + (Number(p.monto) || 0), 0) : 0;
     const gn = { sii: GF.siiDelMes(G.cargas, mes), movs: GF.movsSinRevisarDelMes(G, mes), sinClas: GF.sinClasificarDelMes(G, mes),
       previred: pv ? { total: Number(pv.total) || 0, pagado, completo: pagado >= (Number(pv.total) || 0) - GF.TOL } : null, fletes: GF.fletesPorUnir(G, mes) };

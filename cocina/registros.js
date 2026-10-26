@@ -13,7 +13,9 @@ import * as M from './modelo.js?v=0.17.4';
 
 export const MOTIVOS = {
   derrame_error: 'Derrame o error', quemado: 'Quemado o mal horneado', vencimiento: 'Vencimiento',
-  devolucion_cliente: 'Devolución de cliente', prueba_receta: 'Prueba de receta', otro: 'Otro'
+  devolucion_cliente: 'Devolución de cliente', prueba_receta: 'Prueba de receta',
+  regalo: 'Regalo o consumo interno',   // v0.17.12: colaciones con producto propio, regalos y degustaciones (Sistema Fën lo separa de la merma)
+  otro: 'Otro'
 };
 export const TIPOS_CAF = { calibracion: 'Calibración', merma: 'Café botado', prueba_receta: 'Prueba de receta' };
 export const GRAMOS_SHOT = 14;   // si Cafetería no tiene "gramos por shot" en su configuración (como la app actual)

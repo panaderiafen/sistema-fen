@@ -47,22 +47,22 @@
 //  v0.76.0: materias primas e insumos nuevos desde Finanzas → Costos (crearMateriaPrima, crearDesdeLinea): costos_mp con origen 'manual'
 //   (o 'sii' si el precio es el de la línea de factura), creadaDesde 'sistema-fen' y su historial; datosMpEnCostos copia nombre y estado.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.105.0';
-import * as FB from './fs-gastos.js?v=0.105.0';
-import * as GB from './gastos-base.js?v=0.105.0';
-import * as P from './produccion.js?v=0.105.0';
-import * as FC from './finanzas-costos.js?v=0.105.0';
-import * as FS from './finanzas-sii.js?v=0.105.0';
-import * as FM from './finanzas-motor.js?v=0.105.0';
-import * as FV from './finanzas-ventas.js?v=0.105.0';
-import * as FMG from './finanzas-margenes.js?v=0.105.0';
-import * as FR from './finanzas-resultados.js?v=0.105.0';
-import * as FE from './finanzas-eerr.js?v=0.105.0';
-import * as CPM from './catalogo-productos-modelo.js?v=0.105.0';
-import * as Caja from './caja.js?v=0.105.0';
-import * as B from './b2b.js?v=0.105.0';
-import * as FBB from './firebase-b2b.js?v=0.105.0';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.105.0';
+import { auth as authSF } from './firebase.js?v=0.106.0';
+import * as FB from './fs-gastos.js?v=0.106.0';
+import * as GB from './gastos-base.js?v=0.106.0';
+import * as P from './produccion.js?v=0.106.0';
+import * as FC from './finanzas-costos.js?v=0.106.0';
+import * as FS from './finanzas-sii.js?v=0.106.0';
+import * as FM from './finanzas-motor.js?v=0.106.0';
+import * as FV from './finanzas-ventas.js?v=0.106.0';
+import * as FMG from './finanzas-margenes.js?v=0.106.0';
+import * as FR from './finanzas-resultados.js?v=0.106.0';
+import * as FE from './finanzas-eerr.js?v=0.106.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.106.0';
+import * as Caja from './caja.js?v=0.106.0';
+import * as B from './b2b.js?v=0.106.0';
+import * as FBB from './firebase-b2b.js?v=0.106.0';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.106.0';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -675,14 +675,14 @@ export async function leerResultados(forzar) {
   const db = await dbG(), nuevo = gnActivo();
   const col = n => FB.getDocs(FB.collection(db, n)), nada = Promise.resolve({ docs: [] });
   const [g, it, ob, ve, fi, cf, cr, inv, gn] = await Promise.all([col('gastos'), col('items'), nuevo ? nada : col('obligaciones'), nuevo ? nada : col('vencimientos'), col('fin_items'),
-    FB.getDoc(FB.doc(db, 'fin_config', 'resultados')), col('fin_creditos'), col('fin_inversiones'), nuevo ? import('./gn-fs.js?v=0.105.0').then(m => m.leer()).catch(e => ({ error: e.message || String(e) })) : Promise.resolve(null)]);
+    FB.getDoc(FB.doc(db, 'fin_config', 'resultados')), col('fin_creditos'), col('fin_inversiones'), nuevo ? import('./gn-fs.js?v=0.106.0').then(m => m.leer()).catch(e => ({ error: e.message || String(e) })) : Promise.resolve(null)]);
   const lista = sn => sn.docs.map(d => ({ id: d.id, ...d.data() })), fin = mapa(fi);
   let gastos = lista(g), gnInfo = null;
   if (nuevo) {
     // Del anterior, solo las inversiones (de antes del inicio) para su depreciación.
     // v0.102.1 · Se reconocen también por el catálogo de ítems (un ítem antiguo como ACTIVO FIJO apunta a una cuenta 1.5.x) o por su subtipo
     // INVERSIÓN: en Clasificación casi nada se había guardado, y equipos comprados antes de octubre (los refrigeradores de agosto) no se depreciaban.
-    const ini = inicioGN(), [GI, PC] = await Promise.all([import('./gn-items.js?v=0.105.0'), import('./plan-cuentas.js?v=0.105.0')]);
+    const ini = inicioGN(), [GI, PC] = await Promise.all([import('./gn-items.js?v=0.106.0'), import('./plan-cuentas.js?v=0.106.0')]);
     const I = gn && !gn.error && GI.activo(gn.catalogo) ? GI.indice(gn.catalogo) : null;
     const comoInversion = x => { if ((fin[FR.claveItem(x.itemGasto)] || {}).tipo === 'inversion') return x;
       const r = I ? GI.resolver(x.itemGasto, I) : null; if (r && r.ok && PC.tipoDeCuenta(r.cuenta) === 'inversion') return { ...x, catalogo: true, cuenta: r.cuenta, itemOriginal: x.itemGasto, itemGasto: r.nombre };
@@ -690,7 +690,7 @@ export async function leerResultados(forzar) {
       return null; };
     const inversiones = gastos.filter(x => String(x.fecha || '').slice(0, 10) < ini).map(comoInversion).filter(Boolean);
     if (gn && gn.error) { gnInfo = { error: gn.error, inicio: ini }; gastos = inversiones; }
-    else { const GF = await import('./gn-finanzas.js?v=0.105.0'), P = GF.gastosParaFinanzas(gn, ini); gnInfo = { D: gn, errores: P.errores, inicio: ini, n: P.lineas.length }; gastos = P.lineas.concat(inversiones); }
+    else { const GF = await import('./gn-finanzas.js?v=0.106.0'), P = GF.gastosParaFinanzas(gn, ini); gnInfo = { D: gn, errores: P.errores, inicio: ini, n: P.lineas.length }; gastos = P.lineas.concat(inversiones); }
   }
   resCache = {
     gastos, items: lista(it).filter(x => !x.quitadoEnPlanilla), obligaciones: lista(ob).filter(x => !x.quitadoEnPlanilla), vencimientos: lista(ve),
@@ -816,14 +816,14 @@ export async function cargosCartola() {
 // v0.66.0 · Documentos del SII por clasificar (subidos, sin gasto todavía), de la memoria: para el cierre y el estado de resultados
 // v0.67.1: lo mismo que Conciliación (sin lo que ya tiene su gasto registrado: eso no se cuenta en el cierre)
 export async function siiPorClasificar() {
-  try { return await (await import('./sii-pendientes-fs.js?v=0.105.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
-  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.105.0');
+  try { return await (await import('./sii-pendientes-fs.js?v=0.106.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
+  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.106.0');
   const sn = await FB.getDocs(FB.collection(db, 'sii_docs'));
   return SP.pendientesDe(sn.docs.map(d => ({ id: d.id, d: d.data() })));
 }
 // v0.69.5 · Las planillas de Previred para Cierre de mes (de la memoria de la sesión; lo que falte se lee). null si no se puede.
 export async function planillasPrevired() {
-  try { return await (await import('./gastos-cartola-fs.js?v=0.105.0')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
+  try { return await (await import('./gastos-cartola-fs.js?v=0.106.0')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
 }
 export async function cargasSii() {
   const db = await dbG();
@@ -836,7 +836,7 @@ async function mermaMes(mes) {
     const cx = await P.conexion(); if (cx.estado !== 'ok') return { disponible: false, detalle: [], cafe: 0 };
     const d = await P.mermaDelPeriodo({ desde: mes + '-01', hasta: FV.ultimoDia(mes) }), r = P.resumenMerma(d);
     const detalle = []; let sinCosto = 0;
-    r.areas.forEach(a => { sinCosto += a.sinCosto || 0; a.items.forEach(it => { if (it.neto) detalle.push({ area: a.area, nombre: it.nombre + (it.derramado ? ' (derramado)' : ''), neto: it.neto, cantidad: it.cantidad, unidad: it.unidad }); }); });
+    r.areas.forEach(a => { sinCosto += a.sinCosto || 0; a.items.forEach(it => { if (it.neto) detalle.push({ area: a.area, nombre: it.nombre + (it.derramado ? ' (derramado)' : ''), neto: it.neto, cantidad: it.cantidad, unidad: it.unidad, ...(it.regalo ? { regalo: true } : {}) }); }); });
     return { disponible: true, detalle, cafe: Number(r.cafe && r.cafe.netoTotal) || 0, sinCosto };
   } catch (e) { console.warn('Finanzas: sin la merma de Producción', e); return { disponible: false, detalle: [], cafe: 0 }; }
 }
@@ -891,6 +891,53 @@ export async function historialCierres(mes) {
   const sn = await FB.getDocs(FB.query(FB.collection(db, 'fin_cierres_hist'), FB.where('mes', '==', mes)));
   const t = x => (x && typeof x.toMillis === 'function' ? x.toMillis() : 0);
   return sn.docs.map(d => d.data()).sort((a, b) => t(b.en) - t(a.en));
+}
+// ═══ v0.106.0 · Otros ingresos y gastos (no del giro), tasa del impuesto a la renta e incobrables ═══
+//  · fin_otros/{id}       { tipo 'ingreso'|'gasto', fecha, mes, monto, descripcion, estado 'vigente'|'anulado', creado { por, en }, anulado { por, en, motivo } }
+//                          Cuentas 8.1 y 8.2: lo que entra o sale y no es de la panadería (vender un equipo usado, un evento puntual,
+//                          intereses ganados). Nada se borra: se anula.
+//  · fin_config/renta     { tasa (% sobre el resultado antes de impuesto; la confirma el contador), nota, historial [{ antes, por, fecha }] }
+export function validarOtro(x) {
+  const tipo = x && x.tipo === 'gasto' ? 'gasto' : x && x.tipo === 'ingreso' ? 'ingreso' : '';
+  if (!tipo) throw new Error('Elija si es un ingreso o un gasto.');
+  const fecha = String((x && x.fecha) || ''); if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) throw new Error('Elija la fecha.');
+  const monto = Math.round(Number(String((x && x.monto) || '').replace(/[^\d]/g, '')));
+  if (!(monto > 0)) throw new Error('Escriba el monto (en pesos, sin puntos).');
+  const descripcion = String((x && x.descripcion) || '').trim().slice(0, 160); if (!descripcion) throw new Error('Escriba de qué es.');
+  return { tipo, fecha, mes: fecha.slice(0, 7), monto, descripcion };
+}
+export async function leerOtros() {
+  const db = await dbG(), sn = await FB.getDocs(FB.collection(db, 'fin_otros'));
+  return sn.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+}
+export async function guardarOtro(x) {
+  const v = validarOtro(x), db = await dbG(), id = 'o_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const d = { ...v, estado: 'vigente', creado: { por: yo(), en: new Date().toISOString() }, updatedAt: FB.serverTimestamp() };
+  await FB.setDoc(FB.doc(db, 'fin_otros', id), d);
+  return { id, ...d };
+}
+export async function anularOtro(id, motivo) {
+  const db = await dbG(), ref = FB.doc(db, 'fin_otros', id);
+  return FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref); if (!sn.exists() || sn.data().estado === 'anulado') throw new Error('Ya no está vigente.');
+    tx.update(ref, { estado: 'anulado', anulado: { por: yo(), en: new Date().toISOString(), motivo: String(motivo || '').slice(0, 200) }, updatedAt: FB.serverTimestamp() });
+  });
+}
+export const validarTasa = v => { const n = Number(String(v === undefined || v === null ? '' : v).replace(',', '.').trim()); if (String(v).trim() === '' || !isFinite(n) || n < 0 || n > 60) throw new Error('La tasa va de 0 a 60 (%).'); return Math.round(n * 100) / 100; };
+export async function leerRenta() { const db = await dbG(), sn = await FB.getDoc(FB.doc(db, 'fin_config', 'renta')); return sn.exists() ? sn.data() : { tasa: 0 }; }
+export async function guardarRenta(tasa, nota) {
+  const t = validarTasa(tasa), db = await dbG(), ref = FB.doc(db, 'fin_config', 'renta'), fecha = hoyTxt(), por = yo();
+  return FB.runTransaction(db, async tx => {
+    const sn = await tx.get(ref), prev = sn.exists() ? sn.data() : {};
+    const historial = [...(Array.isArray(prev.historial) ? prev.historial : []), { antes: Number(prev.tasa) || 0, nota: prev.nota || '', por, fecha }].slice(-30);
+    const d = { tasa: t, nota: String(nota || '').slice(0, 200), historial, por, fecha, updatedAt: FB.serverTimestamp() };
+    tx.set(ref, d);
+    return d;
+  });
+}
+// Las facturas B2B dadas por perdidas en el mes (Ventas B2B → Cobranza). null si B2B no está conectada.
+export async function incobrablesMes(mes) {
+  try { return await B.incobrablesDelMes(mes); } catch (e) { console.warn('Finanzas: sin los incobrables de B2B', e); return null; }
 }
 export async function guardarClaves(datos) {
   const x = FE.validarClaves(datos);

@@ -4,7 +4,7 @@
 //  bajando la calidad (y si no alcanza, el tamaño) hasta quedar bajo el peso pedido. Fondo blanco (un PNG transparente
 //  no queda negro). Sin librerías.
 // ═══════════════════════════════════════════════
-import { medidas, bytesDataUrl, FOTO, PORTADA } from './listas-precios-modelo.js?v=0.105.0';
+import { medidas, bytesDataUrl, FOTO, PORTADA } from './listas-precios-modelo.js?v=0.106.0';
 
 async function abrir(archivo) {
   if (!archivo || !/^image\//.test(archivo.type || '')) throw new Error('Elige una imagen (JPG, PNG o WebP).');

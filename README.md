@@ -1,9 +1,26 @@
-# Sistema Fën · v0.105.0
+# Sistema Fën · v0.106.0
 
-**App:** v0.105.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
+**App:** v0.106.0 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.106.0: producto regalado, incobrables, otros ingresos y gastos, impuesto a la renta estimado
+
+Aprobado por Emmanuel (hoja de ruta v8, sección 5). El sueldo del dueño no necesita nada aparte: se paga con liquidación y Previred, y ya está en Remuneraciones (decidido el 26 oct).
+- **Producto regalado y consumo interno** (cuenta 5.8): en Cocina, la merma tiene el motivo nuevo **"Regalo o consumo interno"** (colaciones, regalos, degustaciones; las jefas anotan solo la cantidad, sin precios). En el estado de resultados sale de la merma y va en su propia línea del piso 1, en su área.
+- **Incobrables** (cuenta 6.13): en **Ventas B2B → Cobranza**, un folio vencido tiene **"Dar por perdida"** (con su motivo y fecha). Sale de la cobranza y de la conciliación, queda en "Dadas por perdidas" y Finanzas lo resta en el canal B2B en ese mes, por su saldo con IVA (el IVA ya se pagó). "Deshacer" lo devuelve a la cobranza; nada se borra. Para el SII, castigar una deuda tiene requisitos propios: consúltelo con su contador.
+- **Otros ingresos y gastos (no del giro)** (cuentas 8.1 y 8.2): en **Finanzas → Resultados**, la tarjeta "Otros ingresos y gastos" → **Anotar** (vender un equipo usado, un evento puntual, intereses ganados). Van debajo del resultado operacional. Se anulan, no se borran.
+- **Impuesto a la renta estimado** (cuenta 9.1): en la misma tarjeta, **"Cambiar la tasa"**. La tasa la confirma su contador; mientras no la anote, va en $0. Se calcula sobre el resultado antes de impuesto del mes, solo si es positivo. Es de gestión: el real sale del F22.
+- Líneas nuevas del estado de resultados: "Producto regalado y consumo interno", "Incobrables", "Otros ingresos", "Otros gastos", "Resultado antes de impuesto" e "Impuesto a la renta estimado". Cada una aparece solo cuando tiene algo.
+Cambian `finanzas-eerr.js`, `finanzas.js`, `vista-finanzas-eerr.js`, `produccion.js`, `b2b.js`, `app.js`, `cocina/registros.js` y `cocina/consumo.js` (copias exactas de las de Cocina v0.17.12), `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.106.0`). Reglas de Firestore sin cambios.
+**Son dos paquetes:** `sistema-fen-v0.106.0.zip` va a la raíz del repo **sistema-fen**; `fen-cocina-v0.17.12.zip` va a la raíz del repo **fen-cocina**.
+
+- [ ] Subir los dos paquetes, cada uno a su repo (una tanda cada uno), y abrir con Cmd + Shift + R: Sistema Fën dice v0.106.0 y Cocina v0.17.12.
+- [ ] Cocina → Merma: aparece el motivo "Regalo o consumo interno". Avísele a las jefas que desde ahora las colaciones y regalos se anotan con ese motivo.
+- [ ] Finanzas → Resultados → octubre: abajo, la tarjeta "Otros ingresos y gastos" con "Anotar" y "Cambiar la tasa".
+- [ ] Cuando su contador le confirme la tasa del impuesto a la renta, anótela ahí.
+- [ ] Ventas B2B → Cobranza: en cada folio vencido aparece "Dar por perdida" (úselo solo cuando de verdad ya no se va a cobrar).
 
 ## Novedades de la v0.105.0: conciliación por cartola y pagos a cuenta
 

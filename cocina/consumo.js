@@ -81,7 +81,7 @@
 // ═══════════════════════════════════════════════
 import * as M from './modelo.js?v=0.17.4';
 import * as B from './bolleria.js?v=0.17.4';
-import * as R from './registros.js?v=0.17.4';
+import * as R from './registros.js?v=0.17.12';
 
 const n0 = v => M.num(v);
 

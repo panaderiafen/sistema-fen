@@ -8,14 +8,14 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.105.0';
-import * as FB from './firebase-b2b.js?v=0.105.0';
-import * as Apps from './apps.js?v=0.105.0';
-import * as Mem from './fs-memoria.js?v=0.105.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.105.0';
-import { distanciaTef } from './feriados-cl.js?v=0.105.0';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.105.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.105.0';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.106.0';
+import * as FB from './firebase-b2b.js?v=0.106.0';
+import * as Apps from './apps.js?v=0.106.0';
+import * as Mem from './fs-memoria.js?v=0.106.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.106.0';
+import { distanciaTef } from './feriados-cl.js?v=0.106.0';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.106.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.106.0';   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -519,6 +519,45 @@ export async function registrarPago(folio, fechaPago, medio) {
   os.forEach(o => b.update(FB.doc(db, 'ordenes', o.id), marcaCambio({ estadoPago: 'PAGADO', fechaPago: fechaPago || hoyTxt(), medioPago: String(medio || '').trim().slice(0, 120) || null })));
   await b.commit(); olvidarAgendaB2b(); uso.escrituras += os.length;
   return os.length;
+}
+// ── v0.106.0 · Incobrables: un folio que se da por perdido (cuenta 6.13). Las órdenes quedan como están (sin pago) y con la marca
+// incobrable { fecha, mes, saldo (del folio, con IVA), motivo, por, en }: salen de la cobranza y de la conciliación. Deshacer la quita
+// (queda en historialIncobrable) y el folio vuelve a la cobranza; si su mes ya se cerró, Finanzas lo informa como ajuste.
+export async function darPorPerdido(folio, { saldo, motivo, fecha }) {
+  const db = await dbOk(), m = String(motivo || '').trim().slice(0, 200), f = /^\d{4}-\d{2}-\d{2}$/.test(String(fecha || '')) ? fecha : hoyTxt();
+  if (!m) throw new Error('Anote el motivo (por ejemplo: el cliente cerró y no responde).');
+  if (!(Number(saldo) > 0)) throw new Error('Ese folio no tiene saldo por cobrar.');
+  const os = (await ordenesDelFolio(db, folio)).filter(o => !/PAGADO/.test(String(o.estadoPago || '').toUpperCase()));
+  if (!os.length) throw new Error('Ese folio no tiene órdenes por pagar.');
+  if (os.some(o => o.incobrable)) throw new Error('Ese folio ya está dado por perdido.');
+  const marca = { fecha: f, mes: f.slice(0, 7), saldo: Math.round(Number(saldo)), motivo: m, por: authSF.currentUser.email, en: new Date().toISOString() };
+  const b = FB.writeBatch(db);
+  os.forEach(o => b.update(FB.doc(db, 'ordenes', o.id), marcaCambio({ incobrable: marca })));
+  await b.commit(); olvidarAgendaB2b(); uso.escrituras += os.length;
+  return os.length;
+}
+export async function deshacerPerdido(folio, motivo) {
+  const db = await dbOk(), os = (await ordenesDelFolio(db, folio)).filter(o => o.incobrable);
+  if (!os.length) throw new Error('Ese folio no está dado por perdido.');
+  const b = FB.writeBatch(db), quien = authSF.currentUser.email, en = new Date().toISOString();
+  os.forEach(o => b.update(FB.doc(db, 'ordenes', o.id), marcaCambio({ incobrable: null,
+    historialIncobrable: (Array.isArray(o.historialIncobrable) ? o.historialIncobrable : []).concat([{ ...o.incobrable, deshecho: { por: quien, en, motivo: String(motivo || '').slice(0, 200) } }]).slice(-10) })));
+  await b.commit(); olvidarAgendaB2b(); uso.escrituras += os.length;
+  return os.length;
+}
+// Los folios dados por perdidos en un mes (para Finanzas): uno por folio, con su saldo
+export function incobrablesDe(ordenes, mes) {
+  const F = {};
+  (ordenes || []).filter(o => o && o.incobrable && o.estado !== 'anulada' && !o.quitadoEnPlanilla && (!mes || o.incobrable.mes === mes)).forEach(o => {
+    const k = String(o.folio || o.n); if (!F[k]) F[k] = { folio: k, cliente: String(o.cliente || ''), monto: Math.round(Number(o.incobrable.saldo) || 0), fecha: o.incobrable.fecha || '', mes: o.incobrable.mes || '', motivo: o.incobrable.motivo || '', por: o.incobrable.por || '', ordenes: [] };
+    F[k].ordenes.push(o.n);
+  });
+  return Object.values(F).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.folio.localeCompare(b.folio));
+}
+export async function incobrablesDelMes(mes) {
+  const db = await dbOk(), sn = await FB.getDocs(FB.query(FB.collection(db, 'ordenes'), FB.where('incobrable.mes', '==', String(mes))));
+  uso.lecturas += Math.max(1, sn.size);
+  return incobrablesDe(sn.docs.map(d => ({ id: d.id, ...d.data() })), mes);
 }
 // Abono a un folio: queda en abonos; si con esto se completa el total, el folio queda PAGADO; si no, PARCIAL
 export async function registrarAbono(folio, monto, fecha, referencia) {
@@ -1534,7 +1573,7 @@ export function foliosPorCobrar(ordenes, abonos, clientes) {
   const F = {}, vistos = new Set();
   ordenes.forEach(o => {
     if (vistos.has(String(o.n))) return; vistos.add(String(o.n));
-    if (!o.folio || o.estado === 'anulada' || o.quitadoEnPlanilla || /PAGADO/.test(String(o.estadoPago || '').toUpperCase())) return;
+    if (!o.folio || o.estado === 'anulada' || o.quitadoEnPlanilla || o.incobrable || /PAGADO/.test(String(o.estadoPago || '').toUpperCase())) return;   // v0.106.0: lo dado por perdido no se cobra
     const k = String(o.folio), f = F[k] || (F[k] = { folio: k, total: 0, ordenes: [], _os: [], clienteId: o.clienteId || porNombre[norm(o.cliente)] || null, cliente: o.cliente, fecha: fechaDe(o.fechaFolio) || fechaDe(o.fecha) || '' });
     f._os.push(o); f.ordenes.push(o.n);
   });

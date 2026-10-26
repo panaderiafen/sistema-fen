@@ -2882,3 +2882,6 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-cartola { margin: 10px 0 14px; padding: 12px; border: 1px solid var(--acento); border-radius: 12px; background: var(--tarjeta); min-width: 0; }
 .gn-cartola > .gn-fila b { overflow-wrap: anywhere; }
 .gn-cartola .gn-filtro { margin: 8px 0 0; }
+/* v0.106.0 · Otros ingresos y gastos; tasa del impuesto a la renta */
+.fin-renta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--linea); font-size: 14px; }
+.fin-renta span { min-width: 0; overflow-wrap: anywhere; }
