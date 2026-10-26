@@ -17,7 +17,7 @@
 //    toma el neto de la factura (netoFactura / conNetoSii).
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import { dia } from './gastos-modelo.js?v=0.102.1';
+import { dia } from './gastos-modelo.js?v=0.103.0';
 
 export const TIPOS_OBLIGACION = ['fijo', 'documento', 'libre'];
 export const NOMBRE_TIPO = { fijo: 'Monto fijo', documento: 'Según documento del mes', libre: 'Libre (abonos)' };

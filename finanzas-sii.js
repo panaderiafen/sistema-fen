@@ -10,7 +10,7 @@
 //  · armarAsociacion: el documento de costos_asoc y su historial (costos_asoc_hist).
 //  Todo en neto. Se prueba solo: pruebas/sistemafen/finanzas-f1b.test.js.
 // ═══════════════════════════════════════════════
-import { num, parsearContenido, contenidoValido, IVA } from './finanzas-costos.js?v=0.102.1';
+import { num, parsearContenido, contenidoValido, IVA } from './finanzas-costos.js?v=0.103.0';
 
 export const DIAS_COMPRAS = 90;
 export const LIMITE_PCT = 40;
@@ -92,10 +92,25 @@ export function restarDias(iso, n) { const [y, m, d] = iso.split('-').map(Number
 // para los precios de las materias primas: una línea por producto del detalle (el XML trae descripción, cantidad, unidad y monto neto).
 // Lo cargado sin detalle (el RCV) queda en "sin detalle", como antes. Las notas de crédito no dan precio.
 export const fechaDocSii = d => isoDe(d && d.fecha) || isoDe(d && d.importado && d.importado.fechaDocto);
+// v0.103.0 · El flete de una compra (factura aparte, unida a esa compra en Gastos) se suma a su costo: cada línea sube en la misma proporción
+// (flete repartido entre las compras unidas según su valor). Así el precio de la materia prima es el puesto en Fën. La línea lleva cuánto flete
+// se le sumó (flete): si se une después, la línea se vuelve a revisar.
+const baseDoc = d => (num(d.neto) + num(d.exento)) || num(d.total);
+export function fleteDeCompras(docs) {
+  const porId = Object.fromEntries((docs || []).filter(Boolean).map(d => [d.id, d])), extra = {};
+  (docs || []).filter(f => f && f.estado !== 'no_va' && f.flete && (f.flete.docs || []).length).forEach(f => {
+    const L = f.flete.docs.map(i => porId[i]).filter(x => x && x.estado !== 'no_va' && x.id !== f.id), pesos = L.map(x => Math.max(0, baseDoc(x))), t = pesos.reduce((a, b) => a + b, 0);
+    if (t > 0) L.forEach((x, i) => { extra[x.id] = (extra[x.id] || 0) + baseDoc(f) * pesos[i] / t; });
+  });
+  return extra;
+}
 export function siiDocsDeGN(docs, inicio = '') {
-  return (docs || []).filter(d => d && d.origen === 'sii' && d.estado !== 'no_va' && s(d.fecha) >= s(inicio)).map(d => ({ id: 'gn_' + d.id, d: {
+  const extra = fleteDeCompras(docs);
+  return (docs || []).filter(d => d && d.origen === 'sii' && d.estado !== 'no_va' && s(d.fecha) >= s(inicio)).map(d => { const b = baseDoc(d), f = extra[d.id] && b > 0 ? 1 + extra[d.id] / b : 1;
+    return { id: 'gn_' + d.id, d: {
     fecha: s(d.fecha), tipo: s(d.tipo), tiposDoc: [s(d.tipo)], rut: s(d.rut), razonSocial: s(d.razon), folio: s(d.folio), importado: { fechaDocto: s(d.fecha) },
-    lineas: (d.detalle || []).map(l => ({ descripcion: s(l.descripcion), codigo: s(l.codigo), unidad: s(l.unidad), cantidad: num(l.cantidad), montoNeto: num(l.monto), precioUnitario: num(l.precioUnitario) || (num(l.cantidad) ? num(l.monto) / num(l.cantidad) : 0), tipoDoc: s(d.tipo) })) } }));
+    lineas: (d.detalle || []).map(l => { const pu = num(l.precioUnitario) || (num(l.cantidad) ? num(l.monto) / num(l.cantidad) : 0);
+      return { descripcion: s(l.descripcion), codigo: s(l.codigo), unidad: s(l.unidad), cantidad: num(l.cantidad), montoNeto: redondear(num(l.monto) * f, 2), precioUnitario: redondear(pu * f, 4), tipoDoc: s(d.tipo), ...(f !== 1 ? { flete: Math.round(num(l.monto) * (f - 1)) } : {}) }; }) } }; });
 }
 export function lineasCompras(siiDocs, { hoy, dias = DIAS_COMPRAS } = {}) {
   const desde = restarDias(hoy, dias), lineas = [], sinDetalle = [];
@@ -118,7 +133,7 @@ export function lineasCompras(siiDocs, { hoy, dias = DIAS_COMPRAS } = {}) {
       if (!descripcion) return;
       lineas.push({ id: `${id}#${k + 1}`, docId: id, rut, proveedor: s(l.razonSocial || d.razonSocial), folio: s(l.folio || d.folio), fecha, tipoDoc: tipo, esNC,
         paraPrecio: !esNC && TIPOS_PRECIO.includes(tipo), descripcion, codigo, unidad: s(l.unidad).trim(), cantidad: num(l.cantidad),
-        precioLista: num(l.precioLista), descuento: num(l.descuento), montoNeto: num(l.montoNeto), precioUnitario: num(l.precioUnitario),
+        precioLista: num(l.precioLista), descuento: num(l.descuento), montoNeto: num(l.montoNeto), precioUnitario: num(l.precioUnitario), ...(num(l.flete) ? { flete: num(l.flete) } : {}),
         clave: claveAsoc(rut, descripcion, codigo) });
     });
   });
@@ -209,8 +224,10 @@ export function decidir(mp, cand, { limitePct = LIMITE_PCT, forzar = false } = {
   const origen = mp.origen || 'planilla';
   if (origen === 'manual' && !(s(cand.fecha) > s(mp.fecha))) return omitir('manual', `Hay un precio a mano del ${fechaCorta(mp.fecha)}, igual o más nuevo que la factura`);
   if (origen === 'sii' && mp.sii) {
-    if (rutProv(mp.sii.rut) === rutProv(cand.rut) && s(mp.sii.folio) === s(cand.folio) && s(mp.sii.linea || '') === s(cand.linea || '')) return omitir('igual', 'Ya es el precio actual');
-    if (comparar(cand, mp.sii) <= 0) return omitir('mas_nueva', `El precio actual viene de una compra más nueva (${s(mp.sii.proveedor)} F.${s(mp.sii.folio)}, ${fechaCorta(mp.sii.fecha)})`);
+    // v0.103.0: la misma línea con otro precio (se le sumó su flete) sí se aplica
+    const misma = rutProv(mp.sii.rut) === rutProv(cand.rut) && s(mp.sii.folio) === s(cand.folio) && s(mp.sii.linea || '') === s(cand.linea || '');
+    if (misma && Math.abs(num(mp.precioPorBase) - num(cand.ppb)) <= Math.max(1e-9, num(cand.ppb) * 1e-6)) return omitir('igual', 'Ya es el precio actual');
+    if (!misma && comparar(cand, mp.sii) <= 0) return omitir('mas_nueva', `El precio actual viene de una compra más nueva (${s(mp.sii.proveedor)} F.${s(mp.sii.folio)}, ${fechaCorta(mp.sii.fecha)})`);
   }
   const contenido = cv ? { cantidad: num(mp.contenido.cantidad), unidad: mp.contenido.unidad } : { ...cand.contenidoFactura };
   const precioNeto = redondear(cand.ppb * contenido.cantidad, 2), ppb = redondear(cand.ppb, 8);
@@ -236,7 +253,7 @@ export function planPrecios({ lineas = [], asocs = {}, costos = {}, procesadas =
   lineas.filter(l => l.paraPrecio).forEach(l => {
     const a = asocs[l.clave];
     if (!a || a.ignorar || !a.mp) return;
-    const h = huellaAsoc(a), pr = procesadas[idLinea(l.id)];
+    const h = huellaAsoc(a) + (num(l.flete) ? '|flete:' + Math.round(num(l.flete)) : ''), pr = procesadas[idLinea(l.id)];   // v0.103.0: un flete nuevo la vuelve a revisar
     if (pr && pr.huella === h) return;
     const cand = candidato(l, a), base = { linea: l, asoc: l.clave, mp: a.mp, huella: h };
     if (!(cand.ppb > 0)) { plan.marcar.push({ ...base, resultado: 'omitida', motivo: 'La línea no trae precio o cantidad' }); return; }

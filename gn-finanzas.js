@@ -13,8 +13,8 @@
 //  Finanzas lee el tipo desde la cuenta (plan-cuentas.js), ya no desde Clasificación. catalogo: true marca esas líneas. Un ítem sin cuenta
 //  (por ubicar en Gastos → Ítems) entra sin cuenta: queda "sin clasificar" en el estado de resultados.
 // ═══════════════════════════════════════════════
-import * as GB from './gn-bandeja.js?v=0.102.1';
-import * as GI from './gn-items.js?v=0.102.1';
+import * as GB from './gn-bandeja.js?v=0.103.0';
+import * as GI from './gn-items.js?v=0.103.0';
 
 const s = v => String(v == null ? '' : v).trim();
 const entero = v => { const x = Math.round(Number(v)); return isFinite(x) ? x : 0; };
@@ -35,6 +35,25 @@ export function mesesDoc(d) {
   for (let i = 0; i < n; i++) { out.push(m); m = sigMes(m); }
   return out;
 }
+// ── v0.103.0 · Flete de compra (factura aparte, unida a una o varias compras): se reparte entre esas compras según su valor y, dentro de cada
+// una, como su clasificación (mismo ítem y área). Así el flete de la harina es costo de la harina (inventario y, con el precio, las recetas),
+// el del packaging es packaging, etc. Sin compras unidas (o sin clasificar): null, y el flete queda con su propia clasificación.
+const juntarPartes = partes => { const m = {}; partes.forEach(p => { const k = p.item + '|' + p.area; m[k] = m[k] ? { ...m[k], monto: m[k].monto + p.monto } : { ...p }; }); return Object.values(m).filter(p => p.monto !== 0); };
+export function partesFlete(d, porId, provs, reps) {
+  const L = ((d && d.flete && d.flete.docs) || []).map(i => (porId || {})[i]).filter(x => x && x.estado !== 'no_va' && x.id !== d.id);
+  const pesos = L.map(x => Math.max(0, GB.baseDe(x))); if (!pesos.some(Boolean)) return null;
+  const montos = GB.repartirMonto(GB.baseDe(d), pesos), propia = (GB.clasifDe(d, provs, reps) || {}).partes || [], out = [];
+  const repartir = (monto, ps) => GB.repartirMonto(monto, ps.map(p => Math.abs(p.monto))).forEach((m, k) => { if (m) out.push({ item: ps[k].item, area: ps[k].area, monto: m }); });
+  L.forEach((x, i) => { if (!montos[i]) return; const ps = (((GB.clasifDe(x, provs, reps) || {}).partes) || []).filter(p => p.monto > 0);
+    if (ps.length) repartir(montos[i], ps); else if (propia.length) repartir(montos[i], propia); else out.push({ item: GI.FLETE, area: 'ADMIN', monto: montos[i] }); });
+  return juntarPartes(out);
+}
+export const esFlete = (d, provs, reps) => (((GB.clasifDe(d, provs, reps) || {}).partes) || []).some(p => norm(p.item) === norm(GI.FLETE));
+// Fletes del mes que todavía no se unen a su compra (el cierre los avisa)
+export function fletesPorUnir(D, mes) {
+  const l = ((D && D.docs) || []).filter(d => d.estado !== 'no_va' && mesesDoc(d).includes(mes) && !((d.flete && d.flete.docs) || []).length && esFlete(d, D.provs || {}, D.repartos || {}));
+  return { n: l.length, monto: l.reduce((a, d) => a + GB.baseDe(d), 0) };
+}
 const repartirEn = (monto, n) => { const b = Math.trunc(monto / n), out = Array(n).fill(b); out[n - 1] = monto - b * (n - 1); return out; };
 
 // ── Las líneas de un documento para Finanzas (solo los meses desde el inicio) ──
@@ -42,14 +61,16 @@ const repartirEn = (monto, n) => { const b = Math.trunc(monto / n), out = Array(
 // El id no depende del orden de las partes (ítem y área): reclasificar no cambia la llave de lo que sigue igual. El id sale del nombre
 // guardado (no del que cuenta): pasar al catálogo nuevo no cambia las llaves.
 // I: el índice del catálogo (GI.indice) o null (todavía sin catálogo: los nombres tal cual)
-export function lineasDoc(d, provs, reps, { inicio, I = null } = {}) {
+export function lineasDoc(d, provs, reps, { inicio, I = null, porId = null } = {}) {
   if (!d || d.estado === 'no_va') return [];
   const mesIni = s(inicio).slice(0, 7), meses = mesesDoc(d), n = meses.length;
   if (meses[n - 1] < mesIni) return [];   // todo es de antes del inicio
-  const c = GB.clasifDe(d, provs, reps); if (!c || !(c.partes || []).length) return [];
-  const ref = `${s(d.tipoTexto)}${d.folio && d.origen !== 'credito' ? ' N° ' + s(d.folio) : ''}`;
+  const c = GB.clasifDe(d, provs, reps), pf = porId && d.flete ? partesFlete(d, porId, provs, reps) : null;
+  const partes = pf || (c && c.partes) || []; if (!partes.length) return [];
+  const de = pf ? ' · flete de ' + d.flete.docs.map(i => porId[i]).filter(Boolean).map(x => `${s(x.razon).slice(0, 30)} N° ${s(x.folio)}`).join(', ') : '';
+  const ref = `${s(d.tipoTexto)}${d.folio && d.origen !== 'credito' ? ' N° ' + s(d.folio) : ''}${de}`;
   const out = [], vistos = {};
-  c.partes.forEach(p => {
+  partes.forEach(p => {
     const montos = repartirEn(entero(p.monto), n);
     const k0 = hashCorto(norm(p.item) + '|' + s(p.area).toUpperCase()), k = vistos[k0] ? `${k0}${vistos[k0]}` : k0; vistos[k0] = (vistos[k0] || 0) + 1;
     meses.forEach((m, i) => {
@@ -68,8 +89,8 @@ export function lineasDoc(d, provs, reps, { inicio, I = null } = {}) {
 // D: { docs, provs, repartos, catalogo }. → { lineas, errores [docId] } (un documento raro se salta y se avisa: no deja a Finanzas sin nada)
 // conCatalogo false: los nombres tal cual (lo usa la vista previa del paso al catálogo)
 export function gastosParaFinanzas(D, inicio, { conCatalogo = true } = {}) {
-  const lineas = [], errores = [], I = conCatalogo && D && GI.activo(D.catalogo) ? GI.indice(D.catalogo) : null;
-  ((D && D.docs) || []).forEach(d => { try { lineas.push(...lineasDoc(d, D.provs || {}, D.repartos || {}, { inicio, I })); } catch (e) { errores.push(d && d.id); } });
+  const lineas = [], errores = [], I = conCatalogo && D && GI.activo(D.catalogo) ? GI.indice(D.catalogo) : null, porId = Object.fromEntries(((D && D.docs) || []).map(d => [d.id, d]));
+  ((D && D.docs) || []).forEach(d => { try { lineas.push(...lineasDoc(d, D.provs || {}, D.repartos || {}, { inicio, I, porId })); } catch (e) { errores.push(d && d.id); } });
   return { lineas, errores };
 }
 

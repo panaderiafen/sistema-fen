@@ -1,15 +1,31 @@
-# Sistema Fën · v0.102.1
+# Sistema Fën · v0.103.0
 
-**App:** v0.102.1 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 25 de octubre de 2026
+**App:** v0.103.0 · **Cocina:** v0.17.11 (sin cambios) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 25 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.103.0: el flete de una compra se suma al costo de lo comprado
+
+Aprobado por Emmanuel el 25 oct (hoja de ruta, sección 5, paso 3). El flete llega en una factura aparte (courier o transporte).
+- **Ítem nuevo FLETE DE COMPRA** (grupo Producir y vender). Se agrega solo al catálogo al abrir Gastos.
+- **"¿De qué compra es?"**: en la Bandeja, un documento clasificado como FLETE DE COMPRA muestra ese botón. Se eligen una o varias compras (las de 90 días antes a 30 días después del flete); se ve en cuánto % sube su costo.
+- **El flete se reparte entre esas compras según su valor y sigue a lo comprado:** el de una materia prima sube su precio en Finanzas (y el costo de las recetas que la usan); el de packaging va al packaging; el de un equipo, al equipo. No se cuenta dos veces: el flete no es un gasto aparte.
+- **Una compra ya revisada en Finanzas se vuelve a revisar** cuando se le une un flete: su precio sube aunque sea la misma factura. Al unirlo, Gastos revisa los precios y lo avisa.
+- **Sin unir:** queda como inventario (no entra al resultado). El estado de resultados y el cierre de mes lo avisan (aviso: no impide cerrar).
+- **Mientras tanto** (lo de antes de esta versión): si clasificó un flete como TRANSPORTE Y COMBUSTIBLE, cámbielo a FLETE DE COMPRA y únalo a su compra.
+Cambian `gn-items.js`, `gn-finanzas.js`, `gn-fs.js`, `vista-gn.js`, `finanzas-sii.js`, `finanzas-eerr.js`, `vista-finanzas-eerr.js`, `config.js` y este README; los demás, solo la versión (`?v=0.103.0`).
+
+- [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda) y abrir con Cmd + Shift + R: abajo dice v0.103.0.
+- [ ] Gastos → Ítems: aparece FLETE DE COMPRA en "Producir y vender" (30 ítems).
+- [ ] Una factura de flete: "Cambiar clasificación" → FLETE DE COMPRA; luego "¿De qué compra es?" → elegir la compra.
+- [ ] Finanzas → Costos → Materias primas: el precio de esa materia prima ahora incluye el flete (si es la compra más reciente).
 
 ## Novedades de la v0.102.1: los equipos de antes de octubre se deprecian
 
 - **Arreglo:** del Gastos anterior, Finanzas solo lee las inversiones ya registradas, para seguir depreciándolas. Las reconocía solo por Finanzas → Clasificación, donde casi nada se había guardado: los equipos comprados antes de octubre (por ejemplo, los refrigeradores de agosto) no se depreciaban. Ahora también se reconocen por el catálogo de ítems (ACTIVO FIJO, COMPRA MAQUINA TRANSBANK, HABILITACIÓN… apuntan a una cuenta de inversión) o por su subtipo INVERSIÓN en la lista antigua.
 - El flete de un equipo (por ejemplo, el de los refrigeradores) va a EQUIPOS Y MAQUINARIA: es parte de lo que costó el equipo. Conviene darle la misma vida útil que al equipo (Finanzas → Resultados → Inversiones).
-Cambian `finanzas.js`, `config.js` y este README; los demás, solo la versión (`?v=0.102.1`).
+Cambian `finanzas.js`, `config.js` y este README; los demás, solo la versión (`?v=0.103.0`).
 
 - [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda) y abrir con Cmd + Shift + R: abajo dice v0.102.1.
 - [ ] Finanzas → Resultados → Inversiones: que aparezcan los refrigeradores de agosto y el flete de octubre; revisar la vida útil de cada uno.
@@ -30,7 +46,7 @@ Aprobado por Emmanuel el 25 oct (hoja de ruta, sección 5, paso 2; tabla en `cla
 - **Cierre de mes:** el conteo de bodega de las jefas pasa a aviso (no impide cerrar): sirve para el punto de pedido; el inventario se cuenta completo en cada balance. "Gastos clasificados" pasa a "Ítems con su cuenta" y lleva a Gastos → Ítems.
 - **Se retiran:** Finanzas → Clasificación (queda solo como historial), Finanzas → Créditos (solo consulta; desde octubre los créditos están en Gastos → Compromisos → Créditos) y Finanzas → Resumen del mes (sus revisiones están en Cierre de mes; el enlace desde Ventas B2B → Conciliación también se quitó). Las reglas de conciliación antiguas ya no se podían abrir con el Gastos nuevo.
 - Costo: el catálogo es una lectura de unos 50 documentos al abrir Gastos. La vista previa lee una vez lo guardado en Clasificación.
-Archivos nuevos `plan-cuentas.js` y `gn-items.js`. Cambian `gn-fs.js`, `gn-bandeja.js`, `gn-finanzas.js`, `vista-gn.js`, `finanzas-resultados.js`, `finanzas-eerr.js`, `vista-finanzas-eerr.js`, `vista-finanzas-resultados.js`, `vista-finanzas.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.102.1`). Colección nueva en fen-gastos: `gn_items` (las reglas actuales la permiten).
+Archivos nuevos `plan-cuentas.js` y `gn-items.js`. Cambian `gn-fs.js`, `gn-bandeja.js`, `gn-finanzas.js`, `vista-gn.js`, `finanzas-resultados.js`, `finanzas-eerr.js`, `vista-finanzas-eerr.js`, `vista-finanzas-resultados.js`, `vista-finanzas.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.103.0`). Colección nueva en fen-gastos: `gn_items` (las reglas actuales la permiten).
 
 - [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda) y abrir con Cmd + Shift + R: abajo dice v0.102.0.
 - [ ] Gastos → Ítems → "Ver la vista previa": revisar el total de octubre, decidir OTROS INSUMOS de cada proveedor y ubicar los nombres que no están en la tabla (o dejarlos para después).
@@ -49,7 +65,7 @@ Decidido por Emmanuel el 25 oct: Finanzas parte en octubre y no se rescata lo an
 - **Arreglo importante: precios de las materias primas.** Desde que se usa el Gastos nuevo, las compras del SII no actualizaban los precios de las materias primas (Finanzas los leía del Gastos anterior), y el costo de las recetas se quedaba quieto. Ahora, al subir compras del SII en Gastos, Finanzas revisa los precios con el detalle de esas facturas (como antes) y lo avisa en el mensaje.
 - Las facturas del SII ahora guardan el código y el precio unitario de cada producto (las asociaciones de Finanzas usan el código). Las de octubre ya cargadas se completan al subir otra vez su XML.
 - Hoy ya no muestra el avance de la conciliación antigua.
-Cambian `gn-modelo.js`, `gn-finanzas.js`, `finanzas.js`, `finanzas-sii.js`, `finanzas-eerr.js`, `vista-finanzas-eerr.js`, `gn-fs.js`, `gn-bandeja.js`, `vista-gn.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.102.1`).
+Cambian `gn-modelo.js`, `gn-finanzas.js`, `finanzas.js`, `finanzas-sii.js`, `finanzas-eerr.js`, `vista-finanzas-eerr.js`, `gn-fs.js`, `gn-bandeja.js`, `vista-gn.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.103.0`).
 
 - [ ] Subir los archivos del paquete a la raíz del repo **sistema-fen** (una tanda) y abrir con Cmd + Shift + R: abajo dice v0.101.1.
 - [ ] Gastos → Archivos subidos: ya no aparece la Revisión de octubre.

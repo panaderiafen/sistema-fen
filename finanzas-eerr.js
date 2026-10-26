@@ -33,9 +33,9 @@
 //  líneas del catálogo usan el área tal cual (el mapa de áreas de Clasificación ya no se usa: una sola regla). La cuota de un convenio de
 //  la TGR (2.9) va fuera del resultado. Un cierre anterior a la v0.102.0 se compara en su forma (las filas nuevas se suman donde estaban).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.102.1';
-import * as AR from './areas.js?v=0.102.1';
-import * as PC from './plan-cuentas.js?v=0.102.1';
+import * as FR from './finanzas-resultados.js?v=0.103.0';
+import * as AR from './areas.js?v=0.103.0';
+import * as PC from './plan-cuentas.js?v=0.103.0';
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -425,6 +425,10 @@ export function checksGastosNuevo(D) {
   out.push(!P ? itemCheck('previred', t, false, `Las cotizaciones de ${MESES_L[Number(mes.slice(5, 7)) - 1]} no están en Gastos (se pagan hasta el 13 de ${sig}).`, '#gastos/cargas', TXT_PREVIRED_GN)
     : P.completo ? itemCheck('previred', t, true, `Cargado (${pesosTxt(P.total)}) y pagado.`, '#gastos', TXT_PREVIRED_GN)
       : itemCheck('previred', t, false, `Cargado (${pesosTxt(P.total)}), ${num(P.pagado) ? `pagado ${pesosTxt(P.pagado)}, faltan ${pesosTxt(P.total - P.pagado)}` : 'todavía sin unir a su pago'}.`, '#gastos', TXT_PREVIRED_GN, 'aviso'));
+  // v0.103.0 · Fletes de compra sin unir a su compra: un aviso (su costo todavía no está en lo comprado)
+  const FL = G.fletes || {};
+  if (num(FL.n)) out.push(itemCheck('fletes', `Fletes de compra sin unir: ${FL.n}`, false, `${FL.n} ${FL.n === 1 ? 'flete' : 'fletes'} de ${nm} sin unir a su compra (${pesosTxt(FL.monto)}): todavía no suman al costo de lo comprado. Es un aviso: no impide cerrar.`,
+    '#gastos', 'El flete de una compra (la factura aparte del courier) se une a su compra en Gastos → Bandeja ("¿De qué compra es?"): se suma al costo de lo comprado. Sin unir, queda como inventario y no entra al resultado.', 'aviso'));
   return out;
 }
 export function checksCierre(D) {
@@ -446,6 +450,7 @@ export function checksCierre(D) {
   out.push(G ? deG('cartola') : checkCartolaConciliada(D));
   // v0.69.5 · Previred del mes cargado (el de ese mismo mes: es su costo). Lo pasa Cierre de mes; sin el dato no se agrega.
   if (G) out.push(deG('previred')); else if ('planillas' in D) out.push(checkPrevired(D));
+  if (G && deG('fletes')) out.push(deG('fletes'));   // v0.103.0
   // 4. Conteo de bodega hecho (cada bodega): un conteo en los últimos 3 días del mes o los primeros 3 del siguiente
   const w = ventanaConteo(mes), C = D.conteos || {}, bods = C.bodegas && C.bodegas.length ? C.bodegas : ['PROD', 'CAF'];
   const sinConteo = bods.filter(b => !((C.porBodega || {})[b] || []).some(f => f >= w.desde && f <= w.hasta));

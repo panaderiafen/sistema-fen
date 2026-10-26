@@ -7,19 +7,19 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.102.1';
-import * as GB from './gn-bandeja.js?v=0.102.1';
-import * as AR from './areas.js?v=0.102.1';
-import * as Sii from './sii.js?v=0.102.1';
-import * as MP from './mercadopago.js?v=0.102.1';
-import * as GI from './gn-items.js?v=0.102.1';   // v0.102.0: catálogo de ítems
-import * as GF from './gn-finanzas.js?v=0.102.1';
-import * as PC from './plan-cuentas.js?v=0.102.1';
-import * as FR from './finanzas-resultados.js?v=0.102.1';
+import * as GN from './gn-modelo.js?v=0.103.0';
+import * as GB from './gn-bandeja.js?v=0.103.0';
+import * as AR from './areas.js?v=0.103.0';
+import * as Sii from './sii.js?v=0.103.0';
+import * as MP from './mercadopago.js?v=0.103.0';
+import * as GI from './gn-items.js?v=0.103.0';   // v0.102.0: catálogo de ítems
+import * as GF from './gn-finanzas.js?v=0.103.0';
+import * as PC from './plan-cuentas.js?v=0.103.0';
+import * as FR from './finanzas-resultados.js?v=0.103.0';
 
 const st = { D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' } };
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.102.1');
+const fsGN = () => import('./gn-fs.js?v=0.103.0');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -110,12 +110,16 @@ function bandejaHtml(H) {
   const visto = '<svg class="gn-visto" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   const Icat = catI(), sinCuenta = c => (Icat && c ? [...new Set((c.partes || []).map(p => p.item))].filter(n => !GI.resolver(n, Icat).ok) : []);
   const revItem = d => { const l = sinCuenta(d.clasifEf); return l.length ? `<span class="gn-cl gn-cl-falta">Revisar ítem: ${H.esc(l.join(', '))} no está en el catálogo (Gastos → Ítems)</span>` : ''; };
-  const clasTxt = d => (d.clasifEf ? `<span class="gn-cl">${visto}${H.esc(GB.textoPartes(d.clasifEf.partes))}${d.clasifEf.de === 'proveedor' ? ' <span class="gn-cl-de">(como siempre)</span>' : ''}</span>${revItem(d)}`
+  // v0.103.0 · Flete de compra: a qué compras se une (o que falta unirlo)
+  const docPorId = Object.fromEntries((D.docs || []).map(x => [x.id, x])), esFl = d => d.estado !== 'no_va' && d.clasifEf && (d.clasifEf.partes || []).some(p => GN.norm(p.item) === GN.norm(GI.FLETE));
+  const fleteTxt = d => { if (!esFl(d)) return ''; const l = ((d.flete && d.flete.docs) || []).map(i => docPorId[i]).filter(Boolean);
+    return l.length ? `<span class="gn-cl">${visto}Flete de: ${H.esc(l.map(x => `${x.razon || x.rut} N° ${x.folio}`).join(', '))} (se suma a su costo)</span>` : '<span class="gn-cl gn-cl-falta">Flete por unir a su compra: mientras, no entra al costo</span>'; };
+  const clasTxt = d => (d.clasifEf ? `<span class="gn-cl">${visto}${H.esc(GB.textoPartes(d.clasifEf.partes))}${d.clasifEf.de === 'proveedor' ? ' <span class="gn-cl-de">(como siempre)</span>' : ''}</span>${revItem(d)}${fleteTxt(d)}`
     : d.faltanFichas && d.faltanFichas.length ? `<span class="gn-cl gn-cl-falta">Falta el área de: ${H.esc(d.faltanFichas.join(', '))} (se toma de su ficha)</span>`
     : d.soloItem ? `<span class="gn-cl gn-cl-falta">${H.esc(d.soloItem)} · falta el área</span>`
     : sugOk(d) ? `<span class="gn-cl gn-cl-falta">Sugerido: ${H.esc(d.sugerida.item)} · ${H.esc(GB.textoReparto(d.sugerida.areas))}</span>` : '<span class="gn-cl gn-cl-falta">Sin clasificar</span>');
   const detHtml = d => ((d.detalle || []).length ? `<details class="gn-detalle"><summary>Ver detalle (${d.detalle.length} ${d.detalle.length === 1 ? 'línea' : 'líneas'})</summary><ul>${d.detalle.map(x => `<li><span>${H.esc(x.descripcion)}${x.cantidad ? ` · ${H.esc(String(x.cantidad).replace('.', ','))}${x.unidad ? ' ' + H.esc(x.unidad) : ''}` : ''}</span><span class="gn-m">${H.pesos(x.monto)}</span></li>`).join('')}</ul></details>` : '');
-  const clasBtns = d => d.estado === 'no_va' ? '' : d.clasifEf ? bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Cambiar clasificación')
+  const clasBtns = d => d.estado === 'no_va' ? '' : d.clasifEf ? (esFl(d) ? bt(`data-gn-flete="${H.esc(d.id)}"`, (d.flete && (d.flete.docs || []).length) ? 'Cambiar sus compras' : '¿De qué compra es?', !(d.flete && (d.flete.docs || []).length)) : '') + bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Cambiar clasificación')
     : d.soloItem ? bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Elegir el área')
     : sugOk(d) ? bt(`data-gn-usar="${H.esc(d.id)}"`, 'Usar lo sugerido') + bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar') : bt(`data-gn-clasif="${H.esc(d.id)}"`, 'Clasificar');
   // v0.96.0 · Elegir (seleccionar y filtrar): la casilla va en lo que se puede unir (documentos con saldo, cargos con algo libre)
@@ -244,7 +248,7 @@ async function procesar(f, H) {
   if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text();
-    const Pv = await import('./previred.js?v=0.102.1');
+    const Pv = await import('./previred.js?v=0.103.0');
     if (Pv.esCsvNomina(Pv.textoDeArchivo(await f.arrayBuffer()))) return subirPrevired(f, H, Pv.leerCsv(Pv.textoDeArchivo(await f.arrayBuffer())));
     const tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -258,7 +262,7 @@ async function procesar(f, H) {
   if (wb) {
     const tefs = H.B2b.leerTransferencias(wb, XLSX);
     if (tefs) { const r = await H.B2b.guardarTransferencias(tefs); H.registrar('Cargó transferencias recibidas', `${r.leidas} leídas · ${r.nuevas} nuevas`); return `<b>Transferencias recibidas</b>: ${r.leidas} en el archivo · ${r.nuevas} nuevas. Sirven a Ventas B2B → Conciliación (quién pagó cada abono).`; }
-    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.102.1'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
+    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.103.0'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
       if (GP.esDetalleCredito(filas)) { const enc = wb.SheetNames.includes('Encabezados') ? XLSX.utils.sheet_to_csv(wb.Sheets.Encabezados) : '', r = GP.leerCredito(filas, enc);
         if (r.bloquea) throw new Error(r.errores.join(' '));
         const k = await (await fsGN()).cargarCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó un crédito', r.nombre);
@@ -274,9 +278,9 @@ function esCartola(wb, XLSX, H) {
 }
 // v0.96.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
 async function subirBoleta(f, H) {
-  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.102.1'), import('./boletas.js?v=0.102.1')]);
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.103.0'), import('./boletas.js?v=0.103.0')]);
   let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
-  const GP = await import('./gn-pdf.js?v=0.102.1'), tipo = GP.tipoPdf(lineas);
+  const GP = await import('./gn-pdf.js?v=0.103.0'), tipo = GP.tipoPdf(lineas);
   if (tipo) return subirOtroPdf(f, H, GP, tipo, lineas);
   if (Pv.esComprobante(lineas) || Pv.esCertificado(lineas)) { let r; try { r = Pv.leerPdf(lineas); } catch (x) { throw new Error(x.message); } return subirPrevired(f, H, r); }
   const r = Bo.leerBoleta(lineas);
@@ -310,7 +314,7 @@ async function subirOtroPdf(f, H, GP, tipo, lineas) {
 // v0.97.0 · Previred: el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → el documento del mes
 async function subirPrevired(f, H, r) {
   if (r.bloquea) throw new Error(`Previred no se guardó. ${(r.avisos || []).join(' ')}`);
-  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.102.1'), import('./gastos-g3d.js?v=0.102.1')]);
+  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.103.0'), import('./gastos-g3d.js?v=0.103.0')]);
   const id = GN.idCarga('previred'), d = GP.docDePrevired(r, G3D.venceDe(r.periodo), id);
   const k = await (await fsGN()).cargarPdf(d, { nombre: f.name, tamano: f.size }, 'previred');
   H.registrar('Gastos: cargó Previred', `${d.tipoTexto} · ${k.texto}`);
@@ -329,7 +333,7 @@ async function subirSii(f, txt, H) {
 }
 // v0.101.1 · Después de subir compras del SII: Finanzas revisa los precios de las materias primas (sin esperar; nunca falla hacia afuera)
 function preciosDeMP(H) {
-  import('./finanzas.js?v=0.102.1').then(F => F.preciosTrasImportar()).then(x => {
+  import('./finanzas.js?v=0.103.0').then(F => F.preciosTrasImportar()).then(x => {
     if (!x || (!x.error && !(x.aplicadas.length || x.porConfirmar || x.sinAsociar))) return;
     const t = x.error ? `No se pudieron revisar los precios de las materias primas (${H.esc(x.error)}): hágalo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.`
       : `Precios de materias primas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'actualizado' : 'actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver en Finanzas</a>.`;
@@ -412,6 +416,7 @@ function acciones(el, H) {
     if (ds.gnArchivarcp) return hacer(el, H, async () => (await fsGN()).archivarCompromiso(ds.gnArchivarcp, ds.archivar === '1'), ds.archivar === '1' ? 'Compromiso archivado: no crea más meses (lo ya creado sigue).' : 'El compromiso vuelve a crear sus meses.');
     if (ds.gnFicha) return dlgFicha(el, H, ds.gnFicha, ds.razon || '', ds.rut || '');
     if (ds.gnQuitarprod) return hacer(el, H, async () => (await fsGN()).quitarProducto(ds.gnQuitarprod, ds.prod), `Producto olvidado: ${H.esc(ds.prod)}.`);
+    if (ds.gnFlete) return dlgFlete(el, H, ds.gnFlete);
     if (ds.gnPrevia !== undefined) return abrirPrevia(el, H);
     if (ds.gnPasar !== undefined) return pasarCatalogo(el, H);
     if (ds.gnPreviaCerrar !== undefined) { st.previa = null; return repintarQuieto(el, H); }
@@ -1118,5 +1123,29 @@ function dlgUbicar(el, H, nombre) {
       if (modo() === 'pasa') { if (!v('#ub-pasa')) throw new Error('Elija el ítem.'); await F.ubicarItem(nombre, { pasaA: v('#ub-pasa') }); }
       else await F.ubicarItem(nombre, { grupo: v('#ub-grupo'), cuenta: v('#ub-cuenta') });
       dlg.close(); H.registrar('Gastos: ubicó un ítem', `${nombre} → ${modo() === 'pasa' ? v('#ub-pasa') : 'ítem nuevo ' + v('#ub-cuenta')}`); aviso(el, H, `Ubicado: ${H.esc(nombre)}${modo() === 'pasa' ? ' pasa a ' + H.esc(v('#ub-pasa')) : ' es un ítem nuevo (' + H.esc(PC.texto(v('#ub-cuenta'))) + ')'}.`); }
+    catch (e) { falla(dlg, e, H); } });
+}
+
+// ═══════════════ v0.103.0 · Flete de compra: ¿de qué compra es? ═══════════════
+const TXT_FLETE = 'El flete de una compra es parte de lo que cuesta lo comprado: la harina de Santiago cuesta su precio más traerla.\nUna el flete con la compra (o las compras) que trajo: se reparte entre ellas según su valor, y cada parte sigue a lo comprado. El flete de una materia prima sube su precio (y el costo de las recetas que la usan); el de packaging es packaging; el de un equipo, parte del equipo.\nMientras no se une, queda como inventario (no entra al resultado) y el cierre de mes lo avisa.';
+const diasEntre = (a, b) => Math.round((Date.parse(a + 'T12:00:00') - Date.parse(b + 'T12:00:00')) / 864e5);
+function dlgFlete(el, H, id) {
+  const d = (st.D.docs || []).find(x => x.id === id); if (!d) return;
+  const ya = new Set((d.flete && d.flete.docs) || []), esFl = x => (((GB.clasifDe(x, st.D.provs || {}, st.D.repartos || {}) || {}).partes) || []).some(p => GN.norm(p.item) === GN.norm(GI.FLETE));
+  const cand = (st.D.docs || []).filter(x => x.id !== d.id && x.estado !== 'no_va' && !x.nc && GB.baseDe(x) > 0 && !esFl(x) && (ya.has(x.id) || (diasEntre(x.fecha, d.fecha) >= -90 && diasEntre(x.fecha, d.fecha) <= 30)))
+    .sort((a, b) => (ya.has(b.id) - ya.has(a.id)) || Math.abs(diasEntre(a.fecha, d.fecha)) - Math.abs(diasEntre(b.fecha, d.fecha))).slice(0, 120);
+  const dlg = H.dialogo(`<form class="form-dialogo gn-dlg-ancho" novalidate><div class="titulo-fila"><h2>¿De qué compra es este flete?</h2>${H.info('Flete de compra', TXT_FLETE)}</div>
+    <p class="ayuda"><b>${H.esc(nom(d))}</b> · ${H.esc(d.tipoTexto)} ${H.esc(d.folio || '')} · ${H.esc(H.diaTexto(d.fecha))} · flete ${H.pesos(GB.baseDe(d))} neto</p>
+    ${cand.length ? `<input type="search" data-gn-buscar placeholder="Buscar proveedor, folio o monto" aria-label="Buscar compra"><div class="gn-opcs">${cand.map(x => `<label class="gn-opc" data-txt="${H.esc(GN.norm(nom(x) + ' ' + x.folio + ' ' + GB.baseDe(x)))}"><input type="checkbox" value="${H.esc(x.id)}" ${ya.has(x.id) ? 'checked' : ''}><span><b>${H.esc(nom(x))}</b> <span class="gn-m">${H.pesos(GB.baseDe(x))}</span><small>${H.esc(x.tipoTexto)} ${H.esc(x.folio || '')} · ${H.esc(H.diaTexto(x.fecha))}${x.clasifEf || GB.clasifDe(x, st.D.provs || {}, st.D.repartos || {}) ? ' · ' + H.esc(GB.textoPartes((GB.clasifDe(x, st.D.provs || {}, st.D.repartos || {}) || {}).partes || [])) : ' · sin clasificar'}</small></span></label>`).join('')}</div>
+      <p class="ayuda" data-suma></p>` : '<p class="ayuda">No hay compras cerca de la fecha del flete. Suba primero la factura de la compra.</p>'}
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button>${cand.length ? '<button type="submit" class="btn">Guardar</button>' : ''}</div></form>`);
+  buscador(dlg); dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  const elegidos = () => Array.from(dlg.querySelectorAll('.gn-opc input:checked')).map(x => cand.find(c => c.id === x.value)).filter(Boolean);
+  const suma = dlg.querySelector('[data-suma]'), pintar = () => { if (!suma) return; const l = elegidos(), t = l.reduce((a, x) => a + GB.baseDe(x), 0); suma.textContent = l.length ? `${l.length} ${l.length === 1 ? 'compra' : 'compras'} · ${H.pesos(t)} neto: el flete sube su costo en ${String(Math.round(GB.baseDe(d) / t * 1000) / 10).replace('.', ',')} %` : 'Sin compras elegidas: el flete queda por unir.'; };
+  dlg.querySelectorAll('.gn-opc input').forEach(x => x.addEventListener('change', pintar)); pintar();
+  dlg.querySelector('form').addEventListener('submit', async ev => { ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
+    try { const l = elegidos(), n = await (await fsGN()).unirFlete(d.id, l.map(x => x.id)); dlg.close(); H.registrar('Gastos: unió un flete', `${nom(d)} → ${n} compras`);
+      preciosDeMP(H); aviso(el, H, n ? `Flete unido: ${H.esc(nom(d))} se suma al costo de ${n === 1 ? H.esc(nom(l[0])) + ' N° ' + H.esc(l[0].folio) : n + ' compras'}.` : 'Flete desunido: queda por unir a su compra.'); }
     catch (e) { falla(dlg, e, H); } });
 }

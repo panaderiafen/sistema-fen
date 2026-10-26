@@ -8,9 +8,9 @@
 //    (resolver). Las fichas de los proveedores y los compromisos sí pasan al nombre nuevo.
 //  · Los ítems del sistema (F29, Previred, créditos) tienen su cuenta fija.
 // ═══════════════════════════════════════════════
-import { norm } from './gn-modelo.js?v=0.102.1';
-import * as GB from './gn-bandeja.js?v=0.102.1';
-import * as PC from './plan-cuentas.js?v=0.102.1';
+import { norm } from './gn-modelo.js?v=0.103.0';
+import * as GB from './gn-bandeja.js?v=0.103.0';
+import * as PC from './plan-cuentas.js?v=0.103.0';
 
 const s = v => String(v == null ? '' : v).trim();
 const entero = v => { const x = Math.round(Number(v)); return isFinite(x) ? x : 0; };
@@ -26,6 +26,9 @@ export const CATALOGO = [
   { nombre: 'MATERIA PRIMA', grupo: 'Producir y vender', cuenta: '1.4.1', desde: ['MATERIAS PRIMAS'] },
   { nombre: 'PRODUCTOS DE REVENTA', grupo: 'Producir y vender', cuenta: '1.4.2', desde: ['REVENTA'] },
   { nombre: 'PACKAGING', grupo: 'Producir y vender', cuenta: '5.7', desde: [] },
+  // v0.103.0 · El flete de una compra (factura aparte del courier) se une a su compra y se suma a su costo (aprobado por Emmanuel el 25 oct).
+  // Sin unir, cuenta como inventario (no entra al resultado) y el cierre lo avisa.
+  { nombre: 'FLETE DE COMPRA', grupo: 'Producir y vender', cuenta: '1.4.1', desde: ['FLETE', 'FLETES', 'FLETE DE COMPRAS'] },
   { nombre: 'ARRIENDO', grupo: 'Local', cuenta: '6.2', desde: ['ARRIENDO SALA PRODUCCION', 'ARRIENDO SALA DE PRODUCCION'] },
   { nombre: 'PATENTE Y DERECHOS MUNICIPALES', grupo: 'Local', cuenta: '6.2', desde: ['PATENTE MUNICIPAL', 'PATENTE'] },
   { nombre: 'TRÁMITES Y PERMISOS', grupo: 'Local', cuenta: '6.6', desde: ['GESTION EMPRESARIAL'] },
@@ -64,6 +67,10 @@ export const SISTEMA = [
 ];
 // Del Gastos anterior que se archivan sin reemplazo (sin uso, ya no se usan, o los crea el sistema). OTROS INSUMOS: se decide por proveedor.
 export const OTROS_INSUMOS = 'OTROS INSUMOS';
+export const FLETE = 'FLETE DE COMPRA';
+// Los ítems del catálogo aprobado (y del sistema) que faltan en el catálogo vivo: los que agrega una versión nueva (se crean solos al abrir Gastos)
+export const faltantes = items => { const I = indice(items); return CATALOGO.filter(x => !I[norm(x.nombre)]).map(x => ({ clave: claveItem(x.nombre), nombre: x.nombre, grupo: x.grupo, cuenta: x.cuenta, sistema: false }))
+  .concat(SISTEMA.filter(x => !I[norm(x.nombre)]).map(x => ({ clave: claveItem(x.nombre), nombre: x.nombre, grupo: GRUPO_SISTEMA, cuenta: x.cuenta, sistema: true, elegible: !!x.elegible }))); };
 export const OPCIONES_OTROS = ['PACKAGING', 'INSUMOS DE ASEO Y OPERACIÓN'];
 export const SIN_REEMPLAZO = ['DELIVERY', 'PROMOCIONES', 'S G V TOTEAT', 'S G V', 'TOTEAT', 'IVA', 'MULTA COTIZACIONES', 'PRESTAMO BANCARIO', 'TARJETA CREDITO', 'TARJETA DE CREDITO', OTROS_INSUMOS];
 const SISTEMA_N = Object.fromEntries(SISTEMA.map(x => [norm(x.nombre), x]));

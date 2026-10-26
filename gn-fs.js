@@ -10,13 +10,13 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.102.1';
-import { dbBase, correo } from './gastos-fs.js?v=0.102.1';
-import { ahoraChile } from './gastos-g2.js?v=0.102.1';
-import * as GN from './gn-modelo.js?v=0.102.1';
-import * as GB from './gn-bandeja.js?v=0.102.1';
-import * as GP from './gn-pdf.js?v=0.102.1';
-import * as GI from './gn-items.js?v=0.102.1';
+import * as FB from './fs-gastos.js?v=0.103.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.103.0';
+import { ahoraChile } from './gastos-g2.js?v=0.103.0';
+import * as GN from './gn-modelo.js?v=0.103.0';
+import * as GB from './gn-bandeja.js?v=0.103.0';
+import * as GP from './gn-pdf.js?v=0.103.0';
+import * as GI from './gn-items.js?v=0.103.0';
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -30,7 +30,11 @@ const inicio = () => (typeof window !== 'undefined' && window.FEN_SIS && window.
 // ── Lecturas ──
 export async function leer() {
   // v0.102.0 · El catálogo de ítems (gn_items). Mientras no se pase al catálogo nuevo, la lista de siempre (la del Gastos anterior) se sigue leyendo.
-  const cat = await todos(GI.COL), conCat = GI.activo(cat);   // si no se puede leer, Gastos avisa el error (no vuelve en silencio a la lista antigua)
+  let cat = await todos(GI.COL); const conCat = GI.activo(cat);   // si no se puede leer, Gastos avisa el error (no vuelve en silencio a la lista antigua)
+  // v0.103.0 · Los ítems que agrega una versión nueva (por ejemplo FLETE DE COMPRA) se crean solos, una vez, con su historial
+  if (conCat) { const f = GI.faltantes(cat); if (f.length) { try { const d = await dbBase(), b = FB.writeBatch(d), h = { por: quien(), en: ahoraChile().texto };
+    f.forEach(x => b.set(FB.doc(d, GI.COL, x.clave), limpio({ nombre: x.nombre, grupo: x.grupo, cuenta: x.cuenta, estado: 'activo', sistema: x.sistema, elegible: !!x.elegible, area: '', creado: h, historial: [{ que: 'agregado al catálogo por la v0.103.0', ...h }] }), { merge: true }));
+    await b.commit(); cat = await todos(GI.COL); } catch (e) { /* sin permiso o sin red: se intenta en la próxima lectura */ } } }
   const [docs0, movs, cargas, pagos, provs, cfg, items, reps0, comps, creds] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.movs), todos(GN.COL.cargas), todos(GN.COL.pagos), todos(GN.COL.provs), todos(GN.COL.config), conCat ? Promise.resolve([]) : todos('items').catch(() => []), todos(GN.COL.repartos), todos(GN.COL.compromisos).catch(() => []), todos(GN.COL.creditos).catch(() => [])]);
   // v0.96.0 · Los compromisos crean el documento del mes cuando el mes empieza (una vez: después ya está)
   let docs = docs0; const hoyCl = ahoraChile().dia, faltan = GB.compromisosPendientes(comps, docs0, inicio(), hoyCl)
@@ -537,4 +541,20 @@ export async function ubicarItem(nombre, { pasaA = '', grupo = '', cuenta = '' }
   b.set(FB.doc(d, GI.COL, clave), limpio({ ...x, nombre: prev ? prev.nombre : x.nombre, estado: 'activo', pasaA: '', sistema: false, ...(prev ? {} : { creado: { por: h.por, en: h.en } }), historial: conHist(prev, h) }), { merge: true });
   await b.commit();
   return clave;
+}
+
+// ═══════════════ v0.103.0 · Flete de compra ═══════════════
+// La factura del flete (courier) se une a una o varias compras: su costo se reparte entre ellas (gn-finanzas.partesFlete) y sube el precio de
+// lo comprado (finanzas-sii.fleteDeCompras). docIds vacío: se desune (vuelve a "flete por unir"). Queda en el historial.
+export async function unirFlete(docId, docIds) {
+  const ids = [...new Set((docIds || []).map(String))].filter(x => x && x !== docId).slice(0, 20);
+  return enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.docs, docId), sn = await tx.get(ref); if (!sn.exists()) throw error('Ese documento ya no está.', 'cambio');
+    const sns = []; for (const i of ids) sns.push(await tx.get(FB.doc(d, GN.COL.docs, i)));
+    const ok = sns.filter(x => x.exists()), txt = ok.map(x => `${x.data().razon || ''} N° ${x.data().folio || ''}`).join(', ');
+    if (ids.length && !ok.length) throw error('Esas compras ya no están.', 'cambio');
+    const h = marca(ok.length ? 'flete unido a: ' + txt : 'flete desunido de sus compras');
+    tx.update(ref, { flete: ok.length ? { docs: ok.map(x => x.id), por: h.por, en: h.en } : null, historial: conHist(sn.data(), h) });
+    return ok.length;
+  });
 }
