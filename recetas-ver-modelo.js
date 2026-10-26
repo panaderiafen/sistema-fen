@@ -7,7 +7,7 @@
 //  Sin lecturas ni pantallas: lo usan vista-prod-recetas.js y vista-produccion.js (y las pruebas).
 // ═══════════════════════════════════════════════
 import * as CM from './cocina/modelo.js?v=0.17.4';
-import { coincide, normalizar } from './buscador.js?v=0.102.0';
+import { coincide, normalizar } from './buscador.js?v=0.102.1';
 
 export const AREAS = { PAN: 'Panadería', BOL: 'Bollería', PAS: 'Pastelería', CAF: 'Cafetería' };
 const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
