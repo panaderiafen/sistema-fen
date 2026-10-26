@@ -2898,3 +2898,8 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-cart .gn-avance { margin: 4px 0 2px; }
 .gn-cart-pie { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; font-size: 13px; }
 .gn-cart-pie .gn-det { margin: 0; flex-basis: 100%; }
+/* v0.108.0 · Situación tributaria en fichas, compromisos e ítems */
+.gn-trib { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 6px; font-size: 13px; min-width: 0; }
+.gn-trib > span:first-child { color: var(--suave); }
+.gn-trib small { color: var(--suave); overflow-wrap: anywhere; }
+.fin-trib-h { margin: 14px 0 4px; font-size: 14px; }

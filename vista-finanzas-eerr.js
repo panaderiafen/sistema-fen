@@ -6,11 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.107.0';
-import * as FR from './finanzas-resultados.js?v=0.107.0';
-import * as FE from './finanzas-eerr.js?v=0.107.0';
-import * as FC from './finanzas-costos.js?v=0.107.0';
-import * as SP from './sii-pendientes.js?v=0.107.0';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.108.0';
+import * as FR from './finanzas-resultados.js?v=0.108.0';
+import * as FE from './finanzas-eerr.js?v=0.108.0';
+import * as FC from './finanzas-costos.js?v=0.108.0';
+import * as SP from './sii-pendientes.js?v=0.108.0';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {}, otros: null, renta: null, incob: {} };
 const $ = id => document.getElementById(id);
@@ -61,15 +61,15 @@ async function vivo(R, mes) {
   // no en la tabla de Finanzas → Créditos (sería doble); los pagos de la tarjeta son los movimientos marcados así en la Bandeja.
   // v0.101.1 · Desde cero en octubre: con el Gastos nuevo, Finanzas no muestra meses anteriores al inicio.
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo (desde ${FE.mesTxt(D.gn.inicio.slice(0, 7))} los gastos salen de ahí): ${D.gn.error}. Revise la conexión y toque "Leer de nuevo".`);
-  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.107.0') : null;
+  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.108.0') : null;
   const pagosTarjeta = nuevo ? GF.pagosTarjetaGN(D.gn.D) : ((ES.cartola && ES.cartola.pagosTarjeta) || []);
   // v0.104.0 · Provisión de vacaciones y finiquitos (fichas y liquidaciones de los trabajadores)
-  const TR = nuevo ? await import('./trabajadores.js?v=0.107.0') : null, GBm = nuevo ? await import('./gn-bandeja.js?v=0.107.0') : null;
+  const TR = nuevo ? await import('./trabajadores.js?v=0.108.0') : null, GBm = nuevo ? await import('./gn-bandeja.js?v=0.108.0') : null;
   const areasT = clave => GBm.areasDe((D.gn.D.provs || {})[clave], D.gn.D.repartos || {}), provision = nuevo ? TR.provisionesDelMes(D.gn.D, mes, areasT) : [];
   // v0.106.0 · Incobrables (Ventas B2B → Cobranza), otros ingresos y gastos, y la tasa del impuesto a la renta
   if (!(mes in ES.incob)) ES.incob[mes] = await F.incobrablesMes(mes);
   const e = FE.armarEERR({ mes, margen: dm.margen, merma: dm.merma, gastos: D.gastos, fin: D.fin, items: D.items, mapa, creditosMes: nuevo ? [] : FE.creditosDelMes(D.creditos, D.vencimientos, D.gastos, mes),
-    invs: FR.inversiones(D.gastos, D.fin, D.invGuardadas, mapa), pagosTarjeta, provision, incobrables: ES.incob[mes] || [], otros: ES.otros || [], renta: ES.renta || { tasa: 0 } });
+    invs: FR.inversiones(D.gastos, D.fin, D.invGuardadas, mapa), pagosTarjeta, provision, incobrables: ES.incob[mes] || [], otros: ES.otros || [], renta: ES.renta || { tasa: 0 }, tributario: nuevo ? (D.gn.D.tributario || null) : null });
   if (ES.incob[mes] === null) e.avisos.push({ k: 'incobrables', texto: 'No se pudieron leer las facturas dadas por perdidas en Ventas B2B: los incobrables van en $0.' });
   e.ventasInfo = dm.ventasInfo;
   if (nuevo) {
@@ -196,6 +196,7 @@ function htmlEERR(H, e, prev, R) {
   ${htmlInfo(H, e)}
   ${htmlProvision(H, e)}
   ${htmlOtros(H, e)}
+  ${htmlTributario(H, e, R)}
   ${htmlCuadratura(H, e)}`;
 }
 const varTxt = (b, a, f) => { const d = b - a; if (!d) return '='; const signo = f.signo === '−' ? -1 : 1; const bueno = d * signo > 0; return `<span class="${bueno ? 'fin-ebien' : 'fin-emal'}">${d > 0 ? '+' : '−'}${pesos(Math.abs(d))}${a ? ` <small>(${d > 0 ? '+' : '−'}${pct(Math.abs(d / a) * 100)})</small>` : ''}</span>`; };
@@ -208,6 +209,42 @@ function htmlOtros(H, e) {
   return `<section class="tarjeta" aria-labelledby="t-e-otros"><div class="titulo-fila fin-titulo"><h2 id="t-e-otros">Otros ingresos y gastos ${H.info('Otros ingresos y gastos', TXT_OTROS)}</h2>${editable ? '<button type="button" class="btn-sec btn-chico" id="e-otro-nuevo">Anotar</button>' : ''}</div>
     <ul class="fin-hist-lista" id="e-otros">${l.map(x => `<li><div><b>${H.esc(x.descripcion)}</b> · ${fechaTxt(x.fecha)}${x.estado === 'anulado' ? ' · <span class="chip c-gris chip-chico">anulado</span>' : ''}</div><span class="ayuda">${x.tipo === 'gasto' ? 'Gasto' : 'Ingreso'} · ${H.esc((x.creado || {}).por || '')}${x.estado === 'anulado' && x.anulado ? ` · anulado por ${H.esc(x.anulado.por || '')}${x.anulado.motivo ? ': ' + H.esc(x.anulado.motivo) : ''}` : ''}</span><b class="fin-edval">${x.tipo === 'gasto' ? '−' : '+'}${pesos(x.monto)}</b>${editable && x.estado !== 'anulado' ? `<button type="button" class="btn-link btn-chico" data-e-anular="${H.esc(x.id)}">Anular</button>` : ''}</li>`).join('') || `<li class="ayuda">Nada anotado en ${H.esc(FE.mesTxt(ES.mes))}.</li>`}</ul>
     <div class="fin-renta" id="e-renta"><span>Impuesto a la renta estimado ${H.info('Impuesto a la renta estimado', TXT_RENTA)}: ${tasa ? `tasa <b>${String(tasa).replace('.', ',')}%</b>${(ES.renta || {}).nota ? ' · ' + H.esc(ES.renta.nota) : ''}` : '<b>sin tasa</b> (confírmela con su contador; mientras, va en $0)'}</span>${editable ? '<button type="button" class="btn-link btn-chico" id="e-renta-cambiar">Cambiar la tasa</button>' : ''}</div></section>`;
+}
+// ── v0.108.0 · Gestión y tributario: lo que ve el contador, lo que ve la gestión y la diferencia; los trámites ──
+const TXT_TRIBF = 'El estado de resultados de arriba es el de gestión: todos los gastos reales del negocio. El contador ve solo los que el SII acepta como gasto de la empresa.\nLa diferencia son los gastos por regularizar (con su trámite: por ejemplo, el auto en comodato o Ainavillo) y los no aceptados. Como el SII no los descuenta, la base para el impuesto es el resultado antes de impuesto más esa diferencia.\nLa situación de cada gasto se pone en Gastos: en la ficha del proveedor (o de su servicio), en el compromiso o en el ítem, desde una fecha.';
+const ESTADO_TXT = { pendiente: 'Pendiente', en_curso: 'En curso', resuelto: 'Resuelto' };
+function htmlTributario(H, e, R) {
+  const I = (e.info || {}).tributario, T = ((R.datos || {}).gn && R.datos.gn.D && R.datos.gn.D.tributario) || {}, G = Object.entries(T.grupos || {});
+  if (!I || (!I.noAceptados && !G.length)) return '';
+  const l = (t, v, cls = '') => `<div class="fin-einfo-l${cls}"><span>${t}</span><b>${pesos(v)}</b></div>`;
+  return `<section class="tarjeta" aria-labelledby="t-e-trib"><div class="titulo-fila fin-titulo"><h2 id="t-e-trib">Gestión y tributario ${H.info('Gestión y tributario', TXT_TRIBF)}</h2></div>
+    <div class="fin-einfo" id="e-trib"><div><h3>Gastos del mes en el resultado</h3>${l('Lo que ve la gestión (todos)', I.total)}${l('Lo que ve el contador (aceptados)', I.aceptado)}${l('Por regularizar', I.regularizar)}${l('No aceptados', I.no_aceptado)}${l('Diferencia', I.noAceptados, ' fin-einfo-t')}</div>
+      <div><h3>Base del impuesto estimado</h3>${l('Resultado antes de impuesto', ((e.filas || {}).resAntesImp || {}).total || 0)}${l('+ Gastos que el SII no acepta', I.noAceptados)}${l('= Base tributaria estimada', Number.isFinite(I.base) ? I.base : 0, ' fin-einfo-t')}</div></div>
+    ${G.length ? `<h3 class="fin-trib-h">Trámites</h3><ul class="fin-hist-lista" id="e-tramites">${G.map(([id, g]) => { const m = (I.grupos || {})[id]; return `<li><div><b>${H.esc(g.nombre)}</b> · <span class="chip ${g.estado === 'resuelto' ? 'c-verde' : g.estado === 'en_curso' ? 'c-azul' : 'c-amarillo'} chip-chico">${H.esc(ESTADO_TXT[g.estado] || 'Pendiente')}</span>${m ? ` · este mes ${pesos(m.regularizar + m.no_aceptado)}` : ''}</div>
+      <span class="ayuda">${g.falta ? 'Falta: ' + H.esc(g.falta) : 'Falta anotar qué hace falta'}${g.quien ? ' · ' + H.esc(g.quien) : ''}${g.nota ? ' · ' + H.esc(g.nota) : ''}</span>${e.congelado ? '' : `<button type="button" class="btn-link btn-chico" data-e-tramite="${H.esc(id)}">Cambiar</button>`}</li>`; }).join('')}</ul>` : ''}
+    ${(I.detalle || []).length ? `<details class="gn-det"><summary>Detalle de lo que el SII no acepta · ${I.detalle.length}</summary><ul class="fin-hist-lista">${I.detalle.slice(0, 200).map(x => `<li><div><b>${H.esc(x.item)}</b> · ${fechaTxt(x.fecha)} · ${H.esc(x.proveedor || '')}</div><span class="ayuda">${x.situacion === 'regularizar' ? 'Por regularizar' : 'No aceptado'}${(T.grupos || {})[x.grupo] ? ' · ' + H.esc(T.grupos[x.grupo].nombre) : ''} · ${H.esc(x.area || '')}</span><b class="fin-edval">${pesos(x.neto)}</b></li>`).join('')}</ul></details>` : ''}
+  </section>`;
+}
+function conectarTributario(el, H, ctx, R, repintar) {
+  el.querySelectorAll('[data-e-tramite]').forEach(b => b.addEventListener('click', () => {
+    const T = R.datos.gn.D.tributario || {}, id = b.dataset.eTramite, g = (T.grupos || {})[id]; if (!g) return;
+    const d = H.dialogo(`<form class="form-dialogo" novalidate><h2>Trámite</h2>
+      <div class="campo"><label for="et-n">Nombre</label><input id="et-n" maxlength="60" value="${H.esc(g.nombre)}"></div>
+      <div class="chips" role="radiogroup" aria-label="Estado">${Object.entries(ESTADO_TXT).map(([k, v]) => `<label class="chip-radio"><input type="radio" name="et-e" value="${k}" ${(g.estado || 'pendiente') === k ? 'checked' : ''}><span>${v}</span></label>`).join('')}</div>
+      <div class="campo"><label for="et-f">Qué falta</label><input id="et-f" maxlength="300" value="${H.esc(g.falta || '')}" placeholder="Ej: que el SII acepte el comodato"></div>
+      <div class="campo"><label for="et-q">Quién (opcional)</label><input id="et-q" maxlength="80" value="${H.esc(g.quien || '')}" placeholder="Ej: el contador"></div>
+      <div class="campo"><label for="et-o">Nota (opcional)</label><input id="et-o" maxlength="300" value="${H.esc(g.nota || '')}"></div>
+      <p class="ayuda">Cuando se resuelva, cambie la situación de sus gastos en Gastos (ficha, compromiso o ítem) desde la fecha en que rige.</p>
+      <p class="error" id="et-err" role="alert"></p>
+      <div class="botones"><button type="button" class="btn-sec" id="et-c">Cancelar</button><button type="submit" class="btn">Guardar</button></div></form>`);
+    d.querySelector('#et-c').addEventListener('click', () => d.close());
+    d.querySelector('form').addEventListener('submit', async ev => {
+      ev.preventDefault(); const bt = d.querySelector('[type=submit]'); bt.disabled = true;
+      const x = { nombre: d.querySelector('#et-n').value, estado: (d.querySelector('[name=et-e]:checked') || {}).value || 'pendiente', falta: d.querySelector('#et-f').value, quien: d.querySelector('#et-q').value, nota: d.querySelector('#et-o').value };
+      try { await (await import('./gn-fs.js?v=0.108.0')).guardarTramite(id, x); T.grupos[id] = { ...g, ...x }; ES.vivo = {}; H.registrar('Finanzas: trámite tributario', `${x.nombre} · ${ESTADO_TXT[x.estado]}`); ES.msg = `Trámite guardado: ${x.nombre}.`; d.close(); repintar(); }
+      catch (e) { d.querySelector('#et-err').textContent = ctx.error(e, H); bt.disabled = false; }
+    });
+  }));
 }
 function conectarOtros(el, H, ctx, repintar) {
   const nuevo = $('e-otro-nuevo');
@@ -388,6 +425,7 @@ function conectarEERR(el, H, ctx, R, e, prev) {
   el.querySelectorAll('[data-e-vista]').forEach(b => b.addEventListener('click', () => { ES.vista = b.dataset.eVista; el.innerHTML = R.cabecera() + htmlEERR(H, e, prev, R); conectarEERR(el, H, ctx, R, e, prev); }));
   el.querySelectorAll('[data-e-det]').forEach(b => b.addEventListener('click', () => (b.dataset.eDet === 'ajustes' ? dialogoAjustes(H, e) : dialogoDetalle(H, e, b.dataset.eDet, b.dataset.eCol))));
   conectarOtros(el, H, ctx, repintar);
+  conectarTributario(el, H, ctx, R, repintar);
   const rl = $('e-releer');
   if (rl) rl.addEventListener('click', async () => {
     rl.disabled = true; olvidar();
@@ -423,10 +461,10 @@ async function datosCierre(R, mes) {
   const D = R.datos;
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo: ${D.gn.error}`);
   if (F.delGastosNuevo(mes) && D.gn) {
-    const GF = await import('./gn-finanzas.js?v=0.107.0');
+    const GF = await import('./gn-finanzas.js?v=0.108.0');
     const [e, dm, conteos] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes)]);
     ES.conteos[mes] = conteos;
-    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.107.0')).indicePagos(G.pagos || []) : null;
+    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.108.0')).indicePagos(G.pagos || []) : null;
     const pagado = pv ? (I.porDoc[pv.id] || []).reduce((a, p) => a + (Number(p.monto) || 0), 0) : 0;
     const gn = { sii: GF.siiDelMes(G.cargas, mes), movs: GF.movsSinRevisarDelMes(G, mes), sinClas: GF.sinClasificarDelMes(G, mes),
       previred: pv ? { total: Number(pv.total) || 0, pagado, completo: pagado >= (Number(pv.total) || 0) - GF.TOL } : null, fletes: GF.fletesPorUnir(G, mes) };

@@ -13,9 +13,10 @@
 //  Finanzas lee el tipo desde la cuenta (plan-cuentas.js), ya no desde Clasificación. catalogo: true marca esas líneas. Un ítem sin cuenta
 //  (por ubicar en Gastos → Ítems) entra sin cuenta: queda "sin clasificar" en el estado de resultados.
 // ═══════════════════════════════════════════════
-import * as GB from './gn-bandeja.js?v=0.107.0';
-import * as GI from './gn-items.js?v=0.107.0';
-import * as TR from './trabajadores.js?v=0.107.0';   // v0.104.0: los pagos que usan la provisión de los trabajadores
+import * as GB from './gn-bandeja.js?v=0.108.0';
+import * as GI from './gn-items.js?v=0.108.0';
+import * as TR from './trabajadores.js?v=0.108.0';
+import * as GT from './tributario.js?v=0.108.0';   // v0.108.0: la situación tributaria de cada línea   // v0.104.0: los pagos que usan la provisión de los trabajadores
 
 const s = v => String(v == null ? '' : v).trim();
 const entero = v => { const x = Math.round(Number(v)); return isFinite(x) ? x : 0; };
@@ -62,7 +63,7 @@ const repartirEn = (monto, n) => { const b = Math.trunc(monto / n), out = Array(
 // El id no depende del orden de las partes (ítem y área): reclasificar no cambia la llave de lo que sigue igual. El id sale del nombre
 // guardado (no del que cuenta): pasar al catálogo nuevo no cambia las llaves.
 // I: el índice del catálogo (GI.indice) o null (todavía sin catálogo: los nombres tal cual)
-export function lineasDoc(d, provs, reps, { inicio, I = null, porId = null } = {}) {
+export function lineasDoc(d, provs, reps, { inicio, I = null, porId = null, T = null } = {}) {
   if (!d || d.estado === 'no_va') return [];
   const mesIni = s(inicio).slice(0, 7), meses = mesesDoc(d), n = meses.length;
   if (meses[n - 1] < mesIni) return [];   // todo es de antes del inicio
@@ -80,8 +81,10 @@ export function lineasDoc(d, provs, reps, { inicio, I = null, porId = null } = {
       const fecha = s(d.fecha).slice(0, 7) === m ? s(d.fecha) : ultimoDia(m);
       const obs = [ref, n > 1 ? `${i + 1}/${n} (${mesCorto(meses[0])} a ${mesCorto(meses[n - 1])})` : ''].filter(Boolean).join(' · ');
       const r = usa ? { ok: true, nombre: p.item, cuenta: '2.8' } : I ? GI.resolver(p.item, I) : null, cat = r ? { catalogo: true, cuenta: r.ok ? r.cuenta : '', ...(r.ok && r.nombre !== s(p.item) ? { itemOriginal: s(p.item) } : {}) } : {};
+      // v0.108.0 · Situación tributaria (gestión y tributario): solo se anota lo que el SII no acepta
+      const tr = T ? GT.situacionDe(d, r && r.ok ? r.nombre : s(p.item), fecha, T) : null;
       out.push({ id: `gn_${d.id}_${k}${n > 1 ? '_' + m.replace('-', '') : ''}`, fecha, itemGasto: r && r.ok ? r.nombre : s(p.item), area: s(p.area).toUpperCase(), montoNeto: montos[i], razonSocial: s(d.razon), observacion: obs,
-        estado: 'vigente', origenGN: s(d.origen) || 'sii', docId: s(d.id), mesOriginal: m, ...cat });
+        estado: 'vigente', origenGN: s(d.origen) || 'sii', docId: s(d.id), mesOriginal: m, ...cat, ...(tr && tr.situacion !== 'aceptado' ? { tributario: tr.situacion, grupoTrib: tr.grupo } : {}) });
     });
   });
   return out;
@@ -92,7 +95,7 @@ export function lineasDoc(d, provs, reps, { inicio, I = null, porId = null } = {
 // conCatalogo false: los nombres tal cual (lo usa la vista previa del paso al catálogo)
 export function gastosParaFinanzas(D, inicio, { conCatalogo = true } = {}) {
   const lineas = [], errores = [], I = conCatalogo && D && GI.activo(D.catalogo) ? GI.indice(D.catalogo) : null, porId = Object.fromEntries(((D && D.docs) || []).map(d => [d.id, d]));
-  ((D && D.docs) || []).forEach(d => { try { lineas.push(...lineasDoc(d, D.provs || {}, D.repartos || {}, { inicio, I, porId })); } catch (e) { errores.push(d && d.id); } });
+  ((D && D.docs) || []).forEach(d => { try { lineas.push(...lineasDoc(d, D.provs || {}, D.repartos || {}, { inicio, I, porId, T: (D && D.tributario) || null })); } catch (e) { errores.push(d && d.id); } });
   return { lineas, errores };
 }
 

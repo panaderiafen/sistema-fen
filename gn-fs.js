@@ -10,14 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.107.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.107.0';
-import { ahoraChile } from './gastos-g2.js?v=0.107.0';
-import * as GN from './gn-modelo.js?v=0.107.0';
-import * as GB from './gn-bandeja.js?v=0.107.0';
-import * as GP from './gn-pdf.js?v=0.107.0';
-import * as GI from './gn-items.js?v=0.107.0';
-import * as TR from './trabajadores.js?v=0.107.0';
+import * as FB from './fs-gastos.js?v=0.108.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.108.0';
+import { ahoraChile } from './gastos-g2.js?v=0.108.0';
+import * as GN from './gn-modelo.js?v=0.108.0';
+import * as GB from './gn-bandeja.js?v=0.108.0';
+import * as GP from './gn-pdf.js?v=0.108.0';
+import * as GI from './gn-items.js?v=0.108.0';
+import * as TR from './trabajadores.js?v=0.108.0';
+import * as GT from './tributario.js?v=0.108.0';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -55,7 +56,8 @@ export async function leer() {
     if (!prev || sin(prev) !== sin(R) || prev.dia !== R.dia) { const dd = await dbBase(), b = FB.writeBatch(dd); b.set(FB.doc(dd, GN.COL.config, 'resumen'), R); await b.commit(); } } catch (e) { /* el resumen es solo un aviso */ }
   return { docs, movs, cargas: cargas.sort((a, b) => String(b.en || '').localeCompare(String(a.en || ''))), pagos, provs: Object.fromEntries(provs.map(p => [p.id, p])),
     creditos: creds.map(cr => ({ ...cr, cuotas: GP.separarCuotas(cr.cuotas || [], cr.montoOriginal, cr.tasa) })), compromisos: comps.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre))), sugeridas, items: conCat ? GI.paraElegir(cat) : itemsConUsados(itemsDe(items), docs, provs, comps), catalogo: cat, itemsViejos: conCat ? [] : items.filter(x => x.item && !x.quitadoEnPlanilla).map(x => ({ item: String(x.item), archivado: !!x.archivado || x.estado === 'ARCHIVADO' })),
-    repartos: Object.fromEntries(reps.filter(r => r.estado !== 'archivado').map(r => [r.id, r])), inicio: inicio() };
+    repartos: Object.fromEntries(reps.filter(r => r.estado !== 'archivado').map(r => [r.id, r])), inicio: inicio(),
+    tributario: (({ id, _m, ...x }) => x)(cfg.find(x => x.id === 'tributario') || {}) };   // v0.108.0
 }
 // v0.99.0 · La lista de ítems para clasificar: el catálogo de siempre y, después, los que ya se usaron en el Gastos nuevo (clasificaciones,
 // fichas, productos y compromisos) aunque no estén en el catálogo: así un ítem nuevo se reutiliza igual. En la Etapa 4 pasan al catálogo nuevo.
@@ -598,5 +600,34 @@ export async function marcarProvision(docId, { uso = '', de = '' } = {}) {
     const ref = FB.doc(d, GN.COL.docs, docId), sn = await tx.get(ref); if (!sn.exists()) throw error('Ese documento ya no está.', 'cambio');
     const h = marca(uso ? `usa la provisión: ${TR.USOS[uso].toLowerCase()} (${de})` : 'ya no usa la provisión');
     tx.update(ref, { provision: uso ? { uso, de, por: h.por, en: h.en } : null, historial: conHist(sn.data(), h) });
+  });
+}
+
+// ═══════════════ v0.108.0 · Gestión y tributario (gn_config/tributario) ═══════════════
+// Un cambio de la situación tributaria de una regla (compromiso, servicio, proveedor o ítem), desde una fecha. Nada se borra: los cambios
+// se suman a la regla (lo anterior a la fecha sigue rigiendo como estaba). Un trámite nuevo se crea con su nombre.
+export async function cambiarTributario({ tipo, clave, nombre }, datos) {
+  if (!GT.TIPOS[tipo] || !String(clave || '').trim()) throw error('Falta a qué se aplica.', 'datos');
+  const x = GT.validarCambio(datos), id = GT.idRegla(tipo, clave);
+  return enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.config, 'tributario'), sn = await tx.get(ref), a = sn.exists() ? sn.data() : {};
+    const reglas = { ...(a.reglas || {}) }, grupos = { ...(a.grupos || {}) }, h = marca('situación tributaria', { regla: id, situacion: x.situacion, desde: x.desde });
+    if (x.grupoNuevo && !grupos[x.grupo]) grupos[x.grupo] = { nombre: x.grupoNuevo, falta: '', quien: '', estado: 'pendiente', nota: '', historial: [{ ...h, que: 'trámite creado' }] };
+    if (x.grupo && !grupos[x.grupo]) throw error('Ese trámite ya no está.', 'cambio');
+    const r = reglas[id] || { tipo, clave: String(clave), nombre: String(nombre || clave).slice(0, 120), cambios: [] };
+    reglas[id] = { ...r, nombre: String(nombre || r.nombre).slice(0, 120), cambios: (r.cambios || []).concat([{ desde: x.desde, situacion: x.situacion, grupo: x.grupo, nota: x.nota, por: h.por, en: h.en }]).slice(-30) };
+    tx.set(ref, limpio({ reglas, grupos, historial: conHist(a, h) }));
+    return reglas[id];
+  });
+}
+// El trámite de un grupo: qué falta, quién, en qué estado va (con su historial)
+export async function guardarTramite(gid, { nombre, falta, quien, estado, nota }) {
+  if (!GT.ESTADOS[estado]) throw error('Elija el estado.', 'datos');
+  return enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.config, 'tributario'), sn = await tx.get(ref), a = sn.exists() ? sn.data() : {};
+    const g = (a.grupos || {})[gid]; if (!g) throw error('Ese trámite ya no está.', 'cambio');
+    const h = marca('trámite: ' + GT.ESTADOS[estado].toLowerCase(), { grupo: gid });
+    const n = { ...g, nombre: String(nombre || g.nombre).trim().slice(0, 60) || g.nombre, falta: String(falta || '').slice(0, 300), quien: String(quien || '').slice(0, 80), estado, nota: String(nota || '').slice(0, 300), historial: conHist(g, h) };
+    tx.set(ref, limpio({ ...a, grupos: { ...(a.grupos || {}), [gid]: n }, historial: conHist(a, h) }));
   });
 }

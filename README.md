@@ -1,9 +1,30 @@
-# Sistema Fën · v0.107.0
+# Sistema Fën · v0.108.0
 
-**App:** v0.107.0 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
+**App:** v0.108.0 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.108.0: gestión y tributario
+
+Decidido con Emmanuel el 26 oct (hoja de ruta v9, sección 7).
+- **Situación tributaria de cada gasto: Aceptado, Por regularizar o No aceptado.** Habla solo de si el SII lo acepta como gasto de la empresa (el documento, el sistema ya lo sabe). Si no se dice otra cosa, todo es Aceptado.
+- **Se pone una vez y se recuerda**, con "Situación tributaria · Cambiar":
+  - en la **ficha del proveedor** (todo el proveedor) o en **cada servicio** (por N° de cliente: la luz y el agua de Ainavillo, sin tocar las de Barros Arana);
+  - en cada **compromiso** (el arriendo de Ainavillo);
+  - en cada **ítem** (Gastos → Ítems). Lo del proveedor, servicio o compromiso manda sobre lo del ítem.
+- **Rige desde una fecha:** lo anterior queda como estaba; cada cambio queda en el historial. Un cambio con fecha futura se ve como "pasa a … el …".
+- **Trámites por grupo** (por ejemplo "Auto en comodato", "Ainavillo"): se crean al elegir "Por regularizar" y se siguen en Finanzas (estado, qué falta, quién).
+- **En la Bandeja**, el documento muestra el chip "Por regularizar" o "No aceptado".
+- **Finanzas → Resultados**, tarjeta **"Gestión y tributario"**: lo que ve la gestión, lo que ve el contador y la diferencia; la base tributaria estimada; los trámites; y el detalle. El estado de resultados de gestión no cambia.
+- **El impuesto estimado** se calcula sobre la base tributaria: el resultado antes de impuesto más los gastos que el SII no acepta.
+Archivo nuevo `tributario.js`. Cambian `gn-fs.js`, `gn-finanzas.js`, `finanzas-eerr.js`, `vista-gn.js`, `vista-finanzas-eerr.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.108.0`).
+
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.108.0.
+- [ ] Gastos → Proveedores → la eléctrica y el agua: en el servicio de Ainavillo, "Por regularizar" desde el 1 de octubre, trámite nuevo "Ainavillo".
+- [ ] Gastos → Compromisos → arriendo de Ainavillo: "Por regularizar", trámite "Ainavillo".
+- [ ] Lo del auto: en la ficha de cada proveedor del auto (servicentro, taller, planta de revisión técnica), "Por regularizar", trámite nuevo "Auto en comodato".
+- [ ] Finanzas → Resultados → octubre: la tarjeta "Gestión y tributario"; en cada trámite, "Cambiar" para anotar qué falta y quién.
 
 ## Novedades de la v0.107.0: Gastos → Equipo (los trabajadores, aparte de los proveedores)
 

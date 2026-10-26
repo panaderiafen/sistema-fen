@@ -33,9 +33,10 @@
 //  líneas del catálogo usan el área tal cual (el mapa de áreas de Clasificación ya no se usa: una sola regla). La cuota de un convenio de
 //  la TGR (2.9) va fuera del resultado. Un cierre anterior a la v0.102.0 se compara en su forma (las filas nuevas se suman donde estaban).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.107.0';
-import * as AR from './areas.js?v=0.107.0';
-import * as PC from './plan-cuentas.js?v=0.107.0';
+import * as FR from './finanzas-resultados.js?v=0.108.0';
+import * as AR from './areas.js?v=0.108.0';
+import * as PC from './plan-cuentas.js?v=0.108.0';
+import * as GT from './tributario.js?v=0.108.0';   // v0.108.0: gestión y tributario
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -128,7 +129,7 @@ export function lineasGastosMes(gastos, mes, fin = {}, mapa = {}, items = null) 
     // v0.102.0 · Con el catálogo de ítems, el tipo sale de la cuenta del ítem (y el área va tal cual)
     const clave = FR.claveItem(g.itemGasto), tipo = g.catalogo ? PC.tipoDeCuenta(g.cuenta) : FR.tipoResultado(g.itemGasto, fin, porClave[clave] || g, !!g.origenGN).tipo;
     FR.lineasArea(g).forEach(l => out.push({ id: s(g.id), fecha: FR.fechaGasto(g), item: s(g.itemGasto).trim() || '(sin ítem)', clave, tipo, grupo: tipo ? FR.TIPO[tipo].grupo : 'sin', area: l.area, cuenta: s(g.cuenta),
-      col: FR.destinoArea(l.area, g.catalogo ? {} : mapa), neto: num(l.neto), proveedor: s(g.razonSocial), obs: s(g.observacion).slice(0, 120), ...(g.itemOriginal ? { itemOriginal: s(g.itemOriginal) } : {}) }));
+      col: FR.destinoArea(l.area, g.catalogo ? {} : mapa), neto: num(l.neto), proveedor: s(g.razonSocial), obs: s(g.observacion).slice(0, 120), ...(g.itemOriginal ? { itemOriginal: s(g.itemOriginal) } : {}), ...(g.tributario ? { tributario: s(g.tributario), grupoTrib: s(g.grupoTrib) } : {}) }));
   });
   return out.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.item.localeCompare(b.item, 'es') || a.id.localeCompare(b.id));
 }
@@ -246,6 +247,9 @@ export function armarEERR(E) {
   });
   // Pagos de tarjeta (cartola): no son gasto; flujo de caja
   (E.pagosTarjeta || []).filter(p => mesDe(p.fecha) === mes).forEach(p => { info.pagosTarjeta.n++; info.pagosTarjeta.monto += num(p.monto); det('pagosTarjeta', 'total', { tipo: 'cartola', id: s(p.id), fecha: s(p.fecha), nombre: s(p.descripcion), neto: r0(p.monto) }); });
+  // v0.108.0 · Gestión y tributario: los gastos del resultado según lo que acepta el SII (el resultado de gestión no cambia)
+  const TRIB = new Set(['costo_venta', 'remuneraciones', 'fijo', 'financiero']);
+  info.tributario = GT.informe(lineas.filter(l => TRIB.has(l.tipo)), E.tributario || null);
   // v0.106.0 · Incobrables (folios B2B dados por perdidos en el mes) y lo que no es del giro (anotado en Finanzas)
   (E.incobrables || []).forEach(x => { F.incobrables.comun += num(x.monto); det('incobrables', 'comun', { tipo: 'incobrable', nombre: `Folio ${s(x.folio)} · ${s(x.cliente)}`, fecha: s(x.fecha), neto: r0(x.monto), motivo: s(x.motivo) }); });
   (E.otros || []).filter(x => x.estado !== 'anulado' && s(x.mes) === mes).forEach(x => { const k = x.tipo === 'gasto' ? 'otrosGastos' : 'otrosIngresos'; F[k].comun += num(x.monto); det(k, 'comun', { tipo: 'otro', id: s(x.id), nombre: s(x.descripcion), fecha: s(x.fecha), neto: r0(x.monto) }); });
@@ -262,8 +266,10 @@ export function armarEERR(E) {
   // v0.106.0 · Impuesto a la renta estimado: la tasa de la configuración (la confirma el contador) sobre el resultado antes de impuesto,
   // solo si es positivo. Es una estimación mensual de gestión: el real sale del F22 (abril).
   const tasa = Math.min(Math.max(num(E.renta && E.renta.tasa), 0), 60);
-  F.impuesto = { ...vacia(), total: F.resAntesImp.total > 0 ? r0(F.resAntesImp.total * tasa / 100) : 0 };
-  if (tasa) det('impuesto', 'total', { tipo: 'impuesto', nombre: `${String(tasa).replace('.', ',')}% sobre ${pesosTxt(Math.max(0, F.resAntesImp.total))}`, neto: F.impuesto.total, tasa });
+  // v0.108.0 · Sobre la base tributaria: el resultado antes de impuesto más los gastos que el SII no acepta (sección 7)
+  const baseTrib = F.resAntesImp.total + info.tributario.noAceptados; info.tributario.base = baseTrib;
+  F.impuesto = { ...vacia(), total: baseTrib > 0 ? r0(baseTrib * tasa / 100) : 0 };
+  if (tasa) det('impuesto', 'total', { tipo: 'impuesto', nombre: `${String(tasa).replace('.', ',')}% sobre ${pesosTxt(Math.max(0, baseTrib))}${info.tributario.noAceptados ? ` (resultado antes de impuesto ${pesosTxt(F.resAntesImp.total)} + gastos que el SII no acepta ${pesosTxt(info.tributario.noAceptados)})` : ''}`, neto: F.impuesto.total, tasa });
   F.resultado = { ...vacia(), total: F.resAntesImp.total - F.impuesto.total };
   info.renta = { tasa };
   // Info redondeada
