@@ -2932,3 +2932,9 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
   .tarjeta.bandeja[data-bandeja="ab"] .bj-vacio-det { grid-column: 1; grid-row: 1; }
   .tarjeta.bandeja[data-bandeja="ab"] .bj-lista .bj-det { left: 0; right: calc(var(--bj-izq) + 1px); }
 }
+/* v0.110.0 · Ventas B2B: la lupa en las pestañas, las partes de Clientes y del Catálogo B2B, y la ficha del cliente */
+.pestanas .pestana-lupa { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; position: relative; }
+.b2b-sub { margin-top: 10px; }
+.ficha-cli { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--linea); border-radius: 12px; background: var(--tarjeta); font-size: 13px; min-width: 0; }
+.ficha-cli-b { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ficha-cli-b > span { color: var(--suave); overflow-wrap: anywhere; }

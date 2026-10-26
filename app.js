@@ -9,57 +9,57 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.109.2';
-import * as Caja from './caja.js?v=0.109.2';
-import * as Stock from './stock.js?v=0.109.2';
-import * as Ajustes from './ajustes.js?v=0.109.2';
-import * as Apps from './apps.js?v=0.109.2';
-import * as Agenda from './agenda.js?v=0.109.2';
-import * as Gastos from './gastos.js?v=0.109.2';
-import * as G3 from './gastos-g3.js?v=0.109.2';
-import * as G3D from './gastos-g3d.js?v=0.109.2';
-import * as GBanco from './gastos-banco.js?v=0.109.2';
-import * as TE from './tef-enviadas.js?v=0.109.2';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.109.2';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.109.2';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.109.2';
-import * as AR from './areas.js?v=0.109.2';   // v0.69.1: una sola lista de áreas (con REVENTA)
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.109.2';
-import * as Sii from './sii.js?v=0.109.2';
-import * as GSii from './gastos-sii.js?v=0.109.2';
-import * as SP from './sii-pendientes.js?v=0.109.2';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.109.2');
-import * as Previred from './previred.js?v=0.109.2';
-import * as B2b from './b2b.js?v=0.109.2';
-import * as Cartola from './cartola.js?v=0.109.2';
-import * as RD from './registro-detalle.js?v=0.109.2';   // v0.67.7: "Ver el registro" (B2B y Gastos)
-import * as BJ from './bandeja.js?v=0.109.2';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
-import * as RC from './reglas-conc.js?v=0.109.2';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
-import * as PT from './puntaje.js?v=0.109.2';       // v0.69.0: el puntaje explicado de cada propuesta
-import * as PM from './pagos-mixtos.js?v=0.109.2';  // v0.69.2: pagos mixtos (un documento pagado en partes)
-import * as CR from './conc-resumen.js?v=0.109.2';  // v0.69.3: Finanzas → Resumen del mes (de la memoria)
-import * as BO from './boletas.js?v=0.109.2';      // v0.70.0: boletas de luz y agua, cuentas recurrentes y por pagar
-import * as SiiFactura from './sii-factura.js?v=0.109.2';
-import * as PdfOrden from './pdf-orden.js?v=0.109.2';
-import * as Prod from './produccion.js?v=0.109.2';
-import * as Mem from './fs-memoria.js?v=0.109.2';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.109.2';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.110.0';
+import * as Caja from './caja.js?v=0.110.0';
+import * as Stock from './stock.js?v=0.110.0';
+import * as Ajustes from './ajustes.js?v=0.110.0';
+import * as Apps from './apps.js?v=0.110.0';
+import * as Agenda from './agenda.js?v=0.110.0';
+import * as Gastos from './gastos.js?v=0.110.0';
+import * as G3 from './gastos-g3.js?v=0.110.0';
+import * as G3D from './gastos-g3d.js?v=0.110.0';
+import * as GBanco from './gastos-banco.js?v=0.110.0';
+import * as TE from './tef-enviadas.js?v=0.110.0';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.110.0';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.110.0';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.110.0';
+import * as AR from './areas.js?v=0.110.0';   // v0.69.1: una sola lista de áreas (con REVENTA)
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.110.0';
+import * as Sii from './sii.js?v=0.110.0';
+import * as GSii from './gastos-sii.js?v=0.110.0';
+import * as SP from './sii-pendientes.js?v=0.110.0';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.110.0');
+import * as Previred from './previred.js?v=0.110.0';
+import * as B2b from './b2b.js?v=0.110.0';
+import * as Cartola from './cartola.js?v=0.110.0';
+import * as RD from './registro-detalle.js?v=0.110.0';   // v0.67.7: "Ver el registro" (B2B y Gastos)
+import * as BJ from './bandeja.js?v=0.110.0';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
+import * as RC from './reglas-conc.js?v=0.110.0';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
+import * as PT from './puntaje.js?v=0.110.0';       // v0.69.0: el puntaje explicado de cada propuesta
+import * as PM from './pagos-mixtos.js?v=0.110.0';  // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as CR from './conc-resumen.js?v=0.110.0';  // v0.69.3: Finanzas → Resumen del mes (de la memoria)
+import * as BO from './boletas.js?v=0.110.0';      // v0.70.0: boletas de luz y agua, cuentas recurrentes y por pagar
+import * as SiiFactura from './sii-factura.js?v=0.110.0';
+import * as PdfOrden from './pdf-orden.js?v=0.110.0';
+import * as Prod from './produccion.js?v=0.110.0';
+import * as Mem from './fs-memoria.js?v=0.110.0';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.110.0';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.12';
-import * as VistaProd from './vista-produccion.js?v=0.109.2';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B, planPreciosPorId, precioEsDe, productoDePrecio } from './b2b-modelo.js?v=0.109.2';
-import * as RespM from './respaldo-modelo.js?v=0.109.2';   // v0.73.0: recordatorio del respaldo mensual en la Agenda (puro)
-import * as RT from './rutas.js?v=0.109.2';   // v0.78.0: Gastos, etapa A (las pantallas de Conciliación en Gastos, B2B y Finanzas)
-import * as BU from './bandeja-gastos-modelo.js?v=0.109.2';   // v0.79.0: Gastos, etapa B (la Bandeja única: un ítem por gasto, con su ruta)
+import * as VistaProd from './vista-produccion.js?v=0.110.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B, planPreciosPorId, precioEsDe, productoDePrecio } from './b2b-modelo.js?v=0.110.0';
+import * as RespM from './respaldo-modelo.js?v=0.110.0';   // v0.73.0: recordatorio del respaldo mensual en la Agenda (puro)
+import * as RT from './rutas.js?v=0.110.0';   // v0.78.0: Gastos, etapa A (las pantallas de Conciliación en Gastos, B2B y Finanzas)
+import * as BU from './bandeja-gastos-modelo.js?v=0.110.0';   // v0.79.0: Gastos, etapa B (la Bandeja única: un ítem por gasto, con su ruta)
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.109.2');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.110.0');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.109.2');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.110.0');
 // v0.72.0 · Catálogo (Etapa 0, "Qué está vivo"): se carga recién al abrirlo
-const vistaCatalogo = () => import('./vista-catalogo.js?v=0.109.2');
+const vistaCatalogo = () => import('./vista-catalogo.js?v=0.110.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.109.2')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.110.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -394,7 +394,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.109.2" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.110.0" alt="Fën"><span>Sistema de administración</span></div>
     ${SECCIONES.map(([v, ic, nom]) => `<a class="nav-item" href="#${v}" data-vista="${v}">${icono(ic)}${nom}</a>`).join('')}
     <div class="grupo">Abren la app actual</div>
     ${apps}
@@ -684,14 +684,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.109.2').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.110.0').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.109.2').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.110.0').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -699,7 +699,7 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.80.1 · Catálogo: productos que se venden con la receta pendiente (sin costo ni margen hasta unirlos con su receta)
-  import('./finanzas.js?v=0.109.2').then(F => F.recetaPendienteParaHoy()).then(l => {
+  import('./finanzas.js?v=0.110.0').then(F => F.recetaPendienteParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.3, color: 'amarillo', icono: 'libro', chip: 'Unir', url: '#catalogo/productos/falta-receta', origen: 'Catálogo', titulo: `${l.length} ${l.length === 1 ? 'producto del catálogo' : 'productos del catálogo'} sin receta`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · se venden sin costo hasta unirlos con su receta` });
@@ -734,7 +734,7 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.100.0 · Gastos nuevo en Hoy: lo vencido, lo de esta semana y la Bandeja (del resumen que se guarda al abrir Gastos: una lectura)
-  if (GN_ACTIVO()) import('./gn-fs.js?v=0.109.2').then(F => F.resumenHoy()).then(R => {
+  if (GN_ACTIVO()) import('./gn-fs.js?v=0.110.0').then(F => F.resumenHoy()).then(R => {
     if (!R) return;
     const hoyD = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }), en7 = new Date(Date.now() + 7 * 864e5).toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
     const ab = (R.abiertos || []).filter(x => !x.a), venc = ab.filter(x => x.f < hoyD), sem = ab.filter(x => x.f >= hoyD && x.f <= en7), tot = l => l.reduce((t, x) => t + x.m, 0);
@@ -793,7 +793,7 @@ const partesDia = d => { const [y, m, dd] = d.split('-').map(Number); return new
 // Pagos de Gastos de esta semana (llegan con el resumen de Gastos: hasta 5, los más próximos)
 // v0.73.0 · Respaldo mensual: el día 1 de cada mes "Bajar respaldo de <mes anterior>" (hecho si ya se bajó; config/respaldo, 1 lectura cada 6 horas)
 let respHechos = null;
-const cargarRespHechos = () => import('./respaldo.js?v=0.109.2').then(R => R.hechos()).then(h => { respHechos = h || {}; return respHechos; }).catch(() => { respHechos = respHechos || {}; return respHechos; });
+const cargarRespHechos = () => import('./respaldo.js?v=0.110.0').then(R => R.hechos()).then(h => { respHechos = h || {}; return respHechos; }).catch(() => { respHechos = respHechos || {}; return respHechos; });
 const itemsRespaldo = (desde, hasta) => RespM.itemsAgenda(desde, hasta, respHechos || {});
 function itemsAuto(estados, desde, hasta) {
   const g = estados && estados.gastos;
@@ -867,7 +867,7 @@ async function pintarAgendaMes() {
   // v0.49.0: con Gastos en la base nueva, solo los vencimientos que existen (sin proyectar las obligaciones) y los
   // recordatorios "Subir boleta" (se calculan de los vencimientos que esperan su boleta). Con la planilla, como antes.
   // v0.100.0 · Con el Gastos nuevo, lo que vence (del resumen que se guarda al abrir Gastos)
-  const gnAgenda = !GN_ACTIVO() ? Promise.resolve([]) : import('./gn-fs.js?v=0.109.2').then(F => F.resumenHoy()).then(R => (R && R.abiertos || []).filter(x => x.f >= desde && x.f <= hasta)
+  const gnAgenda = !GN_ACTIVO() ? Promise.resolve([]) : import('./gn-fs.js?v=0.110.0').then(F => F.resumenHoy()).then(R => (R && R.abiertos || []).filter(x => x.f >= desde && x.f <= hasta)
     .map(x => ({ auto: true, cat: 'pago', tipo: 'fen', fecha: x.f, hora: '', titulo: `Pago de ${x.q}`, origen: `Desde Gastos${x.t ? ' · ' + x.t : ''}`, monto: x.m, pagado: false, vencido: x.f < hoy }))
     .concat((R && R.contratos || []).filter(c => c.f >= desde && c.f <= hasta).map(c => ({ auto: true, cat: 'contrato', tipo: 'fen', url: '#gastos/equipo', fecha: c.f, hora: '', titulo: `Vence el plazo fijo de ${c.q}`, origen: 'Desde la ficha del trabajador', monto: 0, pagado: false, vencido: c.f < hoy })))).catch(() => []);
   const autoPromesa0 = enMemoria ? Promise.resolve(enMemoria) : agFiltro() === 'personal' ? Promise.resolve([]) : Promise.all([
@@ -1120,16 +1120,16 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.109.2').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.110.0').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.109.2').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.110.0').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 // ═══ v0.90.0 · Gastos nuevo (desde cero): vista-gn.js. El Gastos anterior queda fuera de la vista (sus datos no se borran) ═══
 let vistaGN = null;
 async function pintarGastosNuevo() {
   const el = $('v-gastos');
-  try { if (!vistaGN) vistaGN = await import('./vista-gn.js?v=0.109.2'); }
+  try { if (!vistaGN) vistaGN = await import('./vista-gn.js?v=0.110.0'); }
   catch (e) { el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1></div></div><section class="tarjeta"><p class="error">No se pudo abrir Gastos (${esc(e.message || e)}). Revise la conexión y recargue.</p></section>`; return; }
   const cargarXLSX = async () => { await cargarScriptExterno('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', () => window.XLSX); return window.XLSX; };
   vistaGN.pintar(el, subVista(), { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola, dialogo });
@@ -3019,7 +3019,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar cuentas recurrentes se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las cuentas recurrentes no tienen tipo.</p><p><a href="#gastos/config/cuentas">Volver a Cuentas recurrentes</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.109.2')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.110.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 // v0.70.0 · En el formulario de la cuenta: si es de boleta (luz o agua), su empresa, local y reparto en %
@@ -4198,7 +4198,7 @@ async function informeSinCargo(M) {
   d.classList.add('dialogo-ancho', 'isc-dlg');
   d.querySelector('#isc-cerrar').addEventListener('click', () => d.close());
   try {
-    const RS = await import('./revision-sin-cargo-modelo.js?v=0.109.2');
+    const RS = await import('./revision-sin-cargo-modelo.js?v=0.110.0');
     const R = RS.revisar({ items: M.items, cargos: (D && (D.todosCargos || D.cargos)) || [], registrados: (D && D.registrados) || [], ligados: (D && D.ligados) || {}, cartolas: (D && D.cartolas) || [], hoy: Caja.diaLocal() });
     const meses = Object.entries(R.porMes).sort().map(([m, k]) => `${MESES_LARGOS[Number(m.slice(5, 7)) - 1] || m}: ${k}`).join(' · ');
     const linea = r => {
@@ -4226,7 +4226,7 @@ async function informeSinCargo(M) {
       const ok = d.querySelector(`[data-isc-ok="${CSS.escape(r.key)}"]`), fila = b.closest('.isc-fila');
       fila.querySelectorAll('button').forEach(x => { x.disabled = true; });
       try {
-        await (await import('./gastos-fs.js?v=0.109.2')).anularRepetido(ids, motivo);
+        await (await import('./gastos-fs.js?v=0.110.0')).anularRepetido(ids, motivo);
         registrar('Gastos: anuló un gasto repetido', `${desc(otro || r)} · ${motivo}`);
         if (ok) ok.textContent = `Anulado ${otro ? 'el otro' : 'este'}: queda en Gastos anulados (no se borra).`; fila.classList.add("isc-hecho"); huboCambio = true;
       } catch (e) { if (ok) { ok.className = 'error isc-ok'; ok.textContent = e.message || mensajeError(e); } fila.querySelectorAll('button').forEach(x => { x.disabled = false; }); }
@@ -4307,7 +4307,7 @@ function dialogoNoEmpresa(key) {
     const modo = d.querySelector('input[name="ne-modo"]:checked').value, nota = d.querySelector('#ne-nota').value;
     b.disabled = true; b.textContent = 'Guardando…';
     try {
-      await (await import('./gastos-fs.js?v=0.109.2')).noEsDeLaEmpresa(D0.x.gastos, modo, nota);
+      await (await import('./gastos-fs.js?v=0.110.0')).noEsDeLaEmpresa(D0.x.gastos, modo, nota);
       registrar(modo === 'retiro' ? 'Gastos: pasó un gasto a retiro del dueño' : 'Gastos: anuló un gasto que no es de la empresa', `${D0.nombre} · ${pesos(D0.x.total)}${nota ? ' · ' + nota : ''}`);
       d.close(); bu.sel = ''; bu.err = '';
       bu.msg = modo === 'retiro' ? `Listo: ${esc(D0.nombre)} quedó como Retiro del dueño (fuera del resultado). Si salió por el banco o Mercado Pago, cálzalo con su cargo; si fue en efectivo, dilo con "¿Cómo se pagó?".` : `Listo: ${esc(D0.nombre)} se anuló (no era de la empresa). Queda en Gastos anulados.`;
@@ -4881,7 +4881,7 @@ function conectarResumenConc(el) {
     resConc.contando = false; refrescarResumenConc();
   });
   const ic = R0.querySelector('[data-res-cierre]');
-  if (ic) ic.addEventListener('click', async ev => { ev.preventDefault(); const m = ic.dataset.resCierre; try { (await import('./vista-finanzas-eerr.js?v=0.109.2')).elegirMes(m); } catch (e) {} location.hash = '#finanzas/resultados/cierre'; });
+  if (ic) ic.addEventListener('click', async ev => { ev.preventDefault(); const m = ic.dataset.resCierre; try { (await import('./vista-finanzas-eerr.js?v=0.110.0')).elegirMes(m); } catch (e) {} location.hash = '#finanzas/resultados/cierre'; });
 }
 // La bandeja filtrada por el mes del resumen: "Solo octubre" con su X
 const filtroMesBjHtml = st => (st.bjMes ? `<button type="button" class="bj-filtro bj-f-mes" data-bj-mes-quitar aria-pressed="true" title="Mostrar todos los meses"><span>Solo ${esc(CR.mesCorto(st.bjMes))}</span>${icono('anular', 14)}</button>` : '');
@@ -6309,19 +6309,28 @@ async function pintarSeguridad() {
 // v0.24.0: Cobranza (lo que era "Por cobrar", con los recordatorios y compromisos de pago)
 // v0.78.0: + Conciliación (los abonos de la cartola y sus reglas; antes en la sección Conciliación), después de Cobranza
 // v0.80.0: + Listas de precios (#b2b/listas), al final
-const SUBS_B2B = [['', 'Órdenes'], ['cobranza', 'Cobranza'], ['conciliacion', 'Conciliación'], ['cuenta', 'Estado de cuenta'], ['buscar', 'Buscar'], ['solicitudes', 'Solicitudes'], ['analisis', 'Análisis'], ['clientes', 'Clientes'], ['productos', 'Productos'], ['listas', 'Listas de precios']];
+// v0.110.0 · Revisión de B2B, Etapa B (aprobada por Emmanuel el 26 oct): el día a día (Por facturar · Conciliación · Cobranza), Clientes
+// (con Estado de cuenta y Análisis) y Catálogo B2B (Productos · Listas de precios · Solicitudes). Buscar va como lupa. Las rutas de siempre siguen.
+const SUBS_B2B = [['', 'Por facturar'], ['conciliacion', 'Conciliación'], ['cobranza', 'Cobranza'], ['clientes', 'Clientes'], ['productos', 'Catálogo B2B']];
+const GRUPO_B2B = { cuenta: 'clientes', analisis: 'clientes', listas: 'productos', solicitudes: 'productos' };
+const SUBPILLS_B2B = { clientes: [['clientes', 'Clientes'], ['cuenta', 'Estado de cuenta'], ['analisis', 'Análisis']], productos: [['productos', 'Productos'], ['listas', 'Listas de precios'], ['solicitudes', 'Solicitudes']] };
 const b2b = { folioPre: {}, gruposAbiertos: new Set(), buscar: { fact: null, cob: null }, prep: null, tot: null, uso: null, copiando: false, msg: '', error: '', activaVista: null, vivo: null, datos: null, errVivo: '', sel: new Set(), planilla: '', cambiando: '' };
 function pestanasB2bHtml(actual) {
   const activa = b2b.datos && b2b.datos.config && b2b.datos.config.activa;
   const nSol = b2b.datos ? b2b.datos.solicitudes.length : 0, nAb = b2b.datos && b2b.datos.movimientos ? b2b.datos.movimientos.length : 0;
   let nCob = 0; try { if (activa) nCob = cobranzaActual().cobrar.length; } catch (e) {}
-  return `<div class="pestanas" role="tablist" aria-label="Secciones de Ventas B2B">${SUBS_B2B.map(([k, t]) => `<a role="tab" href="#b2b${k ? '/' + k : ''}" aria-selected="${k === actual}">${t}${k === 'solicitudes' && nSol ? ` <span class="chip c-amarillo">${nSol}</span>` : ''}${k === 'cobranza' && nCob ? ` <span class="chip c-rojo">${nCob}</span>` : ''}${k === 'conciliacion' && nAb ? ` <span class="chip c-azul chip-chico" data-conc-n="b2b">${nAb}</span>` : ''}</a>`).join('')}</div>`;
+  return `<div class="pestanas" role="tablist" aria-label="Secciones de Ventas B2B">${SUBS_B2B.map(([k, t]) => `<a role="tab" href="#b2b${k ? '/' + k : ''}" aria-selected="${k === actual}">${t}${k === 'productos' && nSol ? ` <span class="chip c-amarillo">${nSol}</span>` : ''}${k === 'cobranza' && nCob ? ` <span class="chip c-rojo">${nCob}</span>` : ''}${k === 'conciliacion' && nAb ? ` <span class="chip c-azul chip-chico" data-conc-n="b2b">${nAb}</span>` : ''}</a>`).join('')}<a role="tab" href="#b2b/buscar" class="pestana-lupa" aria-selected="${actual === 'buscar'}" aria-label="Buscar en Ventas B2B" title="Buscar">${icono('lupa', 16)}<span class="sr">Buscar</span></a></div>`;
+}
+function subPillsB2bHtml(sub, grupo) {
+  const l = SUBPILLS_B2B[grupo]; if (!l) return '';
+  const nSol = b2b.datos ? b2b.datos.solicitudes.length : 0;
+  return `<div class="pastillas fin-sub b2b-sub" role="group" aria-label="Partes de ${grupo === 'clientes' ? 'Clientes' : 'Catálogo B2B'}">${l.map(([k, tx]) => `<a class="pastilla" href="#b2b/${k}" aria-pressed="${k === sub}">${tx}${k === 'solicitudes' && nSol ? ` <span class="chip c-amarillo chip-chico">${nSol}</span>` : ''}</a>`).join('')}</div>`;
 }
 function cabB2b(sub) {
-  const actual = SUBS_B2B.some(([k]) => k && k === sub) ? sub : '';
+  const actual = sub === 'buscar' ? 'buscar' : SUBS_B2B.some(([k]) => k && k === sub) ? sub : (GRUPO_B2B[sub] || '');
   const activa = b2b.datos && b2b.datos.config && b2b.datos.config.activa;
   return `<div class="cabecera"><div><h1 id="t-b2b">Ventas B2B</h1><p>${activa ? 'Base nueva en uso' : 'Base nueva en preparación · la app B2B sigue funcionando igual'}</p></div>
-    ${pestanasB2bHtml(actual)}</div>`;
+    ${pestanasB2bHtml(actual)}${subPillsB2bHtml(sub, actual)}</div>`;
 }
 async function pintarB2b(sub) {
   const el = $('v-b2b');
@@ -6789,8 +6798,7 @@ function pintarB2bAdmin(el, sub) {
   // Si nunca se abrió una de las tarjetas nuevas, parte como estaba "Por facturar" (v0.51.0)
   const plegadaFact = k => plegadas()[k] === undefined ? plegada('fact') : plegada(k);
   b2b.sel = new Set(sel);
-  el.innerHTML = cabB2b(sub) + `
-    <p class="ayuda b2b-sin-planilla" id="b2b-sin-planilla">Copia a la planilla apagada ${info('Copia a la planilla apagada', 'Desde la v0.73.0, las órdenes, folios, pagos, abonos, clientes y productos que cambias aquí ya no se copian a la planilla de B2B (Looker Studio salió del plan). La planilla queda como estaba, como historial.\nUna vez al mes bajas el respaldo en Excel (Configuración → Respaldo), con las órdenes del mes y su detalle, los clientes y los productos.')}${b2b.errVivo ? ` <span class="error">${esc(b2b.errVivo)}</span>` : ''}</p>
+  el.innerHTML = cabB2b(sub) + `${b2b.errVivo ? `<p class="error" role="alert">${esc(b2b.errVivo)}</p>` : ''}
     ${tarjetasFact.map(([m, titulo, nombres]) => { const k = 'fact-' + m, os1 = nombres.flatMap(c => porCliente[c]); return `<details class="tarjeta plegable" data-plegar="${k}" data-modo="${m}" ${plegadaFact(k) ? '' : 'open'}><summary class="titulo-fila"><h2 id="t-b2b-${k}">${titulo}</h2><button type="button" class="lupa" data-lupa="${k}" aria-label="Buscar en ${titulo}" aria-expanded="${!!b2b.buscar[k]}">${icono('lupa', 16)}</button><span>${nombres.length} ${nombres.length === 1 ? 'cliente' : 'clientes'} · ${os1.length} ${os1.length === 1 ? 'orden' : 'órdenes'} · ${pesos(os1.reduce((s, o) => s + o.total, 0))}</span></summary>
       ${b2b.buscar[k] != null ? `<div class="buscar-b2b"><input type="search" data-buscar="${k}" value="${esc(b2b.buscar[k])}" placeholder="Cliente o N° de orden · $ para buscar montos" aria-label="Buscar cliente, N° de orden o monto en ${titulo}"><p class="ayuda msg-monto" role="status" aria-live="polite"></p></div>` : ''}
       <p class="ayuda etq-ayuda">Cada cliente dice ${m === 'diaria' ? 'cuántos días' : m === 'semanal' ? 'cuántas semanas' : 'cuántos meses'} ya tocaba facturar y siguen sin folio. ${infoEtiquetas}</p>
@@ -7370,6 +7378,13 @@ function pintarB2bClientes(el, sub) {
       ${dejo ? `<div class="aviso-dejo"><span><b>Dejó de comprar:</b> lleva ${a.diasSin} días sin pedir (normalmente cada ${a.intervalo}).</span><button type="button" class="btn-sec btn-chico" data-revisado-cli="${esc(c.id)}">Ya lo revisé</button></div>`
         : c.avisoCompra && a.dejo ? `<p class="ayuda">Aviso de "dejó de comprar" revisado el ${esc(String(c.avisoCompra.revisado).slice(0, 10))}${c.avisoCompra.nota ? ': ' + esc(c.avisoCompra.nota) : ''}. Vuelve a avisar si compra y después deja de comprar otra vez.</p>` : ''}</div>`; };
   const prodsActivos = d.productos.filter(p => p.estado !== 'archivado');
+  // v0.110.0 · Etapa C: la ficha del cliente (lo que debe, su saldo a favor, cómo aparece en el banco, su estado de cuenta y su cobranza)
+  const porCobrarCli = B2b.foliosPorCobrar(b2bOrdenes(), d.abonos || [], d.clientes || []), favorCli = B2b.saldosAFavor(d.favor || []), equivCli = d.conciliacion ? B2b.equivalenciasDe(d.conciliacion) : [];
+  const fichaCli = c => { const fs = porCobrarCli[c.id] || [], f = favorCli[c.id], gl = equivCli.filter(e => e.clienteId === c.id).map(e => e.desc).filter(Boolean), O = ordenesPorN();
+    return `<div class="ficha-cli"><div class="ficha-cli-b"><b>Por cobrar</b>${fs.length ? `<span>${fs.length} ${fs.length === 1 ? 'folio' : 'folios'} · ${pesos(fs.reduce((a, x) => a + x.saldo, 0))}</span>${fs.map(x => `<div class="ab-fol"><div class="gn-fila"><span>Folio ${esc(x.folio)} · emitida el ${esc(diaTexto(x.fecha))}</span><span class="gn-m">${pesos(x.saldo)}</span></div>${x.abonado ? `<small>total ${pesos(x.total)} · abonado ${pesos(x.abonado)}</small>` : ''}${vendidoFolioHtml(x, O)}</div>`).join('')}` : '<span>Nada por cobrar.</span>'}</div>
+      ${f ? `<div class="ficha-cli-b"><b>Saldo a favor</b><span>${pesos(f.total)} (se usa en Conciliación)</span></div>` : ''}
+      <div class="ficha-cli-b"><b>Cómo aparece en el banco</b><span>${gl.length ? gl.map(esc).join(' · ') : 'Todavía nada aprendido (se aprende al conciliar sus abonos).'}</span></div>
+      <div class="botones" style="justify-content:flex-start"><button type="button" class="btn-sec btn-chico" data-ec-cli="${esc(c.id)}">Estado de cuenta</button>${fs.length ? `<a class="btn-sec btn-chico" href="#b2b/cobrar/${encodeURIComponent(c.nombre)}">Ver su cobranza</a>` : ''}</div></div>`; };
   el.innerHTML = cabB2b(sub) + htmlPreciosPorId(d) + `<section class="tarjeta" aria-labelledby="t-b2b-clis">
     <div class="titulo-fila"><h2 id="t-b2b-clis">Clientes ${info('Clientes', 'Los cambios aparecen al tiro en la app de logística (desde la v0.73.0 ya no se copian a la planilla).\nEl nombre no se cambia, porque las órdenes y la planilla ubican al cliente por su nombre.\nUn cliente archivado deja de aparecer en logística; sus órdenes quedan igual.')}</h2><div class="acciones">${chipCat(d.clientes)}<button type="button" class="btn-sec btn-chico" id="b2b-nuevo-cli">+ Nuevo cliente</button></div></div>
     <div class="filtros-b2b"><div class="campo"><label for="cli-q">Buscar</label><input id="cli-q" value="${esc(b2bCat.filtroCli)}" placeholder="Nombre o RUT"></div>
@@ -7380,6 +7395,7 @@ function pintarB2bClientes(el, sub) {
     ${lista.map(c => `<details class="fila-orden-b2b" data-cli="${esc(c.id)}" ${b2bCat.abiertoCli === c.id ? 'open' : ''}><summary class="fila-caja"><div class="txt"><b>${esc(c.nombre)}${B2b.dejoVigente(c, A(c)) ? ' <span class="chip c-amarillo chip-chico">Dejó de comprar</span>' : ''}</b><span>${resumenCli(c)}</span></div><div class="acciones">${c.estado === 'archivado' ? '<span class="chip c-gris">Archivado</span>' : semaforo(A(c))}</div></summary>
       <div style="padding:4px 0 14px;display:flex;flex-direction:column;gap:10px">
         ${detalleCli(c)}
+        ${fichaCli(c)}
         <p class="ayuda">${esc(c.rut || 'sin RUT')} · factura ${esc(c.facturacion || 'Diaria')} · paga ${esc(c.frecuenciaPago || 'Diaria')} · ${(c.precios || []).length} ${(c.precios || []).length === 1 ? 'precio especial' : 'precios especiales'}<br>${esc(c.razonSocial || '')}${c.giro ? ' · ' + esc(c.giro) : ''}${c.direccion ? ' · ' + esc(c.direccion) : ''}${c.correo ? ' · ' + esc(c.correo) : ''}${c.telefono ? ' · ' + esc(c.telefono) : ''}${c.contacto ? ' · contacto ' + esc(c.contacto) : ''}</p>
         <div class="tabla-b2b"><table class="tabla-tiempos"><thead><tr><th scope="col">Precio especial</th><th scope="col">Precio neto</th><th scope="col">Base</th><th scope="col"><span class="sr">Acciones</span></th></tr></thead><tbody>
           ${(c.precios || []).map(x => { const p = productoDePrecio(x, d.productos); return `<tr><td>${esc(x.producto)}</td><td>${pesos(x.precio)}</td><td>${p ? pesos(p.precioBase) : '—'}</td><td><button type="button" class="btn-sec btn-chico" data-precio-cli="${esc(c.id)}" data-precio-prod="${esc(x.productoId || '')}" data-precio-nom="${esc(x.producto)}">Cambiar</button></td></tr>`; }).join('') || '<tr><td colspan="4">Sin precios especiales: paga el precio base.</td></tr>'}
@@ -7389,6 +7405,7 @@ function pintarB2bClientes(el, sub) {
       </div></details>`).join('') || `<div class="vacio" style="border:0">${b2bCat.archivadosCli ? 'No hay clientes archivados.' : 'No hay clientes con eso.'}</div>`}
   </section>`;
   $('b2b-nuevo-cli').addEventListener('click', nuevoClienteUI);
+  el.querySelectorAll('[data-ec-cli]').forEach(b => b.addEventListener('click', () => { b2bCuenta.clienteId = b.dataset.ecCli; b2bCuenta.ordenes = null; b2bCuenta.res = null; location.hash = '#b2b/cuenta'; }));   // v0.110.0
   conectarPreciosPorId(el, sub);   // v0.75.1
   $('cli-q').addEventListener('input', e => { b2bCat.filtroCli = e.target.value; const p = e.target.selectionStart; pintarB2bClientes(el, sub); const i = $('cli-q'); i.focus(); i.setSelectionRange(p, p); });
   $('cli-arch').addEventListener('change', e => { b2bCat.archivadosCli = e.target.checked; pintarB2bClientes(el, sub); });
@@ -7482,8 +7499,8 @@ function pintarB2bProductos(el, sub) {
 // ── v0.80.0 · Listas de precios (vista-listas-precios.js) ──
 function pintarB2bListas(el, sub) {
   if (!catOk()) return sinActivar(el, sub);
-  import('./vista-listas-precios.js?v=0.109.2').then(m => m.pintar(el, { esc, info, icono, registrar, mensajeError, dialogo },
-    { cab: () => cabB2b(sub).replace('class="cabecera"', 'class="cabecera lp-raiz"'), datos: () => b2b.datos, errorB2b, abrirWhatsapp, esCelular, copiarTexto }))
+  import('./vista-listas-precios.js?v=0.110.0').then(m => { if (!/^#b2b\/listas(\/|$)/.test(location.hash)) return; /* v0.110.0: si ya se fue a otra pestaña, no pisa esa pantalla */ return m.pintar(el, { esc, info, icono, registrar, mensajeError, dialogo },
+    { cab: () => cabB2b(sub).replace('class="cabecera"', 'class="cabecera lp-raiz"'), datos: () => b2b.datos, errorB2b, abrirWhatsapp, esCelular, copiarTexto }); })
     .catch(e => { el.innerHTML = cabB2b(sub) + `<section class="tarjeta"><p class="error">No se pudo abrir Listas de precios (${esc(e.message || e)}). Revisa la conexión y recarga.</p></section>`; });
 }
 
@@ -7643,7 +7660,7 @@ async function subirArchivoConc(f) {
   // v0.81.0 · El reporte de Mercado Pago (CSV): el de liberaciones se carga como la cuenta "Mercado Pago"; el de liquidaciones se avisa
   if (ext === 'csv' && f.size <= 8 * 1024 * 1024) {
     let txt = ''; try { txt = await f.text(); } catch (e) { txt = ''; }
-    const MPx = await import('./mercadopago.js?v=0.109.2'), tipo = txt ? MPx.tipoReporte(txt) : '';
+    const MPx = await import('./mercadopago.js?v=0.110.0'), tipo = txt ? MPx.tipoReporte(txt) : '';
     if (tipo === 'liquidaciones') { conc.err = MPx.leer(txt).error; repintarConc(); return; }
     if (tipo === 'liberaciones') return subirMercadoPago(f, txt, MPx);
   }
@@ -8756,7 +8773,7 @@ async function subirCartola(file, conf) {
   } else out.errAbonos = conf ? 'la conciliación de B2B todavía no se empieza (B2B → Conciliación)' : 'no se pudo leer B2B';
   // v0.100.1 · Con el Gastos nuevo, los cargos van al Gastos nuevo (los mismos que si la cartola se subiera en Gastos), no al anterior
   if (GN_ACTIVO() && c.filas.some(f => f.cargos > 0)) {
-    try { const [GN, F] = await Promise.all([import('./gn-modelo.js?v=0.109.2'), import('./gn-fs.js?v=0.109.2')]), id = GN.idCarga('be'), movs = GN.movsDeCartola(c, id);
+    try { const [GN, F] = await Promise.all([import('./gn-modelo.js?v=0.110.0'), import('./gn-fs.js?v=0.110.0')]), id = GN.idCarga('be'), movs = GN.movsDeCartola(c, id);
       const k = await F.cargarMovs('bancoestado', movs, { id, archivo: file.name, tamano: file.size, desde: c.desde, hasta: c.hasta, identificador: c.identificador, cuadre: GN.cuadreCartola(c) });
       out.cargosGN = GN.textoCarga(k); } catch (e) { out.errCargos = e.message || mensajeError(e); }
   } else if (c.filas.some(f => f.cargos > 0)) {
@@ -9458,7 +9475,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.109.2')).dbBase(); const FG = await import('./fs-gastos.js?v=0.109.2'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.110.0')).dbBase(); const FG = await import('./fs-gastos.js?v=0.110.0'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }
@@ -9551,7 +9568,7 @@ async function pintarAjustes(sub) {
     .then(() => { if (sub === 'cocina' && $('cocina')) $('cocina').scrollIntoView({ block: 'start' }); })
     .catch(e => { if ($('cocina')) $('cocina').innerHTML = `<p class="error">${esc(mensajeError(e))}</p>`; });
   // v0.73.0 · Respaldo mensual en Excel (reemplaza a las copias en vivo a las planillas)
-  import('./vista-respaldo.js?v=0.109.2').then(m => m.pintar($('respaldo'), { esc, info, icono, registrar, mensajeError, dialogo }))
+  import('./vista-respaldo.js?v=0.110.0').then(m => m.pintar($('respaldo'), { esc, info, icono, registrar, mensajeError, dialogo }))
     .then(() => { if (sub === 'respaldo' && $('respaldo')) $('respaldo').scrollIntoView({ block: 'start' }); })
     .catch(e => { if ($('respaldo')) $('respaldo').innerHTML = `<p class="error">No se pudo abrir el Respaldo (${esc(e.message || e)}).</p>`; });
 

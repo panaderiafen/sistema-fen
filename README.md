@@ -5,6 +5,25 @@
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
 
+## Novedades de la v0.110.0: Ventas B2B con pestañas ordenadas y la ficha del cliente (revisión de B2B, Etapas B y C)
+
+Aprobada por Emmanuel el 26 oct (`claude/b2b-revision-propuesta.md`). Cambian las pantallas, no los datos.
+- **Pestañas en una sola fila:**
+  - **del día a día:** Por facturar (antes "Órdenes") · Conciliación · Cobranza, en el orden que pidió Emmanuel;
+  - **Clientes**, con sus partes: Clientes · Estado de cuenta · Análisis;
+  - **Catálogo B2B**, con sus partes: Productos · Listas de precios · Solicitudes (el número de solicitudes va en la pestaña);
+  - **la lupa** (arriba a la derecha) busca en todo B2B.
+- **La ficha del cliente:** al abrir un cliente en Clientes, además de sus datos, precios especiales y análisis, aparecen sus **folios por cobrar** (con "Lo vendido"), su **saldo a favor**, **cómo aparece en el banco** (lo aprendido al conciliar) y los botones **"Estado de cuenta"** (abre el estado de cuenta ya con ese cliente) y **"Ver su cobranza"**.
+- Se quitó el aviso "Copia a la planilla apagada". Si la conexión en vivo falla, el aviso de error sigue apareciendo arriba de Por facturar.
+- En el celular las pestañas se pasan con el dedo, como en Gastos.
+- (i) Arreglo: si se cambiaba de pestaña mientras se leían las listas de precios, la pantalla de listas podía tapar la nueva. Ya no pasa.
+Cambian `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.110.0`).
+
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.110.0.
+- [ ] Ventas B2B: arriba, Por facturar · Conciliación · Cobranza · Clientes · Catálogo B2B y la lupa.
+- [ ] Clientes → abrir un cliente que deba: aparecen sus folios por cobrar; "Estado de cuenta" lo abre con ese cliente elegido.
+- [ ] Catálogo B2B → Listas de precios y Solicitudes funcionan como antes.
+
 ## Novedades de la v0.109.2: en la Bandeja de abonos, las facturas a la izquierda
 
 Pedido por Emmanuel el 26 oct: se lee de izquierda a derecha, primero lo que está en el sistema (las facturas) y después lo que llega (los abonos de la cartola). En el computador, las facturas quedan a la izquierda y los abonos a la derecha; en el celular no cambia. Solo cambia `estilos.css` (más `config.js`, este README y la versión `?v=0.109.2`).

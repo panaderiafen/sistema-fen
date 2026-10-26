@@ -13,15 +13,15 @@
 //   1 vínculo en fin_productos por canal nuevo (+1 su historial) + 1 de la lista para logística (config/catalogoDisponible).
 //   Cambiar = 1 en fen-gastos + 1 por canal que cambia. Armar el catálogo = lotes en fen-gastos + 1 por documento de la caja + lotes en fen-b2b.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.109.2';
-import * as GB from './gastos-base.js?v=0.109.2';
-import * as FBG from './fs-gastos.js?v=0.109.2';
-import * as Cuota from './fs-cuota.js?v=0.109.2';
-import * as P from './produccion.js?v=0.109.2';
-import * as Caja from './caja.js?v=0.109.2';
-import * as B from './b2b.js?v=0.109.2';
-import * as F from './finanzas.js?v=0.109.2';
-import * as CPM from './catalogo-productos-modelo.js?v=0.109.2';
+import { auth } from './firebase.js?v=0.110.0';
+import * as GB from './gastos-base.js?v=0.110.0';
+import * as FBG from './fs-gastos.js?v=0.110.0';
+import * as Cuota from './fs-cuota.js?v=0.110.0';
+import * as P from './produccion.js?v=0.110.0';
+import * as Caja from './caja.js?v=0.110.0';
+import * as B from './b2b.js?v=0.110.0';
+import * as F from './finanzas.js?v=0.110.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.110.0';
 
 const LOTE = 400;
 const yo = () => (auth.currentUser && auth.currentUser.email) || '';
