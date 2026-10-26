@@ -7,20 +7,20 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.106.0';
-import * as GB from './gn-bandeja.js?v=0.106.0';
-import * as AR from './areas.js?v=0.106.0';
-import * as Sii from './sii.js?v=0.106.0';
-import * as MP from './mercadopago.js?v=0.106.0';
-import * as GI from './gn-items.js?v=0.106.0';   // v0.102.0: catálogo de ítems
-import * as GF from './gn-finanzas.js?v=0.106.0';
-import * as PC from './plan-cuentas.js?v=0.106.0';
-import * as FR from './finanzas-resultados.js?v=0.106.0';
-import * as TR from './trabajadores.js?v=0.106.0';   // v0.104.0: ficha del trabajador y provisión
+import * as GN from './gn-modelo.js?v=0.106.1';
+import * as GB from './gn-bandeja.js?v=0.106.1';
+import * as AR from './areas.js?v=0.106.1';
+import * as Sii from './sii.js?v=0.106.1';
+import * as MP from './mercadopago.js?v=0.106.1';
+import * as GI from './gn-items.js?v=0.106.1';   // v0.102.0: catálogo de ítems
+import * as GF from './gn-finanzas.js?v=0.106.1';
+import * as PC from './plan-cuentas.js?v=0.106.1';
+import * as FR from './finanzas-resultados.js?v=0.106.1';
+import * as TR from './trabajadores.js?v=0.106.1';   // v0.104.0: ficha del trabajador y provisión
 
 const st = { D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' }, carga: '', verConciliado: false };   // v0.105.0: carga = conciliar una cartola
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.106.0');
+const fsGN = () => import('./gn-fs.js?v=0.106.1');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -166,8 +166,9 @@ function bandejaHtml(H) {
     return `<div class="gn-barra-sel" role="region" aria-label="Lo elegido"><div class="gn-barra-t"><span>${n(docsSel.length, 'documento', 'documentos')} · ${H.pesos(b.td)}</span><span>${n(movsSel.length, 'cargo', 'cargos')} · ${H.pesos(b.tm)}</span><b class="${b.valido && b.calza ? 'gn-ok' : ''}">${estado}</b></div>
       <div class="gn-acc"><button type="button" class="btn btn-chico" data-gn-unir ${b.valido ? '' : 'disabled'}>Conciliar</button><button type="button" class="btn-sec btn-chico" data-gn-limpiar>Limpiar</button></div></div>`; };
   const avisoCat = GI.activo(D.catalogo) ? '' : `<section class="tarjeta gn-aviso-cat" aria-labelledby="t-gn-avcat"><h2 id="t-gn-avcat">Falta un paso: el catálogo de ítems</h2><p class="ayuda">Cada ítem pasa a apuntar a una cuenta del plan, y Finanzas lee de ahí. Antes de pasar se ve una vista previa: nada cambia hasta que usted confirme.</p><a class="btn btn-chico" href="#gastos/catalogo">Ir a Gastos → Ítems</a></section>`;
-  return `${avisoCat}<section class="tarjeta" aria-labelledby="t-gn-cob"><div class="titulo-fila"><h2 id="t-gn-cob">Hasta dónde llega cada cuenta</h2></div>
+  return `${avisoCat}<section class="tarjeta gn-cob-t" aria-labelledby="t-gn-cob"><div class="titulo-fila"><h2 id="t-gn-cob">Hasta dónde llega cada cuenta</h2></div>
       ${cob.length || sii ? `<div class="gn-cob">${sii}${cob.map(c => `<div class="gn-cob-c"><b>${H.esc(c.nombre)}</b><span>${H.esc(H.diaTexto(c.desde))} al ${H.esc(H.diaTexto(c.hasta))} · ${c.n} ${c.n === 1 ? 'movimiento' : 'movimientos'}</span></div>`).join('')}</div>` : '<p class="ayuda">Todavía no se sube ninguna cartola.</p>'}</section>
+    ${kC ? '' : cartolasHtml(H, B)}
     <section class="tarjeta" aria-labelledby="t-gn-bandeja"><div class="titulo-fila"><h2 id="t-gn-bandeja">Bandeja</h2><span>${pares.length + B.n.clasificar + B.n.sinPago + sinDoc.length} por hacer</span></div>
       ${kC ? cartolaHtml(H, kC, B) : ''}
       ${cuentas.length > 2 && !kC ? `<div class="gn-filtro" role="group" aria-label="Cuenta">${cuentas.map(([k, t]) => `<button type="button" class="chip ${st.cuenta === k ? 'c-verde' : 'c-gris'}" data-gn-cuenta="${k}" aria-pressed="${st.cuenta === k}">${H.esc(t)}</button>`).join('')}</div>` : ''}
@@ -210,6 +211,29 @@ function cuadreHtml(H, k, movs) {
 }
 const NOMBRE_CARGA = { sii: 'Compras del SII', bancoestado: 'Cartola BancoEstado', mercadopago: 'Mercado Pago', boleta: 'Boleta de luz o agua', liquidacion: 'Liquidación de sueldo', f29: 'F29', bte: 'Boleta de terceros', previred: 'Previred', credito: 'Crédito', tarjeta: 'Tarjeta de crédito (anotada)' };
 const conMovs = k => ['bancoestado', 'mercadopago', 'tarjeta'].includes(k.tipo) && (k.cuentas || []).length && k.desde;
+// v0.106.1 · Las cartolas en la Bandeja (decidido por Emmanuel el 26 oct): las que tienen pendientes, con "Conciliar esta cartola", y las
+// conciliadas al 100 %, con "Ver lo conciliado". Una cartola subida dos veces (para el cuadre) se muestra una vez: la última.
+function cartolasDe(cargas, movs) {
+  const vistas = {};
+  (cargas || []).filter(conMovs).forEach(k => { const c = [k.tipo, (k.cuentas || []).join(','), k.desde, k.hasta].join('|'), y = vistas[c];
+    if (!y || (!!k.cuadre > !!y.cuadre) || (!!k.cuadre === !!y.cuadre && String(k.en || '') > String(y.en || ''))) vistas[c] = k; });
+  return Object.values(vistas).map(k => ({ k, a: GB.avanceCarga(k, movs) })).sort((x, y) => String(y.k.hasta).localeCompare(String(x.k.hasta)) || String(y.k.en || '').localeCompare(String(x.k.en || '')));
+}
+function cartolasHtml(H, B) {
+  const l = cartolasDe(st.D.cargas, B.movs); if (!l.length) return '';
+  const pend = l.filter(x => x.a.faltan), listas = l.filter(x => !x.a.faltan && x.a.n), vacias = l.filter(x => !x.a.n);
+  const saldo = k => { const q = GB.cuadreEnGastos(k, B.movs); if (!q) return k.tipo === 'bancoestado' ? '<span class="gn-sug">Sin cuadre de saldo: súbala otra vez (no se repite nada)</span>' : '';
+    return q.cuadra && Math.abs(q.dif) <= 1 ? '<span class="gn-ok">Saldo calza</span>' : '<span class="gn-no">Saldo no calza</span>'; };
+  const fila = ({ k, a }, boton) => `<div class="gn-cart"><div class="gn-fila"><b>${H.esc(NOMBRE_CARGA[k.tipo] || k.tipo)} · ${H.esc(H.diaTexto(k.desde))} al ${H.esc(H.diaTexto(k.hasta))}</b>${boton}</div>
+    <small>${H.esc(k.identificador || k.archivo || '')}</small>${avanceHtml(H, a)}<div class="gn-cart-pie">${saldo(k)}${k.cuadre ? `<details class="gn-det"><summary>Ver cuadre</summary>${cuadreHtml(H, k, B.movs)}</details>` : ''}</div></div>`;
+  const bt = (k, txt, pri) => `<button type="button" class="${pri ? 'btn' : 'btn-sec'} btn-chico" data-gn-concart="${H.esc(k.id)}">${txt}</button>`;
+  return `<section class="tarjeta" aria-labelledby="t-gn-cart"><div class="titulo-fila"><h2 id="t-gn-cart">Cartolas</h2>${H.info('Cartolas', TXT_AVANCE + '\n' + TXT_CUADRE)}</div>
+    <div class="gn-grupo-t"><h3>Con pendientes por conciliar · ${pend.length}</h3></div>
+    ${pend.length ? pend.map(x => fila(x, bt(x.k, 'Conciliar esta cartola', true))).join('') : '<div class="vacio">Todas las cartolas están conciliadas.</div>'}
+    ${listas.length ? `<details class="gn-det"><summary>Conciliadas al 100 % · ${listas.length}</summary>${listas.map(x => fila(x, bt(x.k, 'Ver lo conciliado'))).join('')}</details>` : ''}
+    ${vacias.length ? `<details class="gn-det"><summary>Sin movimientos desde el inicio · ${vacias.length}</summary><p class="ayuda">Todos sus cargos son de antes del ${H.esc(H.diaTexto(st.D.inicio || INICIO()))}: no hay nada que conciliar aquí (los de los 20 días antes del inicio están en "Cargos anteriores").</p>${vacias.map(({ k }) => `<div class="gn-cart"><b>${H.esc(NOMBRE_CARGA[k.tipo] || k.tipo)} · ${H.esc(H.diaTexto(k.desde))} al ${H.esc(H.diaTexto(k.hasta))}</b><small>${H.esc(k.identificador || k.archivo || '')}</small></div>`).join('')}</details>` : ''}
+  </section>`;
+}
 function cartolaHtml(H, k, B) {
   const a = GB.avanceCarga(k, B.movs);
   return `<div class="gn-cartola" role="region" aria-label="Conciliando una cartola"><div class="gn-fila"><b>Conciliando: ${H.esc(NOMBRE_CARGA[k.tipo] || k.tipo)} · ${H.esc(H.diaTexto(k.desde))} al ${H.esc(H.diaTexto(k.hasta))}</b>${H.info('Conciliado', TXT_AVANCE)}</div>
@@ -229,15 +253,15 @@ function conciliadoHtml(H, k, B) {
 
 // ── Archivos subidos ──
 function cargasHtml(H) {
-  const K = st.D.cargas, I = GB.indicePagos(st.D.pagos), movs = (st.D.movs || []).map(m => ({ ...m, libre: GB.libreMov(m, I) })), nombre = NOMBRE_CARGA;
+  const K = st.D.cargas, nombre = NOMBRE_CARGA;   // v0.106.1: solo el registro de lo subido (el avance de cada cartola está en la Bandeja)
   return `<section class="tarjeta" aria-labelledby="t-gn-tc"><div class="titulo-fila"><h2 id="t-gn-tc">Tarjeta de crédito</h2>${H.info('Tarjeta de crédito', TXT_TARJETA)}</div>
       <p class="ayuda">Su estado de cuenta viene en PDF de imagen: anote aquí sus compras y cada una queda como un movimiento de la tarjeta, para unirla con su factura.</p>
       <button type="button" class="btn btn-chico" data-gn-tarjeta>Anotar compras de la tarjeta</button></section>
     <section class="tarjeta" aria-labelledby="t-gn-cargas"><div class="titulo-fila"><h2 id="t-gn-cargas">Archivos subidos</h2><span>${K.length}</span></div>
+    <p class="ayuda">El registro de todo lo subido, por orden de llegada. El avance de cada cartola y "Conciliar esta cartola" están en la Bandeja.</p>
     ${K.length ? K.map(k => `<div class="gn-carga"><div class="gn-fila"><b>${H.esc(nombre[k.tipo] || k.tipo)}${k.desde ? ` · ${H.esc(H.diaTexto(k.desde))} al ${H.esc(H.diaTexto(k.hasta))}` : ''}</b><small>${H.esc(k.en || '')}</small></div>
       <small>${H.esc(k.archivo || '')}${k.identificador ? ' · ' + H.esc(k.identificador) : ''} · ${H.esc(k.por || '')}</small>
       <p>${H.esc(GN.textoCarga(k))}</p>
-      ${conMovs(k) ? (a => `${avanceHtml(H, a)}${cuadreHtml(H, k, movs)}<div class="gn-acc"><button type="button" class="btn btn-chico" data-gn-concart="${H.esc(k.id)}" ${a.n ? '' : 'disabled'}>${a.faltan ? 'Conciliar esta cartola' : 'Ver lo conciliado'}</button></div>`)(GB.avanceCarga(k, movs)) : ''}
       ${(k.parecidosLista || []).length ? `<details class="gn-det"><summary>Ver lo que ya había llegado en otra cartola</summary>${k.parecidosLista.map(p => `<div class="gn-fila"><span>${H.esc(H.diaTexto(p.fecha))} · ${H.esc(p.glosa)}</span><span class="gn-m">${H.pesos(p.monto)}</span></div>`).join('')}</details>` : ''}</div>`).join('')
       : '<div class="vacio" style="border:0">Todavía no se sube ningún archivo.</div>'}</section>`;
 }
@@ -296,7 +320,7 @@ async function procesar(f, H) {
   if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text();
-    const Pv = await import('./previred.js?v=0.106.0');
+    const Pv = await import('./previred.js?v=0.106.1');
     if (Pv.esCsvNomina(Pv.textoDeArchivo(await f.arrayBuffer()))) return subirPrevired(f, H, Pv.leerCsv(Pv.textoDeArchivo(await f.arrayBuffer())));
     const tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -310,7 +334,7 @@ async function procesar(f, H) {
   if (wb) {
     const tefs = H.B2b.leerTransferencias(wb, XLSX);
     if (tefs) { const r = await H.B2b.guardarTransferencias(tefs); H.registrar('Cargó transferencias recibidas', `${r.leidas} leídas · ${r.nuevas} nuevas`); return `<b>Transferencias recibidas</b>: ${r.leidas} en el archivo · ${r.nuevas} nuevas. Sirven a Ventas B2B → Conciliación (quién pagó cada abono).`; }
-    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.106.0'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
+    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.106.1'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
       if (GP.esDetalleCredito(filas)) { const enc = wb.SheetNames.includes('Encabezados') ? XLSX.utils.sheet_to_csv(wb.Sheets.Encabezados) : '', r = GP.leerCredito(filas, enc);
         if (r.bloquea) throw new Error(r.errores.join(' '));
         const k = await (await fsGN()).cargarCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó un crédito', r.nombre);
@@ -326,9 +350,9 @@ function esCartola(wb, XLSX, H) {
 }
 // v0.96.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
 async function subirBoleta(f, H) {
-  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.106.0'), import('./boletas.js?v=0.106.0')]);
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.106.1'), import('./boletas.js?v=0.106.1')]);
   let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
-  const GP = await import('./gn-pdf.js?v=0.106.0'), tipo = GP.tipoPdf(lineas);
+  const GP = await import('./gn-pdf.js?v=0.106.1'), tipo = GP.tipoPdf(lineas);
   if (tipo) return subirOtroPdf(f, H, GP, tipo, lineas);
   if (Pv.esComprobante(lineas) || Pv.esCertificado(lineas)) { let r; try { r = Pv.leerPdf(lineas); } catch (x) { throw new Error(x.message); } return subirPrevired(f, H, r); }
   const r = Bo.leerBoleta(lineas);
@@ -362,7 +386,7 @@ async function subirOtroPdf(f, H, GP, tipo, lineas) {
 // v0.97.0 · Previred: el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → el documento del mes
 async function subirPrevired(f, H, r) {
   if (r.bloquea) throw new Error(`Previred no se guardó. ${(r.avisos || []).join(' ')}`);
-  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.106.0'), import('./gastos-g3d.js?v=0.106.0')]);
+  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.106.1'), import('./gastos-g3d.js?v=0.106.1')]);
   const id = GN.idCarga('previred'), d = GP.docDePrevired(r, G3D.venceDe(r.periodo), id);
   const k = await (await fsGN()).cargarPdf(d, { nombre: f.name, tamano: f.size }, 'previred');
   H.registrar('Gastos: cargó Previred', `${d.tipoTexto} · ${k.texto}`);
@@ -381,7 +405,7 @@ async function subirSii(f, txt, H) {
 }
 // v0.101.1 · Después de subir compras del SII: Finanzas revisa los precios de las materias primas (sin esperar; nunca falla hacia afuera)
 function preciosDeMP(H) {
-  import('./finanzas.js?v=0.106.0').then(F => F.preciosTrasImportar()).then(x => {
+  import('./finanzas.js?v=0.106.1').then(F => F.preciosTrasImportar()).then(x => {
     if (!x || (!x.error && !(x.aplicadas.length || x.porConfirmar || x.sinAsociar))) return;
     const t = x.error ? `No se pudieron revisar los precios de las materias primas (${H.esc(x.error)}): hágalo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.`
       : `Precios de materias primas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'actualizado' : 'actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver en Finanzas</a>.`;
@@ -474,7 +498,8 @@ function acciones(el, H) {
     if (ds.gnArchivaritem) return dlgArchivarItem(el, H, ds.gnArchivaritem);
     if (ds.gnReactivaritem) return hacer(el, H, async () => (await fsGN()).archivarItem(ds.gnReactivaritem, { archivar: false }), 'El ítem vuelve a estar activo.');
     if (ds.gnUbicar) return dlgUbicar(el, H, ds.gnUbicar);
-    if (ds.gnConcart) { st.carga = ds.gnConcart; st.verConciliado = !GB.avanceCarga((st.D.cargas || []).find(k => k.id === ds.gnConcart) || {}, GB.armar(st.D).movs).faltan; st.cuenta = ''; st.sel = { d: [], m: [], primero: '' }; location.hash = '#gastos'; return; }
+    if (ds.gnConcart) { st.carga = ds.gnConcart; st.verConciliado = !GB.avanceCarga((st.D.cargas || []).find(k => k.id === ds.gnConcart) || {}, GB.armar(st.D).movs).faltan; st.cuenta = ''; st.sel = { d: [], m: [], primero: '' };
+      if (subActual()) location.hash = '#gastos'; else { repintar(el, H); requestAnimationFrame(() => { const c = el.querySelector('.gn-cartola'); if (c) c.scrollIntoView({ block: 'start' }); }); } return; }
     if (ds.gnQuitarcarga !== undefined) { st.carga = ''; st.verConciliado = false; return repintarQuieto(el, H); }
     if (ds.gnVerconc !== undefined) { st.verConciliado = ds.gnVerconc === '1'; return repintarQuieto(el, H); }
     if (ds.gnAcuenta) return dlgACuenta(el, H, movDe(ds.gnAcuenta));

@@ -1,9 +1,20 @@
-# Sistema Fën · v0.106.0
+# Sistema Fën · v0.106.1
 
-**App:** v0.106.0 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
+**App:** v0.106.1 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.106.1: las cartolas pasan a la Bandeja
+
+Pedido por Emmanuel el 26 oct.
+- **Gastos → Bandeja**, debajo de "Hasta dónde llega cada cuenta" (ahora más baja), la tarjeta **Cartolas**: arriba las que tienen **pendientes por conciliar** (con su barra, "Saldo calza" o no, "Ver cuadre" y **"Conciliar esta cartola"**); abajo, plegadas, las **conciliadas al 100 %** con **"Ver lo conciliado"**. Una cartola subida dos veces (por ejemplo, para tener el cuadre) aparece una sola vez.
+- Las cartolas cuyos cargos son todos de antes del inicio (septiembre) van aparte, "Sin movimientos desde el inicio": antes salían con el botón bloqueado.
+- **Archivos subidos** queda como registro de solo lectura, por orden de llegada.
+Cambian `vista-gn.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.106.1`). Cocina no cambia (sigue la v0.17.12).
+
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.106.1.
+- [ ] Gastos → Bandeja: la tarjeta Cartolas, sus dos grupos y "Conciliar esta cartola".
 
 ## Novedades de la v0.106.0: producto regalado, incobrables, otros ingresos y gastos, impuesto a la renta estimado
 

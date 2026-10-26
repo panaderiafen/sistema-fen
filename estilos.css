@@ -2885,3 +2885,16 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 /* v0.106.0 · Otros ingresos y gastos; tasa del impuesto a la renta */
 .fin-renta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--linea); font-size: 14px; }
 .fin-renta span { min-width: 0; overflow-wrap: anywhere; }
+/* v0.106.1 · Bandeja: "Hasta dónde llega cada cuenta" más bajo y las cartolas debajo */
+.gn-cob-t { padding-top: 12px; padding-bottom: 12px; }
+.gn-cob-t .titulo-fila { margin-bottom: 6px; }
+.gn-cob-t h2 { font-size: 16px; }
+.gn-cob-t .gn-cob { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; }
+.gn-cob-t .gn-cob-c { padding: 6px 10px; border-radius: 10px; gap: 0; }
+.gn-cart { padding: 10px 0; border-top: 1px solid var(--linea); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gn-cart .gn-fila { align-items: center; gap: 8px; flex-wrap: wrap; }
+.gn-cart .gn-fila b { overflow-wrap: anywhere; min-width: 0; }
+.gn-cart small { color: var(--suave); overflow-wrap: anywhere; }
+.gn-cart .gn-avance { margin: 4px 0 2px; }
+.gn-cart-pie { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; font-size: 13px; }
+.gn-cart-pie .gn-det { margin: 0; flex-basis: 100%; }
