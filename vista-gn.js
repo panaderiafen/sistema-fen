@@ -7,26 +7,26 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.106.2';
-import * as GB from './gn-bandeja.js?v=0.106.2';
-import * as AR from './areas.js?v=0.106.2';
-import * as Sii from './sii.js?v=0.106.2';
-import * as MP from './mercadopago.js?v=0.106.2';
-import * as GI from './gn-items.js?v=0.106.2';   // v0.102.0: catálogo de ítems
-import * as GF from './gn-finanzas.js?v=0.106.2';
-import * as PC from './plan-cuentas.js?v=0.106.2';
-import * as FR from './finanzas-resultados.js?v=0.106.2';
-import * as TR from './trabajadores.js?v=0.106.2';   // v0.104.0: ficha del trabajador y provisión
+import * as GN from './gn-modelo.js?v=0.107.0';
+import * as GB from './gn-bandeja.js?v=0.107.0';
+import * as AR from './areas.js?v=0.107.0';
+import * as Sii from './sii.js?v=0.107.0';
+import * as MP from './mercadopago.js?v=0.107.0';
+import * as GI from './gn-items.js?v=0.107.0';   // v0.102.0: catálogo de ítems
+import * as GF from './gn-finanzas.js?v=0.107.0';
+import * as PC from './plan-cuentas.js?v=0.107.0';
+import * as FR from './finanzas-resultados.js?v=0.107.0';
+import * as TR from './trabajadores.js?v=0.107.0';   // v0.104.0: ficha del trabajador y provisión
 
 const st = { D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' }, carga: '', verConciliado: false };   // v0.105.0: carga = conciliar una cartola
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.106.2');
+const fsGN = () => import('./gn-fs.js?v=0.107.0');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
 export const olvidar = () => { st.D = null; };
 
-const TABS = [['bandeja', '', 'Bandeja'], ['proveedores', 'proveedores', 'Proveedores'], ['catalogo', 'catalogo', 'Ítems'], ['repartos', 'repartos', 'Repartos'], ['porpagar', 'porpagar', 'Por pagar'], ['compromisos', 'compromisos', 'Compromisos'], ['cargas', 'cargas', 'Archivos subidos']];   // v0.96.0 · v0.102.0: Ítems
+const TABS = [['bandeja', '', 'Bandeja'], ['proveedores', 'proveedores', 'Proveedores'], ['equipo', 'equipo', 'Equipo'], ['catalogo', 'catalogo', 'Ítems'], ['repartos', 'repartos', 'Repartos'], ['porpagar', 'porpagar', 'Por pagar'], ['compromisos', 'compromisos', 'Compromisos'], ['cargas', 'cargas', 'Archivos subidos']];   // v0.96.0 · v0.102.0: Ítems
 const hashDe = t => '#gastos' + (t === 'bandeja' ? '' : '/' + t);
 const TXT_SUBIR = 'Sirven:\n• Las compras del SII: el XML de documentos recibidos, el Registro de Compras (.csv) o los Documentos recibidos (.xls).\n• La cartola de BancoEstado (.xlsx), histórica o en línea, de la cuenta corriente o de la chequera. Sus abonos siguen pasando a Ventas B2B → Conciliación.\n• El reporte de liberaciones de Mercado Pago (.csv).\n• Las liquidaciones de sueldo del contador (PDF, una por trabajador): entran por el líquido + anticipos.\n• El F29 (formulario completo o certificado, PDF): su pago repartido por impuesto.\n• Las boletas de luz (CGE) y agua (ESSBIO) en PDF: entran con su N° de cliente; el saldo anterior es de las boletas anteriores (súbalas también).\nSubir el mismo archivo dos veces no repite nada: cada documento se reconoce por RUT, tipo y folio, y cada movimiento por su línea exacta. Si la misma salida ya llegó en otra cartola (por ejemplo la en línea y después la histórica), no se guarda otra vez.\nLas guías de despacho no entran (no son compras: cuenta su factura).';
 const TXT_BANDEJA = 'A la izquierda, lo que se debe: los documentos de compra desde el inicio del sistema. A la derecha, lo que salió: los movimientos de cada cuenta.\nEn la Etapa 2 la Bandeja propone qué documento va con qué movimiento, y se concilia con un toque.\nLos traspasos entre cuentas propias (por ejemplo, el retiro de Mercado Pago a BancoEstado) no son gasto: se muestran aparte.';
@@ -63,7 +63,7 @@ function cab(H, tab) {
 }
 
 export async function pintar(el, sub, H) {
-  const tab = ['cargas', 'proveedores', 'repartos', 'compromisos', 'porpagar', 'catalogo'].includes(sub) ? sub : 'bandeja';
+  const tab = ['cargas', 'proveedores', 'equipo', 'repartos', 'compromisos', 'porpagar', 'catalogo'].includes(sub) ? sub : 'bandeja';
   if (sub && tab === 'bandeja') { location.replace('#gastos'); return; }
   if (!st.D) {
     el.innerHTML = cab(H, tab) + '<section class="tarjeta"><div class="vacio" style="border:0">Cargando Gastos…</div></section>';
@@ -73,8 +73,10 @@ export async function pintar(el, sub, H) {
     if (!enGastos()) return;
   }
   const clave = decodeURIComponent((location.hash || '').split('/')[2] || '');
+  // v0.107.0 · Un trabajador tiene su ficha en Equipo (un enlace antiguo a Proveedores lo lleva ahí)
+  if (tab === 'proveedores' && clave && TR.equipo(st.D).some(x => x.clave === clave)) { location.replace('#gastos/equipo/' + encodeURIComponent(clave)); return; }
   const lugar = tab + '/' + clave; if (st.lugar && st.lugar !== lugar) { st.msg = ''; st.err = ''; } st.lugar = lugar;   // el aviso es de la pantalla donde se hizo
-  el.innerHTML = cab(H, tab) + (tab === 'cargas' ? cargasHtml(H) : tab === 'repartos' ? repartosHtml(H) : tab === 'compromisos' ? compromisosHtml(H) : tab === 'porpagar' ? porPagarHtml(H) : tab === 'catalogo' ? itemsHtml(H) : tab === 'proveedores' ? (clave ? fichaHtml(H, clave) : proveedoresHtml(H)) : bandejaHtml(H));
+  el.innerHTML = cab(H, tab) + (tab === 'cargas' ? cargasHtml(H) : tab === 'repartos' ? repartosHtml(H) : tab === 'compromisos' ? compromisosHtml(H) : tab === 'porpagar' ? porPagarHtml(H) : tab === 'catalogo' ? itemsHtml(H) : tab === 'proveedores' ? (clave ? fichaHtml(H, clave) : proveedoresHtml(H)) : tab === 'equipo' ? (clave ? fichaHtml(H, clave, { equipo: true }) : equipoHtml(H)) : bandejaHtml(H));
   conectar(el, H);
 }
 const enGastos = () => (location.hash || '').replace('#', '').split('/')[0] === 'gastos';
@@ -324,7 +326,7 @@ async function procesar(f, H) {
   if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text();
-    const Pv = await import('./previred.js?v=0.106.2');
+    const Pv = await import('./previred.js?v=0.107.0');
     if (Pv.esCsvNomina(Pv.textoDeArchivo(await f.arrayBuffer()))) return subirPrevired(f, H, Pv.leerCsv(Pv.textoDeArchivo(await f.arrayBuffer())));
     const tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -338,7 +340,7 @@ async function procesar(f, H) {
   if (wb) {
     const tefs = H.B2b.leerTransferencias(wb, XLSX);
     if (tefs) { const r = await H.B2b.guardarTransferencias(tefs); H.registrar('Cargó transferencias recibidas', `${r.leidas} leídas · ${r.nuevas} nuevas`); return `<b>Transferencias recibidas</b>: ${r.leidas} en el archivo · ${r.nuevas} nuevas. Sirven a Ventas B2B → Conciliación (quién pagó cada abono).`; }
-    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.106.2'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
+    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.107.0'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
       if (GP.esDetalleCredito(filas)) { const enc = wb.SheetNames.includes('Encabezados') ? XLSX.utils.sheet_to_csv(wb.Sheets.Encabezados) : '', r = GP.leerCredito(filas, enc);
         if (r.bloquea) throw new Error(r.errores.join(' '));
         const k = await (await fsGN()).cargarCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó un crédito', r.nombre);
@@ -354,9 +356,9 @@ function esCartola(wb, XLSX, H) {
 }
 // v0.96.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
 async function subirBoleta(f, H) {
-  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.106.2'), import('./boletas.js?v=0.106.2')]);
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.107.0'), import('./boletas.js?v=0.107.0')]);
   let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
-  const GP = await import('./gn-pdf.js?v=0.106.2'), tipo = GP.tipoPdf(lineas);
+  const GP = await import('./gn-pdf.js?v=0.107.0'), tipo = GP.tipoPdf(lineas);
   if (tipo) return subirOtroPdf(f, H, GP, tipo, lineas);
   if (Pv.esComprobante(lineas) || Pv.esCertificado(lineas)) { let r; try { r = Pv.leerPdf(lineas); } catch (x) { throw new Error(x.message); } return subirPrevired(f, H, r); }
   const r = Bo.leerBoleta(lineas);
@@ -390,7 +392,7 @@ async function subirOtroPdf(f, H, GP, tipo, lineas) {
 // v0.97.0 · Previred: el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → el documento del mes
 async function subirPrevired(f, H, r) {
   if (r.bloquea) throw new Error(`Previred no se guardó. ${(r.avisos || []).join(' ')}`);
-  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.106.2'), import('./gastos-g3d.js?v=0.106.2')]);
+  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.107.0'), import('./gastos-g3d.js?v=0.107.0')]);
   const id = GN.idCarga('previred'), d = GP.docDePrevired(r, G3D.venceDe(r.periodo), id);
   const k = await (await fsGN()).cargarPdf(d, { nombre: f.name, tamano: f.size }, 'previred');
   H.registrar('Gastos: cargó Previred', `${d.tipoTexto} · ${k.texto}`);
@@ -409,7 +411,7 @@ async function subirSii(f, txt, H) {
 }
 // v0.101.1 · Después de subir compras del SII: Finanzas revisa los precios de las materias primas (sin esperar; nunca falla hacia afuera)
 function preciosDeMP(H) {
-  import('./finanzas.js?v=0.106.2').then(F => F.preciosTrasImportar()).then(x => {
+  import('./finanzas.js?v=0.107.0').then(F => F.preciosTrasImportar()).then(x => {
     if (!x || (!x.error && !(x.aplicadas.length || x.porConfirmar || x.sinAsociar))) return;
     const t = x.error ? `No se pudieron revisar los precios de las materias primas (${H.esc(x.error)}): hágalo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.`
       : `Precios de materias primas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'actualizado' : 'actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver en Finanzas</a>.`;
@@ -495,6 +497,7 @@ function acciones(el, H) {
     if (ds.gnFlete) return dlgFlete(el, H, ds.gnFlete);
     if (ds.gnProv) return dlgProvision(el, H, ds.gnProv);
     if (ds.gnTrab) return dlgTrabajador(el, H, ds.gnTrab, ds.razon || '', ds.rut || '');
+    if (ds.gnTrabNuevo !== undefined) return dlgTrabajador(el, H, '', '', '');
     if (ds.gnPrevia !== undefined) return abrirPrevia(el, H);
     if (ds.gnPasar !== undefined) return pasarCatalogo(el, H);
     if (ds.gnPreviaCerrar !== undefined) { st.previa = null; return repintarQuieto(el, H); }
@@ -865,15 +868,30 @@ function listaProveedores() {
   return Object.values(por).sort((a, b) => String(a.razon).localeCompare(String(b.razon)));
 }
 function proveedoresHtml(H) {
-  const L = listaProveedores(), q = GN.norm(st.buscaProv || ''), l = L.filter(x => !q || GN.norm(x.razon + ' ' + x.rut).includes(q));
-  const trabs = new Set(TR.equipo(st.D).map(x => x.clave));   // v0.104.0
-  const estado = x => (trabs.has(x.clave) ? '<span class="chip c-azul chip-chico">Trabajador</span> ' : '') + estado0(x);
+  // v0.107.0 · Los trabajadores están en Equipo, no aquí
+  const trabs = new Set(TR.equipo(st.D).map(x => x.clave)), L = listaProveedores().filter(x => !trabs.has(x.clave)), q = GN.norm(st.buscaProv || ''), l = L.filter(x => !q || GN.norm(x.razon + ' ' + x.rut).includes(q));
+  const estado = x => estado0(x);
   const estado0 = x => { const p = st.D.provs[x.clave]; return p && p.item ? `<span class="chip ${GB.modoProveedor(p) === 'item' ? 'c-amarillo' : 'c-verde'} chip-chico">${GB.modoProveedor(p) === 'item' ? 'Solo el ítem' : 'Ítem y áreas'}</span>` : '<span class="chip c-gris chip-chico">Sin ficha</span>'; };
   return `<section class="tarjeta" aria-labelledby="t-gn-provs"><div class="titulo-fila"><h2 id="t-gn-provs">Proveedores</h2><span>${L.length}</span></div>
     <div class="campo"><label class="sr" for="gn-buscar-prov">Buscar proveedor</label><input id="gn-buscar-prov" type="search" value="${H.esc(st.buscaProv || '')}" placeholder="Nombre o RUT"></div>
     ${l.length ? l.slice(0, 300).map(x => `<a class="gn-it gn-prov" href="#gastos/proveedores/${encodeURIComponent(x.clave)}"><div class="gn-fila"><b>${H.esc(x.razon)}</b>${estado(x)}</div><small>${x.rut ? 'RUT ' + H.esc(x.rut) + ' · ' : ''}${x.n} ${x.n === 1 ? 'documento' : 'documentos'}${x.n ? ' · ' + H.pesos(x.total) : ''}${x.ultima ? ' · último ' + H.esc(H.diaTexto(x.ultima)) : ''}</small></a>`).join('') : '<div class="vacio" style="border:0">Ningún proveedor con eso.</div>'}</section>`;
 }
-function fichaHtml(H, base) {
+// ── v0.107.0 · Equipo: los trabajadores (aprobado por Emmanuel el 26 oct: "son dos ámbitos diferentes") ──
+const TXT_EQUIPO = 'Las personas que trabajan en Fën: sus datos de contrato, antigüedad, sueldo base y la provisión de sus vacaciones y finiquito. Un trabajador aparece aquí solo con su primera liquidación, o antes, con "Agregar trabajador".\nSu área (en su ficha) dice a qué área van su sueldo y su provisión. Los proveedores siguen en Proveedores.';
+function equipoHtml(H) {
+  const eq = TR.equipo(st.D), hoy = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
+  const areaTxt = k => { const a = GB.areasDe((st.D.provs || {})[k], st.D.repartos || {}); return (a || []).length ? GB.textoReparto(a) : ''; };
+  const chip = x => { if (!x.ficha) return '<span class="chip c-amarillo chip-chico">Faltan los datos del contrato</span>'; const e = TR.estadoContrato(x.ficha, hoy);
+    return `<span class="chip ${e.nivel === 'vencido' ? 'c-rojo' : e.nivel === 'pronto' ? 'c-amarillo' : 'c-verde'} chip-chico">${H.esc(TR.CONTRATOS[x.ficha.contrato] || '')}</span>`; };
+  return `<section class="tarjeta" aria-labelledby="t-gn-eq"><div class="titulo-fila"><h2 id="t-gn-eq">Equipo ${H.info('Equipo', TXT_EQUIPO)}</h2><span>${eq.length} ${eq.length === 1 ? 'trabajador' : 'trabajadores'}</span></div>
+    <div class="gn-acc"><button type="button" class="btn btn-chico" data-gn-trab-nuevo>Agregar trabajador</button></div>
+    ${eq.length ? eq.map(x => { const ult = x.liqs[x.liqs.length - 1], ant = x.ficha ? TR.antiguedad(x.ficha.ingreso, hoy) : null, e = x.ficha ? TR.estadoContrato(x.ficha, hoy) : null, ar = areaTxt(x.clave);
+      return `<a class="gn-it gn-prov" href="#gastos/equipo/${encodeURIComponent(x.clave)}"><div class="gn-fila"><b>${H.esc(x.nombre)}</b>${chip(x)}</div>
+        <small>${[x.ficha && x.ficha.cargo ? H.esc(x.ficha.cargo) : '', ant ? H.esc(ant.texto) : '', ult ? 'sueldo base ' + H.pesos(TR.sueldoBase(ult)) : 'sin liquidaciones todavía', ar ? H.esc(ar) : 'sin área'].filter(Boolean).join(' · ')}</small>
+        ${e && e.nivel !== 'ok' && e.nivel ? `<small class="${e.nivel === 'vencido' ? 'gn-cl gn-cl-falta' : 'gn-cl gn-aviso-c'}">${H.esc(e.texto)}</small>` : ''}</a>`; }).join('')
+      : '<div class="vacio" style="border:0">Todavía no hay trabajadores: aparecen al subir su primera liquidación, o agréguelos con "Agregar trabajador".</div>'}</section>`;
+}
+function fichaHtml(H, base, { equipo = false } = {}) {
   const docs = (st.D.docs || []).filter(d => GB.claveBase(d) === base).sort((a, b) => b.fecha.localeCompare(a.fecha)), provs = st.D.provs || {};
   const gen = provs[base] || null, razon = (docs[0] && docs[0].razon) || (gen && gen.razon) || base, rut = (docs[0] && docs[0].rut) || (gen && gen.rut) || '';
   const B = st.B || GB.armar(st.D, {}), est = id => B.docs.find(x => x.id === id) || {};
@@ -886,20 +904,20 @@ function fichaHtml(H, base) {
   const glosas = Object.keys(provs).filter(k => k === base || k.startsWith(base + '_c_')).flatMap(k => (provs[k].glosas || []).map(g => [k, g]));
   const estDoc = d => { const e = est(d.id); return e.estado === 'no_va' ? '<span class="chip c-gris chip-chico">esto no va</span>' : e.estadoPago === 'pagado' ? `<span class="chip ${e.clasifEf ? 'c-verde' : 'c-amarillo'} chip-chico">${e.clasifEf ? 'listo' : 'pagado, falta clasificar'}</span>` : '<span class="chip c-amarillo chip-chico">sin pago</span>'; };
   const hist = ((gen && gen.historial) || []).slice(-8).reverse();
-  return `<p class="volver"><a href="#gastos/proveedores">Todos los proveedores</a></p>
-    <section class="tarjeta" aria-labelledby="t-gn-ficha"><div class="titulo-fila"><h2 id="t-gn-ficha">${H.esc(razon)} ${H.info('Ficha del proveedor', TXT_FICHA)}</h2></div>
-      <p class="ayuda">${rut ? 'RUT ' + H.esc(rut) + ' · ' : ''}${docs.length} ${docs.length === 1 ? 'documento' : 'documentos'} desde el inicio</p>
+  return `<p class="volver"><a href="#gastos/${equipo ? 'equipo' : 'proveedores'}">${equipo ? 'Todo el equipo' : 'Todos los proveedores'}</a></p>
+    <section class="tarjeta" aria-labelledby="t-gn-ficha"><div class="titulo-fila"><h2 id="t-gn-ficha">${H.esc(razon)} ${equipo ? H.info('Ficha del trabajador', TXT_TRAB) : H.info('Ficha del proveedor', TXT_FICHA)}</h2></div>
+      <p class="ayuda">${rut ? 'RUT ' + H.esc(rut) + ' · ' : ''}${docs.length} ${docs.length === 1 ? (equipo ? 'liquidación o pago' : 'documento') : (equipo ? 'liquidaciones y pagos' : 'documentos')} desde el inicio</p>
       <div class="gn-ficha">
         ${trabajadorHtml(H, base, razon, rut)}
         ${(sf => sf ? `<div class="gn-it"><span class="gn-sub">Saldo a favor (pagos a cuenta) ${H.info('Pagos a cuenta', TXT_ACUENTA)}</span><div class="gn-fila"><b>${H.pesos(sf.monto)}</b><span></span></div>${sf.movs.map(m => `<small>${H.esc(H.diaTexto(m.fecha))} · ${H.esc(m.glosa)} · ${H.pesos(m.libre)}${m.naturalezaNota ? ' · ' + H.esc(m.naturalezaNota) : ''}</small>`).join('<br>')}<p class="ayuda">Se aplica desde la Bandeja cuando llega su documento.</p></div>` : '')(GB.saldosAFavor(B.movs)[base])}
-        ${clasif(gen, base, 'Clasificación')}
-        ${Object.keys(clientes).length ? `<div class="gn-it"><span class="gn-sub">Servicios (por N° de cliente)</span>${Object.values(clientes).map(c => { const k = base + '_c_' + String(c.cliente).replace(/[^0-9A-Za-z]/g, '').slice(0, 30), p = provs[k];
+        ${clasif(gen, base, equipo ? 'Área y clasificación del sueldo' : 'Clasificación')}
+        ${equipo ? '' : Object.keys(clientes).length ? `<div class="gn-it"><span class="gn-sub">Servicios (por N° de cliente)</span>${Object.values(clientes).map(c => { const k = base + '_c_' + String(c.cliente).replace(/[^0-9A-Za-z]/g, '').slice(0, 30), p = provs[k];
             return `<div class="gn-serv"><div><b>Cliente ${H.esc(c.cliente)}</b>${c.direccion ? ` · ${H.esc(c.direccion)}` : ''}<br><small>${p && p.item ? `${H.esc(p.item)} · ${GB.modoProveedor(p) === 'item' ? 'solo el ítem' : H.esc(repTxt(p))}` : 'Sin clasificación: use la del proveedor o establézcala'}</small></div>
               <button type="button" class="btn-sec btn-chico" data-gn-ficha="${H.esc(k)}" data-razon="${H.esc(razon)}" data-rut="${H.esc(rut)}">${p && p.item ? 'Cambiar' : 'Establecer'}</button></div>`; }).join('')}</div>` : ''}
         <div class="gn-it"><span class="gn-sub">Cómo aparece en el banco</span>${glosas.length ? glosas.map(([k, g]) => `<div class="gn-fila"><span>${H.esc(g.sena)}</span><button type="button" class="gn-link" data-gn-olvidar="${H.esc(k)}" data-sena="${H.esc(g.sena)}">Olvidar</button></div>`).join('') : '<small>Todavía no aprende ninguna glosa (se aprende al conciliar un pago).</small>'}</div>
-        <div class="gn-it"><span class="gn-sub">Productos recordados</span>${prods.length ? prods.map(([k, pk, v]) => `<div class="gn-fila"><span>${H.esc(pk)}</span><span><small>${H.esc(v.item)}${v.area ? ' · ' + H.esc(String(v.area).startsWith(GB.AREA_REPARTO) ? ((st.D.repartos[v.area.slice(GB.AREA_REPARTO.length)] || {}).nombre || 'reparto que ya no está') : v.area) : ''}</small> <button type="button" class="gn-link" data-gn-quitarprod="${H.esc(k)}" data-prod="${H.esc(pk)}">Quitar</button></span></div>`).join('') : '<small>Ninguno (se recuerdan al separar una factura por líneas).</small>'}</div>
+        ${equipo ? '' : `        <div class="gn-it"><span class="gn-sub">Productos recordados</span>${prods.length ? prods.map(([k, pk, v]) => `<div class="gn-fila"><span>${H.esc(pk)}</span><span><small>${H.esc(v.item)}${v.area ? ' · ' + H.esc(String(v.area).startsWith(GB.AREA_REPARTO) ? ((st.D.repartos[v.area.slice(GB.AREA_REPARTO.length)] || {}).nombre || 'reparto que ya no está') : v.area) : ''}</small> <button type="button" class="gn-link" data-gn-quitarprod="${H.esc(k)}" data-prod="${H.esc(pk)}">Quitar</button></span></div>`).join('') : '<small>Ninguno (se recuerdan al separar una factura por líneas).</small>'}</div>`}
       </div>
-      <h3 class="gn-h3">Últimos documentos</h3>
+      <h3 class="gn-h3">${equipo ? 'Últimas liquidaciones y pagos' : 'Últimos documentos'}</h3>
       ${docs.slice(0, 12).map(d => `<div class="gn-fila gn-fila-doc"><span>${H.esc(d.tipoTexto)} ${H.esc(d.folio)} · ${H.esc(H.diaTexto(d.fecha))} ${estDoc(d)}</span><span class="gn-m">${H.pesos(d.total)}</span></div>`).join('') || '<p class="ayuda">Sin documentos desde el inicio.</p>'}
       ${hist.length ? `<details class="gn-det"><summary>Historial de la ficha</summary>${hist.map(h => `<div class="gn-fila"><small>${H.esc(h.en || '')} · ${H.esc(h.por || '')}</small><small>${H.esc(h.que || '')}</small></div>`).join('')}</details>` : ''}
     </section>`;
@@ -1293,8 +1311,9 @@ function trabajadorHtml(H, base, razon, rut) {
     <div class="gn-acc"><button type="button" class="btn-sec btn-chico" data-gn-trab="${H.esc(base)}" data-razon="${H.esc(razon)}" data-rut="${H.esc(rut)}">${t ? 'Cambiar datos del trabajador' : 'Anotar datos del trabajador'}</button></div></div>`;
 }
 function dlgTrabajador(el, H, clave, razon, rut) {
-  const t = ((st.D.provs || {})[clave] || {}).trabajador || {};
-  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>${H.esc(razon || 'Trabajador')}</h2>${H.info('Datos del trabajador', TXT_TRAB)}</div>
+  const nuevo = !clave, t = nuevo ? {} : ((st.D.provs || {})[clave] || {}).trabajador || {};
+  const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>${nuevo ? 'Agregar trabajador' : H.esc(razon || 'Trabajador')}</h2>${H.info('Datos del trabajador', TXT_TRAB)}</div>
+    ${nuevo ? '<div class="gn-dos"><div class="campo"><label for="tr-nombre">Nombre</label><input id="tr-nombre" maxlength="120" autocomplete="off"></div><div class="campo"><label for="tr-rut">RUT</label><input id="tr-rut" maxlength="14" placeholder="12.345.678-9" autocomplete="off"></div></div>' : ''}
     <div class="campo"><label for="tr-cargo">Cargo (opcional)</label><input id="tr-cargo" maxlength="60" value="${H.esc(t.cargo || '')}" placeholder="Por ejemplo: maestro panadero"></div>
     <div class="campo"><label for="tr-ingreso">Fecha de ingreso</label><input id="tr-ingreso" type="date" value="${H.esc(t.ingreso || '')}"></div>
     <div class="chips" role="radiogroup" aria-label="Contrato">${Object.entries(TR.CONTRATOS).map(([k, v]) => `<label class="chip-radio"><input type="radio" name="tr-c" value="${k}" ${t.contrato === k ? 'checked' : ''}><span>${v}</span></label>`).join('')}</div>
@@ -1308,8 +1327,18 @@ function dlgTrabajador(el, H, clave, razon, rut) {
   dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
   dlg.querySelector('form').addEventListener('submit', async ev => { ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
     try { const v = q => dlg.querySelector(q).value;
-      await (await fsGN()).guardarTrabajador(clave, { cargo: v('#tr-cargo'), ingreso: v('#tr-ingreso'), contrato: c(), vence: v('#tr-vence'), renovaciones: v('#tr-renov'), indefinidoDesde: v('#tr-indef') }, { razon, rut });
-      dlg.close(); H.registrar('Gastos: datos del trabajador', razon); aviso(el, H, `Datos guardados: ${H.esc(razon)}.`); }
+      let k = clave, nom = razon, r = rut;
+      if (nuevo) {   // v0.107.0 · Agregar: nombre y RUT (su ficha queda con la clave de sus liquidaciones: r_<RUT>)
+        nom = v('#tr-nombre').trim(); r = v('#tr-rut').trim();
+        if (!nom) throw new Error('Escriba el nombre.');
+        if (!/^\d{7,8}[0-9K]$/.test(GN.rutN(r))) throw new Error('Revise el RUT (por ejemplo 12.345.678-9).');
+        k = 'r_' + GN.rutN(r); r = GN.rutTexto(r);
+        if (TR.equipo(st.D).some(x => x.clave === k)) throw new Error('Ese RUT ya está en el equipo.');
+      }
+      await (await fsGN()).guardarTrabajador(k, { cargo: v('#tr-cargo'), ingreso: v('#tr-ingreso'), contrato: c(), vence: v('#tr-vence'), renovaciones: v('#tr-renov'), indefinidoDesde: v('#tr-indef') }, { razon: nom, rut: r });
+      dlg.close(); H.registrar(nuevo ? 'Gastos: agregó un trabajador' : 'Gastos: datos del trabajador', nom);
+      if (nuevo) aviso(el, H, `Agregado al equipo: ${H.esc(nom)}. Ábralo para elegir su área (a qué área van su sueldo y su provisión).`);
+      else aviso(el, H, `Datos guardados: ${H.esc(nom)}.`); }
     catch (e) { falla(dlg, e, H); } });
 }
 function dlgProvision(el, H, id) {

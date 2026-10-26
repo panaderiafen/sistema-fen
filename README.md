@@ -1,9 +1,22 @@
-# Sistema Fën · v0.106.2
+# Sistema Fën · v0.107.0
 
-**App:** v0.106.2 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
+**App:** v0.107.0 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.107.0: Gastos → Equipo (los trabajadores, aparte de los proveedores)
+
+Aprobado por Emmanuel el 26 oct ("son dos ámbitos diferentes"; en Gastos).
+- **Pestaña nueva Gastos → Equipo**: cada trabajador con su contrato (chip verde, amarillo si el plazo fijo vence pronto, rojo si venció), cargo, antigüedad, sueldo base y área. Un trabajador aparece con su primera liquidación o antes, con **"Agregar trabajador"** (nombre, RUT y los datos del contrato).
+- **Su ficha** (tocar el nombre): datos del trabajador, provisión, "Área y clasificación del sueldo" (a qué área van su sueldo y su provisión), saldo a favor y sus liquidaciones y pagos.
+- **Proveedores queda solo con proveedores.** Un enlace antiguo a la ficha de un trabajador lleva a Equipo. Los avisos de contrato de Hoy y la Agenda llevan a Equipo.
+- Por dentro no cambia nada: la ficha es la misma (se guarda igual), así que lo anotado y lo clasificado siguen como estaban.
+Cambian `vista-gn.js`, `app.js`, `vista-finanzas-eerr.js`, `config.js` y este README; los demás, solo la versión (`?v=0.107.0`).
+
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.107.0.
+- [ ] Gastos → Equipo: "Agregar trabajador" con cada persona del equipo (nombre, RUT, ingreso y contrato) y, en su ficha, su área.
+- [ ] Gastos → Proveedores: ya no aparecen los trabajadores.
 
 ## Novedades de la v0.106.2: la tarjeta Cartolas se pliega
 

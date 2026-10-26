@@ -6,11 +6,11 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.106.2';
-import * as FR from './finanzas-resultados.js?v=0.106.2';
-import * as FE from './finanzas-eerr.js?v=0.106.2';
-import * as FC from './finanzas-costos.js?v=0.106.2';
-import * as SP from './sii-pendientes.js?v=0.106.2';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.107.0';
+import * as FR from './finanzas-resultados.js?v=0.107.0';
+import * as FE from './finanzas-eerr.js?v=0.107.0';
+import * as FC from './finanzas-costos.js?v=0.107.0';
+import * as SP from './sii-pendientes.js?v=0.107.0';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {}, otros: null, renta: null, incob: {} };
 const $ = id => document.getElementById(id);
@@ -61,10 +61,10 @@ async function vivo(R, mes) {
   // no en la tabla de Finanzas → Créditos (sería doble); los pagos de la tarjeta son los movimientos marcados así en la Bandeja.
   // v0.101.1 · Desde cero en octubre: con el Gastos nuevo, Finanzas no muestra meses anteriores al inicio.
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo (desde ${FE.mesTxt(D.gn.inicio.slice(0, 7))} los gastos salen de ahí): ${D.gn.error}. Revise la conexión y toque "Leer de nuevo".`);
-  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.106.2') : null;
+  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.107.0') : null;
   const pagosTarjeta = nuevo ? GF.pagosTarjetaGN(D.gn.D) : ((ES.cartola && ES.cartola.pagosTarjeta) || []);
   // v0.104.0 · Provisión de vacaciones y finiquitos (fichas y liquidaciones de los trabajadores)
-  const TR = nuevo ? await import('./trabajadores.js?v=0.106.2') : null, GBm = nuevo ? await import('./gn-bandeja.js?v=0.106.2') : null;
+  const TR = nuevo ? await import('./trabajadores.js?v=0.107.0') : null, GBm = nuevo ? await import('./gn-bandeja.js?v=0.107.0') : null;
   const areasT = clave => GBm.areasDe((D.gn.D.provs || {})[clave], D.gn.D.repartos || {}), provision = nuevo ? TR.provisionesDelMes(D.gn.D, mes, areasT) : [];
   // v0.106.0 · Incobrables (Ventas B2B → Cobranza), otros ingresos y gastos, y la tasa del impuesto a la renta
   if (!(mes in ES.incob)) ES.incob[mes] = await F.incobrablesMes(mes);
@@ -81,7 +81,7 @@ async function vivo(R, mes) {
     if (viejo.length && !cuotasGN) av.push({ k: 'gn_credito_falta', texto: `${viejo.map(c => c.nombre).join(', ')}: tiene cuota en ${FE.mesTxt(mes)} en Finanzas → Créditos, pero no hay cuotas en el Gastos nuevo. Desde octubre el interés sale de Gastos → Compromisos → Créditos (súbalo ahí).` });
     const S = TR.saldo(D.gn.D, mesDesde(), mes, areasT), sinF = provision.filter(x => x.sinFicha).map(x => x.nombre);
     e.provisionInfo = { mes: provision.reduce((a, x) => a + x.total, 0), ...S, usadoMes: TR.usosDelMes(D.gn.D, mes).reduce((a, u) => a + u.monto, 0) };
-    if (sinF.length) av.push({ k: 'trab_sin_ficha', texto: `${sinF.length} ${sinF.length === 1 ? 'trabajador' : 'trabajadores'} sin los datos de su contrato (${sinF.slice(0, 4).join(', ')}): sus vacaciones se provisionan, pero no su indemnización por años de servicio. Anótelos en su ficha (Gastos → Proveedores).` });
+    if (sinF.length) av.push({ k: 'trab_sin_ficha', texto: `${sinF.length} ${sinF.length === 1 ? 'trabajador' : 'trabajadores'} sin los datos de su contrato (${sinF.slice(0, 4).join(', ')}): sus vacaciones se provisionan, pero no su indemnización por años de servicio. Anótelos en su ficha (Gastos → Equipo).` });
     const fl = GF.fletesPorUnir(D.gn.D, mes);   // v0.103.0
     if (fl.n) av.push({ k: 'gn_flete', texto: `${fl.n} ${fl.n === 1 ? 'flete de compra' : 'fletes de compra'} de ${FE.mesTxt(mes)} sin unir a su compra (${pesos(fl.monto)}): todavía no suman al costo de lo comprado. Únalos en Gastos → Bandeja ("¿De qué compra es?").` });
     if (!conCatalogo(R)) av.push({ k: 'gn_sin_catalogo', texto: 'Falta pasar al catálogo de ítems (Gastos → Ítems). Mientras tanto, el tipo de cada gasto sale de Clasificación y no se ven las líneas nuevas (packaging, tiendas, marketing…).' });
@@ -423,10 +423,10 @@ async function datosCierre(R, mes) {
   const D = R.datos;
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo: ${D.gn.error}`);
   if (F.delGastosNuevo(mes) && D.gn) {
-    const GF = await import('./gn-finanzas.js?v=0.106.2');
+    const GF = await import('./gn-finanzas.js?v=0.107.0');
     const [e, dm, conteos] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes)]);
     ES.conteos[mes] = conteos;
-    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.106.2')).indicePagos(G.pagos || []) : null;
+    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.107.0')).indicePagos(G.pagos || []) : null;
     const pagado = pv ? (I.porDoc[pv.id] || []).reduce((a, p) => a + (Number(p.monto) || 0), 0) : 0;
     const gn = { sii: GF.siiDelMes(G.cargas, mes), movs: GF.movsSinRevisarDelMes(G, mes), sinClas: GF.sinClasificarDelMes(G, mes),
       previred: pv ? { total: Number(pv.total) || 0, pagado, completo: pagado >= (Number(pv.total) || 0) - GF.TOL } : null, fletes: GF.fletesPorUnir(G, mes) };

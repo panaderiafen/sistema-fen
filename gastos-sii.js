@@ -13,9 +13,9 @@
 //  Sin red: se prueba sola. Los documentos usan los mismos nombres que la copia G1 (gastos-modelo.armar).
 //  v0.67.2: un documento con todos sus gastos anulados ya no cuenta como importado (devueltos).
 // ═══════════════════════════════════════════════
-import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.106.2';
-import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.106.2';
-import { indiceGastos, revisarVuelta } from './sii-pendientes.js?v=0.106.2';
+import { dia, idLimpio, huella } from './gastos-modelo.js?v=0.107.0';
+import { docGasto, docVencimiento, sumarDias, AREAS } from './gastos-g2.js?v=0.107.0';
+import { indiceGastos, revisarVuelta } from './sii-pendientes.js?v=0.107.0';
 
 export const RE_FOLIO_OBS = /(?:^|[^A-Za-z])(NC|F)\.(\d+)/;
 const s = v => String(v == null ? '' : v);
