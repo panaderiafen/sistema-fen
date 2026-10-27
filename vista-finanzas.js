@@ -15,15 +15,15 @@
 //  línea" y las 3 más parecidas al asociar. Reglas puras en mp-alta-modelo.js; escribe en la base de Cocina (produccion.js) y aquí.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.111.0';
-import * as FC from './finanzas-costos.js?v=0.111.0';
-import * as FS from './finanzas-sii.js?v=0.111.0';
-import * as FM from './finanzas-motor.js?v=0.111.0';
-import * as FV from './finanzas-ventas.js?v=0.111.0';
-import * as FMG from './finanzas-margenes.js?v=0.111.0';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.111.0';
-import * as VR from './vista-finanzas-resultados.js?v=0.111.0';
-import * as MA from './mp-alta-modelo.js?v=0.111.0';
+import * as F from './finanzas.js?v=0.112.0';
+import * as FC from './finanzas-costos.js?v=0.112.0';
+import * as FS from './finanzas-sii.js?v=0.112.0';
+import * as FM from './finanzas-motor.js?v=0.112.0';
+import * as FV from './finanzas-ventas.js?v=0.112.0';
+import * as FMG from './finanzas-margenes.js?v=0.112.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.112.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.112.0';
+import * as MA from './mp-alta-modelo.js?v=0.112.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -363,13 +363,13 @@ function editar(id, el, H, volver) {
     <p class="fin-actual">Ahora: ${esSub ? 'se calcula de su receta' : `${m.precioNeto > 0 ? FC.pesos(m.precioNeto) + ' neto' : 'sin precio'} por ${FC.textoContenido(m.contenido)}${lec ? ` → <b>${lec.texto}</b>` : ''}`} · ${origenTxt(m, H)} ${fechaTxt(m.fecha)}</p>
     ${esSub ? '<p class="aviso">El costo de una sub receta se calcula de su receta: míralo en Costos → Productos. Aquí no se edita.</p>' : `
     <div class="grilla-montos">
-      <div class="campo"><label for="fin-precio">Precio por unidad de compra</label><input id="fin-precio" type="number" inputmode="decimal" min="0" step="any" value="${m.precioNeto > 0 ? H.esc(String(m.precioNeto)) : ''}" required>
+      <div class="campo"><label for="fin-precio">Precio por unidad de compra</label><input id="fin-precio" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0" step="any" value="${m.precioNeto > 0 ? H.esc(String(m.precioNeto)) : ''}" required>
         <label class="check fin-check"><input type="checkbox" id="fin-coniva"> Lo escribo con IVA (19 %) ${H.info('Precio con IVA', 'Si copias el precio de una boleta o de la góndola, marca esta casilla: se guarda el neto (precio ÷ 1,19). Todo en Finanzas va en neto.')}</label></div>
       <div class="campo"><span class="rotulo-campo" id="fin-cont-l">Una unidad de compra trae</span>
-        <div class="fin-cont" role="group" aria-labelledby="fin-cont-l"><label class="sr" for="fin-cant">Cantidad</label><input id="fin-cant" type="number" inputmode="decimal" min="0" step="any" value="${H.esc(String(c.cantidad))}">
+        <div class="fin-cont" role="group" aria-labelledby="fin-cont-l"><label class="sr" for="fin-cant">Cantidad</label><input id="fin-cant" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0" step="any" value="${H.esc(String(c.cantidad))}">
         <label class="sr" for="fin-uni">Unidad</label><select id="fin-uni">${['kg', 'g', 'l', 'ml', 'un'].map(u => `<option value="${u}" ${u === c.unidad ? 'selected' : ''}>${u === 'un' ? 'unidades' : u}</option>`).join('')}</select></div></div>
     </div>
-    <div class="campo ${c.unidad === 'un' ? '' : 'oculto'}" id="fin-peso-c"><label for="fin-peso">Peso de una unidad, en gramos (opcional)</label><input id="fin-peso" type="number" inputmode="decimal" min="0" step="any" value="${m.pesoPorUnidad > 0 ? H.esc(String(m.pesoPorUnidad)) : ''}"><span class="ayuda">Solo si alguna receta la usa en gramos (por ejemplo, huevos).</span></div>
+    <div class="campo ${c.unidad === 'un' ? '' : 'oculto'}" id="fin-peso-c"><label for="fin-peso">Peso de una unidad, en gramos (opcional)</label><input id="fin-peso" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0" step="any" value="${m.pesoPorUnidad > 0 ? H.esc(String(m.pesoPorUnidad)) : ''}"><span class="ayuda">Solo si alguna receta la usa en gramos (por ejemplo, huevos).</span></div>
     <p class="fin-calc" id="fin-calc" aria-live="polite"></p>
     <div class="campo"><label for="fin-motivo">Motivo del cambio</label><input id="fin-motivo" type="text" maxlength="160" placeholder="Ej.: factura nueva del proveedor" required></div>
     <p class="error" id="fin-ed-err" role="alert"></p>`}
@@ -383,7 +383,7 @@ function editar(id, el, H, volver) {
     c2.innerHTML = hs.length ? `<ul class="fin-hist-lista">${hs.map(h => { const l = h.contenido ? FC.porLectura(h.precioPorBase, h.contenido.unidad) : null; return `<li><div><b>${fechaTxt(h.fecha)}</b> · ${h.precioNeto > 0 ? FC.pesos(h.precioNeto) : 'sin precio'} por ${FC.textoContenido(h.contenido)}${l ? ` (${l.texto})` : ''}</div><span class="ayuda">${ORIGEN[h.origen] || H.esc(h.origen || '')} · ${H.esc(h.motivo || '')}${h.por ? ` · ${H.esc(h.por)}` : ''}</span></li>`; }).join('')}</ul>` : '<p class="ayuda">Sin cambios todavía.</p>';
   }).catch(e => { const c2 = d.querySelector('#fin-hist-lista'); if (c2) c2.innerHTML = `<p class="error">${H.esc(error(e, H))}</p>`; });
   if (esSub) return;
-  const leerForm = () => ({ precioNeto: d.querySelector('#fin-precio').value, conIva: d.querySelector('#fin-coniva').checked, contenido: { cantidad: d.querySelector('#fin-cant').value, unidad: d.querySelector('#fin-uni').value }, pesoPorUnidad: d.querySelector('#fin-peso').value, motivo: d.querySelector('#fin-motivo').value });
+  const leerForm = () => ({ precioNeto: FC.casilla(d.querySelector('#fin-precio')), conIva: d.querySelector('#fin-coniva').checked, contenido: { cantidad: FC.casilla(d.querySelector('#fin-cant')), unidad: d.querySelector('#fin-uni').value }, pesoPorUnidad: FC.casilla(d.querySelector('#fin-peso')), motivo: d.querySelector('#fin-motivo').value });
   const calc = () => {
     const x = leerForm(); d.querySelector('#fin-peso-c').classList.toggle('oculto', x.contenido.unidad !== 'un');
     let t = '';
@@ -455,11 +455,11 @@ function dialogoAlta(el, H, { g = null, volver = 'mp' } = {}) {
       <div class="campo"><label for="mpa-uni">Unidad de compra ${H.info('Unidad de compra', 'Cómo la compras: kg, 25kg (un saco), lt, 500ml, un, 10un (un paquete de 10)…\nAl lado va lo que trae esa unidad, en peso, volumen o unidades: con eso sale el precio por kg, l o unidad que usa el costeo.' + (g ? '\nAquí la unidad de compra es la de la factura: lo que trae una unidad facturada.' : ''))}</label>
         <input id="mpa-uni" maxlength="20" autocomplete="off" spellcheck="false" placeholder="kg, 25kg, lt, un, 10un" value="${H.esc(pre.unidad)}"></div>
       <div class="campo"><span class="rotulo-campo" id="mpa-cont-l">${g ? 'Una unidad de la factura trae' : 'Una unidad de compra trae'}</span>
-        <div class="fin-cont" role="group" aria-labelledby="mpa-cont-l"><label class="sr" for="mpa-cant">Cantidad</label><input id="mpa-cant" type="number" inputmode="decimal" min="0" step="any" value="${H.esc(String(c0.cantidad))}">
+        <div class="fin-cont" role="group" aria-labelledby="mpa-cont-l"><label class="sr" for="mpa-cant">Cantidad</label><input id="mpa-cant" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0" step="any" value="${H.esc(String(c0.cantidad))}">
         <label class="sr" for="mpa-cuni">Unidad</label><select id="mpa-cuni">${['kg', 'g', 'l', 'ml', 'un'].map(x => `<option value="${x}" ${x === c0.unidad ? 'selected' : ''}>${x === 'un' ? 'unidades' : x}</option>`).join('')}</select></div>
         <span class="ayuda" id="mpa-cont-nota">${notaCont}</span></div>
     </div>
-    <div class="campo"><label for="mpa-precio">Precio neto de la unidad de compra</label><input id="mpa-precio" type="number" inputmode="decimal" min="0" step="any" value="${pre.precioNeto > 0 ? H.esc(String(pre.precioNeto)) : ''}" required>
+    <div class="campo"><label for="mpa-precio">Precio neto de la unidad de compra</label><input id="mpa-precio" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0" step="any" value="${pre.precioNeto > 0 ? H.esc(String(pre.precioNeto)) : ''}" required>
       <label class="check fin-check"><input type="checkbox" id="mpa-coniva"> Lo escribo con IVA (19 %) ${H.info('Precio con IVA', 'Si copias el precio de una boleta o de la góndola, marca esta casilla: se guarda el neto (precio ÷ 1,19). Todo en Finanzas va en neto.')}</label>
       ${g ? '<span class="ayuda">El neto de la última compra (con su descuento). Si lo cambias, queda como precio "A mano".</span>' : ''}</div>
     <p class="fin-calc" id="mpa-calc" aria-live="polite"></p>
@@ -471,7 +471,7 @@ function dialogoAlta(el, H, { g = null, volver = 'mp' } = {}) {
   q('#mpa-no').addEventListener('click', () => d.close());
   let contTocado = false;   // si escribes el contenido a mano, la unidad de compra ya no lo cambia
   const leer = () => ({ nombre: q('#mpa-nombre').value, tipo: (d.querySelector('input[name="mpa-tipo"]:checked') || {}).value, categoria: q('#mpa-cat').value, unidad: q('#mpa-uni').value,
-    contenido: { cantidad: q('#mpa-cant').value, unidad: q('#mpa-cuni').value }, precio: q('#mpa-precio').value, conIva: q('#mpa-coniva').checked, areas: leerAreas(d, 'mpa') });
+    contenido: { cantidad: FC.casilla(q('#mpa-cant')), unidad: q('#mpa-cuni').value }, precio: FC.casilla(q('#mpa-precio')), conIva: q('#mpa-coniva').checked, areas: leerAreas(d, 'mpa') });
   const abrirOtra = (id, modo) => {
     d.close();
     if (modo === 'asociar' && g && st.datos.costos[id] && st.datos.costos[id].estado !== 'archivada') return asociar(g.clave, el, H, { elegir: id });
@@ -771,7 +771,7 @@ function asociar(clave, el, H, { elegir = '' } = {}) {
       ${htmlParecidas(top, H, 'usar')}
       ${!a && st.cx.prod.estado === 'ok' ? `<button type="button" class="btn-link" id="fin-as-crear">${ic('mas', 14)} No está: crear desde esta línea</button>` : ''}
       <div class="campo"><span class="rotulo-campo" id="fin-as-cont-l">Una unidad de la factura trae ${H.info('Contenido por unidad', 'Lo que trae UNA unidad de la línea de la factura, no la línea completa. Ejemplos: "HARINA SACO 25 KG", 10 sacos → 25 kg. "MANTEQUILLA" en KG, 20 KG → 1 kg. "LECHE 1 LT X12" (una caja de 12) → 12 l.\nSe usa para sacar el precio por kg, l o unidad. Si la materia prima se compra por peso, aquí va peso (kg o g); si se compra por unidades, unidades.')}</span>
-        <div class="fin-cont" role="group" aria-labelledby="fin-as-cont-l"><label class="sr" for="fin-as-cant">Cantidad</label><input id="fin-as-cant" type="number" inputmode="decimal" min="0" step="any" value="${H.esc(String(c0.cantidad))}">
+        <div class="fin-cont" role="group" aria-labelledby="fin-as-cont-l"><label class="sr" for="fin-as-cant">Cantidad</label><input id="fin-as-cant" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0" step="any" value="${H.esc(String(c0.cantidad))}">
         <label class="sr" for="fin-as-uni">Unidad</label><select id="fin-as-uni">${['kg', 'g', 'l', 'ml', 'un'].map(x => `<option value="${x}" ${x === c0.unidad ? 'selected' : ''}>${x === 'un' ? 'unidades' : x}</option>`).join('')}</select></div>
         <span class="ayuda">${notaLeido}</span></div>
       <p class="fin-calc" id="fin-as-calc" aria-live="polite"></p>
@@ -792,7 +792,7 @@ function asociar(clave, el, H, { elegir = '' } = {}) {
   if (d.querySelector('#fin-as-crear')) d.querySelector('#fin-as-crear').addEventListener('click', () => { d.close(); dialogoAlta(el, H, { g, volver: 'compras' }); });
   const tipo = () => d.querySelector('input[name="fin-as-t"]:checked').value;
   const leer = () => ({ rut: g.rut, proveedor: g.proveedor, nombreItem: g.nombreItem, codigo: g.codigo, ignorar: tipo() === 'no', mp: tipo() === 'no' ? null : sel.value,
-    contenido: { cantidad: d.querySelector('#fin-as-cant').value, unidad: d.querySelector('#fin-as-uni').value }, nota: d.querySelector('#fin-as-nota').value });
+    contenido: { cantidad: FC.casilla(d.querySelector('#fin-as-cant')), unidad: d.querySelector('#fin-as-uni').value }, nota: d.querySelector('#fin-as-nota').value });
   const calc = () => {
     d.querySelector('#fin-as-mp-c').classList.toggle('oculto', tipo() === 'no');
     const x = leer(), out = d.querySelector('#fin-as-calc'), m = costos[x.mp];
@@ -883,7 +883,7 @@ function htmlProductos(H) {
     <h2 id="t-fin-ajustes">Ajustes de Finanzas</h2>
     <form id="fin-ajustes" class="fin-ajustes" novalidate>
       <div class="campo"><label for="fin-alza">Avisar en Hoy cuando el costo de un producto sube más de (%) ${H.info('Aviso de alza', 'Si el costo directo por unidad de un producto sube más de este % contra el costo con que empezó el mes, aparece en Hoy ("Subió el costo de N productos") y arriba en esta lista.\nPor defecto 5 %. Cada cambio de este número queda guardado con quién y cuándo.')}</label>
-        <input id="fin-alza" type="number" inputmode="decimal" min="0.1" max="100" step="any" value="${H.esc(String(umbral))}"></div>
+        <input id="fin-alza" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0.1" max="100" step="any" value="${H.esc(String(umbral))}"></div>
       <button type="submit" class="btn-sec" id="fin-alza-si">Guardar</button>
     </form><p class="error" id="fin-aj-err" role="alert"></p>
   </section>`;
@@ -916,7 +916,7 @@ function conectarProductos(el, H) {
   const fa = $('fin-ajustes');
   if (fa) fa.addEventListener('submit', async ev => {
     ev.preventDefault(); const err = $('fin-aj-err'); err.textContent = '';
-    try { const x = await F.guardarAjustes({ alzaAviso: $('fin-alza').value }); H.registrar('Finanzas: cambió el % de aviso de alza', `${x} %`); st.msg = `Aviso de alza: más de ${String(x).replace('.', ',')} %.`; st.pr = await F.leerProductos(); pintarCostos(el, 'productos', H); }
+    try { const x = await F.guardarAjustes({ alzaAviso: FC.casilla($('fin-alza')) }); H.registrar('Finanzas: cambió el % de aviso de alza', `${x} %`); st.msg = `Aviso de alza: más de ${String(x).replace('.', ',')} %.`; st.pr = await F.leerProductos(); pintarCostos(el, 'productos', H); }
     catch (e) { err.textContent = error(e, H); }
   });
 }
@@ -1295,12 +1295,12 @@ function dialogoVinculo(p, el, volver, H) {
         <span class="ayuda" id="m-v-area-prop">${v && v.tipo === 'reventa' && v.area && v.area !== FV.REVENTA ? `Hoy está en ${H.esc(FV.NOMBRE_AREA[v.area] || v.area)}. Lo propuesto para la reventa es Reventa.` : 'Propuesta: Reventa.'}</span></div>
       <div class="campo"><label for="m-v-revid">De la lista de reventa ${H.info('Lista de reventa', 'La reventa del Catálogo (pestaña Reventa), con su ID y su costo neto por unidad. Al elegirla, el costo se copia abajo; lo puedes cambiar para este producto.\nSi no está en la lista, agrégala en Catálogo → Reventa. Un vínculo antiguo sin reventa elegida sigue funcionando igual.')}</label><select id="m-v-revid"><option value="">${v && v.reventaId ? H.esc(v.reventaId) : 'Cargando…'}</option></select></div>
       <div class="campo"><label for="m-v-costo">Costo de compra por unidad, neto (opcional) ${H.info('Costo de la reventa', 'Lo que pagas por una unidad, sin IVA. Por ahora se anota a mano; es el costo directo de la reventa en Margen por producto. Si lo copias de una boleta con IVA, marca la casilla.')}</label>
-        <input id="m-v-costo" type="number" inputmode="decimal" min="0" step="any" value="${v && v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? H.esc(String(v.costoReventaNeto)) : ''}">
+        <input id="m-v-costo" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0" step="any" value="${v && v.costoReventaNeto !== null && v.costoReventaNeto !== undefined ? H.esc(String(v.costoReventaNeto)) : ''}">
         <label class="check fin-check"><input type="checkbox" id="m-v-iva"> Lo escribo con IVA (19 %)</label></div></div>
     <div id="m-v-upv" class="campo ${tipo0 === 'ignorar' ? 'oculto' : ''}"><label for="m-v-u">Unidades por venta ${H.info('Unidades por venta', 'Cuántas unidades de la receta (o de la reventa) lleva una venta de este producto. Casi siempre 1. Una "caja de 6 alfajores" = 6; "media docena" = 6.')}</label>
-      <input id="m-v-u" type="number" inputmode="decimal" min="0" step="any" value="${H.esc(String(v ? v.unidadesPorVenta ?? 1 : 1))}"></div>
+      <input id="m-v-u" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0" step="any" value="${H.esc(String(v ? v.unidadesPorVenta ?? 1 : 1))}"></div>
     <div id="m-v-extra" class="campo ${tipo0 === 'ignorar' ? 'oculto' : ''}"><label for="m-v-ex">Costo extra por venta, neto (opcional) ${H.info('Costo extra por venta', 'Envases o lo que se agrega al vender y no está en la receta (caja, bolsa, vaso, tapa), sin IVA, por cada venta de este producto: una "caja de 6" lleva una caja.\nSuma al costo directo en Margen por producto y en Precio sugerido.')}</label>
-      <input id="m-v-ex" type="number" inputmode="decimal" min="0" step="any" value="${v && v.costoExtraNeto !== null && v.costoExtraNeto !== undefined ? H.esc(String(v.costoExtraNeto)) : ''}"></div>
+      <input id="m-v-ex" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0" step="any" value="${v && v.costoExtraNeto !== null && v.costoExtraNeto !== undefined ? H.esc(String(v.costoExtraNeto)) : ''}"></div>
     <div class="campo"><label for="m-v-nota">Nota (opcional)</label><input id="m-v-nota" type="text" maxlength="200" value="${H.esc((v && v.nota) || '')}"></div>
     <p class="error" id="m-v-err" role="alert"></p>
     <div class="botones"><button type="button" class="btn-sec" id="m-v-no">Cancelar</button><button type="submit" class="btn" id="m-v-si">Guardar</button></div>
@@ -1313,7 +1313,7 @@ function dialogoVinculo(p, el, volver, H) {
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
   // v0.73.0: la lista de reventa (cat_reventa, de la memoria de fs-gastos): activas, más la que ya tenía este producto
   const selRev = d.querySelector('#m-v-revid');
-  import('./reventa.js?v=0.111.0').then(R => R.leer()).then(({ lista }) => {
+  import('./reventa.js?v=0.112.0').then(R => R.leer()).then(({ lista }) => {
     MS.reventa = lista;
     const ofrecer = lista.filter(x => x.estado !== 'archivado' || (v && v.reventaId === x.id)).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
     selRev.innerHTML = `<option value="">${ofrecer.length ? 'Elige…' : 'La lista de reventa está vacía (Catálogo → Reventa)'}</option>` + ofrecer.map(x => `<option value="${H.esc(x.id)}" data-costo="${x.costoNeto ?? ''}" data-nombre="${H.esc(x.nombre)}" ${v && v.reventaId === x.id ? 'selected' : ''}>${H.esc(x.nombre)} · ${H.esc(x.id)} · $${(Math.round(Number(x.costoNeto || 0) * 100) / 100).toLocaleString('es-CL')} / ${H.esc(x.unidad || 'un')}${x.estado === 'archivado' ? ' · archivada' : ''}</option>`).join('');
@@ -1327,7 +1327,7 @@ function dialogoVinculo(p, el, volver, H) {
     ev.preventDefault();
     const err = d.querySelector('#m-v-err'), b = d.querySelector('#m-v-si'); err.textContent = '';
     const datos = { canal: p.canal, productoId: p.productoId, nombre: p.nombre, tipo: tipo(), receta: d.querySelector('#m-v-receta').value, area: d.querySelector('#m-v-area').value,
-      costoReventaNeto: d.querySelector('#m-v-costo').value, conIva: d.querySelector('#m-v-iva').checked, reventaId: selRev.value, reventaNombre: (selRev.selectedOptions[0] && selRev.selectedOptions[0].dataset.nombre) || '', unidadesPorVenta: d.querySelector('#m-v-u').value, costoExtraNeto: d.querySelector('#m-v-ex').value, nota: d.querySelector('#m-v-nota').value,
+      costoReventaNeto: FC.casilla(d.querySelector('#m-v-costo')), conIva: d.querySelector('#m-v-iva').checked, reventaId: selRev.value, reventaNombre: (selRev.selectedOptions[0] && selRev.selectedOptions[0].dataset.nombre) || '', unidadesPorVenta: FC.casilla(d.querySelector('#m-v-u')), costoExtraNeto: FC.casilla(d.querySelector('#m-v-ex')), nota: d.querySelector('#m-v-nota').value,
       origen: p.propuesta && p.propuesta.receta === d.querySelector('#m-v-receta').value ? p.propuesta.origen : 'manual' };
     try { FV.armarVinculo(v, datos, { recetas }); } catch (e) { err.textContent = e.message; return; }
     b.disabled = true; b.textContent = 'Guardando…';
@@ -1551,7 +1551,7 @@ function htmlAjustesM(H) {
   const todos = {}; Object.values(medios).forEach(x => Object.entries(x).forEach(([k, v]) => { todos[k] = (todos[k] || 0) + v; }));
   const tc = FMG.tasaComision(todos, c);
   const val = v => (v === null || v === undefined ? '' : H.esc(String(v)));
-  const campo = (id, et, v, ayuda, extra = '') => `<div class="campo"><label for="${id}">${et}${ayuda ? ' ' + ayuda : ''}</label><input id="${id}" type="number" inputmode="decimal" min="0" step="any" value="${val(v)}" ${extra}></div>`;
+  const campo = (id, et, v, ayuda, extra = '') => `<div class="campo"><label for="${id}">${et}${ayuda ? ' ' + ayuda : ''}</label><input id="${id}" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0" step="any" value="${val(v)}" ${extra}></div>`;
   const hist = (Array.isArray(raw.historialMargenes) ? raw.historialMargenes : []).slice(-5).reverse();
   const falta = !FMG.comisionConfigurada(c);
   return `<section class="tarjeta" aria-labelledby="t-m-aj">
@@ -1561,14 +1561,14 @@ function htmlAjustesM(H) {
       <fieldset><legend>Comisión de tarjeta, por medio de pago ${falta ? '<span class="chip c-amarillo chip-chico" id="m-aj-falta">Falta configurar</span>' : '<span class="chip c-verde chip-chico">Configurada</span>'} ${H.info('Comisión de tarjeta', 'El % que cobra la empresa de tarjetas sobre lo pagado (con IVA), sin el IVA de la comisión (ese IVA es crédito fiscal). Míralo en la liquidación o la factura de la empresa de pagos.\nOtros: transferencias, apps de pago o cualquier medio que no sea efectivo, débito ni crédito (si no cobran, 0).\nMientras no se configure se usa 0 % y Márgenes avisa.')}</legend>
         <div class="fin-maj-campos">${FMG.MEDIOS.map(k => campo(`m-aj-c-${k}`, `${FMG.NOMBRE_MEDIO[k]} (%)`, c.comision[k], '', 'max="20"')).join('')}</div></fieldset>
       <fieldset><legend>Cómo se paga en la caja ${H.info('Medios de pago de la caja', 'La comisión se reparte según cuánto se pagó con cada medio. Se toma de los resúmenes de cierre de la caja (traen el total por medio de pago).\nLa mezcla de abajo se usa solo si en un mes no hay ese dato (por ejemplo, un mes guardado antes de esta versión: "Volver a leer" lo completa).')}</legend>
-        <p class="ayuda" id="m-aj-mix">${tc.fuente === 'caja' ? `En el período, según los cierres: efectivo ${pctF(tc.partes.efectivo)}, débito ${pctF(tc.partes.debito)}, crédito ${pctF(tc.partes.credito)}, otros ${pctF(tc.partes.otros)} → comisión ${pctF(tc.tasa)} de lo pagado.` : 'En el período no hay totales por medio de pago en los cierres.'}</p>
+        <p class="ayuda" id="m-aj-mix">${tc.fuente === 'caja' ? `En el período, según los cierres: efectivo ${pctF(tc.partes.efectivo)}, débito ${pctF(tc.partes.debito)}, crédito ${pctF(tc.partes.credito)}, otros ${pctF(tc.partes.otros)}.<span class="fin-maj-tasa" id="m-aj-tasa">Comisión estimada: <b>${pctF(tc.tasa)}</b> de lo pagado</span>` : 'En el período no hay totales por medio de pago en los cierres.'}</p>
         <div class="fin-maj-campos">${FMG.MEDIOS.map(k => campo(`m-aj-m-${k}`, `${FMG.NOMBRE_MEDIO[k]} (% venta)`, c.mixCaja[k], '', 'max="100"')).join('')}</div>
-        <p class="ayuda">Solo si falta el dato de los cierres. El resto se toma como efectivo.</p></fieldset>
+        <p class="ayuda">Mezcla de respaldo, <b>opcional</b>: se usa solo si en un mes falta el dato de los cierres (normalmente quedan vacías). El resto se toma como efectivo.</p></fieldset>
       <fieldset><legend>Despacho B2B ${H.info('Despacho B2B', 'Lo que cuesta llevar los pedidos B2B (combustible, flete), neto. Como % de la venta neta B2B, o como $ por orden (se reparte entre los productos de cada mes según su venta). Opcional: por defecto 0.')}</legend>
         <div class="fin-maj-campos"><div class="campo"><label for="m-aj-dm">Cómo</label><select id="m-aj-dm"><option value="pct" ${c.despacho.modo === 'pct' ? 'selected' : ''}>% de venta</option><option value="orden" ${c.despacho.modo === 'orden' ? 'selected' : ''}>$ por orden</option></select></div>
           ${campo('m-aj-dv', 'Valor', c.despacho.valor || '', '')}</div></fieldset>
       <fieldset><legend>Margen objetivo por área (MC % sobre el precio neto) ${H.info('Margen objetivo', 'El margen de contribución que cada área necesita sobre su precio neto: margen objetivo = (fijos del área + utilidad objetivo) ÷ ventas esperadas del área.\nPor ahora se escribe a mano; la etapa de Metas (F5) lo va a calcular con los fijos reales y el presupuesto.\nVacío: no se calcula precio sugerido para esa área.\nRecargo equivalente sobre el costo = margen ÷ (1 − margen). Ej.: 60 % de margen = 150 % de recargo.')}</legend>
-        <div class="fin-maj-campos">${FV.AREAS.map(a => `<div class="campo"><label for="m-aj-o-${a}">${FV.NOMBRE_AREA[a]} (%)</label><input id="m-aj-o-${a}" type="number" inputmode="decimal" min="0" max="95" step="any" value="${val(c.margenObjetivo[a])}" data-recargo="m-aj-r-${a}"><span class="ayuda" id="m-aj-r-${a}">${c.margenObjetivo[a] === null ? 'Sin definir' : `= recargo ${pctF(FMG.margenARecargo(c.margenObjetivo[a] / 100))}`}</span></div>`).join('')}</div></fieldset>
+        <div class="fin-maj-campos">${FV.AREAS.map(a => `<div class="campo"><label for="m-aj-o-${a}">${FV.NOMBRE_AREA[a]} (%)</label><input id="m-aj-o-${a}" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0" max="95" step="any" value="${val(c.margenObjetivo[a])}" data-recargo="m-aj-r-${a}"><span class="ayuda" id="m-aj-r-${a}">${c.margenObjetivo[a] === null ? 'Sin definir' : `= recargo ${pctF(FMG.margenARecargo(c.margenObjetivo[a] / 100))}`}</span></div>`).join('')}</div></fieldset>
       <fieldset><legend>Redondeo del precio con IVA de la caja ${H.info('Redondeo', 'El precio sugerido con IVA de la caja se redondea hacia arriba a este múltiplo (para no quedar bajo el margen objetivo).')}</legend>
         <div class="chips">${FMG.REDONDEOS.map(r => `<label class="check fin-maj-red"><input type="radio" name="m-aj-red" value="${r}" ${c.redondeo === r ? 'checked' : ''}> $${r}</label>`).join('')}</div></fieldset>
       <p class="error" id="m-aj-err" role="alert"></p>
@@ -1591,11 +1591,11 @@ function conectarAjustesM(el, H) {
   f.addEventListener('submit', async ev => {
     ev.preventDefault();
     const err = $('m-aj-err'), b = $('m-aj-si'); err.textContent = '';
-    const v = id => $(id).value;
+    const v = id => FC.casilla($(id));   // v0.112.0: las casillas de número, como número
     const datos = { comision: Object.fromEntries(FMG.MEDIOS.map(k => [k, v(`m-aj-c-${k}`)])), mixCaja: Object.fromEntries(FMG.MEDIOS.map(k => [k, v(`m-aj-m-${k}`)])),
       despacho: { modo: v('m-aj-dm'), valor: v('m-aj-dv') }, margenObjetivo: Object.fromEntries(FV.AREAS.map(a => [a, v(`m-aj-o-${a}`)])),
       redondeo: (f.querySelector('input[name="m-aj-red"]:checked') || {}).value };
-    try { FMG.validarConfig(datos); } catch (e) { err.textContent = e.message; return; }
+    try { FMG.validarConfig(datos); } catch (e) { err.textContent = e.message; err.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }   // v0.112.0: el aviso a la vista
     b.disabled = true; b.textContent = 'Guardando…';
     try {
       await F.guardarAjustesMargenes(datos);

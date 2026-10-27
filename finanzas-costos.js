@@ -26,6 +26,19 @@ export function num(v) {
   const n = Number(s);
   return isFinite(n) ? n : 0;
 }
+// v0.112.0 · Las casillas de números (data-decimal) aceptan coma o punto como decimal. Con coma y punto a la vez, el punto es de
+// miles ("1.234,5" → 1234.5); con varios puntos y sin coma, también ("1.234.567"). Un solo punto es decimal ("0.250" → 0,25).
+export function normalizarDecimal(v) {
+  let t = String(v ?? '').replace(/[^\d.,\-]/g, '');
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(/,/g, '.');
+  else if ((t.match(/\./g) || []).length > 1) t = t.replace(/\./g, '');
+  const i = t.indexOf('.'); if (i >= 0) t = t.slice(0, i + 1) + t.slice(i + 1).replace(/\./g, '');
+  return t;
+}
+// Lo escrito en una casilla de número, como número (vacía → ''), para que num() no lea "0.250" como 250 (miles)
+export function decimal(v) { const s = String(v ?? '').trim(); if (!s) return ''; const n = Number(normalizarDecimal(s)); return /\d/.test(s) && Number.isFinite(n) ? n : s; }
+// El valor de una casilla: si es de número (data-decimal), como número; si no, el texto tal cual
+export const casilla = el => (!el ? '' : el.hasAttribute && el.hasAttribute('data-decimal') ? decimal(el.value) : el.value);
 const redondear = (x, d = 6) => Math.round(x * 10 ** d) / 10 ** d;
 
 // ── Contenido de una unidad de compra ──

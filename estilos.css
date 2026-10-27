@@ -2965,3 +2965,16 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
   .fin-estado th[scope=row] { min-width: 180px; }
   .fin-en2 th[scope=row] { padding-left: 16px; } .fin-en3 th[scope=row] { padding-left: 28px; } .fin-en4 th[scope=row], .fin-en4.fin-en4-g th[scope=row] { padding-left: 40px; }
 }
+/* ═══ v0.112.0 · Estados por área y por canal, período, línea que cuadra ═══ */
+.fin-estado .fin-ecomun { background: color-mix(in srgb, var(--menu) 55%, transparent); }
+.fin-ecuadre { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--menu); font-size: 13.5px; }
+.fin-ecuadre svg { flex: none; margin-top: 2px; }
+.fin-ecuadre.error { background: color-mix(in srgb, #A23B2A 10%, transparent); }
+.fin-eper .campo { min-width: 170px; }
+.fin-erenta .fin-renta { margin-top: 6px; }
+/* La columna de los conceptos queda fija al deslizar la tabla de lado (celular y tablas anchas) */
+.fin-estado th[scope=row] { position: sticky; left: 0; z-index: 1; background: var(--tarjeta); }
+.fin-estado thead th:first-child { position: sticky; left: 0; z-index: 2; background: var(--tarjeta); }
+.fin-estado tr.fin-eaj th[scope=row] { background: #FBF6EA; }   /* el ajuste conserva su color con la columna fija */
+.fin-maj-tasa { display: block; margin-top: 6px; font-size: 15px; color: var(--texto); }
+.fin-maj-tasa b { font-size: 17px; }

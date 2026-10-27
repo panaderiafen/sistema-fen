@@ -8,10 +8,10 @@
 //  Reglas puras en finanzas-resultados.js; datos en finanzas.js (fen-gastos). No cambia ningún gasto.
 //  ctx = { cab, error, conexion, sinBase } de vista-finanzas.js; H = ayudas de app.js.
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.111.0';
-import * as FR from './finanzas-resultados.js?v=0.111.0';
-import * as FC from './finanzas-costos.js?v=0.111.0';
-import * as VE from './vista-finanzas-eerr.js?v=0.111.0';
+import * as F from './finanzas.js?v=0.112.0';
+import * as FR from './finanzas-resultados.js?v=0.112.0';
+import * as FC from './finanzas-costos.js?v=0.112.0';
+import * as VE from './vista-finanzas-eerr.js?v=0.112.0';
 
 const RS = { datos: null, filtro: 'todos', q: '', msg: '', err: '', sel: null, anioDep: '' };
 const $ = id => document.getElementById(id);
@@ -323,7 +323,7 @@ function dialogoCredito(c, H, ctx, volver, pre) {
       <label class="check"><input type="radio" name="r-c-modo" value="manual" ${modo0 === 'manual' ? 'checked' : ''}> Pegar la tabla del banco</label></fieldset>
     <div id="r-c-fr" class="${modo0 === 'frances' ? '' : 'oculto'}"><div class="grilla-montos">
       <div class="campo"><label for="r-c-monto">Monto del crédito</label><input id="r-c-monto" type="number" inputmode="numeric" min="0" step="1" value="${val(v.monto)}"></div>
-      <div class="campo"><label for="r-c-tasa">Tasa mensual % ${H.info('Tasa mensual', 'La tasa de interés mensual del crédito (por ejemplo 1,5). Si el banco te dio la tasa anual, divide por 12 o mejor pega la tabla.')}</label><input id="r-c-tasa" type="number" inputmode="decimal" min="0" max="20" step="any" value="${val(v.tasa)}"></div>
+      <div class="campo"><label for="r-c-tasa">Tasa mensual % ${H.info('Tasa mensual', 'La tasa de interés mensual del crédito (por ejemplo 1,5). Si el banco te dio la tasa anual, divide por 12 o mejor pega la tabla.')}</label><input id="r-c-tasa" type="text" inputmode="decimal" data-decimal autocomplete="off" min="0" max="20" step="any" value="${val(v.tasa)}"></div>
       <div class="campo"><label for="r-c-n">N° de cuotas</label><input id="r-c-n" type="number" inputmode="numeric" min="1" max="600" step="1" value="${val(v.n)}"></div>
       <div class="campo"><label for="r-c-f1">Primera cuota</label><input id="r-c-f1" type="date" value="${val(v.fechaPrimera)}"></div>
       <div class="campo"><label for="r-c-cuota">Cuota del banco (opcional) ${H.info('Cuota', 'Vacía: se calcula con la fórmula del sistema francés y se redondea al peso. Si el banco cobra otra (por seguros o redondeo), escríbela: el interés se calcula igual y la última cuota ajusta.')}</label><input id="r-c-cuota" type="number" inputmode="numeric" min="0" step="1" value="${c && c.cuotaManual ? val(c.cuota) : val(pre && pre.cuota)}"></div></div>
@@ -344,7 +344,7 @@ function dialogoCredito(c, H, ctx, volver, pre) {
     const o = obls.find(x => (x.id || '') === q('#r-c-obl').value);
     return modo() === 'manual'
       ? { modo: 'manual', nombre: q('#r-c-nom').value, obligacionId: q('#r-c-obl').value, obligacionNombre: o ? o.nombre : '', texto: q('#r-c-txt').value, monto: q('#r-c-montom').value, nota: q('#r-c-nota').value }
-      : { modo: 'frances', nombre: q('#r-c-nom').value, obligacionId: q('#r-c-obl').value, obligacionNombre: o ? o.nombre : '', monto: q('#r-c-monto').value, tasa: q('#r-c-tasa').value, n: q('#r-c-n').value, fechaPrimera: q('#r-c-f1').value, cuota: q('#r-c-cuota').value, nota: q('#r-c-nota').value };
+      : { modo: 'frances', nombre: q('#r-c-nom').value, obligacionId: q('#r-c-obl').value, obligacionNombre: o ? o.nombre : '', monto: q('#r-c-monto').value, tasa: FC.casilla(q('#r-c-tasa')), n: q('#r-c-n').value, fechaPrimera: q('#r-c-f1').value, cuota: q('#r-c-cuota').value, nota: q('#r-c-nota').value };
   };
   const calc = () => {
     if (modo() === 'manual') {

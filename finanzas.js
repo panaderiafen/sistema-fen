@@ -47,22 +47,22 @@
 //  v0.76.0: materias primas e insumos nuevos desde Finanzas → Costos (crearMateriaPrima, crearDesdeLinea): costos_mp con origen 'manual'
 //   (o 'sii' si el precio es el de la línea de factura), creadaDesde 'sistema-fen' y su historial; datosMpEnCostos copia nombre y estado.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.111.0';
-import * as FB from './fs-gastos.js?v=0.111.0';
-import * as GB from './gastos-base.js?v=0.111.0';
-import * as P from './produccion.js?v=0.111.0';
-import * as FC from './finanzas-costos.js?v=0.111.0';
-import * as FS from './finanzas-sii.js?v=0.111.0';
-import * as FM from './finanzas-motor.js?v=0.111.0';
-import * as FV from './finanzas-ventas.js?v=0.111.0';
-import * as FMG from './finanzas-margenes.js?v=0.111.0';
-import * as FR from './finanzas-resultados.js?v=0.111.0';
-import * as FE from './finanzas-eerr.js?v=0.111.0';
-import * as CPM from './catalogo-productos-modelo.js?v=0.111.0';
-import * as Caja from './caja.js?v=0.111.0';
-import * as B from './b2b.js?v=0.111.0';
-import * as FBB from './firebase-b2b.js?v=0.111.0';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.111.0';
+import { auth as authSF } from './firebase.js?v=0.112.0';
+import * as FB from './fs-gastos.js?v=0.112.0';
+import * as GB from './gastos-base.js?v=0.112.0';
+import * as P from './produccion.js?v=0.112.0';
+import * as FC from './finanzas-costos.js?v=0.112.0';
+import * as FS from './finanzas-sii.js?v=0.112.0';
+import * as FM from './finanzas-motor.js?v=0.112.0';
+import * as FV from './finanzas-ventas.js?v=0.112.0';
+import * as FMG from './finanzas-margenes.js?v=0.112.0';
+import * as FR from './finanzas-resultados.js?v=0.112.0';
+import * as FE from './finanzas-eerr.js?v=0.112.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.112.0';
+import * as Caja from './caja.js?v=0.112.0';
+import * as B from './b2b.js?v=0.112.0';
+import * as FBB from './firebase-b2b.js?v=0.112.0';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.112.0';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -538,8 +538,10 @@ export async function ventasPeriodo(per, { forzar = false, avance } = {}) {
     if (avance) avance(mes);
     const info = { mes, caja: null, b2b: null };
     const pm = { mes, lineas: [], medios: null, ordenes: 0 };   // v0.60.0: por mes (costo del mes, comisión por medio de pago, despacho por orden)
-    const [gc, gb] = forzar ? [null, null] : await Promise.all(['caja', 'b2b'].map(c => FB.getDoc(FB.doc(db, 'fin_ventas_mes', `${mes}_${c}`)).catch(() => null)));
+    let [gc, gb] = forzar ? [null, null] : await Promise.all(['caja', 'b2b'].map(c => FB.getDoc(FB.doc(db, 'fin_ventas_mes', `${mes}_${c}`)).catch(() => null)));
     if (!forzar) lecturas += 2;
+    // v0.112.0 · Sin conexión a B2B, aunque se pida leer de nuevo, vale lo guardado (no se pierden las ventas B2B del mes)
+    if (forzar && !conB2b) { gb = await FB.getDoc(FB.doc(db, 'fin_ventas_mes', `${mes}_b2b`)).catch(() => null); lecturas += 1; }
     // Caja
     if (gc && gc.exists()) { const d = gc.data(); lineas.push(...(d.lineas || [])); pm.lineas.push(...(d.lineas || [])); pm.medios = d.porMedio || null; info.caja = { fuente: 'guardado', cierres: d.cierres || 0, creado: d.creado || '', conMedios: !!d.porMedio }; }
     else {
@@ -552,10 +554,10 @@ export async function ventasPeriodo(per, { forzar = false, avance } = {}) {
       info.caja = { fuente: 'leido', cierres: x.res.length, abiertas: x.abiertas.length, faltan: x.faltan.length, guardado: guardar, conMedios: true };
     }
     // B2B
-    if (gb && gb.exists()) { const d = gb.data(); lineas.push(...(d.lineas || [])); pm.lineas.push(...(d.lineas || [])); pm.ordenes = d.ordenesValidas ?? d.ordenes ?? 0; info.b2b = { fuente: 'guardado', ordenes: d.ordenes || 0, creado: d.creado || '' }; }
+    if (gb && gb.exists() && (!gb.data().releer || !conB2b)) { const d = gb.data(); lineas.push(...(d.lineas || [])); pm.lineas.push(...(d.lineas || [])); pm.ordenes = d.ordenesValidas ?? d.ordenes ?? 0; info.b2b = { fuente: 'guardado', ordenes: d.ordenes || 0, creado: d.creado || '', ...(d.releer || forzar ? { sinReleer: true } : {}) }; }
     else if (conB2b) {
       const desde = `${mes}-01`, hasta = mes === FV.mesDe(hoy) ? hoy : FV.ultimoDia(mes);
-      if (forzar) B.olvidarAnalisisB2b();
+      if (forzar || (gb && gb.exists())) B.olvidarAnalisisB2b();   // v0.112.0: también si se marcó para leer de nuevo (una orden anulada): sin la copia de 5 minutos
       const os = await B.ordenesEntre(desde, hasta); lecturas += Math.max(1, os.length);
       const ls = FV.lineasDeOrdenes(os, cat.b2b); lineas.push(...ls); pm.lineas.push(...ls);
       pm.ordenes = os.filter(o => o && o.estado !== 'anulada' && !o.quitadoEnPlanilla).length;
@@ -675,14 +677,14 @@ export async function leerResultados(forzar) {
   const db = await dbG(), nuevo = gnActivo();
   const col = n => FB.getDocs(FB.collection(db, n)), nada = Promise.resolve({ docs: [] });
   const [g, it, ob, ve, fi, cf, cr, inv, gn] = await Promise.all([col('gastos'), col('items'), nuevo ? nada : col('obligaciones'), nuevo ? nada : col('vencimientos'), col('fin_items'),
-    FB.getDoc(FB.doc(db, 'fin_config', 'resultados')), col('fin_creditos'), col('fin_inversiones'), nuevo ? import('./gn-fs.js?v=0.111.0').then(m => m.leer()).catch(e => ({ error: e.message || String(e) })) : Promise.resolve(null)]);
+    FB.getDoc(FB.doc(db, 'fin_config', 'resultados')), col('fin_creditos'), col('fin_inversiones'), nuevo ? import('./gn-fs.js?v=0.112.0').then(m => m.leer()).catch(e => ({ error: e.message || String(e) })) : Promise.resolve(null)]);
   const lista = sn => sn.docs.map(d => ({ id: d.id, ...d.data() })), fin = mapa(fi);
   let gastos = lista(g), gnInfo = null;
   if (nuevo) {
     // Del anterior, solo las inversiones (de antes del inicio) para su depreciación.
     // v0.102.1 · Se reconocen también por el catálogo de ítems (un ítem antiguo como ACTIVO FIJO apunta a una cuenta 1.5.x) o por su subtipo
     // INVERSIÓN: en Clasificación casi nada se había guardado, y equipos comprados antes de octubre (los refrigeradores de agosto) no se depreciaban.
-    const ini = inicioGN(), [GI, PC] = await Promise.all([import('./gn-items.js?v=0.111.0'), import('./plan-cuentas.js?v=0.111.0')]);
+    const ini = inicioGN(), [GI, PC] = await Promise.all([import('./gn-items.js?v=0.112.0'), import('./plan-cuentas.js?v=0.112.0')]);
     const I = gn && !gn.error && GI.activo(gn.catalogo) ? GI.indice(gn.catalogo) : null;
     const comoInversion = x => { if ((fin[FR.claveItem(x.itemGasto)] || {}).tipo === 'inversion') return x;
       const r = I ? GI.resolver(x.itemGasto, I) : null; if (r && r.ok && PC.tipoDeCuenta(r.cuenta) === 'inversion') return { ...x, catalogo: true, cuenta: r.cuenta, itemOriginal: x.itemGasto, itemGasto: r.nombre };
@@ -690,7 +692,7 @@ export async function leerResultados(forzar) {
       return null; };
     const inversiones = gastos.filter(x => String(x.fecha || '').slice(0, 10) < ini).map(comoInversion).filter(Boolean);
     if (gn && gn.error) { gnInfo = { error: gn.error, inicio: ini }; gastos = inversiones; }
-    else { const GF = await import('./gn-finanzas.js?v=0.111.0'), P = GF.gastosParaFinanzas(gn, ini); gnInfo = { D: gn, errores: P.errores, inicio: ini, n: P.lineas.length }; gastos = P.lineas.concat(inversiones); }
+    else { const GF = await import('./gn-finanzas.js?v=0.112.0'), P = GF.gastosParaFinanzas(gn, ini); gnInfo = { D: gn, errores: P.errores, inicio: ini, n: P.lineas.length }; gastos = P.lineas.concat(inversiones); }
   }
   resCache = {
     gastos, items: lista(it).filter(x => !x.quitadoEnPlanilla), obligaciones: lista(ob).filter(x => !x.quitadoEnPlanilla), vencimientos: lista(ve),
@@ -816,14 +818,14 @@ export async function cargosCartola() {
 // v0.66.0 · Documentos del SII por clasificar (subidos, sin gasto todavía), de la memoria: para el cierre y el estado de resultados
 // v0.67.1: lo mismo que Conciliación (sin lo que ya tiene su gasto registrado: eso no se cuenta en el cierre)
 export async function siiPorClasificar() {
-  try { return await (await import('./sii-pendientes-fs.js?v=0.111.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
-  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.111.0');
+  try { return await (await import('./sii-pendientes-fs.js?v=0.112.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
+  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.112.0');
   const sn = await FB.getDocs(FB.collection(db, 'sii_docs'));
   return SP.pendientesDe(sn.docs.map(d => ({ id: d.id, d: d.data() })));
 }
 // v0.69.5 · Las planillas de Previred para Cierre de mes (de la memoria de la sesión; lo que falte se lee). null si no se puede.
 export async function planillasPrevired() {
-  try { return await (await import('./gastos-cartola-fs.js?v=0.111.0')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
+  try { return await (await import('./gastos-cartola-fs.js?v=0.112.0')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
 }
 export async function cargasSii() {
   const db = await dbG();
@@ -840,12 +842,31 @@ async function mermaMes(mes) {
     return { disponible: true, detalle, cafe: Number(r.cafe && r.cafe.netoTotal) || 0, sinCosto };
   } catch (e) { console.warn('Finanzas: sin la merma de Producción', e); return { disponible: false, detalle: [], cafe: 0 }; }
 }
+// v0.112.0 · Una orden B2B de un mes ya leído cambió (se anuló): sus ventas guardadas se marcan para leerlas de nuevo la próxima vez.
+// Así Finanzas no se queda con lo viejo y, si el mes ya se cerró, la diferencia entra como ajuste. No falla si no hay nada guardado.
+export async function ventasParaReleer(mes) {
+  try { const db = await dbG(), ref = FB.doc(db, 'fin_ventas_mes', `${mes}_b2b`), sn = await FB.getDoc(ref); if (sn.exists()) await FB.updateDoc(ref, { releer: true, releerDesde: hoyTxt() }); olvidarMeses(); return true; }
+  catch (e) { console.warn('Finanzas: no se pudo marcar las ventas para leer de nuevo', e); return false; }
+}
+// ¿Ese mes ya está cerrado en Finanzas? (1 lectura; false si no se pudo leer)
+export async function mesCerradoFin(mes) {
+  try { const db = await dbG(), sn = await FB.getDoc(FB.doc(db, 'fin_cierres', mes)); return sn.exists() && sn.data().estado === 'cerrado'; } catch (e) { return false; }
+}
+// v0.112.0 · Las ventas con tarjeta (Point) del mes según el reporte de Mercado Pago (mp_ventas, un documento por día, lo sube
+// Gastos): { dias, bruto, comision (la real, con su IVA) }. null si no se pudo leer. Cuesta 1 lectura por día con ventas.
+async function mpVentasMes(mes) {
+  try {
+    const db = await dbG(), sn = await FB.getDocs(FB.query(FB.collection(db, 'mp_ventas'), FB.where('mes', '==', mes)));
+    const l = sn.docs.map(d => d.data());
+    return { dias: l.length, bruto: l.reduce((a, x) => a + (Number(x.bruto) || 0), 0), comision: l.reduce((a, x) => a + (Number(x.comision) || 0), 0) };
+  } catch (e) { console.warn('Finanzas: sin el reporte de Mercado Pago', e); return null; }
+}
 // Todo lo de un mes para el estado de resultados (ventas, costos, vínculos, merma). forzar: vuelve a leer las ventas.
 const mesCache = {};
 export const olvidarMeses = () => { Object.keys(mesCache).forEach(k => delete mesCache[k]); };
 export async function datosMes(mes, { forzar = false } = {}) {
   if (mesCache[mes] && !forzar) return mesCache[mes];
-  const [ventas, vinculos, costos, merma, maestro] = await Promise.all([ventasPeriodo({ meses: [mes] }, { forzar }), leerVinculos(), leerProductos(), mermaMes(mes), maestroFinanzas()]);
+  const [ventas, vinculos, costos, merma, maestro, mp] = await Promise.all([ventasPeriodo({ meses: [mes] }, { forzar }), leerVinculos(), leerProductos(), mermaMes(mes), maestroFinanzas(), mpVentasMes(mes)]);
   const hoy = hoyTxt(), cfg = FMG.configMargenes(costos.config && costos.config.margenes);
   // v0.74.0: foto de la venta → maestro (desde vigenteDesde) → fin_productos; los cargos (despacho) van aparte
   const margen = FMG.calcularMargenes(ventas.porMes || [], vinculos || {}, costos, cfg, { hoy, modo: 'mes', maestro });
@@ -854,7 +875,8 @@ export async function datosMes(mes, { forzar = false } = {}) {
   const netoTotal = margen.filas.reduce((a, f) => a + f.neto, 0), netoSin = margen.filas.filter(f => f.tipo === 'sin').reduce((a, f) => a + f.neto, 0);
   const pend = margen.filas.filter(f => f.tipo === 'pendiente');   // v0.80.1: receta pendiente (asociados, sin costo)
   const caja = info.caja || {};
-  mesCache[mes] = { mes, margen, merma, ventasInfo: { guardado: caja.fuente === 'guardado', abiertas: caja.abiertas || 0, faltan: caja.faltan || 0, nAinavillo: lAin.reduce((a, l) => a + (Number(l.cantidad) || 0), 0), netoAinavillo: lAin.reduce((a, l) => a + (Number(l.neto) || 0), 0), netoTotal, netoSinAsociar: netoSin, netoRecetaPendiente: pend.reduce((a, f) => a + f.neto, 0), nRecetaPendiente: pend.length, b2b: info.b2b || null } };
+  const medios = ((ventas.porMes || [])[0] || {}).medios || null;   // v0.112.0: lo pagado con cada medio en la caja (para la cobertura del reporte de Mercado Pago)
+  mesCache[mes] = { mes, margen, merma, mp, medios, ventasInfo: { b2bSinConexion: (info.b2b || {}).fuente === 'sin_conexion' || !!(info.b2b || {}).sinReleer, guardado: caja.fuente === 'guardado', abiertas: caja.abiertas || 0, faltan: caja.faltan || 0, nAinavillo: lAin.reduce((a, l) => a + (Number(l.cantidad) || 0), 0), netoAinavillo: lAin.reduce((a, l) => a + (Number(l.neto) || 0), 0), netoTotal, netoSinAsociar: netoSin, netoRecetaPendiente: pend.reduce((a, f) => a + f.neto, 0), nRecetaPendiente: pend.length, b2b: info.b2b || null } };
   return mesCache[mes];
 }
 export async function conteosMes(mes) {

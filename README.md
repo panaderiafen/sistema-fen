@@ -1,9 +1,34 @@
-# Sistema Fën · v0.109.2
+# Sistema Fën · v0.112.0
 
 **App:** v0.109.2 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.112.0: estados por área y por canal, período a elección y la comisión real de Mercado Pago
+
+Aprobado por Emmanuel el 27 oct ("ok a todo"; hoja de ruta v11, paso 10; `claude/auditoria-fuentes-eerr.md`). **Nadie registra nada distinto.**
+- **Ver por: Por área y Por canal**, como en los bocetos:
+  - una columna por área (o por canal), una columna **Común** y el Total;
+  - cada columna llega hasta su **aporte**; lo de abajo (financieros, impuesto, utilidad neta) es solo de la empresa;
+  - una línea que cuadra: suma de los aportes − comunes = resultado operacional de la empresa;
+  - **Comunes repartidos** (Por área, un solo mes) queda como vista secundaria, con sus claves de reparto.
+  - La tabla de antes ("Áreas, forma anterior") se retira.
+- **Período a elección:** en Meses, Temporadas, Por área y Por canal se elige **Desde – Hasta** (por ejemplo, enero a marzo). Sale una columna por mes y el **Total del período**.
+- **Comisión de tarjeta real:** si el reporte de Mercado Pago del mes está subido en Gastos y cubre lo vendido con tarjeta en Barros Arana, Finanzas usa esa comisión (sin IVA), repartida según la venta de cada producto. Si falta el reporte o está incompleto, usa las tasas de Márgenes → Ajustes y lo avisa. Cuando cambie de categoría en Mercado Pago, actualice esas tasas a mano.
+- **Las ventas al día al cerrar:** al cerrar un mes, Finanzas lee sus ventas de nuevo. Si en ese equipo no se puede leer Ventas B2B, la revisión "Ventas B2B al día" no deja cerrar (se usan las ventas guardadas, nunca cero).
+- **Anular una orden de un mes anterior** (desde Sistema Fën, o al aprobar el pedido de anulación de logística): Finanzas lee de nuevo las ventas B2B de ese mes. Si el mes ya está cerrado, Ventas B2B lo avisa y la diferencia entra como ajuste en el primer mes abierto. *Pendiente:* lo que se cambie directo en la app de logística en un mes anterior todavía no avisa a Finanzas; ahí, use "Volver a leer".
+- **Números con coma:** las casillas de números de Finanzas aceptan coma o punto como decimal (1,99 o 1.99; 0,250 kg es un cuarto de kilo). Con punto y coma a la vez, el punto es de miles (1.234,5).
+- Ajustes visuales: la tasa de renta en su propia tarjeta; la comisión estimada se ve más grande; los respaldos dicen "opcional".
+
+Cambian `finanzas-eerr.js`, `finanzas.js`, `finanzas-costos.js`, `vista-finanzas-eerr.js`, `vista-finanzas.js`, `vista-finanzas-resultados.js`, `vista-gn.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.112.0`). No cambian las reglas de Firestore.
+
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.112.0.
+- [ ] Finanzas → Resultados → Ver por: Por área. La línea de abajo dice "el mismo del estado de la empresa".
+- [ ] Ver por: Por canal (B2B, Barros Arana, Ainavillo y Común).
+- [ ] Ver por: Meses, elegir Desde agosto Hasta octubre: tres meses y el total del período.
+- [ ] Con el reporte de Mercado Pago de octubre subido: no sale el aviso de "tasa configurada". Sin él, sí.
+- [ ] Márgenes → Ajustes: escribir 1,99 en una comisión y guardar; queda 1,99.
 
 ## Novedades de la v0.111.0: el estado de resultados ordenado (filas clásicas en 4 niveles, Ver por meses y temporadas)
 

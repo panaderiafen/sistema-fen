@@ -33,11 +33,11 @@
 //  líneas del catálogo usan el área tal cual (el mapa de áreas de Clasificación ya no se usa: una sola regla). La cuota de un convenio de
 //  la TGR (2.9) va fuera del resultado. Un cierre anterior a la v0.102.0 se compara en su forma (las filas nuevas se suman donde estaban).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.111.0';
-import * as AR from './areas.js?v=0.111.0';
-import * as PC from './plan-cuentas.js?v=0.111.0';
-import * as GT from './tributario.js?v=0.111.0';   // v0.108.0: gestión y tributario
-import * as FS from './finanzas-estado.js?v=0.111.0';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
+import * as FR from './finanzas-resultados.js?v=0.112.0';
+import * as AR from './areas.js?v=0.112.0';
+import * as PC from './plan-cuentas.js?v=0.112.0';
+import * as GT from './tributario.js?v=0.112.0';   // v0.108.0: gestión y tributario
+import * as FS from './finanzas-estado.js?v=0.112.0';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -161,6 +161,20 @@ export function depreciacionDelMes(invs, mes) {
 //   margen: resultado de finanzas-margenes.calcularMargenes() para ese mes (filas con area, porSuc { neto, costo, comision, despacho }),
 //   merma: { disponible, detalle: [{ area, nombre, neto }], cafe (neto del café de calibración, va a Cafetería), sinCosto (n) },
 //   gastos (todos), fin (fin_items), mapa (areasGasto), creditosMes (creditosDelMes), invs (FR.inversiones), pagosTarjeta [{ fecha, monto, descripcion, id }] }
+// v0.112.0 · ¿De dónde sale la comisión de tarjeta de la caja (Barros Arana)? Del reporte de Mercado Pago (la real, que cambia con la
+// categoría de ventas) cuando cubre lo vendido con tarjeta en el mes según los cierres de caja (97 % a 103 %); si no, de la tasa
+// configurada en Márgenes. La comisión del reporte trae su IVA (crédito fiscal): al resultado va neta.
+// E.comisionMP = { mp: { dias, bruto, comision } | null, medios: { barros: { efectivo, debito, credito… } } }
+export function comisionCaja(E) {
+  const mp = E && E.comisionMP && E.comisionMP.mp, med = ((E && E.comisionMP && E.comisionMP.medios) || {}).barros || {};
+  const tarjeta = Object.entries(med).filter(([k]) => /debit|credit|tarjeta|prepag/i.test(k)).reduce((a, [, v]) => a + num(v), 0);
+  const estimada = r0(((E && E.margen && E.margen.filas) || []).reduce((a, f) => a + num(((f.porSuc || {}).barros || {}).comision), 0));
+  if (!mp || !mp.dias) return { fuente: 'tasa', motivo: tarjeta > 0 ? 'sin_reporte' : 'sin_tarjeta', estimada };
+  const cobertura = tarjeta > 0 ? num(mp.bruto) / tarjeta : null;
+  if (cobertura === null) return { fuente: 'tasa', motivo: 'sin_medios', mpBruto: r0(mp.bruto), estimada };
+  if (cobertura < 0.97 || cobertura > 1.03) return { fuente: 'tasa', motivo: 'parcial', cobertura: cobertura || 0, mpBruto: r0(mp.bruto), tarjeta: r0(tarjeta), estimada };
+  return { fuente: 'real', real: r0(num(mp.comision) / 1.19), conIva: r0(mp.comision), cobertura, estimada };
+}
 export function armarEERR(E) {
   const mes = E.mes, F = {}, D = {}, avisos = [];
   const fila = k => F[k] || (F[k] = vacia());
@@ -169,10 +183,14 @@ export function armarEERR(E) {
   const canal = Object.fromEntries(SUCS.map(x => [x, vacia()]));
   const costosUsados = {};
   let sinCostoNeto = 0, nSinCosto = 0, sinAsocNeto = 0, pendNeto = 0, nPend = 0;
+  // v0.112.0 · Comisión de tarjeta de Barros Arana: la real del reporte de Mercado Pago cuando cubre el mes (se reparte según la venta)
+  const CM = comisionCaja(E), netoBarros = ((E.margen && E.margen.filas) || []).reduce((a, f) => a + num(((f.porSuc || {}).barros || {}).neto), 0);
+  const comisionDe = (suc, x) => (suc === 'barros' && CM.fuente === 'real' ? (netoBarros > 0 ? CM.real * num(x.neto) / netoBarros : 0) : num(x.comision));
   // Piso 1: ventas, costo directo y costos de venta, por producto y canal
   ((E.margen && E.margen.filas) || []).forEach(f => {
     const col = f.tipo === 'sin' ? 'comun' : colDe(f.area);
-    Object.entries(f.porSuc || {}).forEach(([suc, x]) => {
+    Object.entries(f.porSuc || {}).forEach(([suc, x0]) => {
+      const x = { ...x0, comision: comisionDe(suc, x0) };
       const cv = num(x.comision) + num(x.despacho);
       F.ventas[col] += num(x.neto); F.costoDirecto[col] += num(x.costo); F.costosVenta[col] += cv;
       if (canal[suc]) canal[suc][col] += num(x.neto);
@@ -188,6 +206,10 @@ export function armarEERR(E) {
   // v0.75.1: va en el bloque del canal B2B (se guarda en la celda comun y se muestra en Total)
   const CG = (E.margen && E.margen.cargos) || null;
   ((CG && CG.lineas) || []).forEach(x => { F.cargos.comun += num(x.neto); det('cargos', 'comun', { tipo: 'cargo', nombre: s(x.nombre), suc: x.suc, neto: r0(x.neto), unidades: Math.round(num(x.cantidad) * 1000) / 1000, catalogoId: s(x.catalogoId) }); });
+  if (CM.fuente === 'tasa' && CM.motivo === 'sin_reporte') avisos.push({ k: 'comision_tasa', texto: `Sin el reporte de Mercado Pago de ${mesTxt(mes)}: la comisión de tarjeta de Barros Arana va con la tasa configurada (Finanzas → Márgenes → Ajustes). Súbalo en Gastos → Bandeja para usar la comisión real.` });
+  if (CM.fuente === 'tasa' && CM.motivo === 'sin_medios') avisos.push({ k: 'comision_tasa', texto: `El reporte de Mercado Pago de ${mesTxt(mes)} está, pero las ventas de caja de Barros Arana no tienen el detalle por medio de pago para compararlo: la comisión de tarjeta va con la tasa configurada. "Volver a leer", arriba del estado de resultados, arma ese detalle.` });
+  if (CM.fuente === 'tasa' && CM.motivo === 'parcial' && CM.cobertura > 1.03) avisos.push({ k: 'comision_tasa', texto: `El reporte de Mercado Pago suma ${pesosTxt(CM.mpBruto)}, más que los ${pesosTxt(CM.tarjeta)} vendidos con tarjeta en Barros Arana en ${mesTxt(mes)} (${Math.round(CM.cobertura * 100)} %): ¿incluye otro punto de venta o días de otro mes? Mientras tanto, la comisión de tarjeta va con la tasa configurada.` });
+  else if (CM.fuente === 'tasa' && CM.motivo === 'parcial') avisos.push({ k: 'comision_tasa', texto: `El reporte de Mercado Pago cubre ${pesosTxt(CM.mpBruto)} de los ${pesosTxt(CM.tarjeta)} vendidos con tarjeta en ${mesTxt(mes)} (${Math.round(CM.cobertura * 100)} %): la comisión de tarjeta va con la tasa configurada hasta que el reporte cubra el mes.` });
   if (sinAsocNeto) avisos.push({ k: 'sin_asociar', texto: `Ventas de productos sin asociar: ${pesosTxt(sinAsocNeto)} (en Común, sin costo directo). Asócialos en Márgenes → Asociar productos.` });
   if (nPend) avisos.push({ k: 'receta_pendiente', texto: `${nPend} ${nPend === 1 ? 'producto' : 'productos'} con la receta pendiente (${pesosTxt(pendNeto)} de venta): van en su área, sin costo directo. Únelos con su receta en Catálogo → Productos → Falta receta.` });
   if (nSinCosto) avisos.push({ k: 'sin_costo', texto: `${nSinCosto} ${nSinCosto === 1 ? 'producto' : 'productos'} con costo incompleto o sin costo (${pesosTxt(sinCostoNeto)} de venta): su costo directo va con lo que sí tiene costo.` });
@@ -284,6 +306,7 @@ export function armarEERR(E) {
   info.sinClasificarLista = Object.values(sinClas).map(x => ({ ...x, neto: r0(x.neto) })).sort((a, b) => b.neto - a.neto);
   info.ventasSinAsociar = r0(sinAsocNeto); info.ventasSinCosto = r0(sinCostoNeto);
   if (nPend) info.ventasRecetaPendiente = { neto: r0(pendNeto), n: nPend };   // v0.80.1
+  info.comisionCaja = CM;   // v0.112.0
   const out = { mes, filas: F, canal, info, detalle: D, avisos, costosUsados };
   out.cuadratura = cuadratura(out, E.gastos);
   return out;
@@ -476,6 +499,8 @@ export function checksCierre(D) {
   add('ventas', 'Ventas completas', !v.abiertas && !v.faltan,
     v.guardado ? 'Mes guardado completo en Finanzas.' : `${v.abiertas ? `${v.abiertas} ${v.abiertas === 1 ? 'caja abierta' : 'cajas abiertas'}` : ''}${v.abiertas && v.faltan ? ' · ' : ''}${v.faltan ? `${v.faltan} ${v.faltan === 1 ? 'cierre sin resumen' : 'cierres sin resumen'}` : ''}` || 'Todas las cajas cerradas y con su resumen.',
     '#finanzas/margenes', 'Todas las cajas del mes cerradas y con su resumen de cierre (Ventas de caja → Reportes o Finanzas → Márgenes → "Generar los que faltan"). Las órdenes B2B se leen tal cual.');
+  // v0.112.0 · Las ventas B2B leídas al día (al cerrar se leen de nuevo; sin conexión a la base de B2B quedarían viejas o en cero)
+  if (v.b2bSinConexion) add('b2b', 'Ventas B2B al día', false, 'No se pudo leer la base de Ventas B2B: las ventas B2B del mes no están al día.', '#b2b', 'Abre Ventas B2B en este equipo (que conecte con su base) y vuelve a revisar antes de cerrar.');
   add('ainavillo', 'Ainavillo registrando ventas', num(v.nAinavillo) > 0,
     num(v.nAinavillo) > 0 ? `${num(v.nAinavillo).toLocaleString('es-CL')} productos vendidos · ${pesosTxt(v.netoAinavillo)} neto.` : 'Ainavillo no tiene ventas registradas en la caja este mes.',
     '#caja/reportes', 'Ainavillo tiene que registrar sus ventas en la caja: si no, su venta no está en el estado de resultados. Es un aviso: no impide cerrar.', 'aviso');

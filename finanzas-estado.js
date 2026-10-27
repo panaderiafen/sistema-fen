@@ -9,8 +9,8 @@
 //  Dimensiones guardadas para los estados por área y por canal (v0.112.0): col (PAN, BOL, PAS, CAF, REVENTA, comun) y canal
 //  (barros, ainavillo, b2b, comun).
 // ═══════════════════════════════════════════════
-import * as PC from './plan-cuentas.js?v=0.111.0';
-import * as AR from './areas.js?v=0.111.0';
+import * as PC from './plan-cuentas.js?v=0.112.0';
+import * as AR from './areas.js?v=0.112.0';
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
@@ -19,6 +19,7 @@ const r0 = v => Math.round(num(v));
 export const FORMA = 3;   // forma de la foto del cierre que guarda el estado por cuentas (v0.111.0)
 export const PRODUCCION = AR.PRODUCCION;
 export const CANALES = ['b2b', 'barros', 'ainavillo'];
+export const AREAS_EST = AR.MARGEN;   // v0.112.0: las columnas del estado por área (las 4 que producen y Reventa)
 export const NOMBRE_CANAL = { b2b: 'B2B', barros: 'Barros Arana', ainavillo: 'Ainavillo', comun: 'Común' };
 
 // ── Nivel 1: las filas. signo: '' suma, '−' resta, '±' con su signo; res: resultado (en negrita, con %) ──
@@ -270,3 +271,6 @@ export function yaInformadoCuentas(cierres, mesX) {
 }
 // El efecto de un ajuste por cuenta en la utilidad: los ingresos suman, los costos restan, "otros" con su signo
 export const efectoEnUtilidad = (key, monto) => { const f = s(key).split('|')[0]; return f === 'ventas' || f === 'otros' ? num(monto) : -num(monto); };
+
+// v0.112.0 · ¿Una columna (área o canal) tiene algo en el estado? (para mostrar Reventa solo si tiene)
+export const conDatos = (est, colKey) => BASES.some(k => Math.abs(valor((est && est.filas || {})[k], colKey)) >= 1);
