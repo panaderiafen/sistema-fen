@@ -5,10 +5,10 @@
 //  #catalogo/armar: una sola vez, une lo vivo de la caja y de B2B en productos del catálogo (juntando los que llevan a la misma receta).
 //  Datos en catalogo-productos.js; reglas puras en catalogo-productos-modelo.js. H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, dialogo }
 // ═══════════════════════════════════════════════
-import * as C from './catalogo-productos.js?v=0.112.0';
-import * as CPM from './catalogo-productos-modelo.js?v=0.112.0';
-import * as AR from './areas.js?v=0.112.0';
-import * as LMP from './listas-precios-modelo.js?v=0.112.0';
+import * as C from './catalogo-productos.js?v=0.112.1';
+import * as CPM from './catalogo-productos-modelo.js?v=0.112.1';
+import * as AR from './areas.js?v=0.112.1';
+import * as LMP from './listas-precios-modelo.js?v=0.112.1';
 
 const st = { D: null, cargando: null, filtro: { estado: 'activo', canal: 'todos', tipo: 'todos', q: '', falta: false }, msg: '', err: '', grupos: null, gmsg: '', gerr: '', ocupado: false };
 export const estado = st;
@@ -296,14 +296,14 @@ function dialogoProducto(el, p, { base = null, titulo = '', onGuardar = null, no
   });
   zoom.addEventListener('input', () => { foto.enc = LMP.encuadre({ ...foto.enc, zoom: zoom.value }); pintarEnc(); });
   d.querySelector('#pr-foto-centrar').addEventListener('click', () => { foto.enc = LMP.encuadre(); pintarEnc(); });
-  if (p && p.foto && p.foto.en) import('./listas-precios.js?v=0.112.0').then(L => L.leerFoto(p.id)).then(f => { if (foto.nueva || foto.quitar) return; if (f) { foto.enc = foto.enc0 = LMP.encuadre(f.encuadre); } verFoto(f && f.mini, undefined, f); }).catch(() => verFoto(null, 'No se pudo leer la foto.'));
+  if (p && p.foto && p.foto.en) import('./listas-precios.js?v=0.112.1').then(L => L.leerFoto(p.id)).then(f => { if (foto.nueva || foto.quitar) return; if (f) { foto.enc = foto.enc0 = LMP.encuadre(f.encuadre); } verFoto(f && f.mini, undefined, f); }).catch(() => verFoto(null, 'No se pudo leer la foto.'));
   d.querySelector('#pr-desc').addEventListener('input', ev => { d.querySelector('#pr-desc-n').textContent = `${ev.target.value.length}/140`; });
   d.querySelector('#pr-pend-nota').addEventListener('input', ev => { d.querySelector('#pr-pend-n').textContent = `${ev.target.value.length}/${CPM.NOTA_RECETA_MAX}`; });
   d.querySelector('#pr-foto-arch').addEventListener('change', async ev => {
     const a = ev.target.files && ev.target.files[0]; if (!a) return;
     const err = d.querySelector('#pr-dlg-err'); err.textContent = ''; verFoto(null, 'Achicando la foto…');
     try {
-      const IM = await import('./imagenes.js?v=0.112.0'), r = await IM.fotoProducto(a);
+      const IM = await import('./imagenes.js?v=0.112.1'), r = await IM.fotoProducto(a);
       foto.nueva = r; foto.quitar = false; foto.enc = LMP.encuadre(); verFoto(r.mini, `${nf(r.ancho)} × ${nf(r.alto)} px · ${nf(Math.round(r.bytes / 1024))} KB (la original: ${nf(Math.round(a.size / 1024))} KB). Se sube al guardar.`, r);
       d.querySelector('#pr-foto-quitar').classList.remove('oculto'); d.querySelector('#pr-foto-subir-t').textContent = 'Cambiar foto';
     } catch (e) { err.textContent = e.message; verFoto(null, ''); }
@@ -323,12 +323,12 @@ function dialogoProducto(el, p, { base = null, titulo = '', onGuardar = null, no
         H.registrar(p ? 'Catálogo: cambió un producto' : 'Catálogo: creó un producto', `${x.nombre} · ${x.id} · ${cs || 'sin canal'}`);
         st.msg = p ? `${x.nombre}: guardado${cs ? ' (' + cs + ')' : ''}.` : `${x.nombre} creado (${x.id})${cs ? ' · en ' + cs : ''}.`; st.err = '';
         if (!foto.nueva && !foto.quitar && foto.dims && !LMP.encuadreIgual(foto.enc, foto.enc0)) {   // v0.80.2: solo cambió el encuadre
-          try { const L = await import('./listas-precios.js?v=0.112.0'); await L.guardarEncuadre(x.id, foto.enc); H.registrar('Catálogo: encuadró la foto', `${x.nombre} · ${x.id}`); st.msg += ' Encuadre de la foto guardado.'; }
+          try { const L = await import('./listas-precios.js?v=0.112.1'); await L.guardarEncuadre(x.id, foto.enc); H.registrar('Catálogo: encuadró la foto', `${x.nombre} · ${x.id}`); st.msg += ' Encuadre de la foto guardado.'; }
           catch (e) { st.err = `${x.nombre} quedó guardado, pero no el encuadre de la foto: ${error(e)} Vuelve a intentarlo.`; }
         }
         if (foto.nueva || foto.quitar) {
           try {
-            const L = await import('./listas-precios.js?v=0.112.0'), rf = await L.guardarFoto(x.id, foto.nueva, foto.enc);
+            const L = await import('./listas-precios.js?v=0.112.1'), rf = await L.guardarFoto(x.id, foto.nueva, foto.enc);
             if (rf.accion) { const i = st.D.maestro.findIndex(y => y.id === x.id); if (i >= 0) st.D.maestro[i] = { ...st.D.maestro[i], foto: rf.p.foto, historial: rf.p.historial }; H.registrar('Catálogo: ' + rf.accion, `${x.nombre} · ${x.id}`); st.msg += foto.nueva ? ' Foto guardada.' : ' Foto quitada.'; }
           } catch (e) { st.err = `${x.nombre} quedó guardado, pero no la foto: ${error(e)} Vuelve a intentarlo.`; }
         }

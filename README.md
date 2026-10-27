@@ -1,9 +1,23 @@
-# Sistema Fën · v0.112.0
+# Sistema Fën · v0.112.1
 
 **App:** v0.109.2 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.112.1: clientes que facturan los viernes
+
+Pedido por Emmanuel el 27 oct. Algunos clientes piden la factura el viernes.
+- **Nueva modalidad de facturación: "Semanal viernes".** La semana va de sábado a viernes y se factura el viernes. Una orden del sábado va en la factura del viernes siguiente.
+- Se elige en **Ventas B2B → Clientes**, en la ficha del cliente (o al crear uno nuevo), en "Facturación".
+- **Por facturar** muestra la tarjeta "Facturación semanal (viernes)", con la misma etiqueta de semanas pendientes. La Agenda avisa los viernes.
+- La "Semanal" de siempre no cambia (lunes a domingo, se factura el sábado). El pago y la cobranza siguen igual que en la semanal.
+
+Cambian `b2b.js`, `app.js`, `config.js` y este README; los demás, solo la versión (`?v=0.112.1`). Si todavía no subió la v0.112.0, suba solo este paquete: la incluye.
+
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.112.1.
+- [ ] Ventas B2B → Clientes → un cliente → Facturación: "Semanal viernes" y guardar.
+- [ ] Por facturar: ese cliente aparece en "Facturación semanal (viernes)".
 
 ## Novedades de la v0.112.0: estados por área y por canal, período a elección y la comisión real de Mercado Pago
 

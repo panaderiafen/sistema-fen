@@ -8,15 +8,15 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.112.0';
-import * as FB from './firebase-b2b.js?v=0.112.0';
-import * as Apps from './apps.js?v=0.112.0';
-import * as Mem from './fs-memoria.js?v=0.112.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.112.0';
-import { distanciaTef } from './feriados-cl.js?v=0.112.0';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.112.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.112.0';
-import { cuadreCartola } from './gn-modelo.js?v=0.112.0';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.112.1';
+import * as FB from './firebase-b2b.js?v=0.112.1';
+import * as Apps from './apps.js?v=0.112.1';
+import * as Mem from './fs-memoria.js?v=0.112.1';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.112.1';
+import { distanciaTef } from './feriados-cl.js?v=0.112.1';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.112.1';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.112.1';
+import { cuadreCartola } from './gn-modelo.js?v=0.112.1';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -701,7 +701,7 @@ export function normalizarWsp(t) {
   return null;
 }
 export const grupoWspValido = t => !t || /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]{10,}/.test(String(t).trim());
-export const FACTURACION = ['Diaria', 'Semanal', 'Mensual'];
+export const FACTURACION = ['Diaria', 'Semanal', 'Semanal viernes', 'Mensual'];   // v0.112.1: semanal viernes (sábado a viernes, se factura el viernes)
 export const FRECUENCIA = ['Diaria', 'Semanal', 'Mensual', '30dias'];
 export async function guardarCliente(id, datos) {
   const db = await dbOk();
@@ -928,6 +928,7 @@ export function diaDeFacturar(facturacion, fecha) {
   if (!fecha) return null;
   const f = String(facturacion || '').trim().toLowerCase();   // la planilla puede traer "semanal", "Mensual ", etc.
   const d = new Date(fecha.slice(0, 10) + 'T12:00:00');
+  if (/viernes/.test(f)) { d.setDate(d.getDate() + (5 - d.getDay() + 7) % 7); return hoyTxt(d); }   // v0.112.1: sábado a viernes → ese viernes
   if (/^seman/.test(f)) { if (d.getDay() !== 0) d.setDate(d.getDate() + (6 - d.getDay())); return hoyTxt(d); }   // semana de lunes a domingo: lunes a sábado → ese sábado; domingo → ese domingo
   if (/^mensu/.test(f)) return hoyTxt(new Date(d.getFullYear(), d.getMonth() + 1, 0));
   return fecha.slice(0, 10);
@@ -939,14 +940,16 @@ export function correspondeFacturar(facturacion, fecha, hoy = hoyTxt()) {
 // v0.52.0 · Cómo factura el cliente, normalizado ("semanal", "Mensual ", vacío → diaria)
 export function modoFacturacion(facturacion) {
   const f = String(facturacion || '').trim().toLowerCase();
-  return /^seman/.test(f) ? 'semanal' : /^mensu/.test(f) ? 'mensual' : 'diaria';
+  return /viernes/.test(f) ? 'viernes' : /^seman/.test(f) ? 'semanal' : /^mensu/.test(f) ? 'mensual' : 'diaria';
 }
-// El período al que pertenece una orden: diaria → el día; semanal → el lunes de su semana (lunes a domingo); mensual → el mes
+// El período al que pertenece una orden: diaria → el día; semanal → el lunes de su semana (lunes a domingo); mensual → el mes;
+// v0.112.1 · semanal viernes → el sábado que abre su semana (sábado a viernes)
 export function periodoFacturacion(facturacion, fecha) {
   if (!fecha) return null;
   const f = String(fecha).slice(0, 10), m = modoFacturacion(facturacion);
   if (m === 'mensual') return f.slice(0, 7);
   if (m === 'semanal') { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return hoyTxt(d); }
+  if (m === 'viernes') { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() - (d.getDay() + 1) % 7); return hoyTxt(d); }
   return f;
 }
 // v0.52.0 · Cuántos períodos ya tocaba facturar y siguen con órdenes sin folio (la etiqueta de cada cliente en Por facturar).
@@ -1012,7 +1015,7 @@ export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
     const dias = diasRitmo(conf), revisado = hastaRevisado(conf, hoy);
     for (let f = desde; f <= hasta; f = masDiasB(f, 1)) if (dias.includes(new Date(f + 'T12:00:00').getDay())) out.push({ auto: true, cat: 'conciliar', fecha: f, titulo: 'Conciliar la cartola', sub: 'Días de conciliar', url: '#b2b/conciliacion', hecho: f <= hoy && !!revisado && revisado >= masDiasB(f, -1) });
   }
-  // Facturar: hoy, lo que ya toca; hacia adelante, según cómo factura cada cliente (diaria: lunes a sábado; semanal: sábado; mensual: último día del mes)
+  // Facturar: hoy, lo que ya toca; hacia adelante, según cómo factura cada cliente (diaria: lunes a sábado; semanal: sábado; semanal viernes: viernes; mensual: último día del mes)
   const modo = c => modoFacturacion(c.facturacion);
   if (enRango(hoy)) {
     const cliDe = o => clientes.find(c => (o.clienteId && c.id === o.clienteId) || norm(c.nombre) === norm(o.cliente));
@@ -1022,9 +1025,9 @@ export function itemsAgendaB2b(d, desde, hasta, hoy = hoyTxt()) {
   for (let f = masDiasB(hoy >= desde ? hoy : masDiasB(desde, -1), 1); f <= hasta; f = masDiasB(f, 1)) {
     const w = new Date(f + 'T12:00:00').getDay(), quienes = [];
     if (w !== 0 && clientes.some(c => modo(c) === 'diaria')) quienes.push('diarios');
-    const sem = w === 6 ? clientes.filter(c => modo(c) === 'semanal').map(c => c.nombre) : [], mes = masDiasB(f, 1).slice(8) === '01' ? clientes.filter(c => modo(c) === 'mensual').map(c => c.nombre) : [];
+    const sem = w === 6 ? clientes.filter(c => modo(c) === 'semanal').map(c => c.nombre) : w === 5 ? clientes.filter(c => modo(c) === 'viernes').map(c => c.nombre) : [], mes = masDiasB(f, 1).slice(8) === '01' ? clientes.filter(c => modo(c) === 'mensual').map(c => c.nombre) : [];
     if (!quienes.length && !sem.length && !mes.length) continue;
-    out.push({ auto: true, cat: 'facturar', fecha: f, titulo: 'Facturar órdenes', sub: [quienes.length ? 'clientes de facturación diaria' : '', sem.length ? 'semanal: ' + sem.join(', ') : '', mes.length ? 'mensual: ' + mes.join(', ') : ''].filter(Boolean).join(' · '), url: '#b2b' });
+    out.push({ auto: true, cat: 'facturar', fecha: f, titulo: 'Facturar órdenes', sub: [quienes.length ? 'clientes de facturación diaria' : '', sem.length ? (w === 5 ? 'semanal viernes: ' : 'semanal: ') + sem.join(', ') : '', mes.length ? 'mensual: ' + mes.join(', ') : ''].filter(Boolean).join(' · '), url: '#b2b' });
   }
   // Análisis de ventas: cada lunes, la semana pasada
   for (let f = desde; f <= hasta; f = masDiasB(f, 1)) if (new Date(f + 'T12:00:00').getDay() === 1) out.push({ auto: true, cat: 'analisis', fecha: f, titulo: 'Revisar el análisis de ventas', sub: 'La semana pasada · Análisis B2B', url: '#b2b/analisis' });
