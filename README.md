@@ -5,6 +5,36 @@
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
 
+## Novedades de la v0.111.0: el estado de resultados ordenado (filas clásicas en 4 niveles, Ver por meses y temporadas)
+
+Aprobado por Emmanuel el 26 oct (`claude/revision-estados-por-segmento.md`; hoja de ruta v11, paso 9). Va antes del primer cierre (octubre), porque el cierre ahora guarda el estado por cuentas. **Nadie registra nada distinto: cambia cómo se ordena y se muestra el resultado.**
+- **Finanzas → Resultados → Estado de resultados**, con las filas de siempre en contabilidad:
+  - ventas netas (con el despacho cobrado a B2B);
+  - costo directo, **margen bruto (food cost)** y costos variables;
+  - **margen de contribución**;
+  - **mano de obra de producción** y **margen de producción** (con el prime cost);
+  - remuneraciones de venta y administración, gastos de operación y gastos de venta;
+  - **EBITDA**, depreciación y resultado operacional;
+  - financieros y otros, resultado antes de impuesto, impuesto y **utilidad neta**.
+- **Nivel de detalle:** 1 Resumen · 2 Grupos · 3 Cuentas · 4 Ítems. La flecha de una fila abre solo esa fila. En el nivel 4, la cifra de un ítem muestra sus documentos o ventas.
+- **Ver por:**
+  - **Total** (el mes elegido, con todas sus tarjetas);
+  - **Meses** (cada mes desde el inicio, y el acumulado);
+  - **Temporadas** (verano: diciembre a febrero);
+  - **Áreas (forma anterior)**, la tabla de antes, hasta que lleguen los estados por área y por canal (v0.112.0).
+
+  Lo elegido se recuerda en el equipo.
+- **El cierre guarda el estado por cuentas:** un mes cerrado se ve igual aunque después cambie cómo se ordena. Los ajustes de meses cerrados también se informan por cuenta.
+- El estado nuevo cuadra al peso con el cálculo de antes. Si alguna vez no cuadra, la pantalla lo avisa.
+- **Ventas B2B → Clientes:** el aviso "Debe hace N días" usa el estado de hoy. Lo pagado después de la copia del análisis ya no aparece como deuda, sin tocar "Actualizar" y sin lecturas extra.
+
+Archivo nuevo: `finanzas-estado.js`. Cambian `finanzas-eerr.js`, `vista-finanzas-eerr.js`, `b2b.js`, `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.111.0`). No cambian las reglas de Firestore.
+
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.111.0.
+- [ ] Finanzas → Resultados: las filas nuevas; cambiar el nivel a 2, 3 y 4; tocar la cifra de un ítem.
+- [ ] Ver por Meses y Temporadas; Ver por Áreas muestra la tabla de antes, con la misma utilidad.
+- [ ] Ventas B2B → Clientes: un cliente que ya pagó no dice "Debe hace…".
+
 ## Novedades de la v0.110.0: Ventas B2B con pestañas ordenadas y la ficha del cliente (revisión de B2B, Etapas B y C)
 
 Aprobada por Emmanuel el 26 oct (`claude/b2b-revision-propuesta.md`). Cambian las pantallas, no los datos.

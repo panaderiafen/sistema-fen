@@ -33,10 +33,11 @@
 //  líneas del catálogo usan el área tal cual (el mapa de áreas de Clasificación ya no se usa: una sola regla). La cuota de un convenio de
 //  la TGR (2.9) va fuera del resultado. Un cierre anterior a la v0.102.0 se compara en su forma (las filas nuevas se suman donde estaban).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.110.0';
-import * as AR from './areas.js?v=0.110.0';
-import * as PC from './plan-cuentas.js?v=0.110.0';
-import * as GT from './tributario.js?v=0.110.0';   // v0.108.0: gestión y tributario
+import * as FR from './finanzas-resultados.js?v=0.111.0';
+import * as AR from './areas.js?v=0.111.0';
+import * as PC from './plan-cuentas.js?v=0.111.0';
+import * as GT from './tributario.js?v=0.111.0';   // v0.108.0: gestión y tributario
+import * as FS from './finanzas-estado.js?v=0.111.0';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -175,7 +176,7 @@ export function armarEERR(E) {
       const cv = num(x.comision) + num(x.despacho);
       F.ventas[col] += num(x.neto); F.costoDirecto[col] += num(x.costo); F.costosVenta[col] += cv;
       if (canal[suc]) canal[suc][col] += num(x.neto);
-      const ref = { tipo: 'venta', nombre: s(f.nombre), suc, neto: r0(x.neto), costo: r0(x.costo), costoVenta: r0(cv), unidades: Math.round(num(x.unidades) * 1000) / 1000, ok: !!f.ok, motivo: (f.motivos || [])[0] || '' };
+      const ref = { tipo: 'venta', nombre: s(f.nombre), suc, neto: r0(x.neto), costo: r0(x.costo), costoVenta: r0(cv), comision: r0(x.comision), despacho: r0(x.despacho), unidades: Math.round(num(x.unidades) * 1000) / 1000, ok: !!f.ok, motivo: (f.motivos || [])[0] || '' };
       det('ventas', col, ref); det('ventasCanal_' + suc, col, ref); det('costoDirecto', col, ref); det('costosVenta', col, ref);
     });
     if (f.tipo === 'sin') sinAsocNeto += num(f.neto);
@@ -522,7 +523,9 @@ export function armarSnapshot(eerr, { checks = [], override = null, por = '', en
   return {
     mes: eerr.mes, estado: 'cerrado', filas: eerr.filas, canal: eerr.canal, info: eerr.info, cuadratura: eerr.cuadratura, detalle: eerr.detalle, avisos: eerr.avisos, costosUsados: eerr.costosUsados,
     checks: checks.map(c => ({ k: c.k, t: c.t, ok: c.ok, nivel: c.nivel, detalle: c.detalle })), override: f.length ? { motivo: s(override.motivo).trim().slice(0, 300), fallas: f.map(c => c.k) } : null,
-    ajustes: ajustes ? { total: ajustes.total, porMes: ajustes.porMes } : null, cerradoPor: por, cerradoEn: en
+    ajustes: ajustes ? { total: ajustes.total, porMes: ajustes.porMes } : null, cerradoPor: por, cerradoEn: en,
+    // v0.111.0 · El estado por cuentas, congelado: un mes cerrado se ve igual aunque cambie cómo se ordena después
+    estadoCuentas: FS.armarEstado(eerr)   // (no "estado": ese campo dice 'cerrado')
   };
 }
 // Lo informado como ajuste de un mes X en los snapshots de otros meses cerrados (por fila, en Total)
@@ -554,7 +557,7 @@ export function filasComoSnap(vivo, snap) {
     ...Object.fromEntries(FILAS_TIENDAS.concat(FILAS_COMUNES_FIJOS.slice(1)).map(k => [k, cero])) };
 }
 // Diferencia de un mes cerrado: cálculo de hoy − snapshot − lo ya informado. Por fila (Total) y los gastos que cambiaron.
-export function ajusteDe(vivo, snap, informado = {}) {
+export function ajusteDe(vivo, snap, informado = {}, informadoCuentas = {}) {
   const porFila = {}, antigua = formaAntigua(snap), pre102 = formaPre102(snap), FV = filasComoSnap(vivo, snap);
   FILAS.forEach(f => { if (antigua && (f.k === 'canalB2B' || f.k === 'resCanalB2B')) return; if (f.k === 'resAntesImp') return;   /* v0.106.0: lo dice el resultado */ const d = num((FV[f.k] || {}).total) - num((snap.filas[f.k] || {}).total) - num(informado[f.k]); if (Math.abs(d) >= 1) porFila[f.k] = r0(d); });
   // Gastos que cambiaron (por id): agregados, quitados o con otro monto/tipo/área
@@ -568,7 +571,12 @@ export function ajusteDe(vivo, snap, informado = {}) {
     else if (!y) gastos.push({ id, item: x.item, fecha: x.fecha, antes: r0(x.neto), ahora: 0, cambio: 'quitado' });
     else if (r0(x.neto) !== r0(y.neto) || x.donde.sort().join() !== y.donde.sort().join()) gastos.push({ id, item: y.item, fecha: y.fecha, antes: r0(x.neto), ahora: r0(y.neto), cambio: 'cambió', antesDonde: x.donde, ahoraDonde: y.donde });
   });
-  return { porFila, resultado: porFila.resultado || 0, gastos, hay: Object.keys(porFila).length > 0 };
+  // v0.111.0 · Por cuenta (solo si la foto guardó el estado por cuentas: los cierres desde la v0.111.0)
+  const porCuenta = snap.estadoCuentas && snap.estadoCuentas.cuentas ? FS.ajusteCuentas(FS.armarEstado(vivo), snap.estadoCuentas, informadoCuentas) : null;
+  // Hay ajuste si cambia una fila de antes o una fila del estado por cuentas (un cambio entre cuentas de la misma fila, como 5.1 → 5.2, no es ajuste)
+  const porFila1 = {}; Object.entries(porCuenta || {}).forEach(([k, v]) => { const f = k.split('|')[0]; porFila1[f] = (porFila1[f] || 0) + v; });
+  const cambiaFila1 = Object.values(porFila1).some(v => Math.abs(v) >= 1);
+  return { porFila, resultado: porFila.resultado || 0, gastos, hay: Object.keys(porFila).length > 0 || cambiaFila1, ...(porCuenta && (Object.keys(porFila).length || cambiaFila1) ? { porCuenta } : {}) };
 }
 // En qué mes abierto se informa el ajuste de un mes cerrado: el primer mes después de él que no esté cerrado
 export function mesDeAjuste(mesX, cierres, hasta = '9999-12') {
@@ -578,7 +586,7 @@ export function mesDeAjuste(mesX, cierres, hasta = '9999-12') {
 // Junta los ajustes que van en el mes M: { total, porMes { X: { porFila, resultado, gastos } } }
 export function juntarAjustes(porMes) {
   const out = { total: 0, porMes: {} };
-  Object.entries(porMes || {}).forEach(([m, a]) => { if (!a || !a.hay) return; out.porMes[m] = { porFila: a.porFila, resultado: a.resultado, gastos: (a.gastos || []).slice(0, 50) }; out.total += a.resultado; });
+  Object.entries(porMes || {}).forEach(([m, a]) => { if (!a || !a.hay) return; out.porMes[m] = { porFila: a.porFila, ...(a.porCuenta ? { porCuenta: a.porCuenta } : {}), resultado: a.resultado, gastos: (a.gastos || []).slice(0, 50) }; out.total += a.resultado; });
   return out;
 }
 // Meses de un año para el selector: de enero al mes de hoy (o diciembre), del más nuevo al más viejo

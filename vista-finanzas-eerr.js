@@ -6,13 +6,14 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.110.0';
-import * as FR from './finanzas-resultados.js?v=0.110.0';
-import * as FE from './finanzas-eerr.js?v=0.110.0';
-import * as FC from './finanzas-costos.js?v=0.110.0';
-import * as SP from './sii-pendientes.js?v=0.110.0';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.111.0';
+import * as FR from './finanzas-resultados.js?v=0.111.0';
+import * as FE from './finanzas-eerr.js?v=0.111.0';
+import * as FS from './finanzas-estado.js?v=0.111.0';   // v0.111.0: el estado por cuentas (filas clásicas, 4 niveles)
+import * as FC from './finanzas-costos.js?v=0.111.0';
+import * as SP from './sii-pendientes.js?v=0.111.0';   // v0.66.0: documentos del SII por clasificar
 
-const ES = { mes: '', comparar: false, vista: 'principal', abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {}, otros: null, renta: null, incob: {} };
+const ES = { mes: '', comparar: false, vista: 'principal', verPor: 'total', nivel: 1, anioSerie: 0, abiertosE: new Set(), cerradosE: new Set(), abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {}, otros: null, renta: null, incob: {} };
 const $ = id => document.getElementById(id);
 const nf = v => Number(v || 0).toLocaleString('es-CL');
 const pesos = v => FC.pesos(Math.round(Number(v) || 0));
@@ -61,10 +62,10 @@ async function vivo(R, mes) {
   // no en la tabla de Finanzas → Créditos (sería doble); los pagos de la tarjeta son los movimientos marcados así en la Bandeja.
   // v0.101.1 · Desde cero en octubre: con el Gastos nuevo, Finanzas no muestra meses anteriores al inicio.
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo (desde ${FE.mesTxt(D.gn.inicio.slice(0, 7))} los gastos salen de ahí): ${D.gn.error}. Revise la conexión y toque "Leer de nuevo".`);
-  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.110.0') : null;
+  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.111.0') : null;
   const pagosTarjeta = nuevo ? GF.pagosTarjetaGN(D.gn.D) : ((ES.cartola && ES.cartola.pagosTarjeta) || []);
   // v0.104.0 · Provisión de vacaciones y finiquitos (fichas y liquidaciones de los trabajadores)
-  const TR = nuevo ? await import('./trabajadores.js?v=0.110.0') : null, GBm = nuevo ? await import('./gn-bandeja.js?v=0.110.0') : null;
+  const TR = nuevo ? await import('./trabajadores.js?v=0.111.0') : null, GBm = nuevo ? await import('./gn-bandeja.js?v=0.111.0') : null;
   const areasT = clave => GBm.areasDe((D.gn.D.provs || {})[clave], D.gn.D.repartos || {}), provision = nuevo ? TR.provisionesDelMes(D.gn.D, mes, areasT) : [];
   // v0.106.0 · Incobrables (Ventas B2B → Cobranza), otros ingresos y gastos, y la tasa del impuesto a la renta
   if (!(mes in ES.incob)) ES.incob[mes] = await F.incobrablesMes(mes);
@@ -103,7 +104,7 @@ async function ajustesPara(R, M) {
   for (const X of Object.keys(ES.cierres || {}).filter(x => x < M && x >= mesDesde() && cerrado(x)).sort()) {   // v0.101.1: los cierres de antes del inicio no se recalculan
     if (FE.mesDeAjuste(X, ES.cierres) !== M) continue;
     const v = await vivo(R, X);
-    porMes[X] = FE.ajusteDe(v, ES.cierres[X], FE.yaInformado(ES.cierres, X));
+    porMes[X] = FE.ajusteDe(v, ES.cierres[X], FE.yaInformado(ES.cierres, X), FS.yaInformadoCuentas(ES.cierres, X));
   }
   return FE.juntarAjustes(porMes);
 }
@@ -112,6 +113,125 @@ async function delMes(R, mes) {
   if (cerrado(mes)) { const c = ES.cierres[mes]; return { ...c, congelado: true }; }
   const e = await vivo(R, mes), aj = await ajustesPara(R, mes);
   return { ...e, ajustes: aj.total || Object.keys(aj.porMes).length ? aj : null, congelado: false };
+}
+
+// ═══════════════ v0.111.0 · El estado de resultados por cuentas: filas clásicas, 4 niveles y "Ver por" ═══════════════
+// Hoja de ruta v11, sección 1.1 (aprobado el 26 oct). Ver por: Total (un mes), Meses (desde el inicio, con el acumulado) o
+// Temporadas (suma de sus meses); Áreas muestra la forma anterior hasta la v0.112.0. Un mes cerrado usa su foto (sin lecturas
+// nuevas); uno abierto, el cálculo de hoy. Lo que se elige (Ver por y nivel) se recuerda en este equipo.
+const K_PREF = 'fen_fin_estado';
+(() => { try { const x = JSON.parse(localStorage.getItem(K_PREF) || '{}'); if (['total', 'meses', 'temporadas', 'areas'].includes(x.verPor)) ES.verPor = x.verPor; if ([1, 2, 3, 4].includes(x.nivel)) ES.nivel = x.nivel; } catch (e) { /* sin memoria del equipo */ } })();
+const guardarPref = () => { try { localStorage.setItem(K_PREF, JSON.stringify({ verPor: ES.verPor, nivel: ES.nivel })); } catch (e) { /* sin memoria del equipo */ } };
+const VER_POR = [['total', 'Total'], ['meses', 'Meses'], ['temporadas', 'Temporadas'], ['areas', 'Áreas (forma anterior)']];
+const NIVELES = [[1, 'Resumen'], [2, 'Grupos'], [3, 'Cuentas'], [4, 'Ítems']];
+const TXT_ESTADO = 'El estado de resultados de la empresa, en neto, con las filas de siempre en contabilidad: ventas, margen bruto (food cost), margen de contribución, margen de producción, EBITDA, resultado operacional y utilidad neta.\nCada fila se forma con cuentas del plan, según la cuenta del ítem de cada gasto (Gastos → Ítems). Nivel: 1 Resumen (las filas) · 2 Grupos · 3 Cuentas · 4 Ítems (y sus documentos). La flecha de una fila abre solo esa fila.\nVer por: Total (el mes elegido), Meses (cada mes desde el inicio y el acumulado) o Temporadas. Áreas muestra la forma anterior hasta que lleguen los estados por área y por canal.\nUn mes cerrado se ve como quedó al cerrarlo.';
+// El estado por cuentas de un mes: la foto del cierre (si la tiene) o el cálculo de hoy
+const estadoDe = e => (e._est || (e._est = (e.congelado && e.estadoCuentas && e.estadoCuentas.forma) ? e.estadoCuentas : FS.armarEstado(e)));
+// Los meses de la serie: Meses = los del año elegido (desde el inicio, hasta el mes en curso), con el acumulado del año;
+// Temporadas = desde el inicio (las últimas 8 temporadas), sin acumulado (es para comparar)
+const aniosSerie = () => { const out = []; for (let y = Number(mesDesde().slice(0, 4)); y <= Number(mesHoy().slice(0, 4)); y++) out.push(y); return out; };
+function mesesSerie() {
+  const todos = []; for (let m = mesDesde(), k = 0; m <= mesHoy() && k < 240; m = FE.mesMas(m, 1), k++) todos.push(m);
+  if (ES.verPor === 'temporadas') { const ts = [...new Set(todos.map(m => FS.temporadaDe(m).k))].slice(-8); return todos.filter(m => ts.includes(FS.temporadaDe(m).k)); }
+  const anios = aniosSerie(); if (!anios.includes(ES.anioSerie)) ES.anioSerie = anios[anios.length - 1];
+  return todos.filter(m => m.startsWith(String(ES.anioSerie)));
+}
+async function serie(R) {
+  const meses = [];
+  for (const m of mesesSerie()) { const e = await delMes(R, m); meses.push({ key: m, t: FE.mesTxt(m), est: estadoDe(e), e, congelado: !!e.congelado }); }
+  let cols = meses;
+  if (ES.verPor === 'temporadas') {
+    const T = {}; meses.forEach(c => { const t = FS.temporadaDe(c.key), x = T[t.k] || (T[t.k] = { key: t.k, t: t.t, orden: t.orden, ests: [], meses: [] }); x.ests.push(c.est); x.meses.push(c.key); });
+    cols = Object.values(T).sort((a, b) => a.orden.localeCompare(b.orden)).map(x => ({ key: x.key, t: x.t, est: FS.sumarEstados(x.ests), sub: x.meses.map(m => FE.mesTxt(m).split(' ')[0].slice(0, 3)).join(' · ') }));
+  }
+  if (ES.verPor === 'meses' && meses.length > 1) cols = cols.concat([{ key: 'acum', t: `Acumulado ${ES.anioSerie}`, est: FS.sumarEstados(meses.map(c => c.est)), acum: true }]);
+  return cols;
+}
+function verPorHtml(H) {
+  return `<div class="fin-everpor">
+    <div class="pastillas" role="group" aria-label="Ver por">${VER_POR.map(([k, t]) => `<button type="button" class="pastilla" data-e-verpor="${k}" aria-pressed="${ES.verPor === k}">${H.esc(t)}</button>`).join('')}</div>
+    ${ES.verPor === 'areas' ? '' : `<div class="pastillas fin-enivel" role="group" aria-label="Nivel de detalle"><span class="fin-enivel-t">Nivel</span>${NIVELES.map(([n, t]) => `<button type="button" class="pastilla" data-e-nivel="${n}" aria-pressed="${ES.nivel === n}">${n} ${H.esc(t)}</button>`).join('')}</div>`}</div>`;
+}
+const fmtE = (v, signo) => (signo === '−' ? (v ? `−${pesos(v)}` : '—') : signo === '±' ? (v ? `${v > 0 ? '+' : '−'}${pesos(Math.abs(v))}` : '—') : pesos(v));
+// ¿Está abierto un nodo? Por el nivel elegido, salvo que se haya cerrado a mano (o abierto a mano)
+const abiertoE = (key, prof) => ES.abiertosE.has(key) || (ES.nivel > prof && !ES.cerradosE.has(key));
+function htmlTablaEstado(H, cols) {
+  const A = FS.arbol(cols.map(c => c.est)), uno = ES.verPor === 'total' && cols.length === 1 && cols[0].e, out = [];
+  const tog = (key, prof, abierto, txt) => `<button type="button" class="fin-etog" data-e-tog="${H.esc(key)}" data-e-prof="${prof}" aria-expanded="${abierto}" aria-label="${abierto ? 'Cerrar' : 'Abrir'} ${H.esc(txt)}">${ic('abajo', 14)}</button>`;
+  const fila = (cls, th, valores) => `<tr class="${cls}">${th}${valores}</tr>`;
+  FS.FILAS.forEach(f => {
+    if (f.res) {
+      const tds = cols.map(c => {
+        const v = FS.valor(c.est.filas[f.k]), ven = FS.valor(c.est.filas.ventas), I = FS.indicadores(c.est);
+        const sub = !ven ? '' : f.k === 'mb' ? `${pct(I.margenBruto)} · food cost ${pct(I.foodCost)}` : f.k === 'mp' ? `${pct(v / ven * 100)} · prime cost ${pct(I.primeCost)}` : pct(v / ven * 100);
+        return `<td class="fin-enum${v < 0 ? ' fin-eneg' : ''}"><span>${pesos(v)}</span>${sub ? `<small class="fin-epct">${sub}</small>` : ''}</td>`;
+      }).join('');
+      out.push(fila(`fin-eres fin-en1`, `<th scope="row" data-e-fila2="${f.k}"><span class="fin-etog-v"></span><span class="fin-esig" aria-hidden="true">=</span>${H.esc(f.t)} ${H.info(f.t, FS.AYUDA[f.k])}</th>`, tds));
+      return;
+    }
+    const grupos = A[f.k] || [], ab = grupos.length && abiertoE(f.k, 1);
+    out.push(fila('fin-en1', `<th scope="row" data-e-fila2="${f.k}">${grupos.length ? tog(f.k, 1, !!ab, f.t) : '<span class="fin-etog-v"></span>'}${f.signo ? `<span class="fin-esig" aria-hidden="true">${f.signo}</span>` : ''}${H.esc(f.t)} ${H.info(f.t, FS.AYUDA[f.k])}</th>`,
+      cols.map(c => `<td class="fin-enum">${fmtE(FS.valor(c.est.filas[f.k]), f.signo)}</td>`).join('')));
+    if (!ab) return;
+    grupos.forEach(g => {
+      const kg = `${f.k}|${g.grupo}`, soloUna = g.cuentas.length === 1 && g.cuentas[0].cuenta === g.grupo;
+      // Un grupo con una sola cuenta (la misma) se abre directo en sus ítems (nivel 4)
+      const hijos = soloUna ? g.cuentas[0].items.length : g.cuentas.length, profG = soloUna ? 3 : 2, abG = hijos && abiertoE(kg, profG);
+      out.push(fila('fin-en2', `<th scope="row">${hijos ? tog(kg, profG, !!abG, g.nombre) : '<span class="fin-etog-v"></span>'}<span class="fin-ecod">${H.esc(g.grupo)}</span>${H.esc(g.nombre)}</th>`,
+        cols.map(c => `<td class="fin-enum">${fmtE(FS.valorGrupo(c.est, f.k, g.grupo), f.signo)}</td>`).join('')));
+      if (!abG) return;
+      const items = (cuenta, its, cls) => its.forEach(it => out.push(fila(cls, `<th scope="row"><span class="fin-etog-v"></span>${H.esc(it)}</th>`,
+        cols.map(c => { const v = FS.valorItem(c.est, f.k, cuenta, it); return `<td class="fin-enum">${uno && v ? `<button type="button" class="fin-ecel" data-e-item="${H.esc(`${f.k}|${cuenta}|${it}`)}" aria-label="${H.esc(it)}: ver de dónde sale">${fmtE(v, f.signo)}</button>` : fmtE(v, f.signo)}</td>`; }).join(''))));
+      if (soloUna) { items(g.grupo, g.cuentas[0].items, 'fin-en4 fin-en4-g'); return; }
+      g.cuentas.forEach(cu => {
+        const kc = `${kg}|${cu.cuenta}`, abC = cu.items.length && abiertoE(kc, 3);
+        out.push(fila('fin-en3', `<th scope="row">${cu.items.length ? tog(kc, 3, !!abC, cu.nombre) : '<span class="fin-etog-v"></span>'}<span class="fin-ecod">${H.esc(cu.cuenta)}</span>${H.esc(cu.nombre)}</th>`,
+          cols.map(c => `<td class="fin-enum">${fmtE(FS.valorCuenta(c.est, f.k, cu.cuenta), f.signo)}</td>`).join('')));
+        if (abC) items(cu.cuenta, cu.items, 'fin-en4');
+      });
+    });
+  });
+  // Ajustes de meses cerrados (solo en un mes abierto)
+  const e = uno ? cols[0].e : null;
+  if (e && e.ajustes) {
+    const u = FS.valor(cols[0].est.filas.utilidad) + (e.ajustes.total || 0);
+    out.push(fila('fin-eaj fin-en1', `<th scope="row"><span class="fin-etog-v"></span><span class="fin-esig" aria-hidden="true">±</span>Ajustes de meses cerrados</th>`, `<td class="fin-enum"><button type="button" class="fin-ecel" data-e-det="ajustes" aria-label="Ajustes de meses cerrados: ver de dónde salen">${fmtE(e.ajustes.total || 0, '±')}</button></td>`));
+    out.push(fila('fin-eres fin-en1', `<th scope="row"><span class="fin-etog-v"></span><span class="fin-esig" aria-hidden="true">=</span>Utilidad neta con ajustes</th>`, `<td class="fin-enum${u < 0 ? ' fin-eneg' : ''}"><span>${pesos(u)}</span></td>`));
+  }
+  const th = `<tr><th scope="col">Concepto</th>${cols.map(c => `<th scope="col" class="fin-enum${c.acum ? ' fin-eacum' : ''}">${H.esc(c.t)}${c.congelado ? ` <span class="fin-ecand" title="Mes cerrado">${ic('candado', 12)}</span>` : ''}${c.sub ? `<small class="fin-epct">${H.esc(c.sub)}</small>` : ''}</th>`).join('')}</tr>`;
+  return `<div class="tabla-b2b fin-etabla"><table class="tabla-tiempos fin-eerr fin-estado" id="e-estado-tabla"><caption class="sr">Estado de resultados ${ES.verPor === 'total' ? 'de ' + H.esc(FE.mesTxt(ES.mes)) : 'por ' + H.esc(ES.verPor)}</caption><thead>${th}</thead><tbody>${out.join('')}</tbody></table></div>`;
+}
+function htmlEstado(H, e, cols, R) {
+  const total = ES.verPor === 'total';
+  // El estado por cuentas tiene que cuadrar al peso con el cálculo de siempre (si no, se avisa)
+  // (la utilidad, el resultado operacional y los primeros pisos: ventas con el despacho cobrado, costo directo y costos variables)
+  const T = (c, k) => Number(((c.e.filas || {})[k] || {}).total || 0), dif = (c, a, v) => Math.abs(FS.valor(c.est.filas[a]) - v) > 1;
+  const descuadre = cols.filter(c => c.e && !c.e.congelado && (dif(c, 'utilidad', T(c, 'resultado')) || dif(c, 'resOp', T(c, 'resOp')) || dif(c, 'ventas', T(c, 'ventas') + T(c, 'cargos'))
+    || dif(c, 'costoDirecto', T(c, 'costoDirecto')) || dif(c, 'variables', T(c, 'costosVenta') + T(c, 'packaging') + T(c, 'merma') + T(c, 'regalado')))).map(c => FE.mesTxt(c.key));
+  const avisos = (total ? (e.avisos || []) : []).map(a => a.texto).concat(descuadre.length ? [`El estado por cuentas no cuadra con el cálculo del mes (${descuadre.join(', ')}). Avise a Claude: es un error del sistema, no de sus datos.`] : []);
+  const abiertos = cols.filter(c => c.e && !c.congelado).map(c => FE.mesTxt(c.key));
+  return `<section class="tarjeta" aria-labelledby="t-e-eerr">
+    <div class="titulo-fila fin-titulo"><h2 id="t-e-eerr">Estado de resultados ${H.info('Estado de resultados', TXT_ESTADO)}</h2>
+      <button type="button" class="btn-sec btn-chico" id="e-releer">${ic('revisar', 16)} Volver a leer</button></div>
+    ${total ? `<div class="fin-ecab">${selectorMes(H)}</div>` : ES.verPor === 'meses' && aniosSerie().length > 1 ? `<div class="fin-ecab"><div class="campo fin-emes"><label for="e-anio">Año</label><select id="e-anio">${aniosSerie().reverse().map(y => `<option value="${y}" ${y === ES.anioSerie ? 'selected' : ''}>${y}</option>`).join('')}</select></div></div>` : ''}
+    ${verPorHtml(H)}
+    ${total ? bannerMes(H, e) : `<p class="ayuda fin-eserie" id="e-serie">${ES.verPor === 'meses' ? `Cada mes de ${ES.anioSerie} desde el inicio del sistema${cols.some(c => c.acum) ? ', y el acumulado del año' : ''}` : 'Cada temporada suma sus meses (verano: diciembre a febrero; las últimas 8)'}. Los meses cerrados se ven como quedaron al cerrarlos${abiertos.length ? `; ${abiertos.join(', ')} ${abiertos.length === 1 ? 'está abierto y se calcula' : 'están abiertos y se calculan'} con lo que hay hoy` : ''}.</p>`}
+    ${mensajes(H)}
+    ${avisos.length ? `<ul class="fin-eavisos" id="e-avisos">${avisos.map(t => `<li>${ic('aviso', 16)}<span>${H.esc(t)}</span></li>`).join('')}</ul>` : ''}
+    ${htmlTablaEstado(H, cols)}
+    <p class="nota-i">(i) Los % son sobre las ventas netas de la columna. ${total ? 'Toque la cifra de un ítem para ver los documentos o las ventas que la forman.' : 'El detalle de cada documento se ve en Ver por: Total.'}</p>
+  </section>
+  ${total ? `${htmlInfo(H, e)}${htmlProvision(H, e)}${htmlOtros(H, e)}${htmlTributario(H, e, R)}${htmlCuadratura(H, e)}` : ''}`;
+}
+// Los documentos o ventas de un ítem (nivel 4)
+function dialogoItem(H, e, fila, cuenta, item) {
+  const refs = FS.refsDe(e, fila, cuenta, item), tot = Math.abs(refs.reduce((a, r) => a + r.montoEnCuenta, 0));
+  const K = { ventas: 'ventas', costoDirecto: 'costoDirecto' };
+  const d = H.dialogo(`<div class="form-dialogo fin-edet"><h2>${H.esc(item)}</h2><p class="fin-actual">${H.esc((FS.FILA[fila] || {}).t || fila)} · ${H.esc(cuenta)} ${H.esc(FS.nombreCuenta(cuenta))} · ${H.esc(FE.mesTxt(ES.mes))} · <b>${pesos(tot)}</b></p>
+    ${refs.length ? `<ul class="fin-hist-lista fin-edlista" id="e-item-lista">${refs.slice(0, 300).map(r => lineaRef(H, r, K[fila] || '', Math.abs(r.montoEnCuenta))).join('')}</ul>${refs.length > 300 ? `<p class="ayuda">Y ${nf(refs.length - 300)} más.</p>` : ''}` : '<p class="ayuda">Sin detalle.</p>'}
+    <div class="botones"><button type="button" class="btn" id="e-item-ok">Cerrar</button></div></div>`);
+  d.querySelector('#e-item-ok').addEventListener('click', () => d.close());
+  d.querySelectorAll('[data-e-ver]').forEach(b => b.addEventListener('click', () => { d.close(); if (H.verGastos) H.verGastos(b.dataset.eVermes, b.dataset.eVer); }));
 }
 
 // ═══════════════ Estado de resultados ═══════════════
@@ -124,15 +244,18 @@ export async function pintarEERR(el, H, ctx, R) {
   ES.mes = mesValido(ES.mes);
   const tope = (cuerpo) => R.cabecera() + cuerpo;
   el.innerHTML = tope(`<section class="tarjeta"><div class="vacio" style="border:0" role="status" id="e-leyendo">Calculando el estado de resultados de ${H.esc(FE.mesTxt(ES.mes))}…</div></section>`);
-  let e, prev = null;
+  let e, prev = null, cols = null;
   try {
     await base();
     e = await delMes(R, ES.mes);
-    if (ES.comparar && FE.mesMas(ES.mes, -1) >= mesDesde()) prev = await delMes(R, FE.mesMas(ES.mes, -1)).catch(() => null);
+    // v0.111.0 · Ver por: total (el mes), meses o temporadas (el estado por cuentas); Áreas = la forma anterior (hasta la v0.112.0)
+    if (ES.verPor === 'areas') { if (ES.comparar && FE.mesMas(ES.mes, -1) >= mesDesde()) prev = await delMes(R, FE.mesMas(ES.mes, -1)).catch(() => null); }
+    else if (ES.verPor === 'meses' || ES.verPor === 'temporadas') cols = await serie(R);
+    else cols = [{ key: ES.mes, t: 'Total', est: estadoDe(e), e }];
   } catch (er) { el.innerHTML = tope(`<section class="tarjeta"><p class="error" role="alert">${H.esc(ctx.error(er, H))}</p></section>`); return; }
   if (!/^#finanzas\/resultados\/?$/.test(location.hash) && !/^#finanzas\/resultados\/eerr/.test(location.hash)) return;
-  el.innerHTML = tope(htmlEERR(H, e, prev, R));
-  conectarEERR(el, H, ctx, R, e, prev);
+  el.innerHTML = tope(ES.verPor === 'areas' ? htmlEERR(H, e, prev, R) : htmlEstado(H, e, cols, R));
+  conectarEERR(el, H, ctx, R, e, prev, cols);
 }
 const valorFila = (e, k, col) => {
   if (k.startsWith('canal_')) return (e.canal[k.slice(6)] || {})[col] || 0;
@@ -149,6 +272,12 @@ function celda(H, e, f, col, extra = '') {
   const txt = f.signo === '−' ? (v ? `−${pesos(v)}` : '—') : f.signo === '±' ? `${v > 0 ? '+' : v < 0 ? '−' : ''}${pesos(Math.abs(v))}` : pesos(v);
   const p = f.pct && venta ? `<small class="fin-epct">${pct(v / venta * 100)}</small>` : '';
   return `<td class="fin-enum${v < 0 && f.resultado ? ' fin-eneg' : ''}"${extra}>${conDet ? `<button type="button" class="fin-ecel" data-e-det="${H.esc(detKey)}" data-e-col="${col}" aria-label="${H.esc(f.t)} · ${H.esc(FE.NOMBRE_COL[col])}: ver de dónde sale">${txt}</button>` : `<span>${txt}</span>`}${p}</td>`;
+}
+// El aviso del mes (cerrado y congelado, o abierto)
+function bannerMes(H, e) {
+  const congel = e.congelado ? ES.cierres[ES.mes] : null;
+  return congel ? `<div class="fin-econg" id="e-estado">${ic('candado', 18)}<span><b>Mes cerrado</b> el ${fechaTxt(congel.cerradoEn)} por ${H.esc(congel.cerradoPor || '—')}: se ve congelado, como quedó al cerrarlo.${congel.override ? ` Se cerró con revisiones pendientes: ${H.esc(congel.override.motivo)}.` : ''} ${H.info('Mes cerrado', 'Un mes cerrado no se toca: lo que se ve es el snapshot guardado al cerrarlo (ventas, costos, gastos y créditos de ese momento).\nSi después cambia algo de ese mes (un gasto corregido, una factura que llegó tarde), la diferencia aparece como "Ajustes de meses cerrados" en el primer mes abierto siguiente.')}</span></div>`
+    : `<div class="fin-econg fin-eabierto" id="e-estado">${ic('abierto', 18)}<span><b>Mes abierto</b>: se calcula con lo que hay hoy. ${ES.mes < mesHoy() ? `Ciérralo en <a href="#finanzas/resultados/cierre">Cierre de mes</a> cuando esté completo.` : 'Es el mes en curso.'}</span></div>`;
 }
 function htmlEERR(H, e, prev, R) {
   const cols = FE.colsVisibles(e).concat('total');   // v0.69.1: Reventa solo si tiene algo en el mes
@@ -175,8 +304,7 @@ function htmlEERR(H, e, prev, R) {
     filasT.push(fila({ k: 'resultadoAj', t: 'Resultado del mes con ajustes', signo: '=', cols: 'total', resultado: true }));
   }
   const th = `<tr><th scope="col">Concepto</th>${cols.map(c => `<th scope="col" class="fin-enum">${FE.NOMBRE_COL[c]}</th>`).join('')}<th scope="col" class="fin-epres" hidden>Presupuesto</th>${ES.comparar ? `<th scope="col" class="fin-enum fin-ecmp">${H.esc(FE.mesTxt(FE.mesMas(ES.mes, -1)))}</th><th scope="col" class="fin-enum fin-ecmp">Variación</th>` : ''}</tr>`;
-  const estado = congel ? `<div class="fin-econg" id="e-estado">${ic('candado', 18)}<span><b>Mes cerrado</b> el ${fechaTxt(congel.cerradoEn)} por ${H.esc(congel.cerradoPor || '—')}: se ve congelado, como quedó al cerrarlo.${congel.override ? ` Se cerró con revisiones pendientes: ${H.esc(congel.override.motivo)}.` : ''} ${H.info('Mes cerrado', 'Un mes cerrado no se toca: lo que se ve es el snapshot guardado al cerrarlo (ventas, costos, gastos y créditos de ese momento).\nSi después cambia algo de ese mes (un gasto corregido, una factura que llegó tarde), la diferencia aparece como "Ajustes de meses cerrados" en el primer mes abierto siguiente.')}</span></div>`
-    : `<div class="fin-econg fin-eabierto" id="e-estado">${ic('abierto', 18)}<span><b>Mes abierto</b>: se calcula con lo que hay hoy. ${ES.mes < mesHoy() ? `Ciérralo en <a href="#finanzas/resultados/cierre">Cierre de mes</a> cuando esté completo.` : 'Es el mes en curso.'}</span></div>`;
+  const estado = bannerMes(H, e);
   const vistaPills = `<div class="pastillas fin-evista" role="group" aria-label="Cómo ver los comunes">
     <button type="button" class="pastilla" data-e-vista="principal" aria-pressed="${ES.vista === 'principal'}">Comunes sin repartir</button>
     <button type="button" class="pastilla" data-e-vista="repartido" aria-pressed="${ES.vista === 'repartido'}">Comunes repartidos por causa · secundaria</button></div>`;
@@ -186,6 +314,8 @@ function htmlEERR(H, e, prev, R) {
     <div class="fin-ecab">${selectorMes(H)}
       <div class="chips fin-ecomp" role="group" aria-label="Comparar"><button type="button" class="chip-filtro" id="e-comparar" aria-pressed="${ES.comparar}">Comparar con el mes anterior</button>
         <button type="button" class="chip-filtro" disabled aria-disabled="true" title="Llega con Metas (F5)">Contra presupuesto · sin presupuesto</button>${H.info('Presupuesto', 'El presupuesto mensual (fijos y metas por área) llega con Metas (F5). Entonces aquí se podrá comparar cada línea contra lo presupuestado.')}</div></div>
+    ${verPorHtml(H)}
+    <p class="nota-i fin-eanterior">(i) Esta es la forma anterior del estado por áreas, con los bloques del canal B2B y de las tiendas. En la v0.112.0 se ordena en los estados por área y por canal.</p>
     ${estado}
     ${mensajes(H)}
     ${(e.avisos || []).length ? `<ul class="fin-eavisos" id="e-avisos">${e.avisos.map(a => `<li>${ic('aviso', 16)}<span>${H.esc(a.texto)}</span></li>`).join('')}</ul>` : ''}
@@ -241,7 +371,7 @@ function conectarTributario(el, H, ctx, R, repintar) {
     d.querySelector('form').addEventListener('submit', async ev => {
       ev.preventDefault(); const bt = d.querySelector('[type=submit]'); bt.disabled = true;
       const x = { nombre: d.querySelector('#et-n').value, estado: (d.querySelector('[name=et-e]:checked') || {}).value || 'pendiente', falta: d.querySelector('#et-f').value, quien: d.querySelector('#et-q').value, nota: d.querySelector('#et-o').value };
-      try { await (await import('./gn-fs.js?v=0.110.0')).guardarTramite(id, x); T.grupos[id] = { ...g, ...x }; ES.vivo = {}; H.registrar('Finanzas: trámite tributario', `${x.nombre} · ${ESTADO_TXT[x.estado]}`); ES.msg = `Trámite guardado: ${x.nombre}.`; d.close(); repintar(); }
+      try { await (await import('./gn-fs.js?v=0.111.0')).guardarTramite(id, x); T.grupos[id] = { ...g, ...x }; ES.vivo = {}; H.registrar('Finanzas: trámite tributario', `${x.nombre} · ${ESTADO_TXT[x.estado]}`); ES.msg = `Trámite guardado: ${x.nombre}.`; d.close(); repintar(); }
       catch (e) { d.querySelector('#et-err').textContent = ctx.error(e, H); bt.disabled = false; }
     });
   }));
@@ -382,26 +512,28 @@ function refsDe(e, k, col) {
   if (col === 'total' && !D[k + '.total']) return FE.COLS.flatMap(c => D[k + '.' + c] || []);
   return D[k + '.' + col] || [];
 }
+// Una línea del detalle (venta, gasto, cargo, merma…); valor: el monto que va en esa cifra (v0.111.0: el de la cuenta)
+function lineaRef(H, r, k, valor = null) {
+  if (r.tipo === 'venta') { const v = valor !== null ? valor : k === 'costoDirecto' ? r.costo : k === 'costosVenta' ? r.costoVenta : r.neto; return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(FE.NOMBRE_SUC[r.suc] || r.suc)}</div><span class="ayuda">${nf(r.unidades)} un · venta ${pesos(r.neto)} · costo ${pesos(r.costo)} · costos de venta ${pesos(r.costoVenta)}${r.ok ? '' : ` · ${H.esc(r.motivo || 'sin costo')}`}</span><b class="fin-edval">${pesos(v)}</b></li>`; }
+  if (r.tipo === 'gasto') return `<li><div><b>${H.esc(r.item)}</b>${r.itemOriginal ? ` <small>(guardado como ${H.esc(r.itemOriginal)})</small>` : ''} · ${fechaTxt(r.fecha)} · ${H.esc(r.area)}</div><span class="ayuda">${H.esc([r.proveedor, r.obs].filter(Boolean).join(' · ') || '—')} · ${H.esc(FR.textoLinea(r.tipoRes, r.cuenta))}</span><span class="fin-edacc"><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b><button type="button" class="fin-mlink" data-e-ver="${H.esc(r.item)}" data-e-vermes="${H.esc(String(r.fecha).slice(0, 7))}">Ver en Gastos</button></span></li>`;
+  if (r.tipo === 'cargo') return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(FE.NOMBRE_SUC[r.suc] || r.suc)}${r.catalogoId ? ` · ${H.esc(r.catalogoId)}` : ''}</div><span class="ayuda">${nf(r.unidades)} cobrados · cargo del Catálogo (no es venta de un producto)</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
+  if (r.tipo === 'merma') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">${r.cantidad ? `${nf(r.cantidad)} ${H.esc(r.unidad || '')} · ` : ''}merma de Producción, neto</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
+  if (r.tipo === 'credito') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">Interés de ${nf(r.cuotas)} ${r.cuotas === 1 ? 'cuota pagada' : 'cuotas pagadas'} en el mes (capital ${pesos(r.capital)}, fuera del resultado) · tabla del crédito</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
+  if (r.tipo === 'provision') return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(r.area)}</div><span class="ayuda">Remuneración ${pesos(r.base)} · vacaciones ${pesos(r.vac)}${r.ias ? ` · años de servicio ${pesos(r.ias)}` : r.sinFicha ? ' · sin datos de contrato: falta la indemnización' : ''}</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
+  if (r.tipo === 'depreciacion') return `<li><div><b>${H.esc(r.item)}</b> · compra del ${fechaTxt(r.fecha)}</div><span class="ayuda">${pesos(r.valor)} ÷ ${nf(r.meses)} meses${r.area ? ' · ' + H.esc(r.area) : ''}</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
+  if (r.tipo === 'regalado') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">${r.cantidad ? `${nf(r.cantidad)} ${H.esc(r.unidad || '')} · ` : ''}regalo o consumo interno (anotado en Cocina), neto</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
+  if (r.tipo === 'incobrable') return `<li><div><b>${H.esc(r.nombre)}</b> · ${fechaTxt(r.fecha)}</div><span class="ayuda">Dada por perdida${r.motivo ? ': ' + H.esc(r.motivo) : ''} · saldo con IVA</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
+  if (r.tipo === 'otro') return `<li><div><b>${H.esc(r.nombre)}</b> · ${fechaTxt(r.fecha)}</div><span class="ayuda">Anotado en Finanzas (no es del giro)</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
+  if (r.tipo === 'impuesto') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">Estimación de gestión: el real sale del F22</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
+  if (r.tipo === 'cartola') return `<li><div><b>${H.esc(r.nombre)}</b> · ${fechaTxt(r.fecha)}</div><span class="ayuda">Cargo de la cartola marcado "Pago de tarjeta"</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
+  return '';
+}
 function dialogoDetalle(H, e, k, col) {
   const refs = refsDe(e, k, col);
   const f = FE.FILA[k], tit = f ? f.t : k.startsWith('ventasCanal_') ? `Ventas netas · ${FE.NOMBRE_SUC[k.slice(12)]}` : (NOMBRE_DET[k] || k);
   const colTxt = FE.NOMBRE_COL[col] || ({ mp: 'materias primas', reventa: 'reventa', capital: 'capital de créditos', impuestos: 'impuestos', deuda: 'deuda con el fisco', provision: 'pagado con la provisión', inversion: 'inversiones', retiro: 'retiros', otro: 'otros' }[col] || col);
   const tot = refs.reduce((a, r) => a + (r.tipo !== 'venta' ? r.neto : k.startsWith('costoDirecto') ? r.costo : k === 'costosVenta' ? r.costoVenta : r.neto), 0);   // v0.102.0: costos de venta también desde Gastos
-  const linea = r => {
-    if (r.tipo === 'venta') { const v = k === 'costoDirecto' ? r.costo : k === 'costosVenta' ? r.costoVenta : r.neto; return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(FE.NOMBRE_SUC[r.suc] || r.suc)}</div><span class="ayuda">${nf(r.unidades)} un · venta ${pesos(r.neto)} · costo ${pesos(r.costo)} · costos de venta ${pesos(r.costoVenta)}${r.ok ? '' : ` · ${H.esc(r.motivo || 'sin costo')}`}</span><b class="fin-edval">${pesos(v)}</b></li>`; }
-    if (r.tipo === 'gasto') return `<li><div><b>${H.esc(r.item)}</b>${r.itemOriginal ? ` <small>(guardado como ${H.esc(r.itemOriginal)})</small>` : ''} · ${fechaTxt(r.fecha)} · ${H.esc(r.area)}</div><span class="ayuda">${H.esc([r.proveedor, r.obs].filter(Boolean).join(' · ') || '—')} · ${H.esc(FR.textoLinea(r.tipoRes, r.cuenta))}</span><span class="fin-edacc"><b class="fin-edval">${pesos(r.neto)}</b><button type="button" class="fin-mlink" data-e-ver="${H.esc(r.item)}" data-e-vermes="${H.esc(String(r.fecha).slice(0, 7))}">Ver en Gastos</button></span></li>`;
-    if (r.tipo === 'cargo') return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(FE.NOMBRE_SUC[r.suc] || r.suc)}${r.catalogoId ? ` · ${H.esc(r.catalogoId)}` : ''}</div><span class="ayuda">${nf(r.unidades)} cobrados · cargo del Catálogo (no es venta de un producto)</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
-    if (r.tipo === 'merma') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">${r.cantidad ? `${nf(r.cantidad)} ${H.esc(r.unidad || '')} · ` : ''}merma de Producción, neto</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
-    if (r.tipo === 'credito') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">Interés de ${nf(r.cuotas)} ${r.cuotas === 1 ? 'cuota pagada' : 'cuotas pagadas'} en el mes (capital ${pesos(r.capital)}, fuera del resultado) · tabla del crédito</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
-    if (r.tipo === 'provision') return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(r.area)}</div><span class="ayuda">Remuneración ${pesos(r.base)} · vacaciones ${pesos(r.vac)}${r.ias ? ` · años de servicio ${pesos(r.ias)}` : r.sinFicha ? ' · sin datos de contrato: falta la indemnización' : ''}</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
-    if (r.tipo === 'depreciacion') return `<li><div><b>${H.esc(r.item)}</b> · compra del ${fechaTxt(r.fecha)}</div><span class="ayuda">${pesos(r.valor)} ÷ ${nf(r.meses)} meses${r.area ? ' · ' + H.esc(r.area) : ''}</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
-    if (r.tipo === 'regalado') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">${r.cantidad ? `${nf(r.cantidad)} ${H.esc(r.unidad || '')} · ` : ''}regalo o consumo interno (anotado en Cocina), neto</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
-    if (r.tipo === 'incobrable') return `<li><div><b>${H.esc(r.nombre)}</b> · ${fechaTxt(r.fecha)}</div><span class="ayuda">Dada por perdida${r.motivo ? ': ' + H.esc(r.motivo) : ''} · saldo con IVA</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
-    if (r.tipo === 'otro') return `<li><div><b>${H.esc(r.nombre)}</b> · ${fechaTxt(r.fecha)}</div><span class="ayuda">Anotado en Finanzas (no es del giro)</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
-    if (r.tipo === 'impuesto') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">Estimación de gestión: el real sale del F22</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
-    if (r.tipo === 'cartola') return `<li><div><b>${H.esc(r.nombre)}</b> · ${fechaTxt(r.fecha)}</div><span class="ayuda">Cargo de la cartola marcado "Pago de tarjeta"</span><b class="fin-edval">${pesos(r.neto)}</b></li>`;
-    return '';
-  };
+  const linea = r => lineaRef(H, r, k);
   const d = H.dialogo(`<div class="form-dialogo fin-edet"><h2>${H.esc(tit)}</h2><p class="fin-actual">${H.esc(colTxt)} · ${H.esc(FE.mesTxt(ES.mes))} · <b>${pesos(tot)}</b>${refs.length ? ` · ${nf(refs.length)} ${refs.length === 1 ? 'línea' : 'líneas'}` : ''}</p>
     ${refs.length ? `<ul class="fin-hist-lista fin-edlista" id="e-det-lista">${refs.slice(0, 300).map(linea).join('')}</ul>${refs.length > 300 ? `<p class="ayuda">Y ${nf(refs.length - 300)} más.</p>` : ''}` : '<p class="ayuda">Sin detalle.</p>'}
     <div class="botones"><button type="button" class="btn" id="e-det-ok">Cerrar</button></div></div>`);
@@ -413,13 +545,23 @@ function dialogoAjustes(H, e) {
   const d = H.dialogo(`<div class="form-dialogo fin-edet"><h2>Ajustes de meses cerrados</h2><p class="ayuda">Cambios hechos después de cerrar un mes (un gasto corregido, una factura que llegó tarde…). El mes cerrado no se toca: la diferencia entra aquí. ${pesos(A.total)} en el resultado.</p>
     <ul class="fin-hist-lista" id="e-aj-lista">${Object.entries(A.porMes).map(([m, a]) => `<li><div><b>${H.esc(FE.mesTxt(m))}</b> · resultado ${a.resultado > 0 ? '+' : ''}${pesos(a.resultado)}</div>
       <span class="ayuda">${Object.entries(a.porFila).filter(([k]) => FE.FILA[k]).map(([k, v]) => `${H.esc(FE.FILA[k].t)} ${v > 0 ? '+' : ''}${pesos(v)}`).join(' · ')}</span>
+      ${a.porCuenta ? `<span class="ayuda">${Object.entries(a.porCuenta).map(([k, v]) => { const [f, c] = k.split('|'); return `${H.esc((FS.FILA[f] || {}).t || f)} · ${H.esc(c)} ${H.esc(FS.nombreCuenta(c))} ${v > 0 ? '+' : ''}${pesos(v)}`; }).join(' · ')}</span>` : ''}
       ${(a.gastos || []).map(g => `<span class="ayuda">${H.esc(g.item)} (${fechaTxt(g.fecha)}): ${g.cambio === 'nuevo' ? 'nuevo' : g.cambio === 'quitado' ? 'quitado o anulado' : 'cambió'} · antes ${pesos(g.antes)}, ahora ${pesos(g.ahora)}</span>`).join('')}</li>`).join('')}</ul>
     <div class="botones"><button type="button" class="btn" id="e-aj-ok">Cerrar</button></div></div>`);
   d.querySelector('#e-aj-ok').addEventListener('click', () => d.close());
 }
-function conectarEERR(el, H, ctx, R, e, prev) {
+function conectarEERR(el, H, ctx, R, e, prev, cols = null) {
   const repintar = () => pintarEERR(el, H, ctx, R);
+  // v0.111.0 · Ver por, nivel de detalle, abrir una fila y el detalle de un ítem
+  const redibujar = () => { el.innerHTML = R.cabecera() + (ES.verPor === 'areas' ? htmlEERR(H, e, prev, R) : htmlEstado(H, e, cols, R)); conectarEERR(el, H, ctx, R, e, prev, cols); };
+  el.querySelectorAll('[data-e-verpor]').forEach(b => b.addEventListener('click', () => { if (ES.verPor === b.dataset.eVerpor) return; ES.verPor = b.dataset.eVerpor; guardarPref(); repintar(); }));
+  el.querySelectorAll('[data-e-nivel]').forEach(b => b.addEventListener('click', () => { ES.nivel = Number(b.dataset.eNivel); ES.abiertosE.clear(); ES.cerradosE.clear(); guardarPref(); redibujar(); }));
+  el.querySelectorAll('[data-e-tog]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.eTog, d = Number(b.dataset.eProf), ab = b.getAttribute('aria-expanded') === 'true';
+    if (ab) { ES.abiertosE.delete(k); if (ES.nivel > d) ES.cerradosE.add(k); } else { ES.cerradosE.delete(k); if (ES.nivel <= d) ES.abiertosE.add(k); }
+    redibujar(); const x = el.querySelector(`[data-e-tog="${CSS.escape(k)}"]`); if (x) x.focus(); }));
+  el.querySelectorAll('[data-e-item]').forEach(b => b.addEventListener('click', () => { const [f, c, ...it] = b.dataset.eItem.split('|'); dialogoItem(H, e, f, c, it.join('|')); }));
   const sel = $('e-mes'); if (sel) sel.addEventListener('change', () => { ES.mes = sel.value; ES.msg = ''; ES.err = ''; repintar(); });
+  const an = $('e-anio'); if (an) an.addEventListener('change', () => { ES.anioSerie = Number(an.value); repintar(); });
   const cmp = $('e-comparar'); if (cmp) cmp.addEventListener('click', () => { ES.comparar = !ES.comparar; repintar(); });
   const ab = $('e-abre-canal'); if (ab) ab.addEventListener('click', () => { ES.abiertas.canal = !ES.abiertas.canal; el.innerHTML = R.cabecera() + htmlEERR(H, e, prev, R); conectarEERR(el, H, ctx, R, e, prev); });
   el.querySelectorAll('[data-e-vista]').forEach(b => b.addEventListener('click', () => { ES.vista = b.dataset.eVista; el.innerHTML = R.cabecera() + htmlEERR(H, e, prev, R); conectarEERR(el, H, ctx, R, e, prev); }));
@@ -461,10 +603,10 @@ async function datosCierre(R, mes) {
   const D = R.datos;
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo: ${D.gn.error}`);
   if (F.delGastosNuevo(mes) && D.gn) {
-    const GF = await import('./gn-finanzas.js?v=0.110.0');
+    const GF = await import('./gn-finanzas.js?v=0.111.0');
     const [e, dm, conteos] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes)]);
     ES.conteos[mes] = conteos;
-    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.110.0')).indicePagos(G.pagos || []) : null;
+    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.111.0')).indicePagos(G.pagos || []) : null;
     const pagado = pv ? (I.porDoc[pv.id] || []).reduce((a, p) => a + (Number(p.monto) || 0), 0) : 0;
     const gn = { sii: GF.siiDelMes(G.cargas, mes), movs: GF.movsSinRevisarDelMes(G, mes), sinClas: GF.sinClasificarDelMes(G, mes),
       previred: pv ? { total: Number(pv.total) || 0, pagado, completo: pagado >= (Number(pv.total) || 0) - GF.TOL } : null, fletes: GF.fletesPorUnir(G, mes) };

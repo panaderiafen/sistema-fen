@@ -2938,3 +2938,30 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .ficha-cli { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--linea); border-radius: 12px; background: var(--tarjeta); font-size: 13px; min-width: 0; }
 .ficha-cli-b { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .ficha-cli-b > span { color: var(--suave); overflow-wrap: anywhere; }
+/* ═══ v0.111.0 · Estado de resultados por cuentas: Ver por, nivel de detalle y filas que se abren ═══ */
+.fin-everpor { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-top: 12px; }
+.fin-everpor .pastillas { flex-wrap: wrap; }
+.fin-enivel-t { font-size: 12px; font-weight: 600; color: var(--suave); align-self: center; margin-right: 2px; }
+.fin-estado { min-width: 0; }
+.fin-estado th[scope=row] { min-width: 230px; }
+.fin-estado th[scope=col] { vertical-align: bottom; }
+.fin-etog { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin: -4px 4px -4px -4px; border: 0; border-radius: 8px; background: none; color: var(--suave); cursor: pointer; vertical-align: middle; }
+.fin-etog svg { transition: transform .15s; transform: rotate(-90deg); }
+.fin-etog[aria-expanded="true"] svg { transform: none; }
+.fin-etog:hover, .fin-etog:focus-visible { background: var(--menu); color: var(--texto); }
+.fin-etog-v { display: inline-block; width: 28px; margin-right: 0; }
+.fin-en2 th[scope=row] { padding-left: 26px; font-size: 13px; }
+.fin-en3 th[scope=row] { padding-left: 46px; font-size: 13px; }
+.fin-en4 th[scope=row] { padding-left: 66px; font-size: 12.5px; color: var(--suave); }
+.fin-en4.fin-en4-g th[scope=row] { padding-left: 46px; }
+.fin-en2 td, .fin-en3 td, .fin-en4 td { font-size: 13px; }
+.fin-en4 td { color: var(--suave); }
+.fin-ecod { display: inline-block; min-width: 3.2em; margin-right: 6px; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--suave); }
+.fin-eacum { background: var(--menu); }
+.fin-ecand { display: inline-flex; vertical-align: -1px; color: var(--suave); }
+.fin-eserie { margin-top: 10px; }
+.fin-eanterior { margin-top: 8px; }
+@media (max-width: 760px) {
+  .fin-estado th[scope=row] { min-width: 180px; }
+  .fin-en2 th[scope=row] { padding-left: 16px; } .fin-en3 th[scope=row] { padding-left: 28px; } .fin-en4 th[scope=row], .fin-en4.fin-en4-g th[scope=row] { padding-left: 40px; }
+}

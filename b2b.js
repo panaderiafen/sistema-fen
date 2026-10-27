@@ -8,15 +8,15 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.110.0';
-import * as FB from './firebase-b2b.js?v=0.110.0';
-import * as Apps from './apps.js?v=0.110.0';
-import * as Mem from './fs-memoria.js?v=0.110.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.110.0';
-import { distanciaTef } from './feriados-cl.js?v=0.110.0';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.110.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.110.0';
-import { cuadreCartola } from './gn-modelo.js?v=0.110.0';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.111.0';
+import * as FB from './firebase-b2b.js?v=0.111.0';
+import * as Apps from './apps.js?v=0.111.0';
+import * as Mem from './fs-memoria.js?v=0.111.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.111.0';
+import { distanciaTef } from './feriados-cl.js?v=0.111.0';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.111.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.111.0';
+import { cuadreCartola } from './gn-modelo.js?v=0.111.0';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -446,11 +446,11 @@ export async function pasarAPlanilla() {
 // ── Escuchas en vivo (órdenes por facturar y por cobrar, abonos, solicitudes) ──
 export async function escuchar(cb) {
   const db = await dbOk();
-  const datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, clientes: [], productos: [], movimientos: [], favor: [], conciliacion: null, conciliacionLeida: false, cobranza: {}, listo: { a: 0 } };
+  const datos = { ordenes: new Map(), abonos: [], solicitudes: [], config: null, clientes: [], productos: [], movimientos: [], favor: [], conciliacion: null, conciliacionLeida: false, cobranza: {}, listo: { a: 0 }, consultas: new Set() };
   const avisar = () => cb(datos);
   const desde = hoyTxt(new Date(Date.now() - 7 * 864e5));   // v0.14.1: 7 días (antes 30): lo pendiente llega por sus propias consultas; así lee mucho menos
   const juntar = clave => sn => {
-    uso.lecturas += sn.docChanges().length || 1;
+    uso.lecturas += sn.docChanges().length || 1; datos.consultas.add(clave);   // v0.111.0: qué consultas en vivo ya llegaron
     sn.docChanges().forEach(c => {
       if (c.type === 'removed') { const o = datos.ordenes.get(c.doc.id); if (o) { o._de.delete(clave); if (!o._de.size) datos.ordenes.delete(c.doc.id); } }
       else { const prev = datos.ordenes.get(c.doc.id); datos.ordenes.set(c.doc.id, { id: c.doc.id, ...c.doc.data(), _de: new Set([...(prev ? prev._de : []), clave]) }); }
@@ -1052,6 +1052,19 @@ export async function ordenesParaAnalisis(forzar) {
   cacheAnalisis = { v: 2, en: ahora, desde, ordenes };
   try { localStorage.setItem(K_ANALISIS, JSON.stringify(cacheAnalisis)); } catch (e) {}
   return cacheAnalisis;
+}
+// v0.111.0 · Las órdenes del análisis (copia de hasta 6 horas) con el estado de hoy: lo que está en vivo manda; y una orden que en la
+// copia figura por cobrar pero ya no está entre las por cobrar en vivo (esa consulta trae TODAS las pendientes), ya se pagó.
+// Así "Debe hace N días" en Clientes desaparece apenas se registra el pago, sin leer nada más.
+export function ordenesConEstadoVivo(copia, vivas, porCobrarListo) {
+  const enVivo = new Map((vivas || []).map(o => [String(o.n), o]));
+  const out = [...enVivo.values()];
+  (copia || []).forEach(o => {
+    if (enVivo.has(String(o.n))) return;
+    const pend = o.folio && !String(o.estadoPago || '').toUpperCase().includes('PAGADO');
+    out.push(porCobrarListo && pend ? { ...o, estadoPago: 'PAGADO', fechaPago: null, pagadoSegunVivo: true } : o);
+  });
+  return out;
 }
 export function olvidarAnalisis() { cacheAnalisis = null; try { localStorage.removeItem(K_ANALISIS); } catch (e) {} }
 

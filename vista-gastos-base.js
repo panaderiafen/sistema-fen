@@ -12,10 +12,10 @@
 //  arreglo "sin IVA" opcional con su vista previa, fichas de proveedores, dejar privados los archivos y revisar la planilla).
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as GB from './gastos-base.js?v=0.110.0';
-import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.110.0';
-import * as Gastos from './gastos.js?v=0.110.0';
-import * as GP from './gastos-planilla.js?v=0.110.0';
+import * as GB from './gastos-base.js?v=0.111.0';
+import { COLECCIONES, NOMBRES } from './gastos-modelo.js?v=0.111.0';
+import * as Gastos from './gastos.js?v=0.111.0';
+import * as GP from './gastos-planilla.js?v=0.111.0';
 
 const st = { prep: null, ctrl: null, msg: '', copiando: false, leyendo: false, controlando: false,
   prov: { datos: null, corriendo: false, msg: '', err: '' },
@@ -375,7 +375,7 @@ function conectarCambio(f, H, otra) {
 // ── v0.48.0 · Proveedores (etapa G3) ──
 // Con la base nueva, las sugerencias al cargar del SII salen de proveedores/{rut}: lo que se clasificó con cada proveedor
 // y cada producto en los últimos 2 años. Se actualiza solo al importar o vincular; "Armar fichas" las arma desde cero.
-const fsSii = () => import('./gastos-sii-fs.js?v=0.110.0');
+const fsSii = () => import('./gastos-sii-fs.js?v=0.111.0');
 const TXT_PROV = 'Al cargar un archivo del SII, Sistema Fën sugiere cómo clasificar cada documento según cómo clasificaste antes a ese proveedor y a cada uno de sus productos (los últimos 2 años).\nCon la base nueva, eso queda guardado en una ficha por proveedor. Cada importación o vínculo la actualiza sola.\n"Armar fichas de proveedores" las arma desde cero con todo lo que hay en la base nueva (lo copiado de la planilla y lo hecho después). Hazlo una vez, después del cambio a la base nueva. Repetirlo no hace daño.\nNo cambia ningún gasto ni la planilla.';
 function resumenProv(H) {
   const d = st.prov.datos;
