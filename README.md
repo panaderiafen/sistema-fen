@@ -1,9 +1,22 @@
-# Sistema Fën · v0.114.0
+# Sistema Fën · v0.114.1
 
 **App:** v0.109.2 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.114.1: el RUT y el nombre primero; el canal no se aprende
+
+Pedido por Emmanuel el 28 oct, a partir de un traspaso suyo de $850.000 desde Mercado Pago que aparecía propuesto para un cliente.
+- **Nuevo orden para reconocer quién pagó:** el cliente que usted eligió → el RUT (del archivo de transferencias o de la glosa) → el nombre completo en la glosa → sus reglas y lo aprendido → el nombre parcial → el monto exacto, con la fecha para desempatar.
+- **Una glosa que solo dice el canal** ("TRANSFERENCIA DESDE MERCADO PAGO", "TRANSFERENCIA DESDE BANCO DE CHILE") **ya no se aprende** para un cliente, y una regla o una glosa aprendida de ese tipo deja de asignar cliente: esos abonos se reconocen por el monto (Probable) o los elige usted. Los pagos de clientes desde Mercado Pago siguen apareciendo y se concilian igual.
+- En la vista por cliente, un abono propuesto para otro cliente dice si, al conciliarlo ahí, se aprende esa glosa o no.
+- "Ver el detalle del abono: cuenta, cartola y por qué se propone" ahora se ve como botón.
+
+Cambian `app.js`, `b2b.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.114.1`). Incluye las v0.112.0 a v0.114.0.
+
+- [ ] Abajo dice v0.114.1.
+- [ ] Un abono "TRANSFERENCIA DESDE MERCADO PAGO" ya no aparece propuesto para un cliente por su glosa.
 
 ## Novedades de la v0.114.0: conciliar los abonos por cliente
 

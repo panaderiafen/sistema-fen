@@ -19,22 +19,22 @@
 //    (gastos-banco.js: candidatosGastos); al vincular, el gasto deja de esperar su cargo, una factura a crédito queda con su
 //    fecha de pago y el vencimiento pagado a mano queda con la cartola. Deshacer lo devuelve como estaba.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.114.0';
-import * as M from './gastos-g2.js?v=0.114.0';
-import * as G3 from './gastos-g3.js?v=0.114.0';
-import * as G3D from './gastos-g3d.js?v=0.114.0';
-import * as C from './gastos-cartola.js?v=0.114.0';
-import * as B from './gastos-banco.js?v=0.114.0';
-import { huella } from './gastos-modelo.js?v=0.114.0';
-import * as FS from './gastos-fs.js?v=0.114.0';
-import * as GB from './gastos-base.js?v=0.114.0';
-import * as TE from './tef-enviadas.js?v=0.114.0';
-import * as P from './proveedores.js?v=0.114.0';
-import * as SP from './sii-pendientes.js?v=0.114.0';   // v0.66.0: documentos del SII por clasificar
-import { registradosGastos } from './bandeja.js?v=0.114.0';   // v0.68.0: lo registrado con su estado (Buscar en Gastos)
-import * as RC from './reglas-conc.js?v=0.114.0';   // v0.69.0: las reglas de conciliación (conc_reglas)
-import * as PT from './puntaje.js?v=0.114.0';      // v0.69.0: el ritmo de pago de cada proveedor
-import * as PM from './pagos-mixtos.js?v=0.114.0';  // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as FB from './fs-gastos.js?v=0.114.1';
+import * as M from './gastos-g2.js?v=0.114.1';
+import * as G3 from './gastos-g3.js?v=0.114.1';
+import * as G3D from './gastos-g3d.js?v=0.114.1';
+import * as C from './gastos-cartola.js?v=0.114.1';
+import * as B from './gastos-banco.js?v=0.114.1';
+import { huella } from './gastos-modelo.js?v=0.114.1';
+import * as FS from './gastos-fs.js?v=0.114.1';
+import * as GB from './gastos-base.js?v=0.114.1';
+import * as TE from './tef-enviadas.js?v=0.114.1';
+import * as P from './proveedores.js?v=0.114.1';
+import * as SP from './sii-pendientes.js?v=0.114.1';   // v0.66.0: documentos del SII por clasificar
+import { registradosGastos } from './bandeja.js?v=0.114.1';   // v0.68.0: lo registrado con su estado (Buscar en Gastos)
+import * as RC from './reglas-conc.js?v=0.114.1';   // v0.69.0: las reglas de conciliación (conc_reglas)
+import * as PT from './puntaje.js?v=0.114.1';      // v0.69.0: el ritmo de pago de cada proveedor
+import * as PM from './pagos-mixtos.js?v=0.114.1';  // v0.69.2: pagos mixtos (un documento pagado en partes)
 
 const { dbBase, todos, catalogo, nuevo, cambio, despues, correo, limpio } = FS;
 // Los cargos tienen su propia columna "Historial" (texto, la de Deshacer): el registro de cambios va en "registro"
@@ -105,7 +105,7 @@ export async function lista(diasP) {
   // v0.67.4 · Los gastos sin cargo y, aparte, las notas de crédito sin cargo (con su referencia): solo se suman con su factura
   const grupos = B.candidatosGastos(gastos, hoy, new Set(ab.lista.filter(v => !v.plantillaId && v.folio).map(v => B.claveFactura(v.folio, v.razon))), { conNC: true });
   const rNC = refsNC(ab.siiDocs), ncs = grupos.filter(g => g.monto < 0).map(g => (rNC[g.siiDocId] ? { ...g, refs: rNC[g.siiDocId] } : g));
-  const SPF = await import('./sii-pendientes-fs.js?v=0.114.0');
+  const SPF = await import('./sii-pendientes-fs.js?v=0.114.1');
   const siiPendientes = await SPF.pendientes().catch(async () => SP.pendientesDe(await todos('sii_docs').catch(() => []))), siiRegistrados = await SPF.registrados().catch(() => []);
   // v0.69.0 · El ritmo de pago de cada proveedor (factura → cargo del banco), de los gastos de 12 meses que ya están en la memoria (0 lecturas)
   const ritmos = await ritmosProveedores(hoy, todosC).catch(() => ({}));

@@ -5,7 +5,7 @@
 //  fen-b2b listas_precios/{id}, las páginas del PDF y "Usar como precios especiales" (qué cambia, solo lo distinto del base,
 //  con su historial). Los precios son NETOS: el PDF dice "+ IVA". Ningún costo sale de aquí.
 // ═══════════════════════════════════════════════
-import * as AR from './areas.js?v=0.114.0';
+import * as AR from './areas.js?v=0.114.1';
 
 // Límites de las imágenes (comprimidas en el navegador, JPEG). bytes = el JPEG (el texto data URL pesa ~4/3).
 export const FOTO = { lado: 900, bytes: 90000, miniLado: 240, miniBytes: 15000 };

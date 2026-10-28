@@ -8,15 +8,15 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.114.0';
-import * as FB from './firebase-b2b.js?v=0.114.0';
-import * as Apps from './apps.js?v=0.114.0';
-import * as Mem from './fs-memoria.js?v=0.114.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.114.0';
-import { distanciaTef } from './feriados-cl.js?v=0.114.0';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.114.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.114.0';
-import { cuadreCartola } from './gn-modelo.js?v=0.114.0';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.114.1';
+import * as FB from './firebase-b2b.js?v=0.114.1';
+import * as Apps from './apps.js?v=0.114.1';
+import * as Mem from './fs-memoria.js?v=0.114.1';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.114.1';
+import { distanciaTef } from './feriados-cl.js?v=0.114.1';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.114.1';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.114.1';
+import { cuadreCartola } from './gn-modelo.js?v=0.114.1';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1533,12 +1533,28 @@ export async function marcarRepetidoB2b(movId, origId, motivo) {
 // ── A quién corresponde y cómo repartir cada abono ──
 const fechaDMY = f => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || ''); return m ? `${m[3]}-${m[2]}-${m[1]}` : (f || ''); };
 const PREFIJOS = /^(TEF( BANCOESTADO)?( DE)+|TRANSF(ERENCIA)?( DE)+|TRASPASO( DE)+|DEP(OSITO)?( DE)?|ABONO( DE)?)\s*/;
+// v0.114.1 · Orden pedido por Emmanuel (28 oct): primero el RUT, después el nombre completo, después lo aprendido (solo si la glosa dice
+// quién pagó) y al final el nombre parcial. Así una glosa aprendida no le gana al RUT ni al nombre.
 export function identificarCliente(mov, clientes, equivalencias) {
+  const r = porRutGlosa(mov, clientes); if (r) return r;
+  const n = porNombreGlosa(mov, clientes); if (n && n.por === 'nombre') return n;
+  const a = porAprendido(mov, clientes, equivalencias); if (a) return a;
+  return n;
+}
+export function porAprendido(mov, clientes, equivalencias) {
+  if (glosaDeCanal(mov.descripcion)) return null;   // "TRANSFERENCIA DESDE MERCADO PAGO" no dice quién pagó
   const dn = mov.descNorm || normCartola(mov.descripcion);
   const eq = (equivalencias || []).find(e => e.desc === dn);
-  if (eq) { const c = clientes.find(x => x.id === eq.clienteId); if (c) return { cliente: c, por: 'aprendido' }; }
+  const c = eq && clientes.find(x => x.id === eq.clienteId);
+  return c ? { cliente: c, por: 'aprendido' } : null;
+}
+export function porRutGlosa(mov, clientes) {
   const m = String(mov.descripcion || '').toUpperCase().match(/(?<!\d)(\d{7,8})-?([0-9K])\b/);
   if (m && dvRut(m[1]) === m[2]) { const rut = m[1] + m[2], c = clientes.find(x => normRut(x.rut) === rut); if (c) return { cliente: c, por: 'rut' }; }
+  return null;
+}
+export function porNombreGlosa(mov, clientes) {
+  const dn = mov.descNorm || normCartola(mov.descripcion);
   // Por nombre o razón social, con palabras completas. Si el banco cortó la descripción (35 letras),
   // basta que el pagador sea el comienzo del nombre, pero eso nunca se confirma solo (queda para revisar).
   const pagador = dn.replace(PREFIJOS, '').trim(), cortada = String(mov.descripcion || '').trim().length >= 34;
@@ -1670,6 +1686,10 @@ export function parecidosAbono(monto, porCobrar, clientes, hintId, max = 8) {
   return out.sort((a, b) => ((b.clienteId === hintId) - (a.clienteId === hintId)) || Math.abs(a.dif) - Math.abs(b.dif)).slice(0, max);
 }
 // ¿La glosa dice algo de quién paga? (para aprender al confirmar un Probable: "TEF DE" o "TRANSFERENCIA DE TERCEROS" no se aprenden)
+// v0.114.1 · Una glosa que solo dice el canal ("TRANSFERENCIA DESDE MERCADO PAGO", "TRANSFERENCIA DESDE BANCO DE CHILE", "DEPOSITO"):
+// no dice quién pagó. Con ella no se aprende el cliente ni vale lo aprendido o una regla de cliente.
+const CANAL = /\b(TEF|TRANSFERENCIA|TRANSF|TRASPASO|DEPOSITO|DEP|ABONO|DE|DEL|DESDE|EN LINEA|INTERNET|OTROS BANCOS|TERCEROS|BANCOESTADO|BANCO|CTA|CTE|RUT|MERCADO ?PAGO|MERCADOPAGO|CHILE|SANTANDER|BCI|SCOTIABANK|ITAU|FALABELLA|RIPLEY|SECURITY|BICE|CONSORCIO|INTERNACIONAL|ESTADO|COOPEUCH|TENPO|MACH|PREX|COPEC|GLOBAL ?66|LOS ANDES)\b/g;
+export function glosaDeCanal(desc) { return normCartola(desc).replace(CANAL, ' ').replace(/\d+/g, ' ').replace(/[^A-Z]/g, '').length < 3; }
 export function glosaInformativa(desc) {
   const dn = normCartola(desc).replace(PREFIJOS, '').replace(/\b(TERCEROS|OTROS BANCOS|BANCOESTADO|EN LINEA|INTERNET|CTA|CTE|RUT)\b/g, ' ').replace(/\d+/g, ' ').replace(/\s+/g, ' ').trim();
   return dn.split(' ').filter(w => w.length >= 3).length >= 2 || dn.replace(/ /g, '').length >= 8;
@@ -1706,7 +1726,11 @@ export function proponer(movs, ctx) {
     const forz = ctx.forzados && ctx.forzados[mv.id] && ctx.clientes.find(c => c.id === ctx.forzados[mv.id]);
     // v0.69.0 · Una regla de Abonos que asigna el cliente (contiene, o la glosa exacta de "Solo proponer"): con su nivel
     const rg = ctx.reglasMov && ctx.reglasMov[mv.id], porRegla = rg && ctx.clientes.find(c => c.id === rg.clienteId && c.estado !== 'archivado');
-    ident.set(mv, { tef, id: forz ? { cliente: forz, por: 'manual' } : porTef ? { cliente: porTef, por: 'transferencia' } : porRegla ? { cliente: porRegla, por: 'regla', regla: rg.id, soloProponer: rg.nivel !== 'listos' } : identificarCliente(mv, ctx.clientes, ctx.equivalencias) });
+    // v0.114.1 · El RUT (de la transferencia o de la glosa) y el nombre completo mandan sobre las reglas y lo aprendido
+    const rutG = !forz && !porTef ? porRutGlosa(mv, ctx.clientes) : null, nomG = !forz && !porTef && !rutG ? porNombreGlosa(mv, ctx.clientes) : null;
+    const porReglaOk = porRegla && !glosaDeCanal(mv.descripcion) ? porRegla : null;   // una regla de cliente no vale para una glosa que no dice quién pagó
+    ident.set(mv, { tef, id: forz ? { cliente: forz, por: 'manual' } : porTef ? { cliente: porTef, por: 'transferencia' } : rutG || (nomG && nomG.por === 'nombre' ? nomG : null)
+      || (porReglaOk ? { cliente: porReglaOk, por: 'regla', regla: rg.id, soloProponer: rg.nivel !== 'listos' } : null) || porAprendido(mv, ctx.clientes, ctx.equivalencias) || nomG });
   });
   const seguroId = mv => { const x = ident.get(mv).id; return !!(x && (SEGUROS.includes(x.por) || x.por === 'regla')); };
   // ¿Ya se registró a mano un pago de ese monto? (v0.28.0: todos los del cliente en los 15 días antes del pago, o hasta 3 después)

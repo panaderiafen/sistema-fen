@@ -11,9 +11,9 @@
 //  Todo en neto. Nada de esto cambia los gastos: es una capa de Finanzas (fen-gastos: fin_items, fin_config,
 //  fin_creditos, fin_inversiones).
 // ═══════════════════════════════════════════════
-import { idLimpio } from './gastos-modelo.js?v=0.114.0';
-import * as AR from './areas.js?v=0.114.0';
-import * as PC from './plan-cuentas.js?v=0.114.0';   // v0.102.0: con el catálogo de ítems, el tipo sale de la cuenta
+import { idLimpio } from './gastos-modelo.js?v=0.114.1';
+import * as AR from './areas.js?v=0.114.1';
+import * as PC from './plan-cuentas.js?v=0.114.1';   // v0.102.0: con el catálogo de ítems, el tipo sale de la cuenta
 
 export const ANIO = 2026;
 // v0.69.1: las áreas propias son las de margen (las 4 de producción + REVENTA), de areas.js
