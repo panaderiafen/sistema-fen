@@ -8,9 +8,9 @@
 //    (resolver). Las fichas de los proveedores y los compromisos sí pasan al nombre nuevo.
 //  · Los ítems del sistema (F29, Previred, créditos) tienen su cuenta fija.
 // ═══════════════════════════════════════════════
-import { norm } from './gn-modelo.js?v=0.113.0';
-import * as GB from './gn-bandeja.js?v=0.113.0';
-import * as PC from './plan-cuentas.js?v=0.113.0';
+import { norm } from './gn-modelo.js?v=0.114.0';
+import * as GB from './gn-bandeja.js?v=0.114.0';
+import * as PC from './plan-cuentas.js?v=0.114.0';
 
 const s = v => String(v == null ? '' : v).trim();
 const entero = v => { const x = Math.round(Number(v)); return isFinite(x) ? x : 0; };

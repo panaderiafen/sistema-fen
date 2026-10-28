@@ -9,59 +9,59 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail,
   collection, doc, addDoc, getDoc, getDocs, updateDoc,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp
-} from './firebase.js?v=0.113.0';
-import { normalizarDecimal } from './finanzas-costos.js?v=0.113.0';   // v0.112.0: las casillas de números con coma
-import * as Caja from './caja.js?v=0.113.0';
-import * as Stock from './stock.js?v=0.113.0';
-import * as Ajustes from './ajustes.js?v=0.113.0';
-import * as Apps from './apps.js?v=0.113.0';
-import * as Agenda from './agenda.js?v=0.113.0';
-import * as Gastos from './gastos.js?v=0.113.0';
-import * as G3 from './gastos-g3.js?v=0.113.0';
-import * as G3D from './gastos-g3d.js?v=0.113.0';
-import * as GBanco from './gastos-banco.js?v=0.113.0';
-import * as TE from './tef-enviadas.js?v=0.113.0';   // v0.64.0: transferencias enviadas
-import * as PV from './proveedores.js?v=0.113.0';    // v0.64.0: proveedores de los cargos
-import * as CB from './gastos-cartola.js?v=0.113.0';  // v0.64.0: período del abono, Previred y origen del cargo
-import * as AB from './gastos-abono.js?v=0.113.0';
-import * as AR from './areas.js?v=0.113.0';   // v0.69.1: una sola lista de áreas (con REVENTA)
-import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.113.0';
-import * as Sii from './sii.js?v=0.113.0';
-import * as GSii from './gastos-sii.js?v=0.113.0';
-import * as SP from './sii-pendientes.js?v=0.113.0';   // v0.66.0: documentos por clasificar y pagos sin banco
-const SPF = () => import('./sii-pendientes-fs.js?v=0.113.0');
-import * as Previred from './previred.js?v=0.113.0';
-import * as B2b from './b2b.js?v=0.113.0';
-import * as Cartola from './cartola.js?v=0.113.0';
-import * as RD from './registro-detalle.js?v=0.113.0';   // v0.67.7: "Ver el registro" (B2B y Gastos)
-import * as BJ from './bandeja.js?v=0.113.0';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
-import * as RC from './reglas-conc.js?v=0.113.0';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
-import * as PT from './puntaje.js?v=0.113.0';       // v0.69.0: el puntaje explicado de cada propuesta
-import * as PM from './pagos-mixtos.js?v=0.113.0';  // v0.69.2: pagos mixtos (un documento pagado en partes)
-import * as CR from './conc-resumen.js?v=0.113.0';  // v0.69.3: Finanzas → Resumen del mes (de la memoria)
-import * as BO from './boletas.js?v=0.113.0';      // v0.70.0: boletas de luz y agua, cuentas recurrentes y por pagar
-import * as SiiFactura from './sii-factura.js?v=0.113.0';
-import * as FacturasB2b from './facturas-b2b.js?v=0.113.0';   // v0.113.0: el PDF de la factura en Drive y "Ver factura"
-import * as PdfOrden from './pdf-orden.js?v=0.113.0';
-import * as Prod from './produccion.js?v=0.113.0';
-import * as Mem from './fs-memoria.js?v=0.113.0';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
-import * as FSG from './fs-cuota.js?v=0.113.0';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
+} from './firebase.js?v=0.114.0';
+import { normalizarDecimal } from './finanzas-costos.js?v=0.114.0';   // v0.112.0: las casillas de números con coma
+import * as Caja from './caja.js?v=0.114.0';
+import * as Stock from './stock.js?v=0.114.0';
+import * as Ajustes from './ajustes.js?v=0.114.0';
+import * as Apps from './apps.js?v=0.114.0';
+import * as Agenda from './agenda.js?v=0.114.0';
+import * as Gastos from './gastos.js?v=0.114.0';
+import * as G3 from './gastos-g3.js?v=0.114.0';
+import * as G3D from './gastos-g3d.js?v=0.114.0';
+import * as GBanco from './gastos-banco.js?v=0.114.0';
+import * as TE from './tef-enviadas.js?v=0.114.0';   // v0.64.0: transferencias enviadas
+import * as PV from './proveedores.js?v=0.114.0';    // v0.64.0: proveedores de los cargos
+import * as CB from './gastos-cartola.js?v=0.114.0';  // v0.64.0: período del abono, Previred y origen del cargo
+import * as AB from './gastos-abono.js?v=0.114.0';
+import * as AR from './areas.js?v=0.114.0';   // v0.69.1: una sola lista de áreas (con REVENTA)
+import { resumenAnalisis, vistaGasto } from './gastos-g2.js?v=0.114.0';
+import * as Sii from './sii.js?v=0.114.0';
+import * as GSii from './gastos-sii.js?v=0.114.0';
+import * as SP from './sii-pendientes.js?v=0.114.0';   // v0.66.0: documentos por clasificar y pagos sin banco
+const SPF = () => import('./sii-pendientes-fs.js?v=0.114.0');
+import * as Previred from './previred.js?v=0.114.0';
+import * as B2b from './b2b.js?v=0.114.0';
+import * as Cartola from './cartola.js?v=0.114.0';
+import * as RD from './registro-detalle.js?v=0.114.0';   // v0.67.7: "Ver el registro" (B2B y Gastos)
+import * as BJ from './bandeja.js?v=0.114.0';   // v0.68.0: Conciliación como bandeja (estado, propuesta en una línea, Buscar en Gastos)
+import * as RC from './reglas-conc.js?v=0.114.0';   // v0.69.0: Reglas de conciliación (las maneja el dueño)
+import * as PT from './puntaje.js?v=0.114.0';       // v0.69.0: el puntaje explicado de cada propuesta
+import * as PM from './pagos-mixtos.js?v=0.114.0';  // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as CR from './conc-resumen.js?v=0.114.0';  // v0.69.3: Finanzas → Resumen del mes (de la memoria)
+import * as BO from './boletas.js?v=0.114.0';      // v0.70.0: boletas de luz y agua, cuentas recurrentes y por pagar
+import * as SiiFactura from './sii-factura.js?v=0.114.0';
+import * as FacturasB2b from './facturas-b2b.js?v=0.114.0';   // v0.113.0: el PDF de la factura en Drive y "Ver factura"
+import * as PdfOrden from './pdf-orden.js?v=0.114.0';
+import * as Prod from './produccion.js?v=0.114.0';
+import * as Mem from './fs-memoria.js?v=0.114.0';   // v0.63.3: memoria de lo leído en fen-produccion, fen-b2b y la caja
+import * as FSG from './fs-cuota.js?v=0.114.0';   // v0.63.2: sin Firebase (fs-gastos.js se carga recién al usar Gastos)
 import * as ProdK from './cocina/consumo.js?v=0.17.12';
-import * as VistaProd from './vista-produccion.js?v=0.113.0';
-import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B, planPreciosPorId, precioEsDe, productoDePrecio } from './b2b-modelo.js?v=0.113.0';
-import * as RespM from './respaldo-modelo.js?v=0.113.0';   // v0.73.0: recordatorio del respaldo mensual en la Agenda (puro)
-import * as RT from './rutas.js?v=0.113.0';   // v0.78.0: Gastos, etapa A (las pantallas de Conciliación en Gastos, B2B y Finanzas)
-import * as BU from './bandeja-gastos-modelo.js?v=0.113.0';   // v0.79.0: Gastos, etapa B (la Bandeja única: un ítem por gasto, con su ruta)
+import * as VistaProd from './vista-produccion.js?v=0.114.0';
+import { usoEstimado, NOMBRES as NOMBRES_B2B, COLECCIONES as COLS_B2B, planPreciosPorId, precioEsDe, productoDePrecio } from './b2b-modelo.js?v=0.114.0';
+import * as RespM from './respaldo-modelo.js?v=0.114.0';   // v0.73.0: recordatorio del respaldo mensual en la Agenda (puro)
+import * as RT from './rutas.js?v=0.114.0';   // v0.78.0: Gastos, etapa A (las pantallas de Conciliación en Gastos, B2B y Finanzas)
+import * as BU from './bandeja-gastos-modelo.js?v=0.114.0';   // v0.79.0: Gastos, etapa B (la Bandeja única: un ítem por gasto, con su ruta)
 
 const F = window.FEN_SIS;
 // v0.43.0 · Base nueva de Gastos (fen-gastos): se carga recién al usarla, así un problema ahí nunca frena el resto
-const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.113.0');
+const vistaGastosBase = () => import('./vista-gastos-base.js?v=0.114.0');
 // v0.56.0 · Finanzas (F1 paso 1): se carga recién al abrirla
-const vistaFinanzas = () => import('./vista-finanzas.js?v=0.113.0');
+const vistaFinanzas = () => import('./vista-finanzas.js?v=0.114.0');
 // v0.72.0 · Catálogo (Etapa 0, "Qué está vivo"): se carga recién al abrirlo
-const vistaCatalogo = () => import('./vista-catalogo.js?v=0.113.0');
+const vistaCatalogo = () => import('./vista-catalogo.js?v=0.114.0');
 async function salirGastosBase() {
-  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.113.0')).salir(); } catch (e) {}
+  try { if (!localStorage.getItem('fen_sistema_gastos_cfg')) return; await (await import('./gastos-base.js?v=0.114.0')).salir(); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 // Claves en este navegador (empiezan con fen_sistema: "Sincronizar" de Producción las respeta)
@@ -90,7 +90,7 @@ function releerVentasDeMes(fecha) {
   const mes = String(fecha || '').slice(0, 7);
   if (!/^\d{4}-\d{2}$/.test(mes) || mes >= Caja.diaLocal().slice(0, 7)) return;
   B2b.olvidarAnalisisB2b();
-  import('./finanzas.js?v=0.113.0').then(F => F.ventasParaReleer(mes)).catch(e => console.warn('B2B: no se pudo avisar a Finanzas', e));
+  import('./finanzas.js?v=0.114.0').then(F => F.ventasParaReleer(mes)).catch(e => console.warn('B2B: no se pudo avisar a Finanzas', e));
 }
 const mesNombre = m => { const [y, mm] = String(m).split('-'); return `${MESES_LARGOS[Number(mm) - 1] || mm} ${y}`; };   // v0.112.0: "octubre 2026"
 const aFecha = t => (t && typeof t.toDate === 'function') ? t.toDate() : (t instanceof Date ? t : null);
@@ -413,7 +413,7 @@ function pintarMenus() {
   const apps = F.APPS.map(a =>
     `<a class="nav-item" href="${esc(a.url)}" target="_blank" rel="noopener">${icono(a.icono)}<span>${esc(a.nombre)}</span><span class="fuera">${icono('fuera', 14)}</span><span class="sr">(se abre en otra pestaña)</span></a>`).join('');
   $('menu-lateral').innerHTML = `
-    <div class="marca"><img class="logo" src="logo-fen.png?v=0.113.0" alt="Fën"><span>Sistema de administración</span></div>
+    <div class="marca"><img class="logo" src="logo-fen.png?v=0.114.0" alt="Fën"><span>Sistema de administración</span></div>
     ${SECCIONES.map(([v, ic, nom]) => `<a class="nav-item" href="#${v}" data-vista="${v}">${icono(ic)}${nom}</a>`).join('')}
     <div class="grupo">Abren la app actual</div>
     ${apps}
@@ -703,14 +703,14 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.57.0 · Finanzas: precios de la última compra del SII por confirmar (cambian más de ±40 %)
-  import('./finanzas.js?v=0.113.0').then(F => F.porConfirmarParaHoy()).then(l => {
+  import('./finanzas.js?v=0.114.0').then(F => F.porConfirmarParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.2, color: 'amarillo', icono: 'finanzas', chip: 'Revisar', url: '#finanzas/costos/compras', origen: 'Finanzas', titulo: `Precios por confirmar (${l.length})`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · cambian más de ±40 % con la última compra del SII` });
     pintarLista();
   }).catch(() => {});
   // v0.58.0 · Finanzas: productos cuyo costo directo subió más del % de aviso contra el mes anterior (se marcan "Visto" en Productos)
-  import('./finanzas.js?v=0.113.0').then(F => F.alzasParaHoy()).then(x => {
+  import('./finanzas.js?v=0.114.0').then(F => F.alzasParaHoy()).then(x => {
     if (!x || !x.lista.length) return;
     const l = x.lista, p = v => `+${String(v).replace('.', ',')} %`;
     pend.push({ orden: 3.25, color: 'rojo', icono: 'finanzas', chip: 'Ver', url: '#finanzas/costos/productos/alzas', origen: 'Finanzas', titulo: `Subió el costo de ${l.length} ${l.length === 1 ? 'producto' : 'productos'}`,
@@ -718,7 +718,7 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.80.1 · Catálogo: productos que se venden con la receta pendiente (sin costo ni margen hasta unirlos con su receta)
-  import('./finanzas.js?v=0.113.0').then(F => F.recetaPendienteParaHoy()).then(l => {
+  import('./finanzas.js?v=0.114.0').then(F => F.recetaPendienteParaHoy()).then(l => {
     if (!l || !l.length) return;
     pend.push({ orden: 3.3, color: 'amarillo', icono: 'libro', chip: 'Unir', url: '#catalogo/productos/falta-receta', origen: 'Catálogo', titulo: `${l.length} ${l.length === 1 ? 'producto del catálogo' : 'productos del catálogo'} sin receta`,
       detalle: `${l.slice(0, 3).join(', ')}${l.length > 3 ? '…' : ''} · se venden sin costo hasta unirlos con su receta` });
@@ -753,7 +753,7 @@ async function pintarHoy() {
     pintarLista();
   }).catch(() => {});
   // v0.100.0 · Gastos nuevo en Hoy: lo vencido, lo de esta semana y la Bandeja (del resumen que se guarda al abrir Gastos: una lectura)
-  if (GN_ACTIVO()) import('./gn-fs.js?v=0.113.0').then(F => F.resumenHoy()).then(R => {
+  if (GN_ACTIVO()) import('./gn-fs.js?v=0.114.0').then(F => F.resumenHoy()).then(R => {
     if (!R) return;
     const hoyD = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' }), en7 = new Date(Date.now() + 7 * 864e5).toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' });
     const ab = (R.abiertos || []).filter(x => !x.a), venc = ab.filter(x => x.f < hoyD), sem = ab.filter(x => x.f >= hoyD && x.f <= en7), tot = l => l.reduce((t, x) => t + x.m, 0);
@@ -812,7 +812,7 @@ const partesDia = d => { const [y, m, dd] = d.split('-').map(Number); return new
 // Pagos de Gastos de esta semana (llegan con el resumen de Gastos: hasta 5, los más próximos)
 // v0.73.0 · Respaldo mensual: el día 1 de cada mes "Bajar respaldo de <mes anterior>" (hecho si ya se bajó; config/respaldo, 1 lectura cada 6 horas)
 let respHechos = null;
-const cargarRespHechos = () => import('./respaldo.js?v=0.113.0').then(R => R.hechos()).then(h => { respHechos = h || {}; return respHechos; }).catch(() => { respHechos = respHechos || {}; return respHechos; });
+const cargarRespHechos = () => import('./respaldo.js?v=0.114.0').then(R => R.hechos()).then(h => { respHechos = h || {}; return respHechos; }).catch(() => { respHechos = respHechos || {}; return respHechos; });
 const itemsRespaldo = (desde, hasta) => RespM.itemsAgenda(desde, hasta, respHechos || {});
 function itemsAuto(estados, desde, hasta) {
   const g = estados && estados.gastos;
@@ -886,7 +886,7 @@ async function pintarAgendaMes() {
   // v0.49.0: con Gastos en la base nueva, solo los vencimientos que existen (sin proyectar las obligaciones) y los
   // recordatorios "Subir boleta" (se calculan de los vencimientos que esperan su boleta). Con la planilla, como antes.
   // v0.100.0 · Con el Gastos nuevo, lo que vence (del resumen que se guarda al abrir Gastos)
-  const gnAgenda = !GN_ACTIVO() ? Promise.resolve([]) : import('./gn-fs.js?v=0.113.0').then(F => F.resumenHoy()).then(R => (R && R.abiertos || []).filter(x => x.f >= desde && x.f <= hasta)
+  const gnAgenda = !GN_ACTIVO() ? Promise.resolve([]) : import('./gn-fs.js?v=0.114.0').then(F => F.resumenHoy()).then(R => (R && R.abiertos || []).filter(x => x.f >= desde && x.f <= hasta)
     .map(x => ({ auto: true, cat: 'pago', tipo: 'fen', fecha: x.f, hora: '', titulo: `Pago de ${x.q}`, origen: `Desde Gastos${x.t ? ' · ' + x.t : ''}`, monto: x.m, pagado: false, vencido: x.f < hoy }))
     .concat((R && R.contratos || []).filter(c => c.f >= desde && c.f <= hasta).map(c => ({ auto: true, cat: 'contrato', tipo: 'fen', url: '#gastos/equipo', fecha: c.f, hora: '', titulo: `Vence el plazo fijo de ${c.q}`, origen: 'Desde la ficha del trabajador', monto: 0, pagado: false, vencido: c.f < hoy })))).catch(() => []);
   const autoPromesa0 = enMemoria ? Promise.resolve(enMemoria) : agFiltro() === 'personal' ? Promise.resolve([]) : Promise.all([
@@ -1139,16 +1139,16 @@ let fuenteGastosLeida = false;
 function cargarFuenteGastos() {
   if (fuenteGastosLeida) return;
   fuenteGastosLeida = true;
-  import('./gastos-base.js?v=0.113.0').then(GB => GB.cargarFuente()).then(f => {
+  import('./gastos-base.js?v=0.114.0').then(GB => GB.cargarFuente()).then(f => {
     if (!f || f.sinConexion) { fuenteGastosLeida = false; return; }
-    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.113.0').then(GP => GP.revisar());
+    if (f.fuente === 'base') return import('./gastos-planilla.js?v=0.114.0').then(GP => GP.revisar());
   }).catch(() => { fuenteGastosLeida = false; });
 }
 // ═══ v0.90.0 · Gastos nuevo (desde cero): vista-gn.js. El Gastos anterior queda fuera de la vista (sus datos no se borran) ═══
 let vistaGN = null;
 async function pintarGastosNuevo() {
   const el = $('v-gastos');
-  try { if (!vistaGN) vistaGN = await import('./vista-gn.js?v=0.113.0'); }
+  try { if (!vistaGN) vistaGN = await import('./vista-gn.js?v=0.114.0'); }
   catch (e) { el.innerHTML = `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1></div></div><section class="tarjeta"><p class="error">No se pudo abrir Gastos (${esc(e.message || e)}). Revise la conexión y recargue.</p></section>`; return; }
   const cargarXLSX = async () => { await cargarScriptExterno('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', () => window.XLSX); return window.XLSX; };
   vistaGN.pintar(el, subVista(), { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola, dialogo });
@@ -3038,7 +3038,7 @@ async function pintarObligaciones(el, sub, d) {
 async function pintarClasificar(el, sub, d) {
   if (d.fuente !== 'base') { el.innerHTML = cabGastos(sub) + '<section class="tarjeta"><p class="ayuda">Clasificar cuentas recurrentes se usa cuando Gastos trabaje con la base nueva (después del cambio). Con la planilla, las cuentas recurrentes no tienen tipo.</p><p><a href="#gastos/config/cuentas">Volver a Cuentas recurrentes</a></p></section>'; return; }
   el.innerHTML = cabGastos(sub) + '<section class="tarjeta" aria-labelledby="t-clasif" id="clasif-cont"></section>';
-  (await import('./vista-gastos-clasificar.js?v=0.113.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
+  (await import('./vista-gastos-clasificar.js?v=0.114.0')).pintar($('clasif-cont'), { esc, info, registrar, mensajeError, pesos, fecha: fechaIso });
 }
 
 // v0.70.0 · En el formulario de la cuenta: si es de boleta (luz o agua), su empresa, local y reparto en %
@@ -4217,7 +4217,7 @@ async function informeSinCargo(M) {
   d.classList.add('dialogo-ancho', 'isc-dlg');
   d.querySelector('#isc-cerrar').addEventListener('click', () => d.close());
   try {
-    const RS = await import('./revision-sin-cargo-modelo.js?v=0.113.0');
+    const RS = await import('./revision-sin-cargo-modelo.js?v=0.114.0');
     const R = RS.revisar({ items: M.items, cargos: (D && (D.todosCargos || D.cargos)) || [], registrados: (D && D.registrados) || [], ligados: (D && D.ligados) || {}, cartolas: (D && D.cartolas) || [], hoy: Caja.diaLocal() });
     const meses = Object.entries(R.porMes).sort().map(([m, k]) => `${MESES_LARGOS[Number(m.slice(5, 7)) - 1] || m}: ${k}`).join(' · ');
     const linea = r => {
@@ -4245,7 +4245,7 @@ async function informeSinCargo(M) {
       const ok = d.querySelector(`[data-isc-ok="${CSS.escape(r.key)}"]`), fila = b.closest('.isc-fila');
       fila.querySelectorAll('button').forEach(x => { x.disabled = true; });
       try {
-        await (await import('./gastos-fs.js?v=0.113.0')).anularRepetido(ids, motivo);
+        await (await import('./gastos-fs.js?v=0.114.0')).anularRepetido(ids, motivo);
         registrar('Gastos: anuló un gasto repetido', `${desc(otro || r)} · ${motivo}`);
         if (ok) ok.textContent = `Anulado ${otro ? 'el otro' : 'este'}: queda en Gastos anulados (no se borra).`; fila.classList.add("isc-hecho"); huboCambio = true;
       } catch (e) { if (ok) { ok.className = 'error isc-ok'; ok.textContent = e.message || mensajeError(e); } fila.querySelectorAll('button').forEach(x => { x.disabled = false; }); }
@@ -4326,7 +4326,7 @@ function dialogoNoEmpresa(key) {
     const modo = d.querySelector('input[name="ne-modo"]:checked').value, nota = d.querySelector('#ne-nota').value;
     b.disabled = true; b.textContent = 'Guardando…';
     try {
-      await (await import('./gastos-fs.js?v=0.113.0')).noEsDeLaEmpresa(D0.x.gastos, modo, nota);
+      await (await import('./gastos-fs.js?v=0.114.0')).noEsDeLaEmpresa(D0.x.gastos, modo, nota);
       registrar(modo === 'retiro' ? 'Gastos: pasó un gasto a retiro del dueño' : 'Gastos: anuló un gasto que no es de la empresa', `${D0.nombre} · ${pesos(D0.x.total)}${nota ? ' · ' + nota : ''}`);
       d.close(); bu.sel = ''; bu.err = '';
       bu.msg = modo === 'retiro' ? `Listo: ${esc(D0.nombre)} quedó como Retiro del dueño (fuera del resultado). Si salió por el banco o Mercado Pago, cálzalo con su cargo; si fue en efectivo, dilo con "¿Cómo se pagó?".` : `Listo: ${esc(D0.nombre)} se anuló (no era de la empresa). Queda en Gastos anulados.`;
@@ -4900,7 +4900,7 @@ function conectarResumenConc(el) {
     resConc.contando = false; refrescarResumenConc();
   });
   const ic = R0.querySelector('[data-res-cierre]');
-  if (ic) ic.addEventListener('click', async ev => { ev.preventDefault(); const m = ic.dataset.resCierre; try { (await import('./vista-finanzas-eerr.js?v=0.113.0')).elegirMes(m); } catch (e) {} location.hash = '#finanzas/resultados/cierre'; });
+  if (ic) ic.addEventListener('click', async ev => { ev.preventDefault(); const m = ic.dataset.resCierre; try { (await import('./vista-finanzas-eerr.js?v=0.114.0')).elegirMes(m); } catch (e) {} location.hash = '#finanzas/resultados/cierre'; });
 }
 // La bandeja filtrada por el mes del resumen: "Solo octubre" con su X
 const filtroMesBjHtml = st => (st.bjMes ? `<button type="button" class="bj-filtro bj-f-mes" data-bj-mes-quitar aria-pressed="true" title="Mostrar todos los meses"><span>Solo ${esc(CR.mesCorto(st.bjMes))}</span>${icono('anular', 14)}</button>` : '');
@@ -6949,7 +6949,7 @@ function pintarB2bAdmin(el, sub) {
     const mesO = String(o.fecha || '').slice(0, 7), pasado = /^\d{4}-\d{2}$/.test(mesO) && mesO < Caja.diaLocal().slice(0, 7);
     if (b.disabled) return; b.disabled = true;   // v0.112.0: mientras revisa el mes en Finanzas (un segundo toque no abre dos diálogos)
     let F = null, cerradoFin = false;
-    try { F = pasado ? await import('./finanzas.js?v=0.113.0').catch(e => { console.warn('B2B: sin Finanzas para revisar el mes', e); return null; }) : null; cerradoFin = F ? await F.mesCerradoFin(mesO) : false; }
+    try { F = pasado ? await import('./finanzas.js?v=0.114.0').catch(e => { console.warn('B2B: sin Finanzas para revisar el mes', e); return null; }) : null; cerradoFin = F ? await F.mesCerradoFin(mesO) : false; }
     finally { b.disabled = false; }
     const motivo = await pedirMotivo(`Anular orden N° ${o.n}`, `<p class="ayuda"><b>${esc(o.cliente)}</b> · ${esc(diaTexto(o.fecha))} · ${pesos(o.total)}</p>
       ${cerradoFin ? `<p class="aviso" id="anular-mes-cerrado">${esc(mesNombre(mesO))} ya está cerrado en Finanzas: el mes no cambia; la diferencia entra como ajuste en el primer mes abierto.</p>` : ''}
@@ -7554,7 +7554,7 @@ function pintarB2bProductos(el, sub) {
 // ── v0.80.0 · Listas de precios (vista-listas-precios.js) ──
 function pintarB2bListas(el, sub) {
   if (!catOk()) return sinActivar(el, sub);
-  import('./vista-listas-precios.js?v=0.113.0').then(m => { if (!/^#b2b\/listas(\/|$)/.test(location.hash)) return; /* v0.110.0: si ya se fue a otra pestaña, no pisa esa pantalla */ return m.pintar(el, { esc, info, icono, registrar, mensajeError, dialogo },
+  import('./vista-listas-precios.js?v=0.114.0').then(m => { if (!/^#b2b\/listas(\/|$)/.test(location.hash)) return; /* v0.110.0: si ya se fue a otra pestaña, no pisa esa pantalla */ return m.pintar(el, { esc, info, icono, registrar, mensajeError, dialogo },
     { cab: () => cabB2b(sub).replace('class="cabecera"', 'class="cabecera lp-raiz"'), datos: () => b2b.datos, errorB2b, abrirWhatsapp, esCelular, copiarTexto }); })
     .catch(e => { el.innerHTML = cabB2b(sub) + `<section class="tarjeta"><p class="error">No se pudo abrir Listas de precios (${esc(e.message || e)}). Revisa la conexión y recarga.</p></section>`; });
 }
@@ -7715,7 +7715,7 @@ async function subirArchivoConc(f) {
   // v0.81.0 · El reporte de Mercado Pago (CSV): el de liberaciones se carga como la cuenta "Mercado Pago"; el de liquidaciones se avisa
   if (ext === 'csv' && f.size <= 8 * 1024 * 1024) {
     let txt = ''; try { txt = await f.text(); } catch (e) { txt = ''; }
-    const MPx = await import('./mercadopago.js?v=0.113.0'), tipo = txt ? MPx.tipoReporte(txt) : '';
+    const MPx = await import('./mercadopago.js?v=0.114.0'), tipo = txt ? MPx.tipoReporte(txt) : '';
     if (tipo === 'liquidaciones') { conc.err = MPx.leer(txt).error; repintarConc(); return; }
     if (tipo === 'liberaciones') return subirMercadoPago(f, txt, MPx);
   }
@@ -8248,16 +8248,73 @@ function pintarB2bConciliacion(el, sub) {
   const lote = grupos.auto.length > 1 ? `<button type="button" class="btn btn-chico" id="conc-todos" ${b2bConc.ocupado ? 'disabled' : ''}>Conciliar los ${grupos.auto.length} listos · ${pesos(grupos.auto.reduce((s, m) => s + m.monto, 0))}</button>` : '';
   const barra = barraBjHtml({ tipo: 'ab', k: kBj, filtro: b2bConc.bjFiltro || '', q: b2bConc.bjQ || '', lote, extraFiltro: filtroMesBjHtml(b2bConc), reglas: migrado ? '#b2b/conciliacion/reglas' : '', sug: sugBannerHtml('abono', sugAb),
     hecho: hechoBjHtml({ tipo: 'ab', msg: b2bConc.msg, err: b2bConc.error, deshacer: hechoM ? hechoM.id : '', attr: 'data-bj-deshacer-ab', sig: sigM ? sigM.id : '', sigTxt: sigM ? `${pesos(sigM.monto)} · ${sigM.descripcion}`.slice(0, 48) : '' }) });
+  // ═══ v0.114.0 · Conciliar por cliente (pedido por Emmanuel el 28 oct; reemplaza la bandeja de abonos). A la izquierda, los clientes con
+  // folios por cobrar (y "Abonos sin cliente"); al elegir uno, sus folios y sus abonos. Se marcan folios, se busca el abono que calza
+  // (primero los de ese cliente, después "otros abonos") y "Conciliar" los une. Lo que decía cada abono queda en "Detalle del abono".
+  const movsV = d.movimientos.filter(delMesAb), cliAb = m => ((props[m.id] || {}).clienteId) || '';
+  const sinCli = movsV.filter(m => !cliAb(m));
+  const nomCli = id => ((d.clientes.find(c => c.id === id) || {}).nombre) || (((porCobrar[id] || [])[0] || {}).cliente) || id;
+  const idsCli = [...new Set(Object.keys(porCobrar).filter(id => (porCobrar[id] || []).length).concat(movsV.map(cliAb).filter(Boolean)))];
+  const listaCli = idsCli.map(id => { const fs = porCobrar[id] || [], ab = movsV.filter(m => cliAb(m) === id); return { id, nombre: nomCli(id), fs, saldo: fs.reduce((a, f) => a + f.saldo, 0), ab }; })
+    .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+  if (b2bConc.cli && b2bConc.cli !== '__sin' && !idsCli.includes(b2bConc.cli)) { b2bConc.cli = ''; b2bConc.selF = []; b2bConc.selAb = ''; }
+  if (b2bConc.selAb && !movsV.some(m => m.id === b2bConc.selAb)) b2bConc.selAb = '';
+  // Llegando desde Finanzas → Resumen del mes con un abono elegido (o "sin cliente"): se abre en su cliente
+  if (!b2bConc.cli && b2bConc.abierto) { const mA = movsV.find(m => m.id === b2bConc.abierto); if (mA) { b2bConc.cli = cliAb(mA) || '__sin'; if (b2bConc.cli !== '__sin') { b2bConc.selAb = mA.id; b2bConc.selF = []; b2bConc.abierto = ''; } } }
+  if (!b2bConc.cli && b2bConc.bjFiltro === 'sin') b2bConc.cli = '__sin';
+  const folDe = id => (porCobrar[id] || []).slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || String(a.folio).localeCompare(String(b.folio), 'es', { numeric: true }));
+  const sumaSel = id => folDe(id).filter(f => (b2bConc.selF || []).includes(f.folio)).reduce((a, f) => a + f.saldo, 0);
+  // El abono que calza con lo marcado (±$1): primero los de ese cliente, después los demás
+  const calzaCon = (id, suma) => { if (!(suma > 0)) return ''; const ok = m => Math.abs(m.monto - suma) <= 1; const x = movsV.find(m => cliAb(m) === id && ok(m)) || movsV.find(m => cliAb(m) !== id && ok(m)); return x ? x.id : ''; };
+  const abBoton = (m, conCli) => { const p = props[m.id] || {}, sel = b2bConc.selAb === m.id, rs = BJ.resumenAbono(p, repP[m.id]);
+    return `<button type="button" class="bjc-ab${sel ? ' bjc-sel' : ''}" data-bjc-ab="${esc(m.id)}" aria-pressed="${sel}"><span class="gn-fila"><b>${pesos(m.monto)}</b><span class="bjc-fecha">${esc(diaTexto(m.fecha))}</span></span><span class="bjc-gl">${esc(m.descripcion)}</span>${conCli && p.cliente ? `<small>Propuesto para ${esc(p.cliente)}</small>` : ''}${rs ? `<small class="bjc-rs">${esc(rs)}</small>` : ''}${p.tef ? `<small>Transfirió: ${esc(p.tef.nombre || '—')}</small>` : ''}</button>`; };
+  const trabajoHtml = () => {
+    const volver = '<button type="button" class="btn-link bjc-volver" data-bjc-cli="">← Todos los clientes</button>';
+    if (!b2bConc.cli) return `<div class="bjc-vacio"><p class="ayuda">Elija un cliente a la izquierda: aparecen sus folios por cobrar y sus abonos, frente a frente.</p><p class="ayuda">${movsV.length ? `Quedan ${movsV.length} ${movsV.length === 1 ? 'abono' : 'abonos'} por conciliar · ${pesos(movsV.reduce((a, m) => a + m.monto, 0))}.` : 'No queda ningún abono por conciliar.'}</p></div>`;
+    if (b2bConc.cli === '__sin') return `${volver}<h3 class="bjc-h">Abonos sin cliente · ${sinCli.length}</h3><p class="ayuda">No se reconoció quién pagó. Abra uno y elija el cliente: pasa a la vista de ese cliente con el abono marcado (y se aprende para la próxima). Si no es un pago de un cliente, márquelo "Ya estaba registrado" o "No es de B2B".</p>
+      <div class="bjc-sin-lista">${sinCli.length ? sinCli.map(m => fila(m, true)).join('') : '<div class="vacio" style="border:0">Nada aquí.</div>'}</div>`;
+    const C = listaCli.find(x => x.id === b2bConc.cli) || { id: b2bConc.cli, nombre: nomCli(b2bConc.cli), fs: [], ab: [], saldo: 0 };
+    // Recién elegido el cliente de un abono sin cliente: se marcan los folios que propone para ese abono
+    if (b2bConc.marcarProp) { b2bConc.marcarProp = false; const pa = props[b2bConc.selAb] || {}; if (pa.clienteId === C.id && !(b2bConc.selF || []).length) b2bConc.selF = (pa.asignaciones || []).map(a => String(a.folio)); }
+    const fs = folDe(C.id), sel = new Set((b2bConc.selF || []).filter(f => fs.some(x => x.folio === f))), fSel = fs.filter(f => sel.has(f.folio)), suma = fSel.reduce((a, f) => a + f.saldo, 0);
+    const m = b2bConc.selAb ? movsV.find(x => x.id === b2bConc.selAb) : null, p = m ? (props[m.id] || {}) : {}, O = ordenesPorN(), rut = rutCliAb(C.id);
+    const otros = movsV.filter(x => cliAb(x) !== C.id).sort((a, b) => (suma ? Math.abs(a.monto - suma) - Math.abs(b.monto - suma) : 0) || String(b.fecha).localeCompare(String(a.fecha)));
+    let dif = '';
+    if (m && fSel.length) {
+      const r = m.monto - suma;
+      if (Math.abs(r) <= 1) dif = '<p class="bjc-dif bjc-ok">Calza exacto.</p>';
+      else if (r > 0) dif = `<p class="bjc-dif">El abono es ${pesos(r)} más que los folios marcados.</p><label class="check-linea"><input type="checkbox" data-bjc-favor ${b2bConc.bjcFavor !== false ? 'checked' : ''}> Dejar ${pesos(r)} como saldo a favor de ${esc(C.nombre)}</label>`;
+      else { let rest = m.monto, parcial = null; fSel.forEach(f => { const a = Math.min(f.saldo, Math.max(0, rest)); if (a < f.saldo && !parcial) parcial = { f, a }; rest -= a; });
+        dif = `<p class="bjc-dif">El abono cubre ${pesos(m.monto)} de ${pesos(suma)}.${parcial ? ` El folio ${esc(parcial.f.folio)} queda con un abono de ${pesos(parcial.a)} (saldo ${pesos(parcial.f.saldo - parcial.a)}).` : ''}</p>`; }
+    }
+    const puede = !!(m && fSel.length) && !b2bConc.ocupado;
+    const frente = fSel.length || m ? `<div class="bjc-frente" role="group" aria-label="Conciliar">
+        <div class="bjc-fr-l"><span class="bj-k">Folios marcados</span>${fSel.length ? fSel.map(f => `<div class="gn-fila"><span>Folio ${esc(f.folio)}</span><span class="gn-m">${pesos(f.saldo)}</span></div>`).join('') + (fSel.length > 1 ? `<div class="gn-fila bjc-tot"><b>Total</b><b class="gn-m">${pesos(suma)}</b></div>` : '') : '<p class="ayuda">Marque uno o más folios.</p>'}</div>
+        <div class="bjc-fr-c"><button type="button" class="btn" data-bjc-conciliar ${puede ? '' : 'disabled'}>Conciliar</button></div>
+        <div class="bjc-fr-r"><span class="bj-k">Abono</span>${m ? `<div class="gn-fila"><b>${pesos(m.monto)}</b><span>${esc(diaTexto(m.fecha))}</span></div><small class="bjc-gl">${esc(m.descripcion)}</small>${cliAb(m) && cliAb(m) !== C.id ? `<small>Propuesto para ${esc(p.cliente || '')}: se aprende que es de ${esc(C.nombre)}</small>` : ''}` : `<p class="ayuda">${fSel.length ? `Ningún abono calza exacto con ${pesos(suma)}: elija uno de la lista (o en "Ver otros abonos").` : 'Elija un abono.'}</p>`}</div>
+      </div>${dif}
+      ${m ? `<div class="botones bjc-acc"><button type="button" class="btn-sec btn-chico" data-mov-rev="${esc(m.id)}">Ya estaba registrado</button><button type="button" class="btn-sec btn-chico" data-mov-ign="${esc(m.id)}">No es de B2B</button></div>
+        <details class="bjc-mas" data-bjc-mas ${b2bConc.masAbierto ? 'open' : ''}><summary>Detalle del abono${cliAb(m) === C.id ? ' y más opciones' : ''}</summary><div class="ab-izq">${detAbonoIzqHtml(m, p, claseAb[m.id] || 'revisar', repP[m.id])}</div>${cliAb(m) === C.id ? editor(m) : ''}</details>` : ''}` : '';
+    const folHtml = fs.length ? fs.map(f => `<div class="bjc-fol-c"><label class="bjc-fol${sel.has(f.folio) ? ' bjc-sel' : ''}"><input type="checkbox" data-bjc-fol="${esc(f.folio)}" ${sel.has(f.folio) ? 'checked' : ''}><span class="bjc-fol-t"><span class="gn-fila"><b>Folio ${esc(f.folio)}</b><span class="gn-m">${pesos(f.saldo)}</span></span><small>Emitida el ${esc(diaTexto(f.fecha))}${f.abonado ? ` · total ${pesos(f.total)} · abonado ${pesos(f.abonado)}` : ''}</small></span></label>${vendidoFolioHtml(f, O)}</div>`).join('') : '<p class="ayuda">No tiene folios por cobrar.</p>';
+    return `<div class="bjc-cab">${volver}<h3 class="bjc-h">${esc(C.nombre)}</h3><p class="ayuda">${rut ? `RUT ${esc(rut)} · ` : ''}${fs.length} ${fs.length === 1 ? 'folio' : 'folios'} por cobrar · ${pesos(C.saldo)}</p></div>
+      ${frente}
+      <div class="bjc-dos"><div class="bjc-col"><h4 class="bjc-h4">Folios por cobrar</h4>${folHtml}</div>
+        <div class="bjc-col"><h4 class="bjc-h4">Abonos de ${esc(C.nombre)}</h4>${C.ab.length ? C.ab.map(x => abBoton(x, false)).join('') : '<p class="ayuda">Ningún abono reconocido de este cliente.</p>'}
+          <details class="bjc-otros" data-bjc-otros ${b2bConc.verOtros ? 'open' : ''}><summary>Ver otros abonos (${otros.length})</summary><p class="ayuda">Por si pagó desde otra cuenta. ${suma ? 'Los más parecidos al total marcado van primero.' : 'Los más nuevos primero.'}</p>${otros.map(x => abBoton(x, true)).join('') || '<p class="ayuda">No hay otros abonos.</p>'}</details></div></div>`;
+  };
+  const porClienteHtml = () => `<section class="tarjeta bjc${b2bConc.cli ? ' bjc-con-cli' : ''}" data-bandeja="ab" aria-label="Conciliar abonos por cliente">${kC ? cartolaAbBannerHtml(kC, d.movimientos) : ''}
+    <div class="bjc-barra">${filtroMesBjHtml(b2bConc)}${sugBannerHtml('abono', sugAb)}<div class="bj-hecho${b2bConc.msg || b2bConc.error ? ' bj-hecho-on' : ''}" role="status" aria-live="polite">${hechoBjHtml({ tipo: 'ab', msg: b2bConc.msg, err: b2bConc.error, deshacer: hechoM ? hechoM.id : '', attr: 'data-bj-deshacer-ab', sig: '', sigTxt: '' })}</div></div>
+    <div class="bjc-cuerpo"><div class="bjc-lista bj-lista"><div class="campo bjc-q"><label class="sr" for="bjc-q">Buscar cliente</label><input id="bjc-q" type="search" data-bjc-q placeholder="Buscar cliente" value="${esc(b2bConc.bjcQ || '')}" autocomplete="off"></div>
+      <button type="button" class="bjc-cli bjc-sin${b2bConc.cli === '__sin' ? ' bjc-sel' : ''}" data-bjc-cli="__sin" aria-pressed="${b2bConc.cli === '__sin'}"><span class="gn-fila"><b>Abonos sin cliente</b><span class="chip ${sinCli.length ? 'c-amarillo' : 'c-verde'} chip-chico">${sinCli.length}</span></span>${sinCli.length ? `<small>${pesos(sinCli.reduce((a, m) => a + m.monto, 0))}</small>` : ''}</button>
+      ${listaCli.map(x => `<button type="button" class="bjc-cli${b2bConc.cli === x.id ? ' bjc-sel' : ''}" data-bjc-cli="${esc(x.id)}" data-bjc-nom="${esc(BJ.norm(x.nombre))}" data-bjc-abs="${esc(x.ab.map(m => m.id).join(' '))}" aria-pressed="${b2bConc.cli === x.id}"><span class="gn-fila"><b>${esc(x.nombre)}</b><span class="gn-m">${pesos(x.saldo)}</span></span><span class="bjc-cli-l2"><small>${x.fs.length} ${x.fs.length === 1 ? 'folio' : 'folios'}</small>${x.ab.length ? `<span class="chip c-verde chip-chico">${x.ab.length} ${x.ab.length === 1 ? 'abono' : 'abonos'}</span>` : ''}</span></button>`).join('')}
+      ${kC ? '' : histConcHtml()}</div>
+    <div class="bjc-trabajo">${trabajoHtml()}</div></div></section>`;
   b2bConc.claseRes = claseAb;   // v0.78.0: el Resumen del mes está en Finanzas; aquí queda su enlace (en la cabecera)
   el.innerHTML = cabConc('') + `
     ${kC ? '' : coberturaAbHtml(conf) + cartolasAbHtml(conf, d.movimientos)}
     ${kC ? '' : ajustesAbHtml(tarjetaConcHtml(d, conf, true))}
     ${kC ? '' : favorHtml(porCobrar)}
-    <section class="tarjeta bandeja" data-bandeja="ab" aria-label="Abonos de la cartola">${kC ? cartolaAbBannerHtml(kC, d.movimientos) : ''}${kC && b2bConc.verConc ? `<div class="bj-cuerpo"><div class="bj-lista" data-bj-lista="ab">${histConcHtml()}</div>${vacioDetBj('ab', kBj)}</div></section>` : `${barra}<div class="bj-cuerpo"><div class="bj-lista" data-bj-lista="ab">
-    ${seccion('auto', 'Para conciliar', grupos.auto, 'Calzan exacto con folios por cobrar de ese cliente. Revisa y confirma; si alguno no corresponde, ábrelo para cambiarlo.')}
-    ${seccion('revisar', 'Para revisar', grupos.revisar, 'Seguro: se sabe el cliente (RUT, lo aprendido o su nombre), pero el monto no calza exacto o hay más de una forma de calzar. Probable: nada dice quién pagó, pero el monto calza exacto (±$1) con lo que debe ese cliente; nunca se confirma solo: revísalo y confirma.')}
-    ${seccion('sin', 'Sin cliente', grupos.sinCliente, 'No se reconoció quién pagó y el monto no calza exacto con lo que debe ningún cliente: no se adivina. Busca la factura en el detalle, elige el cliente (se aprende para la próxima) o márcalo "No es de B2B". Para ver el RUT y el nombre completo de quien transfirió, sube también el archivo "Transferencias recibidas" del banco (mismo botón de arriba).')}
-    ${kC ? '' : histConcHtml()}</div>${foliosPorCobrarHtml(porCobrar, d.clientes, kBj)}</div></section>`}`;
+    ${kC && b2bConc.verConc ? `<section class="tarjeta bandeja" data-bandeja="ab" aria-label="Abonos de la cartola">${cartolaAbBannerHtml(kC, d.movimientos)}<div class="bj-cuerpo"><div class="bj-lista" data-bj-lista="ab">${histConcHtml()}</div>${vacioDetBj('ab', kBj)}</div></section>` : porClienteHtml()}`;
   irDesdeResumen(el);
   conectarCartolasAb(el, conf);   // v0.109.0   // v0.78.0 · llegando desde Finanzas → Resumen del mes
   // ── Acciones ──
@@ -8310,6 +8367,50 @@ function pintarB2bConciliacion(el, sub) {
   conectarTarjetaConc(el, conf, repintar, ocupado);
   conectarBandeja(el, 'ab');
   conectarSug(el, repintar);
+  // ── v0.114.0 · Conciliar por cliente ──
+  el.querySelectorAll('[data-bj-mes-quitar]').forEach(x => x.addEventListener('click', () => { b2bConc.bjMes = ''; repintar(); }));
+  el.querySelectorAll('[data-bjc-cli]').forEach(x => x.addEventListener('click', () => {
+    const c = x.dataset.bjcCli; if (c !== b2bConc.cli) { b2bConc.selF = []; b2bConc.selAb = ''; b2bConc.verOtros = false; b2bConc.bjcFavor = true; b2bConc.abierto = ''; }
+    b2bConc.cli = c; b2bConc.msg = b2bConc.cli ? b2bConc.msg : ''; repintar();
+    const t = el.querySelector('.bjc-trabajo'); if (c && t && !enPC()) t.scrollIntoView({ block: 'start' });
+  }));
+  const qc = el.querySelector('[data-bjc-q]');
+  const filtrarCli = () => { const q = BJ.norm(b2bConc.bjcQ || ''); el.querySelectorAll('.bjc-cli[data-bjc-nom]').forEach(x => { x.hidden = !!q && !x.dataset.bjcNom.includes(q); }); };
+  if (qc) qc.addEventListener('input', () => { b2bConc.bjcQ = qc.value; filtrarCli(); });
+  filtrarCli();
+  el.querySelectorAll('[data-bjc-fol]').forEach(c => c.addEventListener('change', () => {
+    const s1 = new Set(b2bConc.selF || []); if (c.checked) s1.add(c.dataset.bjcFol); else s1.delete(c.dataset.bjcFol); b2bConc.selF = [...s1];
+    // Busca el abono que calza con la suma; si no hay, deja el que estaba elegido
+    const id = calzaCon(b2bConc.cli, sumaSel(b2bConc.cli)); if (id) { b2bConc.selAb = id; if (!movsV.some(m => m.id === id && cliAb(m) === b2bConc.cli)) b2bConc.verOtros = true; }
+    repintar();
+  }));
+  el.querySelectorAll('[data-bjc-ab]').forEach(x => x.addEventListener('click', () => {
+    const id = x.dataset.bjcAb; b2bConc.selAb = b2bConc.selAb === id ? '' : id;
+    // Un abono de este cliente con su propuesta: marca los folios que propone (si no hay ninguno marcado)
+    const p = props[id] || {};
+    if (b2bConc.selAb && !(b2bConc.selF || []).length && p.clienteId === b2bConc.cli) b2bConc.selF = (p.asignaciones || []).map(a => String(a.folio)).filter(fo => folDe(b2bConc.cli).some(f => f.folio === fo));
+    repintar();
+  }));
+  const ma = el.querySelector('[data-bjc-mas]'); if (ma) ma.addEventListener('toggle', () => { b2bConc.masAbierto = ma.open; });
+  const ot = el.querySelector('[data-bjc-otros]'); if (ot) ot.addEventListener('toggle', () => { b2bConc.verOtros = ot.open; });
+  el.querySelectorAll('[data-bjc-favor]').forEach(c => c.addEventListener('change', () => { b2bConc.bjcFavor = c.checked; }));
+  el.querySelectorAll('[data-bjc-conciliar]').forEach(x => x.addEventListener('click', () => {
+    const id = b2bConc.selAb, cid = b2bConc.cli, folios = (b2bConc.selF || []).slice(); if (!id || !cid || !folios.length) return;
+    ocupado(id, async () => {
+      const m = d.movimientos.find(z => z.id === id), p = props[id] || {}, fs = folDe(cid).filter(f => folios.includes(f.folio));
+      let rest = m.monto, asign = [];
+      // Si lo marcado es justo lo que propone el sistema para este abono, va su propuesta tal cual (montos y órdenes, v0.26.0)
+      const prop = p.clienteId === cid ? (p.asignaciones || []).filter(a => Number(a.monto) > 0) : [], igual = prop.length && prop.length === folios.length && prop.every(a => folios.includes(String(a.folio)));
+      if (igual) { asign = prop.map(a => ({ folio: String(a.folio), monto: Math.round(Number(a.monto)), ordenes: a.ordenes || [] })); rest = m.monto - asign.reduce((x, a) => x + a.monto, 0); }
+      else fs.forEach(f => { const a = Math.min(f.saldo, rest); if (a > 0) { asign.push({ folio: f.folio, monto: a, ordenes: [] }); rest -= a; } });
+      const aFavor = rest > 1 && b2bConc.bjcFavor !== false, nombre = nomCli(cid), propio = p.clienteId === cid;
+      await B2b.aplicarMovimiento(id, cid, asign, !propio || aprendeAbono(m, p), aFavor, p.tef ? p.tef.rut : '', { regla: propio ? (p.regla || '') : '', puntaje: ptAbObj(id, p, propio) });
+      delete b2bConc.edit[id]; delete b2bConc.forzados[id]; delete b2bConc.favor[id]; delete b2bConc.altSel[id]; b2bConc.hist = null; b2bConc.selF = []; b2bConc.selAb = ''; b2bConc.bjcFavor = true;
+      b2bConc.msg = `Listo: abono de ${esc(nombre)} conciliado · ${asign.map(a => 'folio ' + esc(a.folio)).join(', ')}${aFavor ? ' · con saldo a favor' : ''}.`;
+      b2bConc.hecho = { msg: b2bConc.msg, m: { id, monto: m.monto, descripcion: m.descripcion, fecha: m.fecha, estado: 'conciliado', cliente: nombre, asignaciones: asign.map(a => ({ folio: a.folio, monto: a.monto })), favorInicial: aFavor ? rest : 0, aprendido: !propio || aprendeAbono(m, p) } };
+      registrar('Concilió abono', `${pesos(m.monto)} · ${nombre} · ${asign.map(a => 'folio ' + a.folio).join(', ')}${aFavor ? ` · ${pesos(rest)} a favor` : ''}`);
+    });
+  }));
   // v0.69.0 · "Usar esta": la otra opción pasa a ser la propuesta (o, si es otro cliente de una regla, ese cliente)
   el.querySelectorAll('[data-bj-alt-ab]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.bjAltAb, i = Number(b.dataset.sel), a = (((b2bConc.ax || {}).alt || {})[id] || []).find(x => String(x.sel) === b.dataset.sel);
     if (a && a.p && a.p.tipo === 'clienteRegla') { b2bConc.forzados[id] = a.p.clienteId; delete b2bConc.altSel[id]; } else if (i < 0) delete b2bConc.altSel[id]; else b2bConc.altSel[id] = i;
@@ -8354,7 +8455,9 @@ function pintarB2bConciliacion(el, sub) {
   // v0.68.0 · "Buscar facturas" dentro del detalle: asignar una factura abierta usa la misma elección de cliente y folio de siempre
   const conectarFactBj = box => box.querySelectorAll('[data-bj-folio]').forEach(b => b.addEventListener('click', () => {
     const id = b.dataset.bjFolio, cli = b.dataset.cli, folio = b.dataset.folio, m = d.movimientos.find(x => x.id === id), f = (porCobrar[cli] || []).find(x => x.folio === folio); if (!m || !f) return;
-    b2bConc.forzados[id] = cli; b2bConc.edit[id] = { montos: { [folio]: Math.min(f.saldo, m.monto) } }; delete b2bConc.favor[id]; b2bConc.abierto = id; (b2bConc.bjFq || (b2bConc.bjFq = {}))[id] = ''; repintar();
+    b2bConc.forzados[id] = cli; b2bConc.edit[id] = { montos: { [folio]: Math.min(f.saldo, m.monto) } }; delete b2bConc.favor[id]; b2bConc.abierto = id; (b2bConc.bjFq || (b2bConc.bjFq = {}))[id] = '';
+    if (b2bConc.cli === '__sin' || (b2bConc.cli && b2bConc.cli !== cli)) { b2bConc.cli = cli; b2bConc.selAb = id; b2bConc.selF = [folio]; b2bConc.verOtros = false; b2bConc.abierto = ''; }   // v0.114.0: a la vista de ese cliente, con ese folio
+    repintar();
   }));
   conectarFactBj(el);
   el.querySelectorAll('[data-bj-fq]').forEach(i => i.addEventListener('input', () => {
@@ -8371,9 +8474,13 @@ function pintarB2bConciliacion(el, sub) {
   }));
   el.querySelectorAll('[data-mov-favor]').forEach(c => c.addEventListener('change', () => { b2bConc.favor[c.dataset.movFavor] = c.checked; b2bConc.abierto = c.dataset.movFavor; repintar(); }));
   // v0.65.2 · elegir otra coincidencia exacta o un parecido: queda ese cliente (como elegido a mano)
-  el.querySelectorAll('[data-mov-elegir]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.movElegir; b2bConc.forzados[id] = b.dataset.cli; delete b2bConc.edit[id]; b2bConc.abierto = id; repintar(); }));
+  el.querySelectorAll('[data-mov-elegir]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.movElegir; b2bConc.forzados[id] = b.dataset.cli; delete b2bConc.edit[id]; b2bConc.abierto = id;
+    if (b2bConc.cli === '__sin') { b2bConc.cli = b.dataset.cli; b2bConc.selAb = id; b2bConc.selF = []; b2bConc.marcarProp = true; b2bConc.verOtros = false; b2bConc.abierto = ''; }   // v0.114.0: a la vista de ese cliente
+    repintar(); }));
   el.querySelectorAll('details[data-mov-parecidos]').forEach(dt => dt.addEventListener('toggle', () => { b2bConc.parecidos[dt.dataset.movParecidos] = dt.open; }));
-  el.querySelectorAll('[data-mov-cli]').forEach(sel => sel.addEventListener('change', () => { const id = sel.dataset.movCli; if (sel.value) b2bConc.forzados[id] = sel.value; else delete b2bConc.forzados[id]; delete b2bConc.edit[id]; b2bConc.abierto = id; repintar(); }));
+  el.querySelectorAll('[data-mov-cli]').forEach(sel => sel.addEventListener('change', () => { const id = sel.dataset.movCli; if (sel.value) b2bConc.forzados[id] = sel.value; else delete b2bConc.forzados[id]; delete b2bConc.edit[id]; b2bConc.abierto = id;
+    if (b2bConc.cli === '__sin' && sel.value) { b2bConc.cli = sel.value; b2bConc.selAb = id; b2bConc.selF = []; b2bConc.marcarProp = true; b2bConc.verOtros = false; b2bConc.abierto = ''; }   // v0.114.0: pasa a la vista de ese cliente con el abono marcado
+    repintar(); }));
   // v0.15.2: tocar un folio le asigna su saldo (lo que queda del abono si es menos); tocarlo de nuevo lo deja en 0
   el.querySelectorAll('[data-mov-usar]').forEach(b => b.addEventListener('click', () => {
     const id = b.dataset.movUsar, m = d.movimientos.find(x => x.id === id), p = props[id];
@@ -8828,7 +8935,7 @@ async function subirCartola(file, conf) {
   } else out.errAbonos = conf ? 'la conciliación de B2B todavía no se empieza (B2B → Conciliación)' : 'no se pudo leer B2B';
   // v0.100.1 · Con el Gastos nuevo, los cargos van al Gastos nuevo (los mismos que si la cartola se subiera en Gastos), no al anterior
   if (GN_ACTIVO() && c.filas.some(f => f.cargos > 0)) {
-    try { const [GN, F] = await Promise.all([import('./gn-modelo.js?v=0.113.0'), import('./gn-fs.js?v=0.113.0')]), id = GN.idCarga('be'), movs = GN.movsDeCartola(c, id);
+    try { const [GN, F] = await Promise.all([import('./gn-modelo.js?v=0.114.0'), import('./gn-fs.js?v=0.114.0')]), id = GN.idCarga('be'), movs = GN.movsDeCartola(c, id);
       const k = await F.cargarMovs('bancoestado', movs, { id, archivo: file.name, tamano: file.size, desde: c.desde, hasta: c.hasta, identificador: c.identificador, cuadre: GN.cuadreCartola(c) });
       out.cargosGN = GN.textoCarga(k); } catch (e) { out.errCargos = e.message || mensajeError(e); }
   } else if (c.filas.some(f => f.cargos > 0)) {
@@ -9530,7 +9637,7 @@ function pintarUsoBase(el) {
   if (b) b.onclick = async () => {
     if (!confirm('Releer todo de la base de Gastos y Finanzas usa unas 7.000 lecturas (de 50.000 al día). ¿Seguir?')) return;
     b.disabled = true; const st = el.querySelector('#uso-estado');
-    try { const db = await (await import('./gastos-base.js?v=0.113.0')).dbBase(); const FG = await import('./fs-gastos.js?v=0.113.0'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
+    try { const db = await (await import('./gastos-base.js?v=0.114.0')).dbBase(); const FG = await import('./fs-gastos.js?v=0.114.0'); await FG.reconstruir(db, undefined, col => { st.textContent = 'Leyendo ' + col + '…'; }); registrar('Releyó la base de Gastos', ''); pintarUsoBase(el); el.querySelector('#uso-estado').textContent = 'Listo: todo leído de nuevo.'; }
     catch (e) { st.textContent = e.message || mensajeError(e); b.disabled = false; }
   };
 }
@@ -9623,7 +9730,7 @@ async function pintarAjustes(sub) {
     .then(() => { if (sub === 'cocina' && $('cocina')) $('cocina').scrollIntoView({ block: 'start' }); })
     .catch(e => { if ($('cocina')) $('cocina').innerHTML = `<p class="error">${esc(mensajeError(e))}</p>`; });
   // v0.73.0 · Respaldo mensual en Excel (reemplaza a las copias en vivo a las planillas)
-  import('./vista-respaldo.js?v=0.113.0').then(m => m.pintar($('respaldo'), { esc, info, icono, registrar, mensajeError, dialogo }))
+  import('./vista-respaldo.js?v=0.114.0').then(m => m.pintar($('respaldo'), { esc, info, icono, registrar, mensajeError, dialogo }))
     .then(() => { if (sub === 'respaldo' && $('respaldo')) $('respaldo').scrollIntoView({ block: 'start' }); })
     .catch(e => { if ($('respaldo')) $('respaldo').innerHTML = `<p class="error">No se pudo abrir el Respaldo (${esc(e.message || e)}).</p>`; });
 

@@ -1,9 +1,27 @@
-# Sistema Fën · v0.113.0
+# Sistema Fën · v0.114.0
 
 **App:** v0.109.2 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.114.0: conciliar los abonos por cliente
+
+Aprobado por Emmanuel el 28 oct. **Ventas B2B → Conciliación → Abonos de la cartola** ya no muestra todos los abonos y facturas a la vez: se trabaja cliente por cliente.
+- **A la izquierda, los clientes con folios por cobrar** (en orden alfabético, con lo que deben y cuántos abonos suyos llegaron), un buscador y, arriba, **"Abonos sin cliente"**.
+- **Al elegir un cliente:** sus folios por cobrar a un lado y sus abonos al otro. Abajo, plegado, **"Ver otros abonos"**, por si pagó desde otra cuenta.
+- **Marque uno o más folios:** el sistema busca el abono que calza con la suma (primero los del cliente, después los otros) y los pone **frente a frente**, con el botón **Conciliar** al medio. Si no calza exacto, dice la diferencia (saldo a favor o abono parcial).
+- Tocar un abono del cliente marca los folios que el sistema propone para él.
+- **"Abonos sin cliente":** los que no se reconocen. Al elegir el cliente, pasa a la vista de ese cliente con el abono marcado (y se aprende para la próxima). Ahí también están "Ya estaba registrado" y "No es de B2B".
+- Lo que el sistema sabe de cada abono (qué es, qué propone y por qué, el puntaje, y la forma de antes de asignar montos y órdenes) queda en **"Detalle del abono y más opciones"**.
+- Sin atajo para conciliar todo de una vez: se revisa cliente por cliente.
+- En el celular: la lista de clientes; al elegir uno se ve su trabajo y "← Todos los clientes" para volver.
+
+Cambian `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.114.0`). No cambian las reglas ni los scripts. Incluye las v0.112.0, v0.112.1 y v0.113.0.
+
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.114.0.
+- [ ] Ventas B2B → Conciliación: a la izquierda los clientes; elegir uno, marcar un folio y ver el abono frente a frente; Conciliar.
+- [ ] "Abonos sin cliente": elegir el cliente de uno y ver que pasa a ese cliente.
 
 ## Novedades de la v0.113.0: el PDF de cada factura B2B, descargado con su nombre y guardado en Drive
 

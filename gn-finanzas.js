@@ -13,10 +13,10 @@
 //  Finanzas lee el tipo desde la cuenta (plan-cuentas.js), ya no desde Clasificación. catalogo: true marca esas líneas. Un ítem sin cuenta
 //  (por ubicar en Gastos → Ítems) entra sin cuenta: queda "sin clasificar" en el estado de resultados.
 // ═══════════════════════════════════════════════
-import * as GB from './gn-bandeja.js?v=0.113.0';
-import * as GI from './gn-items.js?v=0.113.0';
-import * as TR from './trabajadores.js?v=0.113.0';
-import * as GT from './tributario.js?v=0.113.0';   // v0.108.0: la situación tributaria de cada línea   // v0.104.0: los pagos que usan la provisión de los trabajadores
+import * as GB from './gn-bandeja.js?v=0.114.0';
+import * as GI from './gn-items.js?v=0.114.0';
+import * as TR from './trabajadores.js?v=0.114.0';
+import * as GT from './tributario.js?v=0.114.0';   // v0.108.0: la situación tributaria de cada línea   // v0.104.0: los pagos que usan la provisión de los trabajadores
 
 const s = v => String(v == null ? '' : v).trim();
 const entero = v => { const x = Math.round(Number(v)); return isFinite(x) ? x : 0; };
