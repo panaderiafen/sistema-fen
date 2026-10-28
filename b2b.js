@@ -8,15 +8,15 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.114.1';
-import * as FB from './firebase-b2b.js?v=0.114.1';
-import * as Apps from './apps.js?v=0.114.1';
-import * as Mem from './fs-memoria.js?v=0.114.1';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.114.1';
-import { distanciaTef } from './feriados-cl.js?v=0.114.1';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.114.1';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.114.1';
-import { cuadreCartola } from './gn-modelo.js?v=0.114.1';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.114.2';
+import * as FB from './firebase-b2b.js?v=0.114.2';
+import * as Apps from './apps.js?v=0.114.2';
+import * as Mem from './fs-memoria.js?v=0.114.2';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.114.2';
+import { distanciaTef } from './feriados-cl.js?v=0.114.2';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.114.2';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.114.2';
+import { cuadreCartola } from './gn-modelo.js?v=0.114.2';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1349,17 +1349,27 @@ export async function cargarCartola(cartola, conf) {
   // v0.67.7 · ¿El mismo movimiento que ya llegó en OTRA cartola (en línea ↔ histórica)? Las mismas reglas que los cargos (v0.67.6)
   const orig = [...enRango.values()].filter(m => !m.quitadoEnPlanilla).map(vistaRepMov);
   const rep = CB.buscarRepetidos(llegan.map(l => vistaRepMov({ id: l.id, ...l.d, subidaEl: ahora })), orig, { tomados: CB.tomadosDe(orig) });
-  const porEscribir = [];
-  r.repetidos = 0; r.parecidos = 0;
+  const porEscribir = [], reemplazos = [];
+  r.repetidos = 0; r.parecidos = 0; r.reemplazados = 0;
   llegan.forEach(l => {
-    const m = rep.get(l.id);
-    if (m && m.auto) {
+    const m = rep.get(l.id), o = m && m.original && m.original.m;
+    // v0.114.2 · La histórica (con la glosa completa) reemplaza al mismo abono de una cartola en línea que sigue pendiente: el de la
+    // en línea pasa a "Repetido" de esta histórica (con su N°) y queda por conciliar el de la histórica. Si ya estaba resuelto, como antes.
+    if (m && m.auto && cartola.tipo === 'historica' && o && o.estado === 'pendiente' && fuenteMov(o).tipo === 'enlinea') {
+      const det = detalleRepetidoMov({ id: l.id, ...l.d, subidaEl: ahora, cargado: { por: quien, en: ahora } }, m.por, 'reemplazo');
+      reemplazos.push([o.id, { estado: REPETIDO_B2B, repetidoDe: l.id, repetido: det, resuelto: { por: POR_REPETIDO_B2B, en: FB.serverTimestamp() } }, o]);
+      r.reemplazados++; r.nuevos++;
+    } else if (m && m.auto) {
       const det = detalleRepetidoMov(m.original.m, m.por, 'carga');
       Object.assign(l.d, { estado: REPETIDO_B2B, repetidoDe: m.original.id, repetido: det, resuelto: { por: POR_REPETIDO_B2B, en: FB.serverTimestamp() } });
       r.repetidos++;
     } else { r.nuevos++; if (m) r.parecidos++; }
     porEscribir.push([l.id, l.d]);
   });
+  // v0.114.2 · Primero el de la en línea pasa a repetido (memoria y base) y después llega el de la histórica: así la revisión de la lista
+  // (que corre al llegar lo nuevo) nunca toma al de la en línea como original del de la histórica
+  reemplazos.forEach(([id, d, o]) => { const p = repMem.docs.get(id) || o; repMem.docs.set(id, { ...p, ...d, id, resuelto: { por: POR_REPETIDO_B2B, en: ahora }, _reemplazado: true }); });
+  for (let i = 0; i < reemplazos.length; i += 400) { const b = FB.writeBatch(db); reemplazos.slice(i, i + 400).forEach(([id, d]) => b.update(FB.doc(db, 'movimientos', id), d)); await b.commit(); uso.escrituras += Math.min(400, reemplazos.length - i); }
   for (let i = 0; i < porEscribir.length; i += 400) { const b = FB.writeBatch(db); porEscribir.slice(i, i + 400).forEach(([id, d]) => b.set(FB.doc(db, 'movimientos', id), d)); await b.commit(); uso.escrituras += Math.min(400, porEscribir.length - i); }
   // Lo recién subido queda en la memoria de los repetidos (así la lista no vuelve a leer este rango)
   porEscribir.forEach(([id, d]) => repMem.docs.set(id, { id, ...d, subidaEl: ahora, cargado: { por: quien, en: ahora }, ...(d.resuelto ? { resuelto: { por: d.resuelto.por, en: ahora } } : {}), _subido: true }));
@@ -1466,13 +1476,14 @@ export async function revisarRepetidosB2b(pendientes) {
   const db = await dbOk(), vivos = new Set((pendientes || []).map(m => m.id));
   let lecturas = 0;
   for (const [a, b] of tramosFaltantes((pendientes || []).map(m => m.fecha))) lecturas += (await leerRango(db, a, b)).lecturas;
-  (pendientes || []).forEach(m => { const p = repMem.docs.get(m.id); repMem.docs.set(m.id, { ...(p && p._subido ? { subidaEl: p.subidaEl } : {}), ...m }); });
+  (pendientes || []).forEach(m => { const p = repMem.docs.get(m.id); if (p && (p._reemplazado || (p.estado === REPETIDO_B2B && p.repetidoDe))) return;   // v0.114.2: ya repetido (leído de la base): la lista en vivo puede traerlo todavía pendiente
+    repMem.docs.set(m.id, { ...(p && p._subido ? { subidaEl: p.subidaEl } : {}), ...m }); });
   // Un pendiente leído antes que ya no está pendiente: se resolvió en otro equipo (no se sabe cómo; no se propone como original dudoso)
   repMem.docs.forEach((d, id) => { if (d.estado === 'pendiente' && !vivos.has(id) && !d._subido && !d._local) d._fuera = true; });
   const vs = [...repMem.docs.values()].filter(m => !m.quitadoEnPlanilla).map(vistaRepMov);
   const pend = vs.filter(v => v.estado === 'POR_REVISAR' && vivos.has(v.id));
   const antes = (a, b) => (a.subidaEl + '|' + a.cartola + '|' + a.id) < (b.subidaEl + '|' + b.cartola + '|' + b.id);
-  const r = CB.buscarRepetidos(pend, vs, { tomados: CB.tomadosDe(vs), puede: (n, e) => e.estado !== 'POR_REVISAR' || antes(e, n) });
+  const r = CB.buscarRepetidos(pend, vs, { tomados: CB.tomadosDe(vs), puede: (n, e) => e.repetidoDe !== n.id && ((repMem.docs.get(e.id) || {}).repetidoDe || '') !== n.id && (e.estado !== 'POR_REVISAR' || antes(e, n)) });   // v0.114.2: el que ya es repetido de este (aunque la lista en vivo aún no lo sepa) no puede ser su original
   const autos = [], props = {};
   r.forEach((x, id) => { if (x.auto) autos.push({ id, x }); else props[id] = { ambiguo: !!x.ambiguo, candidatos: x.candidatos.map(y => ({ id: y.e.id, por: y.por, fuerte: !!y.fuerte, dias: y.dias })) }; });
   let marcados = 0;

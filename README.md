@@ -1,9 +1,21 @@
-# Sistema Fën · v0.114.1
+# Sistema Fën · v0.114.2
 
 **App:** v0.109.2 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.114.2: la cartola histórica reemplaza a la en línea en lo pendiente
+
+Aprobado por Emmanuel el 28 oct.
+- Al subir una **cartola histórica**, si el mismo abono ya había llegado con una **cartola en línea** y **todavía no se concilia**, queda por conciliar el de la histórica (con la glosa completa) y el de la en línea pasa a **"Repetido"**, con la referencia a la histórica (N° de cartola). Así lo pendiente siempre tiene la información más completa para reconocer al cliente.
+- Si el de la en línea **ya estaba conciliado**, nada cambia: el de la histórica queda como repetido, como antes.
+- El resumen de la subida dice cuántos abonos de la histórica reemplazaron a uno de la en línea. Se puede deshacer en "Ya conciliados", como cualquier repetido.
+
+Cambian `b2b.js`, `app.js`, `config.js` y este README; los demás, solo la versión (`?v=0.114.2`). Incluye las v0.112.0 a v0.114.1.
+
+- [ ] Abajo dice v0.114.2.
+- [ ] Subir la próxima histórica de la Chequera: el resumen dice si alguno reemplazó a uno de la en línea; en "Ya conciliados" ese aparece como "Repetido" de la histórica N°…
 
 ## Novedades de la v0.114.1: el RUT y el nombre primero; el canal no se aprende
 
