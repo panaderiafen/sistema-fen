@@ -5,7 +5,7 @@
 //    único, por el F29. Los datos se buscan por su etiqueta (toleran bonos, colación, transporte y cambios menores de formato).
 //  · F29 (formulario completo o certificado): el pago del mes con su reparto por código: IVA y PPM (fuera del resultado), retención de
 //    boletas de terceros (costo de los practicantes), impuesto único (costo de los sueldos), multas e intereses (financiero).
-import { idDoc, rutN, rutTexto, esIso, mesDe } from './gn-modelo.js?v=0.112.1';
+import { idDoc, rutN, rutTexto, esIso, mesDe } from './gn-modelo.js?v=0.113.0';
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const celdas = l => s(l).split(/\s{2,}/).map(x => x.trim()).filter(Boolean);

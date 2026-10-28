@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Llenar la factura en el portal gratuito del SII  v0.31.0
+//  Sistema Fën — Llenar la factura en el portal gratuito del SII  v0.31.0 · v0.113.0: el PDF a Drive y descargado con su nombre
 //  1) En Por facturar, "Preparar para el SII" copia el RUT del cliente y el detalle
 //     (producto, cantidad y precio neto) como un texto que empieza con "FENSII1:".
 //  2) En el formulario "Factura electrónica" del SII, el botón "Llenar factura Fën"
@@ -23,10 +23,11 @@ export const URL_FORMULARIO_SII = 'https://www1.sii.cl/cgi-bin/Portal001/mipeGen
 export const URL_INICIO_SII = 'https://www.sii.cl/';
 // Mensaje que llega desde la página del SII con el folio (solo se acepta de una página de sii.cl)
 export function leerMensajeFolio(e) {
-  if (!e || !/^https:\/\/([a-z0-9-]+\.)*sii\.cl$/.test(String(e.origin || ''))) return null;
+  if (!e || !/^https:\/\/www\d{0,2}\.sii\.cl$/.test(String(e.origin || ''))) return null;   // v0.113.0: solo www.sii.cl y www1.sii.cl (y sus pares)
   const m = e.data || {};
   if (m.tipo !== 'fen-sii-folio' || !/^\d{1,12}$/.test(String(m.folio || ''))) return null;
-  return { folio: String(m.folio), rut: String(m.rut || '').toUpperCase().replace(/[^0-9K]/g, ''), total: Number(m.total) || 0, fecha: /^\d{4}-\d{2}-\d{2}$/.test(m.fecha || '') ? m.fecha : '', ordenes: String(m.ordenes || '').split(',').filter(x => /^\d+$/.test(x)) };
+  const pdf = typeof Blob !== 'undefined' && m.pdf instanceof Blob && m.pdf.size > 0 && m.pdf.size < 8 * 1024 * 1024 ? m.pdf : null;   // v0.113.0
+  return { pdf, folio: String(m.folio), rut: String(m.rut || '').toUpperCase().replace(/[^0-9K]/g, ''), total: Number(m.total) || 0, fecha: /^\d{4}-\d{2}-\d{2}$/.test(m.fecha || '') ? m.fecha : '', ordenes: String(m.ordenes || '').split(',').filter(x => /^\d+$/.test(x)) };
 }
 
 // RUT "76.123.456-7" → { rut: '76123456', dv: '7' }
@@ -42,7 +43,7 @@ export function textoParaSii(cliente, filas, ordenes, total) {
   const lineas = filas.map(f => ({ n: String(f.producto).trim(), q: Math.round((Number(f.cantidad) || 0) * 1000) / 1000, p: Math.round(Number(f.precio) || 0) }));
   const pago30 = /30/.test(String((cliente && cliente.frecuenciaPago) || ''));
   const os = (ordenes || []).slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || a.n - b.n).map(o => ({ n: o.n, f: String(o.fecha || '').slice(0, 10) }));
-  return PREFIJO + JSON.stringify({ v: 2, rut: r.rut, dv: r.dv, razon: (cliente && (cliente.razonSocial || cliente.nombre)) || '', ciudad: String((cliente && cliente.ciudad) || '').trim(), ordenes: os, pago30, total: Math.round(Number(total) || 0), lineas });
+  return PREFIJO + JSON.stringify({ v: 2, rut: r.rut, dv: r.dv, razon: (cliente && (cliente.razonSocial || cliente.nombre)) || '', local: String((cliente && cliente.nombre) || '').trim(), ciudad: String((cliente && cliente.ciudad) || '').trim(), ordenes: os, pago30, total: Math.round(Number(total) || 0), lineas });
 }
 
 // ── El botón (bookmarklet). Corre dentro de la página del SII. ──
@@ -61,19 +62,50 @@ async function llenarFacturaFen(SF) {
     const calza = pend && (pend.rut + pend.dv).toUpperCase() === rutR;
     const datos = { siiFolio: folio, rut: rutR, total: String(totalR), fecha: fe[3] ? fe[3] + '-' + fe[2] + '-' + fe[1] : '', ordenes: calza ? pend.ordenes.join(',') : '' };
     const limpiar = () => { if (calza) try { localStorage.removeItem('fen_sii_pendiente'); } catch (e) {} };
-    // Si este SII se abrió desde Sistema Fën, el folio vuelve a esa pestaña (sin abrir otra)
-    const origen = new URL(SF).origin;
-    if (window.opener && !window.opener.closed) {
-      let ok = false;
-      const oir = e => { if (e.origin === origen && e.data && e.data.tipo === 'fen-sii-ok') ok = true; };
+    const origen = new URL(SF).origin, conOpener = !!(window.opener && !window.opener.closed);
+    const abrirSF = () => window.open(SF + '?' + new URLSearchParams(datos).toString() + '#b2b', '_blank');
+    // Sin la pestaña de Sistema Fën que abrió este SII: se abre otra de inmediato (si se espera el PDF, el navegador puede bloquearla)
+    if (!conOpener) abrirSF();
+    // v0.113.0 · El PDF de la factura (lo mismo que abre "Ver Documento"): su código está en esta página; se pide al SII (máx. 8 s)
+    let pdf = null;
+    try {
+      const html = document.documentElement.outerHTML;
+      const cod = (html.match(/mipeDisplayPDF\.cgi\?DHDR_CODIGO=(\d{4,15})/) || html.match(/DHDR_CODIGO\D{0,12}?(\d{4,15})/) || [])[1];
+      if (cod) {
+        const ctl = new AbortController(), reloj = setTimeout(() => ctl.abort(), 8000);
+        try {
+          const ruta = '/cgi-bin/Portal001/mipeDisplayPDF.cgi?DHDR_CODIGO=' + cod;
+          const rp = await fetch(location.hostname === 'www1.sii.cl' ? ruta : 'https://www1.sii.cl' + ruta, { credentials: 'include', signal: ctl.signal });
+          const b = rp.ok ? await rp.blob() : null;
+          const ini = b ? String.fromCharCode.apply(null, new Uint8Array(await b.slice(0, 5).arrayBuffer())) : '';
+          if (b && ini === '%PDF-' && b.size < 8 * 1024 * 1024) pdf = new Blob([b], { type: 'application/pdf' });
+        } finally { clearTimeout(reloj); }
+      }
+    } catch (e) { pdf = null; }
+    const nombrePdf = folio + ' - ' + (String((calza && pend.local) || 'factura').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7e]/g, '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'factura') + '.pdf';
+    const bajar = () => { if (!pdf) return; const u = URL.createObjectURL(pdf), a = document.createElement('a'); a.href = u; a.download = nombrePdf; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000); };
+    const sinPdf = pdf ? '' : '\n\nNo pude tomar el PDF de esta página: descárgalo con "Ver Documento" (en Sistema Fën puedes subirlo a Drive).';
+    // Si este SII se abrió desde Sistema Fën, el folio (y el PDF) vuelven a esa pestaña, sin abrir otra
+    if (conOpener) {
+      let ok = false, conPdf = false;
+      const oir = e => { if (e.origin === origen && e.source === window.opener && e.data && e.data.tipo === 'fen-sii-ok') { ok = true; conPdf = !!e.data.pdf; } };
       window.addEventListener('message', oir);
-      try { window.opener.postMessage({ tipo: 'fen-sii-folio', folio: datos.siiFolio, rut: datos.rut, total: datos.total, fecha: datos.fecha, ordenes: datos.ordenes }, origen); } catch (e) {}
+      try { window.opener.postMessage({ tipo: 'fen-sii-folio', folio: datos.siiFolio, rut: datos.rut, total: datos.total, fecha: datos.fecha, ordenes: datos.ordenes, pdf }, origen); } catch (e) {}
       await new Promise(r => setTimeout(r, 1500));
       window.removeEventListener('message', oir);
-      if (ok) { limpiar(); try { window.opener.focus(); } catch (e) {} alert('Listo: el folio N° ' + folio + ' pasó a Sistema Fën, en la pestaña desde donde abriste el SII. Ve a esa pestaña para asignarlo.'); return; }
+      if (ok) {
+        limpiar(); try { window.opener.focus(); } catch (e) {}
+        // Una pestaña de Sistema Fën anterior a la v0.113.0 no recibe el PDF: se descarga aquí
+        if (pdf && !conPdf) bajar();
+        alert('Listo: el folio N° ' + folio + ' pasó a Sistema Fën, en la pestaña desde donde abriste el SII. Ve a esa pestaña para asignarlo.' + (pdf ? (conPdf ? ' Al asignarlo, el PDF se guarda en Drive y se descarga.' : ' El PDF se descargó aquí como "' + nombrePdf + '" (Sistema Fën está en una versión anterior: recárgalo para guardar los próximos en Drive).') : sinPdf));
+        return;
+      }
+      abrirSF();
     }
-    window.open(SF + '?' + new URLSearchParams(datos).toString() + '#b2b', '_blank');
+    // Sistema Fën en otra pestaña: el PDF se descarga aquí, con su nombre (a Drive se sube desde Sistema Fën)
+    bajar();
     limpiar();
+    if (pdf) alert('El PDF se descargó como "' + nombrePdf + '". Para guardarlo en Drive, súbelo en Sistema Fën al asignar el folio.'); else if (sinPdf) alert(sinPdf.trim());
     return;
   }
   if (!f) { alert('Llenar factura Fën: abre primero el formulario de Factura electrónica del SII (Emitir documento → Factura electrónica) y vuelve a tocar el botón.'); return; }
@@ -173,7 +205,7 @@ async function llenarFacturaFen(SF) {
     else { if (!ponerFecha('pago', '01', venc)) avisos.push('Revisa la fecha de pago.'); poner('EFXP_MNT_PAGO_001', String(d.total || Math.round(neto * 1.19))); poner('EFXP_GLOSA_PAGOS_001', 'Pago a 30 días'); }
   }
   // Para el tercer toque: qué órdenes se están facturando (solo en este navegador)
-  try { localStorage.setItem('fen_sii_pendiente', JSON.stringify({ rut: d.rut, dv: d.dv, ordenes: os.map(o => o.n), total: d.total || 0, t: Date.now() })); } catch (e) {}
+  try { localStorage.setItem('fen_sii_pendiente', JSON.stringify({ rut: d.rut, dv: d.dv, ordenes: os.map(o => o.n), total: d.total || 0, local: d.local || '', t: Date.now() })); } catch (e) {}
   setTimeout(() => {
     const enSii = Number(String((campo('EFXP_MNT_NETO') || {}).value || '').replace(/[^\d]/g, '')) || 0;
     let m = 'Paso 2 de 2 listo: ' + (L.length - faltan.length) + ' de ' + L.length + ' productos.\nNeto según Sistema Fën: $' + neto.toLocaleString('es-CL') + (enSii ? '\nNeto que calcula el SII: $' + enSii.toLocaleString('es-CL') + (enSii === neto ? ' ✓' : ' ← revisa, no calza') : '');

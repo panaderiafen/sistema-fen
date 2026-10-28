@@ -1,9 +1,32 @@
-# Sistema Fën · v0.112.1
+# Sistema Fën · v0.113.0
 
 **App:** v0.109.2 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.113.0: el PDF de cada factura B2B, descargado con su nombre y guardado en Drive
+
+Aprobado por Emmanuel el 27 oct. Se salta el paso de abrir "Ver Documento", descargar y renombrar.
+- En la página del SII **"Documento tributario electrónico enviado exitosamente"**, el favorito **"Llenar factura Fën"** lleva el folio a Sistema Fën como siempre, y además toma el PDF de la factura.
+- Al **asignar el folio** en Sistema Fën, el PDF:
+  - **se descarga al computador** con el nombre `3525 - Nombre del local.pdf` (el nombre del local como se ve en las órdenes, sin tildes ni ñ), listo para adjuntarlo en WhatsApp;
+  - **se guarda en Drive**, en "Fën · Gastos / Facturas B2B / año", privado.
+- **"Ver factura"** en Cobranza y en el detalle de cada orden con folio: abre el PDF de Drive en otra pestaña.
+- Si el SII no entrega el PDF (o Sistema Fën estaba en otra pestaña), el favorito avisa y el PDF se puede subir a mano en el mismo diálogo del folio.
+- Las facturas de antes siguen donde estaban (en su carpeta de Dropbox); "Ver factura" dice que esa no está en Drive.
+
+**Hay que volver a instalar el favorito** "Llenar factura Fën": Ventas B2B → Por facturar → "Preparar para el SII" → arrastre el botón otra vez a la barra de favoritos (reemplace el anterior).
+
+**Script de Gastos v2.19.0** (paquete aparte, `gastos-script-v2.19.0.zip`): agrega la carpeta "Facturas B2B". Sin él, el PDF igual se descarga, pero no se guarda en Drive (el diálogo lo dice).
+
+Archivo nuevo: `facturas-b2b.js`. Cambian `sii-factura.js`, `app.js`, `gastos.js`, `config.js` y este README; los demás, solo la versión (`?v=0.113.0`). No cambian las reglas de Firestore. Este paquete incluye las v0.112.0 y v0.112.1.
+
+- [ ] Script de Gastos: instalar la v2.19.0 (ver su README); `URL/exec?action=ping` responde 2.19.0.
+- [ ] Subir el paquete a la raíz del repo **sistema-fen** y abrir con Cmd + Shift + R: abajo dice v0.113.0.
+- [ ] Volver a instalar el favorito "Llenar factura Fën".
+- [ ] Facturar una orden: en la página del SII que confirma el envío, tocar el favorito; en Sistema Fën, asignar el folio. Se descarga `N° - Local.pdf` y el diálogo dice "Guardado en Drive".
+- [ ] Ventas B2B → Cobranza: "Ver factura" en ese folio abre el PDF.
 
 ## Novedades de la v0.112.1: clientes que facturan los viernes
 
