@@ -3048,3 +3048,13 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .conc-drop { margin: 4px 0 6px; }
 .conc-subir-res { margin: 0 0 12px; display: flex; flex-direction: column; gap: 4px; }
 .conc-subir-res:has(.conc-subir-msg:empty):not(:has(.error)) { display: none; }
+/* v0.115.0 · Ventas de caja → Point (Mercado Pago) */
+.pt-tarjeta + .pt-tarjeta { margin-top: 16px; }
+.pt-tarjeta h2 { font-size: 17px; margin: 0; }
+.pt-tarjeta .fila-caja code { font-size: 12px; word-break: break-all; }
+.pt-tarjeta > .aviso, .pt-tarjeta > .error { margin: 8px 0; }
+.pt-prueba { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 8px 0; }
+.pt-prueba .campo { flex: 1 1 180px; }
+.pt-prueba .campo input { width: 100%; box-sizing: border-box; }
+.pt-prueba .botones { justify-content: flex-start; }
+.pt-respaldo { margin: 14px 4px 0; }

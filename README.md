@@ -1,9 +1,23 @@
-# Sistema Fën · v0.114.3
+# Sistema Fën · v0.115.0
 
 **App:** v0.109.2 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.115.0: los Point de Mercado Pago en Ventas de caja
+
+Aprobado por Emmanuel el 29 oct (paso 12 de la hoja de ruta).
+- **Ventas de caja → Point** (pestaña nueva): los Point de la cuenta con su tienda, su caja y su modo; **Pasar a integrado** / **Volver a normal** (pide confirmación; después hay que reiniciar el Point); **cobros con tarjeta recientes** con su estado y tipo de tarjeta; **cobro de prueba** (hasta $5.000) a un Point en modo integrado, y "Ver estado".
+- Habla con el servidor de cobros (Cloudflare Worker **fen-point**, versión 0.3.0 o más) con su sesión de Sistema Fën: no pide clave. El servidor revisa que su correo esté en su variable **ADMINS**.
+- No lee ni escribe Firestore. La dirección del servidor está en `config.js` (`PUNTO_URL`); los secretos viven solo en Cloudflare.
+- La página /admin del servidor (con su clave) queda de respaldo, por si Sistema Fën no carga.
+
+Archivo nuevo `vista-point.js`. Cambian `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.115.0`). Incluye las v0.112.0 a v0.114.3. **Primero publique el Worker 0.3.0 y agregue la variable `ADMINS`** (ver el README del Worker).
+
+- [ ] Abajo dice v0.115.0.
+- [ ] Ventas de caja → Point: aparecen los dos Point, cada uno con su tienda (si dice "Sin tienda asignada", falta la variable `CONFIG` en Cloudflare).
+- [ ] Los cobros recientes muestran los dos cobros de prueba del 29 oct.
 
 ## Novedades de la v0.114.3: arrastrar las cartolas en Ventas B2B
 

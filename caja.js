@@ -15,8 +15,8 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
-} from './firebase.js?v=0.114.3';
-import * as AR from './areas.js?v=0.114.3';
+} from './firebase.js?v=0.115.0';
+import * as AR from './areas.js?v=0.115.0';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
