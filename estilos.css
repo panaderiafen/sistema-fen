@@ -3044,3 +3044,7 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .bjc-mas > summary { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--borde); border-radius: 999px; background: var(--tarjeta); font-size: 13.5px; }
 .bjc-mas > summary:hover { border-color: var(--acento); }
 .bjc-mas[open] > summary { margin-bottom: 6px; background: var(--acento-suave); border-color: var(--acento); }
+/* v0.114.3 · Ventas B2B → Conciliación: el recuadro para arrastrar las cartolas (el mismo de Gastos) */
+.conc-drop { margin: 4px 0 6px; }
+.conc-subir-res { margin: 0 0 12px; display: flex; flex-direction: column; gap: 4px; }
+.conc-subir-res:has(.conc-subir-msg:empty):not(:has(.error)) { display: none; }

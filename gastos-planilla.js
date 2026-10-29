@@ -11,9 +11,9 @@
 //  (planillaPendiente = false) y nada llama al script (op planilla_sync). La planilla de Gastos queda como estaba (historial).
 //  Las funciones quedan para no romper a quien las llama, pero no hacen nada.
 // ═══════════════════════════════════════════════
-import * as GB from './gastos-base.js?v=0.114.2';
-import * as Gastos from './gastos.js?v=0.114.2';
-import * as FB from './fs-gastos.js?v=0.114.2';
+import * as GB from './gastos-base.js?v=0.114.3';
+import * as Gastos from './gastos.js?v=0.114.3';
+import * as FB from './fs-gastos.js?v=0.114.3';
 
 export const APAGADA = true;
 const E = { t: 0, corriendo: false, error: '', fallos: 0, pendientes: APAGADA ? 0 : null, ultima: null, oyentes: new Set() };

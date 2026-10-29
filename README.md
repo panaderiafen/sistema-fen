@@ -1,9 +1,21 @@
-# Sistema Fën · v0.114.2
+# Sistema Fën · v0.114.3
 
 **App:** v0.109.2 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.114.3: arrastrar las cartolas en Ventas B2B
+
+Pedido por Emmanuel el 28 oct.
+- **Ventas B2B → Conciliación** tiene el mismo recuadro de Gastos: "Arrastre aquí los archivos o haga clic para elegirlos · puede soltar varios a la vez", para las **cartolas de BancoEstado** (histórica o en línea, de la Cuenta corriente o de la Chequera) y el archivo de **transferencias recibidas**.
+- Varios archivos a la vez se leen uno detrás de otro, y el resultado de cada uno queda escrito debajo.
+- Reemplaza al botón "Subir archivo" de esa pantalla. Los cargos de la misma cartola siguen yendo solos a Gastos.
+
+Cambian `app.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.114.3`). Incluye las v0.112.0 a v0.114.2.
+
+- [ ] Abajo dice v0.114.3.
+- [ ] Ventas B2B → Conciliación: arrastrar una cartola al recuadro; sale su resumen debajo.
 
 ## Novedades de la v0.114.2: la cartola histórica reemplaza a la en línea en lo pendiente
 
