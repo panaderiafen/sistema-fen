@@ -8,13 +8,13 @@
 //  v0.50.0: con Gastos en la base nueva, todo va a gastos-cartola-fs.js (fen-gastos) y las propuestas siguen la forma de
 //  trabajar acordada (gastos-cartola.js: monto fijo, documento, abonos). Con la planilla, igual que en la v0.49.0.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.115.0';
-import * as CB from './gastos-cartola.js?v=0.115.0';
-export { resumenLote } from './gastos-cartola.js?v=0.115.0';
+import * as Gastos from './gastos.js?v=0.116.0';
+import * as CB from './gastos-cartola.js?v=0.116.0';
+export { resumenLote } from './gastos-cartola.js?v=0.116.0';
 
 export const VERSION_CARTOLA = '2.8.0';
 const op = (o, d, idem) => Gastos.llamar(o, d, idem, VERSION_CARTOLA);
-const fsC = () => import('./gastos-cartola-fs.js?v=0.115.0');
+const fsC = () => import('./gastos-cartola-fs.js?v=0.116.0');
 const enBase = () => Gastos.enBase();
 
 let cache = null;

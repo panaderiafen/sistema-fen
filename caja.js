@@ -15,8 +15,8 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
-} from './firebase.js?v=0.115.0';
-import * as AR from './areas.js?v=0.115.0';
+} from './firebase.js?v=0.116.0';
+import * as AR from './areas.js?v=0.116.0';
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -84,7 +84,7 @@ export function fotoProductoCaja(p) {
     unidadesPorVenta: Number(x.unidadesPorVenta) > 0 ? Number(x.unidadesPorVenta) : null };
 }
 
-// ── Resumen de la caja (igual que la caja v2.3.0) ──
+// ── Resumen de la caja (igual que la caja v2.7.0) ──
 export async function guardarResumenCaja(cajaDocId, cajaData, ventasDocs) {
   try {
     const infoProd = {};
@@ -96,7 +96,7 @@ export async function guardarResumenCaja(cajaDocId, cajaData, ventasDocs) {
       fecha: normalizarFechaCaja(cajaData.fecha) || cajaData.fecha || '',
       nVentas: 0, nAnuladas: 0, totalBruto: 0, totalNeto: 0,
       porMedio: { efectivo: 0, debito: 0, credito: 0, transferencia: 0 },
-      porArea: {}, porProducto: {}, version: 1, actualizado: Timestamp.now()
+      porArea: {}, porProducto: {}, porLeche: {}, version: 1, actualizado: Timestamp.now()   // v0.116.0 (caja v2.7.0): + porLeche
     };
     r.versionCaja = '2.3.0'; // v0.75.1: mismo formato que la caja v2.3.0 (porProducto con catalogoId, tipo, recetaId, reventaId; porTarjeta, agotadoHoy)
     const tarj = {}, agot = {}, reagot = {};
@@ -119,6 +119,13 @@ export async function guardarResumenCaja(cajaDocId, cajaData, ventasDocs) {
         pp.cantidad += cant; pp.bruto += bruto; pp.neto += neto(bruto);
         const pa = r.porArea[info.area] || (r.porArea[info.area] = { cantidad: 0, bruto: 0, neto: 0 });
         pa.cantidad += cant; pa.bruto += bruto; pa.neto += neto(bruto);
+        // v0.116.0 (caja v2.7.0): por tipo de leche (la nota del café)
+        const leche = String(l.tipoLeche || '').trim();
+        if (leche) {
+          r.porLeche[leche] = (r.porLeche[leche] || 0) + cant;
+          const pl = pp.porLeche || (pp.porLeche = {});
+          pl[leche] = (pl[leche] || 0) + cant;
+        }
         // v0.70.1 (caja v2.2.0): por tarjeta y hora en que se agotó el lote de hoy
         if (l.tarjeta) {
           const t = (tarj[key] = tarj[key] || {});

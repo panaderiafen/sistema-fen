@@ -1,9 +1,22 @@
-# Sistema Fën · v0.115.0
+# Sistema Fën · v0.116.0
 
-**App:** v0.109.2 · **Cocina:** v0.17.12 (motivo nuevo en la merma) · **Caja (fen-ventas):** v2.3.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Logística (fen-logistica):** v1.3.1 (sin cambios) · **Apps Script:** ninguno cambia · 26 de octubre de 2026
+**Caja (fen-ventas):** v2.7.0 (va junto) · **Servidor de cobros (fen-point):** 0.4.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Apps Script:** ninguno cambia · 29 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.116.0: ventas por tipo de leche
+
+Aprobado por Emmanuel el 29 oct (revisión de la caja B2C; fila nueva en el mapa: el conteo de leche servirá al control de stock de materias primas).
+- **Ventas de caja → Reportes → Por tipo de leche** (sección nueva, al final): unidades vendidas con cada tipo de leche según la nota del café en la caja, con su % y los productos de cada tipo. Sale de los resúmenes de cada cierre: **no gasta lecturas extra**.
+- Se anota desde la **caja v2.7.0**: los cierres anteriores no lo traen, y el reporte dice cuántos cierres del período sí lo tienen.
+- "Generar el que falta" (resúmenes de cierres) también guarda el tipo de leche, igual que la caja v2.7.0.
+- La caja v2.7.0 deja de tener Reportes y Configuración: todo eso ya está aquí (Ventas de caja, Configuración y Catálogo).
+
+Cambian `app.js`, `caja.js`, `config.js` y este README; los demás, solo la versión (`?v=0.116.0`). Incluye las v0.112.0 a v0.115.0.
+
+- [ ] Abajo dice v0.116.0.
+- [ ] Ventas de caja → Reportes: al final aparece "Por tipo de leche" (por ahora dice "Se anota desde la caja v2.7.0").
 
 ## Novedades de la v0.115.0: los Point de Mercado Pago en Ventas de caja
 
