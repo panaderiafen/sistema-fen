@@ -1,9 +1,22 @@
-# Sistema Fën · v0.116.0
+# Sistema Fën · v0.117.0
 
-**Caja (fen-ventas):** v2.7.0 (va junto) · **Servidor de cobros (fen-point):** 0.4.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Apps Script:** ninguno cambia · 29 de octubre de 2026
+**Caja (fen-ventas):** v2.9.0 (va junto) · **Servidor de cobros (fen-point):** 0.4.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Apps Script:** ninguno cambia · 30 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.117.0: el resumen compartido con la caja y las anulaciones de una vez
+
+Cierre de la Etapa 3 de la revisión de la caja B2C (Emmanuel, 29 oct). Va junto con la **caja v2.9.0**.
+- **`resumen-caja.js` (nuevo):** el resumen de cada cierre se arma con el mismo archivo que usa la caja. Antes estaba escrito dos veces ("copia fiel"). El resultado no cambia.
+- **Aprobar una anulación** (Ventas de caja → Anulaciones): la venta, los totales de la caja, **el stock** y la solicitud se escriben en **una sola transacción**. Antes el stock volvía después, por separado. Si un producto ya no tiene su documento de stock, se avisa como antes.
+- **Lo cobrado con el Point integrado** también se descuenta de la caja al anular (antes el cierre lo seguía contando como cobrado con el Point). La devolución al cliente se hace en Mercado Pago.
+- **Rechazar** una anulación, también de una vez.
+
+Archivo nuevo `resumen-caja.js`. Cambian `caja.js`, `config.js` y este README; los demás, solo la versión (`?v=0.117.0`). Incluye las v0.112.0 a v0.116.0.
+
+- [ ] Abajo dice v0.117.0.
+- [ ] Ventas de caja → Reportes se ve como antes.
 
 ## Novedades de la v0.116.0: ventas por tipo de leche
 

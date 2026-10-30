@@ -6,8 +6,8 @@
 //  v0.77.1: pestaña de Producción (Producción → Plan de Panadería); se dibuja dentro de #prod-tab.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as PP from './plan-pan.js?v=0.116.0';
-import * as PM from './plan-pan-modelo.js?v=0.116.0';
+import * as PP from './plan-pan.js?v=0.117.0';
+import * as PM from './plan-pan-modelo.js?v=0.117.0';
 
 const S = { D: null, prop: null, dia: 0, semana: '', suc: 'todas', abiertos: new Set(), msg: '', err: '', editSuc: 'barros', cargando: false, extra: [] };
 const $ = id => document.getElementById(id);

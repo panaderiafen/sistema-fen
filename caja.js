@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — lógica de administración de la caja  v0.3.0 · v0.75.1
+//  Sistema Fën — lógica de administración de la caja  v0.3.0 · v0.75.1 · v0.117.0
 //  Copia fiel de lo que hace la caja v2.3.0 (index.html) para cerrar cajas,
 //  guardar el resumen de cada cierre, corregir arqueos y resolver anulaciones.
 //  v0.75.1 (Etapa 2b): los cierres ya NO se copian a la planilla ni se llama a ningún Apps Script (como la caja v2.3.0).
@@ -8,6 +8,8 @@
 //  Diferencias a propósito:
 //  · al anular una venta con pago dividido en una caja abierta, se descuenta de
 //    cada medio (la caja v2.1.1 lo descuenta mal);
+//  · v0.117.0: el resumen lo arma resumen-caja.js (el mismo archivo en la caja); al aprobar, el stock y lo
+//    cobrado con el Point integrado van en la misma transacción;
 //  · cerrar y aprobar se hacen en una sola transacción: si dos personas lo hacen
 //    a la vez (o desde la caja y desde aquí), solo una gana y nada queda a medias;
 //  · antes de cerrar una caja vieja se revisa que no siga vendiendo.
@@ -15,8 +17,9 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
-} from './firebase.js?v=0.116.0';
-import * as AR from './areas.js?v=0.116.0';
+} from './firebase.js?v=0.117.0';
+import * as AR from './areas.js?v=0.117.0';
+import { armarResumen } from './resumen-caja.js?v=0.117.0';   // v0.117.0: el mismo archivo que usa la caja v2.9.0
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -84,73 +87,15 @@ export function fotoProductoCaja(p) {
     unidadesPorVenta: Number(x.unidadesPorVenta) > 0 ? Number(x.unidadesPorVenta) : null };
 }
 
-// ── Resumen de la caja (igual que la caja v2.7.0) ──
+// ── Resumen de la caja: resumen-caja.js (compartido con la caja desde la v0.117.0 / caja v2.9.0) ──
 export async function guardarResumenCaja(cajaDocId, cajaData, ventasDocs) {
   try {
     const infoProd = {};
     const areaRes = a => areaDeCaja(a) || 'Otros';
     for (const p of await productos()) infoProd[p.id] = { area: areaRes(p.area), idRecetaFen: p.idRecetaFen || '', ...fotoProductoCaja(p) };
-    const neto = b => Math.round((parseInt(b) || 0) / 1.19);
-    const r = {
-      cajaId: cajaDocId, sucursal: cajaData.sucursal || '',
-      fecha: normalizarFechaCaja(cajaData.fecha) || cajaData.fecha || '',
-      nVentas: 0, nAnuladas: 0, totalBruto: 0, totalNeto: 0,
-      porMedio: { efectivo: 0, debito: 0, credito: 0, transferencia: 0 },
-      porArea: {}, porProducto: {}, porLeche: {}, version: 1, actualizado: Timestamp.now()   // v0.116.0 (caja v2.7.0): + porLeche
-    };
-    r.versionCaja = '2.3.0'; // v0.75.1: mismo formato que la caja v2.3.0 (porProducto con catalogoId, tipo, recetaId, reventaId; porTarjeta, agotadoHoy)
-    const tarj = {}, agot = {}, reagot = {};
-    r.mes = (r.fecha || '').slice(0, 7);
-    ventasDocs.forEach(d => {
-      const v = d.data();
-      if (v.anulada === true) { r.nAnuladas++; return; }
-      r.nVentas++;
-      const total = parseInt(v.total) || 0;
-      r.totalBruto += total;
-      if (Array.isArray(v.pagos) && v.pagos.length) v.pagos.forEach(p => { if (p && p.medio) r.porMedio[p.medio] = (r.porMedio[p.medio] || 0) + (parseInt(p.monto) || 0); });
-      else if (v.medioPago) r.porMedio[v.medioPago] = (r.porMedio[v.medioPago] || 0) + total;
-      (v.lineas || []).forEach(l => {
-        const key = l.id || ('sin-id:' + (l.nombre || ''));
-        const info0 = infoProd[l.id] || { area: 'Otros', idRecetaFen: '', catalogoId: '', tipo: '', recetaId: '', reventaId: '' };
-        // v0.75.1 (caja v2.3.0): la foto de la línea (al vender) manda; si no la tiene (venta anterior), el producto de hoy
-        const info = l.catalogoId || l.tipo ? { ...info0, area: l.area ? areaRes(l.area) : info0.area, catalogoId: l.catalogoId || '', tipo: l.tipo || '', recetaId: l.recetaId || '', reventaId: l.reventaId || '', unidadesPorVenta: Number(l.unidadesPorVenta) > 0 ? Number(l.unidadesPorVenta) : info0.unidadesPorVenta } : info0;
-        const bruto = parseInt(l.total) || 0, cant = parseFloat(l.cantidad) || 0;
-        const pp = r.porProducto[key] || (r.porProducto[key] = { nombre: l.nombre || '', area: info.area, idRecetaFen: info.idRecetaFen, catalogoId: info.catalogoId || '', tipo: info.tipo || '', recetaId: info.recetaId || '', reventaId: info.reventaId || '', ...(info.unidadesPorVenta > 0 ? { unidadesPorVenta: info.unidadesPorVenta } : {}), cantidad: 0, bruto: 0, neto: 0 });
-        pp.cantidad += cant; pp.bruto += bruto; pp.neto += neto(bruto);
-        const pa = r.porArea[info.area] || (r.porArea[info.area] = { cantidad: 0, bruto: 0, neto: 0 });
-        pa.cantidad += cant; pa.bruto += bruto; pa.neto += neto(bruto);
-        // v0.116.0 (caja v2.7.0): por tipo de leche (la nota del café)
-        const leche = String(l.tipoLeche || '').trim();
-        if (leche) {
-          r.porLeche[leche] = (r.porLeche[leche] || 0) + cant;
-          const pl = pp.porLeche || (pp.porLeche = {});
-          pl[leche] = (pl[leche] || 0) + cant;
-        }
-        // v0.70.1 (caja v2.2.0): por tarjeta y hora en que se agotó el lote de hoy
-        if (l.tarjeta) {
-          const t = (tarj[key] = tarj[key] || {});
-          const tt = t[l.tarjeta] || (t[l.tarjeta] = { cant: 0, monto: 0 });
-          tt.cant += cant; tt.monto += bruto;
-        }
-        if (l.agotado && (!agot[key] || l.agotado < agot[key])) agot[key] = l.agotado;
-        if (l.reagotado && (!reagot[key] || l.reagotado > reagot[key])) reagot[key] = l.reagotado;
-      });
-    });
-    r.totalNeto = neto(r.totalBruto);
-    // porTarjeta suma lo mismo que cantidad y bruto; lo vendido sin tarjeta anotada va a "sinDato"
-    Object.keys(tarj).forEach(k => {
-      const pp = r.porProducto[k]; if (!pp) return;
-      let sc = 0, sm = 0;
-      Object.values(tarj[k]).forEach(x => { sc += x.cant; sm += x.monto; });
-      const fc = Math.round((pp.cantidad - sc) * 1000) / 1000, fm = pp.bruto - sm;
-      if (fc || fm) tarj[k].sinDato = { cant: fc, monto: fm };
-      pp.porTarjeta = tarj[k];
-    });
-    Object.keys(agot).forEach(k => { if (r.porProducto[k]) r.porProducto[k].agotadoHoy = agot[k]; });
-    Object.keys(reagot).forEach(k => { if (r.porProducto[k]) r.porProducto[k].reagotadoHoy = reagot[k]; });
-    const porProducto = {};
-    Object.keys(r.porProducto).forEach(k => { porProducto[k.startsWith('sin-id:') ? 'sin-id-' + encodeURIComponent(k.slice(7)).replace(/[.%]/g, '_') : k] = r.porProducto[k]; });
-    r.porProducto = porProducto;
+    // v0.117.0: el resumen lo arma resumen-caja.js, el mismo archivo de la caja (v2.9.0)
+    const r = armarResumen({ cajaId: cajaDocId, cajaData, ventas: ventasDocs.map(d => d.data()), infoProd, areaRes,
+      fecha: normalizarFechaCaja(cajaData.fecha) || cajaData.fecha || '', ahora: Timestamp.now() });
     await setDoc(doc(db, 'resumenes_caja', cajaDocId), r);
     return true;
   } catch (e) { console.error('No se pudo guardar el resumen de la caja', cajaDocId, e); return false; }
@@ -296,52 +241,43 @@ export async function leerAnulaciones() {
   return { pendientes: todas.filter(s => s.estado === 'pendiente'), resueltas: todas.filter(s => s.estado !== 'pendiente') };
 }
 
-// Devuelve el stock de una venta anulada al mismo lote del que salió (como la caja v2.1.1).
-async function devolverStockVenta(ventaId, venta) {
+// v0.117.0 · Qué stock devolver al anular una venta (al mismo lote del que salió, como la caja v2.1.1).
+// Se calcula antes de la transacción (las consultas no pueden ir dentro) y se escribe dentro de ella.
+// → [{ id: 'sucursal_producto', key: lote, cantidad, etiqueta, revisar }]  (revisar: solo si el documento existe)
+async function planDevolucion(ventaId, venta) {
   const suc = venta.sucursal || '';
-  const sinDevolver = [];
   let movs = [];
   try {
     const ms = await getDocs(query(collection(db, 'stockMovimientos'), where('ventaId', '==', ventaId)));
     ms.docs.forEach(d => { const m = d.data(); if (m.tipo === 'venta' && Array.isArray(m.descontados)) movs = movs.concat(m.descontados); });
   } catch (e) { console.error('No se pudieron leer los movimientos de la venta', e); }
-  if (movs.length) {
-    for (const m of movs) {
-      try { await updateDoc(doc(db, 'stock', `${suc}_${m.productoId}`), { [`entradas.${m.key}`]: increment(m.cantidad) }); }
-      catch (e) { sinDevolver.push(`${m.productoId} × ${m.cantidad}`); }
-    }
-    return sinDevolver;
-  }
-  const prods = await productos();
+  if (movs.length) return movs.map(m => ({ id: `${suc}_${m.productoId}`, key: m.key, cantidad: m.cantidad, etiqueta: `${m.productoId} × ${m.cantidad}` }));
+  const prods = await productos(), plan = [];
   for (const l of (venta.lineas || [])) {
     const prod = prods.find(p => p.id === l.id);
     if (prod && prod.controlStock === false) continue;
     if (l.lotes && typeof l.lotes === 'object' && Object.keys(l.lotes).length) {
       // v0.70.1 (caja v2.2.0): la línea trae los lotes exactos de los que salió
-      for (const [k, c] of Object.entries(l.lotes)) {
-        try { await updateDoc(doc(db, 'stock', `${suc}_${l.id}`), { [`entradas.${k}`]: increment(c) }); }
-        catch (e) { sinDevolver.push(`${l.nombre} × ${c}`); }
-      }
+      for (const [k, c] of Object.entries(l.lotes)) plan.push({ id: `${suc}_${l.id}`, key: k, cantidad: c, etiqueta: `${l.nombre} × ${c}` });
       continue;
     }
     const key = (prod && prod.autoEliminar === false) ? 'permanente' : (l.loteFecha || '');
-    if (!key) { sinDevolver.push(`${l.nombre} × ${l.cantidad}`); continue; }
-    try {
-      const ref = doc(db, 'stock', `${suc}_${l.id}`);
-      if (!(await getDoc(ref)).exists()) { sinDevolver.push(`${l.nombre} × ${l.cantidad}`); continue; }
-      await updateDoc(ref, { [`entradas.${key}`]: increment(l.cantidad) });
-    } catch (e) { sinDevolver.push(`${l.nombre} × ${l.cantidad}`); }
+    plan.push({ id: `${suc}_${l.id}`, key, cantidad: l.cantidad, etiqueta: `${l.nombre} × ${l.cantidad}` });
   }
-  return sinDevolver;
+  return plan;
 }
 
-// Aprobar: anula la venta, devuelve el stock, descuenta de la caja si sigue abierta, rehace el resumen si ya cerró.
-// Solicitud, venta y caja se escriben juntas en una transacción: si dos personas aprueban
-// a la vez (o desde la caja y desde aquí), solo una descuenta. El stock se devuelve después
-// y la venta queda con stockDevuelto: true cuando volvió todo.
+// Aprobar: anula la venta, devuelve el stock, descuenta de la caja si sigue abierta (también lo cobrado con el Point
+// integrado), rehace el resumen si ya cerró. v0.117.0: solicitud, venta, caja y stock se escriben juntos en una
+// transacción: si dos personas aprueban a la vez, solo una descuenta, y no queda una venta anulada con el stock sin volver.
 export async function aprobarAnulacion(solicitudId) {
   const solRef = doc(db, 'solicitudes_anulacion', solicitudId);
-  let venta = null, ventaId = null, yaAnulada = false;
+  // El plan del stock, con lo que dice la venta ahora (dentro de la transacción se vuelve a leer todo)
+  const sol0 = await getDoc(solRef);
+  if (!sol0.exists()) throw new Error('La solicitud ya no existe');
+  const venta0Sn = sol0.data().ventaId ? await getDoc(doc(db, 'ventas', sol0.data().ventaId)) : null;
+  const plan = venta0Sn && venta0Sn.exists() && venta0Sn.data().anulada !== true ? await planDevolucion(sol0.data().ventaId, venta0Sn.data()) : [];
+  let venta = null, ventaId = null, yaAnulada = false, sinDevolver = [];
   await runTransaction(db, async tx => {
     const solSn = await tx.get(solRef);
     if (!solSn.exists()) throw new Error('La solicitud ya no existe');
@@ -354,10 +290,21 @@ export async function aprobarAnulacion(solicitudId) {
     venta = ventaSn.data();
     const cajaRef = venta.cajaId ? doc(db, 'cajas', venta.cajaId) : null;
     const cajaSn = cajaRef ? await tx.get(cajaRef) : null;
+    // Los documentos de stock (todas las lecturas antes de escribir)
+    const ids = [...new Set(plan.map(x => x.id))], existe = {};
+    for (const id of ids) existe[id] = (await tx.get(doc(db, 'stock', id))).exists();
     const resuelta = { estado: 'aprobada', resueltoPor: correo(), fechaResolucion: Timestamp.now() };
     yaAnulada = venta.anulada === true;
     if (yaAnulada) { tx.update(solRef, resuelta); return; }
-    tx.update(ventaRef, { anulada: true, motivoAnulacion: sol.motivo || '', anuladoPor: correo(), fechaAnulacion: Timestamp.now(), solicitudAnulacionPendiente: false, stockDevuelto: false });
+    // Stock: un cambio por documento, con todos sus lotes
+    sinDevolver = [];
+    const porDoc = {};
+    plan.forEach(x => {
+      if (!x.key || !existe[x.id]) { sinDevolver.push(x.etiqueta); return; }
+      const c = porDoc[x.id] || (porDoc[x.id] = {});
+      c[`entradas.${x.key}`] = (c[`entradas.${x.key}`] || 0) + (Number(x.cantidad) || 0);
+    });
+    tx.update(ventaRef, { anulada: true, motivoAnulacion: sol.motivo || '', anuladoPor: correo(), fechaAnulacion: Timestamp.now(), solicitudAnulacionPendiente: false, stockDevuelto: !sinDevolver.length });
     if (cajaSn && cajaSn.exists() && cajaSn.data().estado === 'abierta') {
       const cambios = { totalVentas: increment(-ent(venta.total)), nVentas: increment(-1) };
       if (Array.isArray(venta.pagos) && venta.pagos.length) {
@@ -368,13 +315,17 @@ export async function aprobarAnulacion(solicitudId) {
       } else if (venta.medioPago) {
         cambios[`totales.${venta.medioPago}`] = increment(-ent(venta.total));
       }
+      // v0.117.0: lo cobrado con el Point integrado (caja v2.4.0) también baja; la devolución al cliente se hace en Mercado Pago
+      if (venta.pagoPoint && venta.pagoPoint.medio) cambios[`totalesPoint.${venta.pagoPoint.medio}`] = increment(-ent(venta.pagoPoint.monto));
       tx.update(cajaRef, cambios);
     }
+    Object.entries(porDoc).forEach(([id, c]) => {
+      const inc = {}; Object.entries(c).forEach(([k, n]) => { inc[k] = increment(n); });
+      tx.update(doc(db, 'stock', id), inc);
+    });
     tx.update(solRef, resuelta);
   });
   if (yaAnulada) return { yaAnulada: true, sinDevolver: [] };
-  const sinDevolver = await devolverStockVenta(ventaId, venta);
-  if (!sinDevolver.length) { try { await updateDoc(doc(db, 'ventas', ventaId), { stockDevuelto: true }); } catch (e) {} }
   if (venta.cajaId) {
     try {
       const cajaRes = await getDoc(doc(db, 'cajas', venta.cajaId));
@@ -393,9 +344,14 @@ export async function rechazarAnulacion(solicitudId) {
   if (!solSn.exists()) throw new Error('La solicitud ya no existe');
   const sol = solSn.data();
   if (sol.estado !== 'pendiente') throw new Error('Esa solicitud ya estaba resuelta');
-  await updateDoc(solRef, { estado: 'rechazada', resueltoPor: correo(), fechaResolucion: Timestamp.now() });
+  // v0.117.0: la solicitud y la marca de la venta, de una sola vez
   const ventaRef = doc(db, 'ventas', sol.ventaId);
-  if ((await getDoc(ventaRef)).exists()) await updateDoc(ventaRef, { solicitudAnulacionPendiente: false });
+  await runTransaction(db, async tx => {
+    const s2 = await tx.get(solRef), v2 = await tx.get(ventaRef);
+    if (!s2.exists() || s2.data().estado !== 'pendiente') throw new Error('Esa solicitud ya estaba resuelta');
+    tx.update(solRef, { estado: 'rechazada', resueltoPor: correo(), fechaResolucion: Timestamp.now() });
+    if (v2.exists()) tx.update(ventaRef, { solicitudAnulacionPendiente: false });
+  });
 }
 
 // ── Reportes de ventas (leen resumenes_caja: un documento por cierre) ──
