@@ -9,8 +9,8 @@
 //  Dimensiones guardadas para los estados por área y por canal (v0.112.0): col (PAN, BOL, PAS, CAF, REVENTA, comun) y canal
 //  (barros, ainavillo, b2b, comun).
 // ═══════════════════════════════════════════════
-import * as PC from './plan-cuentas.js?v=0.117.0';
-import * as AR from './areas.js?v=0.117.0';
+import * as PC from './plan-cuentas.js?v=0.118.0';
+import * as AR from './areas.js?v=0.118.0';
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };

@@ -3058,3 +3058,11 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .pt-prueba .campo input { width: 100%; box-sizing: border-box; }
 .pt-prueba .botones { justify-content: flex-start; }
 .pt-respaldo { margin: 14px 4px 0; }
+
+/* v0.118.0 · Efectivo → Caja de administración */
+.ef-botones { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.ef-monto { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ef-ingreso { color: var(--verde-t); }
+.ef-salida { color: var(--rojo-t); }
+.ef-anulado .txt b, .ef-anulado .ef-monto { text-decoration: line-through; opacity: .6; }
+.ef-fila .txt b { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }

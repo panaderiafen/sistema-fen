@@ -8,10 +8,10 @@
 //  v0.63.1: también "Se paga por" (banco, efectivo o tarjeta) con su propuesta desde el historial (pagos con la cartola → banco).
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, pesos, fecha }
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.117.0';
-import * as G3 from './gastos-g3.js?v=0.117.0';
-import { ID_PREVIRED } from './gastos-g3d.js?v=0.117.0';
-import * as B from './gastos-banco.js?v=0.117.0';
+import * as Gastos from './gastos.js?v=0.118.0';
+import * as G3 from './gastos-g3.js?v=0.118.0';
+import { ID_PREVIRED } from './gastos-g3d.js?v=0.118.0';
+import * as B from './gastos-banco.js?v=0.118.0';
 
 const st = { lista: null, msg: '', err: '', corriendo: false, sel: new Set() };
 const TXT = 'Para cada cuenta recurrente activa se propone un tipo:\n• Monto fijo, si los últimos 3 pagos fueron del mismo monto (arriendo, cuotas).\n• Según documento, si es luz, agua, gas, internet o teléfono, o si el SII tiene facturas de un proveedor con ese nombre. El identificador es el N° de cliente que aparece en el nombre (si hay varios, eliges tú) o el RUT del proveedor del SII.\n• Libre (abonos), si es un sueldo o los montos cambian mucho.\n• Las cotizaciones van como según documento con identificador Previred: el certificado completa su vencimiento.\nNada se guarda solo: confirma cada una con Guardar, o marca varias y presiona "Aplicar propuestas". Puedes cambiar el tipo y el identificador antes. Al guardar, sus vencimientos abiertos (sin documento ni abonos) toman el tipo nuevo.\n\nSe paga por: banco (la cartola registra el pago), efectivo o tarjeta de crédito (se pagan con "Pagar"). La propuesta sale de sus últimos pagos: si se pagaron con la cartola, banco; si sus gastos fueron en efectivo, efectivo. Sin historial: banco.';

@@ -1,9 +1,34 @@
-# Sistema Fën · v0.117.0
+# Sistema Fën · v0.118.0
 
-**Caja (fen-ventas):** v2.9.0 (va junto) · **Servidor de cobros (fen-point):** 0.4.1 (sin cambios) · **Reglas de Firestore:** ninguna cambia (fen-b2b v1.8.0, fen-ventas v1.5.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Apps Script:** ninguno cambia · 30 de octubre de 2026
+**Reglas de Firestore:** fen-ventas **v1.6.0 (publicar antes de usar Efectivo)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v2.9.0 (sin cambios) · **Servidor de cobros:** 0.4.1 (sin cambios) · **Apps Script:** ninguno cambia · 30 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.118.0: Efectivo → Caja de administración
+
+Aprobado por Emmanuel el 30 oct (lienzo "Boceto · Efectivo de la caja"; mapa v15: cuenta 1.1.6 Caja de administración).
+- **Sección nueva "Efectivo"** en el menú (después de Ventas de caja): el efectivo que no está en una caja de venta.
+- **Arriba:** cuánto **debería haber**, lo que **entró** y **salió** en el mes, y el **último conteo**.
+- **Ingreso:** retiro de una caja (cierre), efectivo de un cliente B2B, aporte del dueño u otro.
+- **Salida:** depósito al banco (cuenta corriente o chequera), pago en efectivo (a quién y N° de documento), sencillo a una caja, retiro del dueño u otro. Si la salida es mayor que lo que debería haber, avisa y pide Guardar otra vez.
+- **Contar la caja de administración:** se escribe lo contado; si no cuadra, la diferencia queda anotada y el saldo pasa a lo contado. **La primera vez es el conteo inicial**: desde ahí Sistema Fën lleva la cuenta.
+- **Anular** un movimiento equivocado (con su motivo; nada se borra). Lo anterior al último conteo y los conteos no se anulan: se hace un conteo nuevo.
+- Cada movimiento y el saldo se guardan **de una sola vez**. Al abrir lee 1 documento (el saldo) y los movimientos del mes elegido.
+- **Mientras la caja no lo haga sola (caja v3.0.0)**, el retiro de cada cierre se anota aquí: Ingreso → Retiro de una caja.
+- Los depósitos y pagos quedan "Por unir": en una próxima versión se unen a su abono en la cartola o a su documento en Gastos. La vista "Retiros por semana" llega con la caja v3.0.0.
+
+Archivos nuevos `vista-efectivo.js`, `efectivo-modelo.js`, `efectivo-fs.js`. Cambian `app.js`, `index.html`, `estilos.css`, `config.js`, `firestore.rules` (v1.6.0) y este README; los demás, solo la versión (`?v=0.118.0`).
+
+**Reglas de Firestore (fen-ventas) v1.6.0 — publicarlas antes de abrir Efectivo:**
+1. Firebase → proyecto **fen-ventas** → Firestore Database → pestaña **Reglas**.
+2. Reemplace todo el texto por el de `firestore.rules` (de este zip) y presione **Publicar**.
+3. Solo agrega las colecciones `efectivo` y `efectivo_movimientos` (solo administración, nada se borra). La caja sigue igual.
+
+- [ ] Reglas fen-ventas v1.6.0 publicadas.
+- [ ] Abajo dice v0.118.0 y en el menú aparece "Efectivo".
+- [ ] Efectivo → "Hacer el conteo inicial" con lo que hay hoy en la caja de administración.
+- [ ] Al cerrar la caja hoy, anotar el retiro: Ingreso → Retiro de una caja → Barros Arana.
 
 ## Novedades de la v0.117.0: el resumen compartido con la caja y las anulaciones de una vez
 

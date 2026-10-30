@@ -1,7 +1,10 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.5.0 (2026-10-21)
+//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.6.0 (2026-10-30)
+//  v1.6.0: (Sistema Fën v0.118.0) Efectivo → Caja de administración: efectivo (el saldo) y efectivo_movimientos
+//          (cada ingreso, salida o conteo). Solo administración; nada se borra (un movimiento se anula).
+//          Todo lo de la caja queda exactamente igual.
 //  v1.5.0: (caja v2.3.0 y Sistema Fën v0.75.0, Etapa 2b) el catálogo se administra solo en Sistema Fën:
 //          productos los crea, cambia y archiva SOLO la administración (la cajera solo marca tuvoVentas al vender);
 //          areas, solo la administración (la caja ya no las crea). solicitudes_producto: la cajera crea un pedido
@@ -249,6 +252,29 @@ service cloud.firestore {
       allow read: if esAdmin() || (opera() && resource.data.por == miCorreo());
       allow create: if opera() && pedidoValido(request.resource.data);
       allow update: if esAdmin() && request.resource.data.estado in ['aprobada', 'rechazada'];
+      allow delete: if false;
+    }
+
+    // ── v1.6.0 · Efectivo: caja de administración (Sistema Fën v0.118.0) ──
+    // efectivo/caja_admin: el saldo y el último conteo. efectivo_movimientos: ingresos, salidas y conteos.
+    function movEfectivoValido(d) {
+      return d.cuenta == 'caja_admin'
+          && d.tipo in ['ingreso', 'salida', 'conteo']
+          && d.monto is number && d.monto >= 0 && d.monto <= 50000000
+          && d.dia is string && d.dia.size() == 10
+          && d.mes is string && d.mes.size() == 7
+          && d.por == miCorreo()
+          && d.creado is timestamp;
+    }
+    match /efectivo/{id} {
+      allow read, create, update: if esAdmin();
+      allow delete: if false;
+    }
+    match /efectivo_movimientos/{id} {
+      allow read: if esAdmin();
+      allow create: if esAdmin() && movEfectivoValido(request.resource.data);
+      // Solo se anula (se agrega "anulado"); lo demás no cambia
+      allow update: if esAdmin() && !('anulado' in resource.data) && soloCambia(['anulado']);
       allow delete: if false;
     }
 

@@ -19,8 +19,8 @@
 //  5. Esperando boleta: mientras una cuenta de boleta no tiene la boleta del mes, un estimado (promedio de las últimas 3). No es gasto.
 //  6. Corte: el aviso urgente en Hoy hasta que se pague lo que la boleta dice que falta.
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.117.0';
-import * as AR from './areas.js?v=0.117.0';
+import * as G3 from './gastos-g3.js?v=0.118.0';
+import * as AR from './areas.js?v=0.118.0';
 
 const s = v => String(v == null ? '' : v);
 const num = v => (typeof v === 'number' ? (isFinite(v) ? v : 0) : (isFinite(Number(v)) ? Number(v) : 0));
