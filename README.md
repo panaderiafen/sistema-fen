@@ -1,9 +1,20 @@
-# Sistema Fën · v0.119.0
+# Sistema Fën · v0.119.1
 
 **Reglas de Firestore:** fen-ventas **v1.7.0 (publicar ANTES de subir la caja v3.0.0)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v3.0.0 (va junto) · **Servidor de cobros:** 0.4.1 (sin cambios) · **Apps Script:** ninguno cambia · 31 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.119.1: el saldo línea por línea en Efectivo
+
+Pedido por Emmanuel el 31 oct.
+- **Efectivo → Movimientos:** bajo el monto de cada movimiento, en chico, el **saldo que quedó después** (como en una cartola). Un anulado no lleva saldo; un conteo deja el saldo en lo contado.
+- Se calcula hacia atrás desde lo que debería haber hoy, en el orden en que se registraron. En el mes actual no lee nada extra; al mirar un mes pasado, lee también los meses siguientes.
+
+Cambian `vista-efectivo.js`, `efectivo-modelo.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.119.1`). Reglas de Firestore: sin cambios (siguen en v1.7.0). Caja: sin cambios (v3.0.0).
+
+- [ ] Abajo dice v0.119.1.
+- [ ] En Efectivo, cada movimiento muestra su saldo, y el de arriba coincide con "Debería haber".
 
 ## Novedades de la v0.119.0: lo que llega de las cajas (caja v3.0.0)
 

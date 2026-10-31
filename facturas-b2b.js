@@ -5,9 +5,9 @@
 //   · se descarga al computador con el mismo nombre, para adjuntarlo en WhatsApp: "3525 - Nombre del local.pdf".
 //  El enlace queda en fen-gastos (facturas_b2b/{folio}); "Ver factura" lo lee (1 lectura) y abre el PDF en otra pestaña.
 // ═══════════════════════════════════════════════
-import * as Gastos from './gastos.js?v=0.119.0';
+import * as Gastos from './gastos.js?v=0.119.1';
 // fs-gastos.js (Firebase de Gastos) se carga recién al guardar o al ver una factura, no al abrir la app
-const fsG = () => import('./fs-gastos.js?v=0.119.0');
+const fsG = () => import('./fs-gastos.js?v=0.119.1');
 
 export const MAX_PDF = 8 * 1024 * 1024;
 // Sin tildes ni ñ (algunos navegadores descartan el nombre de la descarga si las lleva) y sin caracteres que no aceptan las carpetas
@@ -29,7 +29,7 @@ export function descargar(blob, nombre) {
   setTimeout(() => URL.revokeObjectURL(u), 60000);
 }
 const base64 = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(new Error('No se pudo leer el PDF.')); r.readAsDataURL(blob); });
-const db = async () => (await import('./gastos-base.js?v=0.119.0')).dbBase();
+const db = async () => (await import('./gastos-base.js?v=0.119.1')).dbBase();
 
 // Guarda el PDF en Drive y su enlace en facturas_b2b/{folio}. → { url, nombre }
 export async function guardarEnDrive({ folio, local, clienteId = '', ordenes = [], fecha = '', blob }) {

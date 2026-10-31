@@ -1,18 +1,19 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Efectivo → Caja de administración  v0.119.0
+//  Sistema Fën — Efectivo → Caja de administración  v0.119.1
 //  Aprobado por Emmanuel el 30 oct (lienzo "Boceto · Efectivo de la caja"; mapa v15, cuenta 1.1.6).
 //  Cuánto debería haber, lo que entró y salió en el mes, el último conteo y los movimientos, con
 //  Ingreso, Salida, Contar y Anular.
 //  v0.119.0 (caja v3.0.0): "Por recibir de las cajas": el retiro de cada cierre y los retiros o el sencillo
 //  con la caja abierta llegan solos; la administración los recibe con un botón (transacción con el saldo).
 // ═══════════════════════════════════════════════
-import * as M from './efectivo-modelo.js?v=0.119.0';
-import * as FS from './efectivo-fs.js?v=0.119.0';
+import * as M from './efectivo-modelo.js?v=0.119.1';
+import * as FS from './efectivo-fs.js?v=0.119.1';
 
-const EF = { mes: '', cuenta: undefined, movs: null, porRecibir: null, msg: '', err: '' };
-export function olvidar() { EF.cuenta = undefined; EF.movs = null; EF.porRecibir = null; }
+const EF = { mes: '', cuenta: undefined, movs: null, porRecibir: null, posteriores: null, msg: '', err: '' };
+export function olvidar() { EF.cuenta = undefined; EF.movs = null; EF.porRecibir = null; EF.posteriores = null; }
 
 const hoyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+// v0.119.1 · Movimientos con el saldo que quedó después de cada uno (como una cartola)
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const diaTexto = d => { if (!d) return ''; const [y, m, dd] = d.split('-').map(Number); return `${DIAS[new Date(y, m - 1, dd).getDay()]} ${dd} ${MESES[m - 1].slice(0, 3)}`; };
 const mesTexto = k => { const [y, m] = k.split('-').map(Number); return `${MESES[m - 1]} ${y}`; };
@@ -26,12 +27,18 @@ export async function pintarEfectivo(el, sub, H) {
   try {
     if (EF.cuenta === undefined) EF.cuenta = await FS.leerCuenta();
     if (EF.porRecibir === null) EF.porRecibir = await FS.leerPorRecibir();
-    if (!EF.movs || EF.movs.mes !== EF.mes) { const l = await FS.leerMes(EF.mes); EF.movs = { mes: EF.mes, lista: l }; }
+    if (!EF.movs || EF.movs.mes !== EF.mes) { const l = await FS.leerMes(EF.mes); EF.movs = { mes: EF.mes, lista: l }; EF.posteriores = null; }
+    // v0.119.1 · Para el saldo línea por línea de un mes pasado hacen falta los movimientos de los meses siguientes
+    if (EF.posteriores === null) {
+      const despues = M.mesesHasta(hoy).filter(k => k > EF.mes);
+      EF.posteriores = (await Promise.all(despues.map(k => FS.leerMes(k)))).flat();
+    }
   } catch (e) {
     el.querySelector('.tarjeta').innerHTML = `<p class="error">${esc(H.mensajeError(e))}</p>`;
     return;
   }
   const c = EF.cuenta, lista = M.ordenar(EF.movs.lista), r = M.resumirMes(lista);
+  const saldos = c ? M.saldosDespues([...EF.movs.lista, ...(EF.posteriores || [])], c.saldo) : {};
   const uc = c && c.ultimoConteo;
   const ucTxt = !uc ? 'Sin conteo todavía' : uc.inicial ? 'Conteo inicial' : (Math.round(uc.diferencia || 0) === 0 ? 'Cuadró' : `Diferencia ${uc.diferencia > 0 ? '+' : ''}${pesos(uc.diferencia)}`);
   const chipTipo = m => m.tipo === 'ingreso' ? '<span class="chip c-verde">Ingreso</span>' : m.tipo === 'salida' ? '<span class="chip c-amarillo">Salida</span>' : '<span class="chip c-gris">Conteo</span>';
@@ -46,7 +53,7 @@ export async function pintarEfectivo(el, sub, H) {
         <b>${chipTipo(m)} ${esc(M.textoMotivo(m.tipo, m.motivo))}</b>
         <span>${esc(diaTexto(m.dia))}${M.detalleTexto(m) ? ' · ' + esc(M.detalleTexto(m)) : ''}${m.por ? ' · ' + esc(m.por) : ''}</span>
         ${m.anulado ? `<span class="nota">Anulado por ${esc(m.anulado.por || '')}${m.anulado.motivo ? ': “' + esc(m.anulado.motivo) + '”' : ''}</span>` : ''}</div>
-      <div class="acciones"><span class="ef-monto ef-${esc(m.tipo)}">${signo}${pesos(m.monto)}</span>${acc}</div></div>`;
+      <div class="acciones"><span class="ef-monto-col"><span class="ef-monto ef-${esc(m.tipo)}">${signo}${pesos(m.monto)}</span>${saldos[m.id] != null ? `<span class="ef-saldo">saldo ${pesos(saldos[m.id])}</span>` : ''}</span>${acc}</div></div>`;
   };
   const meses = M.mesesHasta(hoy);
   // v0.119.0 · Lo que las cajas dejaron para la caja de administración

@@ -9,8 +9,8 @@
 //  v0.119.0 (caja v3.0.0): recibirDeCaja() pasa un retiro de la caja (o el sencillo que salió hacia ella)
 //  a la caja de administración y lo marca recibido, todo en la misma transacción.
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.119.0';
-import { CUENTA, efecto, movDesdeCaja } from './efectivo-modelo.js?v=0.119.0';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.119.1';
+import { CUENTA, efecto, movDesdeCaja } from './efectivo-modelo.js?v=0.119.1';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 const refCuenta = () => doc(db, 'efectivo', CUENTA);

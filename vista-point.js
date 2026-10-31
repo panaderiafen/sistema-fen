@@ -5,7 +5,7 @@
 //  y los cobros con tarjeta recientes. Entra con la sesión de Sistema Fën (el Worker revisa que el correo
 //  esté en su variable ADMINS). No lee ni escribe Firestore. Ningún secreto vive aquí.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.119.0';
+import { auth } from './firebase.js?v=0.119.1';
 
 const URL_POINT = () => (window.FEN_SIS && window.FEN_SIS.PUNTO_URL) || 'https://fen-point.panaderiafen.workers.dev';
 const TIENDAS = { barros_arana: 'Barros Arana', ainavillo: 'Ainavillo' };

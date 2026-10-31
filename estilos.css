@@ -3062,6 +3062,8 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 /* v0.118.0 · Efectivo → Caja de administración */
 .ef-botones { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
 .ef-monto { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ef-monto-col { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 1px; }   /* v0.119.1 */
+.ef-saldo { font-size: 11.5px; color: var(--suave); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ef-ingreso { color: var(--verde-t); }
 .ef-salida { color: var(--rojo-t); }
 .ef-anulado .txt b, .ef-anulado .ef-monto { text-decoration: line-through; opacity: .6; }

@@ -9,16 +9,16 @@
 //   · fen-gastos (Finanzas): vínculos producto → receta (fin_productos) y costo por unidad (costos_recetas).
 //  Lecturas: una vez por sesión (6 horas en memoria; "Actualizar" vuelve a leer). Cada consulta usa un solo campo (índices simples).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.119.0';
-import * as Caja from './caja.js?v=0.119.0';
-import * as P from './produccion.js?v=0.119.0';
-import * as B from './b2b.js?v=0.119.0';
-import * as F from './finanzas.js?v=0.119.0';
-import * as M from './fs-memoria.js?v=0.119.0';
-import * as Cuota from './fs-cuota.js?v=0.119.0';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.119.1';
+import * as Caja from './caja.js?v=0.119.1';
+import * as P from './produccion.js?v=0.119.1';
+import * as B from './b2b.js?v=0.119.1';
+import * as F from './finanzas.js?v=0.119.1';
+import * as M from './fs-memoria.js?v=0.119.1';
+import * as Cuota from './fs-cuota.js?v=0.119.1';
 import * as CM from './cocina/modelo.js?v=0.17.4';
 import * as K from './cocina/consumo.js?v=0.17.12';
-import * as PM from './plan-pan-modelo.js?v=0.119.0';
+import * as PM from './plan-pan-modelo.js?v=0.119.1';
 
 export const CONFIG_ID = 'planPanaderia';     // fen-ventas config/planPanaderia (reglas v1.3.0: solo administración la crea y cambia)
 const TTL = 6 * 3600e3;

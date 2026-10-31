@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Efectivo · modelo (sin Firestore)  v0.119.0
+//  Sistema Fën — Efectivo · modelo (sin Firestore)  v0.119.1
 //  La caja de administración (cuenta 1.1.6 del plan de gestión): el efectivo que sale de las cajas al cerrar
 //  y el de los clientes B2B; sale a depósitos al banco y a pagos en efectivo. Aprobado por Emmanuel el 30 oct.
 //  Cada movimiento: { tipo 'ingreso' | 'salida' | 'conteo', motivo, monto (siempre positivo), dia 'AAAA-MM-DD',
@@ -147,3 +147,20 @@ export function movDesdeCaja(x) {
   if (x.tipo === 'ingreso' && x.motivo === 'sencillo_admin') return { tipo: 'salida', motivo: 'sencillo_caja', ...base };
   return null;
 }
+
+// v0.119.1 · El saldo que quedó después de cada movimiento, como en una cartola.
+// Se calcula hacia atrás desde el saldo de hoy, en el orden en que se registraron (creado):
+// un anulado no mueve el saldo (no lleva saldo); un conteo deja el saldo en lo contado y antes estaba en saldoAntes.
+// movs: los del mes que se mira y todos los de los meses siguientes. → { id: saldo }
+export function saldosDespues(movs, saldoHoy) {
+  const r = {};
+  let s = Math.round(Number(saldoHoy) || 0);
+  ordenarPorRegistro(movs).reverse().forEach(m => {
+    if (m.anulado) return;
+    r[m.id] = s;
+    s = m.tipo === 'conteo' ? Math.round(Number(m.saldoAntes) || 0) : s - efecto(m);
+  });
+  return r;
+}
+const msReg = t => (t && typeof t.toMillis === 'function' ? t.toMillis() : (t && t.seconds ? t.seconds * 1000 : 0));
+export const ordenarPorRegistro = movs => (movs || []).slice().sort((a, b) => msReg(a.creado) - msReg(b.creado));
