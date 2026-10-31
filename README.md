@@ -1,9 +1,30 @@
-# Sistema Fën · v0.118.0
+# Sistema Fën · v0.119.0
 
-**Reglas de Firestore:** fen-ventas **v1.6.0 (publicar antes de usar Efectivo)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v2.9.0 (sin cambios) · **Servidor de cobros:** 0.4.1 (sin cambios) · **Apps Script:** ninguno cambia · 30 de octubre de 2026
+**Reglas de Firestore:** fen-ventas **v1.7.0 (publicar ANTES de subir la caja v3.0.0)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v3.0.0 (va junto) · **Servidor de cobros:** 0.4.1 (sin cambios) · **Apps Script:** ninguno cambia · 31 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.119.0: lo que llega de las cajas (caja v3.0.0)
+
+Etapa 4 de la revisión de la caja B2C (bocetos "Efectivo de la caja" aprobados el 30 oct). Va junto con la **caja v3.0.0**.
+- **Efectivo → "Por recibir de las cajas"** (aparece solo si hay algo): el retiro de cada cierre (contado − fondo), los retiros "a la caja de administración" con la caja abierta y el sencillo que salió hacia una caja.
+- **Recibir** (o **Confirmar salida** para el sencillo): un clic, cuando la plata esté en la mano. Crea el movimiento en la caja de administración, cambia lo que debería haber y lo marca recibido, todo en una transacción. Si llegó otro monto, recíbalo igual y haga un conteo: la diferencia queda anotada.
+- Los **pagos a proveedor** desde una caja quedan "Por unir" (con proveedor y N°) para unirlos a su documento en Gastos en una próxima versión; no pasan por la caja de administración.
+- **Ventas de caja → cerrar una caja anterior con arqueo:** la diferencia del efectivo considera los retiros e ingresos del turno, y si se anota un retiro, también queda por recibir en Efectivo.
+- **Corregir un arqueo** también considera los retiros e ingresos del turno.
+- Lecturas: al abrir Efectivo, una consulta más (lo pendiente, normalmente 1 o 2 documentos).
+
+Cambian `efectivo-modelo.js`, `efectivo-fs.js`, `vista-efectivo.js`, `caja.js`, `app.js`, `config.js`, `firestore.rules` (v1.7.0) y este README; los demás, solo la versión (`?v=0.119.0`).
+
+**Reglas de Firestore (fen-ventas) v1.7.0 — publicarlas PRIMERO, antes de subir la caja v3.0.0:**
+1. Firebase → proyecto **fen-ventas** → Firestore Database → pestaña **Reglas**.
+2. Reemplace todo el texto por el de `firestore.rules` (de este zip) y presione **Publicar**.
+3. Solo agrega la colección `caja_movimientos`: la caja crea retiros e ingresos (con su correo) y solo puede anularlos; la administración solo los marca recibidos; nada se borra. Lo demás queda igual.
+
+- [ ] Reglas fen-ventas v1.7.0 publicadas.
+- [ ] Abajo dice v0.119.0.
+- [ ] Después del primer cierre con la caja v3.0.0: Efectivo → Por recibir de las cajas → Recibir.
 
 ## Novedades de la v0.118.0: Efectivo → Caja de administración
 

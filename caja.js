@@ -17,9 +17,9 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
-} from './firebase.js?v=0.118.0';
-import * as AR from './areas.js?v=0.118.0';
-import { armarResumen } from './resumen-caja.js?v=0.118.0';   // v0.117.0: el mismo archivo que usa la caja v2.9.0
+} from './firebase.js?v=0.119.0';
+import * as AR from './areas.js?v=0.119.0';
+import { armarResumen } from './resumen-caja.js?v=0.119.0';   // v0.117.0: el mismo archivo que usa la caja v2.9.0
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -140,13 +140,16 @@ export function calcularArqueo(cajaData, m) {
   const sist = { sistEfectivo: ent(t.efectivo), sistDebito: ent(t.debito), sistCredito: ent(t.credito), sistTransfer: ent(t.transferencia), sistTotal: ent(cajaData.totalVentas) };
   const manEfectivoNeto = ent(m.manEfectivo) - montoInicial;
   const manTotal = manEfectivoNeto + ent(m.manDebito) + ent(m.manCredito) + ent(m.manTransfer);
+  // v0.119.0 (caja v3.0.0): lo que entró y salió de la caja con la caja abierta (retiros e ingresos del turno)
+  const em = cajaData.efectivoMovs || {}, ingresosTurno = ent(em.ingresos), retirosTurno = ent(em.retiros), movsNeto = ingresosTurno - retirosTurno;
   const difs = {
-    difEfectivo: manEfectivoNeto - sist.sistEfectivo, difDebito: ent(m.manDebito) - sist.sistDebito,
+    difEfectivo: manEfectivoNeto - sist.sistEfectivo - movsNeto, difDebito: ent(m.manDebito) - sist.sistDebito,
     difCredito: ent(m.manCredito) - sist.sistCredito, difTransfer: ent(m.manTransfer) - sist.sistTransfer,
-    difTotal: manTotal - sist.sistTotal
+    difTotal: manTotal - sist.sistTotal - movsNeto
   };
   const hayDiferencia = difs.difEfectivo !== 0 || difs.difDebito !== 0 || difs.difCredito !== 0 || difs.difTransfer !== 0;
-  return { montoInicial, ...sist, manEfectivo: ent(m.manEfectivo), manEfectivoNeto, manDebito: ent(m.manDebito), manCredito: ent(m.manCredito), manTransfer: ent(m.manTransfer), manTotal, ...difs, hayDiferencia };
+  return { montoInicial, ...sist, manEfectivo: ent(m.manEfectivo), manEfectivoNeto, manDebito: ent(m.manDebito), manCredito: ent(m.manCredito), manTransfer: ent(m.manTransfer), manTotal, ...difs,
+    ...(ingresosTurno || retirosTurno ? { ingresosTurno, retirosTurno, movsNeto } : {}), hayDiferencia };
 }
 
 // Minutos desde la última venta de esa caja (null si no tiene ventas).
@@ -182,6 +185,15 @@ export async function cerrarCajaAnterior(cajaId, montos, nota) {
       const { hayDiferencia, ...campos } = a;
       evaluacion = { ...base, ...campos, ...(hayDiferencia ? { notaDescuadre: String(nota).trim() } : {}), ...(retirado > 0 ? { montoRetirado: retirado, saldoSiguiente } : {}) };
       if (saldoSiguiente !== null) extraCaja.saldoSiguiente = saldoSiguiente;
+      // v0.119.0: el retiro queda por recibir en Efectivo → Caja de administración, como el de un cierre en la caja
+      if (retirado > 0) {
+        const dia = String(cajaData.fecha || '');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dia) && ['barros_arana', 'ainavillo'].includes(cajaData.sucursal)) {
+          tx.set(doc(collection(db, 'caja_movimientos')), { cajaId, sucursal: cajaData.sucursal, tipo: 'retiro', motivo: 'cierre', monto: retirado,
+            dia, mes: dia.slice(0, 7), nota: 'Cerrada desde Sistema Fën', pendienteAdmin: true, por: correo(), creado: ahora });
+          extraCaja.retiroCierre = retirado;
+        }
+      }
     } else {
       const t = cajaData.totales || {};
       evaluacion = { ...base, sistEfectivo: ent(t.efectivo), sistDebito: ent(t.debito), sistCredito: ent(t.credito), sistTransfer: ent(t.transferencia), sistTotal: ent(cajaData.totalVentas), sinArqueo: true };
@@ -209,11 +221,12 @@ export async function corregirEvaluacion(evalId, m) {
   const montoInicial = ent(e.montoInicial);
   const manEfectivoNeto = ent(m.manEfectivo) - montoInicial;
   const manTotal = manEfectivoNeto + ent(m.manDebito) + ent(m.manCredito) + ent(m.manTransfer);
+  const movsNeto = Math.round(Number(e.movsNeto) || 0); // v0.119.0: retiros e ingresos del turno (caja v3.0.0)
   await updateDoc(doc(db, 'evaluacion_caja', evalId), {
     manEfectivo: ent(m.manEfectivo), manEfectivoNeto, manDebito: ent(m.manDebito), manCredito: ent(m.manCredito), manTransfer: ent(m.manTransfer), manTotal,
-    difEfectivo: manEfectivoNeto - ent(e.sistEfectivo), difDebito: ent(m.manDebito) - ent(e.sistDebito),
+    difEfectivo: manEfectivoNeto - ent(e.sistEfectivo) - movsNeto, difDebito: ent(m.manDebito) - ent(e.sistDebito),
     difCredito: ent(m.manCredito) - ent(e.sistCredito), difTransfer: ent(m.manTransfer) - ent(e.sistTransfer),
-    difTotal: manTotal - ent(e.sistTotal),
+    difTotal: manTotal - ent(e.sistTotal) - movsNeto,
     sinArqueo: false, corregido: true, fechaCorreccion: Timestamp.now(), corregidoPor: correo(),
     diferenciaAceptada: false // con montos nuevos, la diferencia (si queda) se vuelve a revisar
   });

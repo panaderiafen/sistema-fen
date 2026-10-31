@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Efectivo · modelo (sin Firestore)  v0.118.0
+//  Sistema Fën — Efectivo · modelo (sin Firestore)  v0.119.0
 //  La caja de administración (cuenta 1.1.6 del plan de gestión): el efectivo que sale de las cajas al cerrar
 //  y el de los clientes B2B; sale a depósitos al banco y a pagos en efectivo. Aprobado por Emmanuel el 30 oct.
 //  Cada movimiento: { tipo 'ingreso' | 'salida' | 'conteo', motivo, monto (siempre positivo), dia 'AAAA-MM-DD',
@@ -128,4 +128,22 @@ export function mesesHasta(hoy, desde = '2026-10') {
     mm--; if (mm === 0) { mm = 12; y--; }
   }
   return r;
+}
+
+// v0.119.0 (caja v3.0.0) · Lo que llega de una caja de venta (caja_movimientos):
+//  - un retiro "A la caja de administración" o el retiro del cierre → Ingreso · Retiro de una caja;
+//  - un ingreso "Sencillo de la caja de administración" → Salida · Sencillo a una caja.
+// → el movimiento de la caja de administración (sin quién ni cuándo), o null si no le corresponde.
+export const TEXTO_CAJA = { cierre: 'Retiro al cerrar la caja', caja_admin: 'Retiro con la caja abierta', sencillo_admin: 'Sencillo para la caja' };
+export function movDesdeCaja(x) {
+  if (!x || x.anulado) return null;
+  const monto = Math.round(Number(x.monto) || 0);
+  if (!(monto > 0) || !DIA.test(String(x.dia || ''))) return null;
+  if (!SUCURSALES.some(s => s[0] === x.sucursal)) return null;
+  const base = { monto, dia: x.dia, mes: x.dia.slice(0, 7), sucursal: x.sucursal,
+    nota: limpio([TEXTO_CAJA[x.motivo], x.nota].filter(Boolean).join(' · '), 200),
+    origen: { cajaMovId: String(x.id || ''), cajaId: String(x.cajaId || ''), por: String(x.por || '') } };
+  if (x.tipo === 'retiro' && (x.motivo === 'cierre' || x.motivo === 'caja_admin')) return { tipo: 'ingreso', motivo: 'retiro_caja', ...base };
+  if (x.tipo === 'ingreso' && x.motivo === 'sencillo_admin') return { tipo: 'salida', motivo: 'sencillo_caja', ...base };
+  return null;
 }

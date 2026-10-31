@@ -1,7 +1,11 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.6.0 (2026-10-30)
+//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.7.0 (2026-10-31)
+//  v1.7.0: (caja v3.0.0 y Sistema Fën v0.119.0) caja_movimientos: retiros e ingresos de efectivo con la caja
+//          abierta y el retiro del cierre. La caja los crea (con quién y cuándo) y solo puede anularlos; la
+//          administración solo puede marcarlos como recibidos en la caja de administración. Nada se borra.
+//          Todo lo demás queda igual.
 //  v1.6.0: (Sistema Fën v0.118.0) Efectivo → Caja de administración: efectivo (el saldo) y efectivo_movimientos
 //          (cada ingreso, salida o conteo). Solo administración; nada se borra (un movimiento se anula).
 //          Todo lo de la caja queda exactamente igual.
@@ -275,6 +279,35 @@ service cloud.firestore {
       allow create: if esAdmin() && movEfectivoValido(request.resource.data);
       // Solo se anula (se agrega "anulado"); lo demás no cambia
       allow update: if esAdmin() && !('anulado' in resource.data) && soloCambia(['anulado']);
+      allow delete: if false;
+    }
+
+    // ── v1.7.0 · Efectivo de la caja: retiros e ingresos del turno (caja v3.0.0) ──
+    function movCajaValido(d) {
+      return d.tipo in ['retiro', 'ingreso']
+          && d.motivo is string && d.motivo.size() > 0 && d.motivo.size() <= 30
+          && d.monto is number && d.monto > 0 && d.monto <= 50000000
+          && d.cajaId is string && d.cajaId.size() > 0
+          && d.sucursal in ['barros_arana', 'ainavillo']
+          && d.dia is string && d.dia.size() == 10
+          && d.mes is string && d.mes.size() == 7
+          && d.pendienteAdmin is bool
+          && d.por == miCorreo()
+          && d.creado is timestamp
+          && !('anulado' in d) && !('recibido' in d);
+    }
+    match /caja_movimientos/{id} {
+      allow read: if conSesion();
+      allow create: if opera() && movCajaValido(request.resource.data);
+      // La caja solo anula (agrega "anulado" con su correo) lo que la administración aún no recibió;
+      // la administración solo marca "recibido" lo que no está anulado.
+      allow update: if !('anulado' in resource.data) && !('recibido' in resource.data) && (
+                      (opera() && soloCambia(['anulado', 'pendienteAdmin'])
+                         && request.resource.data.anulado.por == miCorreo()
+                         && request.resource.data.pendienteAdmin == false)
+                   || (esAdmin() && soloCambia(['recibido', 'pendienteAdmin'])
+                         && request.resource.data.recibido.por == miCorreo()
+                         && request.resource.data.pendienteAdmin == false));
       allow delete: if false;
     }
 

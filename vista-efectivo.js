@@ -1,15 +1,16 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Efectivo → Caja de administración  v0.118.0
+//  Sistema Fën — Efectivo → Caja de administración  v0.119.0
 //  Aprobado por Emmanuel el 30 oct (lienzo "Boceto · Efectivo de la caja"; mapa v15, cuenta 1.1.6).
 //  Cuánto debería haber, lo que entró y salió en el mes, el último conteo y los movimientos, con
-//  Ingreso, Salida, Contar y Anular. Hasta la caja v3.0.0, el retiro de cada cierre se anota aquí a mano
-//  (Ingreso → Retiro de una caja); desde la v3.0.0 llegará solo.
+//  Ingreso, Salida, Contar y Anular.
+//  v0.119.0 (caja v3.0.0): "Por recibir de las cajas": el retiro de cada cierre y los retiros o el sencillo
+//  con la caja abierta llegan solos; la administración los recibe con un botón (transacción con el saldo).
 // ═══════════════════════════════════════════════
-import * as M from './efectivo-modelo.js?v=0.118.0';
-import * as FS from './efectivo-fs.js?v=0.118.0';
+import * as M from './efectivo-modelo.js?v=0.119.0';
+import * as FS from './efectivo-fs.js?v=0.119.0';
 
-const EF = { mes: '', cuenta: undefined, movs: null, msg: '', err: '' };
-export function olvidar() { EF.cuenta = undefined; EF.movs = null; }
+const EF = { mes: '', cuenta: undefined, movs: null, porRecibir: null, msg: '', err: '' };
+export function olvidar() { EF.cuenta = undefined; EF.movs = null; EF.porRecibir = null; }
 
 const hoyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -24,6 +25,7 @@ export async function pintarEfectivo(el, sub, H) {
     <section class="tarjeta"><div class="vacio" style="border:0">Cargando…</div></section>`;
   try {
     if (EF.cuenta === undefined) EF.cuenta = await FS.leerCuenta();
+    if (EF.porRecibir === null) EF.porRecibir = await FS.leerPorRecibir();
     if (!EF.movs || EF.movs.mes !== EF.mes) { const l = await FS.leerMes(EF.mes); EF.movs = { mes: EF.mes, lista: l }; }
   } catch (e) {
     el.querySelector('.tarjeta').innerHTML = `<p class="error">${esc(H.mensajeError(e))}</p>`;
@@ -47,6 +49,16 @@ export async function pintarEfectivo(el, sub, H) {
       <div class="acciones"><span class="ef-monto ef-${esc(m.tipo)}">${signo}${pesos(m.monto)}</span>${acc}</div></div>`;
   };
   const meses = M.mesesHasta(hoy);
+  // v0.119.0 · Lo que las cajas dejaron para la caja de administración
+  const pr = (EF.porRecibir || []).filter(x => M.movDesdeCaja(x)).sort((a, b) => (a.dia || '').localeCompare(b.dia || '') || msDe(a.creado) - msDe(b.creado));
+  const filaPr = x => {
+    const entra = x.tipo === 'retiro';
+    return `<div class="fila-caja ef-fila"><div class="txt">
+        <b>${entra ? '<span class="chip c-verde">Entra</span>' : '<span class="chip c-amarillo">Sale</span>'} ${esc(M.TEXTO_CAJA[x.motivo] || '')} · ${esc(M.textoSucursal(x.sucursal))}</b>
+        <span>${esc(diaTexto(x.dia))}${x.por ? ' · ' + esc(x.por) : ''}${x.nota ? ' · ' + esc(x.nota) : ''}</span></div>
+      <div class="acciones"><span class="ef-monto ef-${entra ? 'ingreso' : 'salida'}">${entra ? '+ ' : '− '}${pesos(x.monto)}</span><button type="button" class="btn btn-chico" data-recibir="${esc(x.id)}">${entra ? 'Recibir' : 'Confirmar salida'}</button></div></div>`;
+  };
+  const totPr = pr.reduce((a, x) => a + (x.tipo === 'retiro' ? 1 : -1) * Math.round(Number(x.monto) || 0), 0);
   el.innerHTML = `<div class="cabecera"><div><h1 id="t-efectivo">Efectivo ${info('Caja de administración', 'Es la cuenta 1.1.6 del plan de gestión: el efectivo que no está en una caja de venta. Entra lo que se retira de las cajas al cerrar y el efectivo de clientes B2B; sale a depósitos al banco, pagos en efectivo y sencillo para las cajas.\n"Debería haber" es el último conteo más lo que entró menos lo que salió desde entonces. Cuente de vez en cuando con "Contar": si no cuadra, la diferencia queda anotada y el saldo pasa a ser lo contado.\nNada se borra: un movimiento equivocado se anula, con su motivo.')}</h1><p>Caja de administración: el efectivo que sale de las cajas y el de los clientes B2B</p></div></div>
     ${EF.msg ? `<div class="aviso" role="status">${EF.msg}</div>` : ''}${EF.err ? `<p class="error" role="alert">${esc(EF.err)}</p>` : ''}
     ${!c ? `<section class="tarjeta" aria-labelledby="t-ef-inicio"><div class="titulo-fila"><h2 id="t-ef-inicio">Para empezar</h2></div>
@@ -63,11 +75,14 @@ export async function pintarEfectivo(el, sub, H) {
       <button type="button" class="btn" id="ef-salida">Salida</button>
       <button type="button" class="btn-sec" id="ef-contar">Contar la caja de administración</button>
     </div>`}
+    ${pr.length ? `<section class="tarjeta" aria-labelledby="t-ef-pr">
+      <div class="titulo-fila"><h2 id="t-ef-pr">Por recibir de las cajas ${info('Por recibir de las cajas', 'Lo que las cajas dejaron para la caja de administración: el retiro de cada cierre (lo contado menos el fondo que queda) y los retiros con la caja abierta. También el sencillo que se llevó a una caja desde aquí.\nRecíbalo cuando la plata esté en sus manos: recién entonces cambia lo que debería haber. Si llegó otro monto, recíbalo igual y haga un conteo: la diferencia queda anotada.')}</h2><span class="nota">${pr.length} · ${pesos(totPr)}</span></div>
+      ${pr.map(filaPr).join('')}</section>` : ''}
     <section class="tarjeta" aria-labelledby="t-ef-movs">
       <div class="titulo-fila"><h2 id="t-ef-movs">Movimientos</h2>
         <select id="ef-mes" aria-label="Mes">${meses.map(k => `<option value="${k}" ${k === EF.mes ? 'selected' : ''}>${esc(mesTexto(k))}</option>`).join('')}</select></div>
       ${lista.length ? `<div data-colapsar="15">${lista.map(fila).join('')}</div>` : `<div class="vacio">Sin movimientos en ${esc(mesTexto(EF.mes))}.</div>`}
-      <p class="nota-i">(i) Mientras la caja no lo haga sola (caja v3.0.0), anote aquí lo que retira de cada caja al cerrar: Ingreso → Retiro de una caja.</p>
+      <p class="nota-i">(i) Desde la caja v3.0.0, lo que se retira de cada caja llega solo a "Por recibir de las cajas". Lo de antes (o de una caja cerrada desde aquí sin retiro) se anota a mano: Ingreso → Retiro de una caja.</p>
     </section>`;
   EF.msg = ''; EF.err = '';
   const repintar = () => pintarEfectivo(el, sub, H);
@@ -77,6 +92,7 @@ export async function pintarEfectivo(el, sub, H) {
   $q('#ef-ingreso') && $q('#ef-ingreso').addEventListener('click', () => dialogoMov('ingreso', H, repintar));
   $q('#ef-salida') && $q('#ef-salida').addEventListener('click', () => dialogoMov('salida', H, repintar));
   el.querySelectorAll('[data-anular]').forEach(b => b.addEventListener('click', () => dialogoAnular(lista.find(m => m.id === b.dataset.anular), H, repintar)));
+  el.querySelectorAll('[data-recibir]').forEach(b => b.addEventListener('click', () => recibir(pr.find(x => x.id === b.dataset.recibir), b, H, repintar)));
 }
 
 function dialogoMov(tipo, H, repintar) {
@@ -161,4 +177,20 @@ function dialogoAnular(m, H, repintar) {
       repintar();
     } catch (e) { err.textContent = e.message || H.mensajeError(e); b.disabled = false; b.textContent = 'Anular'; }
   });
+}
+
+// v0.119.0 · Recibir en la caja de administración lo que dejó una caja (un clic: la plata ya está en la mano)
+async function recibir(x, b, H, repintar) {
+  if (!x) return;
+  const { esc, pesos } = H;
+  b.disabled = true; b.textContent = 'Guardando…';
+  try {
+    const res = await FS.recibirDeCaja(x.id);
+    H.registrar('Efectivo: recibió de una caja', `${M.TEXTO_CAJA[x.motivo] || ''} · ${M.textoSucursal(x.sucursal)} · ${pesos(x.monto)} · ${x.dia}`);
+    EF.cuenta = undefined; EF.movs = null; EF.porRecibir = null; EF.mes = String(x.dia || '').slice(0, 7) || EF.mes;
+    EF.msg = `Listo. Lo que debería haber en la caja de administración: <b>${esc(pesos(res.saldo))}</b>.`;
+  } catch (e) {
+    EF.porRecibir = null; EF.err = e.message || H.mensajeError(e);
+  }
+  repintar();
 }
