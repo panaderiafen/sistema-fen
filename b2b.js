@@ -8,15 +8,15 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.120.2';
-import * as FB from './firebase-b2b.js?v=0.120.2';
-import * as Apps from './apps.js?v=0.120.2';
-import * as Mem from './fs-memoria.js?v=0.120.2';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.120.2';
-import { distanciaTef } from './feriados-cl.js?v=0.120.2';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.120.2';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.120.2';
-import { cuadreCartola } from './gn-modelo.js?v=0.120.2';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.120.3';
+import * as FB from './firebase-b2b.js?v=0.120.3';
+import * as Apps from './apps.js?v=0.120.3';
+import * as Mem from './fs-memoria.js?v=0.120.3';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.120.3';
+import { distanciaTef } from './feriados-cl.js?v=0.120.3';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.120.3';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.120.3';
+import { cuadreCartola } from './gn-modelo.js?v=0.120.3';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1076,7 +1076,7 @@ const diasEntre = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a +
 export const CORTES_PAGO = { verde: 7, amarillo: 30 };   // días: hasta 7 al día, hasta 30 más tarde, más de 30 tarde
 // v0.16.1: días entre la factura y el pago acordado. Diaria, semanal y mensual pagan el mismo día de la factura
 // (desde ese día quedan por cobrar); "30 días" tiene 30 días de plazo (se pueden ir registrando abonos).
-const ACORDADO = { diaria: 0, semanal: 0, mensual: 0, '30dias': 30, '4 pagos semanales': 28 };   // v0.120.1: el último pago, unas 4 semanas después
+const ACORDADO = { diaria: 0, semanal: 0, mensual: 0, '30dias': 30, '4 pagos semanales': 30 };   // v0.120.3: paga a 30 días, en 4 pagos semanales durante el mes siguiente
 // ordenes: las de 6 meses (y además las pendientes de cualquier fecha); abonos: todos. Montos de compra en NETO.
 export function analisisClientes(ordenes, abonos, clientes, hoy = hoyTxt()) {
   const mesDe = (k) => { const [y, m] = hoy.split('-').map(Number), d = new Date(y, m - 1 - k, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };

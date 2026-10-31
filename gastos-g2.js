@@ -16,9 +16,9 @@
 //  generarVencimientos acepta la antelación por obligación (tipo documento: antes, para esperar la boleta).
 //  Sin red: se prueba sola. Fechas y horas en hora de Chile (America/Santiago).
 // ═══════════════════════════════════════════════
-import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.120.2';
-import * as G3 from './gastos-g3.js?v=0.120.2';
-import * as AR from './areas.js?v=0.120.2';
+import { dia, numero, idLimpio } from './gastos-modelo.js?v=0.120.3';
+import * as G3 from './gastos-g3.js?v=0.120.3';
+import * as AR from './areas.js?v=0.120.3';
 
 // v0.63.1: B2B (costos del canal B2B: atención de clientes, órdenes y despacho)
 // v0.69.1: REVENTA (lo que se compra hecho y se vende tal cual). La lista sale de areas.js (una sola para toda la app).
