@@ -6,8 +6,8 @@
 //  v0.119.0 (caja v3.0.0): "Por recibir de las cajas": el retiro de cada cierre y los retiros o el sencillo
 //  con la caja abierta llegan solos; la administración los recibe con un botón (transacción con el saldo).
 // ═══════════════════════════════════════════════
-import * as M from './efectivo-modelo.js?v=0.120.0';
-import * as FS from './efectivo-fs.js?v=0.120.0';
+import * as M from './efectivo-modelo.js?v=0.120.2';
+import * as FS from './efectivo-fs.js?v=0.120.2';
 
 const EF = { mes: '', cuenta: undefined, movs: null, porRecibir: null, posteriores: null, msg: '', err: '' };
 export function olvidar() { EF.cuenta = undefined; EF.movs = null; EF.porRecibir = null; EF.posteriores = null; }

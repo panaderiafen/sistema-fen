@@ -1,9 +1,22 @@
-# Sistema Fën · v0.120.0
+# Sistema Fën · v0.120.2
 
-**Reglas de Firestore:** fen-ventas **v1.8.0 (publicar ANTES de subir esta versión)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v3.0.0 (va junto) · **Servidor de cobros:** 0.4.1 (sin cambios) · **Apps Script:** ninguno cambia · 31 de octubre de 2026
+**Reglas de Firestore:** fen-ventas **v1.8.0 (sin cambios)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v3.0.0 (va junto) · **Servidor de cobros:** 0.4.1 (sin cambios) · **Apps Script:** ninguno cambia · 31 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.120.1 y v0.120.2: clientes que pagan en 4 pagos semanales
+
+Pedido por Emmanuel el 31 oct.
+- **Ventas B2B → Clientes → editar:** en "Frecuencia de pago" hay una opción nueva, **"4 pagos semanales"** (factura mensual que el cliente paga en 4 partes, una por semana).
+- **El mensaje de la factura** de ese cliente agrega: "Como acordamos, la puedes pagar en 4 pagos semanales: el primero de $A y los otros tres de $B." Calza exacto con el total: los pesos que sobran de dividir en 4 van en el primer pago (v0.120.2). Si se divide exacto, dice "4 pagos semanales de $B". Cambia cada mes con la factura.
+- En Cobranza, el folio de ese cliente se considera atrasado recién después de 28 días.
+
+Cambian `app.js`, `b2b.js`, `config.js` y este README; los demás, solo la versión (`?v=0.120.2`). Reglas: sin cambios.
+
+- [ ] Abajo dice v0.120.2.
+- [ ] Ventas B2B → Clientes → ese cliente → Frecuencia de pago: "4 pagos semanales" → Guardar.
+- [ ] En Por facturar, "Copiar mensaje" de ese cliente trae la frase de los 4 pagos.
 
 ## Novedades de la v0.120.0: recibir el efectivo con diferencia, y el efectivo B2B por recibir
 
