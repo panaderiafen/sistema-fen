@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Efectivo · Firestore (fen-ventas)  v0.120.0
+//  Sistema Fën — Efectivo · Firestore (fen-ventas)  v0.121.0
 //  efectivo/caja_admin           { saldo, ultimoConteo: { dia, monto, diferencia, por, en }, actualizado, por }
 //  efectivo_movimientos/{id}     un movimiento (ver efectivo-modelo.js) + { cuenta, creado, por } y, si se anula,
 //                                anulado: { por, en, motivo }. Nada se borra.
@@ -8,9 +8,10 @@
 //  + lo que las cajas dejaron por recibir (caja_movimientos con pendienteAdmin, una consulta sin índices).
 //  v0.119.0 (caja v3.0.0): recibirDeCaja() pasa un retiro de la caja (o el sencillo que salió hacia ella)
 //  a la caja de administración y lo marca recibido, todo en la misma transacción.
+//  v0.121.0: recibirVarios() recibe varios completos en una sola transacción.
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.120.3';
-import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.120.3';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.121.0';
+import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.121.0';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 const refCuenta = () => doc(db, 'efectivo', CUENTA);
@@ -127,6 +128,43 @@ export async function recibirDeCaja(id, recepcion = null, col = 'caja_movimiento
     tx.update(refOrigen, { pendienteAdmin: false, recibido: { por, en: ahora, efectivoId: ids[0], ...(r.falta ? { llego: base.monto - r.falta, falta: r.falta } : {}) } });
   });
   return { saldo };
+}
+
+// v0.121.0 · Recibir varios de una vez, todos completos (Emmanuel, 31 oct): "Recibir todos (llegó completo)".
+// lista: [{ id, col }] (solo lo que entra: retiros de una caja o efectivo B2B). Una sola transacción: si alguno ya estaba
+// recibido o anulado, no se guarda ninguno. Cada movimiento con 1 ms de diferencia; el saldo se escribe una vez. → { saldo, n, total }
+export async function recibirVarios(lista) {
+  const items = (lista || []).filter(x => x && x.id);
+  if (!items.length) throw new Error('No hay nada que recibir.');
+  const refs = items.map(x => doc(db, x.col || 'caja_movimientos', x.id));
+  const ahora = Timestamp.now(), por = correo();
+  let saldo = 0, total = 0;
+  await runTransaction(db, async tx => {
+    // Primero todas las lecturas (Firestore lo exige), después las escrituras
+    const sns = [];
+    for (const r of refs) sns.push(await tx.get(r));
+    const c = await tx.get(refCuenta());
+    const bases = sns.map((sn, i) => {
+      if (!sn.exists()) throw new Error('Uno de ellos ya no existe. No se recibió ninguno.');
+      const x = sn.data();
+      if (x.anulado) throw new Error('Uno de ellos fue anulado. No se recibió ninguno.');
+      if (x.recibido || x.pendienteAdmin !== true) throw new Error('Uno de ellos ya estaba recibido. No se recibió ninguno.');
+      const base = movPorRecibir({ id: items[i].id, ...x });
+      if (!base || base.tipo !== 'ingreso') throw new Error('Uno de ellos no entra a la caja de administración. No se recibió ninguno.');
+      return base;
+    });
+    let s = c.exists() ? Math.round(Number(c.data().saldo) || 0) : 0;
+    bases.forEach((m, i) => {
+      const ref = doc(collection(db, 'efectivo_movimientos'));
+      s += efecto(m); total += m.monto;
+      tx.set(ref, { ...m, cuenta: CUENTA, creado: Timestamp.fromMillis(ahora.toMillis() + i), por });
+      tx.update(refs[i], { pendienteAdmin: false, recibido: { por, en: ahora, efectivoId: ref.id } });
+    });
+    saldo = s;
+    if (c.exists()) tx.update(refCuenta(), { saldo, actualizado: ahora, por });
+    else tx.set(refCuenta(), { saldo, actualizado: ahora, por, creado: ahora });
+  });
+  return { saldo, n: items.length, total };
 }
 
 // v0.120.0 · Anular un cobro B2B que quedó por recibir (por ejemplo, el pago se marcó por error). Nada se borra.

@@ -8,15 +8,15 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.120.3';
-import * as FB from './firebase-b2b.js?v=0.120.3';
-import * as Apps from './apps.js?v=0.120.3';
-import * as Mem from './fs-memoria.js?v=0.120.3';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.120.3';
-import { distanciaTef } from './feriados-cl.js?v=0.120.3';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.120.3';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.120.3';
-import { cuadreCartola } from './gn-modelo.js?v=0.120.3';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.121.0';
+import * as FB from './firebase-b2b.js?v=0.121.0';
+import * as Apps from './apps.js?v=0.121.0';
+import * as Mem from './fs-memoria.js?v=0.121.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.121.0';
+import { distanciaTef } from './feriados-cl.js?v=0.121.0';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.121.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.121.0';
+import { cuadreCartola } from './gn-modelo.js?v=0.121.0';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -356,7 +356,7 @@ export function ordenesPorMonto(ordenes, m) {
 // ═══════════════════════════════════════════════
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const ahoraTxt = (d = new Date()) => `${hoyTxt(d)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-async function dbOk() { const cx = await conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva (Ventas B2B → Base nueva).'); return cx.db; }
+async function dbOk() { const cx = await conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva (Ventas a empresas → Base nueva).'); return cx.db; }
 
 // config/b2b: { activa, scriptUrl, desde, por }
 export async function modo() {
@@ -1722,7 +1722,7 @@ export function probablesAbono(mv, porCobrar, clientes, reservados, hintId) {
   });
   return out.sort((a, b) => ((b.clienteId === hintId) - (a.clienteId === hintId)) || a.dist - b.dist || (b.vencido - a.vencido) || a.i - b.i);
 }
-const TXT_BUSCA_MONTO = 'Busca el monto con "$" en Ventas B2B (Cobranza u Órdenes), o elige el cliente.';
+const TXT_BUSCA_MONTO = 'Busca el monto con "$" en Ventas a empresas (Cobranza u Órdenes), o elige el cliente.';
 // mov: movimientos pendientes (en orden); ctx: { clientes, ordenes, abonos, equivalencias, pagados: [{clienteId, total, fechaPago, folio}] }
 // v0.65.2: primero los de cliente seguro (reservan sus folios), después los Probables (solo montos exactos)
 export function proponer(movs, ctx) {
@@ -2262,7 +2262,7 @@ export async function guardarReglaB2b(op) {
   let res = null;
   await FB.runTransaction(db, async tx => {
     const cs = await tx.get(cref); if (!cs.exists()) throw new Error('Falta la configuración de la conciliación.');
-    const cd = cs.data(); if (!migradoB2b(cd)) throw new Error('Las reglas de Abonos todavía no están listas: abre Ventas B2B → Conciliación y vuelve a intentar.');
+    const cd = cs.data(); if (!migradoB2b(cd)) throw new Error('Las reglas de Abonos todavía no están listas: abre Ventas a empresas → Conciliación y vuelve a intentar.');
     const L = reglasB2b(cd);
     let x = null;
     if (o.que === 'crear' || o.que === 'aceptar' || o.que === 'descartar') {

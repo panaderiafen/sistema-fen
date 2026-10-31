@@ -8,9 +8,9 @@
 //  Datos en listas-precios.js; reglas en listas-precios-modelo.js; el PDF en pdf-lista-precios.js.
 //  H = ayudas de app.js { esc, info, icono, registrar, mensajeError, dialogo }; X = { cab(), datos(), errorB2b, abrirWhatsapp, esCelular, copiarTexto }
 // ═══════════════════════════════════════════════
-import * as L from './listas-precios.js?v=0.120.3';
-import * as LM from './listas-precios-modelo.js?v=0.120.3';
-import * as AR from './areas.js?v=0.120.3';
+import * as L from './listas-precios.js?v=0.121.0';
+import * as LM from './listas-precios-modelo.js?v=0.121.0';
+import * as AR from './areas.js?v=0.121.0';
 
 const st = { ed: null, maestro: null, ocupado: false, listos: new Map(), aviso: null };   // maestro: se vuelve a pedir en cada apertura (la memoria de Gastos y Finanzas solo trae lo que cambió)
 export const estado = st;
@@ -25,7 +25,7 @@ const TXT_LISTAS = 'Una lista de precios es un PDF para un cliente (o uno nuevo)
 const TXT_CONFIG = 'La portada es la imagen grande de la primera hoja (una foto del local, del pan o de la vitrina). Se achica en este equipo antes de subirla (hasta 1.600 px y 250 KB), así el PDF queda liviano.\nLas condiciones y el contacto se proponen en cada lista nueva; en cada lista los puedes cambiar.\nNo hay pedido mínimo: lo ajustas con cada cliente según su rotación y cobras el despacho. Si alguna vez quieres decir algo más, usa "Otras condiciones".';
 const TXT_FOTOS = 'Las fotos se suben en Catálogo → Productos → Cambiar (Foto y ficha para las listas). Aquí se leen solo las de los productos que marcas: 1 lectura por producto con foto, y quedan en memoria mientras la app está abierta.';
 const TXT_PRECIO = 'Parte del precio especial del cliente (si tiene) o del precio base del Catálogo. Lo que escribas vale solo para esta lista: el Catálogo y los precios del cliente no cambian.';
-const TXT_APLICAR = 'Deja los precios de esta lista como precios especiales del cliente, por el ID de cada producto.\nSolo cambian los productos cuyo precio en la lista es distinto del precio base (y distinto de su precio especial actual). Los demás precios especiales del cliente quedan igual; nada se borra.\nCada cambio queda en el historial de precios del cliente (Ventas B2B → Clientes) y la lista queda "Aplicada".';
+const TXT_APLICAR = 'Deja los precios de esta lista como precios especiales del cliente, por el ID de cada producto.\nSolo cambian los productos cuyo precio en la lista es distinto del precio base (y distinto de su precio especial actual). Los demás precios especiales del cliente quedan igual; nada se borra.\nCada cambio queda en el historial de precios del cliente (Ventas a empresas → Clientes) y la lista queda "Aplicada".';
 const TXT_LECTURAS = 'Lecturas de esta pantalla en la sesión. B2B: las listas guardadas (1 por lista, hasta 60) y la configuración (1), una vez. Gastos: 1 por foto de producto marcado (después, de la memoria). Los clientes y productos de B2B ya están en vivo (0).';
 
 // ═══════════════ Entrada ═══════════════
@@ -58,7 +58,7 @@ function sinReglas(el, e) {
 function noEsta(el) { el.innerHTML = X.cab() + `<section class="tarjeta"><p class="aviso">Esa lista ya no está (o es de hace más de 60 listas). <a href="#b2b/listas">Volver a las listas</a></p></section>`; }
 async function maestro() {
   if (st.maestro) return st.maestro;
-  const F = await import('./finanzas.js?v=0.120.3');
+  const F = await import('./finanzas.js?v=0.121.0');
   const m = await F.leerMaestro();
   st.maestro = m.lista || [];
   return st.maestro;
@@ -277,7 +277,7 @@ async function guardarEditor() {
 
 // ═══════════════ Vista previa (las mismas hojas del PDF, achicadas) ═══════════════
 async function hojas(lista) {
-  const PDF = await import('./pdf-lista-precios.js?v=0.120.3');
+  const PDF = await import('./pdf-lista-precios.js?v=0.121.0');
   const [fotos, cfg] = await Promise.all([L.leerFotos(lista.items.map(it => ({ catalogoId: it.catalogoId, conFoto: (itemDe(it.catalogoId) || {}).conFoto !== false }))), L.leerConfig()]);
   return { PDF, fotos, portada: cfg.portada, html: PDF.paginasHtml(lista, { fotos, portada: cfg.portada, areaNombre }) };
 }
@@ -336,7 +336,7 @@ async function pdfDe(l) {
 }
 async function descargar(l, b) {
   const t = b.innerHTML; b.disabled = true; b.textContent = 'Generando…'; $('lp-err').textContent = '';
-  try { const PDF = await import('./pdf-lista-precios.js?v=0.120.3'); const r = await pdfDe(l); PDF.bajar(r.blob, r.nombre); window.__lpUltimoPdf = { bytes: r.bytes, paginas: r.paginas, nombre: r.nombre };
+  try { const PDF = await import('./pdf-lista-precios.js?v=0.121.0'); const r = await pdfDe(l); PDF.bajar(r.blob, r.nombre); window.__lpUltimoPdf = { bytes: r.bytes, paginas: r.paginas, nombre: r.nombre };
     H.registrar('Listas de precios: descargó el PDF', `${l.cliente.nombre} · ${r.paginas} hojas`); $('lp-msg').textContent = `PDF descargado (${r.paginas} hojas, ${nf(Math.round(r.bytes / 1024))} KB).`; }
   catch (x) { $('lp-err').textContent = 'No se pudo hacer el PDF: ' + error(x); }
   b.disabled = false; b.innerHTML = t;
@@ -358,7 +358,7 @@ async function enviar(l, b) {
         throw x;
       }
     } else {
-      const PDF = await import('./pdf-lista-precios.js?v=0.120.3');
+      const PDF = await import('./pdf-lista-precios.js?v=0.121.0');
       PDF.bajar(archivo, archivo.name);
       const r = await X.abrirWhatsapp(cl || {}, texto);
       msg.textContent = r === 'grupo' ? 'PDF descargado y mensaje copiado: en el grupo, pega el mensaje y adjunta el PDF.' : 'PDF descargado: adjúntalo en el chat de WhatsApp que se abrió.';
@@ -371,7 +371,7 @@ async function enviar(l, b) {
 }
 function aplicar(l) {
   const cl = clienteDe(l.cliente.id);
-  if (!cl) { $('lp-err').textContent = 'El cliente ya no está en Ventas B2B → Clientes.'; return; }
+  if (!cl) { $('lp-err').textContent = 'El cliente ya no está en Ventas a empresas → Clientes.'; return; }
   const cambios = LM.diffEspeciales(l, cl, (X.datos() || {}).productos || []);
   const iguales = (l.items || []).length - cambios.length;
   const d = H.dialogo(`<form class="form-dialogo" novalidate id="lp-aplicar-f"><h2>Usar como precios especiales</h2>
@@ -403,7 +403,7 @@ async function duplicarLista(id) {
 async function subirPortada(archivo) {
   const info = $('lp-portada-info'), err = $('lpc-err'); err.textContent = ''; info.textContent = 'Achicando la imagen…';
   try {
-    const IM = await import('./imagenes.js?v=0.120.3');
+    const IM = await import('./imagenes.js?v=0.121.0');
     const p = await IM.portada(archivo);
     info.textContent = 'Guardando…';
     await L.guardarConfig({ portada: p });

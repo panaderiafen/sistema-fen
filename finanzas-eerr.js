@@ -33,11 +33,11 @@
 //  líneas del catálogo usan el área tal cual (el mapa de áreas de Clasificación ya no se usa: una sola regla). La cuota de un convenio de
 //  la TGR (2.9) va fuera del resultado. Un cierre anterior a la v0.102.0 se compara en su forma (las filas nuevas se suman donde estaban).
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.120.3';
-import * as AR from './areas.js?v=0.120.3';
-import * as PC from './plan-cuentas.js?v=0.120.3';
-import * as GT from './tributario.js?v=0.120.3';   // v0.108.0: gestión y tributario
-import * as FS from './finanzas-estado.js?v=0.120.3';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
+import * as FR from './finanzas-resultados.js?v=0.121.0';
+import * as AR from './areas.js?v=0.121.0';
+import * as PC from './plan-cuentas.js?v=0.121.0';
+import * as GT from './tributario.js?v=0.121.0';   // v0.108.0: gestión y tributario
+import * as FS from './finanzas-estado.js?v=0.121.0';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -207,7 +207,7 @@ export function armarEERR(E) {
   const CG = (E.margen && E.margen.cargos) || null;
   ((CG && CG.lineas) || []).forEach(x => { F.cargos.comun += num(x.neto); det('cargos', 'comun', { tipo: 'cargo', nombre: s(x.nombre), suc: x.suc, neto: r0(x.neto), unidades: Math.round(num(x.cantidad) * 1000) / 1000, catalogoId: s(x.catalogoId) }); });
   if (CM.fuente === 'tasa' && CM.motivo === 'sin_reporte') avisos.push({ k: 'comision_tasa', texto: `Sin el reporte de Mercado Pago de ${mesTxt(mes)}: la comisión de tarjeta de Barros Arana va con la tasa configurada (Finanzas → Márgenes → Ajustes). Súbalo en Gastos → Bandeja para usar la comisión real.` });
-  if (CM.fuente === 'tasa' && CM.motivo === 'sin_medios') avisos.push({ k: 'comision_tasa', texto: `El reporte de Mercado Pago de ${mesTxt(mes)} está, pero las ventas de caja de Barros Arana no tienen el detalle por medio de pago para compararlo: la comisión de tarjeta va con la tasa configurada. "Volver a leer", arriba del estado de resultados, arma ese detalle.` });
+  if (CM.fuente === 'tasa' && CM.motivo === 'sin_medios') avisos.push({ k: 'comision_tasa', texto: `El reporte de Mercado Pago de ${mesTxt(mes)} está, pero las ventas en tienda de Barros Arana no tienen el detalle por medio de pago para compararlo: la comisión de tarjeta va con la tasa configurada. "Volver a leer", arriba del estado de resultados, arma ese detalle.` });
   if (CM.fuente === 'tasa' && CM.motivo === 'parcial' && CM.cobertura > 1.03) avisos.push({ k: 'comision_tasa', texto: `El reporte de Mercado Pago suma ${pesosTxt(CM.mpBruto)}, más que los ${pesosTxt(CM.tarjeta)} vendidos con tarjeta en Barros Arana en ${mesTxt(mes)} (${Math.round(CM.cobertura * 100)} %): ¿incluye otro punto de venta o días de otro mes? Mientras tanto, la comisión de tarjeta va con la tasa configurada.` });
   else if (CM.fuente === 'tasa' && CM.motivo === 'parcial') avisos.push({ k: 'comision_tasa', texto: `El reporte de Mercado Pago cubre ${pesosTxt(CM.mpBruto)} de los ${pesosTxt(CM.tarjeta)} vendidos con tarjeta en ${mesTxt(mes)} (${Math.round(CM.cobertura * 100)} %): la comisión de tarjeta va con la tasa configurada hasta que el reporte cubra el mes.` });
   if (sinAsocNeto) avisos.push({ k: 'sin_asociar', texto: `Ventas de productos sin asociar: ${pesosTxt(sinAsocNeto)} (en Común, sin costo directo). Asócialos en Márgenes → Asociar productos.` });
@@ -498,9 +498,9 @@ export function checksCierre(D) {
   const v = D.ventas || {};
   add('ventas', 'Ventas completas', !v.abiertas && !v.faltan,
     v.guardado ? 'Mes guardado completo en Finanzas.' : `${v.abiertas ? `${v.abiertas} ${v.abiertas === 1 ? 'caja abierta' : 'cajas abiertas'}` : ''}${v.abiertas && v.faltan ? ' · ' : ''}${v.faltan ? `${v.faltan} ${v.faltan === 1 ? 'cierre sin resumen' : 'cierres sin resumen'}` : ''}` || 'Todas las cajas cerradas y con su resumen.',
-    '#finanzas/margenes', 'Todas las cajas del mes cerradas y con su resumen de cierre (Ventas de caja → Reportes o Finanzas → Márgenes → "Generar los que faltan"). Las órdenes B2B se leen tal cual.');
+    '#finanzas/margenes', 'Todas las cajas del mes cerradas y con su resumen de cierre (Ventas en tienda → Reportes o Finanzas → Márgenes → "Generar los que faltan"). Las órdenes B2B se leen tal cual.');
   // v0.112.0 · Las ventas B2B leídas al día (al cerrar se leen de nuevo; sin conexión a la base de B2B quedarían viejas o en cero)
-  if (v.b2bSinConexion) add('b2b', 'Ventas B2B al día', false, 'No se pudo leer la base de Ventas B2B: las ventas B2B del mes no están al día.', '#b2b', 'Abre Ventas B2B en este equipo (que conecte con su base) y vuelve a revisar antes de cerrar.');
+  if (v.b2bSinConexion) add('b2b', 'Ventas a empresas al día', false, 'No se pudo leer la base de Ventas a empresas: las ventas a empresas del mes no están al día.', '#b2b', 'Abre Ventas a empresas en este equipo (que conecte con su base) y vuelve a revisar antes de cerrar.');
   add('ainavillo', 'Ainavillo registrando ventas', num(v.nAinavillo) > 0,
     num(v.nAinavillo) > 0 ? `${num(v.nAinavillo).toLocaleString('es-CL')} productos vendidos · ${pesosTxt(v.netoAinavillo)} neto.` : 'Ainavillo no tiene ventas registradas en la caja este mes.',
     '#caja/reportes', 'Ainavillo tiene que registrar sus ventas en la caja: si no, su venta no está en el estado de resultados. Es un aviso: no impide cerrar.', 'aviso');

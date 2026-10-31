@@ -11,7 +11,7 @@
 //  Conciliado = revisado: ya se dijo qué es (paga un vencimiento, gasto nuevo, no es gasto, cliente y folio, No es de B2B…).
 //  Un movimiento "Repetido" (el mismo en otra cartola) no cuenta en el total.
 // ═══════════════════════════════════════════════
-import * as FE from './finanzas-eerr.js?v=0.120.3';
+import * as FE from './finanzas-eerr.js?v=0.121.0';
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const n = v => { const x = Number(v); return isFinite(x) ? x : 0; };
@@ -123,7 +123,7 @@ function faltaCartola(cob, mes) {
 const sumar = (f, k) => new Date(Date.parse(dia(f) + 'T12:00:00Z') + k * 864e5).toISOString().slice(0, 10);
 export const paraCerrar = checks => (checks || []).filter(c => c.nivel === 'falla').length;
 const TXT_CARTOLA_MES = 'Que la cartola de cada cuenta que concilias llegue hasta el último día del mes, sin días que falten. Sin eso no se sabe si quedan cargos o abonos por revisar. Cierre de mes no lo revisa: lo ves aquí.';
-const TXT_ABONOS = 'Que todos los abonos de la cartola del mes estén revisados en Ventas B2B → Conciliación. Cierre de mes no lo revisa: aquí es un aviso.';
+const TXT_ABONOS = 'Que todos los abonos de la cartola del mes estén revisados en Ventas a empresas → Conciliación. Cierre de mes no lo revisa: aquí es un aviso.';
 const TXT_VENCIDAS = 'Facturas pagadas en partes con saldo cuya fecha ya pasó (las de Pagos sin banco). Es un aviso: no impide cerrar.';
 
 // ── Señales (una línea cada una, solo si no es cero) ──

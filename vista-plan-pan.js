@@ -6,8 +6,8 @@
 //  v0.77.1: pestaña de Producción (Producción → Plan de Panadería); se dibuja dentro de #prod-tab.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace }
 // ═══════════════════════════════════════════════
-import * as PP from './plan-pan.js?v=0.120.3';
-import * as PM from './plan-pan-modelo.js?v=0.120.3';
+import * as PP from './plan-pan.js?v=0.121.0';
+import * as PM from './plan-pan-modelo.js?v=0.121.0';
 
 const S = { D: null, prop: null, dia: 0, semana: '', suc: 'todas', abiertos: new Set(), msg: '', err: '', editSuc: 'barros', cargando: false, extra: [] };
 const $ = id => document.getElementById(id);
@@ -65,7 +65,7 @@ async function cargar(el, H, forzar) {
 function avisos(H) {
   const D = S.D, a = [];
   if (D.estados.gastos !== 'ok') a.push('Finanzas (fen-gastos) no está conectada: sin los vínculos producto → receta no se puede armar el plan. Conéctala en <a href="#gastos/config/base">Gastos → Configuración → Base nueva</a>.');
-  if (D.estados.b2b !== 'ok') a.push('B2B (fen-b2b) no está conectada: la columna B2B va en 0. Conéctala en <a href="#b2b/base">Ventas B2B → Base nueva</a>.');
+  if (D.estados.b2b !== 'ok') a.push('B2B (fen-b2b) no está conectada: la columna B2B va en 0. Conéctala en <a href="#b2b/base">Ventas a empresas → Base nueva</a>.');
   if (D.estados.cocina !== 'ok') a.push('Cocina (fen-produccion) no está conectada: sin lo producido ni la masa madre. Conéctala en <a href="#ajustes/cocina">Configuración → Cocina</a>.');
   if (S.err) a.push(H.esc(S.err));
   return a.map(x => `<p class="aviso">${x}</p>`).join('');
@@ -103,7 +103,7 @@ function htmlPropuesta(H) {
     <div class="pp-cuerpo">
       <h2 id="t-pp-dia">${H.esc(PM.fechaLarga(d.fecha))}</h2>
       ${d.sinProduccion ? `<p class="pp-pasos">${H.icono('reloj', 16)} El domingo no hay producción: no se hornea. Lo amasado el sábado se hornea el lunes. ${H.info('Proceso', TXT.proceso)}</p>
-      ${d.pedidosDomingo ? `<p class="aviso" role="status">Hay órdenes B2B con fecha domingo (${n(d.pedidosDomingo)} panes). Revisa su fecha de entrega en Ventas B2B.</p>` : ''}`
+      ${d.pedidosDomingo ? `<p class="aviso" role="status">Hay órdenes B2B con fecha domingo (${n(d.pedidosDomingo)} panes). Revisa su fecha de entrega en Ventas a empresas.</p>` : ''}`
       : `<p class="pp-pasos">${H.icono('reloj', 16)} Masa madre ${H.esc(PM.fechaCorta(d.masaMadre))}, 19:00${PM.masaMadrePorDueno(d.masaMadre) ? ' (la haces tú)' : ''} · Amasado ${H.esc(PM.fechaCorta(d.amasado))} · Horneado ${H.esc(PM.fechaCorta(d.fecha))} ${H.info('Proceso', TXT.proceso)}</p>
       <p class="pp-mm" id="pp-mm">Masa madre del ${H.esc(PM.fechaCorta(d.masaMadre))}: ${mmTxt} ${H.info('Masa madre', TXT.mm)}</p>`}
       ${d.sinProduccion ? '' : `<details class="pp-clientes" id="pp-clientes" ${S.abiertos.has('clientes') ? 'open' : ''}><summary>De ${n(b.activos)} ${b.activos === 1 ? 'cliente activo' : 'clientes activos'}, se ${b.esperados === 1 ? 'espera' : 'esperan'} ${n(b.esperados)} el ${H.esc(PM.DIAS[d.indice].toLowerCase())} ${H.info('B2B estimado', TXT.b2b)}</summary>

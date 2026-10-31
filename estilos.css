@@ -3069,3 +3069,26 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .ef-salida { color: var(--rojo-t); }
 .ef-anulado .txt b, .ef-anulado .ef-monto { text-decoration: line-through; opacity: .6; }
 .ef-fila .txt b { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* v0.121.0 · Efectivo → Por recibir: sobres sin retirar y "Recibir todos" */
+.ef-pr-resumen { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 0 0 8px; }
+.ef-pr-origen { margin: 0; font-size: 13px; color: var(--suave); }
+.ef-pr-origen b { color: var(--texto); font-variant-numeric: tabular-nums; }
+.ef-pr-origen .nowrap, .ef-rt-fila .nowrap, .caja-res .nowrap { white-space: nowrap; }
+.ef-rt-lista { border: 1px solid var(--linea); border-radius: 10px; padding: 4px 12px; margin: 8px 0; }
+.ef-rt-fila { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 14px; }
+.ef-rt-fila + .ef-rt-fila { border-top: 1px solid var(--linea); }
+.ef-rt-fila b { font-variant-numeric: tabular-nums; }
+.ef-rt-total { font-weight: 700; }
+
+/* v0.121.0 · Ventas en tienda: resumen arriba (hoy, ayer y cajas abiertas). Sin la clase .tarjeta: las pestañas buscan la primera .tarjeta */
+.caja-res { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.caja-res-c { display: flex; flex-direction: column; gap: 4px; min-width: 0; background: var(--tarjeta); border: 1px solid var(--linea); border-radius: 14px; padding: 14px 16px; }
+.caja-res-c .rotulo { font-size: 12.5px; color: var(--suave); }
+.caja-res-c .valor { font-size: 21px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.caja-res-c .nota { font-size: 12px; color: var(--suave); display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.caja-res-c .nota b { color: var(--texto); font-weight: 600; }
+@media (max-width: 760px) { .caja-res { grid-template-columns: minmax(0, 1fr); gap: 8px; } .caja-res-c { padding: 12px 14px; } }
+
+/* v0.121.0 · Cobranza B2B: texto para el sobre del efectivo */
+.sobre-txt { font-size: 17px; line-height: 1.5; padding: 14px 16px; border: 1px dashed var(--linea); border-radius: 10px; background: var(--fondo); word-break: break-word; }

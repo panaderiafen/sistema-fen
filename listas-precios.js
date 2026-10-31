@@ -11,12 +11,12 @@
 //  de B2B: los de la escucha de siempre (0). El catálogo: la memoria de Gastos y Finanzas.
 //  Nada se borra: quitar una foto deja foto/mini en null con su historial.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.120.3';
-import * as FB from './firebase-b2b.js?v=0.120.3';
-import * as B from './b2b.js?v=0.120.3';
-import * as GB from './gastos-base.js?v=0.120.3';
-import * as FBG from './fs-gastos.js?v=0.120.3';
-import * as LM from './listas-precios-modelo.js?v=0.120.3';
+import { auth } from './firebase.js?v=0.121.0';
+import * as FB from './firebase-b2b.js?v=0.121.0';
+import * as B from './b2b.js?v=0.121.0';
+import * as GB from './gastos-base.js?v=0.121.0';
+import * as FBG from './fs-gastos.js?v=0.121.0';
+import * as LM from './listas-precios-modelo.js?v=0.121.0';
 
 const yo = () => (auth.currentUser && auth.currentUser.email) || '';
 const ahora = () => new Date().toISOString();
@@ -25,7 +25,7 @@ const conHist = (h, x, max = 20) => [...(Array.isArray(h) ? h : []), x].slice(-m
 // Lecturas y escrituras de esta sesión (las muestra la pantalla y las mide la prueba)
 export const uso = { b2b: 0, gastos: 0, escrituras: 0, fotos: 0 };
 
-async function dbB() { const cx = await B.conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva de B2B (Ventas B2B).'); return cx.db; }
+async function dbB() { const cx = await B.conexion(); if (cx.estado !== 'ok') throw new Error('Primero conecta la base nueva de B2B (Ventas a empresas).'); return cx.db; }
 async function dbG() { const cx = await GB.conexion(); if (cx.estado !== 'ok') throw new Error('Las fotos se guardan en la base de Gastos y Finanzas (fen-gastos): conéctala en Gastos → Configuración → Base nueva.'); return cx.db; }
 const errPermiso = e => /permission/i.test(String((e && (e.code || e.message)) || ''));
 const textoPermiso = 'La base de B2B no dejó guardar las listas de precios: falta publicar las reglas de fen-b2b v1.8.0 (ver README, Instalación v0.80.0).';
@@ -180,7 +180,7 @@ export async function marcarEnviada(lista, como) {
 // Solo cambia los productos de la lista con precio distinto del base; nada se borra; cada cambio queda en historialPrecios.
 export async function aplicarComoEspeciales(lista, cambios) {
   const db = await dbB(), por = yo(), en = ahora(), enTxt = en.slice(0, 10) + ' ' + new Date().toTimeString().slice(0, 5);
-  if (!lista.cliente || !lista.cliente.id) throw new Error('Esta lista es para un cliente nuevo: primero créalo en Ventas B2B → Clientes y duplica la lista para él.');
+  if (!lista.cliente || !lista.cliente.id) throw new Error('Esta lista es para un cliente nuevo: primero créalo en Ventas a empresas → Clientes y duplica la lista para él.');
   if (!(cambios || []).length) throw new Error('No hay nada que cambiar: los precios de la lista son el base o ya son sus precios especiales.');
   const rc = FB.doc(db, 'clientes', lista.cliente.id), rl = FB.doc(db, 'listas_precios', lista.id);
   const r = await FB.runTransaction(db, async tx => {

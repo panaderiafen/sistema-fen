@@ -1,9 +1,27 @@
-# Sistema Fën · v0.120.3
+# Sistema Fën · v0.121.0
 
-**Reglas de Firestore:** fen-ventas **v1.8.0 (sin cambios)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v3.0.0 (va junto) · **Servidor de cobros:** 0.4.1 (sin cambios) · **Apps Script:** ninguno cambia · 31 de octubre de 2026
+**Reglas de Firestore:** fen-ventas **v1.8.0 (sin cambios)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v3.0.0 (sin cambios) · **Servidor de cobros:** 0.4.1 (sin cambios) · **Apps Script:** ninguno cambia · 31 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.121.0: recibir todos, los sobres sin retirar, el texto del sobre y el resumen de Ventas en tienda
+
+Aprobado por Emmanuel el 31 oct.
+- **Efectivo → Por recibir → "Recibir todos (llegó completo)"** (aparece con 2 o más que entran): muestra la lista con el total y los recibe todos de una vez, en una sola transacción. Si uno ya estaba recibido o anulado, no se recibe ninguno y lo avisa. El sencillo que sale hacia una caja no va aquí: se confirma con su botón, como antes. Si algo llegó con menos, recíbalo aparte con su botón Recibir.
+- **Efectivo → Por recibir:** arriba de la lista, cuánto hay **en sobres sin retirar** por origen: "Barros Arana $X · Ainavillo $Y · B2B $Z" (solo lo que entra).
+- **Cobranza (Ventas a empresas):** al marcar un folio Pagado o registrar un Abono **en efectivo**, aparece el **texto para el sobre** ("B2B · cliente · folio · monto · fecha · cobró: ____"), con **Copiar** e **Imprimir** (imprime solo ese texto, en grande).
+- **Nombres nuevos en el menú y las pantallas:** "Ventas de caja" ahora es **Ventas en tienda** y "Ventas B2B" es **Ventas a empresas**. Las direcciones (#caja, #b2b) y los datos no cambian. El enlace a la app B2B de siempre ("Abren la app actual") y la cuenta 4.3 del plan siguen como estaban.
+- **Las (i) dentro de una ventana** ahora se ven encima de la ventana (antes quedaban detrás). Esc cierra primero la explicación y después la ventana.
+- **Ventas en tienda:** arriba, un resumen en 3 tarjetas: **Hoy hasta ahora** (total y por sucursal), **Ayer** y **Cajas abiertas** (sucursal, hora y quién la abrió). Es la misma cuenta de Hoy; se guarda 2 minutos, así que cambiar de pestaña o venir desde Hoy no vuelve a leer. Se carga sin hacer esperar la pantalla.
+
+Cambian `app.js`, `efectivo-fs.js`, `vista-efectivo.js`, `estilos.css`, `config.js`, los textos de varias pantallas (nombres nuevos) y este README; los demás, solo la versión (`?v=0.121.0`). Reglas de Firestore: sin cambios (fen-ventas sigue en v1.8.0).
+
+- [ ] Abajo dice v0.121.0 y en el menú aparecen "Ventas a empresas" y "Ventas en tienda".
+- [ ] Ventas en tienda: arriba se ven Hoy hasta ahora, Ayer y Cajas abiertas.
+- [ ] Efectivo → Por recibir: la línea "En sobres sin retirar" y, con 2 o más, "Recibir todos (llegó completo)".
+- [ ] Cobranza: un pago en efectivo muestra el texto para el sobre; Imprimir imprime solo ese texto.
+- [ ] Una (i) dentro de una ventana se ve encima.
 
 ## Novedades de la v0.120.1 a v0.120.3: clientes que pagan en 4 pagos semanales
 

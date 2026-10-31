@@ -6,8 +6,8 @@
 //  lecturas y escrituras en catalogo.js. Queda espacio para las próximas pestañas del catálogo (una sola lista de productos).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as C from './catalogo.js?v=0.120.3';
-import * as CM from './catalogo-modelo.js?v=0.120.3';
+import * as C from './catalogo.js?v=0.121.0';
+import * as CM from './catalogo-modelo.js?v=0.121.0';
 
 const st = { D: null, filtro: 'por_decidir', q: '', msg: '', err: '', cargando: false, ocupado: false };
 export const estado = st;
@@ -35,9 +35,9 @@ export async function pintar(el, sub, h) {
   H = h;
   pestana = ['reventa', 'productos', 'armar'].includes(sub) ? sub : '';
   // v0.73.0: pestaña Reventa (cat_reventa en fen-gastos). Usa lo que "Qué está vivo" ya tiene en memoria (vínculos y productos) si está.
-  if (pestana === 'reventa') { const VR = await import('./vista-reventa.js?v=0.120.3'); return VR.pintar(el, h, { cab, datos: () => st.D }); }
+  if (pestana === 'reventa') { const VR = await import('./vista-reventa.js?v=0.121.0'); return VR.pintar(el, h, { cab, datos: () => st.D }); }
   // v0.74.0: Productos y Armar el catálogo (vista-productos.js)
-  if (pestana === 'productos' || pestana === 'armar') { const VP = await import('./vista-productos.js?v=0.120.3'); return VP.pintar(el, pestana, h, { cab }); }
+  if (pestana === 'productos' || pestana === 'armar') { const VP = await import('./vista-productos.js?v=0.121.0'); return VP.pintar(el, pestana, h, { cab }); }
   if (!el.dataset.catEventos) { el.dataset.catEventos = '1'; conectar(el); }
   // Cada apertura arma con lo que está en memoria (las ventas de 60 días quedan 6 horas; lo demás, la memoria de siempre)
   el.innerHTML = cab() + '<section class="tarjeta"><div class="vacio" style="border:0">Leyendo recetas, productos y ventas de 60 días…</div></section>';
@@ -51,7 +51,7 @@ function avisos(D) {
   const a = [];
   if (D.estados.cocina !== 'ok') a.push('Cocina (fen-produccion) no está conectada: no se ven las recetas. Conéctala en <a href="#ajustes/cocina">Configuración → Cocina</a>.');
   if (D.estados.gastos !== 'ok') a.push('Finanzas (fen-gastos) no está conectada: sin los vínculos producto → receta ni la marca "Vivo". Conéctala en <a href="#gastos/config/base">Gastos → Configuración → Base nueva</a>.');
-  if (D.estados.b2b !== 'ok') a.push('B2B (fen-b2b) no está conectada: no se ven sus productos ni sus ventas. Conéctala en <a href="#b2b">Ventas B2B</a>.');
+  if (D.estados.b2b !== 'ok') a.push('B2B (fen-b2b) no está conectada: no se ven sus productos ni sus ventas. Conéctala en <a href="#b2b">Ventas a empresas</a>.');
   return a.map(x => `<p class="aviso">${x}</p>`).join('');
 }
 
@@ -144,7 +144,7 @@ function pintarListas() {
   };
   c.innerHTML = recetasHtml
     + prods('caja', 'Productos de la caja', 'Los productos de la caja (fen-ventas), con lo vendido en los últimos 60 días en las dos sucursales (de los resúmenes de cierre) y su última venta.\nVínculo: lo que dice Finanzas → Márgenes → Asociar productos (la receta, Reventa o "No es producto"); sin vínculo, "Sin asociar".\nArchivar = lo mismo que "inactivo" en la caja: deja de aparecer para vender y su historia queda. Reactivar lo vuelve a poner a la venta.', 'ok')
-    + (st.D.estados.b2b === 'ok' ? prods('b2b', 'Productos B2B', 'Los productos de B2B (fen-b2b), con lo vendido en los últimos 60 días (órdenes que no están anuladas) y su última venta.\nArchivar = lo mismo que archivar un producto en Ventas B2B: deja de ofrecerse en las órdenes nuevas y su historia queda.', 'ok') : '');
+    + (st.D.estados.b2b === 'ok' ? prods('b2b', 'Productos B2B', 'Los productos de B2B (fen-b2b), con lo vendido en los últimos 60 días (órdenes que no están anuladas) y su última venta.\nArchivar = lo mismo que archivar un producto en Ventas a empresas: deja de ofrecerse en las órdenes nuevas y su historia queda.', 'ok') : '');
 }
 
 // ── Eventos ──

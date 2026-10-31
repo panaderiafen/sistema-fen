@@ -5,10 +5,10 @@
 //  #catalogo/armar: una sola vez, une lo vivo de la caja y de B2B en productos del catálogo (juntando los que llevan a la misma receta).
 //  Datos en catalogo-productos.js; reglas puras en catalogo-productos-modelo.js. H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, dialogo }
 // ═══════════════════════════════════════════════
-import * as C from './catalogo-productos.js?v=0.120.3';
-import * as CPM from './catalogo-productos-modelo.js?v=0.120.3';
-import * as AR from './areas.js?v=0.120.3';
-import * as LMP from './listas-precios-modelo.js?v=0.120.3';
+import * as C from './catalogo-productos.js?v=0.121.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.121.0';
+import * as AR from './areas.js?v=0.121.0';
+import * as LMP from './listas-precios-modelo.js?v=0.121.0';
 
 const st = { D: null, cargando: null, filtro: { estado: 'activo', canal: 'todos', tipo: 'todos', q: '', falta: false }, msg: '', err: '', grupos: null, gmsg: '', gerr: '', ocupado: false };
 export const estado = st;
@@ -25,7 +25,7 @@ const TXT_SIN_CANAL = 'Un producto activo que no está habilitado en la caja ni 
 const TXT_PEDIDOS = 'Lo que piden logística (Solicitudes → Producto nuevo, de la lista que publica el Catálogo) y la caja (Pedir producto, caja v2.3.0).\nResolver = crear el producto (desde su receta o reventa) o habilitarlo en ese canal, con el precio que decidas. El pedido queda aprobado y le llega la respuesta.\nRechazar pide un motivo, que también le llega.';
 const TXT_REGLAS_CAJA = 'Los pedidos de la caja (fen-ventas solicitudes_producto) los escribe la caja v2.3.0 (Pedir producto). Para leerlos, publica las reglas de fen-ventas v1.5.0 (ver README). Mientras tanto aquí solo salen los de logística.';
 const TXT_CAJA = 'Lo que ve la cajera. Con control de stock, un precio por tarjeta (hoy, ayer, antes de ayer, 4° día y última oferta; con IVA); si una va en 0, la caja usa la anterior. Sin control de stock, un precio único.\nPestaña: en qué área de la caja aparece (Panadería, Bollería, Pastelería, Cafetería o Reventa; las mismas de Sistema Fën). Una reventa va siempre a la pestaña Reventa.\nExcepción horaria: el pan de ayer se vende al precio de hoy antes de las 15:00. Se elimina solo: al pasar los días sale de la vitrina (si no, es permanente).';
-const TXT_B2B = 'El precio base neto (sin IVA) es el que paga un cliente B2B sin precio especial. Los precios especiales se piden y se aprueban como siempre (Ventas B2B → Clientes).\nUn producto de B2B que ya existía conserva su nombre en B2B (las órdenes antiguas y los precios especiales lo usan).';
+const TXT_B2B = 'El precio base neto (sin IVA) es el que paga un cliente B2B sin precio especial. Los precios especiales se piden y se aprueban como siempre (Ventas a empresas → Clientes).\nUn producto de B2B que ya existía conserva su nombre en B2B (las órdenes antiguas y los precios especiales lo usan).';
 const TXT_ORIGEN = 'Receta: solo las aprobadas en Cocina (las que están en revisión o en prueba no se pueden elegir; una sub receta solo si "vende directo").\nReceta pendiente: un producto que se vende hoy, pero cuya receta todavía no está aprobada o no existe. Es temporal: ver "Receta pendiente".\nReventa: la lista de Catálogo → Reventa.\nCargo: algo que se cobra y no es un producto (Despacho). En el estado de resultados va como un ingreso aparte del canal B2B, no como margen de un producto.';
 // v0.80.1 · Receta pendiente
 const TXT_PENDIENTE = 'Úsala solo mientras tanto, para un producto que hoy se vende pero cuya receta todavía no está aprobada en Cocina (o no existe).\nEl producto sigue en la caja y en B2B con sus precios, y sus ventas van al área que elijas. Mientras esté pendiente no tiene costo directo ni margen: en Finanzas aparece como "sin costo (receta pendiente)".\nCuando la receta esté lista: apruébala (o créala) en Cocina y vuelve aquí: "Unir con su receta" la elige, y desde ahí tiene costo y margen. Queda en su historial.\n"Qué receta falta" es una nota para acordarte (opcional).';
@@ -34,7 +34,7 @@ const TXT_UNIR = 'Elige su receta, ya aprobada en Cocina. Se proponen las de su 
 const TXT_UPV = 'Cuántas unidades de la receta (o de la reventa) lleva una venta. Casi siempre 1; una "caja de 6" = 6.';
 const TXT_ARMAR = 'Una sola vez: une lo que hoy está vivo en la caja y en B2B en productos del catálogo, para que todo quede unido por ID y no por nombre.\n1) Se proponen grupos: un producto de la caja y uno de B2B que llevan a la misma receta (o reventa) quedan juntos (por el vínculo de Finanzas → Asociar productos; si no hay, por el ID de receta de la caja o de B2B).\n2) Revisa cada grupo: el nombre, de dónde sale (receta aprobada, reventa, cargo) y sus canales. "Separar" deja la caja y B2B en productos distintos; "Juntar con" une dos.\n3) Lo que no tiene receta ni reventa hay que resolverlo antes de guardar: elige una receta, una reventa, cargo o "Archivar". Si se sigue vendiendo pero su receta todavía no está aprobada (o no existe), elige "Receta pendiente" con su área: se guarda y se sigue vendiendo, sin costo hasta que lo unas con su receta (Productos → Falta receta).\n4) Guardar crea los productos (PR0001…), escribe su ID en los documentos de la caja y de B2B que ya existían (conservan su ID: la historia de ventas está guardada con él) y deja el vínculo de Finanzas donde no había uno.\nLos precios no cambian: se copian de la caja y de B2B tal cual.';
 const TXT_ENCUADRE = 'El marco tiene la forma de la foto en cada tarjeta de la lista de precios. Arrastra la foto (con el mouse o el dedo) para elegir qué parte se ve, y usa la barra para acercarla. "Centrar" la deja como estaba. Se guarda con "Guardar cambios" y no vuelve a subir la foto.';
-const TXT_FICHA = 'Lo que sale en las listas de precios de Ventas B2B (no cambia nada en la caja).\nFormato: cómo se vende (por ejemplo "800 g", "Unidad" o "Caja 10 un"). Descripción corta: una frase, hasta 140 letras.\nLa foto se achica en este equipo antes de subirla (hasta 900 px y 90 KB, más una miniatura de 240 px) y se guarda aparte del catálogo: abrir el Catálogo no carga imágenes. Se sube al guardar. Quitar la foto la saca de las listas y queda anotado en el historial.';
+const TXT_FICHA = 'Lo que sale en las listas de precios de Ventas a empresas (no cambia nada en la caja).\nFormato: cómo se vende (por ejemplo "800 g", "Unidad" o "Caja 10 un"). Descripción corta: una frase, hasta 140 letras.\nLa foto se achica en este equipo antes de subirla (hasta 900 px y 90 KB, más una miniatura de 240 px) y se guarda aparte del catálogo: abrir el Catálogo no carga imágenes. Se sube al guardar. Quitar la foto la saca de las listas y queda anotado en el historial.';
 const TXT_LECTURAS = 'Lo que se leyó de cada base al abrir (documentos). El catálogo, la reventa y los vínculos usan la memoria de Gastos y Finanzas; las recetas, la memoria compartida con Producción; los productos de la caja y de B2B, una vez por sesión (los mismos de Finanzas).\nFiltrar y buscar: 0 lecturas. "Actualizar" vuelve a leer.';
 
 export async function pintar(el, sub, h, c) {
@@ -112,7 +112,7 @@ function dibujar(el) {
     <section class="tarjeta" aria-labelledby="t-pr">
       <div class="titulo-fila"><h2 id="t-pr">Productos ${H.info('Productos', TXT_PRODUCTOS)}</h2><button type="button" class="btn" id="pr-nuevo">${H.icono('mas', 16)} Nuevo producto</button></div>
       ${armado ? '' : `<p class="aviso" id="pr-sin-armar">Todavía no armas el catálogo: los productos que ya existen en la caja y en B2B se unen en <a href="#catalogo/armar">Armar el catálogo</a> (una vez). Mientras, puedes crear productos nuevos aquí.</p>`}
-      ${D.estados.b2b !== 'ok' ? '<p class="aviso">B2B (fen-b2b) no está conectada en este equipo: se ve lo del catálogo, pero no se puede habilitar ni cambiar el canal B2B. Conéctala en <a href="#b2b">Ventas B2B</a>.</p>' : ''}
+      ${D.estados.b2b !== 'ok' ? '<p class="aviso">B2B (fen-b2b) no está conectada en este equipo: se ve lo del catálogo, pero no se puede habilitar ni cambiar el canal B2B. Conéctala en <a href="#b2b">Ventas a empresas</a>.</p>' : ''}
       ${D.estados.cocina !== 'ok' ? '<p class="aviso">Cocina (fen-produccion) no está conectada: sin la lista de recetas aprobadas. Conéctala en <a href="#ajustes/cocina">Configuración → Cocina</a>.</p>' : ''}
       <div class="cat-resumen" role="group" aria-label="Resumen"><span class="chip c-verde" id="pr-n-activos">Activos ${nf(r.activos)}</span><span class="chip c-gris">En la caja ${nf(r.caja)}</span><span class="chip c-gris">En B2B ${nf(r.b2b)}</span>${r.sinCanal ? `<span class="chip c-amarillo" id="pr-n-sincanal">Sin canal ${nf(r.sinCanal)}</span>${H.info('Sin canal', TXT_SIN_CANAL)}` : ''}<span class="chip c-gris">Archivados ${nf(r.archivados)}</span>${r.faltaReceta || f.falta ? `<button type="button" class="chip-filtro pr-falta" id="pr-n-faltareceta" data-pr-falta aria-pressed="${!!f.falta}">Falta receta (${nf(r.faltaReceta)})</button>${H.info('Falta receta', TXT_FALTA)}` : ''}</div>
       <div class="cat-filtros">
@@ -296,14 +296,14 @@ function dialogoProducto(el, p, { base = null, titulo = '', onGuardar = null, no
   });
   zoom.addEventListener('input', () => { foto.enc = LMP.encuadre({ ...foto.enc, zoom: zoom.value }); pintarEnc(); });
   d.querySelector('#pr-foto-centrar').addEventListener('click', () => { foto.enc = LMP.encuadre(); pintarEnc(); });
-  if (p && p.foto && p.foto.en) import('./listas-precios.js?v=0.120.3').then(L => L.leerFoto(p.id)).then(f => { if (foto.nueva || foto.quitar) return; if (f) { foto.enc = foto.enc0 = LMP.encuadre(f.encuadre); } verFoto(f && f.mini, undefined, f); }).catch(() => verFoto(null, 'No se pudo leer la foto.'));
+  if (p && p.foto && p.foto.en) import('./listas-precios.js?v=0.121.0').then(L => L.leerFoto(p.id)).then(f => { if (foto.nueva || foto.quitar) return; if (f) { foto.enc = foto.enc0 = LMP.encuadre(f.encuadre); } verFoto(f && f.mini, undefined, f); }).catch(() => verFoto(null, 'No se pudo leer la foto.'));
   d.querySelector('#pr-desc').addEventListener('input', ev => { d.querySelector('#pr-desc-n').textContent = `${ev.target.value.length}/140`; });
   d.querySelector('#pr-pend-nota').addEventListener('input', ev => { d.querySelector('#pr-pend-n').textContent = `${ev.target.value.length}/${CPM.NOTA_RECETA_MAX}`; });
   d.querySelector('#pr-foto-arch').addEventListener('change', async ev => {
     const a = ev.target.files && ev.target.files[0]; if (!a) return;
     const err = d.querySelector('#pr-dlg-err'); err.textContent = ''; verFoto(null, 'Achicando la foto…');
     try {
-      const IM = await import('./imagenes.js?v=0.120.3'), r = await IM.fotoProducto(a);
+      const IM = await import('./imagenes.js?v=0.121.0'), r = await IM.fotoProducto(a);
       foto.nueva = r; foto.quitar = false; foto.enc = LMP.encuadre(); verFoto(r.mini, `${nf(r.ancho)} × ${nf(r.alto)} px · ${nf(Math.round(r.bytes / 1024))} KB (la original: ${nf(Math.round(a.size / 1024))} KB). Se sube al guardar.`, r);
       d.querySelector('#pr-foto-quitar').classList.remove('oculto'); d.querySelector('#pr-foto-subir-t').textContent = 'Cambiar foto';
     } catch (e) { err.textContent = e.message; verFoto(null, ''); }
@@ -323,12 +323,12 @@ function dialogoProducto(el, p, { base = null, titulo = '', onGuardar = null, no
         H.registrar(p ? 'Catálogo: cambió un producto' : 'Catálogo: creó un producto', `${x.nombre} · ${x.id} · ${cs || 'sin canal'}`);
         st.msg = p ? `${x.nombre}: guardado${cs ? ' (' + cs + ')' : ''}.` : `${x.nombre} creado (${x.id})${cs ? ' · en ' + cs : ''}.`; st.err = '';
         if (!foto.nueva && !foto.quitar && foto.dims && !LMP.encuadreIgual(foto.enc, foto.enc0)) {   // v0.80.2: solo cambió el encuadre
-          try { const L = await import('./listas-precios.js?v=0.120.3'); await L.guardarEncuadre(x.id, foto.enc); H.registrar('Catálogo: encuadró la foto', `${x.nombre} · ${x.id}`); st.msg += ' Encuadre de la foto guardado.'; }
+          try { const L = await import('./listas-precios.js?v=0.121.0'); await L.guardarEncuadre(x.id, foto.enc); H.registrar('Catálogo: encuadró la foto', `${x.nombre} · ${x.id}`); st.msg += ' Encuadre de la foto guardado.'; }
           catch (e) { st.err = `${x.nombre} quedó guardado, pero no el encuadre de la foto: ${error(e)} Vuelve a intentarlo.`; }
         }
         if (foto.nueva || foto.quitar) {
           try {
-            const L = await import('./listas-precios.js?v=0.120.3'), rf = await L.guardarFoto(x.id, foto.nueva, foto.enc);
+            const L = await import('./listas-precios.js?v=0.121.0'), rf = await L.guardarFoto(x.id, foto.nueva, foto.enc);
             if (rf.accion) { const i = st.D.maestro.findIndex(y => y.id === x.id); if (i >= 0) st.D.maestro[i] = { ...st.D.maestro[i], foto: rf.p.foto, historial: rf.p.historial }; H.registrar('Catálogo: ' + rf.accion, `${x.nombre} · ${x.id}`); st.msg += foto.nueva ? ' Foto guardada.' : ' Foto quitada.'; }
           } catch (e) { st.err = `${x.nombre} quedó guardado, pero no la foto: ${error(e)} Vuelve a intentarlo.`; }
         }
@@ -493,7 +493,7 @@ function dibujarArmar(el) {
     <section class="tarjeta" aria-labelledby="t-g">
       <div class="titulo-fila"><h2 id="t-g">Armar el catálogo ${H.info('Cómo armar el catálogo', TXT_ARMAR)}</h2>${cfg.armadoEn ? `<span class="ayuda" id="g-armado">Armado el ${H.esc(diaCorto(cfg.armadoEn))}${cfg.armadoPor ? ' por ' + H.esc(cfg.armadoPor) : ''} · ${nf(D.maestro.length)} productos</span>` : ''}</div>
       <p class="ayuda">${cfg.armadoEn ? 'Lo vivo de la caja y de B2B que todavía no está unido a un producto del catálogo.' : 'Une lo vivo de la caja y de B2B en productos del catálogo. Revisa cada grupo y guarda una vez: los precios no cambian.'}</p>
-      ${D.estados.b2b !== 'ok' ? '<p class="aviso">B2B (fen-b2b) no está conectada en este equipo: arma el catálogo cuando esté conectada (si no, quedan fuera los productos de B2B). Conéctala en <a href="#b2b">Ventas B2B</a>.</p>' : ''}
+      ${D.estados.b2b !== 'ok' ? '<p class="aviso">B2B (fen-b2b) no está conectada en este equipo: arma el catálogo cuando esté conectada (si no, quedan fuera los productos de B2B). Conéctala en <a href="#b2b">Ventas a empresas</a>.</p>' : ''}
       ${D.estados.cocina !== 'ok' ? '<p class="aviso">Cocina (fen-produccion) no está conectada: sin la lista de recetas. Conéctala en <a href="#ajustes/cocina">Configuración → Cocina</a>.</p>' : ''}
       ${pend.length ? `<div class="aviso" id="g-pendientes">${nf(pend.length)} ${pend.length === 1 ? 'documento de la caja o de B2B no quedó' : 'documentos de la caja o de B2B no quedaron'} unidos (el guardado se cortó). <button type="button" class="btn-sec btn-chico" id="g-terminar">Terminar de unir</button></div>` : ''}
       <div class="cat-resumen" id="g-resumen" role="group" aria-label="Resumen"></div>
