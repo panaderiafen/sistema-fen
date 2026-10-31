@@ -1,7 +1,10 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.7.0 (2026-10-31)
+//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.8.0 (2026-10-31)
+//  v1.8.0: (Sistema Fën v0.120.0) efectivo_por_recibir: el efectivo de clientes B2B marcado como pagado en Cobranza
+//          queda por recibir. Solo administración: lo crea (con su correo) y lo marca recibido o anulado. Nada se borra.
+//          Todo lo demás queda igual.
 //  v1.7.0: (caja v3.0.0 y Sistema Fën v0.119.0) caja_movimientos: retiros e ingresos de efectivo con la caja
 //          abierta y el retiro del cierre. La caja los crea (con quién y cuándo) y solo puede anularlos; la
 //          administración solo puede marcarlos como recibidos en la caja de administración. Nada se borra.
@@ -308,6 +311,22 @@ service cloud.firestore {
                    || (esAdmin() && soloCambia(['recibido', 'pendienteAdmin'])
                          && request.resource.data.recibido.por == miCorreo()
                          && request.resource.data.pendienteAdmin == false));
+      allow delete: if false;
+    }
+
+    // ── v1.8.0 · Efectivo de clientes B2B por recibir (Sistema Fën v0.120.0) ──
+    match /efectivo_por_recibir/{id} {
+      allow read: if esAdmin();
+      allow create: if esAdmin()
+                    && request.resource.data.origen == 'b2b'
+                    && request.resource.data.monto is number && request.resource.data.monto > 0 && request.resource.data.monto <= 50000000
+                    && request.resource.data.dia is string && request.resource.data.dia.size() == 10
+                    && request.resource.data.pendienteAdmin == true
+                    && request.resource.data.por == miCorreo()
+                    && !('recibido' in request.resource.data) && !('anulado' in request.resource.data);
+      allow update: if esAdmin() && !('recibido' in resource.data) && !('anulado' in resource.data)
+                    && (soloCambia(['recibido', 'pendienteAdmin']) || soloCambia(['anulado', 'pendienteAdmin']))
+                    && request.resource.data.pendienteAdmin == false;
       allow delete: if false;
     }
 

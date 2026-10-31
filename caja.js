@@ -17,9 +17,9 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
-} from './firebase.js?v=0.119.1';
-import * as AR from './areas.js?v=0.119.1';
-import { armarResumen } from './resumen-caja.js?v=0.119.1';   // v0.117.0: el mismo archivo que usa la caja v2.9.0
+} from './firebase.js?v=0.120.0';
+import * as AR from './areas.js?v=0.120.0';
+import { armarResumen } from './resumen-caja.js?v=0.120.0';   // v0.117.0: el mismo archivo que usa la caja v2.9.0
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';

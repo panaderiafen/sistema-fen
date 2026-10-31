@@ -1,9 +1,33 @@
-# Sistema Fën · v0.119.1
+# Sistema Fën · v0.120.0
 
-**Reglas de Firestore:** fen-ventas **v1.7.0 (publicar ANTES de subir la caja v3.0.0)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v3.0.0 (va junto) · **Servidor de cobros:** 0.4.1 (sin cambios) · **Apps Script:** ninguno cambia · 31 de octubre de 2026
+**Reglas de Firestore:** fen-ventas **v1.8.0 (publicar ANTES de subir esta versión)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v3.0.0 (va junto) · **Servidor de cobros:** 0.4.1 (sin cambios) · **Apps Script:** ninguno cambia · 31 de octubre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.120.0: recibir el efectivo con diferencia, y el efectivo B2B por recibir
+
+Decidido por Emmanuel el 31 oct, rige desde ese día.
+- **Efectivo → Por recibir** (antes "Por recibir de las cajas") reúne todo lo que tiene que llegar a la caja de administración: los retiros de las cajas y, ahora, **el efectivo de clientes B2B**.
+- **Cobranza B2B:** al marcar un folio **Pagado** (o registrar un **Abono**) con medio **Efectivo**, el monto queda en Efectivo → Por recibir. Ya no se anota a mano en Ingreso. Las transferencias siguen igual (con la cartola).
+- **Recibir** ahora pregunta **cuánto llegó** (viene escrito lo esperado):
+  - **Llegó completo:** entra tal cual.
+  - **Llegó menos:** la diferencia se explica antes de guardar, con uno o más **pagos hechos con esa plata** (a quién, N° de boleta o factura y monto; quedan "Por unir" a su documento en Gastos) o como **faltante** con lo que cree que pasó.
+  - Entra lo esperado y salen, en la misma transacción, los pagos y el faltante: lo que debería haber sube solo en lo que llegó, y no queda ningún peso sin explicar.
+- Un cobro B2B por recibir se puede **Anular** (con motivo) si ese efectivo nunca va a llegar; el folio en Cobranza no cambia.
+- El sencillo que sale hacia una caja se confirma con un clic, como antes.
+
+Cambian `efectivo-modelo.js`, `efectivo-fs.js`, `vista-efectivo.js`, `app.js` (Cobranza B2B), `estilos.css`, `config.js`, `firestore.rules` (v1.8.0) y este README; los demás, solo la versión (`?v=0.120.0`).
+
+**Reglas de Firestore (fen-ventas) v1.8.0 — publicarlas PRIMERO:**
+1. Firebase → proyecto **fen-ventas** → Firestore Database → pestaña **Reglas**.
+2. Reemplace todo el texto por el de `firestore.rules` (de este zip) y presione **Publicar**.
+3. Solo agrega la colección `efectivo_por_recibir` (solo administración; nada se borra). La caja y lo demás quedan igual.
+
+- [ ] Reglas fen-ventas v1.8.0 publicadas.
+- [ ] Abajo dice v0.120.0.
+- [ ] Ventas B2B → Cobranza: un folio pagado en Efectivo aparece en Efectivo → Por recibir.
+- [ ] Recibir con un monto menor: pide explicar la diferencia; al guardar, en Movimientos aparecen el ingreso, el pago (Por unir) o el faltante, cada uno con su saldo.
 
 ## Novedades de la v0.119.1: el saldo línea por línea en Efectivo
 

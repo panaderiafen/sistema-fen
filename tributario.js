@@ -12,7 +12,7 @@
 //  El estado de resultados de gestión no cambia. El impuesto estimado se calcula sobre la base tributaria: el resultado antes de impuesto
 //  más los gastos que el SII no acepta (por regularizar y no aceptados).
 // ═══════════════════════════════════════════════
-import * as GB from './gn-bandeja.js?v=0.119.1';
+import * as GB from './gn-bandeja.js?v=0.120.0';
 
 const s = v => String(v == null ? '' : v).trim();
 const norm = t => s(t).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();

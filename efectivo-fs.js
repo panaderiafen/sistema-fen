@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Efectivo · Firestore (fen-ventas)  v0.119.0
+//  Sistema Fën — Efectivo · Firestore (fen-ventas)  v0.120.0
 //  efectivo/caja_admin           { saldo, ultimoConteo: { dia, monto, diferencia, por, en }, actualizado, por }
 //  efectivo_movimientos/{id}     un movimiento (ver efectivo-modelo.js) + { cuenta, creado, por } y, si se anula,
 //                                anulado: { por, en, motivo }. Nada se borra.
@@ -9,8 +9,8 @@
 //  v0.119.0 (caja v3.0.0): recibirDeCaja() pasa un retiro de la caja (o el sencillo que salió hacia ella)
 //  a la caja de administración y lo marca recibido, todo en la misma transacción.
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.119.1';
-import { CUENTA, efecto, movDesdeCaja } from './efectivo-modelo.js?v=0.119.1';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.120.0';
+import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.120.0';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 const refCuenta = () => doc(db, 'efectivo', CUENTA);
@@ -75,30 +75,68 @@ export async function anular(id, motivo) {
 
 // v0.119.0 · Lo que las cajas dejaron para la caja de administración y aún no se recibe
 export async function leerPorRecibir() {
-  const sn = await getDocs(query(collection(db, 'caja_movimientos'), where('pendienteAdmin', '==', true)));
-  return sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => !m.anulado && !m.recibido);
+  // v0.120.0: también el efectivo de clientes B2B que queda por recibir (efectivo_por_recibir)
+  const [a, b] = await Promise.all([
+    getDocs(query(collection(db, 'caja_movimientos'), where('pendienteAdmin', '==', true))),
+    getDocs(query(collection(db, 'efectivo_por_recibir'), where('pendienteAdmin', '==', true)))
+  ]);
+  return [...a.docs.map(d => ({ id: d.id, col: 'caja_movimientos', ...d.data() })), ...b.docs.map(d => ({ id: d.id, col: 'efectivo_por_recibir', ...d.data() }))]
+    .filter(m => !m.anulado && !m.recibido);
 }
 
-// Recibir en la caja de administración un movimiento de una caja. → { id, saldo }
-export async function recibirDeCaja(cajaMovId) {
-  const refCm = doc(db, 'caja_movimientos', cajaMovId);
-  const ref = doc(collection(db, 'efectivo_movimientos'));
+// v0.120.0 · Un cobro B2B en efectivo queda por recibir (lo marca Cobranza). → id
+export async function crearPorRecibirB2B({ folio, cliente, monto, dia, nota }) {
+  const ref = doc(collection(db, 'efectivo_por_recibir'));
+  const ahora = Timestamp.now();
+  await runTransaction(db, async tx => {
+    tx.set(ref, { origen: 'b2b', folio: String(folio || ''), cliente: String(cliente || '').slice(0, 120), monto: Math.round(Number(monto) || 0),
+      dia, mes: String(dia || '').slice(0, 7), nota: String(nota || '').slice(0, 200), pendienteAdmin: true, por: correo(), creado: ahora });
+  });
+  return ref.id;
+}
+
+// Recibir en la caja de administración lo que dejó una caja o un cobro B2B. → { saldo }
+// v0.120.0: recepcion = { llego, usos } cuando llega menos: entra lo esperado y sale, en la misma transacción,
+// cada pago hecho con esa plata (Por unir) o el faltante con su motivo. Sin recepcion, llegó completo.
+export async function recibirDeCaja(id, recepcion = null, col = 'caja_movimientos') {
+  const refOrigen = doc(db, col, id);
   const ahora = Timestamp.now(), por = correo();
   let saldo = 0;
   await runTransaction(db, async tx => {
-    const cm = await tx.get(refCm), c = await tx.get(refCuenta());
-    if (!cm.exists()) throw new Error('Ese movimiento de la caja ya no existe.');
+    const cm = await tx.get(refOrigen), c = await tx.get(refCuenta());
+    if (!cm.exists()) throw new Error('Ese movimiento ya no existe.');
     const x = cm.data();
-    if (x.anulado) throw new Error('La caja anuló ese movimiento.');
+    if (x.anulado) throw new Error('Ese movimiento fue anulado.');
     if (x.recibido || x.pendienteAdmin !== true) throw new Error('Ya estaba recibido.');
-    const mov = movDesdeCaja({ id: cajaMovId, ...x });
-    if (!mov) throw new Error('Ese movimiento no va a la caja de administración.');
-    const antes = c.exists() ? Math.round(Number(c.data().saldo) || 0) : 0;
-    saldo = antes + efecto(mov);
-    tx.set(ref, { ...mov, cuenta: CUENTA, creado: ahora, por });
+    const base = movPorRecibir({ id, ...x });
+    if (!base) throw new Error('Ese movimiento no va a la caja de administración.');
+    const r = recepcion ? revisarRecepcion(base, recepcion) : { movs: [base], falta: 0 };
+    if (r.error) throw new Error(r.error);
+    let s = c.exists() ? Math.round(Number(c.data().saldo) || 0) : 0;
+    const ids = [];
+    r.movs.forEach((m, i) => {
+      const ref = doc(collection(db, 'efectivo_movimientos'));
+      s += efecto(m);
+      // Un milisegundo de diferencia entre cada uno: así el saldo línea por línea queda en orden
+      tx.set(ref, { ...m, cuenta: CUENTA, creado: Timestamp.fromMillis(ahora.toMillis() + i), por });
+      ids.push(ref.id);
+    });
+    saldo = s;
     if (c.exists()) tx.update(refCuenta(), { saldo, actualizado: ahora, por });
     else tx.set(refCuenta(), { saldo, actualizado: ahora, por, creado: ahora });
-    tx.update(refCm, { pendienteAdmin: false, recibido: { por, en: ahora, efectivoId: ref.id } });
+    tx.update(refOrigen, { pendienteAdmin: false, recibido: { por, en: ahora, efectivoId: ids[0], ...(r.falta ? { llego: base.monto - r.falta, falta: r.falta } : {}) } });
   });
-  return { id: ref.id, saldo };
+  return { saldo };
+}
+
+// v0.120.0 · Anular un cobro B2B que quedó por recibir (por ejemplo, el pago se marcó por error). Nada se borra.
+export async function anularPorRecibir(id, motivo) {
+  const ref = doc(db, 'efectivo_por_recibir', id);
+  await runTransaction(db, async tx => {
+    const sn = await tx.get(ref);
+    if (!sn.exists()) throw new Error('Ya no existe.');
+    const x = sn.data();
+    if (x.recibido || x.anulado) throw new Error('Ya estaba recibido o anulado.');
+    tx.update(ref, { pendienteAdmin: false, anulado: { por: correo(), en: Timestamp.now(), motivo: String(motivo || '').trim().slice(0, 200) } });
+  });
 }

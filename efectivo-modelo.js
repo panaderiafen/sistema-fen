@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Efectivo · modelo (sin Firestore)  v0.119.1
+//  Sistema Fën — Efectivo · modelo (sin Firestore)  v0.120.0
 //  La caja de administración (cuenta 1.1.6 del plan de gestión): el efectivo que sale de las cajas al cerrar
 //  y el de los clientes B2B; sale a depósitos al banco y a pagos en efectivo. Aprobado por Emmanuel el 30 oct.
 //  Cada movimiento: { tipo 'ingreso' | 'salida' | 'conteo', motivo, monto (siempre positivo), dia 'AAAA-MM-DD',
@@ -30,7 +30,9 @@ export const SUCURSALES = [['barros_arana', 'Barros Arana'], ['ainavillo', 'Aina
 export const BANCOS = [['bancoestado_cc', 'BancoEstado cuenta corriente'], ['bancoestado_chequera', 'BancoEstado chequera']];
 
 const motivoDe = (tipo, k) => (MOTIVOS[tipo] || []).find(m => m[0] === k);
-export const textoMotivo = (tipo, k) => (tipo === 'conteo' ? 'Conteo' : ((motivoDe(tipo, k) || [])[1] || k || ''));
+// v0.120.0 · Motivos que solo nacen al recibir (no están en los botones de Ingreso o Salida)
+export const MOTIVOS_RECEPCION = { faltante: 'Faltante al recibir' };
+export const textoMotivo = (tipo, k) => (tipo === 'conteo' ? 'Conteo' : ((motivoDe(tipo, k) || [])[1] || MOTIVOS_RECEPCION[k] || k || ''));
 export const textoSucursal = k => (SUCURSALES.find(s => s[0] === k) || [])[1] || '';
 export const textoBanco = k => (BANCOS.find(s => s[0] === k) || [])[1] || '';
 
@@ -164,3 +166,49 @@ export function saldosDespues(movs, saldoHoy) {
 }
 const msReg = t => (t && typeof t.toMillis === 'function' ? t.toMillis() : (t && t.seconds ? t.seconds * 1000 : 0));
 export const ordenarPorRegistro = movs => (movs || []).slice().sort((a, b) => msReg(a.creado) - msReg(b.creado));
+
+// v0.120.0 · Efectivo de un cliente B2B que queda por recibir (efectivo_por_recibir), desde Cobranza.
+export function movDesdePendiente(x) {
+  if (!x || x.anulado) return null;
+  const monto = Math.round(Number(x.monto) || 0);
+  if (!(monto > 0) || !DIA.test(String(x.dia || ''))) return null;
+  if (x.origen !== 'b2b') return null;
+  return { tipo: 'ingreso', motivo: 'efectivo_b2b', monto, dia: x.dia, mes: x.dia.slice(0, 7),
+    detalle: limpio(`${x.cliente || 'Cliente B2B'} · folio ${x.folio || ''}`, 120), nota: limpio(x.nota, 200),
+    origen: { pendienteId: String(x.id || ''), folio: String(x.folio || ''), por: String(x.por || '') } };
+}
+// Lo que llega a la caja de administración desde una caja o desde un cobro B2B
+export const movPorRecibir = x => (x && x.origen === 'b2b' ? movDesdePendiente(x) : movDesdeCaja(x));
+
+// v0.120.0 · Recibir lo que dejó una caja o un cobro B2B, cuando llega menos (decidido por Emmanuel el 31 oct).
+// La diferencia se explica: con pagos en efectivo que se hicieron con esa plata (proveedor y N°; quedan "Por unir"
+// a su documento en Gastos) o, si no se sabe, como faltante con su motivo.
+// r: { llego, usos: [{ tipo: 'pago', proveedor, documento, monto } | { tipo: 'faltante', detalle, monto }] }
+// → { error } o { movs: [el ingreso completo, y una salida por cada uso], falta } (sin quién ni cuándo)
+export function revisarRecepcion(base, r) {
+  if (!base) return { error: 'Ese movimiento no va a la caja de administración.' };
+  const esperado = base.monto;
+  const llego = leerMonto(r && r.llego);
+  if (!(llego >= 0)) return { error: 'Escriba cuánto llegó (puede ser 0).' };
+  if (llego > esperado) return { error: `Llegó más de lo esperado ($${esperado.toLocaleString('es-CL')}). Reciba lo esperado y anote lo que sobra como un Ingreso aparte.` };
+  const falta = esperado - llego;
+  const usos = (r.usos || []).filter(u => u && (String(u.monto || '').trim() !== '' || String(u.proveedor || u.detalle || '').trim() !== ''));
+  const salidas = [];
+  for (const u of usos) {
+    const monto = leerMonto(u.monto);
+    if (!(monto > 0)) return { error: 'Cada parte de la diferencia necesita un monto mayor que 0.' };
+    const comun = { tipo: 'salida', monto, dia: base.dia, mes: base.mes, nota: limpio(`Al recibir: ${base.detalle || base.nota || ''}`, 200) };
+    if (u.tipo === 'pago') {
+      const p = limpio(u.proveedor, 120);
+      if (p.length < 2) return { error: 'Escriba a quién se le pagó con esa plata.' };
+      salidas.push({ ...comun, motivo: 'pago', detalle: p, documento: limpio(u.documento, 40), estado: 'por_unir' });
+    } else if (u.tipo === 'faltante') {
+      const d = limpio(u.detalle, 120);
+      if (d.length < 2) return { error: 'Escriba qué cree que pasó con lo que falta.' };
+      salidas.push({ ...comun, motivo: 'faltante', detalle: d });
+    } else return { error: 'Elija en qué se usó cada parte de la diferencia.' };
+  }
+  const explicado = salidas.reduce((a, m) => a + m.monto, 0);
+  if (explicado !== falta) return { error: explicado > falta ? `Lo explicado ($${explicado.toLocaleString('es-CL')}) es más que lo que falta ($${falta.toLocaleString('es-CL')}).` : `Faltan por explicar $${(falta - explicado).toLocaleString('es-CL')} (de $${falta.toLocaleString('es-CL')}).`, falta, explicado };
+  return { movs: [base, ...salidas], falta };
+}

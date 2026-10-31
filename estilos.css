@@ -3063,6 +3063,7 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .ef-botones { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
 .ef-monto { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ef-monto-col { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 1px; }   /* v0.119.1 */
+.ef-uso { border: 1px solid var(--linea); border-radius: 10px; padding: 10px 12px 6px; margin-bottom: 8px; }   /* v0.120.0 */
 .ef-saldo { font-size: 11.5px; color: var(--suave); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ef-ingreso { color: var(--verde-t); }
 .ef-salida { color: var(--rojo-t); }
