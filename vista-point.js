@@ -4,8 +4,9 @@
 //  ver los Point con su tienda y su modo, pasar a integrado (PDV) o volver a normal, un cobro de prueba
 //  y los cobros con tarjeta recientes. Entra con la sesión de Sistema Fën (el Worker revisa que el correo
 //  esté en su variable ADMINS). No lee ni escribe Firestore. Ningún secreto vive aquí.
+//  v0.122.0: "Actualizar" en los cobros recientes, y se vuelven a pedir al entrar si tienen más de 1 minuto.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.121.0';
+import { auth } from './firebase.js?v=0.122.0';
 
 const URL_POINT = () => (window.FEN_SIS && window.FEN_SIS.PUNTO_URL) || 'https://fen-point.panaderiafen.workers.dev';
 const TIENDAS = { barros_arana: 'Barros Arana', ainavillo: 'Ainavillo' };
@@ -43,9 +44,9 @@ export async function pintarPoint(el, H) {
   if (PS.terminales === null && !PS.err) {
     try {
       const [t, c] = await Promise.all([api({ accion: 'terminales' }), api({ accion: 'cobros_recientes' })]);
-      PS.terminales = t.terminales || []; PS.credencial = t.credencial || ''; PS.cobros = c.cobros || [];
+      PS.terminales = t.terminales || []; PS.credencial = t.credencial || ''; PS.cobros = c.cobros || []; PS.cobrosEn = Date.now();
     } catch (e) { PS.err = e.message || String(e); }
-  }
+  } else if (PS.terminales && Date.now() - (PS.cobrosEn || 0) > 60000) await refrescarCobros();
   const msg = PS.msg ? `<p class="aviso" role="status">${esc(PS.msg)}</p>` : '';
   const err = PS.err ? `<p class="error" role="alert">${esc(PS.err)}</p>` : '';
   if (PS.terminales === null) {
@@ -91,7 +92,7 @@ export async function pintarPoint(el, H) {
       ${PS.credencial ? `<p class="ayuda">Credencial de Mercado Pago en uso: ${esc(PS.credencial)}.</p>` : ''}
     </section>
     <section class="tarjeta pt-tarjeta">
-      <div class="titulo-fila"><h2>Cobros con tarjeta recientes</h2></div>
+      <div class="titulo-fila"><h2>Cobros con tarjeta recientes</h2><button type="button" class="btn-sec btn-chico" data-pt-cobros>Actualizar</button></div>
       <p class="ayuda">Los últimos cobros que la caja (o una prueba) mandó al Point, con su estado según Mercado Pago. Sirve para revisar un cobro que una vendedora no entiende.</p>
       ${filasC}
     </section>
@@ -117,6 +118,8 @@ function enlazar(el, H) {
     catch (e) { PS.err = e.message || String(e); PS.msg = ''; }
     recargarTarjetas(el); repintar();
   }));
+  const act = el.querySelector('[data-pt-cobros]');
+  if (act) act.addEventListener('click', async () => { act.disabled = true; act.textContent = 'Actualizando…'; await refrescarCobros(); repintar(); });
   const cobrar = el.querySelector('[data-pt-cobrar]');
   if (cobrar) cobrar.addEventListener('click', async () => {
     const monto = parseInt(el.querySelector('#pt-monto').value, 10), term = el.querySelector('#pt-term').value;
@@ -134,7 +137,7 @@ function enlazar(el, H) {
     await refrescarCobros(); recargarTarjetas(el); repintar();
   });
 }
-async function refrescarCobros() { try { PS.cobros = (await api({ accion: 'cobros_recientes' })).cobros || []; } catch (_) { /* se mantiene lo anterior */ } }
+async function refrescarCobros() { try { PS.cobros = (await api({ accion: 'cobros_recientes' })).cobros || []; PS.cobrosEn = Date.now(); } catch (_) { /* se mantiene lo anterior */ } }
 function recargarTarjetas(el) {
   const ts = el.querySelectorAll('.pt-tarjeta, .pt-respaldo');
   ts.forEach((x, i) => { if (i) x.remove(); });

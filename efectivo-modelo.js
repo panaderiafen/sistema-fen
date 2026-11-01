@@ -63,7 +63,15 @@ export function revisar(f, hoy) {
   if (!DIA.test(dia)) return { error: 'La fecha no es válida.' };
   if (hoy && dia > hoy) return { error: 'La fecha no puede ser futura.' };
   const mov = { tipo, monto, dia, mes: dia.slice(0, 7), nota: limpio(f.nota, 200) };
-  if (tipo === 'conteo') { mov.motivo = 'conteo'; return { mov }; }
+  if (tipo === 'conteo') {
+    mov.motivo = 'conteo';
+    // v0.122.0 · Un conteo que corrige uno anterior mal hecho: la diferencia es un error de conteo, no un faltante
+    if (f.corrige) {
+      if (!DIA.test(String(f.corrigeDia || ''))) return { error: 'No se encontró el conteo que se corrige.' };
+      mov.corrige = { dia: f.corrigeDia, inicial: !!f.corrigeInicial };
+    }
+    return { mov };
+  }
   const m = motivoDe(tipo, f.motivo);
   if (!m) return { error: 'Elija el motivo.' };
   mov.motivo = m[0];
@@ -114,7 +122,8 @@ export function detalleTexto(m) {
   if (m.banco) p.push(textoBanco(m.banco));
   if (m.detalle) p.push(m.detalle);
   if (m.documento) p.push('N° ' + m.documento);
-  if (m.tipo === 'conteo') p.push(m.inicial ? 'conteo inicial' : `diferencia ${m.diferencia > 0 ? '+' : ''}${Math.round(m.diferencia || 0).toLocaleString('es-CL')}`);
+  if (m.tipo === 'conteo' && m.corrige) p.push(`corrige el conteo${m.corrige.inicial ? ' inicial' : ''} del ${m.corrige.dia.split('-').reverse().join('-')} ${m.diferencia != null ? ` · error de conteo ${m.diferencia > 0 ? '+' : ''}${Math.round(m.diferencia).toLocaleString('es-CL')} (no es faltante)` : ''}`);
+  else if (m.tipo === 'conteo') p.push(m.inicial ? 'conteo inicial' : `diferencia ${m.diferencia > 0 ? '+' : ''}${Math.round(m.diferencia || 0).toLocaleString('es-CL')}`);
   if (m.nota) p.push(m.nota);
   return p.join(' · ');
 }
@@ -154,6 +163,8 @@ export function movDesdeCaja(x) {
 // Se calcula hacia atrás desde el saldo de hoy, en el orden en que se registraron (creado):
 // un anulado no mueve el saldo (no lleva saldo); un conteo deja el saldo en lo contado y antes estaba en saldoAntes.
 // movs: los del mes que se mira y todos los de los meses siguientes. → { id: saldo }
+// v0.122.0 · Lo que había antes de un movimiento, dado el saldo que quedó después
+export const saldoAntesDe = (m, despues) => (m.tipo === 'conteo' ? Math.round(Number(m.saldoAntes) || 0) : despues - efecto(m));
 export function saldosDespues(movs, saldoHoy) {
   const r = {};
   let s = Math.round(Number(saldoHoy) || 0);

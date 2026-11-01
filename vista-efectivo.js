@@ -6,9 +6,10 @@
 //  v0.119.0 (caja v3.0.0): "Por recibir de las cajas": el retiro de cada cierre y los retiros o el sencillo
 //  con la caja abierta llegan solos; la administración los recibe con un botón (transacción con el saldo).
 //  v0.121.0: "Recibir todos (llegó completo)" y, arriba de la lista, cuánto hay en sobres sin retirar por origen.
+//  v0.122.0: cada movimiento muestra "antes" y "saldo"; Contar puede corregir el conteo anterior mal hecho.
 // ═══════════════════════════════════════════════
-import * as M from './efectivo-modelo.js?v=0.121.0';
-import * as FS from './efectivo-fs.js?v=0.121.0';
+import * as M from './efectivo-modelo.js?v=0.122.0';
+import * as FS from './efectivo-fs.js?v=0.122.0';
 
 const EF = { mes: '', cuenta: undefined, movs: null, porRecibir: null, posteriores: null, msg: '', err: '' };
 export function olvidar() { EF.cuenta = undefined; EF.movs = null; EF.porRecibir = null; EF.posteriores = null; }
@@ -51,7 +52,7 @@ export async function pintarEfectivo(el, sub, H) {
   const c = EF.cuenta, lista = M.ordenar(EF.movs.lista), r = M.resumirMes(lista);
   const saldos = c ? M.saldosDespues([...EF.movs.lista, ...(EF.posteriores || [])], c.saldo) : {};
   const uc = c && c.ultimoConteo;
-  const ucTxt = !uc ? 'Sin conteo todavía' : uc.inicial ? 'Conteo inicial' : (Math.round(uc.diferencia || 0) === 0 ? 'Cuadró' : `Diferencia ${uc.diferencia > 0 ? '+' : ''}${pesos(uc.diferencia)}`);
+  const ucTxt = !uc ? 'Sin conteo todavía' : uc.corrige ? 'Corrigió el conteo anterior' : uc.inicial ? 'Conteo inicial' : (Math.round(uc.diferencia || 0) === 0 ? 'Cuadró' : `Diferencia ${uc.diferencia > 0 ? '+' : ''}${pesos(uc.diferencia)}`);
   const chipTipo = m => m.tipo === 'ingreso' ? '<span class="chip c-verde">Ingreso</span>' : m.tipo === 'salida' ? '<span class="chip c-amarillo">Salida</span>' : '<span class="chip c-gris">Conteo</span>';
   const msDe = t => (t && t.toMillis ? t.toMillis() : 0), msConteo = uc ? msDe(uc.en) : 0;
   // Lo anterior al último conteo ya quedó cuadrado por ese conteo: no se anula (se hace un conteo nuevo)
@@ -64,7 +65,7 @@ export async function pintarEfectivo(el, sub, H) {
         <b>${chipTipo(m)} ${esc(M.textoMotivo(m.tipo, m.motivo))}</b>
         <span>${esc(diaTexto(m.dia))}${M.detalleTexto(m) ? ' · ' + esc(M.detalleTexto(m)) : ''}${m.por ? ' · ' + esc(m.por) : ''}</span>
         ${m.anulado ? `<span class="nota">Anulado por ${esc(m.anulado.por || '')}${m.anulado.motivo ? ': “' + esc(m.anulado.motivo) + '”' : ''}</span>` : ''}</div>
-      <div class="acciones"><span class="ef-monto-col"><span class="ef-monto ef-${esc(m.tipo)}">${signo}${pesos(m.monto)}</span>${saldos[m.id] != null ? `<span class="ef-saldo">saldo ${pesos(saldos[m.id])}</span>` : ''}</span>${acc}</div></div>`;
+      <div class="acciones"><span class="ef-monto-col"><span class="ef-monto ef-${esc(m.tipo)}">${signo}${pesos(m.monto)}</span>${saldos[m.id] != null ? `<span class="ef-saldo">antes ${pesos(M.saldoAntesDe(m, saldos[m.id]))} · saldo ${pesos(saldos[m.id])}</span>` : ''}</span>${acc}</div></div>`;
   };
   const meses = M.mesesHasta(hoy);
   // v0.119.0 · Lo que las cajas dejaron para la caja de administración
@@ -121,6 +122,7 @@ export async function pintarEfectivo(el, sub, H) {
 
 function dialogoMov(tipo, H, repintar) {
   const { esc, pesos } = H, hoy = hoyLocal(), saldo = Math.round(Number(EF.cuenta && EF.cuenta.saldo) || 0);
+  const ucD = EF.cuenta && EF.cuenta.ultimoConteo; // v0.122.0 · el conteo que se puede corregir
   const titulo = { ingreso: 'Ingreso de efectivo', salida: 'Salida de efectivo', conteo: EF.cuenta ? 'Contar la caja de administración' : 'Conteo inicial' }[tipo];
   const chips = (nombre, lista, sel) => `<div class="chips" role="radiogroup">${lista.map(([k, t], i) => `<label class="chip-radio"><input type="radio" name="${nombre}" value="${k}" ${(sel ? k === sel : i === 0) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>`;
   const d = H.dialogo(`<form class="form-dialogo" novalidate><h2>${esc(titulo)}</h2>
@@ -131,6 +133,7 @@ function dialogoMov(tipo, H, repintar) {
     <div class="campo ef-pide" data-pide="proveedor"><label for="ef-prov">A quién se le pagó</label><input id="ef-prov" maxlength="120" placeholder="Nombre del proveedor"></div>
     <div class="campo ef-pide" data-pide="proveedor"><label for="ef-doc">N° de boleta o factura (si la hay)</label><input id="ef-doc" maxlength="40" inputmode="numeric"></div>
     <div class="campo ef-pide" data-pide="detalle"><label for="ef-det">Detalle</label><input id="ef-det" maxlength="120" placeholder="Por ejemplo: cliente y N° de orden"></div>`}
+    ${tipo === 'conteo' && ucD ? `<label class="check-linea ef-corrige"><input type="checkbox" id="ef-corrige"> <span>Este conteo <b>corrige el conteo${ucD.inicial ? ' inicial' : ''} del ${esc(diaTexto(ucD.dia))}</b> (${pesos(ucD.monto)}), que estuvo mal contado. La diferencia queda como error de conteo, no como faltante.</span></label>` : ''}
     <div class="campo"><label for="ef-monto">${tipo === 'conteo' ? 'Efectivo contado' : 'Monto'}</label><input id="ef-monto" inputmode="numeric" autocomplete="off" placeholder="$0"></div>
     <div class="campo"><label for="ef-dia">Fecha</label><input id="ef-dia" type="date" value="${hoy}" max="${hoy}"></div>
     <div class="campo"><label for="ef-nota">Nota (opcional)</label><input id="ef-nota" maxlength="200"></div>
@@ -140,7 +143,8 @@ function dialogoMov(tipo, H, repintar) {
   const val = n => (d.querySelector(`input[name="${n}"]:checked`) || {}).value;
   const leer = () => ({ tipo, motivo: val('ef-motivo'), sucursal: val('ef-suc'), banco: val('ef-banco'),
     detalle: (d.querySelector('#ef-prov') && val('ef-motivo') === 'pago' ? d.querySelector('#ef-prov').value : (d.querySelector('#ef-det') || {}).value) || '',
-    documento: (d.querySelector('#ef-doc') || {}).value || '', monto: d.querySelector('#ef-monto').value, dia: d.querySelector('#ef-dia').value, nota: d.querySelector('#ef-nota').value });
+    documento: (d.querySelector('#ef-doc') || {}).value || '', monto: d.querySelector('#ef-monto').value, dia: d.querySelector('#ef-dia').value, nota: d.querySelector('#ef-nota').value,
+    corrige: !!(d.querySelector('#ef-corrige') && d.querySelector('#ef-corrige').checked), corrigeDia: ucD && ucD.dia, corrigeInicial: !!(ucD && ucD.inicial) });
   const vis = () => {
     if (tipo !== 'conteo') {
       const m = M.MOTIVOS[tipo].find(x => x[0] === val('ef-motivo')) || [];
@@ -148,7 +152,8 @@ function dialogoMov(tipo, H, repintar) {
     }
     const n = M.leerMonto(d.querySelector('#ef-monto').value), p = d.querySelector('#ef-prev');
     if (!(n >= 0) || d.querySelector('#ef-monto').value === '') { p.textContent = ''; return; }
-    if (tipo === 'conteo') p.textContent = EF.cuenta ? (n === saldo ? 'Cuadra con lo que debería haber.' : `Diferencia: ${n - saldo > 0 ? 'sobran' : 'faltan'} ${pesos(Math.abs(n - saldo))}.`) : '';
+    const corr = d.querySelector('#ef-corrige') && d.querySelector('#ef-corrige').checked;
+    if (tipo === 'conteo') p.textContent = EF.cuenta ? (n === saldo ? 'Cuadra con lo que debería haber.' : corr ? `Error de conteo: ${n - saldo > 0 ? '+' : '−'}${pesos(Math.abs(n - saldo))}. Lo que debería haber queda en ${pesos(n)}; no se anota como faltante.` : `Diferencia: ${n - saldo > 0 ? 'sobran' : 'faltan'} ${pesos(Math.abs(n - saldo))}.`) : '';
     else p.textContent = `Lo que debería haber queda en ${pesos(saldo + (tipo === 'ingreso' ? n : -n))}.`;
   };
   d.addEventListener('change', vis); d.addEventListener('input', vis); vis();

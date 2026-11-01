@@ -9,9 +9,11 @@
 //  v0.119.0 (caja v3.0.0): recibirDeCaja() pasa un retiro de la caja (o el sencillo que salió hacia ella)
 //  a la caja de administración y lo marca recibido, todo en la misma transacción.
 //  v0.121.0: recibirVarios() recibe varios completos en una sola transacción.
+//  v0.122.0: un conteo puede corregir el anterior (mov.corrige): la diferencia queda como error de conteo, no como
+//  faltante; si el que se corrige era el conteo inicial, el nuevo pasa a ser el conteo inicial.
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.121.0';
-import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.121.0';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.122.0';
+import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.122.0';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 const refCuenta = () => doc(db, 'efectivo', CUENTA);
@@ -39,9 +41,14 @@ export async function guardar(mov) {
       // El conteo deja el saldo en lo contado; la diferencia queda anotada en el movimiento
       datos.diferencia = mov.monto - antes;
       datos.saldoAntes = antes;
-      datos.inicial = !c.exists() || !c.data().ultimoConteo;
+      const uc = c.exists() ? c.data().ultimoConteo : null;
+      datos.inicial = !uc || !!(mov.corrige && uc.inicial);
+      if (mov.corrige) {
+        if (!uc || uc.dia !== mov.corrige.dia) throw new Error('El último conteo cambió mientras tanto. Cierre y vuelva a abrir Contar.');
+        datos.corrige = { ...mov.corrige, inicial: !!uc.inicial, monto: Math.round(Number(uc.monto) || 0) };
+      }
       saldo = mov.monto;
-      cambios = { saldo, ultimoConteo: { dia: mov.dia, monto: mov.monto, diferencia: datos.diferencia, inicial: datos.inicial, por, en: ahora }, actualizado: ahora, por };
+      cambios = { saldo, ultimoConteo: { dia: mov.dia, monto: mov.monto, diferencia: datos.diferencia, inicial: datos.inicial, ...(mov.corrige ? { corrige: true } : {}), por, en: ahora }, actualizado: ahora, por };
     } else {
       saldo = antes + efecto(mov);
       cambios = { saldo, actualizado: ahora, por };

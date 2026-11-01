@@ -1,9 +1,24 @@
-# Sistema Fën · v0.121.0
+# Sistema Fën · v0.122.0
 
-**Reglas de Firestore:** fen-ventas **v1.8.0 (sin cambios)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v3.0.0 (sin cambios) · **Servidor de cobros:** 0.4.1 (sin cambios) · **Apps Script:** ninguno cambia · 31 de octubre de 2026
+**Reglas de Firestore:** fen-ventas **v1.8.0 (sin cambios)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v3.1.1 (sin cambios) · **Servidor de cobros:** 0.4.2 (sin cambios) · **Apps Script:** ninguno cambia · 1 de noviembre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.122.0: corregir un conteo, "antes" en cada movimiento y Actualizar en Point
+
+Pedido por Emmanuel el 1 nov (el primer conteo de la caja de administración estuvo mal contado).
+- **Efectivo → Contar → "Este conteo corrige el conteo del [día]"**: una casilla para cuando el conteo anterior estuvo mal contado. El saldo queda en lo que se contó, como siempre, pero la diferencia queda anotada como **error de conteo, no como faltante** (cuando Efectivo llegue al estado de resultados, no irá a la 6.7). Si el que se corrige era el conteo inicial, el nuevo pasa a ser el conteo inicial. Nada se borra: el conteo malo queda en el historial y el nuevo dice qué conteo corrige. Si alguien contó mientras tanto, avisa y no guarda.
+- **Efectivo → Movimientos:** bajo cada monto dice **"antes $X · saldo $Y"**: el efectivo que había antes de ese movimiento y el que quedó después. En un conteo, "antes" es lo que debería haber.
+- **Ventas en tienda → Point → Cobros con tarjeta recientes:** botón **Actualizar**, y al entrar a la pestaña se vuelven a pedir si tienen más de 1 minuto (antes quedaban los del primer ingreso).
+
+Cambian `efectivo-modelo.js`, `efectivo-fs.js`, `vista-efectivo.js`, `vista-point.js`, `estilos.css`, `config.js` y este README; los demás, solo la versión (`?v=0.122.0`). Reglas de Firestore: sin cambios (fen-ventas sigue en v1.8.0).
+
+- [ ] Abajo dice v0.122.0.
+- [ ] Efectivo → Movimientos: cada línea dice "antes $X · saldo $Y".
+- [ ] Efectivo → Contar: aparece la casilla "Este conteo corrige el conteo del …". Al marcarla, el aviso dice "Error de conteo" en vez de "faltan".
+- [ ] Hacer el conteo de corrección: en Movimientos la línea dice "corrige el conteo … · error de conteo … (no es faltante)" y "Último conteo" dice "Corrigió el conteo anterior" (o "Conteo inicial" si corrigió el inicial).
+- [ ] Ventas en tienda → Point: el botón Actualizar trae los cobros nuevos.
 
 ## Novedades de la v0.121.0: recibir todos, los sobres sin retirar, el texto del sobre y el resumen de Ventas en tienda
 

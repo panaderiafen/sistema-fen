@@ -3092,3 +3092,7 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 
 /* v0.121.0 · Cobranza B2B: texto para el sobre del efectivo */
 .sobre-txt { font-size: 17px; line-height: 1.5; padding: 14px 16px; border: 1px dashed var(--linea); border-radius: 10px; background: var(--fondo); word-break: break-word; }
+
+/* v0.122.0 · Contar: corregir el conteo anterior */
+.check-linea.ef-corrige { align-items: flex-start; line-height: 1.4; margin: 0 0 10px; font-weight: 500; }
+.check-linea.ef-corrige input { margin-top: 3px; flex: none; width: 18px; height: 18px; }
