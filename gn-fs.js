@@ -10,15 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.122.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.122.0';
-import { ahoraChile } from './gastos-g2.js?v=0.122.0';
-import * as GN from './gn-modelo.js?v=0.122.0';
-import * as GB from './gn-bandeja.js?v=0.122.0';
-import * as GP from './gn-pdf.js?v=0.122.0';
-import * as GI from './gn-items.js?v=0.122.0';
-import * as TR from './trabajadores.js?v=0.122.0';
-import * as GT from './tributario.js?v=0.122.0';   // v0.108.0
+import * as FB from './fs-gastos.js?v=0.123.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.123.0';
+import { ahoraChile } from './gastos-g2.js?v=0.123.0';
+import * as GN from './gn-modelo.js?v=0.123.0';
+import * as GB from './gn-bandeja.js?v=0.123.0';
+import * as GP from './gn-pdf.js?v=0.123.0';
+import * as GI from './gn-items.js?v=0.123.0';
+import * as TR from './trabajadores.js?v=0.123.0';
+import * as GT from './tributario.js?v=0.123.0';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -157,12 +157,19 @@ function conGlosa(prev, doc, sena, movId, h) {
 const idPago = (docId, ref, n) => 'p_' + GN.hash(docId + '|' + ref) + (n ? '_' + n : '');
 
 // Pagar: partes = [{ docId, monto }], con un movimiento (movId) o un medio sin banco (efectivo, personal) y su fecha.
-export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', nota = '' }) {
+// v0.123.0 · clave: un pago que nace en Efectivo (la clave sale del movimiento de efectivo). Su id sale de la clave: si ya hay uno vigente
+// con esa clave, no se paga otra vez (responde repetido). extra: lo que se guarda además en el pago (de qué efectivo salió).
+const idsDePago = (pagosAntes, docId, ref) => pagosAntes.filter(x => x.id === idPago(docId, ref) || x.id.startsWith(idPago(docId, ref) + '_'));
+export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', nota = '', clave = '', extra = null }) {
   if (!partes || !partes.length) throw error('Nada que pagar.', 'datos');
   const pagosAntes = await todos(GN.COL.pagos), reps = Object.fromEntries((await todos(GN.COL.repartos)).map(r => [r.id, r]));
+  if (clave) { const viva = partes.map(p => idsDePago(pagosAntes, p.docId, clave).find(x => x.estado !== 'deshecho')).find(Boolean); if (viva) return { pagos: 0, repetido: true, pagoId: viva.id }; }
   return enTransaccion(async (tx, d) => {
     const refs = partes.map(p => FB.doc(d, GN.COL.docs, p.docId)), sn = [];
     for (const r of refs) sn.push(await tx.get(r));
+    // v0.123.0 · Con clave, el pago no puede existir ya (otra pestaña lo acaba de crear)
+    const idsP = partes.map(p => { const ref = clave || movId || (medio + '|' + fecha); return idPago(p.docId, ref, idsDePago(pagosAntes, p.docId, ref).length); });
+    if (clave) for (const id of idsP) { if ((await tx.get(FB.doc(d, GN.COL.pagos, id))).exists()) throw error('Ese pago ya quedó registrado en Gastos. Vuelva a abrir y únalo otra vez.', 'cambio'); }
     let mov = null; const mref = movId ? FB.doc(d, GN.COL.movs, movId) : null;
     if (mref) { const ms = await tx.get(mref); if (!ms.exists()) throw error('Ese movimiento ya no está.', 'cambio'); mov = ms.data(); if ((mov.naturaleza && mov.naturaleza !== 'acuenta') || mov.estado === 'no_va') throw error('Ese movimiento ya se marcó como "no es gasto".', 'cambio'); }
     sn.forEach((x, i) => { if (!x.exists()) throw error('Un documento ya no está.', 'cambio'); if (x.data().estado === 'no_va') throw error(`El documento N° ${x.data().folio || ''} se marcó "Esto no va".`, 'cambio');
@@ -178,9 +185,8 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
     const aprende = sena && claves.length === 1 ? { ref: FB.doc(d, GN.COL.provs, claves[0]), dato: sn[0].data(), prev: provs[claves[0]] || null } : null;
     const h = marca(movId ? 'pagado con un movimiento' : 'pagado sin banco', { medio, movId, nota: String(nota || '').slice(0, 200) });
     partes.forEach((p, i) => {
-      const ref = movId || (medio + '|' + fecha), n = pagosAntes.filter(x => x.id === idPago(p.docId, ref) || x.id.startsWith(idPago(p.docId, ref) + '_')).length;
-      tx.set(FB.doc(d, GN.COL.pagos, idPago(p.docId, ref, n)), limpio({ docId: p.docId, movId, medio: movId ? 'cargo' : medio, monto: Math.round(Number(p.monto) || 0), fecha: movId ? mov.fecha : fecha,
-        cuenta: mov ? mov.cuenta : '', anterior: !!(mov && mov.anterior), nota: String(nota || '').slice(0, 200), estado: 'vigente', creado: { por: h.por, en: h.en } }));
+      tx.set(FB.doc(d, GN.COL.pagos, idsP[i]), limpio({ docId: p.docId, movId, medio: movId ? 'cargo' : medio, monto: Math.round(Number(p.monto) || 0), fecha: movId ? mov.fecha : fecha,
+        cuenta: mov ? mov.cuenta : '', anterior: !!(mov && mov.anterior), nota: String(nota || '').slice(0, 200), estado: 'vigente', creado: { por: h.por, en: h.en }, ...(extra || {}) }));
       // v0.96.0 · Al pagarse, la clasificación que venía del proveedor queda guardada en el documento: un cambio posterior del proveedor
       // o de su reparto no mueve lo ya pagado (ni los meses cerrados de Finanzas)
       const dd = { id: refs[i].id, ...sn[i].data() }, c = dd.clasif ? null : GB.clasifDe(dd, provs, reps);
@@ -188,7 +194,7 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
     });
     if (mref) tx.update(mref, { historial: conHist(mov, marca('unido a ' + partes.length + (partes.length === 1 ? ' documento' : ' documentos'), { docs: partes.map(p => p.docId) })) });
     if (aprende) tx.set(aprende.ref, conGlosa(aprende.prev, aprende.dato, sena, movId, h), { merge: true });
-    return { pagos: partes.length, sena: aprende ? sena : '' };
+    return { pagos: partes.length, sena: aprende ? sena : '', pagoId: idsP[0] };
   });
 }
 // Deshacer un pago: queda "deshecho" (con quién, cuándo y por qué); el documento y el movimiento vuelven a estar abiertos
@@ -630,4 +636,39 @@ export async function guardarTramite(gid, { nombre, falta, quien, estado, nota }
     const n = { ...g, nombre: String(nombre || g.nombre).trim().slice(0, 60) || g.nombre, falta: String(falta || '').slice(0, 300), quien: String(quien || '').slice(0, 80), estado, nota: String(nota || '').slice(0, 300), historial: conHist(g, h) };
     tx.set(ref, limpio({ ...a, grupos: { ...(a.grupos || {}), [gid]: n }, historial: conHist(a, h) }));
   });
+}
+
+// ═══════════════ v0.123.0 · Efectivo → "Unir a su documento" ═══════════════
+// Lo que Efectivo puede unir: los documentos con saldo por pagar y los ya pagados en efectivo en Gastos ("Gasto sin banco") que todavía
+// no están unidos a un movimiento de Efectivo (o que están unidos a ESTE movimiento: un "Unir" que se cortó a medias se termina igual).
+// Lee gn_documentos y gn_pagos con la memoria de fs-gastos (abrir Gastos antes = 0 lecturas nuevas).
+export async function docsParaEfectivo(efId = '') {
+  const [docs, pagos] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.pagos)]);
+  const I = GB.indicePagos(pagos), out = [];
+  docs.forEach(d => {
+    if (d.estado === 'no_va' || d.nc || Number(d.total) <= 0) return;
+    const e = GB.estadoDoc(d, I), base = { id: d.id, razon: d.razon || '', rut: d.rut || '', rutN: d.rutN || '', folio: d.folio || '', tipoTexto: d.tipoTexto || '', fecha: d.fecha || '', total: Math.round(Number(d.total) || 0) };
+    if (e.saldo > 0) out.push({ ...base, estado: 'pendiente', saldo: e.saldo });
+    (e.pagos || []).filter(p => p.medio === 'efectivo' && (!p.efectivo || (efId && p.efectivo.id === efId))).forEach(p => out.push({ ...base, estado: 'pagado_efectivo', saldo: 0, pagoId: p.id, pagoMonto: Math.round(Number(p.monto) || 0), pagoFecha: p.fecha || '' }));
+  });
+  return out;
+}
+// Pagar el documento con el efectivo (o unirlo al pago en efectivo que ya tenía en Gastos). ef: { id, col, sucursal, dia, monto, origen, clave, texto }
+// → { pagoId, repetido }
+export async function pagarConEfectivo(doc, ef) {
+  const efectivo = { id: String(ef.id), col: ef.col || 'efectivo_movimientos', origen: ef.origen, ...(ef.sucursal ? { sucursal: ef.sucursal } : {}) };
+  if (doc.estado === 'pagado_efectivo') {
+    return enTransaccion(async (tx, d) => {
+      const ref = FB.doc(d, GN.COL.pagos, doc.pagoId), sn = await tx.get(ref);
+      if (!sn.exists() || sn.data().estado === 'deshecho') throw error('Ese pago ya no está vigente en Gastos.', 'cambio');
+      const p = sn.data();
+      if (p.efectivo && p.efectivo.id === efectivo.id) return { pagoId: doc.pagoId, repetido: true };
+      if (p.efectivo) throw error('Ese pago de Gastos ya está unido a otro movimiento de Efectivo.', 'cambio');
+      tx.update(ref, { efectivo: { ...efectivo, por: quien(), en: ahoraChile().texto }, origenEfectivo: ef.origen });
+      return { pagoId: doc.pagoId, repetido: false };
+    });
+  }
+  const r = await pagar({ partes: [{ docId: doc.id, monto: Math.round(Number(ef.monto) || 0) }], medio: 'efectivo', fecha: ef.dia, nota: String(ef.texto || '').slice(0, 200), clave: ef.clave,
+    extra: { origenEfectivo: ef.origen, efectivo: { ...efectivo, por: quien(), en: ahoraChile().texto } } });
+  return { pagoId: r.pagoId, repetido: !!r.repetido };
 }

@@ -6,12 +6,12 @@
 //  cerrados" en el primer mes abierto siguiente. Solo Emmanuel ve esto (Sistema Fën): nada va a Cocina ni a Hoy.
 //  R = { datos (leerResultados: gastos, ítems, obligaciones, vencimientos, fin, config, créditos, inversiones), cabecera() }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.122.0';
-import * as FR from './finanzas-resultados.js?v=0.122.0';
-import * as FE from './finanzas-eerr.js?v=0.122.0';
-import * as FS from './finanzas-estado.js?v=0.122.0';   // v0.111.0: el estado por cuentas (filas clásicas, 4 niveles)
-import * as FC from './finanzas-costos.js?v=0.122.0';
-import * as SP from './sii-pendientes.js?v=0.122.0';   // v0.66.0: documentos del SII por clasificar
+import * as F from './finanzas.js?v=0.123.0';
+import * as FR from './finanzas-resultados.js?v=0.123.0';
+import * as FE from './finanzas-eerr.js?v=0.123.0';
+import * as FS from './finanzas-estado.js?v=0.123.0';   // v0.111.0: el estado por cuentas (filas clásicas, 4 niveles)
+import * as FC from './finanzas-costos.js?v=0.123.0';
+import * as SP from './sii-pendientes.js?v=0.123.0';   // v0.66.0: documentos del SII por clasificar
 
 const ES = { mes: '', vista: 'principal', verPor: 'total', nivel: 1, perMeses: null, perSeg: null, abiertosE: new Set(), cerradosE: new Set(), abiertas: {}, cierres: null, claves: {}, cartola: null, sii: null, vivo: {}, msg: '', err: '', cargando: '', checks: {}, conteos: {}, otros: null, renta: null, incob: {} };
 const $ = id => document.getElementById(id);
@@ -62,14 +62,14 @@ async function vivo(R, mes) {
   // no en la tabla de Finanzas → Créditos (sería doble); los pagos de la tarjeta son los movimientos marcados así en la Bandeja.
   // v0.101.1 · Desde cero en octubre: con el Gastos nuevo, Finanzas no muestra meses anteriores al inicio.
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo (desde ${FE.mesTxt(D.gn.inicio.slice(0, 7))} los gastos salen de ahí): ${D.gn.error}. Revise la conexión y toque "Leer de nuevo".`);
-  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.122.0') : null;
+  const nuevo = F.delGastosNuevo(mes) && D.gn, GF = nuevo ? await import('./gn-finanzas.js?v=0.123.0') : null;
   const pagosTarjeta = nuevo ? GF.pagosTarjetaGN(D.gn.D) : ((ES.cartola && ES.cartola.pagosTarjeta) || []);
   // v0.104.0 · Provisión de vacaciones y finiquitos (fichas y liquidaciones de los trabajadores)
-  const TR = nuevo ? await import('./trabajadores.js?v=0.122.0') : null, GBm = nuevo ? await import('./gn-bandeja.js?v=0.122.0') : null;
+  const TR = nuevo ? await import('./trabajadores.js?v=0.123.0') : null, GBm = nuevo ? await import('./gn-bandeja.js?v=0.123.0') : null;
   const areasT = clave => GBm.areasDe((D.gn.D.provs || {})[clave], D.gn.D.repartos || {}), provision = nuevo ? TR.provisionesDelMes(D.gn.D, mes, areasT) : [];
   // v0.106.0 · Incobrables (Ventas B2B → Cobranza), otros ingresos y gastos, y la tasa del impuesto a la renta
   if (!(mes in ES.incob)) ES.incob[mes] = await F.incobrablesMes(mes);
-  const e = FE.armarEERR({ mes, margen: dm.margen, merma: dm.merma, comisionMP: { mp: dm.mp || null, medios: dm.medios || null }, gastos: D.gastos, fin: D.fin, items: D.items, mapa, creditosMes: nuevo ? [] : FE.creditosDelMes(D.creditos, D.vencimientos, D.gastos, mes),
+  const e = FE.armarEERR({ mes, margen: dm.margen, merma: dm.merma, caja: dm.caja || null, comisionMP: { mp: dm.mp || null, medios: dm.medios || null }, gastos: D.gastos, fin: D.fin, items: D.items, mapa, creditosMes: nuevo ? [] : FE.creditosDelMes(D.creditos, D.vencimientos, D.gastos, mes),
     invs: FR.inversiones(D.gastos, D.fin, D.invGuardadas, mapa), pagosTarjeta, provision, incobrables: ES.incob[mes] || [], otros: ES.otros || [], renta: ES.renta || { tasa: 0 }, tributario: nuevo ? (D.gn.D.tributario || null) : null });
   if (ES.incob[mes] === null) e.avisos.push({ k: 'incobrables', texto: 'No se pudieron leer las facturas dadas por perdidas en Ventas a empresas: los incobrables van en $0.' });
   e.ventasInfo = dm.ventasInfo;
@@ -356,7 +356,7 @@ function conectarTributario(el, H, ctx, R, repintar) {
     d.querySelector('form').addEventListener('submit', async ev => {
       ev.preventDefault(); const bt = d.querySelector('[type=submit]'); bt.disabled = true;
       const x = { nombre: d.querySelector('#et-n').value, estado: (d.querySelector('[name=et-e]:checked') || {}).value || 'pendiente', falta: d.querySelector('#et-f').value, quien: d.querySelector('#et-q').value, nota: d.querySelector('#et-o').value };
-      try { await (await import('./gn-fs.js?v=0.122.0')).guardarTramite(id, x); T.grupos[id] = { ...g, ...x }; ES.vivo = {}; H.registrar('Finanzas: trámite tributario', `${x.nombre} · ${ESTADO_TXT[x.estado]}`); ES.msg = `Trámite guardado: ${x.nombre}.`; d.close(); repintar(); }
+      try { await (await import('./gn-fs.js?v=0.123.0')).guardarTramite(id, x); T.grupos[id] = { ...g, ...x }; ES.vivo = {}; H.registrar('Finanzas: trámite tributario', `${x.nombre} · ${ESTADO_TXT[x.estado]}`); ES.msg = `Trámite guardado: ${x.nombre}.`; d.close(); repintar(); }
       catch (e) { d.querySelector('#et-err').textContent = ctx.error(e, H); bt.disabled = false; }
     });
   }));
@@ -502,7 +502,9 @@ function lineaRef(H, r, k, valor = null) {
   if (r.tipo === 'venta') { const v = valor !== null ? valor : k === 'costoDirecto' ? r.costo : k === 'costosVenta' ? r.costoVenta : r.neto; return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(FE.NOMBRE_SUC[r.suc] || r.suc)}</div><span class="ayuda">${nf(r.unidades)} un · venta ${pesos(r.neto)} · costo ${pesos(r.costo)} · costos de venta ${pesos(r.costoVenta)}${r.ok ? '' : ` · ${H.esc(r.motivo || 'sin costo')}`}</span><b class="fin-edval">${pesos(v)}</b></li>`; }
   if (r.tipo === 'gasto') return `<li><div><b>${H.esc(r.item)}</b>${r.itemOriginal ? ` <small>(guardado como ${H.esc(r.itemOriginal)})</small>` : ''} · ${fechaTxt(r.fecha)} · ${H.esc(r.area)}</div><span class="ayuda">${H.esc([r.proveedor, r.obs].filter(Boolean).join(' · ') || '—')} · ${H.esc(FR.textoLinea(r.tipoRes, r.cuenta))}</span><span class="fin-edacc"><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b><button type="button" class="fin-mlink" data-e-ver="${H.esc(r.item)}" data-e-vermes="${H.esc(String(r.fecha).slice(0, 7))}">Ver en Gastos</button></span></li>`;
   if (r.tipo === 'cargo') return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(FE.NOMBRE_SUC[r.suc] || r.suc)}${r.catalogoId ? ` · ${H.esc(r.catalogoId)}` : ''}</div><span class="ayuda">${nf(r.unidades)} cobrados · cargo del Catálogo (no es venta de un producto)</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
-  if (r.tipo === 'merma') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">${r.cantidad ? `${nf(r.cantidad)} ${H.esc(r.unidad || '')} · ` : ''}merma de Producción, neto</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
+  if (r.tipo === 'merma') return `<li><div><b>${H.esc(r.nombre)}</b>${r.origen === 'tienda' ? ` · ${H.esc(FE.NOMBRE_SUC[r.suc] || r.suc)}` : ''}</div><span class="ayuda">${r.cantidad ? `${nf(r.cantidad)} ${H.esc(r.unidad || '')} · ` : ''}${r.origen === 'tienda' ? 'merma de la tienda (registrada en la caja), al costo de su receta, neto' : 'merma de Producción, neto'}</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
+  // v0.123.0 · 6.7.1 Diferencias de caja (faltante +, sobrante −)
+  if (r.tipo === 'difCaja') return `<li><div><b>${H.esc(r.nombre)}</b> · ${fechaTxt(r.fecha)}</div><span class="ayuda">6.7.1 Diferencias de caja · de los cierres de caja y Efectivo (faltante suma, sobrante resta)</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
   if (r.tipo === 'credito') return `<li><div><b>${H.esc(r.nombre)}</b></div><span class="ayuda">Interés de ${nf(r.cuotas)} ${r.cuotas === 1 ? 'cuota pagada' : 'cuotas pagadas'} en el mes (capital ${pesos(r.capital)}, fuera del resultado) · tabla del crédito</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
   if (r.tipo === 'provision') return `<li><div><b>${H.esc(r.nombre)}</b> · ${H.esc(r.area)}</div><span class="ayuda">Remuneración ${pesos(r.base)} · vacaciones ${pesos(r.vac)}${r.ias ? ` · años de servicio ${pesos(r.ias)}` : r.sinFicha ? ' · sin datos de contrato: falta la indemnización' : ''}</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
   if (r.tipo === 'depreciacion') return `<li><div><b>${H.esc(r.item)}</b> · compra del ${fechaTxt(r.fecha)}</div><span class="ayuda">${pesos(r.valor)} ÷ ${nf(r.meses)} meses${r.area ? ' · ' + H.esc(r.area) : ''}</span><b class="fin-edval">${pesos(valor !== null ? valor : r.neto)}</b></li>`;
@@ -588,10 +590,10 @@ async function datosCierre(R, mes) {
   const D = R.datos;
   if (F.delGastosNuevo(mes) && D.gn && D.gn.error) throw new Error(`No se pudo leer el Gastos nuevo: ${D.gn.error}`);
   if (F.delGastosNuevo(mes) && D.gn) {
-    const GF = await import('./gn-finanzas.js?v=0.122.0');
+    const GF = await import('./gn-finanzas.js?v=0.123.0');
     const [e, dm, conteos] = await Promise.all([vivo(R, mes), F.datosMes(mes), ES.conteos[mes] ? Promise.resolve(ES.conteos[mes]) : F.conteosMes(mes)]);
     ES.conteos[mes] = conteos;
-    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.122.0')).indicePagos(G.pagos || []) : null;
+    const G = D.gn.D, pv = GF.previredDelMes(G, mes), I = pv ? (await import('./gn-bandeja.js?v=0.123.0')).indicePagos(G.pagos || []) : null;
     const pagado = pv ? (I.porDoc[pv.id] || []).reduce((a, p) => a + (Number(p.monto) || 0), 0) : 0;
     const gn = { sii: GF.siiDelMes(G.cargas, mes), movs: GF.movsSinRevisarDelMes(G, mes), sinClas: GF.sinClasificarDelMes(G, mes),
       previred: pv ? { total: Number(pv.total) || 0, pagado, completo: pagado >= (Number(pv.total) || 0) - GF.TOL } : null, fletes: GF.fletesPorUnir(G, mes) };

@@ -20,7 +20,7 @@
 //     despacho: { modo: 'pct'|'orden', valor }, margenObjetivo: { PAN, BOL, PAS, CAF, REVENTA } (% o null), redondeo: 10|50|100 }
 //  v0.69.1: área REVENTA (las de margen salen de areas.js): una reventa sin área cuenta en REVENTA; la elegida se respeta.
 // ═══════════════════════════════════════════════
-import { AREAS, NOMBRE_AREA, SUCS, canalDeSuc, claveProducto, upv, mesDe, ultimoDia, areaVinculo, vinculoDeLinea, esPendiente } from './finanzas-ventas.js?v=0.122.0';
+import { AREAS, NOMBRE_AREA, SUCS, canalDeSuc, claveProducto, upv, mesDe, ultimoDia, areaVinculo, vinculoDeLinea, esPendiente } from './finanzas-ventas.js?v=0.123.0';
 // v0.80.1 · Receta pendiente (Catálogo): una fila por producto (tipo 'pendiente', clave 'p:…') en su área, sin costo directo
 export const MOTIVO_PENDIENTE = 'sin costo (receta pendiente)';
 
@@ -216,6 +216,26 @@ export function calcularMargenes(meses, vinculos, costos, cfg, { hoy, modo = 'me
   const conCosto = filas.filter(f => f.ok), mcTotal = conCosto.reduce((a, f) => a + f.mc, 0);
   filas.forEach(f => { f.pctMcTotal = f.ok && mcTotal ? f.mc / mcTotal * 100 : null; });
   return { filas, totales: totalesMargen(filas), fuentes, tasas, cargos };
+}
+// v0.123.0 · La merma de la tienda (lo que sobró y la caja registró como merma: fen-ventas merma) valorizada igual que el costo directo de
+// lo vendido: el vínculo de cada producto de la caja (foto → maestro → fin_productos) y el costo de su receta en ese mes (o el costo de compra
+// de la reventa). registros: [{ sucursal, productoId, nombreProducto, cantidad }]. → { detalle: [{ area, nombre, neto, cantidad, suc }], sinCosto, unidadesSinCosto }
+export function costearMermaTienda(registros, mes, vinculos, costos, { hoy, maestro = null } = {}) {
+  const docs = (costos && costos.docs) || {}, hpr = histPorReceta(costos && costos.hist), F = {};
+  let sinCosto = 0, unidadesSinCosto = 0;
+  (registros || []).forEach(r => {
+    const suc = /ainavillo/i.test(s(r.sucursal)) ? 'ainavillo' : 'barros', cant = num(r.cantidad);
+    if (!(cant > 0)) return;
+    const l = { suc, productoId: s(r.productoId), nombre: s(r.nombreProducto), cantidad: cant }, v = vinculoDeLinea(l, vinculos || {}, maestro, mes);
+    let cu = null;
+    if (v && v.tipo === 'receta' && !esPendiente(v)) { const c = costoReceta(v.receta, mes, docs, hpr, { hoy, modo: 'mes' }); if (c && c.costoUnit > 0) cu = c.costoUnit; }
+    else if (v && v.tipo === 'reventa' && s(v.costoReventaNeto) !== '' && num(v.costoReventaNeto) > 0) cu = num(v.costoReventaNeto);
+    if (cu === null) { sinCosto++; unidadesSinCosto += cant; return; }
+    const k = suc + '|' + (v.tipo === 'receta' ? 'r:' + v.receta : 'v:' + l.productoId);
+    const f = F[k] || (F[k] = { area: areaVinculo(v), nombre: (v.tipo === 'receta' ? (v.recetaNombre || v.receta) : l.nombre) + ' (sobró en la tienda)', neto: 0, cantidad: 0, suc });
+    f.neto += cu * cant * upv(v); f.cantidad += cant;
+  });
+  return { detalle: Object.values(F).map(f => ({ ...f, neto: Math.round(f.neto), cantidad: red(f.cantidad, 3) })).filter(f => f.neto), sinCosto, unidadesSinCosto: red(unidadesSinCosto, 3) };
 }
 const vacioT = () => ({ neto: 0, costo: 0, comision: 0, despacho: 0, costoVenta: 0, mc: 0, mcPct: null, n: 0 });
 const cerrar = t => ({ ...t, costoVenta: t.comision + t.despacho, mc: t.neto - t.costo - t.comision - t.despacho, mcPct: t.neto > 0 ? (t.neto - t.costo - t.comision - t.despacho) / t.neto * 100 : null });

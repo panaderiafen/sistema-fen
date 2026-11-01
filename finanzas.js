@@ -47,22 +47,22 @@
 //  v0.76.0: materias primas e insumos nuevos desde Finanzas → Costos (crearMateriaPrima, crearDesdeLinea): costos_mp con origen 'manual'
 //   (o 'sii' si el precio es el de la línea de factura), creadaDesde 'sistema-fen' y su historial; datosMpEnCostos copia nombre y estado.
 // ═══════════════════════════════════════════════
-import { auth as authSF } from './firebase.js?v=0.122.0';
-import * as FB from './fs-gastos.js?v=0.122.0';
-import * as GB from './gastos-base.js?v=0.122.0';
-import * as P from './produccion.js?v=0.122.0';
-import * as FC from './finanzas-costos.js?v=0.122.0';
-import * as FS from './finanzas-sii.js?v=0.122.0';
-import * as FM from './finanzas-motor.js?v=0.122.0';
-import * as FV from './finanzas-ventas.js?v=0.122.0';
-import * as FMG from './finanzas-margenes.js?v=0.122.0';
-import * as FR from './finanzas-resultados.js?v=0.122.0';
-import * as FE from './finanzas-eerr.js?v=0.122.0';
-import * as CPM from './catalogo-productos-modelo.js?v=0.122.0';
-import * as Caja from './caja.js?v=0.122.0';
-import * as B from './b2b.js?v=0.122.0';
-import * as FBB from './firebase-b2b.js?v=0.122.0';
-import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV } from './firebase.js?v=0.122.0';
+import { auth as authSF } from './firebase.js?v=0.123.0';
+import * as FB from './fs-gastos.js?v=0.123.0';
+import * as GB from './gastos-base.js?v=0.123.0';
+import * as P from './produccion.js?v=0.123.0';
+import * as FC from './finanzas-costos.js?v=0.123.0';
+import * as FS from './finanzas-sii.js?v=0.123.0';
+import * as FM from './finanzas-motor.js?v=0.123.0';
+import * as FV from './finanzas-ventas.js?v=0.123.0';
+import * as FMG from './finanzas-margenes.js?v=0.123.0';
+import * as FR from './finanzas-resultados.js?v=0.123.0';
+import * as FE from './finanzas-eerr.js?v=0.123.0';
+import * as CPM from './catalogo-productos-modelo.js?v=0.123.0';
+import * as Caja from './caja.js?v=0.123.0';
+import * as B from './b2b.js?v=0.123.0';
+import * as FBB from './firebase-b2b.js?v=0.123.0';
+import { db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV, Timestamp as TsV } from './firebase.js?v=0.123.0';
 
 const LOTE = 400;
 const hoyTxt = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -677,14 +677,14 @@ export async function leerResultados(forzar) {
   const db = await dbG(), nuevo = gnActivo();
   const col = n => FB.getDocs(FB.collection(db, n)), nada = Promise.resolve({ docs: [] });
   const [g, it, ob, ve, fi, cf, cr, inv, gn] = await Promise.all([col('gastos'), col('items'), nuevo ? nada : col('obligaciones'), nuevo ? nada : col('vencimientos'), col('fin_items'),
-    FB.getDoc(FB.doc(db, 'fin_config', 'resultados')), col('fin_creditos'), col('fin_inversiones'), nuevo ? import('./gn-fs.js?v=0.122.0').then(m => m.leer()).catch(e => ({ error: e.message || String(e) })) : Promise.resolve(null)]);
+    FB.getDoc(FB.doc(db, 'fin_config', 'resultados')), col('fin_creditos'), col('fin_inversiones'), nuevo ? import('./gn-fs.js?v=0.123.0').then(m => m.leer()).catch(e => ({ error: e.message || String(e) })) : Promise.resolve(null)]);
   const lista = sn => sn.docs.map(d => ({ id: d.id, ...d.data() })), fin = mapa(fi);
   let gastos = lista(g), gnInfo = null;
   if (nuevo) {
     // Del anterior, solo las inversiones (de antes del inicio) para su depreciación.
     // v0.102.1 · Se reconocen también por el catálogo de ítems (un ítem antiguo como ACTIVO FIJO apunta a una cuenta 1.5.x) o por su subtipo
     // INVERSIÓN: en Clasificación casi nada se había guardado, y equipos comprados antes de octubre (los refrigeradores de agosto) no se depreciaban.
-    const ini = inicioGN(), [GI, PC] = await Promise.all([import('./gn-items.js?v=0.122.0'), import('./plan-cuentas.js?v=0.122.0')]);
+    const ini = inicioGN(), [GI, PC] = await Promise.all([import('./gn-items.js?v=0.123.0'), import('./plan-cuentas.js?v=0.123.0')]);
     const I = gn && !gn.error && GI.activo(gn.catalogo) ? GI.indice(gn.catalogo) : null;
     const comoInversion = x => { if ((fin[FR.claveItem(x.itemGasto)] || {}).tipo === 'inversion') return x;
       const r = I ? GI.resolver(x.itemGasto, I) : null; if (r && r.ok && PC.tipoDeCuenta(r.cuenta) === 'inversion') return { ...x, catalogo: true, cuenta: r.cuenta, itemOriginal: x.itemGasto, itemGasto: r.nombre };
@@ -692,7 +692,7 @@ export async function leerResultados(forzar) {
       return null; };
     const inversiones = gastos.filter(x => String(x.fecha || '').slice(0, 10) < ini).map(comoInversion).filter(Boolean);
     if (gn && gn.error) { gnInfo = { error: gn.error, inicio: ini }; gastos = inversiones; }
-    else { const GF = await import('./gn-finanzas.js?v=0.122.0'), P = GF.gastosParaFinanzas(gn, ini); gnInfo = { D: gn, errores: P.errores, inicio: ini, n: P.lineas.length }; gastos = P.lineas.concat(inversiones); }
+    else { const GF = await import('./gn-finanzas.js?v=0.123.0'), P = GF.gastosParaFinanzas(gn, ini); gnInfo = { D: gn, errores: P.errores, inicio: ini, n: P.lineas.length }; gastos = P.lineas.concat(inversiones); }
   }
   resCache = {
     gastos, items: lista(it).filter(x => !x.quitadoEnPlanilla), obligaciones: lista(ob).filter(x => !x.quitadoEnPlanilla), vencimientos: lista(ve),
@@ -818,14 +818,14 @@ export async function cargosCartola() {
 // v0.66.0 · Documentos del SII por clasificar (subidos, sin gasto todavía), de la memoria: para el cierre y el estado de resultados
 // v0.67.1: lo mismo que Conciliación (sin lo que ya tiene su gasto registrado: eso no se cuenta en el cierre)
 export async function siiPorClasificar() {
-  try { return await (await import('./sii-pendientes-fs.js?v=0.122.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
-  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.122.0');
+  try { return await (await import('./sii-pendientes-fs.js?v=0.123.0')).pendientes(); } catch (e) { /* sin la base nueva: como antes */ }
+  const db = await dbG(), SP = await import('./sii-pendientes.js?v=0.123.0');
   const sn = await FB.getDocs(FB.collection(db, 'sii_docs'));
   return SP.pendientesDe(sn.docs.map(d => ({ id: d.id, d: d.data() })));
 }
 // v0.69.5 · Las planillas de Previred para Cierre de mes (de la memoria de la sesión; lo que falte se lee). null si no se puede.
 export async function planillasPrevired() {
-  try { return await (await import('./gastos-cartola-fs.js?v=0.122.0')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
+  try { return await (await import('./gastos-cartola-fs.js?v=0.123.0')).planillasCierre(); } catch (e) { console.warn('Previred para el cierre', e); return null; }
 }
 export async function cargasSii() {
   const db = await dbG();
@@ -861,13 +861,33 @@ async function mpVentasMes(mes) {
     return { dias: l.length, bruto: l.reduce((a, x) => a + (Number(x.bruto) || 0), 0), comision: l.reduce((a, x) => a + (Number(x.comision) || 0), 0) };
   } catch (e) { console.warn('Finanzas: sin el reporte de Mercado Pago', e); return null; }
 }
+// v0.123.0 · La caja en el resultado de un mes (fen-ventas, 4 consultas sin índices compuestos; se guarda con el mes en mesCache):
+// los cierres (evaluacion_caja por la hora del cierre, del 1 del mes hasta 3 días después del último), Efectivo (efectivo_movimientos
+// del mes), los cobros del Point revisados (point_revisiones del mes) y la merma de la tienda (merma por la hora de registro, hasta 7 días
+// después; cuenta su fechaEnvio). → { evals, efectivo, point, mermaReg, disponible }
+async function cajaFinMes(mes) {
+  try {
+    const [y, m] = mes.split('-').map(Number), ini = TsV.fromDate(new Date(y, m - 1, 1)), finE = TsV.fromDate(new Date(y, m, 4)), finM = TsV.fromDate(new Date(y, m, 8));
+    const lista = sn => sn.docs.map(d => ({ id: d.id, ...d.data() }));
+    const [ev, ef, pt, me] = await Promise.all([
+      getDocsV(queryV(colV(dbV, 'evaluacion_caja'), whereV('cierre', '>=', ini), whereV('cierre', '<', finE))),
+      getDocsV(queryV(colV(dbV, 'efectivo_movimientos'), whereV('mes', '==', mes))).catch(() => ({ docs: [] })),
+      getDocsV(queryV(colV(dbV, 'point_revisiones'), whereV('mes', '==', mes))).catch(() => ({ docs: [] })),
+      getDocsV(queryV(colV(dbV, 'merma'), whereV('fecha', '>=', ini), whereV('fecha', '<', finM)))
+    ]);
+    const diaMerma = r => (/^\d{4}-\d{2}-\d{2}$/.test(String(r.fechaEnvio || '')) ? r.fechaEnvio : (r.fecha && r.fecha.toDate ? hoyTxt(r.fecha.toDate()) : ''));
+    return { evals: lista(ev), efectivo: lista(ef).filter(x => x.cuenta === 'caja_admin'), point: lista(pt), mermaReg: lista(me).filter(r => diaMerma(r).slice(0, 7) === mes), disponible: true };
+  } catch (e) { console.warn('Finanzas: sin la caja del mes', e); return { evals: [], efectivo: [], point: [], mermaReg: [], disponible: false }; }
+}
 // Todo lo de un mes para el estado de resultados (ventas, costos, vínculos, merma). forzar: vuelve a leer las ventas.
 const mesCache = {};
 export const olvidarMeses = () => { Object.keys(mesCache).forEach(k => delete mesCache[k]); };
 export async function datosMes(mes, { forzar = false } = {}) {
   if (mesCache[mes] && !forzar) return mesCache[mes];
-  const [ventas, vinculos, costos, merma, maestro, mp] = await Promise.all([ventasPeriodo({ meses: [mes] }, { forzar }), leerVinculos(), leerProductos(), mermaMes(mes), maestroFinanzas(), mpVentasMes(mes)]);
+  const [ventas, vinculos, costos, merma, maestro, mp, cj] = await Promise.all([ventasPeriodo({ meses: [mes] }, { forzar }), leerVinculos(), leerProductos(), mermaMes(mes), maestroFinanzas(), mpVentasMes(mes), cajaFinMes(mes)]);
   const hoy = hoyTxt(), cfg = FMG.configMargenes(costos.config && costos.config.margenes);
+  // v0.123.0 · La caja: la merma de la tienda valorizada como el costo directo (mismos vínculos y costos de receta del mes)
+  const caja = { evals: cj.evals, efectivo: cj.efectivo, point: cj.point, disponible: cj.disponible, merma: FMG.costearMermaTienda(cj.mermaReg, mes, vinculos || {}, costos, { hoy, maestro }) };
   // v0.74.0: foto de la venta → maestro (desde vigenteDesde) → fin_productos; los cargos (despacho) van aparte
   const margen = FMG.calcularMargenes(ventas.porMes || [], vinculos || {}, costos, cfg, { hoy, modo: 'mes', maestro });
   const info = (ventas.meses || [])[0] || {};
@@ -876,7 +896,7 @@ export async function datosMes(mes, { forzar = false } = {}) {
   const pend = margen.filas.filter(f => f.tipo === 'pendiente');   // v0.80.1: receta pendiente (asociados, sin costo)
   const caja = info.caja || {};
   const medios = ((ventas.porMes || [])[0] || {}).medios || null;   // v0.112.0: lo pagado con cada medio en la caja (para la cobertura del reporte de Mercado Pago)
-  mesCache[mes] = { mes, margen, merma, mp, medios, ventasInfo: { b2bSinConexion: (info.b2b || {}).fuente === 'sin_conexion' || !!(info.b2b || {}).sinReleer, guardado: caja.fuente === 'guardado', abiertas: caja.abiertas || 0, faltan: caja.faltan || 0, nAinavillo: lAin.reduce((a, l) => a + (Number(l.cantidad) || 0), 0), netoAinavillo: lAin.reduce((a, l) => a + (Number(l.neto) || 0), 0), netoTotal, netoSinAsociar: netoSin, netoRecetaPendiente: pend.reduce((a, f) => a + f.neto, 0), nRecetaPendiente: pend.length, b2b: info.b2b || null } };
+  mesCache[mes] = { mes, margen, merma, mp, medios, caja, ventasInfo: { b2bSinConexion: (info.b2b || {}).fuente === 'sin_conexion' || !!(info.b2b || {}).sinReleer, guardado: caja.fuente === 'guardado', abiertas: caja.abiertas || 0, faltan: caja.faltan || 0, nAinavillo: lAin.reduce((a, l) => a + (Number(l.cantidad) || 0), 0), netoAinavillo: lAin.reduce((a, l) => a + (Number(l.neto) || 0), 0), netoTotal, netoSinAsociar: netoSin, netoRecetaPendiente: pend.reduce((a, f) => a + f.neto, 0), nRecetaPendiente: pend.length, b2b: info.b2b || null } };
   return mesCache[mes];
 }
 export async function conteosMes(mes) {

@@ -38,6 +38,9 @@ export const CUENTAS = {
   '6.5': { n: 'Insumos de aseo y operación', tipo: 'fijo', var: false },
   '6.6': { n: 'Contabilidad, trámites, software y suscripciones', tipo: 'fijo', var: false },
   '6.7': { n: 'Otros gastos', tipo: 'fijo', var: false },
+  // v0.123.0 · La arma Sistema Fën (no se elige en un ítem de Gastos): faltantes (+) y sobrantes (−) de efectivo al cerrar cada caja y en la
+  // caja de administración (faltante al recibir y diferencia de un conteo). Un error de conteo corregido se compensa solo.
+  '6.7.1': { n: 'Diferencias de caja', tipo: 'fijo', var: false, sistema: true, ayuda: 'Sale de los cierres de caja y de Efectivo: no se elige en un ítem.' },
   '6.9': { n: 'Marketing y publicidad', tipo: 'fijo', fila: 'marketing', var: false },
   '6.10': { n: 'Seguros', tipo: 'fijo', fila: 'seguros', var: false },
   '6.11': { n: 'Transporte y movilización', tipo: 'fijo', fila: 'transporte', var: false, ayuda: 'Combustible, fletes y traslados por compras. Con área B2B va al canal B2B.' },
@@ -48,7 +51,8 @@ export const CUENTAS = {
 };
 // Orden del plan (para los selectores)
 const orden = c => c.split('.').map(n => n.padStart(3, '0')).join('.');
-export const CODIGOS = Object.keys(CUENTAS).sort((a, b) => orden(a).localeCompare(orden(b)));
+// v0.123.0: sin las cuentas que arma el sistema (6.7.1): no se eligen en un ítem
+export const CODIGOS = Object.keys(CUENTAS).filter(c => !CUENTAS[c].sistema).sort((a, b) => orden(a).localeCompare(orden(b)));
 export const existe = c => !!CUENTAS[s(c)];
 export const nombre = c => (CUENTAS[s(c)] ? CUENTAS[s(c)].n : '');
 export const texto = c => (CUENTAS[s(c)] ? `${c} ${CUENTAS[s(c)].n}` : 'Sin cuenta');

@@ -1,7 +1,13 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.8.0 (2026-10-31)
+//  Fën · Ventas (caja) + Sistema Fën — Reglas de Firestore v1.9.0 (2026-11-01)
+//  v1.9.0: (Sistema Fën v0.123.0) Unir a su documento y los depósitos con la cartola: efectivo_movimientos además puede pasar,
+//          solo administración, de 'por_unir' a 'unido' o 'uniendo' (con unido.por = su correo), de 'uniendo' a 'unido', y volver
+//          a 'por_unir' (unido null y desunido con su correo). Lo unido no se anula. caja_movimientos: la administración marca un
+//          pago 'por_unir' como 'unido' (una vez); la caja ya no anula lo unido. point_revisiones/{referencia}: la revisión de un
+//          cobro del Point pagado sin venta; solo administración la lee y la crea (con su correo); no se cambia ni se borra.
+//          Todo lo demás queda igual.
 //  v1.8.0: (Sistema Fën v0.120.0) efectivo_por_recibir: el efectivo de clientes B2B marcado como pagado en Cobranza
 //          queda por recibir. Solo administración: lo crea (con su correo) y lo marca recibido o anulado. Nada se borra.
 //          Todo lo demás queda igual.
@@ -280,9 +286,19 @@ service cloud.firestore {
     match /efectivo_movimientos/{id} {
       allow read: if esAdmin();
       allow create: if esAdmin() && movEfectivoValido(request.resource.data);
-      // Solo se anula (se agrega "anulado"); lo demás no cambia
-      allow update: if esAdmin() && !('anulado' in resource.data) && soloCambia(['anulado']);
+      // Solo se anula (se agrega "anulado"); lo demás no cambia. v1.9.0: lo unido no se anula; unir y deshacer la unión (cambioUnion)
+      allow update: if esAdmin() && !('anulado' in resource.data)
+                    && ((soloCambia(['anulado']) && !(resource.data.get('estado', '') in ['unido', 'uniendo'])) || cambioUnion());
       allow delete: if false;
+    }
+    // v1.9.0 · Unir un movimiento a su documento (pago) o a su abono de la cartola (depósito), y deshacerlo. Nada se borra.
+    function cambioUnion() {
+      let a = resource.data.get('estado', '');
+      let b = request.resource.data.get('estado', '');
+      return soloCambia(['unido', 'estado', 'desunido']) && (
+           (a == 'por_unir' && b in ['unido', 'uniendo'] && request.resource.data.unido.por == miCorreo() && soloCambia(['unido', 'estado']))
+        || (a == 'uniendo' && b == 'unido' && soloCambia(['estado']))
+        || (a in ['uniendo', 'unido'] && b == 'por_unir' && request.resource.data.unido == null && request.resource.data.desunido.por == miCorreo()));
     }
 
     // ── v1.7.0 · Efectivo de la caja: retiros e ingresos del turno (caja v3.0.0) ──
@@ -304,13 +320,19 @@ service cloud.firestore {
       allow create: if opera() && movCajaValido(request.resource.data);
       // La caja solo anula (agrega "anulado" con su correo) lo que la administración aún no recibió;
       // la administración solo marca "recibido" lo que no está anulado.
+      // v1.9.0: la administración marca un pago a proveedor 'por_unir' como 'unido' a su documento (una vez); lo unido no se anula.
       allow update: if !('anulado' in resource.data) && !('recibido' in resource.data) && (
                       (opera() && soloCambia(['anulado', 'pendienteAdmin'])
+                         && resource.data.get('estado', '') != 'unido'
                          && request.resource.data.anulado.por == miCorreo()
                          && request.resource.data.pendienteAdmin == false)
                    || (esAdmin() && soloCambia(['recibido', 'pendienteAdmin'])
                          && request.resource.data.recibido.por == miCorreo()
-                         && request.resource.data.pendienteAdmin == false));
+                         && request.resource.data.pendienteAdmin == false)
+                   || (esAdmin() && soloCambia(['unido', 'estado'])
+                         && resource.data.get('estado', '') == 'por_unir'
+                         && request.resource.data.estado == 'unido'
+                         && request.resource.data.unido.por == miCorreo()));
       allow delete: if false;
     }
 
@@ -328,6 +350,20 @@ service cloud.firestore {
                     && (soloCambia(['recibido', 'pendienteAdmin']) || soloCambia(['anulado', 'pendienteAdmin']))
                     && request.resource.data.pendienteAdmin == false;
       allow delete: if false;
+    }
+
+    // ── v1.9.0 · Cobros del Point pagados sin venta, revisados (Sistema Fën v0.123.0, Hoy) ──
+    match /point_revisiones/{ref} {
+      allow read: if esAdmin();
+      allow create: if esAdmin()
+                    && request.resource.data.referencia == ref
+                    && request.resource.data.resolucion in ['manual', 'descuadre', 'devuelto']
+                    && request.resource.data.monto is number
+                    && request.resource.data.dia is string && request.resource.data.dia.size() == 10
+                    && request.resource.data.mes is string && request.resource.data.mes.size() == 7
+                    && request.resource.data.por == miCorreo()
+                    && request.resource.data.en is timestamp;
+      allow update, delete: if false;
     }
 
     // ── Cualquier otra colección: cerrada ─────────────────────

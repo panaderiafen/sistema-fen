@@ -7,12 +7,16 @@
 //  con la caja abierta llegan solos; la administración los recibe con un botón (transacción con el saldo).
 //  v0.121.0: "Recibir todos (llegó completo)" y, arriba de la lista, cuánto hay en sobres sin retirar por origen.
 //  v0.122.0: cada movimiento muestra "antes" y "saldo"; Contar puede corregir el conteo anterior mal hecho.
+//  v0.123.0 (aprobado por Emmanuel el 1 nov): "Por unir a su documento" (los pagos en efectivo, de aquí y de las cajas, se unen a su
+//  boleta o factura en Gastos), los depósitos esperan su abono de la cartola, y la pestaña "Retiros por semana".
 // ═══════════════════════════════════════════════
-import * as M from './efectivo-modelo.js?v=0.122.0';
-import * as FS from './efectivo-fs.js?v=0.122.0';
+import * as M from './efectivo-modelo.js?v=0.123.0';
+import * as FS from './efectivo-fs.js?v=0.123.0';
 
-const EF = { mes: '', cuenta: undefined, movs: null, porRecibir: null, posteriores: null, msg: '', err: '' };
-export function olvidar() { EF.cuenta = undefined; EF.movs = null; EF.porRecibir = null; EF.posteriores = null; }
+const EF = { mes: '', cuenta: undefined, movs: null, porRecibir: null, posteriores: null, porUnir: null, semana: '', msg: '', err: '' };
+export function olvidar() { EF.cuenta = undefined; EF.movs = null; EF.porRecibir = null; EF.posteriores = null; EF.porUnir = null; FS.olvidarPorUnir(); FS.olvidarSemanas(); }
+// v0.123.0 · Las dos pestañas de Efectivo
+const pestanas = sub => `<div class="pestanas" role="tablist" aria-label="Secciones de Efectivo"><a role="tab" href="#efectivo" aria-selected="${sub !== 'semana'}">Caja de administración</a><a role="tab" href="#efectivo/semana" aria-selected="${sub === 'semana'}">Retiros por semana</a></div>`;
 
 const hoyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 // v0.119.1 · Movimientos con el saldo que quedó después de cada uno (como una cartola)
@@ -31,14 +35,17 @@ export function porOrigen(lista) {
 const mesTexto = k => { const [y, m] = k.split('-').map(Number); return `${MESES[m - 1]} ${y}`; };
 
 export async function pintarEfectivo(el, sub, H) {
+  if (sub === 'semana') return pintarSemana(el, H);   // v0.123.0
   const { esc, info, pesos } = H;
   const hoy = hoyLocal();
   if (!EF.mes) EF.mes = hoy.slice(0, 7);
-  el.innerHTML = `<div class="cabecera"><div><h1 id="t-efectivo">Efectivo</h1><p>Caja de administración: el efectivo que sale de las cajas y el de los clientes B2B</p></div></div>
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-efectivo">Efectivo</h1><p>Caja de administración: el efectivo que sale de las cajas y el de los clientes B2B</p></div>${pestanas(sub)}</div>
     <section class="tarjeta"><div class="vacio" style="border:0">Cargando…</div></section>`;
   try {
     if (EF.cuenta === undefined) EF.cuenta = await FS.leerCuenta();
     if (EF.porRecibir === null) EF.porRecibir = await FS.leerPorRecibir();
+    // v0.123.0 · Los pagos por unir (de aquí y de las cajas) y los depósitos que esperan su abono. Si no se puede leer, el resto sigue.
+    if (EF.porUnir === null) { try { EF.porUnir = await FS.leerPorUnir(); } catch (e) { console.warn('Efectivo: sin los pagos por unir', e); EF.porUnir = false; } }
     if (!EF.movs || EF.movs.mes !== EF.mes) { const l = await FS.leerMes(EF.mes); EF.movs = { mes: EF.mes, lista: l }; EF.posteriores = null; }
     // v0.119.1 · Para el saldo línea por línea de un mes pasado hacen falta los movimientos de los meses siguientes
     if (EF.posteriores === null) {
@@ -56,11 +63,17 @@ export async function pintarEfectivo(el, sub, H) {
   const chipTipo = m => m.tipo === 'ingreso' ? '<span class="chip c-verde">Ingreso</span>' : m.tipo === 'salida' ? '<span class="chip c-amarillo">Salida</span>' : '<span class="chip c-gris">Conteo</span>';
   const msDe = t => (t && t.toMillis ? t.toMillis() : 0), msConteo = uc ? msDe(uc.en) : 0;
   // Lo anterior al último conteo ya quedó cuadrado por ese conteo: no se anula (se hace un conteo nuevo)
-  const anulable = m => m.tipo !== 'conteo' && !m.anulado && !(msConteo && msDe(m.creado) && msDe(m.creado) < msConteo);
+  const unido = m => m.estado === 'unido' || m.estado === 'uniendo';
+  const anulable = m => m.tipo !== 'conteo' && !m.anulado && !unido(m) && !(msConteo && msDe(m.creado) && msDe(m.creado) < msConteo);
+  // v0.123.0 · Por unir: un pago se une aquí a su documento; un depósito, solo, con su abono de la cartola. Unido: con qué.
+  const chipUnion = m => m.anulado ? '' : m.estado === 'unido' ? `<span class="chip c-verde ef-unido">${esc(M.textoUnido(m))}</span>`
+    : m.estado === 'uniendo' ? '<span class="chip c-amarillo" title="Se está uniendo a su abono: termine en Ventas a empresas → Conciliación">Uniendo a su abono</span>'
+    : m.estado !== 'por_unir' ? '' : m.motivo === 'pago' ? `<button type="button" class="btn btn-chico" data-unir="${esc(m.id)}">Unir a su documento</button>`
+    : '<span class="chip c-amarillo" title="Se une solo con su abono cuando se sube la cartola (Ventas a empresas → Conciliación)">Por unir · con la cartola</span>';
   const fila = m => {
     const signo = m.tipo === 'ingreso' ? '+ ' : m.tipo === 'salida' ? '− ' : '';
     const acc = m.anulado ? `<span class="chip c-gris">Anulado</span>`
-      : !anulable(m) ? '' : `${m.estado === 'por_unir' ? `<span class="chip c-amarillo" title="Se unirá a su ${m.motivo === 'deposito' ? 'abono en la cartola' : 'documento en Gastos'} en una próxima versión">Por unir</span>` : ''}<button type="button" class="btn-sec btn-chico" data-anular="${esc(m.id)}">Anular</button>`;
+      : `${chipUnion(m)}${anulable(m) ? `<button type="button" class="btn-sec btn-chico" data-anular="${esc(m.id)}">Anular</button>` : ''}`;
     return `<div class="fila-caja ef-fila${m.anulado ? ' ef-anulado' : ''}"><div class="txt">
         <b>${chipTipo(m)} ${esc(M.textoMotivo(m.tipo, m.motivo))}</b>
         <span>${esc(diaTexto(m.dia))}${M.detalleTexto(m) ? ' · ' + esc(M.detalleTexto(m)) : ''}${m.por ? ' · ' + esc(m.por) : ''}</span>
@@ -81,7 +94,14 @@ export async function pintarEfectivo(el, sub, H) {
   const totPr = pr.reduce((a, x) => a + (entraPr(x) ? 1 : -1) * Math.round(Number(x.monto) || 0), 0);
   // v0.121.0 · Sobres sin retirar por origen y "Recibir todos" (con 2 o más que entran)
   const origenes = porOrigen(pr), entran = pr.filter(entraPr);
-  el.innerHTML = `<div class="cabecera"><div><h1 id="t-efectivo">Efectivo ${info('Caja de administración', 'Es la cuenta 1.1.6 del plan de gestión: el efectivo que no está en una caja de venta. Entra lo que se retira de las cajas al cerrar y el efectivo de clientes B2B; sale a depósitos al banco, pagos en efectivo y sencillo para las cajas.\n"Debería haber" es el último conteo más lo que entró menos lo que salió desde entonces. Cuente de vez en cuando con "Contar": si no cuadra, la diferencia queda anotada y el saldo pasa a ser lo contado.\nNada se borra: un movimiento equivocado se anula, con su motivo.')}</h1><p>Caja de administración: el efectivo que sale de las cajas y el de los clientes B2B</p></div></div>
+  // v0.123.0 · Por unir a su documento: los pagos en efectivo de aquí y de las cajas; y los depósitos que esperan su abono
+  const pu = (EF.porUnir || []).filter(M.esPagoPorUnir).sort((a, b) => (a.dia || '').localeCompare(b.dia || '') || msDe(a.creado) - msDe(b.creado));
+  const deps = (EF.porUnir || []).filter(M.esDepositoAbierto);
+  const filaPu = x => `<div class="fila-caja ef-fila"><div class="txt">
+      <b><span class="chip c-amarillo">Pago</span> ${esc(x.detalle || 'Proveedor')}</b>
+      <span>${esc(diaTexto(x.dia))} · ${esc(M.textoOrigenEfectivo(x))}${x.documento ? ' · N° ' + esc(x.documento) : ' · sin N°'}${x.por ? ' · ' + esc(x.por) : ''}</span></div>
+    <div class="acciones"><span class="ef-monto ef-salida">− ${pesos(x.monto)}</span><button type="button" class="btn btn-chico" data-unir="${esc(x.id)}" data-col="${esc(x.col || '')}">Unir a su documento</button></div></div>`;
+  el.innerHTML = `<div class="cabecera"><div><h1 id="t-efectivo">Efectivo ${info('Caja de administración', 'Es la cuenta 1.1.6 del plan de gestión: el efectivo que no está en una caja de venta. Entra lo que se retira de las cajas al cerrar y el efectivo de clientes B2B; sale a depósitos al banco, pagos en efectivo y sencillo para las cajas.\n"Debería haber" es el último conteo más lo que entró menos lo que salió desde entonces. Cuente de vez en cuando con "Contar": si no cuadra, la diferencia queda anotada y el saldo pasa a ser lo contado.\nNada se borra: un movimiento equivocado se anula, con su motivo.')}</h1><p>Caja de administración: el efectivo que sale de las cajas y el de los clientes B2B</p></div>${pestanas(sub)}</div>
     ${EF.msg ? `<div class="aviso" role="status">${EF.msg}</div>` : ''}${EF.err ? `<p class="error" role="alert">${esc(EF.err)}</p>` : ''}
     ${!c ? `<section class="tarjeta" aria-labelledby="t-ef-inicio"><div class="titulo-fila"><h2 id="t-ef-inicio">Para empezar</h2></div>
         <p class="ayuda" style="margin:0 0 12px">Cuente cuánto efectivo hay hoy en la caja de administración. Desde ese monto, Sistema Fën lleva la cuenta con cada ingreso y salida.</p>
@@ -101,6 +121,11 @@ export async function pintarEfectivo(el, sub, H) {
       <div class="titulo-fila"><h2 id="t-ef-pr">Por recibir ${info('Por recibir', 'Lo que tiene que llegar a la caja de administración: el retiro de cada cierre de caja (lo contado menos el fondo que queda), los retiros con la caja abierta y el efectivo de clientes B2B marcado como pagado en Cobranza. También el sencillo que se llevó a una caja desde aquí.\nRecíbalo cuando la plata esté en sus manos: recién entonces cambia lo que debería haber.\nSi llegó menos, escriba cuánto llegó y explique la diferencia: un pago hecho con esa plata (queda Por unir a su boleta o factura en Gastos) o un faltante con su motivo.')}</h2><span class="nota">${pr.length} · ${pesos(totPr)}</span></div>
       ${origenes.length || entran.length >= 2 ? `<div class="ef-pr-resumen">${origenes.length ? `<p class="ef-pr-origen" id="ef-pr-origen">En sobres sin retirar: ${origenes.map(([t, n]) => `<span class="nowrap">${esc(t)} <b>${pesos(n)}</b></span>`).join(' · ')}</p>` : ''}${entran.length >= 2 ? '<button type="button" class="btn-sec btn-chico" id="ef-recibir-todos">Recibir todos (llegó completo)</button>' : ''}</div>` : ''}
       ${pr.map(filaPr).join('')}</section>` : ''}
+    ${pu.length || deps.length ? `<section class="tarjeta" aria-labelledby="t-ef-pu" id="ef-por-unir">
+      <div class="titulo-fila"><h2 id="t-ef-pu">Por unir a su documento ${info('Por unir a su documento', 'Cada pago en efectivo (de aquí o de una caja) se une a su boleta o factura en Gastos. Al unir, el documento queda pagado en efectivo en Gastos, con la fecha del pago, y aquí dice "Unido".\nSi el documento todavía no está en Gastos, regístrelo allá como "Gasto sin banco" (en efectivo) y vuelva: aparece para unirlo.\nLos depósitos al banco no se unen aquí: se unen solos con su abono cuando se sube la cartola (Ventas a empresas → Conciliación).')}</h2><span class="nota">${pu.length} ${pu.length === 1 ? 'pago' : 'pagos'} · ${pesos(pu.reduce((a, x) => a + Math.round(Number(x.monto) || 0), 0))}</span></div>
+      ${pu.map(filaPu).join('')}
+      ${deps.length ? `<p class="ayuda ef-deps">${deps.length} ${deps.length === 1 ? 'depósito espera' : 'depósitos esperan'} su abono en la cartola (${pesos(deps.reduce((a, x) => a + Math.round(Number(x.monto) || 0), 0))}). Se unen al conciliar los abonos en <a href="#b2b/conciliacion">Ventas a empresas → Conciliación</a>.</p>` : ''}</section>` : ''}
+    ${EF.porUnir === false ? '<p class="aviso">No se pudieron leer los pagos por unir. Vuelva a abrir Efectivo.</p>' : ''}
     <section class="tarjeta" aria-labelledby="t-ef-movs">
       <div class="titulo-fila"><h2 id="t-ef-movs">Movimientos</h2>
         <select id="ef-mes" aria-label="Mes">${meses.map(k => `<option value="${k}" ${k === EF.mes ? 'selected' : ''}>${esc(mesTexto(k))}</option>`).join('')}</select></div>
@@ -118,6 +143,11 @@ export async function pintarEfectivo(el, sub, H) {
   el.querySelectorAll('[data-recibir]').forEach(b => b.addEventListener('click', () => recibir(pr.find(x => x.id === b.dataset.recibir), b, H, repintar)));
   $q('#ef-recibir-todos') && $q('#ef-recibir-todos').addEventListener('click', () => dialogoRecibirTodos(entran, H, repintar));
   el.querySelectorAll('[data-anular-pr]').forEach(b => b.addEventListener('click', () => dialogoAnularPr(pr.find(x => x.id === b.dataset.anularPr), H, repintar)));
+  // v0.123.0 · Unir a su documento (desde la lista Por unir o desde la fila del movimiento)
+  el.querySelectorAll('[data-unir]').forEach(b => b.addEventListener('click', () => {
+    const col = b.dataset.col || '', m = pu.find(x => x.id === b.dataset.unir && (x.col || '') === col) || (col ? null : lista.find(x => x.id === b.dataset.unir));
+    if (m) dialogoUnir(m, H, repintar);
+  }));
 }
 
 function dialogoMov(tipo, H, repintar) {
@@ -175,7 +205,7 @@ function dialogoMov(tipo, H, repintar) {
       H.registrar('Efectivo: ' + (tipo === 'conteo' ? 'contó la caja de administración' : tipo === 'ingreso' ? 'anotó un ingreso' : 'anotó una salida'),
         `${M.textoMotivo(tipo, r.mov.motivo)} · ${pesos(r.mov.monto)} · ${r.mov.dia}${M.detalleTexto(r.mov) ? ' · ' + M.detalleTexto(r.mov) : ''}`);
       d.close();
-      EF.cuenta = undefined; EF.movs = null; EF.mes = r.mov.mes;
+      EF.cuenta = undefined; EF.movs = null; EF.porUnir = null; FS.olvidarPorUnir(); EF.mes = r.mov.mes;
       EF.msg = `Listo. Lo que debería haber en la caja de administración: <b>${esc(pesos(res.saldo))}</b>.`;
       repintar();
     } catch (e) { err.textContent = e.message || H.mensajeError(e); b.disabled = false; b.textContent = 'Guardar'; }
@@ -201,7 +231,7 @@ function dialogoAnular(m, H, repintar) {
     try {
       const res = await FS.anular(m.id, mot);
       H.registrar('Efectivo: anuló un movimiento', `${M.textoMotivo(m.tipo, m.motivo)} · ${pesos(m.monto)} · ${m.dia} · ${mot}`);
-      d.close(); EF.cuenta = undefined; EF.movs = null;
+      d.close(); EF.cuenta = undefined; EF.movs = null; EF.porUnir = null; FS.olvidarPorUnir();
       EF.msg = `Anulado. Lo que debería haber: <b>${esc(pesos(res.saldo))}</b>.`;
       repintar();
     } catch (e) { err.textContent = e.message || H.mensajeError(e); b.disabled = false; b.textContent = 'Anular'; }
@@ -289,7 +319,7 @@ async function guardarRecibir(x, rec, b, H, repintar, errEl = null) {
     const res = await FS.recibirDeCaja(x.id, rec, x.col || 'caja_movimientos');
     const llego = rec ? M.leerMonto(rec.llego) : Math.round(Number(x.monto) || 0);
     H.registrar('Efectivo: recibió ' + (x.origen === 'b2b' ? 'de un cliente B2B' : 'de una caja'), `${textoPr(x)} · ${pesos(llego)}${rec ? ` de ${pesos(x.monto)}` : ''} · ${x.dia}`);
-    EF.cuenta = undefined; EF.movs = null; EF.porRecibir = null; EF.posteriores = null; EF.mes = String(x.dia || '').slice(0, 7) || EF.mes;
+    EF.cuenta = undefined; EF.movs = null; EF.porUnir = null; FS.olvidarPorUnir(); EF.porRecibir = null; EF.posteriores = null; EF.mes = String(x.dia || '').slice(0, 7) || EF.mes;
     EF.msg = `Listo. Lo que debería haber en la caja de administración: <b>${esc(pesos(res.saldo))}</b>.`;
     repintar();
     return true;
@@ -323,7 +353,7 @@ function dialogoRecibirTodos(lista, H, repintar) {
       H.registrar('Efectivo: recibió todos (completos)', `${lista.length} · ${pesos(total)} · ${lista.map(x => `${textoPr(x)} ${pesos(x.monto)}`).join(' · ')}`.slice(0, 900));
       d.close();
       const meses = [...new Set(lista.map(x => String(x.dia || '').slice(0, 7)).filter(Boolean))].sort();
-      EF.cuenta = undefined; EF.movs = null; EF.porRecibir = null; EF.posteriores = null; EF.mes = meses[meses.length - 1] || EF.mes;
+      EF.cuenta = undefined; EF.movs = null; EF.porUnir = null; FS.olvidarPorUnir(); EF.porRecibir = null; EF.posteriores = null; EF.mes = meses[meses.length - 1] || EF.mes;
       EF.msg = `Listo: ${res.n} recibidos por ${esc(pesos(res.total))}. Lo que debería haber en la caja de administración: <b>${esc(pesos(res.saldo))}</b>.`;
       repintar();
     } catch (e) {
@@ -361,4 +391,104 @@ function dialogoAnularPr(x, H, repintar) {
       d.close(); EF.porRecibir = null; EF.msg = 'Anulado.'; repintar();
     } catch (e) { err.textContent = e.message || H.mensajeError(e); b.disabled = false; b.textContent = 'Anular'; }
   });
+}
+
+// ═══════════════ v0.123.0 · Unir un pago en efectivo a su documento en Gastos ═══════════════
+// Primero se paga en Gastos (fen-gastos), con una clave que sale del movimiento; después se marca aquí (fen-ventas). Son dos bases
+// distintas: si la segunda parte falla, el pago en Gastos ya quedó y "Unir" otra vez solo termina de marcarlo (no paga dos veces).
+const fsGN = () => import('./gn-fs.js?v=0.123.0');
+function dialogoUnir(m, H, repintar) {
+  const { esc, pesos } = H;
+  let docs = null, elegido = '';
+  const d = H.dialogo(`<form class="form-dialogo ef-unir" novalidate><h2>Unir a su documento</h2>
+    <p class="ayuda"><b>Pago en efectivo · ${pesos(m.monto)}</b> · ${esc(diaTexto(m.dia))} · ${esc(m.detalle || '')}${m.documento ? ' · N° ' + esc(m.documento) : ''} · ${esc(M.textoOrigenEfectivo(m))}</p>
+    <div class="campo"><label for="eu-q">Buscar en Gastos</label><input id="eu-q" type="search" placeholder="Nombre, RUT o N° del documento" autocomplete="off"></div>
+    <div id="eu-lista" class="eu-lista" role="radiogroup" aria-label="Documentos de Gastos"><div class="vacio" style="border:0">Buscando en Gastos…</div></div>
+    <p class="ayuda eu-mano"><a href="#gastos" id="eu-mano">No está en Gastos: registrarla a mano</a> · En Gastos use "Registrar gasto sin banco" (en efectivo), con la fecha y el monto de este pago. Después vuelva aquí: aparece como "Ya pagado en efectivo" y se une con un toque.</p>
+    <p class="error" id="eu-err" role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" id="eu-no">Cancelar</button><button type="submit" class="btn" id="eu-si" disabled>Unir</button></div></form>`);
+  const lista = d.querySelector('#eu-lista'), err = d.querySelector('#eu-err'), b = d.querySelector('#eu-si');
+  const fila = x => {
+    const dd = x.d, pag = dd.estado === 'pagado_efectivo';
+    const sub = pag ? `Ya pagado en efectivo en Gastos el ${esc(diaTexto(dd.pagoFecha || dd.fecha))} · ${pesos(dd.pagoMonto)}` : `${esc(diaTexto(dd.fecha))} · total ${pesos(dd.total)}${dd.saldo !== dd.total ? ` · falta ${pesos(dd.saldo)}` : ''}`;
+    const k = dd.id + '|' + (dd.pagoId || '');
+    return `<label class="eu-doc${x.puede ? '' : ' eu-no-puede'}"><input type="radio" name="eu-doc" value="${esc(k)}" ${x.puede ? '' : 'disabled'} ${elegido === k ? 'checked' : ''}>
+      <span class="eu-doc-t"><span class="gn-fila"><b>${esc(M.textoDocumento(dd))} · ${esc(dd.razon || dd.rut || 'Sin nombre')}</b>${x.calza ? '<span class="chip c-verde chip-chico">Calza</span>' : ''}</span>
+      <small>${sub}${!x.puede ? (pag ? ' · el monto no calza' : ' · el pago es mayor que lo que falta') : !x.calza && !pag ? ` · queda pagado ${pesos(x.monto)} de ${pesos(dd.saldo)}` : ''}</small></span></label>`;
+  };
+  let cands = [];
+  const pintar = () => {
+    if (!docs) return;
+    cands = M.candidatosUnir(m, docs, d.querySelector('#eu-q').value);
+    lista.innerHTML = cands.length ? cands.map(fila).join('') : `<div class="vacio" style="border:0">${d.querySelector('#eu-q').value.trim() ? 'Nada con ese texto en lo por pagar de Gastos.' : 'No hay documentos por pagar de este proveedor ni del mismo monto. Búsquelo por nombre o N°.'}</div>`;
+    b.disabled = !cands.some(x => x.puede && x.d.id + '|' + (x.d.pagoId || '') === elegido);
+  };
+  d.querySelector('#eu-q').addEventListener('input', pintar);
+  lista.addEventListener('change', e => { if (e.target.name === 'eu-doc') { elegido = e.target.value; err.textContent = ''; b.disabled = false; } });
+  d.querySelector('#eu-no').onclick = () => d.close();
+  d.querySelector('#eu-mano').addEventListener('click', () => d.close());
+  fsGN().then(G => G.docsParaEfectivo(m.id)).then(l => { docs = l; const c = M.candidatosUnir(m, l, ''); if (c[0] && c[0].calza && c[0].puede) elegido = c[0].d.id + '|' + (c[0].d.pagoId || ''); pintar(); })
+    .catch(e => { lista.innerHTML = `<p class="error">${esc(e.message || H.mensajeError(e))}</p>`; });
+  d.querySelector('form').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const x = cands.find(c => c.d.id + '|' + (c.d.pagoId || '') === elegido);
+    if (!x || !x.puede) { err.textContent = 'Elija el documento.'; return; }
+    b.disabled = true; b.textContent = 'Uniendo…'; err.textContent = '';
+    let pago;
+    try {
+      pago = await (await fsGN()).pagarConEfectivo(x.d, { id: m.id, col: m.col || 'efectivo_movimientos', sucursal: m.sucursal || '', dia: m.dia, monto: x.monto, origen: M.origenEfectivo(m), clave: M.claveUnion(m),
+        texto: `Efectivo · ${M.textoOrigenEfectivo(m)} · ${m.detalle || ''}` });
+    } catch (e) { err.textContent = e.message || H.mensajeError(e); b.disabled = false; b.textContent = 'Unir'; return; }
+    const documento = M.textoDocumento(x.d);
+    try { await FS.unir(m, { docId: x.d.id, pagoId: pago.pagoId || '', documento, proveedor: String(x.d.razon || '').slice(0, 120), monto: x.monto }); }
+    catch (e) { err.textContent = `Quedó pagado en Gastos, pero no se alcanzó a marcar aquí (${e.message || H.mensajeError(e)}). Toque Unir otra vez: no se paga dos veces.`; b.disabled = false; b.textContent = 'Unir'; return; }
+    H.registrar('Efectivo: unió un pago a su documento', `${pesos(m.monto)} · ${m.dia} · ${m.detalle || ''} → ${documento} · ${x.d.razon || ''}`);
+    d.close();
+    EF.porUnir = null; EF.movs = null; FS.olvidarPorUnir();
+    EF.msg = `Listo: unido a ${esc(documento)} de ${esc(x.d.razon || '')}. En Gastos quedó pagado en efectivo.`;
+    repintar();
+  });
+}
+
+// ═══════════════ v0.123.0 · Efectivo → Retiros por semana ═══════════════
+// De lunes a domingo, por caja: lo que se retiró, lo que se pagó con la caja, el sencillo y los descuadres. 2 lecturas por semana
+// (consultas), guardadas 10 minutos por semana.
+const SUCS_SEM = [['barros_arana', 'Barros Arana'], ['ainavillo', 'Ainavillo']];
+async function pintarSemana(el, H) {
+  const { esc, pesos, info } = H, hoy = hoyLocal();
+  if (!EF.semana) EF.semana = M.lunesDe(hoy);
+  const lunes = EF.semana, dom = M.sumarDias(lunes, 6), esta = lunes === M.lunesDe(hoy);
+  const corto = dd => { const [y, mm, x] = dd.split('-').map(Number); return `${x} ${MESES[mm - 1].slice(0, 3)}`; };
+  const cab = `<div class="cabecera"><div><h1 id="t-efectivo">Efectivo</h1><p>Lo que pasó con el efectivo de cada caja, semana a semana</p></div>${pestanas('semana')}</div>
+    <div class="ef-sem-nav" role="group" aria-label="Semana"><button type="button" class="btn-sec btn-chico" id="ef-sem-ant" aria-label="Semana anterior">← Anterior</button>
+      <b id="ef-sem-t">Lun ${esc(corto(lunes))} al dom ${esc(corto(dom))}${esta ? ' · esta semana' : ''}</b>
+      <button type="button" class="btn-sec btn-chico" id="ef-sem-sig" aria-label="Semana siguiente" ${esta ? 'disabled' : ''}>Siguiente →</button></div>`;
+  el.innerHTML = cab + '<section class="tarjeta"><div class="vacio" style="border:0">Cargando…</div></section>';
+  const enlazar = () => {
+    el.querySelector('#ef-sem-ant').onclick = () => { EF.semana = M.sumarDias(lunes, -7); pintarSemana(el, H); };
+    el.querySelector('#ef-sem-sig').onclick = () => { if (!esta) { EF.semana = M.sumarDias(lunes, 7); pintarSemana(el, H); } };
+  };
+  enlazar();
+  let r;
+  try { const x = await FS.leerSemana(lunes); r = M.resumirSemana(x.evals, x.cmovs, lunes); }
+  catch (e) { el.querySelector('.tarjeta').innerHTML = `<p class="error">${esc(H.mensajeError(e))}</p>`; return; }
+  if (EF.semana !== lunes) return;   // se cambió de semana mientras cargaba
+  const P = r.porSuc, celda = (k, f) => SUCS_SEM.map(([s]) => `<td>${f(P[s])}</td>`).join('');
+  const mc = (o, sin = '—') => (o.n ? `${pesos(o.monto)} · ${o.n}` : sin);
+  const difTxt = n => (n < 0 ? `falta ${pesos(-n)}` : n > 0 ? `sobra ${pesos(n)}` : 'cuadra');
+  const filas = [
+    ['Cierres', s => String(s.cierres)],
+    ['Retirado al cerrar', s => pesos(s.retiroCierre)],
+    ['Retiros con la caja abierta', s => mc(s.retirosAbierta, '$0')],
+    ['Pagos desde la caja', s => mc(s.pagos, '$0')],
+    ['Sencillo recibido', s => mc(s.sencillo, '$0')],
+    ['Descuadres', s => (s.descuadres.n ? `<span class="${s.descuadres.suma < 0 ? 'ef-neg' : ''}">${s.descuadres.n} · ${difTxt(s.descuadres.suma)}</span>` : 'Ninguno')],
+    [`Fondo al cerrar (meta ${pesos(M.META_FONDO)})`, s => (s.fondo.n ? `${s.fondo.enMeta} de ${s.fondo.n} en la meta` : '—')]
+  ];
+  const tabla = `<div class="ef-sem-tabla-c"><table class="ef-sem-tabla"><thead><tr><th scope="col"><span class="sr">Concepto</span></th>${SUCS_SEM.map(([, t]) => `<th scope="col">${esc(t)}</th>`).join('')}</tr></thead>
+    <tbody>${filas.map(([t, f]) => `<tr><th scope="row">${esc(t)}</th>${celda(t, f)}</tr>`).join('')}</tbody></table></div>`;
+  const mot = r.motivos.length ? `<ul class="ef-sem-mot">${r.motivos.map(x => `<li><span><b>${esc(x.texto)}</b> · ${esc(M.textoSucursal(x.sucursal))} · ${esc(diaTexto(x.dia))}${x.nota && x.nota !== x.texto ? ` <small>${esc(x.nota)}</small>` : ''}</span><b class="nowrap${x.monto < 0 ? ' ef-neg' : ''}">${difTxt(x.monto)}</b></li>`).join('')}</ul>` : '<div class="vacio" style="border:0">Sin descuadres de efectivo esta semana.</div>';
+  el.innerHTML = cab + `<section class="tarjeta" aria-labelledby="t-ef-sem"><div class="titulo-fila"><h2 id="t-ef-sem">Por caja ${info('Retiros por semana', 'Sale de los cierres de cada caja (su evaluación) y de los retiros e ingresos con la caja abierta, de lunes a domingo, por el día de la caja.\nRetirado al cerrar: lo que se sacó en el sobre de cada cierre. Retiros con la caja abierta: los que fueron a la caja de administración. Pagos desde la caja: los pagos a proveedores con plata de la caja.\nDescuadres: los cierres cuyo efectivo no cuadró, con lo que faltó o sobró.\nFondo al cerrar: cuántos cierres dejaron justo la meta de fondo.')}</h2></div>${tabla}</section>
+    <section class="tarjeta" aria-labelledby="t-ef-mot"><div class="titulo-fila"><h2 id="t-ef-mot">Descuadres por motivo</h2><span class="nota">${r.motivos.length}</span></div>${mot}</section>`;
+  enlazar();
 }

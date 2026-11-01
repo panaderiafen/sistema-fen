@@ -11,9 +11,10 @@
 //  v0.121.0: recibirVarios() recibe varios completos en una sola transacción.
 //  v0.122.0: un conteo puede corregir el anterior (mov.corrige): la diferencia queda como error de conteo, no como
 //  faltante; si el que se corrige era el conteo inicial, el nuevo pasa a ser el conteo inicial.
+//  v0.123.0: unir a su documento (pagos) o a su abono de la cartola (depósitos) y Retiros por semana (ver abajo).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.122.0';
-import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.122.0';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.123.0';
+import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.123.0';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 const refCuenta = () => doc(db, 'efectivo', CUENTA);
@@ -71,6 +72,8 @@ export async function anular(id, motivo) {
     const d = m.data();
     if (d.anulado) throw new Error('Ese movimiento ya estaba anulado.');
     if (d.tipo === 'conteo') throw new Error('Un conteo no se anula: haga un conteo nuevo.');
+    // v0.123.0 · Lo unido a su documento o a su abono no se anula aquí: primero se deshace allá (Gastos o la cartola)
+    if (d.estado === 'unido' || d.estado === 'uniendo') throw new Error(d.motivo === 'deposito' ? 'Está unido a su abono de la cartola: primero deshaga la conciliación del abono.' : 'Está unido a su documento en Gastos: no se anula.');
     // Lo anterior al último conteo ya quedó cuadrado por ese conteo: anularlo descuadraría el saldo
     const uc = c.exists() && c.data().ultimoConteo, msC = uc && uc.en && uc.en.toMillis ? uc.en.toMillis() : 0, msM = d.creado && d.creado.toMillis ? d.creado.toMillis() : 0;
     if (msC && msM && msM < msC) throw new Error('Es anterior al último conteo, que ya lo incluye. Si hay un error, haga un conteo nuevo.');
@@ -184,4 +187,101 @@ export async function anularPorRecibir(id, motivo) {
     if (x.recibido || x.anulado) throw new Error('Ya estaba recibido o anulado.');
     tx.update(ref, { pendienteAdmin: false, anulado: { por: correo(), en: Timestamp.now(), motivo: String(motivo || '').trim().slice(0, 200) } });
   });
+}
+
+// ═══════════════════════════════════════════════
+//  v0.123.0 · Unir a su documento, depósitos con la cartola y Retiros por semana
+//  · leerPorUnir(): 2 consultas sin índices (efectivo_movimientos con estado por_unir o uniendo; caja_movimientos con estado por_unir).
+//    Se guarda 2 minutos (Efectivo y Conciliación la comparten) y se olvida al escribir.
+//  · unir(): marca el movimiento unido (unido: { … , por, en } y estado 'unido'), en una transacción. El pago en Gastos (fen-gastos)
+//    se hace ANTES y con una clave que sale del movimiento: si esta segunda parte falla, "Unir" otra vez no paga dos veces.
+//  · Depósitos: por_unir → uniendo (con el id del abono) → unido. "uniendo" queda a la vista si algo se corta a medias.
+//    desunir(): vuelve a por_unir (unido: null) y deja desunido { por, en, motivo }. Nada se borra.
+//  · leerSemana(lunes): 2 consultas (evaluacion_caja por la hora del cierre y caja_movimientos por su día); se guarda por semana.
+// ═══════════════════════════════════════════════
+let porUnirMem = null;
+export function olvidarPorUnir() { porUnirMem = null; }
+export async function leerPorUnir({ soloAdmin = false } = {}) {
+  if (porUnirMem && Date.now() - porUnirMem.t < 120000 && (soloAdmin || porUnirMem.conCajas)) return porUnirMem.lista.filter(m => !soloAdmin || m.col !== 'caja_movimientos');
+  const [a, b] = await Promise.all([
+    getDocs(query(collection(db, 'efectivo_movimientos'), where('estado', 'in', ['por_unir', 'uniendo']))),
+    soloAdmin ? null : getDocs(query(collection(db, 'caja_movimientos'), where('estado', '==', 'por_unir')))
+  ]);
+  const lista = [...a.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => m.cuenta === CUENTA && !m.anulado),
+    ...(b ? b.docs.map(d => ({ id: d.id, col: 'caja_movimientos', ...d.data() })).filter(m => !m.anulado) : [])];
+  porUnirMem = { t: Date.now(), lista, conCajas: !soloAdmin };
+  return lista;
+}
+const refDe = m => doc(db, m.col === 'caja_movimientos' ? 'caja_movimientos' : 'efectivo_movimientos', m.id);
+// union: { docId, pagoId, documento ("Boleta 4471"), proveedor, monto } → { repetido? }
+export async function unir(m, union) {
+  const ref = refDe(m), por = correo(), ahora = Timestamp.now();
+  let repetido = false;
+  await runTransaction(db, async tx => {
+    const sn = await tx.get(ref);
+    if (!sn.exists()) throw new Error('Ese movimiento ya no existe.');
+    const x = sn.data();
+    if (x.anulado) throw new Error('Ese movimiento fue anulado.');
+    if (x.estado === 'unido' && x.unido && x.unido.docId === union.docId) { repetido = true; return; }
+    if (x.estado !== 'por_unir') throw new Error('Ese movimiento ya no está por unir. Vuelva a abrir Efectivo.');
+    tx.update(ref, { estado: 'unido', unido: { ...union, por, en: ahora } });
+  });
+  porUnirMem = null;
+  return { repetido };
+}
+// Depósito → "uniendo" con su abono (paso 1 de 3: después se marca el abono en la cartola y se termina)
+export async function depositoUniendo(depId, abono) {
+  const ref = doc(db, 'efectivo_movimientos', depId), por = correo(), ahora = Timestamp.now();
+  await runTransaction(db, async tx => {
+    const sn = await tx.get(ref);
+    if (!sn.exists()) throw new Error('Ese depósito ya no existe.');
+    const x = sn.data();
+    if (x.anulado) throw new Error('Ese depósito fue anulado en Efectivo.');
+    if (x.estado === 'uniendo' && x.unido && x.unido.cartolaMovId === abono.id) return;
+    if (x.estado !== 'por_unir') throw new Error('Ese depósito ya está unido a otro abono.');
+    tx.update(ref, { estado: 'uniendo', unido: { cartolaMovId: abono.id, abonoDia: String(abono.fecha || '').slice(0, 10), monto: Math.round(Number(abono.monto) || 0), cuenta: abono.cuenta || '', por, en: ahora } });
+  });
+  porUnirMem = null;
+}
+export async function depositoUnido(depId, abonoId) {
+  const ref = doc(db, 'efectivo_movimientos', depId);
+  await runTransaction(db, async tx => {
+    const sn = await tx.get(ref);
+    if (!sn.exists()) throw new Error('Ese depósito ya no existe.');
+    const x = sn.data();
+    if (x.estado === 'unido') return;
+    if (x.estado !== 'uniendo' || !x.unido || x.unido.cartolaMovId !== abonoId) throw new Error('Ese depósito cambió mientras tanto. Vuelva a abrir la conciliación.');
+    tx.update(ref, { estado: 'unido' });
+  });
+  porUnirMem = null;
+}
+// Deshacer: el depósito vuelve a "Por unir" (solo si sigue unido a ese abono; si ya estaba por unir, no hace nada)
+export async function desunir(depId, abonoId, motivo) {
+  const ref = doc(db, 'efectivo_movimientos', depId), por = correo(), ahora = Timestamp.now();
+  await runTransaction(db, async tx => {
+    const sn = await tx.get(ref);
+    if (!sn.exists()) return;
+    const x = sn.data();
+    if (x.estado === 'por_unir') return;
+    if (!x.unido || (abonoId && x.unido.cartolaMovId !== abonoId)) throw new Error('Ese depósito está unido a otro abono: no se cambió.');
+    tx.update(ref, { estado: 'por_unir', unido: null, desunido: { por, en: ahora, motivo: String(motivo || '').trim().slice(0, 200), antes: { ...x.unido } } });
+  });
+  porUnirMem = null;
+}
+
+const semanaMem = {};
+export function olvidarSemanas() { Object.keys(semanaMem).forEach(k => delete semanaMem[k]); }
+// lunes 'AAAA-MM-DD' → { evals, cmovs } (los cierres hasta 2 días después del domingo, por si una caja se cerró tarde)
+export async function leerSemana(lunes, { forzar = false } = {}) {
+  if (semanaMem[lunes] && !forzar && Date.now() - semanaMem[lunes].t < 600000) return semanaMem[lunes].d;
+  const [y, m, d] = lunes.split('-').map(Number);
+  const desde = Timestamp.fromDate(new Date(y, m - 1, d)), hasta = Timestamp.fromDate(new Date(y, m - 1, d + 9));
+  const dom = new Date(Date.UTC(y, m - 1, d + 6)).toISOString().slice(0, 10);
+  const [a, b] = await Promise.all([
+    getDocs(query(collection(db, 'evaluacion_caja'), where('cierre', '>=', desde), where('cierre', '<', hasta))),
+    getDocs(query(collection(db, 'caja_movimientos'), where('dia', '>=', lunes), where('dia', '<=', dom)))
+  ]);
+  const r = { evals: a.docs.map(x => ({ id: x.id, ...x.data() })), cmovs: b.docs.map(x => ({ id: x.id, ...x.data() })) };
+  semanaMem[lunes] = { t: Date.now(), d: r };
+  return r;
 }

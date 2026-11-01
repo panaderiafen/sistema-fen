@@ -223,3 +223,125 @@ export function revisarRecepcion(base, r) {
   if (explicado !== falta) return { error: explicado > falta ? `Lo explicado ($${explicado.toLocaleString('es-CL')}) es más que lo que falta ($${falta.toLocaleString('es-CL')}).` : `Faltan por explicar $${(falta - explicado).toLocaleString('es-CL')} (de $${falta.toLocaleString('es-CL')}).`, falta, explicado };
   return { movs: [base, ...salidas], falta };
 }
+
+// ═══════════════════════════════════════════════
+//  v0.123.0 · Unir cada pago en efectivo a su documento en Gastos, cada depósito a su abono de la cartola, y Retiros por semana.
+//  Aprobado por Emmanuel el 1 nov (boceto). Puro: lo usan la pantalla y las pruebas.
+// ═══════════════════════════════════════════════
+// Lo que la caja anota cuando un cierre no cuadra (los mismos de la caja v3.0.0, efectivo-caja.js)
+export const MOTIVOS_DESCUADRE = { vuelto: 'Vuelto mal dado', retiro_sin_anotar: 'Retiro sin anotar', venta_sin_registrar: 'Venta sin registrar', no_se: 'No sé', otro: 'Otro' };
+export const textoDescuadre = k => MOTIVOS_DESCUADRE[k] || (k ? String(k) : 'Sin motivo anotado');
+export const META_FONDO = 25000;   // el fondo que queda en cada caja al cerrar (FONDO_SUGERIDO de la caja)
+const DIA_OK = d => DIA.test(String(d || ''));
+export const diasEntre = (a, b) => (DIA_OK(a) && DIA_OK(b) ? Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5) : NaN);
+export const sumarDias = (d, k) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + k)).toISOString().slice(0, 10);
+// "DD-MM-AAAA" (cajas antiguas) o "AAAA-MM-DD" → "AAAA-MM-DD"
+export const diaNormal = f => { const t = String(f || ''); if (DIA.test(t)) return t; const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(t); return m ? `${m[3]}-${m[2]}-${m[1]}` : ''; };
+
+// ── 1. Pagos por unir a su documento ──
+// Un pago a proveedor que espera su boleta o factura: de la caja de administración (Salida · Pago en efectivo) o de una caja de
+// venta (retiro "Pago a proveedor", caja_movimientos). m.col dice de dónde viene ('caja_movimientos' o nada).
+export const esDeCaja = m => !!m && m.col === 'caja_movimientos';
+export const esPagoPorUnir = m => !!m && !m.anulado && m.estado === 'por_unir' && (esDeCaja(m) ? m.tipo === 'retiro' && m.motivo === 'pago_proveedor' : m.tipo === 'salida' && m.motivo === 'pago');
+// De qué efectivo salió (va al pago en Gastos)
+export const origenEfectivo = m => (esDeCaja(m) ? 'caja_' + String(m.sucursal || '') : CUENTA);
+export const textoOrigenEfectivo = m => (esDeCaja(m) ? 'Caja ' + (textoSucursal(m.sucursal) || '') : 'Caja de administración');
+// La clave del pago en Gastos: sale del movimiento (dos clics o un reintento no pagan dos veces)
+export const claveUnion = m => 'ef_' + (esDeCaja(m) ? 'cm_' : '') + String(m.id || '');
+// "Boleta 4471" · "Factura 1203" · "Sin documento"
+export function textoDocumento(d) {
+  if (!d) return '';
+  const t = String(d.tipoTexto || '').trim() || 'Documento', f = String(d.folio || '').trim();
+  return f ? `${t} ${f}` : t;
+}
+const N = t => String(t == null ? '' : t).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+const digitos = t => String(t == null ? '' : t).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+const VACIAS = new Set(['SPA', 'LTDA', 'EIRL', 'LIMITADA', 'SOCIEDAD', 'COMERCIAL', 'COMERCIALIZADORA', 'EMPRESA', 'EMPRESAS', 'SERVICIOS', 'CHILE', 'DEL', 'LOS', 'LAS', 'CIA']);
+const palabras = t => N(t).split(' ').filter(w => w.length >= 3 && !VACIAS.has(w));
+// ¿El texto anotado ("A quién se le pagó") es del proveedor del documento? Por su RUT o por una palabra del nombre.
+export function mismoProveedor(texto, d) {
+  const rut = digitos(String((d && (d.rutN || d.rut)) || '').toUpperCase().replace(/K$/, '')), dt = digitos(texto);
+  if (rut.length >= 7 && dt.includes(rut.slice(0, -1))) return true;
+  const a = palabras(texto), b = new Set(palabras(d && d.razon));
+  return a.some(w => b.has(w)) || (N(texto).length >= 4 && N(d && d.razon).includes(N(texto)));
+}
+// docs: los de Gastos para unir (gn-fs.docsParaEfectivo): { id, razon, rut, folio, tipoTexto, fecha, total, saldo, estado: 'pendiente' | 'pagado_efectivo', pagoId?, pagoMonto? }
+// → [{ d, calza, mismo, folioOk, dias, puede, monto }] lo más probable primero. Sin búsqueda: los del mismo proveedor o N°, y los que
+// calzan por monto (±$5) en el mes. Con búsqueda: lo que diga el texto (nombre, RUT, N° o tipo).
+export const TOL_UNIR = 5;
+export function candidatosUnir(mov, docs, q = '') {
+  const monto = Math.round(Number(mov && mov.monto) || 0), folio = digitos(mov && mov.documento);
+  const l = (docs || []).map(d => {
+    const base = d.estado === 'pagado_efectivo' ? Math.round(Number(d.pagoMonto) || 0) : Math.round(Number(d.saldo) || 0);
+    const calza = Math.abs(base - monto) <= TOL_UNIR, dias = Math.abs(diasEntre(d.fecha, mov.dia));
+    // Lo que se paga: lo del movimiento (sin pasarse de lo que falta del documento)
+    const puede = d.estado === 'pagado_efectivo' ? calza : monto <= base + TOL_UNIR;
+    return { d, calza, mismo: mismoProveedor(mov && mov.detalle, d), folioOk: !!folio && digitos(d.folio) === folio, dias: isNaN(dias) ? 999 : dias, puede, monto: d.estado === 'pagado_efectivo' ? base : Math.min(monto, base) };
+  });
+  const t = N(q), tq = /^[\d.\s-]+$/.test(String(q || '').trim()) ? digitos(q) : '';   // un N° escrito con o sin ceros adelante
+  const pasa = t ? (x => N([x.d.razon, x.d.rut, x.d.folio, x.d.tipoTexto].join(' ')).includes(t) || (!!tq && digitos(x.d.folio) === tq))
+    : (x => x.mismo || x.folioOk || (x.calza && x.dias <= 31));
+  const peso = x => (x.calza && (x.mismo || x.folioOk) ? 4 : 0) + (x.folioOk ? 2 : 0) + (x.calza ? 1.5 : 0) + (x.mismo ? 1 : 0);
+  return l.filter(pasa).sort((a, b) => peso(b) - peso(a) || a.dias - b.dias || String(a.d.razon).localeCompare(String(b.d.razon))).slice(0, 40);
+}
+// El texto "Unido · boleta 4471" de un movimiento unido
+export const textoUnido = m => (m && m.unido ? 'Unido · ' + (m.unido.cartolaMovId ? `abono del ${String(m.unido.abonoDia || '').split('-').reverse().slice(0, 2).join('-')}` : String(m.unido.documento || 'su documento').toLowerCase()) : '');
+
+// ── 2. Depósitos que se unen solos con la cartola ──
+export const esDepositoAbierto = m => !!m && !m.anulado && m.tipo === 'salida' && m.motivo === 'deposito' && (m.estado === 'por_unir' || m.estado === 'uniendo');
+export const CUENTA_DEL_BANCO = { bancoestado_cc: 'cc', bancoestado_chequera: 'chequera' };
+export const DIAS_DEPOSITO = 3;   // el banco lo muestra el mismo día o hasta 3 días después
+// ¿Este abono de la cartola (B2B → Conciliación) es este depósito? Mismo monto, la misma cuenta y de 0 a 3 días después.
+export function calzaDeposito(abono, dep) {
+  if (!abono || !esDepositoAbierto(dep) || Math.round(Number(abono.monto) || 0) !== Math.round(Number(dep.monto) || 0)) return false;
+  const c = CUENTA_DEL_BANCO[dep.banco];
+  if (c && (abono.cuenta || 'chequera') !== c) return false;
+  const d = diasEntre(dep.dia, String(abono.fecha || '').slice(0, 10));
+  return d >= 0 && d <= DIAS_DEPOSITO;
+}
+const diceDeposito = a => /\bDEP(OSITO)?S?\b/.test(N(a && a.descripcion));
+// Cada depósito con a lo más un abono (y al revés): primero los que ya se estaban uniendo; después el que dice DEPOSITO y la fecha más cercana.
+// → { abonoId: depósito }
+export function parearDepositos(abonos, deps) {
+  const out = {}, usados = new Set(), libres = (abonos || []).slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+  (deps || []).filter(d => esDepositoAbierto(d) && d.estado === 'uniendo' && d.unido && d.unido.cartolaMovId).forEach(d => {
+    if (libres.some(a => a.id === d.unido.cartolaMovId) && !out[d.unido.cartolaMovId]) { out[d.unido.cartolaMovId] = d; usados.add(d.id); }
+  });
+  libres.filter(a => !out[a.id]).forEach(a => {
+    const c = (deps || []).filter(d => !usados.has(d.id) && d.estado === 'por_unir' && calzaDeposito(a, d))
+      .sort((x, y) => diasEntre(x.dia, a.fecha) - diasEntre(y.dia, a.fecha));
+    if (c.length && (c.length === 1 || diceDeposito(a) || diasEntre(c[0].dia, a.fecha) < diasEntre(c[1].dia, a.fecha))) { out[a.id] = c[0]; usados.add(c[0].id); }
+  });
+  return out;
+}
+
+// ── 3. Retiros por semana (de lunes a domingo) ──
+export function lunesDe(dia) { const d = new Date(Date.UTC(+dia.slice(0, 4), +dia.slice(5, 7) - 1, +dia.slice(8, 10))), k = (d.getUTCDay() + 6) % 7; return sumarDias(dia, -k); }
+// evals: evaluacion_caja de la semana; cmovs: caja_movimientos de la semana (por su día). → { porSuc: { barros_arana, ainavillo }, motivos }
+export function resumirSemana(evals, cmovs, lunes) {
+  const fin = sumarDias(lunes, 6), en = d => d >= lunes && d <= fin;
+  const vacia = () => ({ cierres: 0, retiroCierre: 0, retirosAbierta: { monto: 0, n: 0 }, pagos: { monto: 0, n: 0 }, sencillo: { monto: 0, n: 0 }, descuadres: { n: 0, suma: 0 }, fondo: { enMeta: 0, n: 0 } });
+  const porSuc = { barros_arana: vacia(), ainavillo: vacia() }, motivos = [];
+  // Un cierre por caja (si se corrigió o se cerró dos veces, el último)
+  const ms = t => (t && typeof t.toMillis === 'function' ? t.toMillis() : (t && t.seconds ? t.seconds * 1000 : 0));
+  const ult = {};
+  (evals || []).forEach(e => { const k = e.cajaId || e.id; if (!ult[k] || ms(e.cierre) >= ms(ult[k].cierre)) ult[k] = e; });
+  Object.values(ult).forEach(e => {
+    const dia = diaNormal(e.fecha), s = porSuc[e.sucursal]; if (!s || !en(dia)) return;
+    s.cierres++;
+    s.retiroCierre += Math.round(Number(e.montoRetirado) || 0);
+    const fondo = e.fondo != null ? e.fondo : e.saldoSiguiente;
+    if (fondo != null && !e.sinArqueo) { s.fondo.n++; if (Math.round(Number(fondo) || 0) === META_FONDO) s.fondo.enMeta++; }
+    const dif = Math.round(Number(e.difEfectivo) || 0);
+    if (dif && !e.sinArqueo) { s.descuadres.n++; s.descuadres.suma += dif; motivos.push({ motivo: e.motivoDescuadre || '', texto: textoDescuadre(e.motivoDescuadre), sucursal: e.sucursal, dia, monto: dif, nota: String(e.notaDescuadre || '') }); }
+  });
+  (cmovs || []).forEach(x => {
+    const s = porSuc[x.sucursal]; if (!s || x.anulado || !en(String(x.dia || ''))) return;
+    const n = Math.round(Number(x.monto) || 0);
+    if (x.tipo === 'retiro' && x.motivo === 'caja_admin') { s.retirosAbierta.monto += n; s.retirosAbierta.n++; }
+    else if (x.tipo === 'retiro' && x.motivo === 'pago_proveedor') { s.pagos.monto += n; s.pagos.n++; }
+    else if (x.tipo === 'ingreso' && x.motivo === 'sencillo_admin') { s.sencillo.monto += n; s.sencillo.n++; }
+  });
+  motivos.sort((a, b) => a.texto.localeCompare(b.texto, 'es') || a.dia.localeCompare(b.dia) || a.sucursal.localeCompare(b.sucursal));
+  return { lunes, domingo: fin, porSuc, motivos };
+}

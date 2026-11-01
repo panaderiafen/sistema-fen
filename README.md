@@ -1,9 +1,51 @@
-# Sistema Fën · v0.122.0
+# Sistema Fën · v0.123.0
 
-**Reglas de Firestore:** fen-ventas **v1.8.0 (sin cambios)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja (fen-ventas):** v3.1.1 (sin cambios) · **Servidor de cobros:** 0.4.2 (sin cambios) · **Apps Script:** ninguno cambia · 1 de noviembre de 2026
+**Reglas de Firestore:** fen-ventas **v1.9.0 (cambia: publicarlas primero)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja:** v3.2.0 (va junto) · **Servidor de cobros:** 0.4.2 (sin cambios) · **Apps Script:** ninguno cambia · 1 y 2 de noviembre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.123.0: unir el efectivo a su documento, los depósitos con la cartola, retiros por semana, el Point en Hoy y la caja en el estado de resultados
+
+Aprobado por Emmanuel el 1 nov (boceto).
+- **Efectivo → "Por unir a su documento":** los pagos en efectivo de la caja de administración y los pagos a proveedores hechos con la plata de una caja (caja v3.0.0 en adelante) aparecen juntos, con **Unir a su documento**. La ventana busca en Gastos los documentos por pagar de ese proveedor (por nombre, RUT o N°): primero el que tiene el mismo monto, marcado **Calza**; se puede buscar otro. Al unir, en Gastos el documento queda **pagado en efectivo** (con la fecha del pago y de qué caja salió) y en Efectivo la línea dice **"Unido · boleta 4471"**. Si en Gastos ya estaba como "Gasto sin banco" en efectivo, se une a ese pago sin pagarlo otra vez.
+  - Si el documento no está en Gastos: **"No está en Gastos: registrarla a mano"** lleva a Gastos ("Registrar gasto sin banco", en efectivo); al volver, aparece para unirlo.
+  - Son dos bases distintas (Gastos y la caja). Primero se paga en Gastos y después se marca en Efectivo. Si se corta entre medio, **Unir otra vez** termina sin pagar dos veces (el pago lleva una clave que sale del movimiento).
+  - Lo unido no se anula en Efectivo.
+- **Depósitos que se unen solos con la cartola:** en **Ventas a empresas → Conciliación**, la tarjeta **Depósitos de efectivo** muestra cada abono que coincide con un depósito anotado en Efectivo (mismo monto, la misma cuenta, el mismo día o hasta 3 días después; si dice DEPOSITO, mejor): **"Coincide con: Depósito al banco · 1 nov · $300.000 (Efectivo)"** y **Conciliar**. El abono queda como **"Depósito de efectivo"** (no es de B2B: es plata que pasa de la caja de administración, 1.1.6, al banco, 1.1.3) y en Efectivo el depósito queda unido a ese abono. Si un abono es un depósito y no aparece ahí, cada abono tiene **"Es un depósito de efectivo"** (solo se elige uno del mismo monto). **Deshacer** en Lo conciliado deja los dos como estaban (nada se borra: queda el historial). Si algo se corta a medias, la tarjeta ofrece **Terminar**.
+- **Efectivo → "Retiros por semana"** (pestaña nueva): de lunes a domingo, con Anterior y Siguiente, por caja (Barros Arana y Ainavillo): cierres, retirado al cerrar, retiros con la caja abierta, pagos desde la caja (monto · cuántos), sencillo recibido, descuadres (cuántos · lo que faltó o sobró) y el fondo al cerrar contra la meta de $25.000 ("5 de 7 en la meta"). Abajo, **Descuadres por motivo** (motivo · caja · día · monto).
+- **Hoy → "Cobro del Point pagado sin venta":** al abrir Hoy se piden una vez los cobros recientes al servidor de cobros. Cada cobro **pagado** de una tienda que no tiene una venta con su referencia aparece en Pendientes (día, hora, monto, tipo de tarjeta y referencia) con **Revisar**: **Ya se registró a mano** (elegir la venta; la del mismo monto va primero), **Se cerró como descuadre** (elegir el cierre de ese día) o **Se devolvió en Mercado Pago**. La revisión queda guardada y no vuelve a aparecer (no se cambia después). Un cobro de hace menos de 10 minutos todavía no se avisa.
+- **Estado de resultados** (devengado, neto):
+  - Cuenta nueva **6.7.1 Diferencias de caja** (en Gastos de operación; la arma Sistema Fën, no se elige en un ítem): el faltante (+) o sobrante (−) de efectivo de cada cierre va en el bloque de su tienda; el faltante al recibir y la diferencia de un conteo de la caja de administración van en los comunes. El conteo inicial y el que corrige el conteo inicial no cuentan (error de conteo). El que corrige otro conteo sí: compensa la diferencia mal anotada de ese conteo, y las dos juntas dejan la diferencia real.
+  - Un cobro del Point revisado **"Se cerró como descuadre"** cuenta como **venta** de esa tienda ese día ("venta sin detalle", neto = monto ÷ 1,19) y resta el mismo monto en 6.7.1 de ese cierre: deja de ser faltante.
+  - **Merma de la tienda** (lo que la caja registró como merma) en **5.3 Merma valorizada**, al costo de su receta del mes (el mismo del costo directo de lo vendido), en el área del producto y el canal de su tienda. Se suma a la merma de Producción (son registros distintos: no se cuenta dos veces). Lo que no tiene receta asociada no suma y se avisa.
+  - La comisión de Mercado Pago no cambia. La cuadratura con Gastos no cambia (6.7.1 no viene de Gastos).
+  - **Meses cerrados:** su foto no cambia. Lo nuevo de un mes ya cerrado (por ejemplo octubre) entra como **"Ajustes de meses cerrados"** en el primer mes abierto siguiente, por fila y por cuenta, como cualquier cambio después del cierre.
+
+**Lecturas nuevas (cuota de Firestore):**
+- Efectivo, al abrir: +2 consultas (los pagos y depósitos por unir; 2 minutos en memoria). Unir lee los documentos y pagos de Gastos con la memoria de Gastos (si ya abrió Gastos, casi nada).
+- Retiros por semana: 2 consultas por semana vista (10 minutos en memoria por semana).
+- Conciliación de abonos: +1 consulta (los depósitos abiertos; 2 minutos en memoria). Conciliar un depósito: 1 lectura y 1 escritura en fen-b2b y 2 transacciones cortas en fen-ventas.
+- Hoy: 1 pedido al servidor de cobros y, solo si hay cobros pagados, 2 consultas (ventas por referencia y revisiones; hasta 30 referencias); 5 minutos en memoria. Revisar: 1 consulta (las ventas o los cierres de ese día).
+- Finanzas: +4 consultas por mes calculado (cierres, Efectivo, revisiones del Point y merma de la tienda de ese mes), guardadas con el mes.
+
+Cambian `efectivo-modelo.js`, `efectivo-fs.js`, `vista-efectivo.js` (Por unir, Unir y Retiros por semana), `gn-fs.js` (pagar desde Efectivo, con su clave), `b2b.js` y `app.js` (depósitos en la conciliación; Hoy), `finanzas.js`, `finanzas-eerr.js`, `finanzas-estado.js`, `finanzas-margenes.js`, `vista-finanzas-eerr.js` y `plan-cuentas.js` (la caja en el estado de resultados), `estilos.css`, `config.js`, `firestore.rules` (**v1.9.0**) y este README. Archivo nuevo: `point-revision.js`. Los demás, solo la versión (`?v=0.123.0`). `cocina/` no cambia.
+
+**Dónde va:** repo **sistema-fen**, raíz (todos los archivos del zip, incluido el nuevo `point-revision.js`). Las reglas van a la consola de Firebase (abajo). Apps Script: nada.
+
+**Reglas de Firestore (fen-ventas) v1.9.0 — publicarlas PRIMERO (y junto con la caja v3.2.0, que va en paralelo):**
+1. Firebase → proyecto **fen-ventas** → Firestore Database → pestaña **Reglas**.
+2. Reemplace todo el texto por el de `firestore.rules` (de este zip) y presione **Publicar**. Si la caja v3.2.0 trae sus propias reglas, júntelas antes de publicar: las dos versiones tocan este mismo archivo.
+3. Qué cambia: en `efectivo_movimientos` la administración puede unir (y deshacer la unión de) un pago o un depósito, y lo unido no se anula; en `caja_movimientos` la administración marca un pago a proveedor como unido (una vez) y la caja ya no anula lo unido; colección nueva `point_revisiones` (solo administración la lee y la crea; no se cambia ni se borra). Lo demás queda igual.
+
+- [ ] Reglas fen-ventas v1.9.0 publicadas.
+- [ ] Abajo dice v0.123.0. Efectivo tiene dos pestañas: Caja de administración y Retiros por semana.
+- [ ] Efectivo → Por unir a su documento: un pago muestra "Unir a su documento"; el documento del mismo monto dice "Calza". Al unir, la línea dice "Unido · boleta …" y en Gastos el documento queda pagado en efectivo.
+- [ ] Un pago hecho con la plata de una caja (caja v3.0.0 o más nueva) aparece con "Caja Barros Arana" o "Caja Ainavillo" y se une igual.
+- [ ] Ventas a empresas → Conciliación: con un depósito anotado en Efectivo y su abono en la cartola, aparece "Depósitos de efectivo · Coincide con…". Conciliar; en Efectivo el depósito dice "Unido · abono del …". Deshacer en Lo conciliado lo deja como estaba.
+- [ ] Efectivo → Retiros por semana: los números de esta semana calzan con los cierres; Anterior y Siguiente cambian de semana.
+- [ ] Hoy: si un cobro del Point quedó pagado sin venta, aparece "Cobro del Point pagado sin venta" con Revisar. Al guardar, desaparece.
+- [ ] Finanzas → Estado de resultados (noviembre): en Gastos de operación aparece 6.7.1 Diferencias de caja; en Merma, la merma de la tienda. La cuadratura sigue en $0.
 
 ## Novedades de la v0.122.0: corregir un conteo, "antes" en cada movimiento y Actualizar en Point
 

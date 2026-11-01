@@ -9,8 +9,8 @@
 //  Dimensiones guardadas para los estados por área y por canal (v0.112.0): col (PAN, BOL, PAS, CAF, REVENTA, comun) y canal
 //  (barros, ainavillo, b2b, comun).
 // ═══════════════════════════════════════════════
-import * as PC from './plan-cuentas.js?v=0.122.0';
-import * as AR from './areas.js?v=0.122.0';
+import * as PC from './plan-cuentas.js?v=0.123.0';
+import * as AR from './areas.js?v=0.123.0';
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
@@ -120,7 +120,8 @@ function movsDeRef(k, col, r) {
     if (des) out.push({ ...base, fila: 'variables', cuenta: '5.5', canal: cn, item: 'Despacho · ' + (NOMBRE_CANAL[cn] || cn), neto: des });
     return out;
   }
-  if (k === 'merma') return [{ ...base, fila: 'variables', cuenta: '5.3', canal: 'comun', item: s(r.nombre), neto: num(r.neto) }];
+  // v0.123.0: la merma de la tienda va en el canal de su tienda (la de Producción, en Común)
+  if (k === 'merma') return [{ ...base, fila: 'variables', cuenta: '5.3', canal: CANAL_DE_SUC[r.suc] || 'comun', item: s(r.nombre), neto: num(r.neto) }];
   if (k === 'regalado') return [{ ...base, fila: 'variables', cuenta: '5.8', canal: 'comun', item: s(r.nombre), neto: num(r.neto) }];
   if (k === 'provision') { const c2 = colArea(r.area, col); return [{ ...base, col: c2, fila: filaRem(c2), cuenta: '6.1.9', canal: canalDeArea(r.area), item: s(r.nombre), neto: num(r.neto) }]; }
   if (k === 'dep' || k === 'depComun') return [{ ...base, fila: 'dep', cuenta: '6.8', canal: canalDeArea(r.area), item: s(r.item), neto: num(r.neto) }];

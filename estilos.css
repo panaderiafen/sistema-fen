@@ -3096,3 +3096,45 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 /* v0.122.0 · Contar: corregir el conteo anterior */
 .check-linea.ef-corrige { align-items: flex-start; line-height: 1.4; margin: 0 0 10px; font-weight: 500; }
 .check-linea.ef-corrige input { margin-top: 3px; flex: none; width: 18px; height: 18px; }
+
+/* v0.123.0 · Efectivo: unir a su documento, retiros por semana; depósitos en la conciliación; Hoy: cobro del Point sin venta */
+.eu-lista, .dep-lista, .pr-lista, .pr-opciones { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; margin: 4px 0 10px; }
+.eu-doc { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--linea); border-radius: 12px; background: var(--tarjeta); cursor: pointer; }
+.eu-doc input { margin-top: 3px; flex: none; width: 18px; height: 18px; }
+.eu-doc:has(input:checked) { border-color: var(--acento); background: var(--acento-suave); }
+.eu-doc.eu-no-puede { opacity: .6; cursor: default; }
+.eu-doc-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.eu-doc-t b { font-weight: 600; overflow-wrap: anywhere; }
+.eu-doc-t small { color: var(--suave); font-size: 12.5px; overflow-wrap: anywhere; }
+.eu-doc-t .gn-fila { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.eu-mano { margin: 0 0 6px; }
+.ef-unido { white-space: normal; text-align: left; }
+.ef-deps { margin: 12px 0 0; }
+.ef-sem-nav { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin: 0 0 14px; }
+.ef-sem-nav b { font-size: 15px; text-align: center; }
+.ef-sem-tabla-c { overflow-x: auto; }
+.ef-sem-tabla { width: 100%; min-width: 0; border-collapse: collapse; font-size: 14px; }
+.ef-sem-tabla th, .ef-sem-tabla td { padding: 10px 8px; border: 0; border-top: 1px solid var(--linea); text-align: right; vertical-align: top; text-transform: none; letter-spacing: 0; }
+.ef-sem-tabla thead th { border-top: 0; font-size: 13px; color: var(--suave); font-weight: 700; }
+.ef-sem-tabla tbody th { text-align: left; font-weight: 600; font-size: 14px; color: var(--texto); width: 44%; }
+.ef-sem-tabla td { font-variant-numeric: tabular-nums; }
+.ef-sem-mot { list-style: none; margin: 0; padding: 0; }
+.ef-sem-mot li { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 10px 0; border-top: 1px solid var(--linea); font-size: 14px; }
+.ef-sem-mot li small { display: block; color: var(--suave); }
+.ef-neg { color: var(--rojo-t); }
+.dep-tarjeta .dep-coincide { color: var(--verde-t); font-weight: 600; }
+.dep-fila .bj-gl { overflow-wrap: anywhere; }
+.dep-esperan { margin: 12px 0 0; }
+.pendiente-boton .txt span { overflow-wrap: anywhere; }
+.pendiente-boton .btn { flex: none; }
+@media (max-width: 560px) {
+  .ef-sem-nav { grid-template-columns: 1fr 1fr; }
+  .ef-sem-nav b { grid-column: 1 / -1; grid-row: 1; }
+  .ef-sem-nav #ef-sem-sig { justify-self: end; }
+  .ef-sem-nav #ef-sem-ant { justify-self: start; }
+  .ef-sem-tabla { font-size: 13px; }
+  .ef-sem-tabla tbody th { font-size: 13px; width: 40%; }
+  .ef-sem-tabla th, .ef-sem-tabla td { padding: 8px 4px; }
+  .pendiente-boton { flex-wrap: wrap; }
+  .pendiente-boton .btn { margin-left: 52px; }
+}

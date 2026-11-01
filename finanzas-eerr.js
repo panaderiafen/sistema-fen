@@ -32,12 +32,19 @@
 //  B2C-BA o B2C-AI, como el canal B2B); y, entre los comunes, marketing (6.9), seguros (6.10), transporte (6.11) y capacitación (6.12). Las
 //  líneas del catálogo usan el área tal cual (el mapa de áreas de Clasificación ya no se usa: una sola regla). La cuota de un convenio de
 //  la TGR (2.9) va fuera del resultado. Un cierre anterior a la v0.102.0 se compara en su forma (las filas nuevas se suman donde estaban).
+//  v0.123.0 (aprobado por Emmanuel el 1 nov): la caja entra al resultado (E.caja, de finanzas.cajaFinMes; lineasCaja aquí):
+//   · 6.7.1 Diferencias de caja: el faltante (+) o sobrante (−) de efectivo de cada cierre, en el bloque de su tienda; el faltante al recibir
+//     y la diferencia de un conteo de la caja de administración, en los comunes (sin el conteo inicial ni el que corrige el conteo inicial).
+//   · Un cobro del Point revisado "Se cerró como descuadre": venta de esa tienda ese día (venta sin detalle, neto = monto ÷ 1,19, en Común)
+//     y −monto en 6.7.1 de su cierre (deja de ser faltante).
+//   · La merma de la tienda (5.3), valorizada como el costo directo (finanzas-margenes.costearMermaTienda), en el área del producto.
+//   No son gastos de Gastos: la cuadratura los descuenta (info.caja). Un mes cerrado no cambia: lo nuevo entra como ajuste del mes siguiente.
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.122.0';
-import * as AR from './areas.js?v=0.122.0';
-import * as PC from './plan-cuentas.js?v=0.122.0';
-import * as GT from './tributario.js?v=0.122.0';   // v0.108.0: gestión y tributario
-import * as FS from './finanzas-estado.js?v=0.122.0';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
+import * as FR from './finanzas-resultados.js?v=0.123.0';
+import * as AR from './areas.js?v=0.123.0';
+import * as PC from './plan-cuentas.js?v=0.123.0';
+import * as GT from './tributario.js?v=0.123.0';   // v0.108.0: gestión y tributario
+import * as FS from './finanzas-estado.js?v=0.123.0';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -156,6 +163,39 @@ export function depreciacionDelMes(invs, mes) {
   return out;
 }
 
+// ═══════════════ v0.123.0 · La caja en el resultado ═══════════════
+// X = { evals (evaluacion_caja), efectivo (efectivo_movimientos del mes), point (point_revisiones del mes) }
+// → { dif: [{ tienda 'tiendaBA'|'tiendaAI'|'' , suc, dia, neto (+ faltante, − sobrante), nombre }], ventas: [{ suc, dia, monto, neto, nombre }] }
+const SUC_FIN = { barros_arana: 'barros', ainavillo: 'ainavillo' }, TIENDA_SUC = { barros: 'tiendaBA', ainavillo: 'tiendaAI' }, AREA_SUC = { barros: 'B2C-BA', ainavillo: 'B2C-AI' };
+const diaIso = f => { const t = s(f); if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t; const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(t); return m ? `${m[3]}-${m[2]}-${m[1]}` : ''; };
+const msTs = t => (t && typeof t.toMillis === 'function' ? t.toMillis() : (t && t.seconds ? t.seconds * 1000 : (t && t.__ts) || 0));
+export const MOTIVO_DESC = { vuelto: 'vuelto mal dado', retiro_sin_anotar: 'retiro sin anotar', venta_sin_registrar: 'venta sin registrar', no_se: 'no se sabe', otro: 'otro' };
+export function lineasCaja(X, mes) {
+  const dif = [], ventas = [], ult = {};
+  (X && X.evals || []).forEach(e => { const k = e.cajaId || e.id; if (!ult[k] || msTs(e.cierre) >= msTs(ult[k].cierre)) ult[k] = e; });
+  Object.values(ult).forEach(e => {
+    const dia = diaIso(e.fecha), suc = SUC_FIN[e.sucursal], d = Math.round(num(e.difEfectivo));
+    if (!suc || mesDe(dia) !== mes || e.sinArqueo || !d) return;
+    dif.push({ tienda: TIENDA_SUC[suc], suc, dia, neto: -d, cajaId: s(e.cajaId || e.id), nombre: `${d < 0 ? 'Faltante' : 'Sobrante'} al cerrar · ${NOMBRE_SUC[suc]}${e.motivoDescuadre ? ' · ' + (MOTIVO_DESC[e.motivoDescuadre] || e.motivoDescuadre) : ''}` });
+  });
+  (X && X.point || []).filter(p => p && p.resolucion === 'descuadre' && mesDe(p.dia) === mes && SUC_FIN[p.sucursal]).forEach(p => {
+    const suc = SUC_FIN[p.sucursal], monto = Math.round(num(p.monto));
+    if (!monto) return;
+    ventas.push({ suc, dia: s(p.dia), monto, neto: monto / 1.19, nombre: 'Venta sin detalle (cobro del Point que se cerró como descuadre)', referencia: s(p.referencia) });
+    dif.push({ tienda: TIENDA_SUC[suc], suc, dia: s(p.dia), neto: -monto, cajaId: s(p.cajaId), nombre: `Cobro del Point de ese cierre (ya no es faltante) · ${NOMBRE_SUC[suc]}` });
+  });
+  (X && X.efectivo || []).filter(m => m && !m.anulado && mesDe(m.dia) === mes).forEach(m => {
+    if (m.tipo === 'salida' && m.motivo === 'faltante') dif.push({ tienda: '', suc: '', dia: s(m.dia), neto: Math.round(num(m.monto)), nombre: `Faltante al recibir${m.detalle ? ' · ' + s(m.detalle) : ''}` });
+    // El conteo inicial no es diferencia; el que corrige el conteo inicial tampoco (error de conteo). El que corrige otro conteo sí cuenta:
+    // compensa la diferencia mal anotada de ese conteo (las dos juntas dejan la diferencia real).
+    if (m.tipo === 'conteo' && !m.inicial && !(m.corrige && m.corrige.inicial) && Math.round(num(m.diferencia))) {
+      const d = Math.round(num(m.diferencia));
+      dif.push({ tienda: '', suc: '', dia: s(m.dia), neto: -d, nombre: m.corrige ? `Corrige el conteo del ${s(m.corrige.dia).split('-').reverse().join('-')} (error de conteo)` : `${d < 0 ? 'Faltante' : 'Sobrante'} al contar la caja de administración` });
+    }
+  });
+  return { dif, ventas };
+}
+
 // ═══════════════ Armar el estado de resultados de un mes ═══════════════
 // E = { mes,
 //   margen: resultado de finanzas-margenes.calcularMargenes() para ese mes (filas con area, porSuc { neto, costo, comision, despacho }),
@@ -219,6 +259,19 @@ export function armarEERR(E) {
   if (num(M.cafe)) { F.merma.CAF += num(M.cafe); det('merma', 'CAF', { tipo: 'merma', nombre: 'Café de calibración, botado y pruebas', neto: r0(M.cafe) }); }
   if (M.disponible === false) avisos.push({ k: 'merma', texto: 'No se pudo leer la merma de Producción: la merma va en $0.' });
   if (num(M.sinCosto)) avisos.push({ k: 'merma_sin_costo', texto: `${M.sinCosto} ${M.sinCosto === 1 ? 'anotación' : 'anotaciones'} de merma sin costo (no suman).` });
+  // v0.123.0 · La caja: merma de la tienda (5.3), ventas del Point cerradas como descuadre y diferencias de caja (6.7.1)
+  const CJ = E.caja || null, infoCaja = { difTiendas: 0, difComun: 0, ventasPoint: 0, mermaTienda: 0 };
+  if (CJ) {
+    ((CJ.merma && CJ.merma.detalle) || []).forEach(x => { const col = colDe(x.area); F.merma[col] += num(x.neto); infoCaja.mermaTienda += num(x.neto); det('merma', col, { tipo: 'merma', origen: 'tienda', nombre: s(x.nombre), neto: r0(x.neto), cantidad: x.cantidad, unidad: 'un', suc: x.suc }); });
+    if (CJ.merma && num(CJ.merma.sinCosto)) avisos.push({ k: 'merma_tienda_sin_costo', texto: `${CJ.merma.sinCosto} ${CJ.merma.sinCosto === 1 ? 'registro' : 'registros'} de merma de la tienda sin costo (${CJ.merma.unidadesSinCosto} un, no suman): asocie esos productos con su receta.` });
+    const L = lineasCaja(CJ, mes);
+    L.ventas.forEach(v => { F.ventas.comun += v.neto; canal[v.suc].comun += v.neto; infoCaja.ventasPoint += v.neto;
+      const ref = { tipo: 'venta', nombre: v.nombre, suc: v.suc, neto: r0(v.neto), costo: 0, costoVenta: 0, comision: 0, despacho: 0, unidades: 0, ok: true, motivo: '', dia: v.dia };
+      det('ventas', 'comun', ref); det('ventasCanal_' + v.suc, 'comun', ref); });
+    L.dif.forEach(x => { const k = x.tienda || 'fijosComun'; F[k].comun += x.neto; infoCaja[x.tienda ? 'difTiendas' : 'difComun'] += x.neto;
+      det(k, 'comun', { tipo: 'difCaja', cuenta: '6.7.1', item: x.tienda ? 'Cierres de caja' : 'Caja de administración', area: x.suc ? AREA_SUC[x.suc] : '', nombre: x.nombre, fecha: x.dia, neto: r0(x.neto) }); });
+    if (CJ.disponible === false) avisos.push({ k: 'caja_fin', texto: 'No se pudieron leer los cierres de caja ni Efectivo: las diferencias de caja y la merma de la tienda van en $0.' });
+  }
   // Gastos del mes
   const lineas = lineasGastosMes(E.gastos, mes, E.fin, E.mapa, E.items);
   const info = { compras: { mp: 0, reventa: 0, total: 0 }, enMargen: 0, fuera: { cuotas: 0, capital: 0, impuestos: 0, deuda: 0, provision: 0, inversion: 0, retiro: 0, otro: 0, total: 0 }, interes: 0, pagosTarjeta: { n: 0, monto: 0 }, sinClasificar: { n: 0, neto: 0 }, canalB2B: { rem: 0, fijos: 0, total: 0 },
@@ -307,6 +360,7 @@ export function armarEERR(E) {
   info.ventasSinAsociar = r0(sinAsocNeto); info.ventasSinCosto = r0(sinCostoNeto);
   if (nPend) info.ventasRecetaPendiente = { neto: r0(pendNeto), n: nPend };   // v0.80.1
   info.comisionCaja = CM;   // v0.112.0
+  info.caja = { difTiendas: r0(infoCaja.difTiendas), difComun: r0(infoCaja.difComun), ventasPoint: r0(infoCaja.ventasPoint), mermaTienda: r0(infoCaja.mermaTienda) };   // v0.123.0
   const out = { mes, filas: F, canal, info, detalle: D, avisos, costosUsados };
   out.cuadratura = cuadratura(out, E.gastos);
   return out;
@@ -320,7 +374,9 @@ export function cuadratura(eerr, gastos) {
   const F = eerr.filas, I = eerr.info;
   const totalGastos = r0((gastos || []).filter(FR.vigente).filter(g => FR.fechaGasto(g).slice(0, 7) === eerr.mes).reduce((a, g) => a + FR.netoGasto(g), 0));
   const T = k => num((F[k] || {}).total);   // v0.102.0: con las filas nuevas (packaging, tiendas, marketing…) y los costos de venta que vienen de Gastos
-  const enResultado = T('rem') + T('fijos') + T('remComun') + FILAS_COMUNES_FIJOS.reduce((a, k) => a + T(k), 0) + T('canalB2B') + FILAS_TIENDAS.reduce((a, k) => a + T(k), 0) + T('packaging') + num(I.costoVentaGastos) + (T('financieros') - I.interes);
+  // v0.123.0: las diferencias de caja (6.7.1) están en las tiendas y en los fijos comunes, pero no vienen de Gastos
+  const difCaja = I.caja ? num(I.caja.difTiendas) + num(I.caja.difComun) : 0;
+  const enResultado = T('rem') + T('fijos') + T('remComun') + FILAS_COMUNES_FIJOS.reduce((a, k) => a + T(k), 0) + T('canalB2B') + FILAS_TIENDAS.reduce((a, k) => a + T(k), 0) + T('packaging') + num(I.costoVentaGastos) + (T('financieros') - I.interes) - difCaja;
   const partes = { enResultado, interesCuotas: I.interes, compras: I.compras.total, enMargen: I.enMargen, fuera: I.fuera.total, sinClasificar: I.sinClasificar.neto };
   const suma = Object.values(partes).reduce((a, v) => a + v, 0);
   return { totalGastos, ...partes, suma, diferencia: totalGastos - suma, cuadra: Math.abs(totalGastos - suma) <= 1 && !I.sinClasificar.n };
