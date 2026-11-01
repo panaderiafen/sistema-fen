@@ -1,9 +1,56 @@
-# Sistema Fën · v0.123.0
+# Sistema Fën · v0.124.0
 
-**Reglas de Firestore:** fen-ventas **v1.9.0 (cambia: publicarlas primero)**; las demás sin cambios (fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja:** v3.2.0 (va junto) · **Servidor de cobros:** 0.4.2 (sin cambios) · **Apps Script:** ninguno cambia · 1 y 2 de noviembre de 2026
+**Reglas de Firestore:** ninguna cambia (fen-ventas v1.9.0, fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja:** v3.2.0 (sin cambios) · **Servidor de cobros:** 0.4.2 (sin cambios) · **Apps Script:** ninguno cambia · 1 y 2 de noviembre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
 
 Solo entra la cuenta de administración (la misma de la caja). Sistema Fën es solo para el dueño: las jefas siguen en Cocina con su PIN, y logística usa su app (fen-logistica).
+
+## Novedades de la v0.124.0: Finanzas → Flujo de caja (Semanas, Lo que viene y Cuadre)
+
+Aprobado por Emmanuel el 1 nov (boceto "Boceto · Flujo de caja"; hoja de ruta, paso 13).
+- **Arreglo importante:** en la v0.123.0, Finanzas no abría (dos variables con el mismo nombre en `finanzas.js`: "Identifier 'caja' has already been declared"). Ya abre.
+- **Finanzas → Flujo de caja** (pestaña nueva), con la línea "La plata que entra y sale, semana a semana: lo real y lo que viene." y una (i) que explica real y esperado, y que los traspasos entre cuentas propias no cuentan.
+- **Semanas:** columnas de lunes a domingo ("24–30 nov", "27 oct–2 nov"). Las pasadas son **reales**; la de hoy es real hasta hoy y esperada hasta el domingo ("esta semana"); las que vienen (6, se cambia en Configuración) son **esperadas**. Se ven las últimas 4 pasadas; **Ver 4 semanas antes** llega hasta el 1 de octubre. La tabla parte mostrando la semana de hoy.
+  - Filas: Saldo al empezar · Entra (Ventas en tienda, Cobros de empresas, Otros ingresos) · Sale (Proveedores, Sueldos y Previred, Impuestos (F29), Arriendos y servicios, Crédito (cuota), Tarjeta de crédito (pago), Retiros del dueño, Inversiones, Diferencias de caja, Efectivo sin anotar (conteo inicial), Otros pagos) · Saldo al terminar (en rojo si es negativo). Las filas vacías no se muestran.
+  - Arriba: **Plata disponible hoy** (banco, Mercado Pago y efectivo; y "en camino" si un traspaso tiene un solo lado), **Por cobrar a empresas** y **Por pagar** (las semanas que vienen, con lo atrasado) y **Primera semana en rojo** con su razón en una línea.
+  - Tocar una cifra abre su detalle: los movimientos reales o lo esperado que la forman.
+  - **Ventas que vienen: Estimado | Meta.** Estimado: por tienda, el promedio del mismo día de la semana de las últimas 4 semanas. Meta: la meta de la semana (si una tienda no tiene, el promedio). Las semanas pasadas con meta muestran "meta $X" bajo lo vendido.
+- **Lo real (percibido):** cargos del banco y de Mercado Pago de Gastos (cada uno por su documento y su cuenta del plan; los marcados "no es gasto" por su naturaleza; lo sin revisar va a Otros pagos), abonos de la cartola (Conciliación: con cliente → Cobros de empresas; sin revisar o "No es de B2B" → Otros ingresos), ventas de cada cierre (efectivo; tarjeta según el reporte de Mercado Pago sin la comisión, o la caja menos la comisión promedio si ese día no hay reporte), descuadres, pagos y entradas con la caja abierta, la caja de administración (Efectivo) y los pagos en efectivo de Gastos que no tienen su movimiento en Efectivo.
+  - **Traspasos entre cuentas propias** no entran ni salen: Mercado Pago → banco (se une a su abono por monto, 0 a 3 días), depósitos de efectivo, chequera ↔ cuenta corriente, retiros de una caja a la caja de administración y el sencillo.
+  - **Tarjeta de crédito = deuda:** lo comprado con ella no sale; sale el pago de la tarjeta.
+  - **Mercado Pago libera:** al instante (como hoy) o a N días (Configuración).
+  - **Conteo inicial de la caja de administración (30 oct):** deja el efectivo del sistema igual a lo contado (más el fondo de cada caja). La diferencia (lo de octubre que no quedó anotado) va en su fila, "Efectivo sin anotar (conteo inicial)".
+  - Saldos al empezar (30-09-2026): chequera $1.714.505, cuenta corriente $485.437, Mercado Pago $630.538, efectivo $293.500 (total $3.123.980). Se guardan en `fin_flujo/config` al abrir por primera vez y se cambian en **Configuración** (con historial).
+- **Lo que viene** (la agenda de la plata): por semana ("Semana del lun 2 al dom 8 nov · termina con $X"; las semanas en rojo, marcadas), con fecha · qué · de dónde sale · monto · estado (**Por fecha**, **Estimado**, **Movido**; y **Atrasado**: lo vencido sin pagar cuenta hoy). Fuentes:
+  - documentos de Gastos con saldo: su vencimiento; si no tiene, la fecha más el plazo con que se le suele pagar a ese proveedor (de los pagos ya hechos); si no, **Sin fecha** (no suman);
+  - compromisos de los meses que vienen; cuotas de Gastos → Créditos (si no hay ningún crédito: la cuota Fogape $334.868, día 20 hábil, desde la cuota 15 del 20-11);
+  - **sueldos:** la última liquidación de cada persona, el último día hábil del mes; desde el 25 aparece **Revisar sueldos de <mes>** para ajustar el monto con una nota; **Previred:** el 13 (hábil), como el del mes anterior;
+  - **F29 estimado:** IVA del mes (débito de las ventas de la caja y B2B − crédito de las compras del SII) + PPM y retenciones del último F29; se va solo cuando el F29 real está en Gastos;
+  - cobros de empresas: cada folio por cobrar con su vencimiento (días acordados); "4 pagos semanales" en sus 4 pagos del mes siguiente;
+  - ventas de las tiendas (promedio o meta).
+  - **Mover fecha** guarda un ajuste aparte (`fin_flujo_ajustes`, con nota, quién y cuándo): el documento no cambia. **Volver a la fecha original** lo anula. **+ Anotar un pago o cobro esperado** (por ejemplo, un retiro del dueño); se anula, no se borra.
+  - **Metas de venta por semana** por tienda (`fin_flujo/metas`): cada cambio rige desde la semana que se elija y queda en el historial; $0 la quita.
+- **Cuadre:** cada semana cerrada: **Según el sistema** (saldo al empezar + lo real), **Cartolas** (el saldo al domingo de cada cuenta: BancoEstado por el saldo de sus movimientos o el cuadre de la cartola; Mercado Pago, el saldo después del último pago más las ventas liberadas después, aproximado; "sin cartola" si no llega al domingo), **Efectivo contado** (caja de administración según su último conteo y lo anotado después + el fondo de cada caja + lo que va de una caja a la caja de administración), **Diferencia** (cuenta por cuenta; hasta $1.000 se toma como cuadrado) y **Estado** (Cuadra / Falta registrar / Sin datos). Abajo, por semana, lo que falta con su botón: cargos sin conciliar (Bandeja), abonos sin conciliar (Conciliación), efectivo por unir, pagos en efectivo de Gastos sin su movimiento en Efectivo, efectivo sin contar hace más de 7 días, cuentas sin cartola y traspasos sin su otro lado.
+
+**Lo que no tiene datos (se muestra como "sin datos" o "sin fecha", no se inventa):** las ventas por transferencia en la tienda (llegan como abono al banco, en Otros ingresos); los abonos que la cartola ignora al subir (Transbank) no están; el F29 sin un F29 anterior no tiene PPM; el Previred sin uno anterior no se estima; las órdenes B2B sin folio y los compromisos de pago de Cobranza todavía no entran a lo esperado; el efectivo antes del conteo inicial no se puede cuadrar.
+
+**Lecturas (cuota de Firestore), al abrir el Flujo de caja (5 minutos en memoria; cambiar de pestaña no lee nada; "Actualizar" lee de nuevo):**
+- fen-gastos: lo del Gastos nuevo con la memoria de la sesión (si ya abrió Gastos o Resultados, casi nada; la primera vez, sus colecciones), `mp_ventas` desde el 1 oct (1 por día con ventas) y `fin_flujo` (2 documentos) y `fin_flujo_ajustes` (los ajustes). La primera vez escribe `fin_flujo/config` (1 escritura).
+- fen-ventas: 3 consultas desde el 1 oct (cierres, movimientos de las cajas y de Efectivo): hoy unas 100 lecturas; crece unas 100 por mes.
+- fen-b2b: 1 consulta de los abonos desde el 1 oct (unos 50 por mes) + lo por cobrar (la misma memoria de 5 minutos de Hoy) + las órdenes del análisis (6 horas en este equipo).
+- Guardar un ajuste, una meta o la configuración: 1 transacción corta en fen-gastos.
+
+Cambian `vista-finanzas.js` (pestaña nueva), `finanzas.js` (el arreglo), `estilos.css`, `config.js` y este README. Archivos nuevos: `flujo-modelo.js` (las reglas, sin red), `flujo-fs.js` (lecturas y escrituras) y `vista-flujo.js` (la pantalla). Los demás, solo la versión (`?v=0.124.0`). `cocina/` no cambia.
+
+**Dónde va:** repo **sistema-fen**, raíz (todos los archivos del zip, incluidos los 3 nuevos). **Reglas:** ninguna cambia: fen-gastos tiene una regla general de administración que ya cubre `fin_flujo` y `fin_flujo_ajustes`. Apps Script: nada.
+
+- [ ] Abajo dice v0.124.0. Finanzas abre (Cómo trabajamos, Costos, Márgenes, Resultados, Flujo de caja).
+- [ ] Finanzas → Flujo de caja → Semanas: la primera semana "1–4 oct" parte con $3.123.980; la columna "esta semana" está marcada; tocar una cifra muestra su detalle.
+- [ ] Plata disponible hoy: banco, Mercado Pago y efectivo se parecen a las cartolas y a lo contado.
+- [ ] Lo que viene: aparecen las facturas por pagar, el arriendo, la cuota del crédito, Previred, F29 estimado, sueldos y los folios por cobrar. "Mover fecha" cambia la semana y el documento en Gastos sigue igual.
+- [ ] Poner la meta de Barros Arana; en Semanas, "Meta" la usa y las semanas pasadas muestran "meta $X".
+- [ ] Cuadre: las semanas cerradas con su estado; lo que falta lleva a la Bandeja, a Conciliación o a Efectivo.
+- [ ] Configuración: los saldos del 30-09 y "Mercado Pago libera: al instante".
 
 ## Novedades de la v0.123.0: unir el efectivo a su documento, los depósitos con la cartola, retiros por semana, el Point en Hoy y la caja en el estado de resultados
 

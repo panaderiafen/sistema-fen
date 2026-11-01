@@ -3138,3 +3138,98 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
   .pendiente-boton { flex-wrap: wrap; }
   .pendiente-boton .btn { margin-left: 52px; }
 }
+
+/* ═══ v0.124.0 · Finanzas → Flujo de caja (Semanas, Lo que viene y Cuadre) ═══ */
+.fl-intro { display: flex; flex-direction: column; gap: 12px; }
+.fl-tit h2 { margin: 0; font-size: 22px; display: flex; align-items: center; gap: 6px; }
+.fl-tit .ayuda { margin: 4px 0 0; font-size: 14px; }
+.fl-msg { margin: 0; }
+.fl-cifras .fl-cifra { padding: 16px 18px; gap: 4px; min-width: 0; }
+.fl-cifras .fl-cifra .valor { font-size: 24px; overflow-wrap: anywhere; }
+.fl-cifras .fl-cifra .nota { line-height: 1.45; }
+.fl-cifra-rojo { border-color: var(--rojo); background: color-mix(in srgb, var(--rojo) 35%, var(--tarjeta)); }
+.fl-cifra-rojo .valor { color: var(--rojo-t); }
+.fl-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 12px; }
+.fl-barra-der { display: inline-flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.fl-modo { align-items: center; gap: 6px; }
+.fl-modo .pastilla { min-height: 40px; }
+.fl-modo-t { font-size: 13px; font-weight: 600; color: var(--suave); margin-right: 2px; }
+.fl-tabla-c { border: 1px solid var(--linea); border-radius: 12px; }
+.fl-tabla-c:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+.fl-tabla-c .tabla-tiempos { margin-top: 0; }
+.fl-tabla th, .fl-tabla td { padding: 8px 10px; white-space: nowrap; text-align: right; }
+.fl-tabla th[scope=row] { text-align: left; min-width: 0; width: 1%; padding-left: 12px; }
+.fl-tabla thead th { padding-top: 10px; }
+.fl-tabla thead th span, .fl-tabla thead th small { display: block; }
+.fl-tabla thead th span { color: var(--texto); font-size: 13px; font-weight: 700; }
+.fl-tabla thead th small { font-weight: 500; font-size: 11px; }
+.fl-tabla thead th:first-child { text-align: left; padding-left: 12px; }
+.fl-tabla .fl-actual { background: color-mix(in srgb, var(--acento-suave) 55%, var(--tarjeta)); }
+.fl-tabla .fl-futura { color: var(--suave); font-style: italic; }
+.fl-tabla .fl-futura .fl-celda { color: var(--suave); }
+.fl-tabla .fl-grupo th, .fl-tabla .fl-grupo td { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); padding-top: 12px; }
+.fl-tabla .fl-grupo td b { text-transform: none; letter-spacing: 0; font-size: 13px; }
+.fl-tabla .fl-fila { padding-left: 22px !important; font-weight: 500; color: var(--texto); }
+.fl-tabla .fl-saldo th, .fl-tabla .fl-saldo td { background: var(--menu); color: var(--texto); font-weight: 600; }
+.fl-tabla .fl-saldo th[scope=row] { background: var(--menu); }
+.fl-tabla .fl-fin td { font-size: 14px; }
+.fl-neg, .fl-tabla .fl-neg, .fl-tabla .fl-neg b { color: var(--rojo-t) !important; }
+.fl-tabla td.fl-neg { background: color-mix(in srgb, var(--rojo) 55%, var(--tarjeta)); }
+.fl-celda { background: none; border: 0; padding: 2px; min-height: 28px; font: inherit; color: var(--texto); cursor: pointer; text-decoration: underline; text-decoration-color: var(--linea); text-underline-offset: 3px; }
+.fl-celda:hover { text-decoration-color: var(--acento); color: var(--acento); }
+.fl-cero { color: var(--borde); }
+.fl-meta { display: block; font-size: 11px; color: var(--suave); font-style: normal; }
+.fl-notas { margin: 12px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.55; color: var(--suave); display: flex; flex-direction: column; gap: 2px; }
+.fl-det h3 { margin: 4px 0 -6px; font-size: 14px; display: flex; justify-content: space-between; gap: 8px; }
+.fl-det h3 small { font-size: 14px; }
+.fl-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.fl-lista li { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 8px 0; border-top: 1px solid var(--linea); font-size: 13.5px; line-height: 1.45; }
+.fl-lista li > span { min-width: 0; overflow-wrap: anywhere; }
+.fl-lista small { color: var(--suave); }
+.fl-lista .chip { font-size: 11px; padding: 2px 8px; }
+.fl-det-tot { margin: 0; text-align: right; font-size: 15px; }
+.fl-actual { margin: 0; }
+.fl-revisar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.fl-revisar .btn-sec { margin-left: auto; }
+.fl-semana { margin-top: 18px; }
+.fl-semana h3 { margin: 0 0 8px; font-size: 15px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+.fl-semana-fin { font-size: 13px; font-weight: 500; color: var(--suave); }
+.fl-semana-roja h3 { color: var(--rojo-t); }
+.fl-semana-roja .fl-tabla-c { border-color: var(--rojo); }
+.fl-semana .vacio { margin: 0; padding: 10px 0; }
+.fl-items th, .fl-items td { padding: 8px 10px; vertical-align: top; }
+.fl-items th[scope=row] { min-width: 108px !important; width: 1%; white-space: nowrap; font-size: 13px; color: var(--texto); font-weight: 600; }
+.fl-items th[scope=row] small { display: block; font-weight: 500; color: var(--suave); }
+.fl-items .fl-que { min-width: 220px; max-width: 420px; }
+.fl-items .fl-que small { color: var(--suave); }
+.fl-items .fl-num, .fl-cuadre .fl-num, .fl-det .fl-num { text-align: right; white-space: nowrap; }
+.fl-items td.fl-entra { color: var(--verde-t); font-weight: 600; }
+.fl-items .fl-acc { white-space: nowrap; }
+.fl-items .fl-acc .btn-link { min-height: 32px; }
+.fl-items tr.fl-atrasado th[scope=row] { color: var(--rojo-t); }
+.fl-items .chip { font-size: 11px; padding: 3px 8px; }
+.fl-metas { list-style: none; margin: 0; padding: 0; }
+.fl-metas > li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 0; border-top: 1px solid var(--linea); font-size: 14px; }
+.fl-hist { flex-basis: 100%; font-size: 12.5px; color: var(--suave); }
+.fl-hist summary { cursor: pointer; color: var(--acento); min-height: 28px; }
+.fl-hist ul { margin: 4px 0 0; padding-left: 18px; }
+.fl-cuadre th, .fl-cuadre td { padding: 8px 10px; white-space: nowrap; }
+.fl-cuadre th[scope=row] { min-width: 0 !important; width: 1%; }
+.fl-falta { margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: var(--fondo); }
+.fl-falta h3 { margin: 0 0 6px; font-size: 14px; }
+.fl-falta ul { list-style: none; margin: 0; padding: 0; }
+.fl-falta li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 6px 0; border-top: 1px solid var(--linea); font-size: 13.5px; }
+.fl-falta li:first-child { border-top: 0; }
+.fl-falta .btn-sec { text-decoration: none; display: inline-flex; align-items: center; color: var(--texto); }
+.fl-cf-n { width: 64px; min-height: 36px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--borde); margin: 0 4px; }
+@media (max-width: 640px) {
+  .fl-cifras .fl-cifra { padding: 12px 12px; }
+  .fl-cifras .fl-cifra .valor { font-size: 19px; }
+  .fl-cifras .fl-cifra .nota { font-size: 11.5px; }
+  .fl-barra-der { margin-left: 0; }
+  .fl-tabla th, .fl-tabla td { padding: 7px 8px; font-size: 12.5px; }
+  .fl-tabla th[scope=row] { min-width: 132px !important; max-width: 150px; white-space: normal; }
+  .fl-items .fl-que { min-width: 190px; }
+}
+.fl-tabla td { height: auto; vertical-align: middle; }
+.fl-items th:nth-child(3), .fl-items td:nth-child(3), .fl-items td:nth-child(5) { white-space: nowrap; }
