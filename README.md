@@ -1,3 +1,26 @@
+# Sistema Fën · v0.124.1
+
+**Reglas de Firestore:** ninguna cambia · **Caja:** sin cambios (v3.3.2) · 2 de noviembre de 2026
+**Dirección:** https://panaderiafen.github.io/sistema-fen/
+
+## Qué cambia
+- **Gastos → Subir: una liquidación con líquido $0 ya se acepta.** Antes decía "No se encontró el líquido a pagar" y no se guardaba. Ahora queda como documento de $0 (no hay nada que pagar ni clasificar), con el aviso "Líquido $0…", y el trabajador aparece en **Gastos → Equipo**. Ahí se le pone el área en su ficha, para que Previred reparta lo que se paga como empleador por esa persona.
+- Una liquidación sin la línea del líquido sigue sin guardarse (como antes).
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta (cambia la versión `?v=` en todos; el cambio de fondo está en `gn-pdf.js`). La carpeta `cocina/` no cambia. Este README a la raíz.
+
+## Checklist
+- [ ] Abajo dice v0.124.1.
+- [ ] Gastos → Subir: la liquidación en $0 se guarda, con el aviso "Líquido $0".
+- [ ] Gastos → Equipo: aparece esa persona; en su ficha, elegir su área.
+- [ ] Una liquidación normal se sigue cargando igual.
+
+## Pruebas (datos ficticios)
+- `pruebas/sf/gn-liq-v01241.test.mjs` (4): líquido $0 con el 0 escrito; etiqueta sin monto con haberes − descuentos en 0; sin la etiqueta sigue fallando; una liquidación normal no cambia.
+
+---
+
 # Sistema Fën · v0.124.0
 
 **Reglas de Firestore:** ninguna cambia (fen-ventas v1.9.0, fen-b2b v1.8.0, fen-produccion v1.8.0, fen-gastos v0.1.0) · **Caja:** v3.2.0 (sin cambios) · **Servidor de cobros:** 0.4.2 (sin cambios) · **Apps Script:** ninguno cambia · 1 y 2 de noviembre de 2026

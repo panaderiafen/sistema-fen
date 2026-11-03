@@ -5,7 +5,7 @@
 //    único, por el F29. Los datos se buscan por su etiqueta (toleran bonos, colación, transporte y cambios menores de formato).
 //  · F29 (formulario completo o certificado): el pago del mes con su reparto por código: IVA y PPM (fuera del resultado), retención de
 //    boletas de terceros (costo de los practicantes), impuesto único (costo de los sueldos), multas e intereses (financiero).
-import { idDoc, rutN, rutTexto, esIso, mesDe } from './gn-modelo.js?v=0.124.0';
+import { idDoc, rutN, rutTexto, esIso, mesDe } from './gn-modelo.js?v=0.124.1';
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const celdas = l => s(l).split(/\s{2,}/).map(x => x.trim()).filter(Boolean);
@@ -60,12 +60,18 @@ export function leerLiquidacion(lineas0) {
   r.descuentos = seccion(lineas, /^DESCUENTOS$/, /^TOTAL DESCUENTOS$/);
   r.totalHaberes = montoDe(lineas, /^TOTAL HABERES$/) || 0;
   r.totalDescuentos = montoDe(lineas, /^TOTAL DESCUENTOS$/) || 0;
-  r.liquido = montoDe(lineas, /^(LIQUIDO A PAGAR|ALCANCE LIQUIDO|LIQUIDO A RECIBIR|SUELDO LIQUIDO|LIQUIDO)$/) || 0;
+  // v0.124.1 · Un líquido de $0 también es una liquidación (por ejemplo, un mes sin sueldo que pagar): se acepta si la etiqueta está y
+  // viene en 0, o sin monto pero con haberes menos descuentos en 0. Deja al trabajador en Equipo (su área, para Previred).
+  const RE_LIQ = /^(LIQUIDO A PAGAR|ALCANCE LIQUIDO|LIQUIDO A RECIBIR|SUELDO LIQUIDO|LIQUIDO)$/;
+  const liq = montoDe(lineas, RE_LIQ), conEtiqueta = lineas.some(l => RE_LIQ.test(norm(celdas(l)[0] || '')));
+  r.liquido = liq || 0;
+  r.liquidoCero = liq === 0 || (liq === null && conEtiqueta && r.totalHaberes - r.totalDescuentos <= 0);
   r.anticipos = r.descuentos.filter(x => /ANTICIPO/.test(norm(x.concepto))).reduce((a, x) => a + x.monto, 0);
   r.impuestoUnico = r.descuentos.filter(x => /IMPUESTO/.test(norm(x.concepto))).reduce((a, x) => a + x.monto, 0);
   if (!r.rut) r.errores.push('No se encontró el RUT del trabajador.');
   if (!r.periodo) r.errores.push('No se encontró el período (mes y año).');
-  if (!(r.liquido > 0)) r.errores.push('No se encontró el líquido a pagar.');
+  if (!(r.liquido > 0) && !r.liquidoCero) r.errores.push('No se encontró el líquido a pagar.');
+  if (r.liquidoCero && !r.anticipos) r.avisos.push('Líquido $0: no hay sueldo que pagar este mes. Queda el trabajador en Gastos → Equipo; lo que se paga como empleador llega por Previred.');
   if (r.totalHaberes && r.liquido && Math.abs(r.totalHaberes - r.totalDescuentos - r.liquido) > 2) r.avisos.push(`Total haberes − total descuentos no da el líquido: revise el PDF.`);
   r.bloquea = r.errores.length > 0;
   return r;

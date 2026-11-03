@@ -16,12 +16,12 @@
 //                        un pago o cobro anotado). { tipo, clave, fecha, monto, nota, estado vigente|anulado, por, en, historial, anulado }.
 //                        Nada se borra: se anula.
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.124.0';
-import * as GBase from './gastos-base.js?v=0.124.0';
-import { auth, db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV, Timestamp as TsV } from './firebase.js?v=0.124.0';
-import * as B from './b2b.js?v=0.124.0';
-import * as FBB from './firebase-b2b.js?v=0.124.0';
-import * as M from './flujo-modelo.js?v=0.124.0';
+import * as FB from './fs-gastos.js?v=0.124.1';
+import * as GBase from './gastos-base.js?v=0.124.1';
+import { auth, db as dbV, collection as colV, getDocs as getDocsV, query as queryV, where as whereV, Timestamp as TsV } from './firebase.js?v=0.124.1';
+import * as B from './b2b.js?v=0.124.1';
+import * as FBB from './firebase-b2b.js?v=0.124.1';
+import * as M from './flujo-modelo.js?v=0.124.1';
 
 const TTL = 300000;
 const yo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -43,7 +43,7 @@ export async function cargar({ forzar = false } = {}) {
 async function leerTodo() {
   const ini = inicio(), db = await dbG(), faltan = {};
   const [gn, mpV, cfg, met, aj] = await Promise.all([
-    import('./gn-fs.js?v=0.124.0').then(m => m.leer()),
+    import('./gn-fs.js?v=0.124.1').then(m => m.leer()),
     FB.getDocs(FB.query(FB.collection(db, 'mp_ventas'), FB.where('fecha', '>=', ini))).then(lista).catch(e => { faltan.mp = e.message || String(e); return []; }),
     FB.getDoc(FB.doc(db, 'fin_flujo', 'config')),
     FB.getDoc(FB.doc(db, 'fin_flujo', 'metas')),
