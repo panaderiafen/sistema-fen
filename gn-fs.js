@@ -10,15 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.124.1';
-import { dbBase, correo } from './gastos-fs.js?v=0.124.1';
-import { ahoraChile } from './gastos-g2.js?v=0.124.1';
-import * as GN from './gn-modelo.js?v=0.124.1';
-import * as GB from './gn-bandeja.js?v=0.124.1';
-import * as GP from './gn-pdf.js?v=0.124.1';
-import * as GI from './gn-items.js?v=0.124.1';
-import * as TR from './trabajadores.js?v=0.124.1';
-import * as GT from './tributario.js?v=0.124.1';   // v0.108.0
+import * as FB from './fs-gastos.js?v=0.124.2';
+import { dbBase, correo } from './gastos-fs.js?v=0.124.2';
+import { ahoraChile } from './gastos-g2.js?v=0.124.2';
+import * as GN from './gn-modelo.js?v=0.124.2';
+import * as GB from './gn-bandeja.js?v=0.124.2';
+import * as GP from './gn-pdf.js?v=0.124.2';
+import * as GI from './gn-items.js?v=0.124.2';
+import * as TR from './trabajadores.js?v=0.124.2';
+import * as GT from './tributario.js?v=0.124.2';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -227,6 +227,19 @@ export async function volverDoc(docId) {
   });
 }
 // No es gasto (movimiento): traspaso, retiro del dueño, pago de la tarjeta de crédito u otro. Volver lo deshace.
+// v0.124.2 · Una nota en un cargo o en un documento ("qué falta para resolverlo"). Vacía = se borra; el texto anterior queda en el historial.
+// → la nota guardada (o null)
+export async function guardarNota(tipo, id, texto) {
+  const col = tipo === 'doc' ? GN.COL.docs : GN.COL.movs, t = String(texto || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  return enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, col, id), sn = await tx.get(ref); if (!sn.exists()) throw error('No se encontró.', 'datos');
+    const a = sn.data(), antes = a.nota && a.nota.texto ? a.nota.texto : '';
+    if (t === antes) return a.nota || null;
+    const nota = t ? { texto: t, por: quien(), en: ahoraChile().texto } : null;
+    tx.update(ref, { nota, historial: conHist(a, marca(t ? (antes ? 'cambió la nota' : 'anotó una nota') : 'borró la nota', { nota: (t || antes).slice(0, 200) })) });
+    return nota;
+  });
+}
 export async function noEsGasto(movId, tipo, nota) {
   if (!GB.NO_GASTO[tipo]) throw error('Elija qué es.', 'datos');
   return enTransaccion(async (tx, d) => {

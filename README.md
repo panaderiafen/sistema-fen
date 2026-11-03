@@ -1,3 +1,31 @@
+# Sistema Fën · v0.124.2
+
+**Reglas de Firestore:** ninguna cambia · **Caja:** sin cambios (v3.3.2) · 2 de noviembre de 2026
+**Dirección:** https://panaderiafen.github.io/sistema-fen/
+
+## Qué cambia
+- **Gastos → Bandeja: notas en los cargos y documentos pendientes** (pedido por Emmanuel el 2 nov). Botón **"Nota"** en cada movimiento sin documento y en cada documento sin pago: "qué falta para resolverlo" (hasta 300 letras). Se ve bajo el cargo o el documento, con quién la escribió y la fecha; el botón pasa a "Editar nota". Para borrarla, se deja vacía y se guarda: el texto anterior queda en el historial.
+- Arriba de cada lado, cuántos tienen nota ("1 con nota").
+- **Cartolas:** en cada cartola, "N por conciliar con nota" con la lista de esos cargos y su nota. En "Ver lo conciliado", cada cargo muestra su nota (la historia de por qué quedó así).
+- Lecturas: ninguna nueva (la nota va en el mismo cargo o documento). Guardar no vuelve a leer la Bandeja.
+- Los abonos (Ventas a empresas → Conciliación) no cambian: notas en abonos quedan para después.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta (cambia la versión `?v=` en todos; el cambio está en `gn-fs.js`, `vista-gn.js` y `estilos.css`). La carpeta `cocina/` no cambia. Incluye la v0.124.1 (liquidaciones en $0).
+
+## Checklist
+- [ ] Abajo dice v0.124.2.
+- [ ] Gastos → Bandeja: en un cargo pendiente, "Nota", escribir y guardar: se ve bajo el cargo.
+- [ ] En Cartolas, la cartola de ese cargo dice "1 por conciliar con nota".
+- [ ] Editar la nota, dejarla vacía y guardar: desaparece.
+- [ ] Revisar en celular y computador.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/gn-nota-v01242.test.js` (2, app completa con Firebase en memoria, 1440 y 390 px): guardar, ver, contar, en el resumen de la cartola, borrar con historial; nota en un documento; nota de un cargo conciliado en "Lo conciliado".
+- `pruebas/sf/gn-liq-v01241.test.mjs` sigue pasando. Las pruebas de Flujo de caja (v0.124.0) "Semanas" y "Cuadre" fallan también sin este cambio: sus datos ficticios dependen de la fecha de hoy (quedaron atrás una semana).
+
+---
+
 # Sistema Fën · v0.124.1
 
 **Reglas de Firestore:** ninguna cambia · **Caja:** sin cambios (v3.3.2) · 2 de noviembre de 2026

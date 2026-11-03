@@ -3233,3 +3233,11 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 }
 .fl-tabla td { height: auto; vertical-align: middle; }
 .fl-items th:nth-child(3), .fl-items td:nth-child(3), .fl-items td:nth-child(5) { white-space: nowrap; }
+
+/* v0.124.2 · Notas en los cargos y documentos pendientes de Gastos */
+.gn-nota { display: flex; align-items: flex-start; gap: 6px; margin: 6px 0 2px; padding: 7px 10px; border-radius: 9px; background: #FFFBF1; border: 1px solid var(--amarillo); color: var(--amarillo-t); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.gn-nota svg { flex: none; margin-top: 2px; }
+.gn-nota small { color: var(--amarillo-t); opacity: .85; }
+.gn-cart-notas { margin-top: 8px; }
+.gn-cart-nota { padding: 6px 0; border-top: 1px solid var(--borde, #E4DFD3); font-size: 13px; }
+.gn-cart-nota:first-of-type { border-top: 0; }
