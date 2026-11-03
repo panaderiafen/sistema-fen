@@ -3256,3 +3256,7 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-filtro-mes .chip { min-height: 36px; padding: 0 12px; cursor: pointer; border: 0; }
 .gn-filtro-mes .chip[aria-pressed="true"] { background: var(--acento); color: #fff; }
 .gn-filtro-mes .chip[aria-pressed="false"] { background: var(--menu); color: var(--texto); }
+
+/* v0.124.6 · Órdenes B2B pagadas en efectivo antes del folio */
+.pagado-cli { color: var(--verde-t, #2B5A3E); font-weight: 700; }
+.pagadas-fact { background: #EAF2EC; border-radius: 8px; padding: 8px 10px; }

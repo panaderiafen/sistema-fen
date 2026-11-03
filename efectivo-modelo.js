@@ -178,6 +178,8 @@ export function saldosDespues(movs, saldoHoy) {
 const msReg = t => (t && typeof t.toMillis === 'function' ? t.toMillis() : (t && t.seconds ? t.seconds * 1000 : 0));
 export const ordenarPorRegistro = movs => (movs || []).slice().sort((a, b) => msReg(a.creado) - msReg(b.creado));
 
+// v0.124.6 · "folio 3538" u "orden N° 2815" (pagada por orden, antes de tener folio)
+export const refB2b = x => (x && !x.folio && x.orden ? `orden N° ${x.orden}` : `folio ${(x && x.folio) || ''}`);
 // v0.120.0 · Efectivo de un cliente B2B que queda por recibir (efectivo_por_recibir), desde Cobranza.
 export function movDesdePendiente(x) {
   if (!x || x.anulado) return null;
@@ -185,8 +187,8 @@ export function movDesdePendiente(x) {
   if (!(monto > 0) || !DIA.test(String(x.dia || ''))) return null;
   if (x.origen !== 'b2b') return null;
   return { tipo: 'ingreso', motivo: 'efectivo_b2b', monto, dia: x.dia, mes: x.dia.slice(0, 7),
-    detalle: limpio(`${x.cliente || 'Cliente B2B'} · folio ${x.folio || ''}`, 120), nota: limpio(x.nota, 200),
-    origen: { pendienteId: String(x.id || ''), folio: String(x.folio || ''), por: String(x.por || '') } };
+    detalle: limpio(`${x.cliente || 'Cliente B2B'} · ${refB2b(x)}`, 120), nota: limpio(x.nota, 200),
+    origen: { pendienteId: String(x.id || ''), folio: String(x.folio || ''), ...(x.orden ? { orden: String(x.orden) } : {}), por: String(x.por || '') } };
 }
 // Lo que llega a la caja de administración desde una caja o desde un cobro B2B
 export const movPorRecibir = x => (x && x.origen === 'b2b' ? movDesdePendiente(x) : movDesdeCaja(x));

@@ -1,4 +1,8 @@
-# Sistema Fën · v0.124.6
+# Sistema Fën · v0.124.7
+
+**Corrige la v0.124.6:** al zip le faltaban dos archivos (efectivo-modelo.js y estilos.css) y Efectivo no abría ("M.refB2b is not a function"). Esta versión trae todo lo de la v0.124.6, completo. Suba esta encima.
+
+## Lo de la v0.124.6
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 3 de noviembre de 2026
 **Dirección:** https://panaderiafen.github.io/sistema-fen/
@@ -17,7 +21,8 @@
 Todos los archivos del zip, en su misma carpeta. Incluye la v0.124.5. La carpeta `cocina/` no cambia.
 
 ## Checklist
-- [ ] Abajo dice v0.124.6.
+- [ ] Abajo dice v0.124.7.
+- [ ] Efectivo abre sin error.
 - [ ] Por facturar → las dos órdenes de ayer y hoy del cliente → **Pagada**, con su fecha y "logística".
 - [ ] Efectivo → Por recibir: aparecen como "orden N° …". Si esa plata ya la anotó como Ingreso a mano, **anule** la línea; si no, recíbala cuando llegue.
 - [ ] A fin de mes, al asignar el folio, el resumen dice "Ya pagadas en efectivo…".
