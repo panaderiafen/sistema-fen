@@ -6,7 +6,7 @@
 //  esté en su variable ADMINS). No lee ni escribe Firestore. Ningún secreto vive aquí.
 //  v0.122.0: "Actualizar" en los cobros recientes, y se vuelven a pedir al entrar si tienen más de 1 minuto.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.124.2';
+import { auth } from './firebase.js?v=0.124.4';
 
 const URL_POINT = () => (window.FEN_SIS && window.FEN_SIS.PUNTO_URL) || 'https://fen-point.panaderiafen.workers.dev';
 const TIENDAS = { barros_arana: 'Barros Arana', ainavillo: 'Ainavillo' };

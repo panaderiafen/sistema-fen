@@ -1,3 +1,58 @@
+# Sistema Fën · v0.124.4
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 3 de noviembre de 2026
+**Dirección:** https://panaderiafen.github.io/sistema-fen/
+
+## Qué cambia
+- **Gastos → Bandeja: filtro por mes en cada lado, por separado** (pedido por Emmanuel el 3 nov). Sobre "Documentos sin pago": Todos / un mes, según su **vencimiento** (o su fecha si no trae). Sobre "Movimientos sin documento": Todos / un mes, según la **fecha del cargo**. El título dice cuántos se ven ("2 de 4"). El filtro de un lado no cambia el otro. Al conciliar una cartola, el filtro de movimientos también sirve (una cartola con dos meses), y en "Ver lo conciliado" de esa cartola.
+- Lo elegido para unir y los "posibles" no se filtran (para no esconder la pareja de un cargo).
+- **Ficha del proveedor:** "Servicios (por N° de cliente)" muestra un solo servicio aunque el número venga con y sin guion (3589534-5 / 35895345). Era la misma ficha; solo se veía dos veces.
+- Lecturas: ninguna nueva (el filtro es en pantalla).
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta. Incluye la v0.124.3 (término de contrato y documentos), que todavía no estaba subida: con esta basta. La carpeta `cocina/` no cambia.
+
+## Checklist
+- [ ] Abajo dice v0.124.4.
+- [ ] Bandeja: elegir "oct 2026" en Documentos sin pago: quedan solo los que vencen en octubre; el lado de Movimientos no cambia.
+- [ ] Elegir "oct 2026" en Movimientos sin documento; "Todos" vuelve a mostrar todo.
+- [ ] La ficha del proveedor del agua: un solo "Cliente" por local.
+- [ ] Revisar en celular y computador.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/gn-filtros-v01244.test.js` (2, 1440 y 390 px): filtros por lado, "N de M", "Todos"; un solo servicio por N° de cliente.
+- Siguen pasando `trab-termino-v01243.test.js` y `gn-nota-v01242.test.js`.
+
+---
+
+# Sistema Fën · v0.124.3
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script de Gastos:** sin cambios (los documentos usan la subida de comprobantes que ya existe) · **Caja:** sin cambios · 3 de noviembre de 2026
+**Dirección:** https://panaderiafen.github.io/sistema-fen/
+
+## Qué cambia (boceto "Término de contrato y documentos", aprobado por Emmanuel el 3 nov)
+- **Gastos → Equipo:** arriba los que trabajan (con cuántos documentos tienen y "sin contrato subido" si falta); abajo, plegados, **Ex trabajadores**.
+- **Ficha del trabajador → "Término del contrato":** último día trabajado, causa (renuncia, vencimiento del plazo, mutuo acuerdo, necesidades de la empresa, despido por causa justificada, otra), dónde se firmó el finiquito (notaría, Inspección del Trabajo, finiquito electrónico de la DT o todavía no), monto, fecha y forma de pago, y una nota. Pasa a Ex trabajadores: se apagan los avisos de su plazo fijo en Hoy. Si hay una liquidación posterior al término, la ficha avisa. Se puede volver a "trabajando" (queda en el historial). Los datos del contrato no se tocan.
+- **Ficha → "Documentos":** subir PDF o foto (hasta 10 MB) del contrato, anexo de renovación del plazo, anexo de cambio de jornada u horas, otro anexo, renuncia, carta de término, finiquito, comprobante de pago u otro, con fecha y nota. Quedan en Drive, privados, en "Fën · Gastos / Comprobantes / <año>", con el nombre "Trabajador - <nombre> - <tipo> - <fecha>". Se abren con "Ver". Nada se borra: un documento equivocado se marca "no va", con su motivo.
+- **Renovaciones (pedido el 3 nov):** con "Una", la ficha pregunta **cómo se renovó** (con un anexo que alarga el plazo, o con un contrato nuevo por otro período), **hasta cuándo vencía antes** y la fecha del anexo o contrato nuevo. El aviso lo dice: "renovado una vez con un anexo (antes vencía el …)". Un anexo que solo cambia la jornada no es renovación.
+- Lecturas: ninguna nueva. Guardar actualiza la ficha en pantalla sin volver a leer.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta (cambia la versión `?v=` en todos; el cambio está en `trabajadores.js`, `gn-fs.js`, `vista-gn.js` y `estilos.css`). La carpeta `cocina/` no cambia. Incluye la v0.124.1 y la v0.124.2.
+
+## Checklist
+- [ ] Abajo dice v0.124.3.
+- [ ] Gastos → Equipo → la trabajadora de septiembre → "Término del contrato": 15-09 (o el día real), renuncia voluntaria, notaría, pagado vía DT. Pasa a Ex trabajadores.
+- [ ] En su ficha, "Subir documento": la renuncia y el finiquito. Se ven con "Ver" (abre Drive).
+- [ ] La trabajadora con anexo: "Cambiar datos del trabajador" → Renovaciones "Una" → "Con un anexo que alarga el plazo", antes vencía el 31-03, vence el 31-12. Subir el anexo como "Anexo · renovación del plazo" y el de horas como "Anexo · cambio de jornada u horas".
+- [ ] Revisar en celular y computador.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/trab-termino-v01243.test.js` (4, app completa con Firebase en memoria y Drive simulado, 1440 y 390 px): término (validación, guardar, Ex trabajadores, aviso de liquidación posterior, volver a trabajando con historial); documentos (subida tipo comprobante con el nombre, enlace, archivo no válido, "no va" sin borrar); Hoy no avisa un plazo con término; renovación con anexo. Usa `fb-firestore-v01243.js` (el simulador con `merge`).
+- Siguen pasando `gn-nota-v01242.test.js` y `pruebas/sf/gn-liq-v01241.test.mjs`.
+
+---
+
 # Sistema Fën · v0.124.2
 
 **Reglas de Firestore:** ninguna cambia · **Caja:** sin cambios (v3.3.2) · 2 de noviembre de 2026

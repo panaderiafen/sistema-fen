@@ -21,6 +21,13 @@ const esIso = f => /^\d{4}-\d{2}-\d{2}$/.test(s(f));
 const esMes = m => /^\d{4}-\d{2}$/.test(s(m));
 export const DIAS_VACACIONES = 21, TOPE_ANIOS = 11, MESES_PROMEDIO = 3;
 export const CONTRATOS = { plazo_fijo: 'Plazo fijo', indefinido: 'Indefinido' };
+// v0.124.3 · Término del contrato y documentos del trabajador (boceto aprobado por Emmanuel el 3 nov)
+export const CAUSAS = { renuncia: 'Renuncia voluntaria', vencimiento: 'Vencimiento del plazo', mutuo: 'Mutuo acuerdo', necesidades: 'Necesidades de la empresa', despido: 'Despido por causa justificada', otra: 'Otra' };
+export const FIRMAS = { notaria: 'Notaría', inspeccion: 'Inspección del Trabajo', dt: 'Finiquito electrónico (DT)', pendiente: 'Todavía no se firma' };
+export const TIPOS_DOC = { contrato: 'Contrato de trabajo', renovacion: 'Anexo · renovación del plazo', jornada: 'Anexo · cambio de jornada u horas', anexo: 'Anexo · otro cambio', renuncia: 'Renuncia voluntaria', carta: 'Carta de término', finiquito: 'Finiquito', pago_finiquito: 'Comprobante de pago del finiquito', otro: 'Otro' };
+export const MAX_DOCS = 60;
+// v0.124.3 · Cómo se renovó un plazo fijo (pedido por Emmanuel el 3 nov): las dos formas cuentan como renovación
+export const COMO_RENOVO = { anexo: 'Con un anexo que alarga el plazo', contrato: 'Con un contrato nuevo por otro período' };
 const NO_IMPONIBLE = /COLACION|MOVILIZACION|VIATICO|ASIGNACION FAMILIAR|ASIG FAMILIAR|AGUINALDO NO IMPONIBLE/;
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 export const fechaTxt = f => (esIso(f) ? `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}` : '');
@@ -37,9 +44,34 @@ export function validarFicha(d) {
   if (contrato === 'plazo_fijo' && !esIso(vence)) throw new Error('Escriba hasta cuándo es el contrato a plazo fijo.');
   if (vence && vence < d.ingreso) throw new Error('El vencimiento no puede ser antes del ingreso.');
   if (indefinidoDesde && (!esIso(indefinidoDesde) || indefinidoDesde < d.ingreso)) throw new Error('Revise la fecha desde la que es indefinido.');
+  const renovaciones = Math.max(0, Math.min(5, Math.round(num(d.renovaciones))));
+  // v0.124.3 · La renovación: cómo (anexo o contrato nuevo), hasta cuándo vencía antes y desde cuándo rige (opcionales)
+  let renovacion = null;
+  if (contrato === 'plazo_fijo' && renovaciones >= 1) {
+    const r = d.renovacion || {}, como = COMO_RENOVO[r.como] ? r.como : '', antes = s(r.venciaAntes), dia = s(r.dia);
+    if (antes && (!esIso(antes) || antes < d.ingreso)) throw new Error('Revise hasta cuándo vencía antes de la renovación.');
+    if (antes && vence && antes >= vence) throw new Error('El vencimiento nuevo tiene que ser después del que tenía antes de la renovación.');
+    if (dia && !esIso(dia)) throw new Error('Revise la fecha de la renovación.');
+    renovacion = { como, venciaAntes: antes, dia };
+  }
   return { cargo: s(d.cargo).slice(0, 60), ingreso: d.ingreso, contrato, vence: contrato === 'plazo_fijo' ? vence : '', indefinidoDesde: contrato === 'indefinido' ? (indefinidoDesde || d.ingreso) : '',
-    renovaciones: Math.max(0, Math.min(5, Math.round(num(d.renovaciones)))), nota: s(d.nota).slice(0, 200), activo: d.activo !== false };
+    renovaciones, renovacion, nota: s(d.nota).slice(0, 200), activo: d.activo !== false };
 }
+// v0.124.3 · El término: último día trabajado, causa, dónde se firmó el finiquito, monto y pago (opcionales)
+export function validarTermino(d, ficha) {
+  const dia = s(d.dia); if (!esIso(dia)) throw new Error('Escriba el último día trabajado.');
+  if (ficha && esIso(ficha.ingreso) && dia < ficha.ingreso) throw new Error('El último día no puede ser antes del ingreso.');
+  const causa = CAUSAS[d.causa] ? d.causa : ''; if (!causa) throw new Error('Elija la causa del término.');
+  const firma = FIRMAS[d.firma] ? d.firma : '';
+  const monto = Math.round(num(String(d.monto == null ? '' : d.monto).replace(/[^\d]/g, ''))); const pagoDia = s(d.pagoDia);
+  if (pagoDia && !esIso(pagoDia)) throw new Error('Revise la fecha del pago.');
+  return { dia, causa, firma, monto: monto > 0 ? monto : 0, pagoDia, pagoComo: s(d.pagoComo).slice(0, 60), nota: s(d.nota).slice(0, 200) };
+}
+export const terminado = x => !!(x && x.termino && esIso(x.termino.dia));
+export const docsVigentes = x => ((x && x.documentos) || []).filter(d => d && d.estado !== 'no_va');
+export const textoTermino = t => (t ? [`Terminó el ${fechaTxt(t.dia)}`, (CAUSAS[t.causa] || '').toLowerCase(), t.firma ? (t.firma === 'pendiente' ? 'finiquito todavía sin firmar' : `finiquito: ${FIRMAS[t.firma].toLowerCase()}`) : ''].filter(Boolean).join(' · ') : '');
+// Liquidaciones de meses posteriores al término (por si la fecha está mal)
+export const liqsDespues = (x) => (terminado(x) ? (x.liqs || []).filter(l => s(l.mes) > x.termino.dia.slice(0, 7)) : []);
 export function antiguedad(ingreso, hoy) {
   if (!esIso(ingreso) || !esIso(hoy) || hoy < ingreso) return { meses: 0, anios: 0, texto: '' };
   const m = Math.max(0, mesesEntre(ingreso, hoy)), a = Math.floor(m / 12), r = m % 12;
@@ -54,7 +86,8 @@ export function estadoContrato(t, hoy) {
   if (t.contrato === 'indefinido') return { nivel: 'ok', texto: `Indefinido desde el ${fechaTxt(t.indefinidoDesde || t.ingreso)}.` };
   const d = diasEntre(hoy, t.vence);
   if (d < 0) return { nivel: 'vencido', dias: d, texto: `El plazo fijo venció el ${fechaTxt(t.vence)}. Si sigue trabajando, por ley ya es indefinido: actualice la ficha (o renueve el contrato con el contador).` };
-  if (num(t.renovaciones) >= 1) return { nivel: d <= 30 ? 'pronto' : 'ok', dias: d, texto: `Plazo fijo hasta el ${fechaTxt(t.vence)}, ya renovado una vez: una segunda renovación lo deja indefinido.` };
+  if (num(t.renovaciones) >= 1) { const r = t.renovacion || {}, como = r.como === 'anexo' ? ' con un anexo' : r.como === 'contrato' ? ' con un contrato nuevo' : '';
+    return { nivel: d <= 30 ? 'pronto' : 'ok', dias: d, texto: `Plazo fijo hasta el ${fechaTxt(t.vence)}, ya renovado una vez${como}${esIso(r.venciaAntes) ? ` (antes vencía el ${fechaTxt(r.venciaAntes)})` : ''}: una segunda renovación lo deja indefinido.` }; }
   return { nivel: d <= 30 ? 'pronto' : 'ok', dias: d, texto: `Plazo fijo hasta el ${fechaTxt(t.vence)}${d <= 30 ? ` (en ${d} ${d === 1 ? 'día' : 'días'})` : ''}.` };
 }
 
@@ -97,7 +130,8 @@ export function equipo(D) {
   const por = {};
   ((D && D.docs) || []).filter(d => d && d.origen === 'liquidacion' && d.estado !== 'no_va' && s(d.rutN)).forEach(d => { const k = 'r_' + d.rutN; if (!por[k]) por[k] = { clave: k, rutN: s(d.rutN), nombre: s(d.razon) }; });
   Object.entries((D && D.provs) || {}).forEach(([k, p]) => { if (p && p.trabajador && !por[k]) por[k] = { clave: k, rutN: rutDe(k), nombre: s(p.razon) || k }; });
-  return Object.values(por).map(x => ({ ...x, ficha: (((D && D.provs) || {})[x.clave] || {}).trabajador || null, liqs: liquidacionesDe(D && D.docs, x.rutN) }))
+  return Object.values(por).map(x => { const p = ((D && D.provs) || {})[x.clave] || {};
+    return { ...x, ficha: p.trabajador || null, termino: p.termino || null, documentos: Array.isArray(p.documentosTrab) ? p.documentosTrab : [], liqs: liquidacionesDe(D && D.docs, x.rutN) }; })
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 }
 // Las áreas de un trabajador (las de su ficha, o su reparto) → partes del monto, sin perder pesos
@@ -129,6 +163,6 @@ export function saldo(D, inicioMes, hastaMes, areasDe) {
 }
 // Avisos de contratos (para Hoy y la Agenda): los plazos fijos que vencen en 30 días o ya vencieron
 export function avisosContratos(D, hoy) {
-  return equipo(D).filter(x => x.ficha && x.ficha.activo !== false && x.ficha.contrato === 'plazo_fijo').map(x => ({ x, e: estadoContrato(x.ficha, hoy) }))
+  return equipo(D).filter(x => x.ficha && x.ficha.activo !== false && !terminado(x) && x.ficha.contrato === 'plazo_fijo').map(x => ({ x, e: estadoContrato(x.ficha, hoy) }))
     .filter(({ e }) => e.nivel === 'vencido' || e.nivel === 'pronto').map(({ x, e }) => ({ f: x.ficha.vence, q: x.nombre.slice(0, 40), v: e.nivel === 'vencido' ? 1 : 0 }));
 }

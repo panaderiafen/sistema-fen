@@ -3241,3 +3241,18 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-cart-notas { margin-top: 8px; }
 .gn-cart-nota { padding: 6px 0; border-top: 1px solid var(--borde, #E4DFD3); font-size: 13px; }
 .gn-cart-nota:first-of-type { border-top: 0; }
+
+/* v0.124.3 · Término del contrato y documentos del trabajador */
+.gn-sin-contrato { color: #82381F; font-weight: 700; }
+.gn-termino { background: #F7F5EF; }
+.gn-docstrab .gn-fila:first-child { align-items: center; }
+.gn-doctrab { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 0; border-top: 1px solid var(--borde, #E4DFD3); }
+.gn-doctrab > div:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.gn-doctrab .gn-acc { margin: 0; align-items: center; }
+.gn-doctrab-nova b { text-decoration: line-through; color: var(--suave, #626C66); }
+
+/* v0.124.4 · Filtro por mes en cada lado de la Bandeja */
+.gn-filtro-mes { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 8px; }
+.gn-filtro-mes .chip { min-height: 36px; padding: 0 12px; cursor: pointer; border: 0; }
+.gn-filtro-mes .chip[aria-pressed="true"] { background: var(--acento); color: #fff; }
+.gn-filtro-mes .chip[aria-pressed="false"] { background: var(--menu); color: var(--texto); }

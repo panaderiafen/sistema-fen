@@ -10,15 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.124.2';
-import { dbBase, correo } from './gastos-fs.js?v=0.124.2';
-import { ahoraChile } from './gastos-g2.js?v=0.124.2';
-import * as GN from './gn-modelo.js?v=0.124.2';
-import * as GB from './gn-bandeja.js?v=0.124.2';
-import * as GP from './gn-pdf.js?v=0.124.2';
-import * as GI from './gn-items.js?v=0.124.2';
-import * as TR from './trabajadores.js?v=0.124.2';
-import * as GT from './tributario.js?v=0.124.2';   // v0.108.0
+import * as FB from './fs-gastos.js?v=0.124.4';
+import { dbBase, correo } from './gastos-fs.js?v=0.124.4';
+import { ahoraChile } from './gastos-g2.js?v=0.124.4';
+import * as GN from './gn-modelo.js?v=0.124.4';
+import * as GB from './gn-bandeja.js?v=0.124.4';
+import * as GP from './gn-pdf.js?v=0.124.4';
+import * as GI from './gn-items.js?v=0.124.4';
+import * as TR from './trabajadores.js?v=0.124.4';
+import * as GT from './tributario.js?v=0.124.4';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -609,6 +609,40 @@ export async function guardarTrabajador(clave, datos, { razon = '', rut = '' } =
     const ref = FB.doc(d, GN.COL.provs, clave), sn = await tx.get(ref), a = sn.exists() ? sn.data() : null;
     const h = marca(a && a.trabajador ? 'datos del trabajador cambiados' : 'datos del trabajador', { contrato: x.contrato, ingreso: x.ingreso });
     tx.set(ref, limpio({ ...(a ? {} : { razon, rut }), trabajador: x, historial: conHist(a, h) }), { merge: true });
+  });
+}
+// v0.124.3 · El término del contrato (null = vuelve a "trabajando"; queda en el historial)
+export async function guardarTermino(clave, datos, { razon = '', rut = '' } = {}) {
+  return enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.provs, clave), sn = await tx.get(ref), a = sn.exists() ? sn.data() : null;
+    const t = datos ? TR.validarTermino(datos, a && a.trabajador) : null;
+    const h = marca(t ? (a && a.termino ? 'término del contrato cambiado' : 'término del contrato') : 'vuelve a trabajando (sin término)', t ? { dia: t.dia, causa: t.causa } : {});
+    tx.set(ref, limpio({ ...(a ? {} : { razon, rut }), termino: t, historial: conHist(a, h) }), { merge: true });
+    return t;
+  });
+}
+// v0.124.3 · Un documento del trabajador (el archivo ya subido a Drive): { tipo, fecha, nota, url, nombre }
+export async function agregarDocTrab(clave, x, { razon = '', rut = '' } = {}) {
+  if (!TR.TIPOS_DOC[x.tipo]) throw error('Elija qué documento es.', 'datos');
+  if (x.fecha && !/^\d{4}-\d{2}-\d{2}$/.test(String(x.fecha))) throw error('Revise la fecha del documento.', 'datos');
+  if (!String(x.url || '').startsWith('https://')) throw error('El archivo no se pudo subir a Drive.', 'datos');
+  return enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.provs, clave), sn = await tx.get(ref), a = sn.exists() ? sn.data() : null, l = Array.isArray(a && a.documentosTrab) ? a.documentosTrab : [];
+    if (l.length >= TR.MAX_DOCS) throw error(`Esta ficha ya tiene ${TR.MAX_DOCS} documentos.`, 'datos');
+    const h = marca('subió un documento: ' + TR.TIPOS_DOC[x.tipo].toLowerCase());
+    const nuevo = { id: 'dt' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tipo: x.tipo, fecha: String(x.fecha || ''), nota: String(x.nota || '').slice(0, 200), url: String(x.url).slice(0, 500), nombre: String(x.nombre || '').slice(0, 120), por: h.por, en: h.en, estado: 'vigente' };
+    tx.set(ref, limpio({ ...(a ? {} : { razon, rut }), documentosTrab: l.concat([nuevo]), historial: conHist(a, h) }), { merge: true });
+    return nuevo;
+  });
+}
+// v0.124.3 · Un documento subido por error: no se borra, queda "no va" con su motivo
+export async function docTrabNoVa(clave, id, motivo) {
+  const m = String(motivo || '').trim().slice(0, 200); if (!m) throw error('Escriba el motivo.', 'datos');
+  return enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.provs, clave), sn = await tx.get(ref), a = sn.exists() ? sn.data() : null, l = Array.isArray(a && a.documentosTrab) ? a.documentosTrab : [];
+    const x = l.find(y => y.id === id); if (!x) throw error('Ese documento ya no está.', 'cambio');
+    const h = marca('documento marcado "no va": ' + (TR.TIPOS_DOC[x.tipo] || x.tipo).toLowerCase(), { motivo: m });
+    tx.update(ref, { documentosTrab: l.map(y => (y.id === id ? { ...y, estado: 'no_va', noVa: { motivo: m, por: h.por, en: h.en } } : y)), historial: conHist(a, h) });
   });
 }
 // Un pago (liquidación o finiquito) que sale de la provisión: { uso: 'vacaciones' | 'finiquito' | '', de: clave del trabajador }
