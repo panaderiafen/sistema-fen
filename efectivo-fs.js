@@ -13,8 +13,8 @@
 //  faltante; si el que se corrige era el conteo inicial, el nuevo pasa a ser el conteo inicial.
 //  v0.123.0: unir a su documento (pagos) o a su abono de la cartola (depósitos) y Retiros por semana (ver abajo).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.124.5';
-import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.124.5';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.124.6';
+import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.124.6';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 const refCuenta = () => doc(db, 'efectivo', CUENTA);
@@ -96,11 +96,12 @@ export async function leerPorRecibir() {
 }
 
 // v0.120.0 · Un cobro B2B en efectivo queda por recibir (lo marca Cobranza). → id
-export async function crearPorRecibirB2B({ folio, cliente, monto, dia, nota }) {
+// v0.124.6: orden = N° de la orden cuando se pagó por orden (todavía sin folio)
+export async function crearPorRecibirB2B({ folio, cliente, monto, dia, nota, orden }) {
   const ref = doc(collection(db, 'efectivo_por_recibir'));
   const ahora = Timestamp.now();
   await runTransaction(db, async tx => {
-    tx.set(ref, { origen: 'b2b', folio: String(folio || ''), cliente: String(cliente || '').slice(0, 120), monto: Math.round(Number(monto) || 0),
+    tx.set(ref, { origen: 'b2b', folio: String(folio || ''), ...(orden ? { orden: String(orden) } : {}), cliente: String(cliente || '').slice(0, 120), monto: Math.round(Number(monto) || 0),
       dia, mes: String(dia || '').slice(0, 7), nota: String(nota || '').slice(0, 200), pendienteAdmin: true, por: correo(), creado: ahora });
   });
   return ref.id;

@@ -10,8 +10,8 @@
 //  v0.123.0 (aprobado por Emmanuel el 1 nov): "Por unir a su documento" (los pagos en efectivo, de aquí y de las cajas, se unen a su
 //  boleta o factura en Gastos), los depósitos esperan su abono de la cartola, y la pestaña "Retiros por semana".
 // ═══════════════════════════════════════════════
-import * as M from './efectivo-modelo.js?v=0.124.5';
-import * as FS from './efectivo-fs.js?v=0.124.5';
+import * as M from './efectivo-modelo.js?v=0.124.6';
+import * as FS from './efectivo-fs.js?v=0.124.6';
 
 const EF = { mes: '', cuenta: undefined, movs: null, porRecibir: null, posteriores: null, porUnir: null, semana: '', msg: '', err: '' };
 export function olvidar() { EF.cuenta = undefined; EF.movs = null; EF.porRecibir = null; EF.posteriores = null; EF.porUnir = null; FS.olvidarPorUnir(); FS.olvidarSemanas(); }
@@ -23,7 +23,7 @@ const hoyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const diaTexto = d => { if (!d) return ''; const [y, m, dd] = d.split('-').map(Number); return `${DIAS[new Date(y, m - 1, dd).getDay()]} ${dd} ${MESES[m - 1].slice(0, 3)}`; };
 // De dónde viene lo que está por recibir
-const textoPr = x => (x.origen === 'b2b' ? `Efectivo de un cliente B2B · ${x.cliente || ''} · folio ${x.folio || ''}` : `${M.TEXTO_CAJA[x.motivo] || ''} · ${M.textoSucursal(x.sucursal)}`);
+const textoPr = x => (x.origen === 'b2b' ? `Efectivo de un cliente B2B · ${x.cliente || ''} · ${M.refB2b(x)}` : `${M.TEXTO_CAJA[x.motivo] || ''} · ${M.textoSucursal(x.sucursal)}`);
 // v0.121.0 · Lo que entra a la caja de administración (retiros de una caja o efectivo B2B); el sencillo sale
 const entraPr = x => x.tipo === 'retiro' || x.origen === 'b2b';
 // Cuánto hay sin retirar, por origen (solo lo que entra): [[texto, monto], …] con monto > 0
@@ -396,7 +396,7 @@ function dialogoAnularPr(x, H, repintar) {
 // ═══════════════ v0.123.0 · Unir un pago en efectivo a su documento en Gastos ═══════════════
 // Primero se paga en Gastos (fen-gastos), con una clave que sale del movimiento; después se marca aquí (fen-ventas). Son dos bases
 // distintas: si la segunda parte falla, el pago en Gastos ya quedó y "Unir" otra vez solo termina de marcarlo (no paga dos veces).
-const fsGN = () => import('./gn-fs.js?v=0.124.5');
+const fsGN = () => import('./gn-fs.js?v=0.124.6');
 function dialogoUnir(m, H, repintar) {
   const { esc, pesos } = H;
   let docs = null, elegido = '';

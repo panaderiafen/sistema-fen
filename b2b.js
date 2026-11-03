@@ -8,15 +8,15 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.124.5';
-import * as FB from './firebase-b2b.js?v=0.124.5';
-import * as Apps from './apps.js?v=0.124.5';
-import * as Mem from './fs-memoria.js?v=0.124.5';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.124.5';
-import { distanciaTef } from './feriados-cl.js?v=0.124.5';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.124.5';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.124.5';
-import { cuadreCartola } from './gn-modelo.js?v=0.124.5';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.124.6';
+import * as FB from './firebase-b2b.js?v=0.124.6';
+import * as Apps from './apps.js?v=0.124.6';
+import * as Mem from './fs-memoria.js?v=0.124.6';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.124.6';
+import { distanciaTef } from './feriados-cl.js?v=0.124.6';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.124.6';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.124.6';
+import { cuadreCartola } from './gn-modelo.js?v=0.124.6';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -490,6 +490,11 @@ export async function asignarFolio(ns, folio, fechaFolio, totalSii) {
   // Regla: un folio (una factura) es de un solo cliente
   const cliDe = o => o.clienteId || String(o.cliente || '').trim().toLowerCase();
   const yaEnFolio = await ordenesDelFolio(db, f);
+  // v0.124.6 · Lo ya abonado al folio (si se agregan órdenes a uno usado), para saber si con los pagos por orden queda pagado
+  let abonadoAntes = 0;
+  if (yaEnFolio.length) { const pa = await FB.getDocs(FB.query(FB.collection(db, 'abonos'), FB.where('folio', '==', f))); uso.lecturas += Math.max(1, pa.size);
+    abonadoAntes = pa.docs.map(x => x.data()).filter(a => !a.quitadoEnPlanilla).reduce((x, a) => x + (Number(a.monto) || 0), 0); }
+  let res = { pagadasAntes: 0, abonado: 0, falta: 0 };
   await FB.runTransaction(db, async tx => {
     const refs = ns.map(n => FB.doc(db, 'ordenes', String(n)));
     const sns = [];
@@ -497,12 +502,80 @@ export async function asignarFolio(ns, folio, fechaFolio, totalSii) {
     sns.forEach(sn => { if (!sn.exists()) throw new Error('Una de las órdenes ya no existe.'); const o = sn.data(); if (o.folio) throw new Error(`La orden N° ${o.n} ya tiene el folio ${o.folio}.`); if (o.estado === 'anulada') throw new Error(`La orden N° ${o.n} está anulada.`); });
     const todas = sns.map(sn => sn.data()).concat(yaEnFolio);
     if (new Set(todas.map(cliDe)).size > 1) throw new Error(yaEnFolio.length ? `El folio ${f} ya es de ${yaEnFolio[0].cliente} (N° ${yaEnFolio.map(o => o.n).join(', ')}). Un folio es de un solo cliente: revisa el número.` : 'Un folio es de un solo cliente: marca solo órdenes del mismo cliente.');
-    const tf = Math.round(Number(totalSii) || 0) > 0 ? Math.round(Number(totalSii)) : null;
+    let tf = Math.round(Number(totalSii) || 0) > 0 ? Math.round(Number(totalSii)) : null;
+    // v0.124.6 · Órdenes pagadas antes de tener folio (Pagada en efectivo): cada pago pasa a ser un abono del folio
+    const nuevas = sns.map((sn, i) => ({ id: refs[i].id, ...sn.data() }));
+    const pagadas = nuevas.filter(o => o.pagoOrden && /PAGADO/.test(String(o.estadoPago || '').toUpperCase()));
+    if (pagadas.length) {
+      const vivas = nuevas.concat(yaEnFolio).filter(o => o.estado !== 'anulada' && !o.quitadoEnPlanilla);
+      if (!tf) tf = totalFolio(vivas).total;   // con pagos por orden el folio guarda su total (así lo pendiente se calcula bien)
+      let abonado = abonadoAntes;
+      pagadas.forEach(o => { const p = o.pagoOrden, m = Math.round(Number(p.monto) || 0); abonado += m;
+        tx.set(FB.doc(FB.collection(db, 'abonos')), { folio: f, fecha: p.fecha || hoyTxt(), monto: m, referencia: `Efectivo · orden N° ${o.n}${p.cobro ? ' · cobró ' + p.cobro : ''}`.slice(0, 200),
+          ordenes: [String(o.n)], pagoOrden: true, extra: {}, quitadoEnPlanilla: false, planillaPendiente: false, por: authSF.currentUser.email, en: FB.serverTimestamp() }); });
+      // Lo que no se pagó por orden: pagado si ya se cubrió la factura (o solo falta el redondeo del IVA), si no, parcial
+      const resto = vivas.filter(o => !/PAGADO/.test(String(o.estadoPago || '').toUpperCase()));
+      const tolerancia = Math.ceil(vivas.length / 2) + 1, falta = Math.max(0, tf - abonado);
+      const fechaUlt = pagadas.map(o => o.pagoOrden.fecha).filter(Boolean).sort().pop() || hoyTxt();
+      resto.forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio(falta <= tolerancia
+        ? { estadoPago: 'PAGADO', fechaPago: fechaUlt, medioPago: 'Pagada por orden (efectivo)' } : { estadoPago: 'PARCIAL' })));
+      res = { pagadasAntes: pagadas.length, abonado, falta };
+    }
     refs.forEach(r => tx.update(r, marcaCambio({ folio: f, sinFolio: false, fechaFolio: fechaFolio || hoyTxt(), totalFactura: tf })));
     // Órdenes que ya estaban en ese folio: si cambia la factura (se agregan órdenes), su total también
     yaEnFolio.forEach(o => { if ((o.totalFactura || null) !== tf) tx.update(FB.doc(db, 'ordenes', o.id), { totalFactura: tf }); });
   });
-  uso.escrituras += ns.length;
+  uso.escrituras += ns.length + res.pagadasAntes;
+  if (res.pagadasAntes) olvidarAgendaB2b();
+  return res;
+}
+
+// ── v0.124.6 · Pagada en efectivo, por orden, antes de tener folio (Emmanuel, 3 nov: un cliente paga cada orden a
+// logística y se factura a fin de mes). La orden queda PAGADO con pagoOrden { monto, fecha, medio, cobro, por, en };
+// logística ya no puede editarla (las reglas solo dejan editar las PENDIENTE). Al asignar el folio, cada pago pasa a ser
+// un abono del folio (asignarFolio). Quitar el pago: solo sin folio; queda en historialPagoOrden. Nada se borra.
+export async function pagarOrden(n, { fecha, cobro } = {}) {
+  const db = await dbOk(), dia = /^\d{4}-\d{2}-\d{2}$/.test(String(fecha || '')) ? fecha : hoyTxt();
+  if (dia > hoyTxt()) throw new Error('La fecha no puede ser futura.');
+  let out = null;
+  await FB.runTransaction(db, async tx => {
+    const ref = FB.doc(db, 'ordenes', String(n)), sn = await tx.get(ref);
+    if (!sn.exists()) throw new Error('La orden ya no existe.');
+    const o = sn.data();
+    if (o.estado === 'anulada') throw new Error(`La orden N° ${o.n} está anulada.`);
+    if (o.folio) throw new Error(`La orden N° ${o.n} ya tiene el folio ${o.folio}: el pago se registra en Cobranza.`);
+    if (String(o.estadoPago || 'PENDIENTE').toUpperCase() !== 'PENDIENTE') throw new Error(`La orden N° ${o.n} ya está pagada.`);
+    const monto = Math.round(Number(o.total) || 0);
+    if (!(monto > 0)) throw new Error(`La orden N° ${o.n} no tiene total.`);
+    const c = String(cobro || '').trim().slice(0, 60);
+    const pagoOrden = { monto, fecha: dia, medio: 'efectivo', cobro: c, por: authSF.currentUser.email, en: ahoraTxt() };
+    tx.update(ref, marcaCambio({ estadoPago: 'PAGADO', fechaPago: dia, medioPago: 'Efectivo' + (c ? ' · cobró ' + c : ''), pagoOrden }));
+    out = { n: o.n, cliente: o.cliente || '', monto, fecha: dia, cobro: c };
+  });
+  uso.escrituras++; olvidarAgendaB2b();
+  return out;
+}
+// Deja anotado en la orden el id de lo que quedó por recibir en Efectivo (para poder anularlo si se quita el pago)
+export async function anotarPorRecibirOrden(n, id) {
+  const db = await dbOk();
+  await FB.updateDoc(FB.doc(db, 'ordenes', String(n)), { 'pagoOrden.porRecibirId': String(id || '') }); uso.escrituras++;
+}
+export async function quitarPagoOrden(n, motivo) {
+  const db = await dbOk(), mt = String(motivo || '').trim().slice(0, 200);
+  if (mt.length < 3) throw new Error('Escribe el motivo.');
+  let p = null;
+  await FB.runTransaction(db, async tx => {
+    const ref = FB.doc(db, 'ordenes', String(n)), sn = await tx.get(ref);
+    if (!sn.exists()) throw new Error('La orden ya no existe.');
+    const o = sn.data();
+    if (!o.pagoOrden) throw new Error('Esa orden no se pagó por orden.');
+    if (o.folio) throw new Error(`La orden ya tiene el folio ${o.folio}: el pago ya es un abono de la factura.`);
+    p = o.pagoOrden;
+    const hist = (Array.isArray(o.historialPagoOrden) ? o.historialPagoOrden : []).concat([{ ...p, quitado: { por: authSF.currentUser.email, en: ahoraTxt(), motivo: mt } }]).slice(-10);
+    tx.update(ref, marcaCambio({ estadoPago: 'PENDIENTE', fechaPago: null, medioPago: null, pagoOrden: null, historialPagoOrden: hist }));
+  });
+  uso.escrituras++; olvidarAgendaB2b();
+  return p;
 }
 // Órdenes de un folio (todas, también fuera de la ventana de 30 días)
 async function ordenesDelFolio(db, folio) {
@@ -2035,7 +2108,7 @@ export async function marcarDeposito(movId, dep) {
 // Si la segunda parte falla, Deshacer otra vez la termina (la primera no se repite).
 async function deshacerDepositoB2b(db, mref, movId, m0, motivo) {
   const mot = String(motivo || '').trim().slice(0, 200);
-  const EFS = await import('./efectivo-fs.js?v=0.124.5');
+  const EFS = await import('./efectivo-fs.js?v=0.124.6');
   if (m0.deposito && m0.deposito.efectivoId) await EFS.desunir(m0.deposito.efectivoId, movId, mot || 'Deshecho en la conciliación');
   await FB.runTransaction(db, async tx => {
     const ms = await tx.get(mref), mv = ms.data();

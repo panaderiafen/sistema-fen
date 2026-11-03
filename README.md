@@ -1,3 +1,33 @@
+# Sistema Fën · v0.124.6
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 3 de noviembre de 2026
+**Dirección:** https://panaderiafen.github.io/sistema-fen/
+
+**Una orden B2B se puede marcar "Pagada en efectivo" antes de tener factura** (Emmanuel, 3 nov: un cliente paga cada orden a logística y se factura a fin de mes).
+
+## Qué cambia
+- **Ventas a empresas → Por facturar:** cada orden tiene el botón **Pagada**. Pide la fecha y quién cobró (opcional). La orden queda pagada, con la etiqueta "Pagada en efectivo · fecha", y el cliente muestra "pagado $X".
+- **El efectivo queda en Efectivo → Por recibir** como "Efectivo de un cliente B2B · cliente · orden N° …". Se recibe cuando llega a la caja de administración (ya no hay que anotar un Ingreso a mano). Aparece el texto para el sobre.
+- **Logística ya no puede editar una orden pagada.**
+- **Quitar pago** (por si se marcó por error): la orden vuelve a pendiente, el pago queda en su historial y lo por recibir se anula. Si ya se había recibido, avisa.
+- **Al asignar el folio:** el resumen dice cuánto ya está pagado. Cada pago por orden pasa a ser un **abono de la factura**. Si todas estaban pagadas, la factura queda pagada (la diferencia del redondeo del IVA no queda cobrando). Si no, Cobranza muestra solo lo que falta.
+- Una orden pagada no se anula sin quitar antes el pago.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta. Incluye la v0.124.5. La carpeta `cocina/` no cambia.
+
+## Checklist
+- [ ] Abajo dice v0.124.6.
+- [ ] Por facturar → las dos órdenes de ayer y hoy del cliente → **Pagada**, con su fecha y "logística".
+- [ ] Efectivo → Por recibir: aparecen como "orden N° …". Si esa plata ya la anotó como Ingreso a mano, **anule** la línea; si no, recíbala cuando llegue.
+- [ ] A fin de mes, al asignar el folio, el resumen dice "Ya pagadas en efectivo…".
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/b2b-pagoorden-v01246.test.js` (3, 1440 y 390 px): pagar una orden (por recibir con su N°, sobre, sin Anular), quitar el pago (historial y por recibir anulado), asignar folio con pagadas (abonos, parcial con lo que falta en Cobranza; todo pagado con $2 de redondeo queda pagado).
+- Siguen pasando las de Efectivo, Recibir, Sobre, Conciliación (v0.120–v0.123) y las de la v0.124.2 a v0.124.5.
+
+---
+
 # Sistema Fën · v0.124.5
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 3 de noviembre de 2026
