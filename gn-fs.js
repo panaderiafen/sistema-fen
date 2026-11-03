@@ -10,15 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.124.4';
-import { dbBase, correo } from './gastos-fs.js?v=0.124.4';
-import { ahoraChile } from './gastos-g2.js?v=0.124.4';
-import * as GN from './gn-modelo.js?v=0.124.4';
-import * as GB from './gn-bandeja.js?v=0.124.4';
-import * as GP from './gn-pdf.js?v=0.124.4';
-import * as GI from './gn-items.js?v=0.124.4';
-import * as TR from './trabajadores.js?v=0.124.4';
-import * as GT from './tributario.js?v=0.124.4';   // v0.108.0
+import * as FB from './fs-gastos.js?v=0.124.5';
+import { dbBase, correo } from './gastos-fs.js?v=0.124.5';
+import { ahoraChile } from './gastos-g2.js?v=0.124.5';
+import * as GN from './gn-modelo.js?v=0.124.5';
+import * as GB from './gn-bandeja.js?v=0.124.5';
+import * as GP from './gn-pdf.js?v=0.124.5';
+import * as GI from './gn-items.js?v=0.124.5';
+import * as TR from './trabajadores.js?v=0.124.5';
+import * as GT from './tributario.js?v=0.124.5';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -40,7 +40,7 @@ export async function leer() {
   const [docs0, movs, cargas, pagos, provs, cfg, items, reps0, comps, creds] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.movs), todos(GN.COL.cargas), todos(GN.COL.pagos), todos(GN.COL.provs), todos(GN.COL.config), conCat ? Promise.resolve([]) : todos('items').catch(() => []), todos(GN.COL.repartos), todos(GN.COL.compromisos).catch(() => []), todos(GN.COL.creditos).catch(() => [])]);
   // v0.96.0 · Los compromisos crean el documento del mes cuando el mes empieza (una vez: después ya está)
   let docs = docs0; const hoyCl = ahoraChile().dia, faltan = GB.compromisosPendientes(comps, docs0, inicio(), hoyCl)
-    .concat(GB.cuotasPendientes(creds, docs0, inicio(), hoyCl, c => GP.partesCuota(c)));   // v0.97.0: y la cuota de cada crédito, el mes en que vence
+    .concat(GB.cuotasPendientes(creds.map(cr => ({ ...cr, cuotas: GP.separarCuotas(cr.cuotas || [], cr.montoOriginal, cr.tasa) })), docs0, inicio(), hoyCl, c => GP.partesCuota(c)));   // v0.124.5: ya separadas (tabla real o estimado)   // v0.97.0: y la cuota de cada crédito, el mes en que vence
   if (faltan.length) { try { await escribir(GN.COL.docs, faltan, nuevoExtra('compromiso', 'sistema', ahoraChile().texto)); docs = docs0.concat(faltan.map(d => ({ ...d, ...nuevoExtra('compromiso', 'sistema', '') }))); } catch (e) { /* sin permiso o sin red: se intenta en la próxima lectura */ } }
   // v0.101.1 · Desde cero en octubre: el Gastos anterior ya no se lee. Las sugerencias que se armaron con él (una vez) quedan guardadas y se
   // siguen usando; si no existen, no se arman. El índice "¿ya está en el Gastos anterior?" (gastosAnteriores) ya no se usa.
@@ -424,12 +424,49 @@ export async function cargarCredito(r, archivo) {
   let que = 'nuevo';
   await enTransaccion(async (tx, d) => {
     const ref = FB.doc(d, GN.COL.creditos, id), sn = await tx.get(ref);
-    if (sn.exists()) { que = 'ya'; tx.update(ref, { cuotas: r.cuotas.map(c => ({ n: c.n, fecha: c.fecha, monto: c.monto, estado: c.estado })), historial: conHist(sn.data(), marca('detalle actualizado desde el banco')) }); return; }
+    // v0.124.5: lo que trae la tabla de amortización (capital, interés, atraso, otros) se conserva cuota por cuota
+    if (sn.exists()) { que = 'ya'; const antes = Object.fromEntries((sn.data().cuotas || []).map(c => [c.n, c]));
+      tx.update(ref, { cuotas: r.cuotas.map(c => ({ ...REAL(antes[c.n]), n: c.n, fecha: c.fecha, monto: c.monto, estado: c.estado })), historial: conHist(sn.data(), marca('detalle actualizado desde el banco')) }); return; }
     tx.set(ref, limpio({ banco: r.banco, nombre: r.nombre, cuota: r.cuota, dia: r.dia, cuotas: r.cuotas.map(c => ({ n: c.n, fecha: c.fecha, monto: c.monto, estado: c.estado })), montoOriginal: 0, tasa: 0, estado: 'activo', creado: { por, en }, historial: [marca('cargado del detalle del banco')] }));
   });
   const k = { id: GN.idCarga('credito'), tipo: 'credito', archivo: String(archivo.nombre || '').slice(0, 120), tamano: Number(archivo.tamano) || 0, identificador: r.nombre, leidos: r.cuotas.length, nuevos: que === 'nuevo' ? 1 : 0, yaEstaban: que === 'ya' ? 1 : 0, que, por, en };
   await guardarCarga(k);
   return { ...k, idCredito: id };
+}
+// v0.124.5 · Los campos de la tabla real de una cuota (para conservarlos o copiarlos)
+const REAL = c => (c && c.real ? { capital: c.capital, interes: c.interes, retardo: c.retardo || 0, otros: c.otros || 0, real: true, ...(c.fechaPago ? { fechaPago: c.fechaPago } : {}) } : {});
+// v0.124.5 · La "Tabla de amortización Fën": se une al crédito con el mismo N° de operación, o al cargado del detalle del banco (misma primera
+// cuota y mismo número de cuotas); si no hay, crea el crédito. Cada cuota con su tabla real usa esos montos; las que ya tienen documento
+// (clasificación del sistema) se actualizan si su total no cambia o todavía no tienen pago.
+export async function cargarTablaCredito(r, archivo) {
+  const [creds, docsT, pagosT] = await Promise.all([todos(GN.COL.creditos), todos(GN.COL.docs), todos(GN.COL.pagos)]);
+  const c0 = r.cuotas[0], idNuevo = 'cr_' + GN.hash(`${c0.fecha}|${r.nCuotas}|${r.cuota}`);
+  const prev = creds.find(x => r.operacion && x.operacion === r.operacion) || creds.find(x => x.id === idNuevo)
+    || creds.find(x => (x.cuotas || []).length === r.nCuotas && ((x.cuotas || []).find(c => c.n === 1) || {}).fecha === (r.cuotas.find(c => c.n === 1) || {}).fecha);
+  const id = prev ? prev.id : idNuevo, por = quien(), en = ahoraChile().texto;
+  let que = prev ? 'ya' : 'nuevo', cuotasF = [];
+  await enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.creditos, id), sn = await tx.get(ref), a = sn.exists() ? sn.data() : null;
+    const porN = Object.fromEntries(((a && a.cuotas) || []).map(c => [c.n, c]));
+    r.cuotas.forEach(c => { const e = porN[c.n];
+      porN[c.n] = e ? { ...e, ...(c.real ? REAL(c) : {}), ...(c.fechaPago && !c.real ? { fechaPago: c.fechaPago } : {}) } : { n: c.n, fecha: c.fecha, monto: c.monto, estado: c.fechaPago ? 'Pagada' : '', ...REAL(c) }; });
+    cuotasF = Object.values(porN).sort((x, y) => x.n - y.n);
+    const h = marca(a ? 'tabla de amortización cargada' : 'creado desde la tabla de amortización', { cuotasReales: r.reales });
+    tx.set(ref, limpio({ banco: r.banco, nombre: (a && a.nombre) || r.nombre, operacion: r.operacion || (a && a.operacion) || '', cuota: (a && a.cuota) || r.cuota, dia: (a && a.dia) || r.dia, cuotas: cuotasF,
+      montoOriginal: r.montoOriginal || (a && a.montoOriginal) || 0, tasa: r.tasa || (a && a.tasa) || 0, estado: (a && a.estado) || 'activo', ...(a ? {} : { creado: { por, en } }), historial: conHist(a, h) }), { merge: true });
+  });
+  // Las cuotas que ya tienen su documento (desde el inicio): sus partes y, si no tienen pago, su total
+  const sep = GP.separarCuotas(cuotasF, r.montoOriginal, r.tasa), pagados = new Set(pagosT.filter(p => p.estado !== 'deshecho').map(p => p.docId));
+  const docs = docsT.filter(x => x.credito === id && x.clasif && x.clasif.de === 'sistema'), dbb = await dbBase();
+  let cambiados = 0, revisar = 0;
+  for (let i = 0; i < docs.length; i += 200) { const b = FB.writeBatch(dbb); let n = 0;
+    docs.slice(i, i + 200).forEach(x => { const c = sep.find(q => String(q.n) === String(x.folio)); if (!c) return; const partes = GP.partesCuota(c), tot = partes.reduce((a2, p) => a2 + p.monto, 0);
+      if (tot !== Math.round(Number(x.total) || 0) && pagados.has(x.id)) { revisar++; return; }
+      b.update(FB.doc(dbb, GN.COL.docs, x.id), { clasif: { ...x.clasif, item: partes[0].item, partes, separado: partes.length > 1, tabla: !!c.real }, ...(tot !== Math.round(Number(x.total) || 0) ? { total: tot, neto: tot } : {}), historial: conHist(x, marca(c.real ? 'cuota con la tabla del banco' : 'cuota separada (estimado)')) }); n++; cambiados++; });
+    if (n) await b.commit(); }
+  const k = { id: GN.idCarga('credito'), tipo: 'credito', archivo: String(archivo.nombre || '').slice(0, 120), tamano: Number(archivo.tamano) || 0, identificador: r.nombre, leidos: r.cuotas.length, nuevos: que === 'nuevo' ? 1 : 0, yaEstaban: que === 'ya' ? 1 : 0, que, por, en };
+  await guardarCarga(k);
+  return { ...k, idCredito: id, reales: r.reales, cambiados, revisar };
 }
 // Nombre, monto original y tasa mensual (%): con los dos últimos, cada cuota se separa en interés (financiero) y capital (fuera del resultado).
 // Se recalculan las cuotas ya creadas que conservan la clasificación del sistema.

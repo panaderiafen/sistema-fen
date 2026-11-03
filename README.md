@@ -1,3 +1,32 @@
+# Sistema Fën · v0.124.5
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 3 de noviembre de 2026
+**Dirección:** https://panaderiafen.github.io/sistema-fen/
+
+## Qué cambia
+- **Gastos → Compromisos → Créditos: "Descargar formato de tabla"** baja la "Tabla de amortización Fën" (Excel, hojas Crédito y Cuotas) para pasar a mano la tabla o cartola del banco cuando viene escaneada.
+- **Subir la tabla** (arrastrarla al recuadro de subir): se une al crédito con el mismo N° de operación o al cargado del Detalle Crédito (misma primera cuota y mismo N° de cuotas); si no hay, crea el crédito. Guarda el capital otorgado y la tasa.
+- **Cada cuota con su tabla real** se separa con los montos del banco: interés → INTERESES DE CREDITO; comisión de la garantía estatal y seguros → COMISIONES BANCARIAS; interés por atraso → MULTAS E INTERESES; capital → CAPITAL DE CREDITO (no es gasto). Las cuotas sin detalle se estiman desde el saldo que dejan las reales (antes, desde el monto original).
+- Las cuotas que ya estaban en Gastos se actualizan (si su total no cambia o todavía no tienen pago; si una pagada trae otro total, avisa y no la cambia).
+- Volver a subir el Detalle Crédito del banco no borra lo de la tabla.
+- Si alguna fila no suma (capital + interés + atraso + otros ≠ total), no se guarda nada y dice qué cuota.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta. Incluye la v0.124.3 y la v0.124.4. La carpeta `cocina/` no cambia.
+
+## Checklist
+- [ ] Abajo dice v0.124.5.
+- [ ] Gastos → Compromisos → Créditos → "Descargar formato de tabla": baja el Excel.
+- [ ] Revisar contra el papel y subir las dos tablas (Fogape 2025 N° 00039181923 y Fogape 2024 N° 00037479008).
+- [ ] En Créditos, cada uno dice "Con la tabla del banco: cuotas 1–N … desde la N+1, estimado".
+- [ ] La cuota de octubre de cada crédito en la Bandeja: interés, comisiones y capital separados.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/cred-tabla-v01245.test.js` (3, 1440 y 390 px): unir al crédito del Detalle sin duplicar, cuotas reales, cuota de octubre actualizada, texto en Créditos; error de suma no guarda; estimado desde el saldo real; el formato vacío se descarga y se reconoce.
+- Siguen pasando las de la v0.124.1 a v0.124.4.
+
+---
+
 # Sistema Fën · v0.124.4
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 3 de noviembre de 2026

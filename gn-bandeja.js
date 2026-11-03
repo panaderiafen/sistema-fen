@@ -410,8 +410,10 @@ export function compromisosPendientes(comps, docs, inicio, hoy) {
 export const idCuotaDoc = (cid, n) => `d_cred_${cid}_${n}`;
 export function docDeCuota(cr, c, partes) {
   const mes = c.fecha.slice(0, 7);
+  // v0.124.5 · Con la tabla del banco, el total es el de sus partes (puede traer interés por atraso); si no, la cuota
+  const sumaP = (partes || []).reduce((a, p) => a + (Number(p.monto) || 0), 0), total = c.real && sumaP > 0 ? sumaP : c.monto;
   return { id: idCuotaDoc(cr.id, c.n), origen: 'credito', credito: cr.id, formato: '', tipo: 'cuota', tipoTexto: `Cuota ${c.n} de ${cr.cuotas.length}`, nc: false, rut: '', rutN: '', razon: s(cr.nombre) || 'Crédito',
-    folio: String(c.n), fecha: c.fecha, mes, neto: c.monto, exento: 0, iva: 0, otroImp: 0, total: c.monto, vence: c.fecha, formaPago: '', referencias: [], detalle: [], descuadre: '', cargaId: '', cliente: '', direccion: '', periodo: null,
+    folio: String(c.n), fecha: c.fecha, mes, neto: total, exento: 0, iva: 0, otroImp: 0, total, vence: c.fecha, formaPago: '', referencias: [], detalle: [], descuadre: '', cargaId: '', cliente: '', direccion: '', periodo: null,
     clasif: { item: partes[0].item, areas: [{ area: 'ADMIN', pct: 100 }], repartoId: '', partes, porLineas: false, separado: partes.length > 1, lineas: [], de: 'sistema' } };
 }
 export function cuotasPendientes(creds, docs, inicio, hoy, partesDe) {

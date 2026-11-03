@@ -5,7 +5,7 @@
 //    único, por el F29. Los datos se buscan por su etiqueta (toleran bonos, colación, transporte y cambios menores de formato).
 //  · F29 (formulario completo o certificado): el pago del mes con su reparto por código: IVA y PPM (fuera del resultado), retención de
 //    boletas de terceros (costo de los practicantes), impuesto único (costo de los sueldos), multas e intereses (financiero).
-import { idDoc, rutN, rutTexto, esIso, mesDe } from './gn-modelo.js?v=0.124.4';
+import { idDoc, rutN, rutTexto, esIso, mesDe } from './gn-modelo.js?v=0.124.5';
 
 const s = v => (v === null || v === undefined ? '' : String(v));
 const celdas = l => s(l).split(/\s{2,}/).map(x => x.trim()).filter(Boolean);
@@ -203,15 +203,72 @@ export function leerCredito(filas, encabezado) {
   r.bloquea = r.errores.length > 0;
   return r;
 }
+// ═══════════════ v0.124.5 · La "Tabla de amortización Fën" (planilla propia: el crédito y sus cuotas con capital, interés y otros) ═══════════════
+export const MARCA_TABLA = 'TABLA DE AMORTIZACION FEN';
+export const HOJAS_TABLA = { credito: 'Credito', cuotas: 'Cuotas' };
+// wb.SheetNames y la primera celda de la hoja Crédito
+export const esTablaFen = (nombres, celdaA1) => (nombres || []).some(n => norm(n) === 'CREDITO') && (nombres || []).some(n => norm(n) === 'CUOTAS') && norm(celdaA1).startsWith(MARCA_TABLA);
+const fechaCelda = v => { if (v instanceof Date && !isNaN(v)) return v.toISOString().slice(0, 10); const t = s(v); return esIso(t) ? t : dmyIso(t); };
+const numCelda = v => { if (typeof v === 'number') return Math.round(v); const t = s(v); if (!t) return null; const n = num(t); return n === null ? null : n; };
+// fCred: filas de la hoja Crédito [[etiqueta, valor]]; fCuotas: filas de la hoja Cuotas (la primera, encabezados)
+export function leerTablaFen(fCred, fCuotas) {
+  const r = { tipo: 'credito', fuente: 'tabla', banco: '', operacion: '', nombre: '', montoOriginal: 0, tasa: 0, nCuotas: 0, cuotas: [], errores: [], avisos: [] };
+  const dato = re => { const f = (fCred || []).find(x => x && re.test(norm(x[0]))); return f ? f[1] : ''; };
+  r.banco = s(dato(/^BANCO/)).slice(0, 40) || 'Banco'; r.operacion = s(dato(/^N. DE OPERACION|^NUMERO DE OPERACION|^OPERACION/)).replace(/\D/g, '').slice(0, 20);
+  r.nombre = s(dato(/^NOMBRE/)).slice(0, 100); r.montoOriginal = Math.max(0, numCelda(dato(/^CAPITAL OTORGADO|^MONTO ORIGINAL/)) || 0);
+  const tz = s(dato(/^TASA/)).replace('%', '').replace(',', '.'); r.tasa = Number(tz) || (typeof dato(/^TASA/) === 'number' ? Number(dato(/^TASA/)) : 0);
+  if (r.tasa > 0 && r.tasa < 0.2) r.tasa = Math.round(r.tasa * 10000) / 100;   // 0,0106 escrito como fracción → 1,06 %
+  r.nCuotas = Math.round(numCelda(dato(/^N. DE CUOTAS|^CUOTAS ORIGINALES|^NUMERO DE CUOTAS/)) || 0);
+  const h = ((fCuotas || [])[0] || []).map(norm), col = re => h.findIndex(x => re.test(x));
+  const iN = col(/^CUOTA$|^N. CUOTA|^N.$/), iV = col(/^VENCIMIENTO|^FECHA DE VENC/), iP = col(/^FECHA DE PAGO|^PAGADA EL/), iCap = col(/^CAPITAL/), iInt = col(/^INTERES$|^INTERESES PACTADOS|^INTERES PACTADO/),
+    iRet = col(/ATRASO|RETARDO/), iOtr = col(/^OTROS/), iTot = col(/^TOTAL/);
+  if (iN < 0 || iV < 0 || iTot < 0) { r.errores.push('La hoja Cuotas debe tener las columnas Cuota, Vencimiento y Total.'); r.bloquea = true; return r; }
+  (fCuotas || []).slice(1).forEach((f, k) => {
+    if (!f || !s(f[iN])) return;
+    const n = Number(s(f[iN]).replace(/\D/g, '')); if (!(n > 0)) return;
+    const fecha = fechaCelda(f[iV]), total = numCelda(f[iTot]);
+    if (!fecha || !(total > 0)) { r.errores.push(`Cuota ${n}: falta el vencimiento o el total.`); return; }
+    const cap = iCap >= 0 ? numCelda(f[iCap]) : null, int = iInt >= 0 ? numCelda(f[iInt]) : null, ret = iRet >= 0 ? numCelda(f[iRet]) || 0 : 0, otr = iOtr >= 0 ? numCelda(f[iOtr]) || 0 : 0;
+    const c = { n, fecha, monto: total, fechaPago: iP >= 0 ? fechaCelda(f[iP]) : '' };
+    if (cap !== null && int !== null) {
+      if (Math.abs(cap + int + ret + otr - total) > 1) r.errores.push(`Cuota ${n}: capital + interés + atraso + otros (${cap + int + ret + otr}) no da el total (${total}).`);
+      Object.assign(c, { capital: cap, interes: int, retardo: ret, otros: otr, real: true });
+    }
+    r.cuotas.push(c);
+  });
+  r.cuotas.sort((a, b) => a.n - b.n);
+  if (!r.cuotas.length) r.errores.push('No se encontraron cuotas en la hoja Cuotas.');
+  if (!r.nCuotas) r.nCuotas = r.cuotas.length ? r.cuotas[r.cuotas.length - 1].n : 0;
+  if (new Set(r.cuotas.map(c => c.n)).size !== r.cuotas.length) r.errores.push('Hay cuotas repetidas.');
+  const fr = {}; r.cuotas.forEach(c => { fr[c.monto] = (fr[c.monto] || 0) + 1; });
+  r.cuota = Number(Object.entries(fr).sort((a, b) => b[1] - a[1])[0]?.[0] || 0);
+  r.dia = r.cuotas.length ? Number(r.cuotas[Math.min(2, r.cuotas.length - 1)].fecha.slice(8)) : 0;
+  if (!r.nombre) r.nombre = `Crédito ${r.banco}${r.operacion ? ' N° ' + r.operacion : ''}`;
+  r.reales = r.cuotas.filter(c => c.real).length;
+  r.bloquea = r.errores.length > 0;
+  return r;
+}
 // Interés y capital de cada cuota (sistema francés) con el monto original y la tasa mensual: interés = saldo × tasa; capital = cuota − interés.
 // La última cuota cierra el saldo. Sin esos datos, la cuota va completa.
+// v0.124.5 · Una cuota con la tabla del banco (real: capital, interés, interés por atraso y otros) usa esos montos; las demás se
+// estiman desde el saldo que va quedando. Sin monto o tasa, solo las reales se separan.
+const tieneReal = c => !!c && c.real === true && Number.isFinite(Number(c.capital)) && Number.isFinite(Number(c.interes));
 export function separarCuotas(cuotas, montoOriginal, tasaMensualPct) {
-  const P = Number(montoOriginal) || 0, i = (Number(tasaMensualPct) || 0) / 100; if (!(P > 0) || !(i > 0)) return cuotas.map(c => ({ ...c, interes: null, capital: null }));
+  const P = Number(montoOriginal) || 0, i = (Number(tasaMensualPct) || 0) / 100, calcula = P > 0 && i > 0;
   let saldo = P;
-  return cuotas.map((c, k) => { const interes = Math.max(0, Math.round(saldo * i)), capital = k === cuotas.length - 1 ? Math.round(saldo) : Math.min(Math.round(saldo), c.monto - interes); saldo -= capital; return { ...c, interes: k === cuotas.length - 1 ? c.monto - capital : interes, capital }; });
+  return cuotas.map((c, k) => {
+    if (tieneReal(c)) { saldo -= Math.round(Number(c.capital)); return { ...c, capital: Math.round(Number(c.capital)), interes: Math.round(Number(c.interes)), retardo: Math.round(Number(c.retardo) || 0), otros: Math.round(Number(c.otros) || 0), real: true }; }
+    if (!calcula) return { ...c, interes: null, capital: null };
+    const interes = Math.max(0, Math.round(saldo * i)), capital = k === cuotas.length - 1 ? Math.round(saldo) : Math.min(Math.round(saldo), c.monto - interes); saldo -= capital;
+    return { ...c, interes: k === cuotas.length - 1 ? c.monto - capital : interes, capital, real: false };
+  });
 }
-export const ITEMS_CREDITO = { cuota: 'CUOTA DE CREDITO', interes: 'INTERESES DE CREDITO', capital: 'CAPITAL DE CREDITO' };
-export const partesCuota = c => (c.interes !== null && c.interes !== undefined ? [{ item: ITEMS_CREDITO.interes, area: 'ADMIN', monto: c.interes }, { item: ITEMS_CREDITO.capital, area: 'ADMIN', monto: c.capital }].filter(p => p.monto > 0) : [{ item: ITEMS_CREDITO.cuota, area: 'ADMIN', monto: c.monto }]);
+// v0.124.5 · El total de una cuota con su tabla real (lo que de verdad se paga: puede traer interés por atraso)
+export const totalCuota = c => (tieneReal(c) ? Math.round(Number(c.capital) + Number(c.interes) + (Number(c.retardo) || 0) + (Number(c.otros) || 0)) : Math.round(Number(c.monto) || 0));
+export const ITEMS_CREDITO = { cuota: 'CUOTA DE CREDITO', interes: 'INTERESES DE CREDITO', capital: 'CAPITAL DE CREDITO', otros: 'COMISIONES BANCARIAS', retardo: 'MULTAS E INTERESES' };
+export const partesCuota = c => (tieneReal(c) ? [{ item: ITEMS_CREDITO.interes, area: 'ADMIN', monto: Math.round(c.interes) }, { item: ITEMS_CREDITO.otros, area: 'ADMIN', monto: Math.round(Number(c.otros) || 0) },
+  { item: ITEMS_CREDITO.retardo, area: 'ADMIN', monto: Math.round(Number(c.retardo) || 0) }, { item: ITEMS_CREDITO.capital, area: 'ADMIN', monto: Math.round(c.capital) }].filter(p => p.monto > 0)
+  : c.interes !== null && c.interes !== undefined ? [{ item: ITEMS_CREDITO.interes, area: 'ADMIN', monto: c.interes }, { item: ITEMS_CREDITO.capital, area: 'ADMIN', monto: c.capital }].filter(p => p.monto > 0) : [{ item: ITEMS_CREDITO.cuota, area: 'ADMIN', monto: c.monto }]);
 
 export function planPdf(d, existentes, inicio) {
   const e = (existentes || []).find(x => x.id === d.id);
