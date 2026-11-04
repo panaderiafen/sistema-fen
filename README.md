@@ -1,3 +1,22 @@
+# Sistema Fën · v0.124.10
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 4 de noviembre de 2026
+
+**Efectivo → "Debería haber en la caja" separa lo del mes en curso** (Emmanuel, 4 nov). Bajo el total dice "Del mes en curso: $X · de antes: $Y". Lo del mes es lo que entró menos lo que salió desde el día 1 (en rojo si salió más de lo que entró); lo de antes, lo que quedó del mes anterior. Incluye la v0.124.9: suba esta directamente.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta. La carpeta `cocina/` no cambia.
+
+## Checklist
+- [ ] Abajo dice v0.124.10.
+- [ ] Efectivo: bajo "Debería haber en la caja" aparecen "Del mes en curso" y "de antes", y suman el total.
+- [ ] Lo de la v0.124.9 (abajo).
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/efectivo-cuadre-v01249.test.js` revisa también la línea nueva ($26.200 del mes + $110.000 de antes = $136.200).
+
+---
+
 # Sistema Fën · v0.124.9
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 4 de noviembre de 2026

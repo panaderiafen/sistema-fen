@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — lectura de pendientes de las otras apps  v0.6.0 
+//  Sistema Fën — lectura de pendientes de las otras apps  v0.6.0
 //  Gastos, Ventas B2B y Producción tienen su propio Apps Script. Desde su
 //  versión 2.1.0 / 2.1.0 / 2.2.0 traen SistemaFen.gs, que responde un resumen de
 //  pendientes (solo lectura) a la cuenta de administración de Sistema Fën.
 //  Las direcciones de los scripts vienen de config.js y se pueden cambiar en
 //  Configuración → Conexiones (se guardan en Firestore, config/sistemaFen).
 // ═══════════════════════════════════════════════
-import { auth, db, doc, getDoc, runTransaction } from './firebase.js?v=0.124.9';
+import { auth, db, doc, getDoc, runTransaction } from './firebase.js?v=0.124.10';
 
 const F = window.FEN_SIS;
 export const APPS = [

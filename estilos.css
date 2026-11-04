@@ -3283,3 +3283,6 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .ef-mes-ant { border-top: 1px solid var(--borde, #E4DFD3); padding: 10px 0; }
 .ef-mes-ant > summary { cursor: pointer; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; min-height: 44px; align-items: center; }
 @media (max-width: 720px) { .ef-cq { grid-template-columns: minmax(0, 1fr); } }
+
+/* v0.124.10 · Debería haber: lo del mes en curso y lo de antes */
+.ef-del-mes { display: block; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--linea); font-size: .85rem; }
