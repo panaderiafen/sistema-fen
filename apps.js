@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — lectura de pendientes de las otras apps  v0.6.0
+//  Sistema Fën — lectura de pendientes de las otras apps  v0.6.0 
 //  Gastos, Ventas B2B y Producción tienen su propio Apps Script. Desde su
 //  versión 2.1.0 / 2.1.0 / 2.2.0 traen SistemaFen.gs, que responde un resumen de
 //  pendientes (solo lectura) a la cuenta de administración de Sistema Fën.
