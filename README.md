@@ -1,3 +1,30 @@
+# Sistema Fën · v0.124.8
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 4 de noviembre de 2026
+**Dirección:** https://panaderiafen.github.io/sistema-fen/
+
+**Efectivo → Por recibir: marcar algunos y recibirlos juntos** (Emmanuel, 4 nov: a veces llega primero lo de B2B y después lo de las cajas).
+
+## Qué cambia
+- Cada línea que **entra** (retiros de las cajas y efectivo B2B) tiene una casilla para marcarla. Lo que sale (sencillo a una caja) no se marca.
+- Al marcar, el botón cambia a **"Recibir lo seleccionado (N · $total)"** y suma solo lo marcado. Sin nada marcado sigue siendo "Recibir todos (llegó completo)".
+- La ventana muestra solo lo marcado, con su total. Lo demás sigue esperando en Por recibir.
+- Si algo llegó con menos, se sigue recibiendo aparte con su botón **Recibir**.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta. La carpeta `cocina/` no cambia.
+
+## Checklist
+- [ ] Abajo dice v0.124.8.
+- [ ] Efectivo → Por recibir: marcar dos líneas de B2B; el botón dice "Recibir lo seleccionado (2 · $…)".
+- [ ] Recibir: quedan solo las de las cajas.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/efectivo-sel-v01248.test.js` (1440 y 390 px): marcar, desmarcar, la suma en el botón, recibir solo lo marcado, lo de las cajas sigue esperando.
+- Siguen pasando `recibir-v01210` (Recibir todos) y `b2b-pagoorden-v01246`.
+
+---
+
 # Sistema Fën · v0.124.7
 
 **Corrige la v0.124.6:** al zip le faltaban dos archivos (efectivo-modelo.js y estilos.css) y Efectivo no abría ("M.refB2b is not a function"). Esta versión trae todo lo de la v0.124.6, completo. Suba esta encima.

@@ -3260,3 +3260,8 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 /* v0.124.6 · Órdenes B2B pagadas en efectivo antes del folio */
 .pagado-cli { color: var(--verde-t, #2B5A3E); font-weight: 700; }
 .pagadas-fact { background: #EAF2EC; border-radius: 8px; padding: 8px 10px; }
+
+/* v0.124.8 · Por recibir: marcar varios para recibirlos juntos */
+.ef-fila-sel { gap: 10px; }
+.ef-sel-pr { display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+.ef-sel-pr input { width: 20px; height: 20px; }
