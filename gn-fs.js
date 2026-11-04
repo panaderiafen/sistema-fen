@@ -10,15 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.124.8';
-import { dbBase, correo } from './gastos-fs.js?v=0.124.8';
-import { ahoraChile } from './gastos-g2.js?v=0.124.8';
-import * as GN from './gn-modelo.js?v=0.124.8';
-import * as GB from './gn-bandeja.js?v=0.124.8';
-import * as GP from './gn-pdf.js?v=0.124.8';
-import * as GI from './gn-items.js?v=0.124.8';
-import * as TR from './trabajadores.js?v=0.124.8';
-import * as GT from './tributario.js?v=0.124.8';   // v0.108.0
+import * as FB from './fs-gastos.js?v=0.124.9';
+import { dbBase, correo } from './gastos-fs.js?v=0.124.9';
+import { ahoraChile } from './gastos-g2.js?v=0.124.9';
+import * as GN from './gn-modelo.js?v=0.124.9';
+import * as GB from './gn-bandeja.js?v=0.124.9';
+import * as GP from './gn-pdf.js?v=0.124.9';
+import * as GI from './gn-items.js?v=0.124.9';
+import * as TR from './trabajadores.js?v=0.124.9';
+import * as GT from './tributario.js?v=0.124.9';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -731,11 +731,18 @@ export async function docsParaEfectivo(efId = '') {
   const I = GB.indicePagos(pagos), out = [];
   docs.forEach(d => {
     if (d.estado === 'no_va' || d.nc || Number(d.total) <= 0) return;
-    const e = GB.estadoDoc(d, I), base = { id: d.id, razon: d.razon || '', rut: d.rut || '', rutN: d.rutN || '', folio: d.folio || '', tipoTexto: d.tipoTexto || '', fecha: d.fecha || '', total: Math.round(Number(d.total) || 0) };
+    const e = GB.estadoDoc(d, I), base = { id: d.id, razon: d.razon || '', rut: d.rut || '', rutN: d.rutN || '', folio: d.folio || '', tipoTexto: d.tipoTexto || '', fecha: d.fecha || '', total: Math.round(Number(d.total) || 0),
+      ...(d.origen === 'liquidacion' ? { origen: 'liquidacion', anticipos: Math.round(Number(d.liquidacion && d.liquidacion.anticipos) || 0) } : {}) };   // v0.124.9
     if (e.saldo > 0) out.push({ ...base, estado: 'pendiente', saldo: e.saldo });
     (e.pagos || []).filter(p => p.medio === 'efectivo' && (!p.efectivo || (efId && p.efectivo.id === efId))).forEach(p => out.push({ ...base, estado: 'pagado_efectivo', saldo: 0, pagoId: p.id, pagoMonto: Math.round(Number(p.monto) || 0), pagoFecha: p.fecha || '' }));
   });
   return out;
+}
+// v0.124.9 · Los trabajadores de Gastos → Equipo que siguen trabajando, para el anticipo de sueldo en Efectivo → [{ clave, rutN, nombre }]
+export async function trabajadoresParaEfectivo() {
+  const [docs, provs] = await Promise.all([todos(GN.COL.docs), todos(GN.COL.provs)]);
+  const P = {}; provs.forEach(p => { P[p.id] = p; });
+  return TR.equipo({ docs, provs: P }).filter(t => !TR.terminado(t)).map(t => ({ clave: t.clave, rutN: t.rutN || '', nombre: t.nombre }));
 }
 // Pagar el documento con el efectivo (o unirlo al pago en efectivo que ya tenía en Gastos). ef: { id, col, sucursal, dia, monto, origen, clave, texto }
 // → { pagoId, repetido }

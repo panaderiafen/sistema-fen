@@ -1,3 +1,33 @@
+# Sistema Fën · v0.124.9
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 4 de noviembre de 2026
+**Dirección:** https://panaderiafen.github.io/sistema-fen/
+
+**Efectivo más claro y anticipo de sueldo** (boceto "Caja de administración más clara", aprobado por Emmanuel el 4 nov).
+
+## Qué cambia
+- **Arriba, el mes en curso**, con cuatro cifras: **Debería haber en la caja**, **Todavía no llega** (lo que entra y sigue en Por recibir), **Faltó al recibir** (sobres que llegaron con menos sin saber en qué se usó) y **Último conteo** (con lo contado).
+- **"Cómo se llega a los $X"** (plegable): lo que quedó del mes anterior + lo que entró − lo que salió, por motivo (retiros de las cajas, B2B, depósitos, pagos, anticipos, sencillo, retiro del dueño, faltó al recibir). Junto al título: todo el efectivo del negocio (caja + por llegar). Lo anulado no cuenta.
+- **"Meses anteriores"** (plegable): cada mes con "Quedó $X en la caja de administración" y lo que entró y salió. Se lee la primera vez que se abre (no suma lecturas si queda plegado). "Ver los movimientos" lleva a ese mes.
+- Los dos plegables parten cerrados y **se recuerda** cómo los dejó en ese equipo.
+- **Salida → Anticipo de sueldo:** se elige el trabajador de Gastos → Equipo. Queda en Por unir como "Anticipo · espera la liquidación de [mes]". Cuando sube la liquidación de ese mes (con su anticipo), "Unir a su liquidación" la trae elegida: un toque y la liquidación queda con el anticipo pagado en efectivo; el líquido sigue esperando la transferencia. Si la liquidación no trae anticipos, avisa.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta. La carpeta `cocina/` no cambia.
+
+## Checklist
+- [ ] Abajo dice v0.124.9.
+- [ ] Efectivo: arriba "Noviembre 2026 · hasta hoy" con las cuatro cifras.
+- [ ] Abrir "Cómo se llega": cuadra con lo que debería haber.
+- [ ] Abrir "Meses anteriores": octubre con lo que quedó.
+- [ ] Salida → Anticipo de sueldo: aparecen los trabajadores.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/efectivo-cuadre-v01249.test.js` (2; 1440 y 390 px): cifras del mes, cómo se llega (anulado fuera), meses anteriores encadenados desde el saldo, se recuerda abierto; anticipo: trabajador, espera su liquidación, después calza y se une (pago en efectivo en Gastos).
+- Siguen pasando las de Efectivo, Recibir, Sobre, Conciliación, B2B por orden y la v0.124.8.
+
+---
+
 # Sistema Fën · v0.124.8
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 4 de noviembre de 2026

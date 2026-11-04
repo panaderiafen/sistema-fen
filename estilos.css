@@ -3265,3 +3265,21 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .ef-fila-sel { gap: 10px; }
 .ef-sel-pr { display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
 .ef-sel-pr input { width: 20px; height: 20px; }
+
+/* v0.124.9 · Efectivo: el mes en curso, cómo se llega y meses anteriores */
+.ef-mes-hoy { margin: 6px 0 10px; font-size: 1.15rem; }
+.ef-cifra-fuerte { border: 1.5px solid var(--acento, #2F5A45); }
+.ef-rojo { color: var(--rojo-t); }
+.ef-plegable > summary { cursor: pointer; list-style: none; flex-wrap: wrap; gap: 6px 12px; min-height: 44px; }
+.ef-plegable > summary::-webkit-details-marker { display: none; }
+.ef-plegable > summary h2::before { content: '▸ '; }
+.ef-plegable[open] > summary h2::before { content: '▾ '; }
+.ef-cq { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
+.ef-cq-b { background: #F7F5EF; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; font-size: .9rem; }
+.ef-cq-entra { background: var(--verde); } .ef-cq-entra > b { color: var(--verde-t); }
+.ef-cq-sale { background: var(--rojo); } .ef-cq-sale > b { color: var(--rojo-t); }
+.ef-cq-fila { display: flex; justify-content: space-between; gap: 10px; }
+.ef-cq-nota { font-size: .82rem; color: var(--texto-2, #4b5650); }
+.ef-mes-ant { border-top: 1px solid var(--borde, #E4DFD3); padding: 10px 0; }
+.ef-mes-ant > summary { cursor: pointer; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; min-height: 44px; align-items: center; }
+@media (max-width: 720px) { .ef-cq { grid-template-columns: minmax(0, 1fr); } }

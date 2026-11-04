@@ -21,6 +21,7 @@ export const MOTIVOS = {
   salida: [
     ['deposito', 'Depósito al banco', 'banco'],
     ['pago', 'Pago en efectivo', 'proveedor'],
+    ['anticipo', 'Anticipo de sueldo', 'trabajador'],   // v0.124.9: queda por unir a la liquidación del mes
     ['sencillo_caja', 'Sencillo a una caja', 'sucursal'],
     ['retiro_dueno', 'Retiro del dueño', ''],
     ['otro_salida', 'Otro', 'detalle'],
@@ -88,6 +89,13 @@ export function revisar(f, hoy) {
     if (p.length < 2) return { error: 'Escriba a quién se le pagó.' };
     mov.detalle = p; mov.documento = limpio(f.documento, 40); mov.estado = 'por_unir';
   }
+  // v0.124.9 · Anticipo de sueldo: el trabajador de Gastos → Equipo; espera la liquidación de ese mes
+  if (m[2] === 'trabajador') {
+    const t = f.trabajador || {};
+    if (!limpio(t.nombre, 120) || !limpio(t.clave, 60)) return { error: 'Elija el trabajador.' };
+    mov.detalle = limpio(t.nombre, 120); mov.trabajador = { clave: limpio(t.clave, 60), rutN: limpio(t.rutN, 20), nombre: mov.detalle };
+    mov.mesSueldo = dia.slice(0, 7); mov.estado = 'por_unir';
+  }
   if (m[2] === 'detalle') {
     const d = limpio(f.detalle, 120);
     if (m[0].startsWith('otro') && d.length < 2) return { error: 'Escriba de qué se trata.' };
@@ -107,6 +115,31 @@ export function resumirMes(movs) {
     r.porMotivo[m.motivo] = (r.porMotivo[m.motivo] || 0) + n;
   });
   return r;
+}
+
+// v0.124.9 · Cómo se llega a lo que debería haber, mes a mes (Emmanuel, 4 nov). fin = lo que debería haber al terminar el mes (o hoy).
+// inicio = fin − lo que entró + lo que salió − las diferencias de los conteos del mes. Lo anulado no cuenta (su saldo ya se devolvió).
+export const TEXTO_ENTRA = { retiro_caja: 'Retiros de las cajas', efectivo_b2b: 'Efectivo de clientes B2B', aporte_dueno: 'Aporte del dueño', otro_ingreso: 'Otros ingresos' };
+export const TEXTO_SALE = { deposito: 'Depósitos al banco', pago: 'Pagos en efectivo', anticipo: 'Anticipos de sueldo', sencillo_caja: 'Sencillo a las cajas', retiro_dueno: 'Retiro del dueño', faltante: 'Faltó al recibir', otro_salida: 'Otras salidas' };
+export function cuadreMes(movs, fin) {
+  const ent = {}, sal = {}; let entro = 0, salio = 0, conteos = 0, faltante = 0, nFalt = 0, ult = null, inicial = false;
+  (movs || []).forEach(m => {
+    if (!m || m.anulado) return;
+    const n = Math.round(Number(m.monto) || 0);
+    if (m.tipo === 'conteo') { conteos += Math.round(Number(m.diferencia) || 0); if (m.inicial) inicial = true; if (!ult || (m.dia || '') > ult.dia || ((m.dia || '') === ult.dia && ms(m.creado) >= ms(ult.creado))) ult = m; return; }
+    if (m.tipo === 'ingreso') { entro += n; const k = TEXTO_ENTRA[m.motivo] ? m.motivo : 'otro_ingreso'; ent[k] = (ent[k] || 0) + n; }
+    else if (m.tipo === 'salida') { salio += n; const k = TEXTO_SALE[m.motivo] ? m.motivo : 'otro_salida'; sal[k] = (sal[k] || 0) + n; if (m.motivo === 'faltante') { faltante += n; nFalt++; } }
+  });
+  const f = Math.round(Number(fin) || 0);
+  const orden = (o, T) => Object.keys(T).filter(k => o[k]).map(k => [T[k], o[k]]);
+  return { inicio: f - entro + salio - conteos, fin: f, entro, salio, conteos, conteoInicial: inicial, entradas: orden(ent, TEXTO_ENTRA), salidas: orden(sal, TEXTO_SALE), faltante, nFalt,
+    ultimoConteo: ult ? { dia: ult.dia, monto: Math.round(Number(ult.monto) || 0), diferencia: Math.round(Number(ult.diferencia) || 0) } : null };
+}
+// Meses (del más nuevo al más antiguo) con su cuadre, encadenados desde lo que debería haber hoy. porMes: { 'aaaa-mm': [movs] }
+export function cuadreMeses(porMes, meses, saldoHoy) {
+  let fin = Math.round(Number(saldoHoy) || 0); const out = [];
+  [...meses].sort().reverse().forEach(k => { const c = cuadreMes(porMes[k] || [], fin); out.push({ mes: k, ...c }); fin = c.inicio; });
+  return out;
 }
 
 // Orden para mostrar: del más nuevo al más antiguo (día y luego hora de registro)
@@ -244,7 +277,8 @@ export const diaNormal = f => { const t = String(f || ''); if (DIA.test(t)) retu
 // Un pago a proveedor que espera su boleta o factura: de la caja de administración (Salida · Pago en efectivo) o de una caja de
 // venta (retiro "Pago a proveedor", caja_movimientos). m.col dice de dónde viene ('caja_movimientos' o nada).
 export const esDeCaja = m => !!m && m.col === 'caja_movimientos';
-export const esPagoPorUnir = m => !!m && !m.anulado && m.estado === 'por_unir' && (esDeCaja(m) ? m.tipo === 'retiro' && m.motivo === 'pago_proveedor' : m.tipo === 'salida' && m.motivo === 'pago');
+export const esPagoPorUnir = m => !!m && !m.anulado && m.estado === 'por_unir' && (esDeCaja(m) ? m.tipo === 'retiro' && m.motivo === 'pago_proveedor' : m.tipo === 'salida' && (m.motivo === 'pago' || m.motivo === 'anticipo'));
+export const esAnticipo = m => !!m && !esDeCaja(m) && m.tipo === 'salida' && m.motivo === 'anticipo';
 // De qué efectivo salió (va al pago en Gastos)
 export const origenEfectivo = m => (esDeCaja(m) ? 'caja_' + String(m.sucursal || '') : CUENTA);
 export const textoOrigenEfectivo = m => (esDeCaja(m) ? 'Caja ' + (textoSucursal(m.sucursal) || '') : 'Caja de administración');
@@ -273,6 +307,15 @@ export function mismoProveedor(texto, d) {
 export const TOL_UNIR = 5;
 export function candidatosUnir(mov, docs, q = '') {
   const monto = Math.round(Number(mov && mov.monto) || 0), folio = digitos(mov && mov.documento);
+  // v0.124.9 · Un anticipo de sueldo va a la liquidación de ese trabajador: calza si es la del mes y trae anticipos que lo cubren
+  if (esAnticipo(mov) && !String(q || '').trim()) {
+    const rut = String((mov.trabajador && mov.trabajador.rutN) || '');
+    return (docs || []).filter(d => d.origen === 'liquidacion' && d.estado === 'pendiente' && (rut ? String(d.rutN || '') === rut : mismoProveedor(mov.detalle, d))).map(d => {
+      const base = Math.round(Number(d.saldo) || 0), ant = Math.round(Number(d.anticipos) || 0), delMes = String(d.fecha || '').slice(0, 7) === mov.mesSueldo;
+      const calza = delMes && ant > 0 && monto <= ant + TOL_UNIR && monto <= base + TOL_UNIR;
+      return { d, calza, mismo: true, folioOk: false, dias: Math.abs(diasEntre(d.fecha, mov.dia)) || 0, puede: monto <= base + TOL_UNIR, monto: Math.min(monto, base), sinAnticipo: delMes && !ant };
+    }).sort((a, b) => (b.calza - a.calza) || a.dias - b.dias);
+  }
   const l = (docs || []).map(d => {
     const base = d.estado === 'pagado_efectivo' ? Math.round(Number(d.pagoMonto) || 0) : Math.round(Number(d.saldo) || 0);
     const calza = Math.abs(base - monto) <= TOL_UNIR, dias = Math.abs(diasEntre(d.fecha, mov.dia));
