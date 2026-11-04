@@ -11,12 +11,12 @@
 //  de B2B: los de la escucha de siempre (0). El catálogo: la memoria de Gastos y Finanzas.
 //  Nada se borra: quitar una foto deja foto/mini en null con su historial.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.124.10';
-import * as FB from './firebase-b2b.js?v=0.124.10';
-import * as B from './b2b.js?v=0.124.10';
-import * as GB from './gastos-base.js?v=0.124.10';
-import * as FBG from './fs-gastos.js?v=0.124.10';
-import * as LM from './listas-precios-modelo.js?v=0.124.10';
+import { auth } from './firebase.js?v=0.124.11';
+import * as FB from './firebase-b2b.js?v=0.124.11';
+import * as B from './b2b.js?v=0.124.11';
+import * as GB from './gastos-base.js?v=0.124.11';
+import * as FBG from './fs-gastos.js?v=0.124.11';
+import * as LM from './listas-precios-modelo.js?v=0.124.11';
 
 const yo = () => (auth.currentUser && auth.currentUser.email) || '';
 const ahora = () => new Date().toISOString();

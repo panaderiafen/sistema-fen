@@ -10,8 +10,8 @@
 //  v0.123.0 (aprobado por Emmanuel el 1 nov): "Por unir a su documento" (los pagos en efectivo, de aquí y de las cajas, se unen a su
 //  boleta o factura en Gastos), los depósitos esperan su abono de la cartola, y la pestaña "Retiros por semana".
 // ═══════════════════════════════════════════════
-import * as M from './efectivo-modelo.js?v=0.124.10';
-import * as FS from './efectivo-fs.js?v=0.124.10';
+import * as M from './efectivo-modelo.js?v=0.124.11';
+import * as FS from './efectivo-fs.js?v=0.124.11';
 
 const EF = { mes: '', cuenta: undefined, movs: null, porRecibir: null, posteriores: null, porUnir: null, semana: '', msg: '', err: '', selPr: new Set(), pasados: null };   // v0.124.8: selPr = ids elegidos en Por recibir · v0.124.9: pasados = { mes: [movs] } de los meses anteriores (se leen al abrir "Meses anteriores")
 export function olvidar() { EF.cuenta = undefined; EF.movs = null; EF.pasados = null; EF.porRecibir = null; EF.posteriores = null; EF.porUnir = null; EF.pasados = null; FS.olvidarPorUnir(); FS.olvidarSemanas(); }
@@ -132,7 +132,7 @@ export async function pintarEfectivo(el, sub, H) {
     <h2 class="ef-mes-hoy">${esc(mesTexto(mesHoy).replace(/^./, x => x.toUpperCase()))} · hasta hoy</h2>
     <div class="cifras cifras-4">
       <div class="tarjeta cifra ef-cifra-fuerte"><span class="rotulo">Debería haber en la caja</span><span class="valor" id="ef-deberia">${pesos(c.saldo)}</span><span class="nota">Lo que ya llegó, menos lo que salió</span>
-        <span class="ef-del-mes" id="ef-del-mes">Del mes en curso: <b class="${cq.fin - cq.inicio < 0 ? 'ef-rojo' : ''}">${cq.fin - cq.inicio < 0 ? '−' : ''}${pesos(Math.abs(cq.fin - cq.inicio))}</b> · de antes: ${pesos(cq.inicio)}</span></div>
+        <span class="ef-del-mes" id="ef-del-mes">En ${esc(MESES[Number(mesHoy.slice(5, 7)) - 1])}: entró ${pesos(cq.entro)} · salió ${pesos(cq.salio)}${cq.conteos ? ` · conteos ${cq.conteos > 0 ? '+' : '−'}${pesos(Math.abs(cq.conteos))}` : ''} · neto <b class="${cq.fin - cq.inicio < 0 ? 'ef-rojo' : ''}">${cq.fin - cq.inicio < 0 ? '−' : ''}${pesos(Math.abs(cq.fin - cq.inicio))}</b><br>De antes: ${pesos(cq.inicio)}</span></div>
       <div class="tarjeta cifra"><span class="rotulo">Todavía no llega</span><span class="valor" id="ef-por-llegar">${pesos(porLlegar)}</span><span class="nota">${nLlegar ? `${nLlegar} ${nLlegar === 1 ? 'sobre' : 'sobres'} en Por recibir` : 'Nada en Por recibir'}</span></div>
       <div class="tarjeta cifra"><span class="rotulo">Faltó al recibir</span><span class="valor${cq.faltante ? ' ef-rojo' : ''}" id="ef-falto">${pesos(cq.faltante)}</span><span class="nota">${cq.nFalt ? `${cq.nFalt} ${cq.nFalt === 1 ? 'sobre llegó' : 'sobres llegaron'} con menos, sin saber en qué se usó` : 'Este mes, todo llegó completo'}</span></div>
       <div class="tarjeta cifra"><span class="rotulo">Último conteo</span><span class="valor">${uc ? esc(diaTexto(uc.dia)) : '—'}</span><span class="nota">${uc ? `Contado ${esc(pesos(uc.monto))} · ` : ''}${esc(ucTxt)}</span></div>
@@ -462,7 +462,7 @@ function dialogoAnularPr(x, H, repintar) {
 // ═══════════════ v0.123.0 · Unir un pago en efectivo a su documento en Gastos ═══════════════
 // Primero se paga en Gastos (fen-gastos), con una clave que sale del movimiento; después se marca aquí (fen-ventas). Son dos bases
 // distintas: si la segunda parte falla, el pago en Gastos ya quedó y "Unir" otra vez solo termina de marcarlo (no paga dos veces).
-const fsGN = () => import('./gn-fs.js?v=0.124.10');
+const fsGN = () => import('./gn-fs.js?v=0.124.11');
 function dialogoUnir(m, H, repintar) {
   const { esc, pesos } = H;
   let docs = null, elegido = '';

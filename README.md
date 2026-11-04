@@ -1,3 +1,18 @@
+# Sistema Fën · v0.124.11
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 4 de noviembre de 2026
+
+**Efectivo → bajo "Debería haber en la caja": "En noviembre: entró $X · salió $Y · neto $Z" y en la línea de abajo "De antes: $W"** (Emmanuel, 4 nov). Neto = entró − salió (± los conteos del mes, si hubo). Neto + de antes = el total. Incluye la v0.124.9 y la v0.124.10: suba esta directamente.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta. La carpeta `cocina/` no cambia.
+
+## Checklist
+- [ ] Abajo dice v0.124.11.
+- [ ] Efectivo: bajo el total, "entró · salió · neto" y "De antes".
+
+---
+
 # Sistema Fën · v0.124.10
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 4 de noviembre de 2026
