@@ -13,8 +13,8 @@
 //  faltante; si el que se corrige era el conteo inicial, el nuevo pasa a ser el conteo inicial.
 //  v0.123.0: unir a su documento (pagos) o a su abono de la cartola (depósitos) y Retiros por semana (ver abajo).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.124.11';
-import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.124.11';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.124.12';
+import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.124.12';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 const refCuenta = () => doc(db, 'efectivo', CUENTA);
@@ -144,6 +144,7 @@ export async function recibirDeCaja(id, recepcion = null, col = 'caja_movimiento
 // v0.121.0 · Recibir varios de una vez, todos completos (Emmanuel, 31 oct): "Recibir todos (llegó completo)".
 // lista: [{ id, col }] (solo lo que entra: retiros de una caja o efectivo B2B). Una sola transacción: si alguno ya estaba
 // recibido o anulado, no se guarda ninguno. Cada movimiento con 1 ms de diferencia; el saldo se escribe una vez. → { saldo, n, total }
+// v0.124.12: cada uno puede traer recepcion { llego, usos } (llegó con menos): se revisa con revisarRecepcion como uno solo.
 export async function recibirVarios(lista) {
   const items = (lista || []).filter(x => x && x.id);
   if (!items.length) throw new Error('No hay nada que recibir.');
@@ -162,14 +163,20 @@ export async function recibirVarios(lista) {
       if (x.recibido || x.pendienteAdmin !== true) throw new Error('Uno de ellos ya estaba recibido. No se recibió ninguno.');
       const base = movPorRecibir({ id: items[i].id, ...x });
       if (!base || base.tipo !== 'ingreso') throw new Error('Uno de ellos no entra a la caja de administración. No se recibió ninguno.');
-      return base;
+      const r = items[i].recepcion ? revisarRecepcion(base, items[i].recepcion) : { movs: [base], falta: 0 };
+      if (r.error) throw new Error(`${base.detalle || 'Uno de ellos'}: ${r.error} No se recibió ninguno.`);
+      return { base, r };
     });
-    let s = c.exists() ? Math.round(Number(c.data().saldo) || 0) : 0;
-    bases.forEach((m, i) => {
-      const ref = doc(collection(db, 'efectivo_movimientos'));
-      s += efecto(m); total += m.monto;
-      tx.set(ref, { ...m, cuenta: CUENTA, creado: Timestamp.fromMillis(ahora.toMillis() + i), por });
-      tx.update(refs[i], { pendienteAdmin: false, recibido: { por, en: ahora, efectivoId: ref.id } });
+    let s = c.exists() ? Math.round(Number(c.data().saldo) || 0) : 0, k = 0;
+    bases.forEach(({ base, r }, i) => {
+      let primero = null;
+      r.movs.forEach(m => {
+        const ref = doc(collection(db, 'efectivo_movimientos'));
+        s += efecto(m); if (!primero) primero = ref.id;
+        tx.set(ref, { ...m, cuenta: CUENTA, creado: Timestamp.fromMillis(ahora.toMillis() + k++), por });
+      });
+      total += base.monto - r.falta;
+      tx.update(refs[i], { pendienteAdmin: false, recibido: { por, en: ahora, efectivoId: primero, ...(r.falta ? { llego: base.monto - r.falta, falta: r.falta } : {}) } });
     });
     saldo = s;
     if (c.exists()) tx.update(refCuenta(), { saldo, actualizado: ahora, por });

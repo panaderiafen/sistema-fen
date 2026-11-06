@@ -10,8 +10,8 @@
 //  v0.123.0 (aprobado por Emmanuel el 1 nov): "Por unir a su documento" (los pagos en efectivo, de aquí y de las cajas, se unen a su
 //  boleta o factura en Gastos), los depósitos esperan su abono de la cartola, y la pestaña "Retiros por semana".
 // ═══════════════════════════════════════════════
-import * as M from './efectivo-modelo.js?v=0.124.11';
-import * as FS from './efectivo-fs.js?v=0.124.11';
+import * as M from './efectivo-modelo.js?v=0.124.12';
+import * as FS from './efectivo-fs.js?v=0.124.12';
 
 const EF = { mes: '', cuenta: undefined, movs: null, porRecibir: null, posteriores: null, porUnir: null, semana: '', msg: '', err: '', selPr: new Set(), pasados: null };   // v0.124.8: selPr = ids elegidos en Por recibir · v0.124.9: pasados = { mes: [movs] } de los meses anteriores (se leen al abrir "Meses anteriores")
 export function olvidar() { EF.cuenta = undefined; EF.movs = null; EF.pasados = null; EF.porRecibir = null; EF.posteriores = null; EF.porUnir = null; EF.pasados = null; FS.olvidarPorUnir(); FS.olvidarSemanas(); }
@@ -116,7 +116,7 @@ export async function pintarEfectivo(el, sub, H) {
   const origenes = porOrigen(pr), entran = pr.filter(entraPr);
   EF.selPr = new Set([...EF.selPr].filter(id => entran.some(x => x.id === id)));   // lo ya recibido o anulado sale de la selección
   const elegidos = () => entran.filter(x => EF.selPr.has(x.id));
-  const textoBtnRt = () => { const l = elegidos(); return l.length ? `Recibir lo seleccionado (${l.length} · ${pesos(l.reduce((a, x) => a + Math.round(Number(x.monto) || 0), 0))})` : 'Recibir todos (llegó completo)'; };
+  const textoBtnRt = () => { const l = elegidos(); return l.length ? `Recibir lo seleccionado (${l.length} · ${pesos(l.reduce((a, x) => a + Math.round(Number(x.monto) || 0), 0))})` : 'Recibir todos'; };
   // v0.123.0 · Por unir a su documento: los pagos en efectivo de aquí y de las cajas; y los depósitos que esperan su abono
   const pu = (EF.porUnir || []).filter(M.esPagoPorUnir).sort((a, b) => (a.dia || '').localeCompare(b.dia || '') || msDe(a.creado) - msDe(b.creado));
   const deps = (EF.porUnir || []).filter(M.esDepositoAbierto);
@@ -401,21 +401,61 @@ function dialogoRecibirTodos(lista, H, repintar, seleccion = false) {   // v0.12
   const { esc, pesos } = H;
   const total = lista.reduce((a, x) => a + Math.round(Number(x.monto) || 0), 0);
   const tit = seleccion ? 'Recibir lo seleccionado' : 'Recibir todos';
-  const d = H.dialogo(`<form class="form-dialogo" novalidate><h2>${tit}</h2>
-    <p class="ayuda">Úselo solo si llegó todo completo. Si algo llegó con menos, recíbalo aparte con su botón Recibir.</p>
-    <div class="ef-rt-lista">${lista.map(x => `<div class="ef-rt-fila"><span>${esc(textoPr(x))} · ${esc(diaTexto(x.dia))}</span><b class="nowrap">${pesos(x.monto)}</b></div>`).join('')}
-      <div class="ef-rt-fila ef-rt-total"><span>Total (${lista.length})</span><b class="nowrap" id="ef-rt-total">${pesos(total)}</b></div></div>
-    <p class="ayuda">Lo que debería haber sube en <b>${pesos(total)}</b>.</p>
+  // v0.124.12 · Cada uno con su "Llegó" (parte con lo esperado). Si llegó menos, se explica ahí mismo: pago con esa plata o faltante.
+  // Para repartir la diferencia en varias partes, se recibe aparte con su botón Recibir.
+  const d = H.dialogo(`<form class="form-dialogo ef-rt-form" novalidate><h2>${tit}</h2>
+    <p class="ayuda">Revise cuánto llegó de cada uno. Si llegó menos, explique la diferencia en esa misma línea.</p>
+    <div class="ef-rt-lista">${lista.map((x, i) => `<div class="ef-rt-item" data-i="${i}"><div class="ef-rt-fila"><span>${esc(textoPr(x))} · ${esc(diaTexto(x.dia))}<br><span class="nota">Esperado ${pesos(x.monto)}</span></span>
+        <span class="campo ef-rt-llego"><label for="ef-rt-l${i}">Llegó</label><input id="ef-rt-l${i}" data-llego="${i}" inputmode="numeric" autocomplete="off" value="${esc(Math.round(Number(x.monto) || 0).toLocaleString('es-CL'))}"></span></div>
+        <div class="ef-rt-dif oculto" data-dif="${i}"><p class="ayuda" data-dif-txt="${i}"></p>
+          <div class="chips" role="radiogroup" aria-label="La diferencia"><label class="chip-op"><input type="radio" name="ef-rt-t${i}" value="pago" checked> Pago con esa plata</label><label class="chip-op"><input type="radio" name="ef-rt-t${i}" value="faltante"> Faltante</label></div>
+          <div class="fila-campos"><div class="campo"><label for="ef-rt-q${i}" data-q-label="${i}">A quién se le pagó</label><input id="ef-rt-q${i}" data-q="${i}" maxlength="120"></div>
+            <div class="campo" data-doc-campo="${i}"><label for="ef-rt-d${i}">N° de boleta o factura (si la hay)</label><input id="ef-rt-d${i}" data-doc="${i}" maxlength="40"></div></div></div></div>`).join('')}
+      <div class="ef-rt-fila ef-rt-total"><span>Llegó en total (${lista.length})</span><b class="nowrap" id="ef-rt-total">${pesos(total)}</b></div></div>
+    <p class="ayuda" id="ef-rt-sube">Lo que debería haber sube en <b>${pesos(total)}</b>.</p>
     <p class="error" id="ef-rt-err" role="alert"></p>
     <div class="botones"><button type="button" class="btn-sec" id="ef-rt-no">Cancelar</button><button type="submit" class="btn" id="ef-rt-si">${tit}</button></div></form>`);
   d.querySelector('#ef-rt-no').onclick = () => d.close();
+  const llegoDe = i => M.leerMonto(d.querySelector(`[data-llego="${i}"]`).value);
+  const tipoDe = i => (d.querySelector(`input[name="ef-rt-t${i}"]:checked`) || {}).value || 'pago';
+  // La recepción de cada uno: null si llegó completo; si no, { llego, usos: [una parte con toda la diferencia] }
+  const recDe = i => {
+    const x = lista[i], esp = Math.round(Number(x.monto) || 0), l = llegoDe(i);
+    if (l === esp) return null;
+    const q = d.querySelector(`[data-q="${i}"]`).value, falta = l >= 0 ? esp - l : 0;
+    return { llego: d.querySelector(`[data-llego="${i}"]`).value, usos: falta > 0 ? [tipoDe(i) === 'pago' ? { tipo: 'pago', proveedor: q, documento: d.querySelector(`[data-doc="${i}"]`).value, monto: String(falta) } : { tipo: 'faltante', detalle: q, monto: String(falta) }] : [] };
+  };
+  const vis = () => {
+    d.querySelector('#ef-rt-err').textContent = '';
+    let tot = 0;
+    lista.forEach((x, i) => {
+      const esp = Math.round(Number(x.monto) || 0), l = llegoDe(i), falta = l >= 0 ? esp - l : 0, pago = tipoDe(i) === 'pago';
+      tot += l >= 0 ? Math.min(l, esp) : 0;
+      d.querySelector(`[data-dif="${i}"]`).classList.toggle('oculto', !(falta > 0));
+      d.querySelector(`[data-dif-txt="${i}"]`).innerHTML = falta > 0 ? `Llegaron <b>${pesos(falta)}</b> menos. ¿Qué pasó con esa plata?` : '';
+      d.querySelector(`[data-q-label="${i}"]`).textContent = pago ? 'A quién se le pagó' : 'Qué cree que pasó';
+      d.querySelector(`[data-q="${i}"]`).placeholder = pago ? 'Nombre del proveedor' : 'Por ejemplo: no sé, se revisa el lunes';
+      d.querySelector(`[data-doc-campo="${i}"]`).classList.toggle('oculto', !pago);
+    });
+    d.querySelector('#ef-rt-total').textContent = pesos(tot);
+    d.querySelector('#ef-rt-sube').innerHTML = `Lo que debería haber sube en <b>${pesos(tot)}</b>.`;
+  };
+  d.addEventListener('input', vis); d.addEventListener('change', vis); vis();
   d.querySelector('form').addEventListener('submit', async ev => {
     ev.preventDefault();
     const err = d.querySelector('#ef-rt-err'), b = d.querySelector('#ef-rt-si'); err.textContent = '';
+    // Se revisa cada uno antes de guardar (la misma regla que al recibir uno solo)
+    const items = [];
+    for (let i = 0; i < lista.length; i++) {
+      const x = lista[i], rec = recDe(i);
+      if (rec) { const r = M.revisarRecepcion(M.movPorRecibir(x), rec); if (r.error) { err.textContent = `${textoPr(x)}: ${r.error}`; const q = d.querySelector(r.falta ? `[data-q="${i}"]` : `[data-llego="${i}"]`); if (q) q.focus(); return; } }
+      items.push({ id: x.id, col: x.col || 'caja_movimientos', recepcion: rec });
+    }
     b.disabled = true; b.textContent = 'Guardando…';
     try {
-      const res = await FS.recibirVarios(lista.map(x => ({ id: x.id, col: x.col || 'caja_movimientos' })));
-      H.registrar(seleccion ? 'Efectivo: recibió lo seleccionado (completos)' : 'Efectivo: recibió todos (completos)', `${lista.length} · ${pesos(total)} · ${lista.map(x => `${textoPr(x)} ${pesos(x.monto)}`).join(' · ')}`.slice(0, 900));
+      const res = await FS.recibirVarios(items);
+      const conMenos = items.filter(x => x.recepcion).length;
+      H.registrar((seleccion ? 'Efectivo: recibió lo seleccionado' : 'Efectivo: recibió todos') + (conMenos ? ` (${conMenos} con menos)` : ' (completos)'), `${lista.length} · ${pesos(res.total)} · ${lista.map((x, i) => `${textoPr(x)} ${pesos(llegoDe(i))}${llegoDe(i) !== Math.round(Number(x.monto) || 0) ? ' de ' + pesos(x.monto) : ''}`).join(' · ')}`.slice(0, 900));
       d.close();
       const meses = [...new Set(lista.map(x => String(x.dia || '').slice(0, 7)).filter(Boolean))].sort();
       EF.cuenta = undefined; EF.movs = null; EF.pasados = null; EF.porUnir = null; FS.olvidarPorUnir(); EF.porRecibir = null; EF.posteriores = null; EF.mes = meses[meses.length - 1] || EF.mes;
@@ -462,7 +502,7 @@ function dialogoAnularPr(x, H, repintar) {
 // ═══════════════ v0.123.0 · Unir un pago en efectivo a su documento en Gastos ═══════════════
 // Primero se paga en Gastos (fen-gastos), con una clave que sale del movimiento; después se marca aquí (fen-ventas). Son dos bases
 // distintas: si la segunda parte falla, el pago en Gastos ya quedó y "Unir" otra vez solo termina de marcarlo (no paga dos veces).
-const fsGN = () => import('./gn-fs.js?v=0.124.11');
+const fsGN = () => import('./gn-fs.js?v=0.124.12');
 function dialogoUnir(m, H, repintar) {
   const { esc, pesos } = H;
   let docs = null, elegido = '';

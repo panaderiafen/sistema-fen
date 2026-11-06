@@ -1,3 +1,26 @@
+# Sistema Fën · v0.124.12
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 6 de noviembre de 2026
+
+**Efectivo → Recibir lo seleccionado: cuánto llegó de cada uno** (Emmanuel, 6 nov).
+- Cada línea trae su casilla **"Llegó"** con lo esperado. Si llegó menos, en esa misma línea se elige **Pago con esa plata** (a quién y N° de documento) o **Faltante** (qué cree que pasó). El total y "lo que debería haber sube en…" se actualizan.
+- Se guarda todo junto: lo completo como siempre; lo que llegó con menos, igual que con su botón Recibir (el pago queda Por unir a su documento; el faltante cuenta en "Faltó al recibir").
+- Para repartir una diferencia en varias partes (parte pago y parte faltante), se sigue usando el botón **Recibir** de esa línea.
+- El botón sin selección ahora dice "Recibir todos" (también acepta diferencias).
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta. La carpeta `cocina/` no cambia.
+
+## Checklist
+- [ ] Abajo dice v0.124.12.
+- [ ] Efectivo → Por recibir: marcar dos → Recibir lo seleccionado → cambiar "Llegó" de uno → aparece la pregunta → guardar.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/efectivo-sel-v01248.test.js` (nueva prueba, 1440 y 390 px): uno completo y uno con $3.800 menos como faltante; sin explicar no guarda; saldo, "recibido" con llegó/falta y el faltante en una sola transacción.
+- Siguen pasando Recibir (v0.120–v0.121), Efectivo (v0.124.9) y B2B por orden.
+
+---
+
 # Sistema Fën · v0.124.11
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 4 de noviembre de 2026

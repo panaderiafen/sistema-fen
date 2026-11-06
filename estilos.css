@@ -3286,3 +3286,12 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 
 /* v0.124.10 · Debería haber: lo del mes en curso y lo de antes */
 .ef-del-mes { display: block; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--linea); font-size: .85rem; }
+
+/* v0.124.12 · Recibir lo seleccionado: cuánto llegó de cada uno */
+.ef-rt-item { border-bottom: 1px solid var(--linea); padding: 6px 0; }
+.ef-rt-item .ef-rt-fila { align-items: center; border-bottom: 0; }
+.ef-rt-llego { width: 130px; flex: 0 0 auto; margin: 0; }
+.ef-rt-llego input { text-align: right; }
+.ef-rt-dif { background: var(--rojo, #F9ECE7); border-radius: 10px; padding: 8px 10px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+.ef-rt-dif .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.ef-rt-dif .chip-op { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 1px solid var(--borde, #D9D3C6); border-radius: 999px; background: #fff; }
