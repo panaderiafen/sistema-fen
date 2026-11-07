@@ -40,11 +40,11 @@
 //   · La merma de la tienda (5.3), valorizada como el costo directo (finanzas-margenes.costearMermaTienda), en el área del producto.
 //   No son gastos de Gastos: la cuadratura los descuenta (info.caja). Un mes cerrado no cambia: lo nuevo entra como ajuste del mes siguiente.
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.124.12';
-import * as AR from './areas.js?v=0.124.12';
-import * as PC from './plan-cuentas.js?v=0.124.12';
-import * as GT from './tributario.js?v=0.124.12';   // v0.108.0: gestión y tributario
-import * as FS from './finanzas-estado.js?v=0.124.12';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
+import * as FR from './finanzas-resultados.js?v=0.124.13';
+import * as AR from './areas.js?v=0.124.13';
+import * as PC from './plan-cuentas.js?v=0.124.13';
+import * as GT from './tributario.js?v=0.124.13';   // v0.108.0: gestión y tributario
+import * as FS from './finanzas-estado.js?v=0.124.13';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;

@@ -4,8 +4,8 @@
 //  estimado de lecturas antes de bajar. Datos en respaldo.js; hojas en respaldo-modelo.js.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, dialogo }
 // ═══════════════════════════════════════════════
-import * as R from './respaldo.js?v=0.124.12';
-import * as RM from './respaldo-modelo.js?v=0.124.12';
+import * as R from './respaldo.js?v=0.124.13';
+import * as RM from './respaldo-modelo.js?v=0.124.13';
 
 const st = { mes: '', msg: '', err: '', ocupado: false, hechos: null };
 export const estado = st;

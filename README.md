@@ -1,3 +1,21 @@
+# Sistema Fën · v0.124.13
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 6 de noviembre de 2026 · Incluye la v0.124.12 (suba esta directamente).
+
+## Qué cambia
+- **Gastos en un equipo nuevo:** si ese equipo no tiene sesión en la base de Gastos, Gastos abre la pantalla para **entrar con su contraseña** (antes no había cómo llegar). Al **autorizar un equipo nuevo**, ya entra solo a la base de Gastos (como B2B y Producción).
+- **Caja → Cierres:** si una caja cerró con una anulación sin resolver (caja v3.3.6), el cierre lo dice: "venta de $X · la cajera dijo que la plata estaba / no estaba en la caja".
+- (v0.124.12) Recibir lo seleccionado con cuánto llegó de cada uno.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.124.13.
+- [ ] En el otro equipo: Gastos → pide la contraseña → Entrar → Gastos abre.
+
+---
+
 # Sistema Fën · v0.124.12
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 6 de noviembre de 2026
