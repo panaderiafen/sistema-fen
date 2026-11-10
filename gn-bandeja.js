@@ -79,7 +79,7 @@ export function repartirMonto(total, pesos) {
   if (dif) { let k = 0; out.forEach((v, i) => { if (Math.abs(pesos[i]) > Math.abs(pesos[k])) k = i; }); out[k] += dif; }
   return out;
 }
-const juntar = partes => { const m = {}; partes.forEach(p => { const k = p.item + '|' + p.area; m[k] = m[k] ? { ...m[k], monto: m[k].monto + p.monto } : { ...p }; }); return Object.values(m).filter(p => p.monto !== 0); };
+const juntar = partes => { const m = {}; partes.forEach(p => { const k = p.item + '|' + p.area; m[k] = m[k] ? { ...m[k], monto: m[k].monto + p.monto } : { ...p }; }); const v = Object.values(m); return v.some(p => p.monto !== 0) ? v.filter(p => p.monto !== 0) : v; };   // v0.124.18: un documento en $0 (liquidación de licencia) también se clasifica
 // Un ítem con su reparto por área (%) → partes
 export function partesSimple(base, item, areas) {
   const l = (areas || []).filter(a => s(a.area)); if (!s(item) || !l.length) return [];

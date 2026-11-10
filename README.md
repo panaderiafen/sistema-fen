@@ -1,3 +1,22 @@
+# Sistema Fën · v0.124.18
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 10 de noviembre de 2026 · Incluye de la v0.124.14 a la v0.124.17 (suba esta directamente).
+
+## Qué cambia
+- **Gastos → Clasificar un documento en $0** (por ejemplo, una liquidación de licencia con líquido $0): antes decía "Falta la clasificación" y no guardaba. Ahora se guarda con su ítem y área (o reparto).
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.124.18.
+- [ ] La liquidación de octubre en $0 → Elegir el área → CAF → Guardar: queda clasificada.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/gn-cero-v012418.test.mjs` (nueva). Pasan las 13 pruebas de Gastos.
+
+---
+
 # Sistema Fën · v0.124.17
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 10 de noviembre de 2026 · Incluye de la v0.124.14 a la v0.124.16 (suba esta directamente).
