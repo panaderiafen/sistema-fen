@@ -3295,3 +3295,7 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .ef-rt-dif { background: var(--rojo, #F9ECE7); border-radius: 10px; padding: 8px 10px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px; }
 .ef-rt-dif .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .ef-rt-dif .chip-op { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 1px solid var(--borde, #D9D3C6); border-radius: 999px; background: #fff; }
+
+/* v0.124.14 · Buscador de Listos */
+.gn-listos-buscar { display: flex; align-items: center; gap: 10px; margin: 8px 0 10px; flex-wrap: wrap; }
+.gn-listos-buscar input { flex: 1 1 240px; min-height: 44px; }

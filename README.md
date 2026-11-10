@@ -1,3 +1,24 @@
+# Sistema Fën · v0.124.14
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 10 de noviembre de 2026 · Incluye la v0.124.13 (suba esta directamente).
+
+## Qué cambia
+- **Gastos → Bandeja, pares factura + cargo:** ahora traen el botón **Cambiar clasificación** antes de conciliar.
+- **Gastos → Listos:** buscador arriba de la lista (nombre, RUT, folio, monto o ítem). Muestra "N de M".
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.124.14.
+- [ ] Bandeja: un par factura + cargo → Cambiar clasificación → abre Clasificar.
+- [ ] Listos: escribir un monto (ej. 30.000) → queda solo ese.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/gn-listos-v012414.test.js` (nueva). Siguen pasando gn-nota y gn-filtros.
+
+---
+
 # Sistema Fën · v0.124.13
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 6 de noviembre de 2026 · Incluye la v0.124.12 (suba esta directamente).
