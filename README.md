@@ -1,3 +1,23 @@
+# Sistema Fën · v0.124.19
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 10 de noviembre de 2026.
+
+## Qué cambia
+- **Gastos → Bandeja: cómo salió cada cargo.** Cada cargo trae una etiqueta leída de la glosa: **Transferencia** (TEF/TRANSF), **Tarjeta** (COMPRA…, débito o crédito), **Mercado Pago** (pago con saldo o Mercado Libre), **Pago de cuenta** (PAGO CREDITO, PAGO CGE…) u Otro.
+- **Filtro** arriba de los movimientos sin documento: Todos · Transferencia · Tarjeta · Mercado Pago · Pago de cuenta, con cuántos hay de cada uno. Útil para revisar por separado lo que pagó usted (transferencias) y lo que pagó logística (tarjeta).
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.124.19.
+- [ ] Bandeja → cada cargo con su etiqueta; tocar "Tarjeta" → quedan solo las compras con tarjeta.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/gn-medio-v012419.test.js` (nueva). Pasan las 14 pruebas de Gastos.
+
+---
+
 # Sistema Fën · v0.124.18
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 10 de noviembre de 2026 · Incluye de la v0.124.14 a la v0.124.17 (suba esta directamente).

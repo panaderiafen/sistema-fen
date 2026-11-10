@@ -3296,15 +3296,23 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .ef-rt-dif .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .ef-rt-dif .chip-op { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 1px solid var(--borde, #D9D3C6); border-radius: 999px; background: #fff; }
 
-/* v0.124.18 · Buscador de Listos */
+/* v0.124.19 · Buscador de Listos */
 .gn-listos-buscar { display: flex; align-items: center; gap: 10px; margin: 8px 0 10px; flex-wrap: wrap; }
 .gn-listos-buscar input { flex: 1 1 240px; min-height: 44px; }
-/* v0.124.18 · Bandeja: Recientes y Atrasados */
+/* v0.124.19 · Bandeja: Recientes y Atrasados */
 .gn-vista { align-items: center; margin: 4px 0 12px; }
 .gn-vista .chip { min-height: 44px; padding: 0 16px; font-weight: 700; }
 .gn-vista .ayuda { flex: 1 1 260px; margin: 0; }
-/* v0.124.18 · Buscador de cargos */
+/* v0.124.19 · Buscador de cargos */
 .gn-buscar-mov { display: flex; flex-direction: column; gap: 4px; margin: 0 0 10px; }
 .gn-buscar-mov input { flex: none; width: 100%; height: 44px; min-height: 44px; box-sizing: border-box; }
 .gn-buscar-mov label { text-align: left; }
 .gn-estado-mov { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+/* v0.124.19 · Cómo salió cada cargo */
+.gn-medio { margin-right: 4px; font-weight: 700; }
+.gn-medio-transf { background: var(--azul); color: var(--azul-t); }
+.gn-medio-tarjeta { background: var(--amarillo); color: var(--amarillo-t); }
+.gn-medio-mp { background: var(--verde); color: var(--verde-t); }
+.gn-medio-cuenta, .gn-medio-otro { background: var(--menu); color: var(--suave); }
+.gn-filtro-medio { margin: 0 0 10px; }
+.gn-filtro-medio .chip { min-height: 40px; }
