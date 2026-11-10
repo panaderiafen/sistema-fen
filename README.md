@@ -1,3 +1,27 @@
+# Sistema Fën · v0.124.16
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 10 de noviembre de 2026 · Incluye la v0.124.14 y la v0.124.15 (suba esta directamente).
+
+## Qué cambia
+- **Gastos → Bandeja: Recientes y Atrasados.** Dos botones arriba de la Bandeja:
+  - **Recientes** (se abre así): solo lo de los últimos 7 días — cargos sin documento, pares para conciliar y documentos nuevos. Para trabajar la cartola en línea del día.
+  - **Atrasados**: lo de hace más de 7 días, más lo que falta clasificar, el área antigua, la deuda anterior y los cargos anteriores al inicio.
+  - El total "por hacer" no cambia. El sistema recuerda la última pestaña en ese equipo. Al conciliar una cartola se ve todo, como antes.
+- El recuadro para arrastrar archivos sigue igual.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.124.16.
+- [ ] Gastos → Bandeja: aparecen "Recientes · N" y "Atrasados · N".
+- [ ] En Recientes, solo cargos de los últimos 7 días; en Atrasados, los anteriores.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/gn-vista-v012416.test.js` (nueva). Siguen pasando gn-nota, gn-filtros, gn-listos y boletas-factura.
+
+---
+
 # Sistema Fën · v0.124.15
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 10 de noviembre de 2026 · Incluye la v0.124.14 (suba esta directamente).

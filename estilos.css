@@ -3296,6 +3296,10 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .ef-rt-dif .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .ef-rt-dif .chip-op { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 1px solid var(--borde, #D9D3C6); border-radius: 999px; background: #fff; }
 
-/* v0.124.15 · Buscador de Listos */
+/* v0.124.16 · Buscador de Listos */
 .gn-listos-buscar { display: flex; align-items: center; gap: 10px; margin: 8px 0 10px; flex-wrap: wrap; }
 .gn-listos-buscar input { flex: 1 1 240px; min-height: 44px; }
+/* v0.124.16 · Bandeja: Recientes y Atrasados */
+.gn-vista { align-items: center; margin: 4px 0 12px; }
+.gn-vista .chip { min-height: 44px; padding: 0 16px; font-weight: 700; }
+.gn-vista .ayuda { flex: 1 1 260px; margin: 0; }
