@@ -1,3 +1,23 @@
+# Sistema Fën · v0.124.17
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 10 de noviembre de 2026 · Incluye de la v0.124.14 a la v0.124.16 (suba esta directamente).
+
+## Qué cambia
+- **Gastos → Bandeja: buscador de cargos**, arriba de la columna de los cargos. Busca por nombre, folio del documento o monto (con o sin puntos) en **todo** lo subido: las dos pestañas, lo conciliado y lo que no es gasto. Cada resultado dice en qué quedó: Sin documento (en Recientes o Atrasados), Conciliado con qué documento, Pago a cuenta, No es gasto o Descartado. Los sin documento traen sus botones de siempre.
+- Si no lo encuentra, se lo dice: ese pago no está en las cartolas subidas (efectivo, otra cuenta o tarjeta personal).
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.124.17.
+- [ ] Bandeja → escribir un monto en "Buscar un cargo" → aparece el cargo con su estado.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/gn-buscarmov-v012417.test.js` (nueva). Pasan las 11 pruebas de Gastos.
+
+---
+
 # Sistema Fën · v0.124.16
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 10 de noviembre de 2026 · Incluye la v0.124.14 y la v0.124.15 (suba esta directamente).

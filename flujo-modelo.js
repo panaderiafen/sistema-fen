@@ -14,10 +14,10 @@
 //    el documento original no cambia.
 //  Lo prueban pruebas/caja30/flujo-v01240.test.mjs (y la app completa, flujo-app-v01240.test.js).
 // ═══════════════════════════════════════════════
-import * as GB from './gn-bandeja.js?v=0.124.16';
-import * as GI from './gn-items.js?v=0.124.16';
-import * as PC from './plan-cuentas.js?v=0.124.16';
-import { FERIADOS } from './feriados-cl.js?v=0.124.16';
+import * as GB from './gn-bandeja.js?v=0.124.17';
+import * as GI from './gn-items.js?v=0.124.17';
+import * as PC from './plan-cuentas.js?v=0.124.17';
+import { FERIADOS } from './feriados-cl.js?v=0.124.17';
 
 const s = v => String(v == null ? '' : v).trim();
 const ent = v => { const x = Math.round(Number(v)); return isFinite(x) ? x : 0; };
