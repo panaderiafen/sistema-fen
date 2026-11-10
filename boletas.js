@@ -19,14 +19,15 @@
 //  5. Esperando boleta: mientras una cuenta de boleta no tiene la boleta del mes, un estimado (promedio de las últimas 3). No es gasto.
 //  6. Corte: el aviso urgente en Hoy hasta que se pague lo que la boleta dice que falta.
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.124.14';
-import * as AR from './areas.js?v=0.124.14';
+import * as G3 from './gastos-g3.js?v=0.124.15';
+import * as AR from './areas.js?v=0.124.15';
 
 const s = v => String(v == null ? '' : v);
 const num = v => (typeof v === 'number' ? (isFinite(v) ? v : 0) : (isFinite(Number(v)) ? Number(v) : 0));
 const r0 = v => Math.round(num(v));
 export const pesos = v => { const x = r0(v); return (x < 0 ? '-$' : '$') + Math.abs(x).toLocaleString('es-CL'); };
 const sinTildes = t => s(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
+const RUT_FEN = '77087176';   // la empresa (sin dígito verificador)
 const norm = t => sinTildes(t).toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 const esIso = f => /^\d{4}-\d{2}-\d{2}$/.test(s(f));
 const rutNorm = r => s(r).toUpperCase().replace(/[^0-9K]/g, '');
@@ -127,7 +128,13 @@ export function leerBoleta(lineas0) {
   r.tipoDoc = /BOLETA ELECTRONICA/.test(T) ? 'boleta' : /FACTURA ELECTRONICA/.test(T) ? 'factura' : '';
   if (!emp) { r.errores.push('No se reconoce la empresa de la boleta (se buscan CGE y ESSBIO por su RUT o su nombre).'); return r; }
   r.reconocida = true; r.empresa = emp.id; r.servicio = emp.servicio; r.porRut = !!porRut;
-  if (r.tipoDoc === 'factura') { r.errores.push(`Es una factura de ${emp.nombre}, no una boleta: súbela con el SII (Gastos → Bandeja → Subir archivo).`); return r; }
+  // v0.124.15 · Una factura a nombre de OTRO RUT (la luz de un local arrendado) no llega por el SII: se lee como boleta (sin crédito de IVA).
+  //  Solo la factura a nombre de Fën se rechaza (esa llega con las compras del SII y quedaría dos veces).
+  if (r.tipoDoc === 'factura') {
+    let rutRec = ''; for (const l of lineas.slice(0, 20)) { const m = /(?:^|\s)rut\s*:?\s*(\d{1,2}\.?\d{3}\.?\d{3}\s*-\s*[\dkK])/i.exec(l); if (m && m[1].replace(/[^0-9kK]/g, '').toUpperCase() !== s(r.rutEmisor).replace(/[^0-9kK]/g, '').toUpperCase()) { rutRec = m[1].replace(/[^0-9kK]/g, '').toUpperCase(); break; } }
+    if (!rutRec || rutRec.slice(0, -1) === RUT_FEN) { r.errores.push(`Es una factura de ${emp.nombre} a nombre de Fën, no una boleta: súbela con el SII (Gastos → Bandeja → Subir archivo).`); return r; }
+    r.esFactura = true; r.avisos.push('Es una factura a nombre de otro RUT (no llega por el SII): se guarda como boleta, sin crédito de IVA.');
+  }
   // N° de la boleta
   for (const l of lineas.slice(0, 10)) { const m = /^\s*N\s*[º°o]\.?\s*(\d{4,12})\s*$/i.exec(l); if (m) { r.numero = m[1]; break; } }
   if (!r.numero) for (const l of lineas) { const m = /(?:copia\s+boleta|n[°º]\s*(?:de\s+)?boleta|boleta\s+n[°º])\s*:?\s*(\d{4,12})/i.exec(l); if (m) { r.numero = m[1]; break; } }
@@ -139,7 +146,7 @@ export function leerBoleta(lineas0) {
   if (!r.hasta) for (const l of lineas) { const m = /per[ií]odo\s+(\d{1,2}\s+[A-Za-zÁÉÍÓÚáéíóú]{3,10})\s*-\s*(\d{1,2}\s+[A-Za-zÁÉÍÓÚáéíóú]{3,10})/i.exec(l); if (m && r.emision) { r.hasta = diaMesConAnio(m[2], r.emision); r.desde = diaMesConAnio(m[1], r.hasta || r.emision); break; } }
   r.vence = fechaTras(lineas, /fecha\s+de\s+vencimiento|fecha\s+l[ií]mite\s+de\s+pago|pagar\s+hasta|^vencimiento|\s{2}vence|^vence/);
   // Montos (cada uno por su etiqueta al inicio de una celda)
-  r.boleta = r0(primero(lineas, /total\s+boleta|monto\s+total|total\s+del\s+(?:mes|per[ií]odo)|total\s+per[ií]odo/));
+  r.boleta = r0(primero(lineas, /total\s+boleta|total\s+emisi[oó]n|monto\s+total|total\s+del\s+(?:mes|per[ií]odo)|total\s+per[ií]odo/));
   r.intereses = r0(primero(lineas, /inter[eé]s(?:es)?(?:\s+por\s+mora)?/));
   r.neto = r0(primero(lineas, /(?:total\s+)?neto/));
   r.iva = r0(primero(lineas, /(?:19\s*%\s*)?iva/));
@@ -151,7 +158,7 @@ export function leerBoleta(lineas0) {
   r.totalPagar = tps.length ? tps[0] : 0;
   // Corte: "Corte en trámite" y "Fecha de corte desde el 05/11/2026"
   r.corte.enTramite = /CORTE EN TRAMITE/.test(T);
-  r.corte.desde = fechaTras(lineas, /fecha\s+de\s+corte\s+desde\s+el|corte\s+desde\s+el/);
+  r.corte.desde = fechaTras(lineas, /fecha\s+de\s+corte\s+desde\s+el|corte\s+desde\s+el|corte\s+a\s+partir\s+de/);
   const deuda = /deuda vencida[\s\S]{0,200}?cantidad\s*(?:de)?\s*\$?\s*([\d.]+)/i.exec(texto);
   r.corte.monto = deuda ? Number(deuda[1].replace(/\./g, '')) : 0;
   // El mes del gasto: el del fin del período (si no se lee el período, el de la emisión, con aviso)

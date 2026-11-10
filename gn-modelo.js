@@ -72,7 +72,7 @@ export function docDeBoleta(b, emp, direccion, cargaId) {
   const det = int > 0 ? [{ descripcion: 'CONSUMO ' + serv, cantidad: 0, unidad: '', monto: total - int }, { descripcion: 'INTERESES POR MORA', cantidad: 0, unidad: '', monto: int }]
     : [{ descripcion: 'CONSUMO ' + serv, cantidad: 0, unidad: '', monto: total }];
   const fecha = esIso(b.emision) ? b.emision : esIso(b.fechaGasto) ? b.fechaGasto : '';
-  return { id: idDoc(emp.rut, '39', b.numero || b.clave), origen: 'boleta', formato: 'pdf', tipo: '39', tipoTexto: 'Boleta de ' + (s(emp.servicio) || 'servicio'), nc: false,
+  return { id: idDoc(emp.rut, '39', b.numero || b.clave), origen: 'boleta', formato: 'pdf', tipo: '39', tipoTexto: (b.esFactura ? 'Factura de ' : 'Boleta de ') + (s(emp.servicio) || 'servicio') + (b.esFactura ? ' (a nombre de otro RUT)' : ''), nc: false,
     rut: rutTexto(emp.rut), rutN: rutN(emp.rut), razon: corto(emp.nombre, 120), folio: s(b.numero), servicio: s(emp.servicio),
     fecha, mes: s(b.mes) || mesDe(fecha), neto: total, exento: 0, iva: 0, otroImp: 0, total, ivaBoleta: entero(b.iva),
     vence: esIso(b.vence) ? b.vence : '', formaPago: '', referencias: [], detalle: det, descuadre: '', cargaId: s(cargaId),

@@ -1,3 +1,24 @@
+# Sistema Fën · v0.124.15
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 10 de noviembre de 2026 · Incluye la v0.124.14 (suba esta directamente).
+
+## Qué cambia
+- **Gastos → cuentas de CGE en PDF:** una **factura** de CGE a nombre de **otro RUT** (por ejemplo, la luz de Barros Arana) ahora se lee igual que una boleta: N° de cliente, período, intereses aparte, saldo anterior y aviso de corte. Queda como "Factura de luz (a nombre de otro RUT)", sin crédito de IVA.
+- Una factura de CGE a nombre de Fën se sigue rechazando: esa llega con las compras del SII (si no, quedaría dos veces).
+- La fecha de corte "Corte a partir de…" ahora también se lee.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.124.15.
+- [ ] Gastos → arrastrar la cuenta de CGE de Barros Arana (PDF) → entra con su N° de cliente y el aviso "a nombre de otro RUT".
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/boletas-factura-v012415.test.mjs` (nueva): factura a otro RUT se lee; a nombre de Fën se rechaza; la boleta normal sigue igual.
+
+---
+
 # Sistema Fën · v0.124.14
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 10 de noviembre de 2026 · Incluye la v0.124.13 (suba esta directamente).
