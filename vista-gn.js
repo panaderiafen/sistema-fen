@@ -7,21 +7,21 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.126.2';
-import * as GB from './gn-bandeja.js?v=0.126.2';
-import * as AR from './areas.js?v=0.126.2';
-import * as Sii from './sii.js?v=0.126.2';
-import * as MP from './mercadopago.js?v=0.126.2';
-import * as GI from './gn-items.js?v=0.126.2';   // v0.102.0: catálogo de ítems
-import * as GF from './gn-finanzas.js?v=0.126.2';
-import * as PC from './plan-cuentas.js?v=0.126.2';
-import * as FR from './finanzas-resultados.js?v=0.126.2';
-import * as TR from './trabajadores.js?v=0.126.2';   // v0.104.0: ficha del trabajador y provisión
-import * as GT from './tributario.js?v=0.126.2';   // v0.108.0: gestión y tributario
+import * as GN from './gn-modelo.js?v=0.126.3';
+import * as GB from './gn-bandeja.js?v=0.126.3';
+import * as AR from './areas.js?v=0.126.3';
+import * as Sii from './sii.js?v=0.126.3';
+import * as MP from './mercadopago.js?v=0.126.3';
+import * as GI from './gn-items.js?v=0.126.3';   // v0.102.0: catálogo de ítems
+import * as GF from './gn-finanzas.js?v=0.126.3';
+import * as PC from './plan-cuentas.js?v=0.126.3';
+import * as FR from './finanzas-resultados.js?v=0.126.3';
+import * as TR from './trabajadores.js?v=0.126.3';   // v0.104.0: ficha del trabajador y provisión
+import * as GT from './tributario.js?v=0.126.3';   // v0.108.0: gestión y tributario
 
 const st = { medio: '', qMov: '', vista: (() => { try { return localStorage.getItem('fen_gn_vista') || 'recientes'; } catch (e) { return 'recientes'; } })(), D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' }, carga: '', verConciliado: false, mesD: '', mesM: '', qListos: '', abrirListos: false };   // v0.125.1: qListos = buscador de Listos   // v0.124.4: mesD / mesM = filtro por mes de cada lado ('' = todos)   // v0.105.0: carga = conciliar una cartola
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.126.2');
+const fsGN = () => import('./gn-fs.js?v=0.126.3');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -148,6 +148,18 @@ function bandejaHtml(H) {
     if (actual && !meses.includes(actual)) meses.unshift(actual);
     return `<div class="gn-filtro gn-filtro-mes" role="group" aria-label="${etq}"><button type="button" class="chip chip-chico ${actual ? 'c-gris' : 'c-verde'}" ${attr}="" aria-pressed="${!actual}">Todos</button>${meses.map(m => `<button type="button" class="chip chip-chico ${actual === m ? 'c-verde' : 'c-gris'}" ${attr}="${m}" aria-pressed="${actual === m}">${H.esc(GF.mesCorto(m))}</button>`).join('')}</div>`; };
   const cuantos = (v, t) => (v.length === t.length ? `${t.length}` : `${v.length} de ${t.length}`);
+  // v0.126.3 · Etapa 5 (pedido por Emmanuel el 11 nov, la página se congelaba): en Atrasados, sin filtro de mes, cada lado se agrupa por
+  // mes; solo el más nuevo (o el que tiene algo elegido, o uno que usted abrió) viene dibujado. Los demás se dibujan al abrirlos.
+  st.lazy = {};
+  const gruposMes = (tipo, l, de, fila, montoDe) => {
+    const G = new Map(); l.forEach(x => { const k = de(x) || ''; if (!G.has(k)) G.set(k, []); G.get(k).push(x); });
+    const gs = [...G.entries()].sort((a, b) => b[0].localeCompare(a[0])); if (gs.length < 2) return l.map(fila).join('');
+    const sel = tipo === 'd' ? selD : selM, ab = st.mesAbierto || (st.mesAbierto = {});
+    return gs.map(([mes, xs], i) => { const k = tipo + ':' + mes, abierto = ab[k] !== undefined ? ab[k] : (i === 0 || xs.some(x => sel.has(x.id)));
+      const tit = mes ? `${MESES_TXT[Number(mes.slice(5, 7)) - 1] || ''} ${mes.slice(0, 4)}` : 'Sin fecha';
+      if (!abierto) st.lazy[k] = () => xs.map(fila).join('');
+      return `<details class="gn-mesgrp" data-gn-mesgrp="${H.esc(k)}" ${abierto ? 'open' : ''}><summary><b>${H.esc(tit)} · ${xs.length}</b><span class="gn-m">${H.pesos(xs.reduce((a, x) => a + montoDe(x), 0))}</span></summary><div class="gn-mesgrp-c">${abierto ? xs.map(fila).join('') : ''}</div></details>`; }).join(''); };
+  const agrupar = (tipo, mesF) => verAtr && !kC && !mesF && !qM;
   const cuentas = [['', 'Todas'], ...cob.map(c => [c.cuenta, c.nombre])];
   // v0.99.0 · Las compras del SII: hasta qué fecha llegan los documentos cargados y el último archivo subido
   const fsii = (D.docs || []).filter(d => d.origen === 'sii' && !d.anterior).map(d => d.fecha).sort(), ksii = (D.cargas || []).find(k => k.tipo === 'sii');
@@ -255,13 +267,13 @@ function bandejaHtml(H) {
           : `<div class="gn-lado-t">Documentos sin pago · ${cuantos(sinPagoV, B.sinPago)}${conNota(sinPagoV)} ${H.info('Documentos sin pago', TXT_SINPAGO)}</div>
           ${chipsMes(B.sinPago, mesDoc, st.mesD, 'data-gn-mesd', 'Vencen en')}
           ${st.mesD && !sinPagoV.length ? '<div class="vacio">Ningún documento sin pago vence ese mes.</div>' : ''}
-          ${enRec && !sinPagoV.length ? '<div class="vacio">Ningún documento nuevo en los últimos 7 días.</div>' : B.sinPago.length ? sinPagoV.map(d => docFila(d, accDoc(d), true)).join('') : `<div class="vacio">${D.docs.length ? 'Todos los documentos tienen su pago.' : 'Todavía no hay documentos. Suba las compras del SII.'}</div>`}
+          ${enRec && !sinPagoV.length ? '<div class="vacio">Ningún documento nuevo en los últimos 7 días.</div>' : B.sinPago.length ? (agrupar('d', st.mesD) ? gruposMes('d', sinPagoV, mesDoc, d => docFila(d, accDoc(d), true), d => d.saldo) : sinPagoV.map(d => docFila(d, accDoc(d), true)).join('')) : `<div class="vacio">${D.docs.length ? 'Todos los documentos tienen su pago.' : 'Todavía no hay documentos. Suba las compras del SII.'}</div>`}
           ${verAtr && B.anteriores.length ? `<details class="gn-det"${B.anteriores.some(d => selD.has(d.id)) ? ' open' : ''}><summary>${B.anteriores.length} de deuda anterior sin pago ${H.info('Deuda anterior', TXT_ANTERIOR)}</summary>${B.anteriores.map(d => docFila(d, accDoc(d), true)).join('')}</details>` : ''}`}</div>
         <div class="gn-lado">${filtraMovs ? '' : buscaMovHtml + filtroMedio}${!filtraMovs && qM ? resMovHtml() : filtraMovs ? `<div class="gn-lado-t">Cargos posibles para ${docsSel.length === 1 ? 'el documento elegido' : 'los documentos elegidos'} ${H.info('Elegir', TXT_ELEGIR)}</div>${posMovs.map(x => movFila(x.m, x.desc ? '<span class="chip c-gris chip-chico">descartado antes</span>' : x.calza ? '<span class="chip c-verde chip-chico">calza</span>' : (!x.dentro ? '<span class="gn-sug">fuera de las fechas</span>' : ''), true)).join('') || '<div class="vacio">Ningún cargo libre para esto.</div>'}`
           : `<div class="gn-lado-t">Movimientos sin documento · ${cuantos(sinDocV, sinDoc)}${conNota(sinDocV)} ${H.info('Movimientos sin documento', TXT_SINDOC)}</div>
           ${chipsMes(sinDoc, mesMov, st.mesM, 'data-gn-mesm', 'Movimientos del mes')}
           ${st.mesM && !sinDocV.length ? '<div class="vacio">Ningún movimiento sin documento ese mes.</div>' : ''}
-          ${sinDoc.length ? sinDocV.map(m => movFila(m, accMov(m), true)).join('') : `<div class="vacio">${enRec ? 'Ningún cargo nuevo sin documento en los últimos 7 días.' : kC ? 'Todos los movimientos de esta cartola están conciliados.' : D.movs.length ? 'Todos los movimientos tienen su documento.' : 'Todavía no hay movimientos. Suba la cartola o el reporte de Mercado Pago.'}</div>`}
+          ${sinDoc.length ? (agrupar('m', st.mesM) ? gruposMes('m', sinDocV, mesMov, m => movFila(m, accMov(m), true), m => m.libre) : sinDocV.map(m => movFila(m, accMov(m), true)).join('')) : `<div class="vacio">${enRec ? 'Ningún cargo nuevo sin documento en los últimos 7 días.' : kC ? 'Todos los movimientos de esta cartola están conciliados.' : D.movs.length ? 'Todos los movimientos tienen su documento.' : 'Todavía no hay movimientos. Suba la cartola o el reporte de Mercado Pago.'}</div>`}
           ${verAtr && movsAnt.length ? `<details class="gn-det"${movsAnt.some(m => selM.has(m.id)) ? ' open' : ''}><summary>${movsAnt.length} ${movsAnt.length === 1 ? 'cargo anterior' : 'cargos anteriores'} al inicio sin documento ${H.info('Cargos anteriores', TXT_CARGOS_ANT)}</summary>${movsAnt.map(m => movFila(m, accMov(m), true)).join('')}</details>` : ''}`}
           ${filtraMovs ? '' : aCuentaV.length ? `<details class="gn-det"><summary>${aCuentaV.length} ${aCuentaV.length === 1 ? 'pago a cuenta' : 'pagos a cuenta'} · saldo a favor ${H.pesos(aCuentaV.reduce((a, m) => a + Math.max(0, m.libre), 0))} ${H.info('Pagos a cuenta', TXT_ACUENTA)}</summary>${aCuentaV.map(m => movFila(m, `<span class="gn-sug">A cuenta de ${H.esc(m.aCuenta ? m.aCuenta.razon || m.aCuenta.rut : '')}${m.libre > 0 ? ` · saldo a favor ${H.pesos(m.libre)}` : ' · ya aplicado entero'}${m.naturalezaNota ? ' · ' + H.esc(m.naturalezaNota) : ''}</span>` + (m.pagosM.length ? '' : bt(`data-gn-volvermov="${H.esc(m.id)}"`, 'Volver a la Bandeja')))).join('')}</details>` : ''}
           ${filtraMovs ? '' : noGasto.length ? `<details class="gn-det"><summary>${noGasto.length} que no son gasto (traspasos, retiros, tarjeta)</summary>${noGasto.map(m => movFila(m, bt(`data-gn-volvermov="${H.esc(m.id)}"`, 'Volver a la Bandeja'))).join('')}</details>` : ''}</div>
@@ -373,7 +385,13 @@ function conectar(el, H) {
   if (qm) { let t = null; qm.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { st.qMov = qm.value; const pos = qm.selectionStart; pintar(el, subActual(), H).then(() => { const n = el.querySelector('[data-gn-qmov]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }); }, 250); }); }
   const dl = el.querySelector('[data-gn-listos]'); if (dl) dl.addEventListener('toggle', () => { st.abrirListos = dl.open; });
   if (bp) bp.addEventListener('input', () => { st.buscaProv = bp.value; const pos = bp.selectionStart; pintar(el, subActual(), H).then(() => { const n = el.querySelector('#gn-buscar-prov'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }); });
-  el.querySelectorAll('[data-gn-sel-d], [data-gn-sel-m]').forEach(x => x.addEventListener('change', () => elegir(el, H, x.dataset.gnSelD ? 'd' : 'm', x.dataset.gnSelD || x.dataset.gnSelM, x.checked)));
+  const selCambio = raiz => raiz.querySelectorAll('[data-gn-sel-d], [data-gn-sel-m]').forEach(x => x.addEventListener('change', () => elegir(el, H, x.dataset.gnSelD ? 'd' : 'm', x.dataset.gnSelD || x.dataset.gnSelM, x.checked)));
+  selCambio(el);
+  // v0.126.3 · Un mes de Atrasados se dibuja al abrirlo (y queda abierto, o cerrado, al volver a dibujar la Bandeja)
+  el.querySelectorAll('details[data-gn-mesgrp]').forEach(dt => dt.addEventListener('toggle', () => {
+    const k = dt.dataset.gnMesgrp; (st.mesAbierto || (st.mesAbierto = {}))[k] = dt.open;
+    const c = dt.querySelector('.gn-mesgrp-c'); if (dt.open && c && !c.children.length && st.lazy && st.lazy[k]) { c.innerHTML = st.lazy[k](); selCambio(c); delete st.lazy[k]; }
+  }));
   const gc = el.querySelector('#gn-cartolas'); if (gc) gc.addEventListener('toggle', () => { try { localStorage.setItem('fen_gn_cartolas', gc.open ? '1' : '0'); } catch (e) {} });
   el.querySelectorAll('[data-gn-cuenta]').forEach(b => b.addEventListener('click', () => { st.cuenta = b.dataset.gnCuenta; pintar(el, subActual(), H); }));
   el.querySelectorAll('[data-gn-vista]').forEach(b => b.addEventListener('click', () => { st.vista = b.dataset.gnVista; try { localStorage.setItem('fen_gn_vista', st.vista); } catch (e) { /* sin almacenamiento */ } pintar(el, subActual(), H); }));
@@ -421,7 +439,7 @@ async function procesar(f, H) {
   if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text();
-    const Pv = await import('./previred.js?v=0.126.2');
+    const Pv = await import('./previred.js?v=0.126.3');
     if (Pv.esCsvNomina(Pv.textoDeArchivo(await f.arrayBuffer()))) return subirPrevired(f, H, Pv.leerCsv(Pv.textoDeArchivo(await f.arrayBuffer())));
     const tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -435,13 +453,13 @@ async function procesar(f, H) {
   if (wb) {
     const tefs = H.B2b.leerTransferencias(wb, XLSX);
     if (tefs) { const r = await H.B2b.guardarTransferencias(tefs); H.registrar('Cargó transferencias recibidas', `${r.leidas} leídas · ${r.nuevas} nuevas`); return `<b>Transferencias recibidas</b>: ${r.leidas} en el archivo · ${r.nuevas} nuevas. Sirven a Ventas a empresas → Conciliación (quién pagó cada abono).`; }
-    { const GP = await import('./gn-pdf.js?v=0.126.2'), hC = wb.SheetNames.find(n => /^cr[eé]dito$/i.test(n)), hQ = wb.SheetNames.find(n => /^cuotas$/i.test(n));   // v0.124.5
+    { const GP = await import('./gn-pdf.js?v=0.126.3'), hC = wb.SheetNames.find(n => /^cr[eé]dito$/i.test(n)), hQ = wb.SheetNames.find(n => /^cuotas$/i.test(n));   // v0.124.5
       if (hC && hQ) { const fC = XLSX.utils.sheet_to_json(wb.Sheets[hC], { header: 1, defval: '', raw: true });
         if (GP.esTablaFen(wb.SheetNames, (fC[0] || [])[0])) { const r = GP.leerTablaFen(fC, XLSX.utils.sheet_to_json(wb.Sheets[hQ], { header: 1, defval: '', raw: true }));
           if (r.bloquea) throw new Error('la tabla no se guardó. ' + r.errores.slice(0, 4).join(' ') + (r.errores.length > 4 ? ` (y ${r.errores.length - 4} más)` : ''));
           const k = await (await fsGN()).cargarTablaCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó una tabla de amortización', r.nombre);
           return `<b>${H.esc(r.nombre)}</b>: ${k.que === 'ya' ? 'se unió al crédito que ya estaba' : 'crédito nuevo'} · ${r.reales} ${r.reales === 1 ? 'cuota' : 'cuotas'} con capital, interés y comisiones del banco${k.cambiados ? ` · ${k.cambiados} ${k.cambiados === 1 ? 'cuota ya en Gastos se actualizó' : 'cuotas ya en Gastos se actualizaron'}` : ''}.${k.revisar ? ` <b>${k.revisar} ${k.revisar === 1 ? 'cuota pagada tiene' : 'cuotas pagadas tienen'} otro total en la tabla: revísela${k.revisar === 1 ? '' : 's'} (no se cambió).</b>` : ''}`; } } }
-    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.126.2'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
+    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.126.3'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
       if (GP.esDetalleCredito(filas)) { const enc = wb.SheetNames.includes('Encabezados') ? XLSX.utils.sheet_to_csv(wb.Sheets.Encabezados) : '', r = GP.leerCredito(filas, enc);
         if (r.bloquea) throw new Error(r.errores.join(' '));
         const k = await (await fsGN()).cargarCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó un crédito', r.nombre);
@@ -457,9 +475,9 @@ function esCartola(wb, XLSX, H) {
 }
 // v0.96.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
 async function subirBoleta(f, H) {
-  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.126.2'), import('./boletas.js?v=0.126.2')]);
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.126.3'), import('./boletas.js?v=0.126.3')]);
   let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
-  const GP = await import('./gn-pdf.js?v=0.126.2'), tipo = GP.tipoPdf(lineas);
+  const GP = await import('./gn-pdf.js?v=0.126.3'), tipo = GP.tipoPdf(lineas);
   if (tipo) return subirOtroPdf(f, H, GP, tipo, lineas);
   if (Pv.esComprobante(lineas) || Pv.esCertificado(lineas)) { let r; try { r = Pv.leerPdf(lineas); } catch (x) { throw new Error(x.message); } return subirPrevired(f, H, r); }
   const r = Bo.leerBoleta(lineas);
@@ -493,7 +511,7 @@ async function subirOtroPdf(f, H, GP, tipo, lineas) {
 // v0.97.0 · Previred: el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → el documento del mes
 async function subirPrevired(f, H, r) {
   if (r.bloquea) throw new Error(`Previred no se guardó. ${(r.avisos || []).join(' ')}`);
-  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.126.2'), import('./gastos-g3d.js?v=0.126.2')]);
+  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.126.3'), import('./gastos-g3d.js?v=0.126.3')]);
   const id = GN.idCarga('previred'), d = GP.docDePrevired(r, G3D.venceDe(r.periodo), id);
   const k = await (await fsGN()).cargarPdf(d, { nombre: f.name, tamano: f.size }, 'previred');
   H.registrar('Gastos: cargó Previred', `${d.tipoTexto} · ${k.texto}`);
@@ -512,7 +530,7 @@ async function subirSii(f, txt, H) {
 }
 // v0.101.1 · Después de subir compras del SII: Finanzas revisa los precios de las materias primas (sin esperar; nunca falla hacia afuera)
 function preciosDeMP(H) {
-  import('./finanzas.js?v=0.126.2').then(F => F.preciosTrasImportar()).then(x => {
+  import('./finanzas.js?v=0.126.3').then(F => F.preciosTrasImportar()).then(x => {
     if (!x || (!x.error && !(x.aplicadas.length || x.porConfirmar || x.sinAsociar))) return;
     const t = x.error ? `No se pudieron revisar los precios de las materias primas (${H.esc(x.error)}): hágalo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.`
       : `Precios de materias primas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'actualizado' : 'actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver en Finanzas</a>.`;
@@ -898,7 +916,7 @@ async function subirFotoDe(dlg, pref, { fecha, razon, monto }, bt) {
   if (!/^application\/pdf$|^image\//.test(f.type || '')) throw new Error('Sirve una foto o un PDF.');
   const txt = bt ? bt.textContent : ''; if (bt) bt.textContent = 'Subiendo la foto…';
   try {
-    const G = await import('./gastos.js?v=0.126.2'), b64 = await G.aBase64(f);
+    const G = await import('./gastos.js?v=0.126.3'), b64 = await G.aBase64(f);
     const ext = (f.name.match(/\.[A-Za-z0-9]{2,5}$/) || [f.type === 'application/pdf' ? '.pdf' : '.jpg'])[0], nombre = nombreFoto(fecha, razon, monto) + ext;
     const r = await G.subidor()({ tipo: 'comprobante', fecha: String(fecha || isoHoy()).split('-').reverse().join('-'), imageData: b64, mimeType: f.type, fileName: nombre });
     if (!r || !r.url) throw new Error('Drive no devolvió el enlace de la foto. Intente de nuevo (o registre sin foto y agréguela después).');
@@ -1662,7 +1680,7 @@ function dlgDocTrab(el, H, clave, razon, rut) {
       if (f.size > MAX_ARCHIVO) throw new Error('El archivo pesa más de 10 MB: comprímalo o súbalo en partes.');
       if (!/^application\/pdf$|^image\//.test(f.type || '')) throw new Error('Sirve un PDF o una foto.');
       b.textContent = 'Subiendo…';
-      const G = await import('./gastos.js?v=0.126.2'), b64 = await G.aBase64(f);
+      const G = await import('./gastos.js?v=0.126.3'), b64 = await G.aBase64(f);
       const ext = (f.name.match(/\.[A-Za-z0-9]{2,5}$/) || [f.type === 'application/pdf' ? '.pdf' : '.jpg'])[0];
       const nombre = `Trabajador - ${razon} - ${TR.TIPOS_DOC[tipo]} - ${fecha || isoHoy()}${ext}`.replace(/[\/\\:*?"<>|]/g, '_').slice(0, 120);
       const fd = (fecha || isoHoy()).split('-').reverse().join('-');

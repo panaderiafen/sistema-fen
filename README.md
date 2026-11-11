@@ -1,3 +1,28 @@
+# Sistema Fën · v0.126.3
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 11 de noviembre de 2026 · Etapa 5 de "Arreglos desde el uso real": Bandeja más rápida.
+
+## Qué cambia
+- **Gastos → Bandeja → Atrasados**
+  - "Documentos sin pago" y "Movimientos sin documento" se agrupan **por mes**, cada mes con cuántos son y su total.
+  - Solo el mes más nuevo viene abierto (o el que tiene algo elegido). Los demás se dibujan **recién al abrirlos**: la página pesa mucho menos y no se congela.
+  - Lo que abre o cierra se mantiene al volver a dibujar la Bandeja (por ejemplo, después de conciliar).
+  - Con un filtro de mes elegido, o en Recientes, o conciliando una cartola, todo queda como antes.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.126.3.
+- [ ] Atrasados abre rápido, con los meses plegados; abrir octubre muestra sus cargos.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/etapa5-v01263.test.js` (1 prueba, 1440 y 390 px), nueva. Pasa.
+- `etapa3-v01260.test.js` y `gn-filtros-v01244.test.js`: ajustadas para abrir los meses plegados. Pasan.
+- Del resto pasan las demás. Fallan 2 de `flujo-app-v01240.test.js` (Semanas y Cuadre), que ya fallaban antes.
+
+---
+
 # Sistema Fën · v0.126.2
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios (usa la misma subida de archivos de siempre) · 11 de noviembre de 2026 · La foto de la boleta en papel.

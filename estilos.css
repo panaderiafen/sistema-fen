@@ -3389,3 +3389,10 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 /* v0.126.2 · La foto de la boleta en papel */
 .gn-sin-foto { font-size: 12.5px; font-weight: 700; color: var(--amarillo-t); align-self: center; }
 .gn-ver-foto { text-decoration: none; display: inline-flex; align-items: center; }
+/* v0.126.3 · Etapa 5: Atrasados por mes, plegados */
+.gn-mesgrp { border: 1px solid var(--linea); border-radius: 12px; margin: 8px 0; background: var(--tarjeta); }
+.gn-mesgrp[open] { border-color: var(--acento); }
+.gn-mesgrp > summary { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; min-height: 44px; box-sizing: border-box; cursor: pointer; font-size: 14px; }
+.gn-mesgrp > summary b { text-transform: capitalize; }
+.gn-mesgrp[open] > summary { background: var(--acento-suave); border-radius: 12px 12px 0 0; }
+.gn-mesgrp-c { padding: 4px 8px 8px; }
