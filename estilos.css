@@ -3279,7 +3279,7 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .ef-cq-entra { background: var(--verde); } .ef-cq-entra > b { color: var(--verde-t); }
 .ef-cq-sale { background: var(--rojo); } .ef-cq-sale > b { color: var(--rojo-t); }
 .ef-cq-fila { display: flex; justify-content: space-between; gap: 10px; }
-.ef-cq-nota { font-size: .82rem; color: var(--texto-2, #4b5650); }
+.ef-cq-nota { font-size: .82rem; color: var(--suave); }
 .ef-mes-ant { border-top: 1px solid var(--borde, #E4DFD3); padding: 10px 0; }
 .ef-mes-ant > summary { cursor: pointer; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; min-height: 44px; align-items: center; }
 @media (max-width: 720px) { .ef-cq { grid-template-columns: minmax(0, 1fr); } }
@@ -3296,19 +3296,19 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .ef-rt-dif .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .ef-rt-dif .chip-op { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 1px solid var(--borde, #D9D3C6); border-radius: 999px; background: #fff; }
 
-/* v0.124.19 · Buscador de Listos */
+/* v0.125.0 · Buscador de Listos */
 .gn-listos-buscar { display: flex; align-items: center; gap: 10px; margin: 8px 0 10px; flex-wrap: wrap; }
 .gn-listos-buscar input { flex: 1 1 240px; min-height: 44px; }
-/* v0.124.19 · Bandeja: Recientes y Atrasados */
+/* v0.125.0 · Bandeja: Recientes y Atrasados */
 .gn-vista { align-items: center; margin: 4px 0 12px; }
 .gn-vista .chip { min-height: 44px; padding: 0 16px; font-weight: 700; }
 .gn-vista .ayuda { flex: 1 1 260px; margin: 0; }
-/* v0.124.19 · Buscador de cargos */
+/* v0.125.0 · Buscador de cargos */
 .gn-buscar-mov { display: flex; flex-direction: column; gap: 4px; margin: 0 0 10px; }
 .gn-buscar-mov input { flex: none; width: 100%; height: 44px; min-height: 44px; box-sizing: border-box; }
 .gn-buscar-mov label { text-align: left; }
 .gn-estado-mov { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-/* v0.124.19 · Cómo salió cada cargo */
+/* v0.125.0 · Cómo salió cada cargo */
 .gn-medio { margin-right: 4px; font-weight: 700; }
 .gn-medio-transf { background: var(--azul); color: var(--azul-t); }
 .gn-medio-tarjeta { background: var(--amarillo); color: var(--amarillo-t); }
@@ -3316,3 +3316,39 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-medio-cuenta, .gn-medio-otro { background: var(--menu); color: var(--suave); }
 .gn-filtro-medio { margin: 0 0 10px; }
 .gn-filtro-medio .chip { min-height: 40px; }
+
+/* v0.125.0 · Ventas en tienda → Transferencias */
+#tab-tt-n { margin-left: 6px; }
+.tt-per select { min-height: 40px; }
+.tt-cifras { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 8px 0; }
+.tt-cifra { border: 1px solid var(--linea); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.tt-cifra span { font-size: 13px; color: var(--suave); }
+.tt-cifra b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.tt-cifra small { color: var(--suave); }
+.tt-cifra.tt-alerta { background: var(--amarillo); border-color: transparent; }
+.tt-cifra.tt-alerta span, .tt-cifra.tt-alerta b, .tt-cifra.tt-alerta small { color: var(--amarillo-t); }
+.tt-tabla-caja { overflow-x: auto; }
+.tt-tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tt-tabla th, .tt-tabla td { padding: 9px 8px; border-bottom: 1px solid var(--linea); text-align: left; white-space: nowrap; }
+.tt-tabla thead th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); }
+.tt-tabla .num { text-align: right; font-variant-numeric: tabular-nums; }
+.tt-tabla td.num small { display: block; color: var(--suave); }
+.tt-fila .acciones { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.tt-monto { font-variant-numeric: tabular-nums; }
+.tt-motivo { color: var(--suave); }
+.tt-fuera summary { cursor: pointer; padding: 8px 0; font-weight: 700; }
+@media (max-width: 760px) { .tt-cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tt-tabla tbody tr:last-child th, .tt-tabla tbody tr:last-child td { border-bottom: 0; }
+.tt-est-cel { display: none; }
+@media (max-width: 760px) {
+  /* En el celular cada día es una tarjeta: el día y su estado arriba, y Caja · Banco · Diferencia debajo */
+  .tt-tabla, .tt-tabla tbody { display: block; width: 100%; min-width: 0; }
+  .tt-tabla thead, .tt-tabla .tt-est { display: none; }
+  .tt-tabla tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 8px; padding: 10px 0; border-bottom: 1px solid var(--linea); }
+  .tt-tabla tbody tr:last-child { border-bottom: 0; }
+  .tt-tabla th, .tt-tabla td { border: 0; padding: 0; white-space: normal; }
+  .tt-tabla tbody th { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .tt-est-cel { display: inline-block; }
+  .tt-tabla td.num { text-align: left; }
+  .tt-tabla td[data-l]::before { content: attr(data-l); display: block; font-size: 12px; color: var(--suave); }
+}

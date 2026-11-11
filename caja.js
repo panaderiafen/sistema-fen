@@ -17,9 +17,9 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
-} from './firebase.js?v=0.124.19';
-import * as AR from './areas.js?v=0.124.19';
-import { armarResumen } from './resumen-caja.js?v=0.124.19';   // v0.117.0: el mismo archivo que usa la caja v2.9.0
+} from './firebase.js?v=0.125.0';
+import * as AR from './areas.js?v=0.125.0';
+import { armarResumen } from './resumen-caja.js?v=0.125.0';   // v0.117.0: el mismo archivo que usa la caja v2.9.0
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -518,4 +518,49 @@ export async function ventasDeHoy(cajasHoy, resumenes = {}) {
   let total = 0, nVentas = 0;
   partes.forEach(p => { total += p.bruto; nVentas += p.n; if (p.bruto || p.n) porSuc[p.suc] = (porSuc[p.suc] || 0) + p.bruto; });
   return { total, porSuc, nVentas, cajas: cajasHoy.length, partes };   // v0.100.1: partes = cada caja
+}
+
+// ═══ v0.125.0 · Transferencias de la tienda (Ventas en tienda → Transferencias y Conciliación de abonos) ═══
+// Las ventas cobradas por transferencia: una consulta por medio de pago (sin índice compuesto), las de los últimos 120 días,
+// 2 minutos en memoria. Las de pago dividido no se pueden pedir así (su medio está dentro de "pagos"): no se unen solas.
+let _vt = null;
+export async function ventasTransferencia({ fresco = false } = {}) {
+  if (!fresco && _vt && Date.now() - _vt.en < 120000) return _vt.l;
+  const sn = await getDocs(query(collection(db, 'ventas'), where('medioPago', '==', 'transferencia')));
+  const lim = haceDias(120).toMillis();
+  const l = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(v => !v.anulada && v.fecha && typeof v.fecha.toMillis === 'function' && v.fecha.toMillis() >= lim);
+  _vt = { l, en: Date.now(), lecturas: Math.max(1, sn.size) };
+  return l;
+}
+export function olvidarVentasTransferencia() { _vt = null; }
+// "Fue con otro medio": la venta cambia de medio de pago (con rastro, como en la caja) y los totales de su caja se corrigen,
+// de una sola vez. Si la caja ya cerró, se rehace su resumen. El arqueo ya hecho no cambia (queda como se contó).
+export async function cambiarMedioVenta(ventaId, medio) {
+  if (!['efectivo', 'debito', 'credito'].includes(medio)) throw new Error('Medio de pago no válido.');
+  let cajaId = '', cerrada = false;
+  await runTransaction(db, async tx => {
+    const vref = doc(db, 'ventas', ventaId), vs = await tx.get(vref);
+    if (!vs.exists()) throw new Error('Esa venta ya no está.');
+    const v = vs.data();
+    if (v.anulada) throw new Error('Esa venta está anulada.');
+    if (Array.isArray(v.pagos) && v.pagos.length) throw new Error('Es un pago dividido: corríjalo en la caja.');
+    if (v.medioPago !== 'transferencia') throw new Error('Esa venta ya no está como transferencia.');
+    cajaId = v.cajaId || '';
+    const cs = cajaId ? await tx.get(doc(db, 'cajas', cajaId)) : null;
+    cerrada = !!(cs && cs.exists() && cs.data().estado === 'cerrada');
+    tx.update(vref, { medioPago: medio, medioPagoOriginal: v.medioPagoOriginal || v.medioPago, medioPagoEditadoPor: correo(), medioPagoEditadoFecha: Timestamp.now() });
+    if (cs && cs.exists()) tx.update(doc(db, 'cajas', cajaId), { 'totales.transferencia': increment(-ent(v.total)), [`totales.${medio}`]: increment(ent(v.total)) });
+  });
+  _vt = null;
+  if (cerrada) await regenerarResumen(cajaId);
+  return { cajaId, cerrada };
+}
+// "Llegó a otra cuenta": fue transferencia, pero no a la cuenta de la cartola (queda anotado en la venta; no cambia montos)
+export async function ventaOtraCuenta(ventaId, nota) {
+  await updateDoc(doc(db, 'ventas', ventaId), { transfRevision: { estado: 'otra_cuenta', nota: String(nota || '').trim().slice(0, 200), por: correo(), en: Timestamp.now() } });
+  if (_vt) { const v = _vt.l.find(x => x.id === ventaId); if (v) v.transfRevision = { estado: 'otra_cuenta', nota: String(nota || '').trim().slice(0, 200), por: correo() }; }
+}
+export async function quitarOtraCuenta(ventaId) {
+  await updateDoc(doc(db, 'ventas', ventaId), { transfRevision: null });
+  if (_vt) { const v = _vt.l.find(x => x.id === ventaId); if (v) v.transfRevision = null; }
 }

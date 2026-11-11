@@ -1,3 +1,42 @@
+# Sistema Fën · v0.125.0
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 11 de noviembre de 2026 · Va junto con la **Caja v3.3.7** (zip aparte, repo de la caja).
+
+## Qué cambia
+- **Ventas a empresas → Conciliación: botón "Es venta de la tienda"** en cada abono (junto a "No es de B2B", que se mantiene igual).
+  - Muestra las ventas de la caja cobradas por transferencia del mismo día y de hasta 3 días antes, primero las que calzan.
+  - Si hay una sola venta con el monto exacto (o el nombre de quien transfiere está en la glosa), viene marcada y el botón dice "Es venta de la tienda · calza".
+  - Si el monto difiere, pide una nota. Se puede elegir "Ninguna" (es de la tienda, pero la venta no quedó como transferencia).
+  - No registra pagos de empresas. Se deshace en Lo conciliado (no necesita el script de B2B).
+- **Ventas en tienda → pestaña nueva "Transferencias"**, con el número de cosas que no cuadran.
+  - Arriba: lo que la caja cobró por transferencia, lo que llegó al banco como venta de la tienda, cuántas no cuadran y cuántas esperan el banco.
+  - **Cada día:** caja, banco, diferencia y estado (Cuadra, Cuadra con diferencia, Esperando el banco, Venta sin abono, Abono sin venta). En el celular, cada día es una tarjeta.
+  - **Lo que no cuadra:**
+    - una venta por transferencia sin su abono (pasados 3 días) tiene tres botones:
+      - "Fue con otro medio": corrige la venta y los totales de su caja, y si la caja ya cerró rehace su resumen; el arqueo no cambia;
+      - "Llegó a otra cuenta": queda anotado, no cambia montos;
+      - "Buscar su abono";
+    - los abonos de la tienda sin venta;
+    - los abonos con diferencia, con su nota.
+
+## Límites
+- Un pago dividido con una parte en transferencia cuenta en el total de la caja, pero no se propone solo: se marca con "Ninguna".
+- El aviso en Hoy queda para después: por ahora el número está en la pestaña.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta. Hay dos archivos nuevos: `transf-tienda.js` y `vista-transferencias.js`.
+
+## Checklist
+- [ ] Abajo dice v0.125.0.
+- [ ] Conciliación → Abonos sin cliente → abrir uno → aparece "Es venta de la tienda".
+- [ ] Ventas en tienda → Transferencias: se ven los días de noviembre. Los abonos de $12.080 y $1.600 marcados ayer como "No es de B2B" no aparecen: para que entren al cuadre, deshágalos en Lo conciliado y márquelos con "Es venta de la tienda".
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/tt-modelo-v01250.test.mjs` (7) y `pruebas/caja30/tt-app-v01250.test.js` (2), nuevas. Pasan.
+- Del resto de Sistema Fën pasan 96. Fallan 2 de `flujo-app-v01240.test.js` (Semanas y Cuadre), que también fallan sin este cambio.
+
+---
+
 # Sistema Fën · v0.124.19
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 10 de noviembre de 2026.

@@ -8,15 +8,15 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.124.19';
-import * as FB from './firebase-b2b.js?v=0.124.19';
-import * as Apps from './apps.js?v=0.124.19';
-import * as Mem from './fs-memoria.js?v=0.124.19';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.124.19';
-import { distanciaTef } from './feriados-cl.js?v=0.124.19';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.124.19';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.124.19';
-import { cuadreCartola } from './gn-modelo.js?v=0.124.19';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.125.0';
+import * as FB from './firebase-b2b.js?v=0.125.0';
+import * as Apps from './apps.js?v=0.125.0';
+import * as Mem from './fs-memoria.js?v=0.125.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.125.0';
+import { distanciaTef } from './feriados-cl.js?v=0.125.0';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.125.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.125.0';
+import { cuadreCartola } from './gn-modelo.js?v=0.125.0';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -2032,6 +2032,7 @@ export async function deshacerMovimiento(movId, motivo) {
   if (m0.estado === 'pendiente') throw new Error('Ese abono ya está por revisar.');
   if (m0.estado === REPETIDO_B2B) return deshacerRepetidoB2b(db, mref, movId, motivo);   // v0.67.7: no tocó ningún folio ni la planilla
   if (m0.naturaleza === NAT_DEPOSITO) return deshacerDepositoB2b(db, mref, movId, m0, motivo);   // v0.123.0: un depósito de efectivo
+  if (m0.naturaleza === NAT_TIENDA) return deshacerTiendaB2b(db, mref, movId, motivo);   // v0.125.0: una venta de la tienda por transferencia
   await scriptParaDeshacer();
   if (m0.estado === 'conciliado' && m0.origen === 'app antigua') throw new Error('Se concilió en la app antigua: si hay un error, corrígelo en Por cobrar.');
   const usosReales = m => (m.favorUsos || []).filter(u => u.tipo !== 'redondeo');   // v0.25.0: el cierre por redondeo no bloquea
@@ -2108,7 +2109,7 @@ export async function marcarDeposito(movId, dep) {
 // Si la segunda parte falla, Deshacer otra vez la termina (la primera no se repite).
 async function deshacerDepositoB2b(db, mref, movId, m0, motivo) {
   const mot = String(motivo || '').trim().slice(0, 200);
-  const EFS = await import('./efectivo-fs.js?v=0.124.19');
+  const EFS = await import('./efectivo-fs.js?v=0.125.0');
   if (m0.deposito && m0.deposito.efectivoId) await EFS.desunir(m0.deposito.efectivoId, movId, mot || 'Deshecho en la conciliación');
   await FB.runTransaction(db, async tx => {
     const ms = await tx.get(mref), mv = ms.data();
@@ -2120,6 +2121,54 @@ async function deshacerDepositoB2b(db, mref, movId, m0, motivo) {
   uso.lecturas++; uso.escrituras++;
   anotarLocal(movId, { estado: 'pendiente', naturaleza: null, deposito: null, nota: null, resuelto: null, deshechos: (m0.deshechos || 0) + 1 });
   return { deposito: true };
+}
+// ═══════════════════════════════════════════════
+//  v0.125.0 · Ventas de la tienda cobradas por transferencia que llegan como abono en la cartola. El abono queda resuelto con
+//  naturaleza 'venta_tienda' y la foto de su venta de la caja (o sin venta, si no se encontró). No toca folios ni la planilla
+//  (no necesita el script de B2B) y no escribe en la caja: 1 lectura y 1 escritura. El cuadre de cada día lo arma transf-tienda.js.
+// ═══════════════════════════════════════════════
+export const NAT_TIENDA = 'venta_tienda';
+export const esTiendaB2b = m => !!m && m.naturaleza === NAT_TIENDA;
+// venta: la foto (transf-tienda.js → fotoVenta) o null; nota: opcional
+export async function marcarVentaTienda(movId, venta, nota) {
+  const db = await dbOk(), mref = FB.doc(db, 'movimientos', movId), por = authSF.currentUser.email;
+  const vt = venta && venta.ventaId ? { ventaId: String(venta.ventaId), dia: String(venta.dia || ''), hora: String(venta.hora || ''), sucursal: String(venta.sucursal || ''),
+    monto: Math.round(Number(venta.monto) || 0), cajaId: String(venta.cajaId || ''), usuario: String(venta.usuario || ''), nombre: String(venta.nombre || '').slice(0, 60) } : null;
+  const n = String(nota || '').trim().slice(0, 200) || null;
+  await FB.runTransaction(db, async tx => {
+    const ms = await tx.get(mref);
+    if (!ms.exists()) throw new Error('Ese abono ya no está.');
+    if (ms.data().estado !== 'pendiente') throw new Error('Ese abono ya se resolvió de otra forma. Revíselo en Lo conciliado.');
+    tx.update(mref, { estado: 'ignorado', naturaleza: NAT_TIENDA, ventaTienda: vt, nota: n, resuelto: { por, en: FB.serverTimestamp() }, planillaPendiente: false });
+  });
+  uso.lecturas++; uso.escrituras++;
+  anotarLocal(movId, { estado: 'ignorado', naturaleza: NAT_TIENDA, ventaTienda: vt, nota: n, resuelto: { por, en: ahoraSeg() } });
+  tiendaMem.l = null;
+}
+async function deshacerTiendaB2b(db, mref, movId, motivo) {
+  const mot = String(motivo || '').trim().slice(0, 200);
+  let antes = 0;
+  await FB.runTransaction(db, async tx => {
+    const ms = await tx.get(mref), mv = ms.data();
+    if (mv.naturaleza !== NAT_TIENDA) throw new Error('Ese abono ya no está como venta de la tienda.');
+    antes = mv.deshechos || 0;
+    const u = { en: ahoraTxt(), por: authSF.currentUser.email, motivo: mot || 'No era venta de la tienda' };
+    tx.update(mref, { estado: 'pendiente', deshechos: antes + 1, ultimoDeshecho: u, deshechosAntes: (mv.deshechosAntes || []).concat([{ estado: mv.estado, naturaleza: mv.naturaleza, ventaTienda: mv.ventaTienda || null, nota: mv.nota || null, resuelto: mv.resuelto || null, ...u }]).slice(-10),
+      naturaleza: null, ventaTienda: null, nota: null, resuelto: null, planillaPendiente: false });
+  });
+  uso.lecturas++; uso.escrituras++;
+  anotarLocal(movId, { estado: 'pendiente', naturaleza: null, ventaTienda: null, nota: null, resuelto: null, deshechos: antes + 1 });
+  tiendaMem.l = null;
+  return { tienda: true };
+}
+// Los abonos marcados "venta de tienda" (todos: una consulta por igualdad, sin índice compuesto), 2 minutos en memoria
+const tiendaMem = { l: null, en: 0 };
+export async function abonosTienda({ fresco = false } = {}) {
+  if (!fresco && tiendaMem.l && Date.now() - tiendaMem.en < 120000) return tiendaMem.l;
+  const db = await dbOk(), sn = await FB.getDocs(FB.query(FB.collection(db, 'movimientos'), FB.where('naturaleza', '==', NAT_TIENDA)));
+  uso.lecturas += Math.max(1, sn.size);
+  tiendaMem.l = sn.docs.map(x => ({ id: x.id, ...x.data() })).filter(m => m.estado === 'ignorado'); tiendaMem.en = Date.now();
+  return tiendaMem.l;
 }
 // Usar el saldo a favor de un abono en un folio del mismo cliente (queda como abono con la fecha del banco)
 export async function usarFavor(movId, folio, monto) {
