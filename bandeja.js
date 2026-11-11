@@ -7,7 +7,7 @@
 //  · las facturas de un cliente de B2B (abiertas y pagadas recientes) y la búsqueda de facturas.
 //  Todo es puro: sale de lo que la pantalla ya tiene leído (0 lecturas).
 // ═══════════════════════════════════════════════
-import * as PM from './pagos-mixtos.js?v=0.125.1';   // v0.69.2: el historial de pagos de un documento pagado en partes
+import * as PM from './pagos-mixtos.js?v=0.125.2';   // v0.69.2: el historial de pagos de un documento pagado en partes
 const s = v => String(v == null ? '' : v);
 const n = v => Number(v) || 0;
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -244,6 +244,20 @@ export function buscarGastos(q, D, c, opc = {}) {
 // ═══ Abonos (B2B) ═══
 const POR_ABONO = { transferencia: 'el RUT de la transferencia recibida', rut: 'el RUT en la glosa', aprendido: 'lo aprendiste antes con esta glosa', manual: 'elegiste tú el cliente', nombre: 'la glosa trae su nombre completo',
   'nombre-parcial': 'la glosa se parece a su nombre', monto: 'solo calza el monto exacto con lo que debe', regla: 'una regla tuya dice el cliente' };
+// v0.125.2 · Etapa 2: el motivo de la propuesta de un abono, en corto y con su tono (verde: seguro · amarillo: revíselo)
+const MOTIVO_AB = { transferencia: ['mismo RUT', 'verde'], rut: ['mismo RUT', 'verde'], aprendido: ['lo aprendido', 'verde'], manual: ['elegido por usted', 'verde'],
+  nombre: ['su nombre en la glosa', 'verde'], 'nombre-parcial': ['se parece al nombre', 'amarillo'], monto: ['solo el monto', 'amarillo'], regla: ['su regla', 'verde'] };
+export function motivoAbono(p, rep) {
+  if (rep) return { txt: 'repetido', tono: 'amarillo' };
+  if (!p || p.tipo === 'sinCliente') return null;
+  if (p.accion === 'noB2B' || p.accion === 'revisado') return { txt: 'su regla', tono: 'verde' };
+  if (p.por === 'regla' && p.soloProponer) return { txt: 'su regla (solo propone)', tono: 'amarillo' };
+  const x = MOTIVO_AB[p.por];
+  return x ? { txt: x[0], tono: x[1] } : null;
+}
+// Cuando no hay propuesta, se dice en palabras (en vez de dejar el espacio vacío)
+export const PROPONE_NADA = 'Nada: ningún monto calza y no se reconoce quién pagó.';
+export const sinPropuestaAbono = (p, rep) => !rep && (!p || p.tipo === 'sinCliente') ;
 export function resumenAbono(p, rep) {
   if (rep) return 'Parece repetido de otra cartola';
   if (!p || p.tipo === 'sinCliente') return 'Sin coincidencia';

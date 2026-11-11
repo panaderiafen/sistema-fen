@@ -1,3 +1,28 @@
+# Sistema Fën · v0.125.2
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 11 de noviembre de 2026 · Etapa 2 de "Arreglos desde el uso real": el banco y la propuesta, por separado.
+
+## Qué cambia
+- **Ventas a empresas → Conciliación**, en cada abono (lista del cliente, "Ver otros abonos" y el abono elegido):
+  - **Lo que dice el banco:** la glosa tal cual llegó, en su propia caja gris.
+  - **El sistema propone:** la factura sugerida, en una caja aparte, con el **motivo en una etiqueta**. Verde: "mismo RUT", "lo aprendido", "su nombre en la glosa", "su regla", "elegido por usted". Amarillo, con "· revise": "solo el monto", "se parece al nombre", "su regla (solo propone)".
+- **Abonos sin cliente:** cada fila dice "Banco: …" y "Propone: …". Si no hay propuesta, lo dice en palabras: "Nada: ningún monto calza y no se reconoce quién pagó".
+- **No cambian:** los botones ni la forma de conciliar. El aviso "Si lo concilia aquí, aprende que esta glosa es de …" ya existía y sigue igual.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.125.2.
+- [ ] Conciliación → un cliente: sus abonos muestran "Lo que dice el banco" y "El sistema propone" con la etiqueta del motivo.
+- [ ] Abonos sin cliente: cada uno dice "Banco:" y "Propone:".
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/etapa2-v01252.test.js` (1 prueba, 1440 y 390 px), nueva. Pasa.
+- Del resto pasan 98. Fallan 2 de `flujo-app-v01240.test.js` (Semanas y Cuadre), que ya fallaban antes.
+
+---
+
 # Sistema Fën · v0.125.1
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 11 de noviembre de 2026 · Etapa 1 de "Arreglos desde el uso real": que nada importante quede escondido.

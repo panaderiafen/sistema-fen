@@ -3027,6 +3027,23 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .bjc-mas > summary { cursor: pointer; padding: 6px 0; font-weight: 600; }
 .bjc-mas .ab-izq { padding: 8px 0; font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
 .bjc-sin-lista { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+/* v0.125.2 · Etapa 2: la glosa del banco y la propuesta del sistema, por separado */
+.ab-banco, .ab-prop { display: flex; flex-direction: column; gap: 2px; border-radius: 8px; padding: 6px 9px; margin-top: 4px; min-width: 0; }
+.ab-banco { background: rgba(37, 48, 42, .05); }
+.ab-gl { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
+.ab-k { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--suave); }
+.ab-prop { border: 1px solid var(--linea); }
+.ab-prop-t { font-size: 13px; }
+.ab-prop-verde { border-color: #9CC3A9; background: #EEF6F0; }
+.ab-prop-verde .ab-k { color: var(--verde-t); }
+.ab-prop-amarillo { border-color: #E0C27A; background: #FBF3E0; }
+.ab-prop-amarillo .ab-k { color: var(--amarillo-t); }
+.ab-prop-nada { border-style: dashed; }
+.ab-mot { margin-left: 2px; white-space: nowrap; }
+.ab-k-in { font-weight: 700; color: var(--suave); }
+.bj-res .ab-mot { margin: 0 4px 0 0; }
+.bjc-sin-lista details.mov > summary .bj-gl { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
+.bjc-sin-lista details.mov > summary .bj-res { white-space: normal; margin-top: 2px; }
 /* Celular y tablet angosta: con un cliente elegido se ve su trabajo (la lista vuelve con "← Todos los clientes") */
 @media (max-width: 1023px) {
   .bjc.bjc-con-cli .bjc-lista { display: none; }
