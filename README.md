@@ -1,3 +1,33 @@
+# Sistema Fën · v0.126.0
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 11 de noviembre de 2026 · Etapa 3 de "Arreglos desde el uso real": menos pasos en lo que se repite.
+
+## Qué cambia
+- **Gastos → "¿Cómo se pagó?"**
+  - "Con un cargo" pasa a **"Con cargos del banco"**: se marcan **varios cargos** (casillas).
+  - Abajo, la **suma en vivo**: "justo", "faltan $X" (el documento queda pagado en parte) o "sobran $X" (quedan libres en el último cargo). Con varios, el botón dice "Unir los N cargos".
+  - **Previred:** se marcan solos los cargos del mismo día con glosa de AFP, Fonasa, ISL, mutual, caja, isapre o "transferencia de fondos internet" (el grupo cuya suma queda más cerca del total). Se revisan y se desmarcan si alguno no va.
+  - Con un solo cargo, funciona como antes.
+- **Gastos → Bandeja: restos de un cargo** (lo que queda libre de un cargo que ya pagó su documento)
+  - Se ven como **"Resto de PAGO CRÉDITO … $354.267: $1.085 sin explicar"**, con lo que el cargo ya pagó.
+  - Botones: **Intereses o multa**, **Comisión del banco**, **Otro…** (Registrar a mano con el monto puesto), **Buscar su documento** y **Esperar (dejar nota)**.
+  - "Intereses o multa" propone INTERESES DE CREDITO si el cargo pagaba un crédito; si no, MULTAS E INTERESES. "Comisión del banco" propone COMISIONES BANCARIAS. El área propuesta es **ADMIN**. Se pueden cambiar antes de registrar.
+  - Al registrar, nace un gasto sin documento con la fecha del cargo, pagado con el resto: el cargo queda conciliado entero.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.126.0.
+- [ ] En un documento, "¿Cómo se pagó?" deja marcar varios cargos y muestra la suma.
+- [ ] El resto del FOGAPE ($1.085) aparece como "Resto de … sin explicar" con sus botones.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/etapa3-v01260.test.js` (2 pruebas, 1440 y 390 px), nueva. Pasa.
+- Del resto pasan 99. Fallan 2 de `flujo-app-v01240.test.js` (Semanas y Cuadre), que ya fallaban antes.
+
+---
+
 # Sistema Fën · v0.125.2
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 11 de noviembre de 2026 · Etapa 2 de "Arreglos desde el uso real": el banco y la propuesta, por separado.

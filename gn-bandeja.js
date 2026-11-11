@@ -32,7 +32,7 @@ export function resumenHoy(B, D, dia) {
   const ab = B.abiertosD.filter(d => !d.nc && d.saldo > 0 && d.estado !== 'no_va').map(d => ({ f: d.vence || d.fecha, m: d.saldo, q: s(d.razon || d.rut).slice(0, 40), a: d.anterior ? 1 : 0, t: s(d.tipoTexto).slice(0, 30) })).sort((a, b) => a.f.localeCompare(b.f)).slice(0, 300);   // Firestore no guarda listas dentro de listas
   return { dia, porHacer: B.n.total, abiertos: ab, deudaDueno: deudaDueno(D.pagos, D.movs).saldo };
 }
-export const MEDIOS = { cargo: 'Con un cargo', efectivo: 'En efectivo', personal: 'Con plata del dueño' };
+export const MEDIOS = { cargo: 'Con cargos del banco', efectivo: 'En efectivo', personal: 'Con plata del dueño' };
 
 // ── Estados (de los pagos vigentes) ──
 const vivos = p => (p || []).filter(x => x.estado !== 'deshecho');
@@ -295,6 +295,36 @@ export function pagosDeVarios(d, movs) {
   return out;
 }
 
+
+// ═══ v0.126.0 · Etapa 3: menos pasos en lo que se repite (pedido por Emmanuel el 11 nov) ═══
+// ¿Cómo se pagó? con varios cargos: los cargos elegidos pagan el documento en orden de fecha (pagosDeVarios). El resumen en vivo:
+export function sumaCargos(d, movs) {
+  const t = (movs || []).reduce((a, m) => a + entero(m.libre), 0), dif = t - entero(d && d.saldo);
+  return { total: t, dif, estado: !movs || !movs.length ? '' : Math.abs(dif) <= TOLERANCIA ? 'justo' : dif < 0 ? 'faltan' : 'sobran' };
+}
+// Previred se paga en varios cargos el mismo día (AFP, Fonasa, ISL, mutual, caja, isapre y "transferencia de fondos internet")
+export const RE_PREVIRED_GN = /\bAFPS?\b|INSTITUTO DE SEGUR|\bIPS\b|FONASA|\bISAPRES?\b|\bCAJA\b|\bMUTUAL\b|PREVIRED|\bISL\b|\bACHS\b|\bIST\b|HABITAT|PROVIDA|CUPRUM|PLANVITAL|BANMEDICA|COLMENA|CONSALUD|CRUZ BLANCA|VIDA TRES|NUEVA MAS ?VIDA|TRANSFERENCIA DE FONDOS INTERNET/;
+export const esDocPrevired = d => !!d && (d.origen === 'previred' || /PREVIRED/.test(norm(d.razon)) || /PREVIRED/.test(norm(d.tipoTexto)));
+// Los cargos libres de un mismo día con glosa de Previred cuya suma queda más cerca del saldo (desde el día del documento hasta 45 días después).
+// → [ids] (vacío si el documento no es de Previred o no hay ningún cargo así)
+export function cargosPrevired(d, movs) {
+  if (!esDocPrevired(d)) return [];
+  const G = {};
+  (movs || []).filter(m => m.libre > 0 && RE_PREVIRED_GN.test(norm(m.glosa)) && dias(d.fecha, m.fecha) >= -5 && dias(d.fecha, m.fecha) <= 45)
+    .forEach(m => { (G[m.fecha] = G[m.fecha] || []).push(m); });
+  const l = Object.values(G).map(ms => ({ ms, dif: Math.abs(ms.reduce((a, m) => a + entero(m.libre), 0) - entero(d.saldo)) })).sort((a, b) => a.dif - b.dif || b.ms.length - a.ms.length);
+  return l.length ? l[0].ms.map(m => m.id) : [];
+}
+// Restos: lo que queda libre de un cargo que ya pagó algo (por ejemplo, una cuota de crédito de $354.267 que pagó $353.182)
+export const esResto = m => !!m && m.libre > 0 && (m.pagosM || []).length > 0;
+export const ITEM_RESTO = { credito: 'INTERESES DE CREDITO', multa: 'MULTAS E INTERESES', comision: 'COMISIONES BANCARIAS' };
+// "Intereses o multa": si el cargo pagaba un crédito (lo dice el ítem o el nombre de lo que pagó, o la glosa), intereses de crédito
+export function itemResto(tipo, m, docsPagados) {
+  if (tipo === 'comision') return ITEM_RESTO.comision;
+  const txt = norm([m && m.glosa, ...(docsPagados || []).map(d => [d.razon, d.tipoTexto, d.clasif && d.clasif.item, ...((d.clasif && d.clasif.partes) || []).map(p => p.item)].join(' '))].join(' '));
+  return /CREDITO|FOGAPE|PRESTAMO|CUOTA/.test(txt) ? ITEM_RESTO.credito : ITEM_RESTO.multa;
+}
+export const AREA_RESTO = 'ADMIN';
 
 // Cómo se reparte un movimiento entre documentos: en orden, a cada uno lo que le falta (lo último puede quedar a medias)
 export function repartirPago(docs, monto) {

@@ -3378,3 +3378,11 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-franja-carga .btn-sec { background: #fff; color: var(--acento); border-color: #fff; }
 .cob-filtro { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; margin-top: 8px; padding: 8px 12px; border-radius: 10px; background: var(--amarillo); color: var(--amarillo-t); }
 .cob-filtro[hidden] { display: none; }
+/* v0.126.0 · Etapa 3: ¿Cómo se pagó? con varios cargos (la suma en vivo) y los restos de un cargo */
+.gn-prev-aviso { margin: 0 0 8px; padding: 8px 12px; border-radius: 10px; background: var(--verde); color: var(--verde-t); font-size: 13px; }
+.gn-opc-prev { box-shadow: inset 3px 0 0 var(--verde-t); }
+.gn-suma-c { position: sticky; bottom: 0; margin-top: 8px; padding: 9px 12px; border-radius: 10px; background: var(--texto, #25302A); color: #fff; font-size: 13.5px; }
+.gn-suma-c b { color: #fff; }
+.gn-suma-justo .gn-suma-e { font-weight: 800; color: #CFE6D6; }
+.gn-suma-faltan .gn-suma-e, .gn-suma-sobran .gn-suma-e { font-weight: 700; color: #F3DFAE; }
+.gn-resto > .gn-fila > b { color: var(--amarillo-t); }
