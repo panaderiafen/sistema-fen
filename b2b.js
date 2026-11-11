@@ -8,15 +8,15 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.125.0';
-import * as FB from './firebase-b2b.js?v=0.125.0';
-import * as Apps from './apps.js?v=0.125.0';
-import * as Mem from './fs-memoria.js?v=0.125.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.125.0';
-import { distanciaTef } from './feriados-cl.js?v=0.125.0';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.125.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.125.0';
-import { cuadreCartola } from './gn-modelo.js?v=0.125.0';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.125.1';
+import * as FB from './firebase-b2b.js?v=0.125.1';
+import * as Apps from './apps.js?v=0.125.1';
+import * as Mem from './fs-memoria.js?v=0.125.1';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.125.1';
+import { distanciaTef } from './feriados-cl.js?v=0.125.1';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.125.1';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.125.1';
+import { cuadreCartola } from './gn-modelo.js?v=0.125.1';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -2032,7 +2032,7 @@ export async function deshacerMovimiento(movId, motivo) {
   if (m0.estado === 'pendiente') throw new Error('Ese abono ya está por revisar.');
   if (m0.estado === REPETIDO_B2B) return deshacerRepetidoB2b(db, mref, movId, motivo);   // v0.67.7: no tocó ningún folio ni la planilla
   if (m0.naturaleza === NAT_DEPOSITO) return deshacerDepositoB2b(db, mref, movId, m0, motivo);   // v0.123.0: un depósito de efectivo
-  if (m0.naturaleza === NAT_TIENDA) return deshacerTiendaB2b(db, mref, movId, motivo);   // v0.125.0: una venta de la tienda por transferencia
+  if (m0.naturaleza === NAT_TIENDA) return deshacerTiendaB2b(db, mref, movId, motivo);   // v0.125.1: una venta de la tienda por transferencia
   await scriptParaDeshacer();
   if (m0.estado === 'conciliado' && m0.origen === 'app antigua') throw new Error('Se concilió en la app antigua: si hay un error, corrígelo en Por cobrar.');
   const usosReales = m => (m.favorUsos || []).filter(u => u.tipo !== 'redondeo');   // v0.25.0: el cierre por redondeo no bloquea
@@ -2109,7 +2109,7 @@ export async function marcarDeposito(movId, dep) {
 // Si la segunda parte falla, Deshacer otra vez la termina (la primera no se repite).
 async function deshacerDepositoB2b(db, mref, movId, m0, motivo) {
   const mot = String(motivo || '').trim().slice(0, 200);
-  const EFS = await import('./efectivo-fs.js?v=0.125.0');
+  const EFS = await import('./efectivo-fs.js?v=0.125.1');
   if (m0.deposito && m0.deposito.efectivoId) await EFS.desunir(m0.deposito.efectivoId, movId, mot || 'Deshecho en la conciliación');
   await FB.runTransaction(db, async tx => {
     const ms = await tx.get(mref), mv = ms.data();
@@ -2123,7 +2123,7 @@ async function deshacerDepositoB2b(db, mref, movId, m0, motivo) {
   return { deposito: true };
 }
 // ═══════════════════════════════════════════════
-//  v0.125.0 · Ventas de la tienda cobradas por transferencia que llegan como abono en la cartola. El abono queda resuelto con
+//  v0.125.1 · Ventas de la tienda cobradas por transferencia que llegan como abono en la cartola. El abono queda resuelto con
 //  naturaleza 'venta_tienda' y la foto de su venta de la caja (o sin venta, si no se encontró). No toca folios ni la planilla
 //  (no necesita el script de B2B) y no escribe en la caja: 1 lectura y 1 escritura. El cuadre de cada día lo arma transf-tienda.js.
 // ═══════════════════════════════════════════════

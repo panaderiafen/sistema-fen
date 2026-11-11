@@ -17,9 +17,9 @@
 import {
   auth, db, collection, doc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, Timestamp, runTransaction, getAggregateFromServer, sum, count
-} from './firebase.js?v=0.125.0';
-import * as AR from './areas.js?v=0.125.0';
-import { armarResumen } from './resumen-caja.js?v=0.125.0';   // v0.117.0: el mismo archivo que usa la caja v2.9.0
+} from './firebase.js?v=0.125.1';
+import * as AR from './areas.js?v=0.125.1';
+import { armarResumen } from './resumen-caja.js?v=0.125.1';   // v0.117.0: el mismo archivo que usa la caja v2.9.0
 
 const F = window.FEN_SIS;
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
@@ -520,7 +520,7 @@ export async function ventasDeHoy(cajasHoy, resumenes = {}) {
   return { total, porSuc, nVentas, cajas: cajasHoy.length, partes };   // v0.100.1: partes = cada caja
 }
 
-// ═══ v0.125.0 · Transferencias de la tienda (Ventas en tienda → Transferencias y Conciliación de abonos) ═══
+// ═══ v0.125.1 · Transferencias de la tienda (Ventas en tienda → Transferencias y Conciliación de abonos) ═══
 // Las ventas cobradas por transferencia: una consulta por medio de pago (sin índice compuesto), las de los últimos 120 días,
 // 2 minutos en memoria. Las de pago dividido no se pueden pedir así (su medio está dentro de "pagos"): no se unen solas.
 let _vt = null;

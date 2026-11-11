@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Ventas en tienda → Transferencias  v0.125.0
+//  Sistema Fën — Ventas en tienda → Transferencias  v0.125.1
 //  El cuadre de cada día entre lo que la caja cobró por transferencia y lo que llegó al banco como venta de la tienda
 //  (los abonos marcados "Es venta de la tienda" en la conciliación). Abajo, lo que no cuadra y qué hacer:
 //  · una venta sin su abono (pasados 3 días): "Fue con otro medio" (corrige la venta y los totales de su caja, como en la
@@ -7,9 +7,9 @@
 //  · un abono de la tienda sin venta, o con otro monto: se ve con su nota; se corrige en la conciliación (Lo conciliado).
 //  Lecturas: las ventas por transferencia (1 consulta, fen-ventas) y los abonos de la tienda (1 consulta, fen-b2b), 2 minutos en memoria.
 // ═══════════════════════════════════════════════
-import * as Caja from './caja.js?v=0.125.0';
-import * as B2b from './b2b.js?v=0.125.0';
-import * as TT from './transf-tienda.js?v=0.125.0';
+import * as Caja from './caja.js?v=0.125.1';
+import * as B2b from './b2b.js?v=0.125.1';
+import * as TT from './transf-tienda.js?v=0.125.1';
 
 const PERIODOS = [['14', 'Últimos 14 días'], ['30', 'Últimos 30 días'], ['60', 'Últimos 60 días']];
 const ST = { periodo: '30', msg: '', err: '' };

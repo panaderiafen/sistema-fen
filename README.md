@@ -1,3 +1,30 @@
+# Sistema Fën · v0.125.1
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 11 de noviembre de 2026 · Etapa 1 de "Arreglos desde el uso real": que nada importante quede escondido.
+
+## Qué cambia
+- **Gastos → Bandeja**
+  - Mientras concilia una cartola, una **franja verde fija** arriba dice "Conciliando la cartola del … al …". También muestra el avance y tiene el botón **"Volver a toda la Bandeja"**. La franja sigue visible al bajar por la página.
+  - **Al salir de Gastos y volver**, la Bandeja abre en toda la Bandeja y en lo pendiente, aunque se haya quedado en una cartola o en "Lo conciliado".
+- **Ventas a empresas → Cobranza**
+  - Con algo escrito en el buscador aparece la franja **"Filtrando por "…" · se ven N de M"** con **"Quitar el filtro"**.
+  - **Al salir de Cobranza el buscador se vacía.** Si prefiere que se recuerde, es un cambio chico.
+  - "Aún no vencen" ya se abría sola cuando la búsqueda calza: sigue igual.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.125.1.
+- [ ] Gastos → "Conciliar esta cartola" muestra la franja verde, que sigue visible al bajar.
+- [ ] Cobranza: al escribir un nombre aparece "Filtrando por…" con "Quitar el filtro".
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/etapa1-v01251.test.js` (2 pruebas, 1440 y 390 px), nueva. Pasa.
+- Del resto pasan 98. Fallan 2 de `flujo-app-v01240.test.js` (Semanas y Cuadre), que ya fallaban antes de este cambio.
+
+---
+
 # Sistema Fën · v0.125.0
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 11 de noviembre de 2026 · Va junto con la **Caja v3.3.7** (zip aparte, repo de la caja).

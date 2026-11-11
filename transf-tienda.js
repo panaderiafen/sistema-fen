@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Sistema Fën — Transferencias de la tienda  v0.125.0
+//  Sistema Fën — Transferencias de la tienda  v0.125.1
 //  Une los abonos de la cartola que son ventas de la tienda cobradas por transferencia con su venta de la caja,
 //  y arma el cuadre de cada día (lo que la caja cobró por transferencia contra lo que llegó al banco).
 //  Solo cálculo: no lee ni escribe nada (las lecturas están en caja.js y b2b.js). Pedido por Emmanuel el 10 nov.
