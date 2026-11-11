@@ -40,11 +40,11 @@
 //   · La merma de la tienda (5.3), valorizada como el costo directo (finanzas-margenes.costearMermaTienda), en el área del producto.
 //   No son gastos de Gastos: la cuadratura los descuenta (info.caja). Un mes cerrado no cambia: lo nuevo entra como ajuste del mes siguiente.
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.126.0';
-import * as AR from './areas.js?v=0.126.0';
-import * as PC from './plan-cuentas.js?v=0.126.0';
-import * as GT from './tributario.js?v=0.126.0';   // v0.108.0: gestión y tributario
-import * as FS from './finanzas-estado.js?v=0.126.0';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
+import * as FR from './finanzas-resultados.js?v=0.126.1';
+import * as AR from './areas.js?v=0.126.1';
+import * as PC from './plan-cuentas.js?v=0.126.1';
+import * as GT from './tributario.js?v=0.126.1';   // v0.108.0: gestión y tributario
+import * as FS from './finanzas-estado.js?v=0.126.1';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -529,7 +529,12 @@ export function checksGastosNuevo(D) {
   out.push(itemCheck('sii', 'SII del mes cargado', S.ok, S.ok ? `Cargado después del cierre del mes (${fechaCorta(S.ultima)}${S.rcv ? ', con el RCV' : ''}).` : S.hasta ? `Hay documentos hasta el ${fechaCorta(S.hasta)}, pero falta una carga hecha después del ${fechaCorta(fin)} (el RCV del mes).` : `No hay ninguna carga del SII con documentos de ${nm}.`, '#gastos/cargas', TXT_SII_GN));
   const M = G.movs || {};
   out.push(itemCheck('cartola', 'Cartola conciliada', !num(M.n), num(M.n) ? `${M.n} ${M.n === 1 ? 'movimiento' : 'movimientos'} de ${nm} sin explicar en la Bandeja (${pesosTxt(M.monto)}).` : 'Todos los movimientos del mes están unidos a su documento o marcados "No es gasto".',
-    '#gastos', 'Que cada cargo del mes (cuenta corriente, Mercado Pago, tarjeta) esté unido a su documento en Gastos → Bandeja, o marcado "No es gasto" (traspaso, retiro, pago de la tarjeta, devolución al dueño).'));
+    '#gastos', 'Que cada cargo del mes (cuenta corriente, Mercado Pago, tarjeta) esté unido a su documento en Gastos → Bandeja, o marcado "No es gasto" (traspaso, retiro, pago de la tarjeta, devolución al dueño). Los pagos a cuenta no cuentan aquí: van en su propia línea, como aviso.'));
+  // v0.126.1 · Etapa 4: los pagos a cuenta que esperan su documento, en su propia línea: un aviso con la lista (no impide cerrar)
+  const AC = G.aCuenta || {};
+  if (num(AC.n)) out.push(itemCheck('acuenta', `Pagos a cuenta esperando su documento: ${AC.n}`, false,
+    `${AC.n} ${AC.n === 1 ? 'pago' : 'pagos'} · ${pesosTxt(AC.monto)}: ${(AC.lista || []).map(x => `${x.quien} ${fechaCorta(x.fecha)} ${pesosTxt(x.monto)}`).join(' · ')}. Ya están conciliados con su cargo; cuando llegue la factura, se aplica desde la Bandeja. Es un aviso: no impide cerrar.`,
+    '#gastos', 'Un pago a cuenta es un cargo que se pagó antes de tener el documento (por ejemplo, un anticipo o una compra cuya factura todavía no llega). Ya está explicado: solo falta unirle su factura cuando llegue (Gastos → Bandeja → "Aplicar pago a cuenta").\nNo impide cerrar. Al llegar la factura, su gasto entra en el mes de la factura.', 'aviso'));
   const C = G.sinClas || {};
   out.push(itemCheck('sii_clasif', `Documentos de ${nm} sin clasificar: ${num(C.n)}`, !num(C.n), num(C.n) ? `${C.n} ${C.n === 1 ? 'documento' : 'documentos'} de ${nm} sin clasificar (${pesosTxt(C.monto)}): no están en el estado de resultados.` : `Todos los documentos de ${nm} están clasificados.`,
     '#gastos', 'Un documento sin clasificar (proveedor nuevo o que recuerda solo el ítem) no tiene ítem ni área: no entra al estado de resultados. Clasifíquelo en Gastos → Bandeja ("Clasificar").'));
@@ -562,6 +567,7 @@ export function checksCierre(D) {
     '#caja/reportes', 'Ainavillo tiene que registrar sus ventas en la caja: si no, su venta no está en el estado de resultados. Es un aviso: no impide cerrar.', 'aviso');
   // 3. Cartola conciliada: ningún cargo del mes por revisar
   out.push(G ? deG('cartola') : checkCartolaConciliada(D));
+  if (G && deG('acuenta')) out.push(deG('acuenta'));   // v0.126.1
   // v0.69.5 · Previred del mes cargado (el de ese mismo mes: es su costo). Lo pasa Cierre de mes; sin el dato no se agrega.
   if (G) out.push(deG('previred')); else if ('planillas' in D) out.push(checkPrevired(D));
   if (G && deG('fletes')) out.push(deG('fletes'));   // v0.103.0

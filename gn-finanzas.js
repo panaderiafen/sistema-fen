@@ -13,10 +13,10 @@
 //  Finanzas lee el tipo desde la cuenta (plan-cuentas.js), ya no desde Clasificación. catalogo: true marca esas líneas. Un ítem sin cuenta
 //  (por ubicar en Gastos → Ítems) entra sin cuenta: queda "sin clasificar" en el estado de resultados.
 // ═══════════════════════════════════════════════
-import * as GB from './gn-bandeja.js?v=0.126.0';
-import * as GI from './gn-items.js?v=0.126.0';
-import * as TR from './trabajadores.js?v=0.126.0';
-import * as GT from './tributario.js?v=0.126.0';   // v0.108.0: la situación tributaria de cada línea   // v0.104.0: los pagos que usan la provisión de los trabajadores
+import * as GB from './gn-bandeja.js?v=0.126.1';
+import * as GI from './gn-items.js?v=0.126.1';
+import * as TR from './trabajadores.js?v=0.126.1';
+import * as GT from './tributario.js?v=0.126.1';   // v0.108.0: la situación tributaria de cada línea   // v0.104.0: los pagos que usan la provisión de los trabajadores
 
 const s = v => String(v == null ? '' : v).trim();
 const entero = v => { const x = Math.round(Number(v)); return isFinite(x) ? x : 0; };
@@ -105,9 +105,16 @@ export function sinClasificarDelMes(D, mes) {
   return { n: l.length, monto: l.reduce((a, d) => a + entero(d.total), 0), lista: l.slice(0, 30).map(d => ({ id: d.id, razon: s(d.razon), folio: s(d.folio), total: entero(d.total), tipo: s(d.tipoTexto) })) };
 }
 // Movimientos del mes con saldo sin explicar (ni pago, ni "no es gasto", ni "no va"); los anteriores al inicio no cuentan
+// v0.126.1 · Etapa 4: un pago a cuenta (naturaleza 'acuenta') ya tiene su cargo y solo espera la factura: no cuenta aquí (va en su aviso)
 export function movsSinRevisarDelMes(D, mes) {
-  const I = GB.indicePagos((D && D.pagos) || []), l = ((D && D.movs) || []).filter(m => !m.anterior && s(m.fecha).slice(0, 7) === mes && entero(m.monto) > 0 && GB.libreMov(m, I) > TOL);
+  const I = GB.indicePagos((D && D.pagos) || []), l = ((D && D.movs) || []).filter(m => !m.anterior && m.naturaleza !== 'acuenta' && s(m.fecha).slice(0, 7) === mes && entero(m.monto) > 0 && GB.libreMov(m, I) > TOL);
   return { n: l.length, monto: l.reduce((a, m) => a + GB.libreMov(m, I), 0) };
+}
+// Los pagos a cuenta del mes que todavía esperan su documento (con saldo a favor): { n, monto, lista: [{ quien, fecha, monto }] }
+export function aCuentaDelMes(D, mes) {
+  const I = GB.indicePagos((D && D.pagos) || []), l = ((D && D.movs) || []).filter(m => m.naturaleza === 'acuenta' && m.estado !== 'no_va' && !m.anterior && s(m.fecha).slice(0, 7) === mes && GB.libreMov(m, I) > TOL)
+    .map(m => ({ quien: s((m.aCuenta && (m.aCuenta.razon || m.aCuenta.rut)) || m.glosa), fecha: s(m.fecha), monto: GB.libreMov(m, I) })).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  return { n: l.length, monto: l.reduce((a, x) => a + x.monto, 0), lista: l };
 }
 // Pagos de la tarjeta de crédito (movimientos marcados así): no son gasto, van al flujo de caja
 export const pagosTarjetaGN = D => ((D && D.movs) || []).filter(m => m.naturaleza === 'tarjeta' && m.estado !== 'no_va').map(m => ({ id: s(m.id), fecha: s(m.fecha), monto: entero(m.monto), descripcion: s(m.glosa) }));

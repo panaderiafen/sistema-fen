@@ -1,3 +1,26 @@
+# Sistema Fën · v0.126.1
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 11 de noviembre de 2026 · Etapa 4 de "Arreglos desde el uso real": cierre de mes más justo.
+
+## Qué cambia
+- **Finanzas → Resultados → Cierre de mes**
+  - "Cartola conciliada" ya no cuenta los **pagos a cuenta**: tienen su cargo y solo esperan la factura.
+  - Van en su propia línea, **"Pagos a cuenta esperando su documento"**, como **aviso** y con la lista (quién, fecha y monto). **No impiden cerrar.**
+  - Un cargo sin explicar (sin documento ni pago a cuenta) sigue impidiendo cerrar, como antes.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.126.1.
+- [ ] Cierre de octubre: Quintana, Renacer, Kaud y Mercado Pago aparecen en el aviso "Pagos a cuenta…", no en "Cartola conciliada".
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/etapa4-v01261.test.mjs` (2 pruebas), nueva. Pasa.
+- Del resto pasan 101. Fallan 2 de `flujo-app-v01240.test.js` (Semanas y Cuadre), que ya fallaban antes.
+
+---
+
 # Sistema Fën · v0.126.0
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 11 de noviembre de 2026 · Etapa 3 de "Arreglos desde el uso real": menos pasos en lo que se repite.
