@@ -10,15 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.126.1';
-import { dbBase, correo } from './gastos-fs.js?v=0.126.1';
-import { ahoraChile } from './gastos-g2.js?v=0.126.1';
-import * as GN from './gn-modelo.js?v=0.126.1';
-import * as GB from './gn-bandeja.js?v=0.126.1';
-import * as GP from './gn-pdf.js?v=0.126.1';
-import * as GI from './gn-items.js?v=0.126.1';
-import * as TR from './trabajadores.js?v=0.126.1';
-import * as GT from './tributario.js?v=0.126.1';   // v0.108.0
+import * as FB from './fs-gastos.js?v=0.126.2';
+import { dbBase, correo } from './gastos-fs.js?v=0.126.2';
+import { ahoraChile } from './gastos-g2.js?v=0.126.2';
+import * as GN from './gn-modelo.js?v=0.126.2';
+import * as GB from './gn-bandeja.js?v=0.126.2';
+import * as GP from './gn-pdf.js?v=0.126.2';
+import * as GI from './gn-items.js?v=0.126.2';
+import * as TR from './trabajadores.js?v=0.126.2';
+import * as GT from './tributario.js?v=0.126.2';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -304,6 +304,22 @@ export async function clasificar(doc, clasif, recordar = true) {   // recordar: 
   });
 }
 // Registrar a mano desde un movimiento: boleta en papel o pago sin documento. Nace el documento ya pagado con ese movimiento.
+// v0.126.2 · La foto de una boleta en papel (ya subida a Drive): { url, nombre } → el campo foto del documento
+function fotoDoc(f, h) {
+  if (!f || !f.url) return {};
+  if (!String(f.url).startsWith('https://')) throw error('La foto no se pudo subir a Drive.', 'datos');
+  return { foto: { url: String(f.url).slice(0, 500), nombre: String(f.nombre || '').slice(0, 160), por: h.por, en: h.en } };
+}
+// Agregar (o cambiar) la foto de un documento ya registrado
+export async function agregarFoto(docId, f) {
+  return enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.docs, docId), sn = await tx.get(ref); if (!sn.exists()) throw error('Ese documento ya no existe.', 'datos');
+    const a = sn.data(), h = marca(a.foto ? 'cambió la foto de la boleta' : 'agregó la foto de la boleta');
+    const x = fotoDoc(f, h); if (!x.foto) throw error('La foto no se pudo subir a Drive.', 'datos');
+    tx.update(ref, { foto: x.foto, historial: conHist(a, h) });
+    return x.foto;
+  });
+}
 export async function registrarAMano(mov, p) {
   const err = GB.repartoValido(p.areas); if (err) throw error(err, 'datos');
   if (!String(p.proveedor || '').trim()) throw error('Escriba a quién se le pagó.', 'datos');
@@ -313,7 +329,7 @@ export async function registrarAMano(mov, p) {
   const rut = GN.rutN(p.rut);
   const doc = { origen: 'mano', tipo, tipoTexto: p.tipo === 'boleta' ? 'Boleta' : 'Sin documento', nc: false, rut: rut ? GN.rutTexto(rut) : '', rutN: rut, razon: String(p.proveedor).trim().slice(0, 120), folio: String(p.folio || '').slice(0, 30),
     fecha: mov.fecha, mes: mov.fecha.slice(0, 7), neto: 0, exento: 0, iva: 0, otroImp: 0, total: monto, vence: '', formaPago: '', referencias: [], detalle: p.nota ? [{ descripcion: String(p.nota).slice(0, 120), cantidad: 1, unidad: '', monto }] : [],
-    estado: 'vigente', clasif: { item: String(p.item).trim(), areas: p.areas, partes: GB.partesSimple(monto, String(p.item).trim(), p.areas), por: h.por, en: h.en }, creado: { por: h.por, en: h.en, mov: mov.id }, version: 0, historial: [h] };
+    estado: 'vigente', clasif: { item: String(p.item).trim(), areas: p.areas, partes: GB.partesSimple(monto, String(p.item).trim(), p.areas), por: h.por, en: h.en }, creado: { por: h.por, en: h.en, mov: mov.id }, version: 0, historial: [h], ...fotoDoc(p.foto, h) };
   return enTransaccion(async (tx, d) => {
     const mref = FB.doc(d, GN.COL.movs, mov.id), ms = await tx.get(mref), m = ms.data();
     const pref = p.recordar !== false ? FB.doc(d, GN.COL.provs, GB.claveProveedor(doc)) : null, ps = pref ? await tx.get(pref) : null;
@@ -514,7 +530,7 @@ export async function registrarSinBanco(p) {
   const rut = GN.rutN(p.rut), areas = p.repartoId ? [] : p.areas;
   const doc = { origen: 'mano', tipo, tipoTexto: p.tipo === 'boleta' ? 'Boleta' : 'Sin documento', nc: false, rut: rut ? GN.rutTexto(rut) : '', rutN: rut, razon: String(p.proveedor).trim().slice(0, 120), folio: String(p.folio || '').slice(0, 30),
     fecha: p.fecha, mes: p.fecha.slice(0, 7), neto: 0, exento: 0, iva: 0, otroImp: 0, total: monto, vence: '', formaPago: '', referencias: [], detalle: p.nota ? [{ descripcion: String(p.nota).slice(0, 120), cantidad: 1, unidad: '', monto }] : [],
-    estado: 'vigente', clasif: { item: String(p.item).trim(), areas: p.areas, repartoId: p.repartoId || '', partes: GB.partesSimple(monto, String(p.item).trim(), p.areas), por: h.por, en: h.en }, creado: { por: h.por, en: h.en }, version: 0, historial: [h] };
+    estado: 'vigente', clasif: { item: String(p.item).trim(), areas: p.areas, repartoId: p.repartoId || '', partes: GB.partesSimple(monto, String(p.item).trim(), p.areas), por: h.por, en: h.en }, creado: { por: h.por, en: h.en }, version: 0, historial: [h], ...fotoDoc(p.foto, h) };
   if (!doc.clasif.partes.length) throw error('Elija el área o el reparto.', 'datos');
   await enTransaccion(async (tx, d) => {
     const pref = p.recordar !== false ? FB.doc(d, GN.COL.provs, GB.claveProveedor(doc)) : null, ps = pref ? await tx.get(pref) : null, prev = ps && ps.exists() ? ps.data() : null;

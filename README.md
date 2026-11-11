@@ -1,3 +1,28 @@
+# Sistema Fën · v0.126.2
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios (usa la misma subida de archivos de siempre) · 11 de noviembre de 2026 · La foto de la boleta en papel.
+
+## Qué cambia
+- **Gastos → "Registrar gasto sin banco"** y **"Registrar a mano"** (desde un cargo): campo nuevo **"Foto de la boleta (opcional)"**.
+  - En el celular se puede sacar con la cámara; en el computador, se elige la foto o el PDF (hasta 10 MB).
+  - Al registrar, la foto se sube a Drive (la misma carpeta de los comprobantes de Gastos) con un nombre que se arma solo: **fecha · a quién · monto** (por ejemplo «2026-11-11 · Estacionamiento · 8.190.jpg»), y queda unida al gasto.
+- **Gastos → Bandeja → Listos:** cada boleta en papel registrada en el sistema muestra **"Ver foto"** (la abre en Drive) o, si no tiene, **"Sin foto de la boleta"** con **"Agregar foto"** para subirla después.
+- Un pago en efectivo de la caja de administración se une a su boleta como siempre: la foto va al registrar la boleta en Gastos (paso 2).
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.126.2.
+- [ ] "Registrar gasto sin banco" tiene "Foto de la boleta"; en el celular abre la cámara o la galería.
+- [ ] La boleta del estacionamiento de hoy, en Listos, dice "Sin foto de la boleta" y "Agregar foto" la sube.
+
+## Pruebas (datos ficticios, Drive simulado)
+- `pruebas/caja30/foto-v01262.test.js` (2 pruebas, 1440 y 390 px), nueva. Pasa.
+- Del resto pasan 103. Fallan 2 de `flujo-app-v01240.test.js` (Semanas y Cuadre), que ya fallaban antes.
+
+---
+
 # Sistema Fën · v0.126.1
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 11 de noviembre de 2026 · Etapa 4 de "Arreglos desde el uso real": cierre de mes más justo.
