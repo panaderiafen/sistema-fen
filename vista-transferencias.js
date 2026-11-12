@@ -7,9 +7,9 @@
 //  · un abono de la tienda sin venta, o con otro monto: se ve con su nota; se corrige en la conciliación (Lo conciliado).
 //  Lecturas: las ventas por transferencia (1 consulta, fen-ventas) y los abonos de la tienda (1 consulta, fen-b2b), 2 minutos en memoria.
 // ═══════════════════════════════════════════════
-import * as Caja from './caja.js?v=0.126.5';
-import * as B2b from './b2b.js?v=0.126.5';
-import * as TT from './transf-tienda.js?v=0.126.5';
+import * as Caja from './caja.js?v=0.126.6';
+import * as B2b from './b2b.js?v=0.126.6';
+import * as TT from './transf-tienda.js?v=0.126.6';
 
 const PERIODOS = [['14', 'Últimos 14 días'], ['30', 'Últimos 30 días'], ['60', 'Últimos 60 días']];
 const ST = { periodo: '30', msg: '', err: '' };

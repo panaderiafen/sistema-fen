@@ -3396,3 +3396,12 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-mesgrp > summary b { text-transform: capitalize; }
 .gn-mesgrp[open] > summary { background: var(--acento-suave); border-radius: 12px 12px 0 0; }
 .gn-mesgrp-c { padding: 4px 8px 8px; }
+/* v0.126.6 · Cuenta con el dueño */
+.gn-dueno-saldo { display: flex; flex-direction: column; gap: 2px; background: var(--verde); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.gn-dueno-saldo b { font-size: 18px; }
+.gn-dueno-saldo small { color: var(--suave); }
+.gn-dueno-saldo.gn-dueno-debe { background: var(--amarillo); }
+.gn-dueno-k { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); }
+.gn-dueno-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.gn-dueno-f { font-size: 13.5px; border-top: 1px solid var(--linea); padding: 7px 0; gap: 10px; }
+.gn-dueno-f > span:first-child { min-width: 0; overflow-wrap: anywhere; }

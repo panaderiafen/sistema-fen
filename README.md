@@ -1,3 +1,30 @@
+# Sistema Fën · v0.126.6
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 12 de noviembre de 2026 · Cuenta con el dueño.
+
+## Qué cambia
+- **Gastos → Bandeja → "No es gasto"**: opción nueva **"Gasto personal del dueño (lo devuelve)"**, para cuando la empresa paga algo suyo.
+- **Gastos → Por pagar → "Cuenta con el dueño"** (reemplaza la línea "Se le debe al dueño"):
+  - **Saldo** arriba: "La empresa le debe a usted $X" o "Usted le debe a la empresa $X".
+  - Dos listas: **lo que usted pagó por la empresa** (con su plata, menos lo devuelto) y **sus gastos personales que pagó la empresa**.
+  - Un gasto personal se descuenta solo del saldo, sin mover plata. Los retiros no entran (no se devuelven).
+- En el flujo de caja, el gasto personal del dueño cuenta como salida para el dueño, igual que un retiro.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.126.6.
+- [ ] El cargo de $5.670 → "No es gasto" → "Gasto personal del dueño".
+- [ ] La luz de la casa ($34.900): "Volver a la Bandeja" y marcarla igual.
+- [ ] Por pagar muestra la cuenta con el dueño y su saldo.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/dueno-v01266.test.js` (1 prueba, 1440 y 390 px), nueva. Pasa.
+- Del resto pasan 107. Fallan 2 de `flujo-app-v01240.test.js` (Semanas y Cuadre), que ya fallaban antes.
+
+---
+
 # Sistema Fën · v0.126.5
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 12 de noviembre de 2026 · "Descontado de las ventas" también para Transbank.

@@ -20,12 +20,18 @@ export const TOLERANCIA = 5;
 export const enVentana = (docFecha, movFecha) => { const d = dias(docFecha, movFecha); return d >= -VENTANA.antes && d <= VENTANA.despues; };
 export const MOTIVOS_NO_VA = { repetido: 'Repetido', no_empresa: 'No es de la empresa', no_compra: 'No es una compra' };
 // v0.100.0 · devolucion: la empresa le devuelve al dueño lo que él pagó con su plata (baja lo que se le debe; no es retiro)
-export const NO_GASTO = { traspaso: 'Traspaso entre cuentas propias', retiro: 'Retiro del dueño', devolucion: 'Devolución al dueño (de lo que pagó con su plata)', tarjeta: 'Pago de la tarjeta de crédito', otro: 'Otro (no es gasto)' };
-// Lo que la empresa le debe al dueño: lo que él pagó con su plata (pagos "personal" vigentes) menos lo que se le ha devuelto
-export function deudaDueno(pagos, movs) {
-  const pagado = (pagos || []).filter(p => p.estado !== 'deshecho' && p.medio === 'personal').reduce((a, p) => a + (Number(p.monto) || 0), 0);
-  const devuelto = (movs || []).filter(m => m.naturaleza === 'devolucion' && m.estado !== 'no_va').reduce((a, m) => a + (Number(m.monto) || 0), 0);
-  return { pagado, devuelto, saldo: pagado - devuelto };
+// v0.126.6 · gasto_dueno: la empresa pagó algo personal del dueño, que él devuelve (se descuenta de lo que la empresa le debe)
+export const NO_GASTO = { traspaso: 'Traspaso entre cuentas propias', retiro: 'Retiro del dueño', gasto_dueno: 'Gasto personal del dueño (lo devuelve)', devolucion: 'Devolución al dueño (de lo que pagó con su plata)', tarjeta: 'Pago de la tarjeta de crédito', otro: 'Otro (no es gasto)' };
+// La cuenta con el dueño: lo que él pagó con su plata (pagos "personal" vigentes), menos lo que la empresa le ha devuelto, menos sus
+// gastos personales que pagó la empresa. saldo > 0: la empresa le debe; saldo < 0: él le debe a la empresa.
+// docs (opcional): para nombrar lo pagado. → { pagado, devuelto, gastos, saldo, listaPagado, listaDevuelto, listaGastos }
+export function deudaDueno(pagos, movs, docs) {
+  const vivo = m => m.estado !== 'no_va', porId = new Map((docs || []).map(d => [d.id, d]));
+  const lp = (pagos || []).filter(p => p.estado !== 'deshecho' && p.medio === 'personal').map(p => { const d = porId.get(p.docId) || {}; return { fecha: s(p.fecha), monto: Number(p.monto) || 0, texto: [s(d.razon), s(d.tipoTexto) + (d.folio ? ' ' + s(d.folio) : '')].filter(Boolean).join(' · ') || 'Pagado con su plata' }; });
+  const lm = nat => (movs || []).filter(m => m.naturaleza === nat && vivo(m)).map(m => ({ fecha: s(m.fecha), monto: Number(m.monto) || 0, texto: s(m.naturalezaNota) ? `${s(m.naturalezaNota)} · ${s(m.glosa)}` : s(m.glosa) }));
+  const ld = lm('devolucion'), lg = lm('gasto_dueno'), sum = l => l.reduce((a, x) => a + x.monto, 0), ord = l => l.sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const pagado = sum(lp), devuelto = sum(ld), gastos = sum(lg);
+  return { pagado, devuelto, gastos, saldo: pagado - devuelto - gastos, listaPagado: ord(lp), listaDevuelto: ord(ld), listaGastos: ord(lg) };
 }
 // Resumen para Hoy y la Agenda (se guarda al abrir Gastos: Hoy lee un solo documento). abiertos: [{ f: vence o fecha, m: saldo, q: a quién, a: anterior, t: tipo }]
 export function resumenHoy(B, D, dia) {

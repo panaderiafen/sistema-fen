@@ -14,10 +14,10 @@
 //    el documento original no cambia.
 //  Lo prueban pruebas/caja30/flujo-v01240.test.mjs (y la app completa, flujo-app-v01240.test.js).
 // ═══════════════════════════════════════════════
-import * as GB from './gn-bandeja.js?v=0.126.5';
-import * as GI from './gn-items.js?v=0.126.5';
-import * as PC from './plan-cuentas.js?v=0.126.5';
-import { FERIADOS } from './feriados-cl.js?v=0.126.5';
+import * as GB from './gn-bandeja.js?v=0.126.6';
+import * as GI from './gn-items.js?v=0.126.6';
+import * as PC from './plan-cuentas.js?v=0.126.6';
+import { FERIADOS } from './feriados-cl.js?v=0.126.6';
 
 const s = v => String(v == null ? '' : v).trim();
 const ent = v => { const x = Math.round(Number(v)); return isFinite(x) ? x : 0; };
@@ -167,7 +167,7 @@ export function reales(F, cfg = {}) {
     const nat = s(m.naturaleza);
     if (nat === 'traspaso') { const x = { ...base, id: 'c_' + m.id, monto: -monto, fila: null, texto: `Traspaso entre cuentas propias · ${s(m.glosa)}` }; add(x); traspasosCargo.push(x); return; }
     if (nat === 'tarjeta') return add({ ...base, id: 'c_' + m.id, monto: -monto, fila: 'tarjeta', texto: `Pago de la tarjeta de crédito · ${s(m.glosa)}` });
-    if (nat === 'retiro' || nat === 'devolucion') return add({ ...base, id: 'c_' + m.id, monto: -monto, fila: 'retiros', texto: `${GB.NO_GASTO[nat]} · ${s(m.glosa)}` });
+    if (nat === 'retiro' || nat === 'devolucion' || nat === 'gasto_dueno') return add({ ...base, id: 'c_' + m.id, monto: -monto, fila: 'retiros', texto: `${GB.NO_GASTO[nat]} · ${s(m.glosa)}` });
     if (nat === 'otro') return add({ ...base, id: 'c_' + m.id, monto: -monto, fila: 'otros_out', texto: `${s(m.naturalezaNota) || 'Otro (no es gasto)'} · ${s(m.glosa)}` });
     if (nat === 'acuenta') { const a = m.aCuenta || {}; return add({ ...base, id: 'c_' + m.id, monto: -monto, fila: trabajadores.has(s(a.rut).toUpperCase().replace(/[^0-9K]/g, '')) ? 'sueldos' : 'proveedores', texto: `Pago a cuenta · ${s(a.razon || a.rut) || s(m.glosa)}` }); }
     const ps = I.porMov[m.id] || []; let usado = 0;

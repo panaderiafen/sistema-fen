@@ -7,21 +7,21 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.126.5';
-import * as GB from './gn-bandeja.js?v=0.126.5';
-import * as AR from './areas.js?v=0.126.5';
-import * as Sii from './sii.js?v=0.126.5';
-import * as MP from './mercadopago.js?v=0.126.5';
-import * as GI from './gn-items.js?v=0.126.5';   // v0.102.0: catálogo de ítems
-import * as GF from './gn-finanzas.js?v=0.126.5';
-import * as PC from './plan-cuentas.js?v=0.126.5';
-import * as FR from './finanzas-resultados.js?v=0.126.5';
-import * as TR from './trabajadores.js?v=0.126.5';   // v0.104.0: ficha del trabajador y provisión
-import * as GT from './tributario.js?v=0.126.5';   // v0.108.0: gestión y tributario
+import * as GN from './gn-modelo.js?v=0.126.6';
+import * as GB from './gn-bandeja.js?v=0.126.6';
+import * as AR from './areas.js?v=0.126.6';
+import * as Sii from './sii.js?v=0.126.6';
+import * as MP from './mercadopago.js?v=0.126.6';
+import * as GI from './gn-items.js?v=0.126.6';   // v0.102.0: catálogo de ítems
+import * as GF from './gn-finanzas.js?v=0.126.6';
+import * as PC from './plan-cuentas.js?v=0.126.6';
+import * as FR from './finanzas-resultados.js?v=0.126.6';
+import * as TR from './trabajadores.js?v=0.126.6';   // v0.104.0: ficha del trabajador y provisión
+import * as GT from './tributario.js?v=0.126.6';   // v0.108.0: gestión y tributario
 
 const st = { medio: '', qMov: '', vista: (() => { try { return localStorage.getItem('fen_gn_vista') || 'recientes'; } catch (e) { return 'recientes'; } })(), D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' }, carga: '', verConciliado: false, mesD: '', mesM: '', qListos: '', abrirListos: false };   // v0.125.1: qListos = buscador de Listos   // v0.124.4: mesD / mesM = filtro por mes de cada lado ('' = todos)   // v0.105.0: carga = conciliar una cartola
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.126.5');
+const fsGN = () => import('./gn-fs.js?v=0.126.6');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -42,7 +42,7 @@ const TXT_CARGOS_ANT = 'Cargos de los 20 días antes del inicio. Se unen con fac
 const TXT_COMPROMISOS = 'Un compromiso es un pago fijo de cada mes que no trae documento (por ejemplo, un arriendo). El sistema crea el documento de cada mes cuando el mes empieza, con su día de pago, y la Bandeja lo une con la transferencia como cualquier factura.\nSu ítem y su reparto quedan en la ficha de a quién se le paga: sus meses llegan clasificados. Un cambio del monto o del día rige desde el próximo mes que se cree. Archivar deja de crear meses; lo ya creado sigue.';
 const MESES_TXT = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const TXT_COB_SII = '"Documentos hasta" es la fecha de la factura más reciente que está cargada. No asegura que estén todas: una factura puede llegar al SII días después.\nSu método: al bajar el XML, incluya siempre el último día de la descarga anterior, así se capta lo que llegó después (lo que ya estaba no se repite). A fin de mes, el RCV completa lo que falte.';
-const TXT_SINBANCO = 'Para un gasto que no pasa por el banco ni trae factura: una compra en la feria o con boleta en papel pagada en efectivo (de la caja), o algo que usted pagó con su plata.\nNace pagado y clasificado. Lo pagado con su plata queda como deuda de la empresa con usted (Por pagar → "Se le debe al dueño"); cuando la empresa se lo devuelva, marque esa transferencia "No es gasto → Devolución al dueño".\nSi el gasto tiene factura, no lo registre aquí: llega por el SII.';
+const TXT_SINBANCO = 'Para un gasto que no pasa por el banco ni trae factura: una compra en la feria o con boleta en papel pagada en efectivo (de la caja), o algo que usted pagó con su plata.\nNace pagado y clasificado. Lo pagado con su plata queda como deuda de la empresa con usted (Por pagar → "Cuenta con el dueño"); cuando la empresa se lo devuelva, marque esa transferencia "No es gasto → Devolución al dueño".\nSi el gasto tiene factura, no lo registre aquí: llega por el SII.';
 const TXT_TARJETA = 'Cada compra anotada es un movimiento de la tarjeta (cuenta "Tarjeta de crédito"): se une con su factura en la Bandeja como cualquier cargo.\nEl pago de la tarjeta desde la cuenta corriente no es gasto: márquelo "No es gasto → pago de la tarjeta", así nada se cuenta dos veces.\nAnotar la misma compra dos veces no la repite.';
 // v0.124.5 · La planilla propia para la tabla de amortización (cuando el banco la entrega escaneada o en PDF)
 const TXT_TABLA_CRED = '"Descargar formato de tabla" baja un Excel con dos hojas: Crédito (banco, N° de operación, capital otorgado, tasa, N° de cuotas) y Cuotas (N°, vencimiento, fecha de pago, capital, interés, interés por atraso, otros y total).\nLlénelo con la cartola o tabla del banco y arrástrelo al recuadro de subir. Se une al crédito con el mismo N° de operación o al cargado del Detalle Crédito (misma primera cuota). Las cuotas con capital e interés usan esos montos; las demás se estiman desde el saldo.\nLa comisión de la garantía estatal y los seguros van a Comisiones bancarias; el interés por atraso, a Multas e intereses; el capital no es gasto.';
@@ -439,7 +439,7 @@ async function procesar(f, H) {
   if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text();
-    const Pv = await import('./previred.js?v=0.126.5');
+    const Pv = await import('./previred.js?v=0.126.6');
     if (Pv.esCsvNomina(Pv.textoDeArchivo(await f.arrayBuffer()))) return subirPrevired(f, H, Pv.leerCsv(Pv.textoDeArchivo(await f.arrayBuffer())));
     const tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -453,13 +453,13 @@ async function procesar(f, H) {
   if (wb) {
     const tefs = H.B2b.leerTransferencias(wb, XLSX);
     if (tefs) { const r = await H.B2b.guardarTransferencias(tefs); H.registrar('Cargó transferencias recibidas', `${r.leidas} leídas · ${r.nuevas} nuevas`); return `<b>Transferencias recibidas</b>: ${r.leidas} en el archivo · ${r.nuevas} nuevas. Sirven a Ventas a empresas → Conciliación (quién pagó cada abono).`; }
-    { const GP = await import('./gn-pdf.js?v=0.126.5'), hC = wb.SheetNames.find(n => /^cr[eé]dito$/i.test(n)), hQ = wb.SheetNames.find(n => /^cuotas$/i.test(n));   // v0.124.5
+    { const GP = await import('./gn-pdf.js?v=0.126.6'), hC = wb.SheetNames.find(n => /^cr[eé]dito$/i.test(n)), hQ = wb.SheetNames.find(n => /^cuotas$/i.test(n));   // v0.124.5
       if (hC && hQ) { const fC = XLSX.utils.sheet_to_json(wb.Sheets[hC], { header: 1, defval: '', raw: true });
         if (GP.esTablaFen(wb.SheetNames, (fC[0] || [])[0])) { const r = GP.leerTablaFen(fC, XLSX.utils.sheet_to_json(wb.Sheets[hQ], { header: 1, defval: '', raw: true }));
           if (r.bloquea) throw new Error('la tabla no se guardó. ' + r.errores.slice(0, 4).join(' ') + (r.errores.length > 4 ? ` (y ${r.errores.length - 4} más)` : ''));
           const k = await (await fsGN()).cargarTablaCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó una tabla de amortización', r.nombre);
           return `<b>${H.esc(r.nombre)}</b>: ${k.que === 'ya' ? 'se unió al crédito que ya estaba' : 'crédito nuevo'} · ${r.reales} ${r.reales === 1 ? 'cuota' : 'cuotas'} con capital, interés y comisiones del banco${k.cambiados ? ` · ${k.cambiados} ${k.cambiados === 1 ? 'cuota ya en Gastos se actualizó' : 'cuotas ya en Gastos se actualizaron'}` : ''}.${k.revisar ? ` <b>${k.revisar} ${k.revisar === 1 ? 'cuota pagada tiene' : 'cuotas pagadas tienen'} otro total en la tabla: revísela${k.revisar === 1 ? '' : 's'} (no se cambió).</b>` : ''}`; } } }
-    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.126.5'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
+    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.126.6'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
       if (GP.esDetalleCredito(filas)) { const enc = wb.SheetNames.includes('Encabezados') ? XLSX.utils.sheet_to_csv(wb.Sheets.Encabezados) : '', r = GP.leerCredito(filas, enc);
         if (r.bloquea) throw new Error(r.errores.join(' '));
         const k = await (await fsGN()).cargarCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó un crédito', r.nombre);
@@ -475,9 +475,9 @@ function esCartola(wb, XLSX, H) {
 }
 // v0.96.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
 async function subirBoleta(f, H) {
-  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.126.5'), import('./boletas.js?v=0.126.5')]);
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.126.6'), import('./boletas.js?v=0.126.6')]);
   let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
-  const GP = await import('./gn-pdf.js?v=0.126.5'), tipo = GP.tipoPdf(lineas);
+  const GP = await import('./gn-pdf.js?v=0.126.6'), tipo = GP.tipoPdf(lineas);
   if (tipo) return subirOtroPdf(f, H, GP, tipo, lineas);
   if (Pv.esComprobante(lineas) || Pv.esCertificado(lineas)) { let r; try { r = Pv.leerPdf(lineas); } catch (x) { throw new Error(x.message); } return subirPrevired(f, H, r); }
   const r = Bo.leerBoleta(lineas);
@@ -511,7 +511,7 @@ async function subirOtroPdf(f, H, GP, tipo, lineas) {
 // v0.97.0 · Previred: el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → el documento del mes
 async function subirPrevired(f, H, r) {
   if (r.bloquea) throw new Error(`Previred no se guardó. ${(r.avisos || []).join(' ')}`);
-  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.126.5'), import('./gastos-g3d.js?v=0.126.5')]);
+  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.126.6'), import('./gastos-g3d.js?v=0.126.6')]);
   const id = GN.idCarga('previred'), d = GP.docDePrevired(r, G3D.venceDe(r.periodo), id);
   const k = await (await fsGN()).cargarPdf(d, { nombre: f.name, tamano: f.size }, 'previred');
   H.registrar('Gastos: cargó Previred', `${d.tipoTexto} · ${k.texto}`);
@@ -530,7 +530,7 @@ async function subirSii(f, txt, H) {
 }
 // v0.101.1 · Después de subir compras del SII: Finanzas revisa los precios de las materias primas (sin esperar; nunca falla hacia afuera)
 function preciosDeMP(H) {
-  import('./finanzas.js?v=0.126.5').then(F => F.preciosTrasImportar()).then(x => {
+  import('./finanzas.js?v=0.126.6').then(F => F.preciosTrasImportar()).then(x => {
     if (!x || (!x.error && !(x.aplicadas.length || x.porConfirmar || x.sinAsociar))) return;
     const t = x.error ? `No se pudieron revisar los precios de las materias primas (${H.esc(x.error)}): hágalo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.`
       : `Precios de materias primas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'actualizado' : 'actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver en Finanzas</a>.`;
@@ -918,7 +918,7 @@ async function subirFotoDe(dlg, pref, { fecha, razon, monto }, bt) {
   if (!/^application\/pdf$|^image\//.test(f.type || '')) throw new Error('Sirve una foto o un PDF.');
   const txt = bt ? bt.textContent : ''; if (bt) bt.textContent = 'Subiendo la foto…';
   try {
-    const G = await import('./gastos.js?v=0.126.5'), b64 = await G.aBase64(f);
+    const G = await import('./gastos.js?v=0.126.6'), b64 = await G.aBase64(f);
     const ext = (f.name.match(/\.[A-Za-z0-9]{2,5}$/) || [f.type === 'application/pdf' ? '.pdf' : '.jpg'])[0], nombre = nombreFoto(fecha, razon, monto) + ext;
     const r = await G.subidor()({ tipo: 'comprobante', fecha: String(fecha || isoHoy()).split('-').reverse().join('-'), imageData: b64, mimeType: f.type, fileName: nombre });
     if (!r || !r.url) throw new Error('Drive no devolvió el enlace de la foto. Intente de nuevo (o registre sin foto y agréguela después).');
@@ -1348,11 +1348,25 @@ function porPagarHtml(H) {
   const ahora = l.filter(x => !x.d.anterior).sort((a, b) => a.f.localeCompare(b.f)), ant = l.filter(x => x.d.anterior);
   const grupos = [['Vencido', x => x.f < hoy], ['Esta semana', x => x.f >= hoy && x.f <= en7], ['Más adelante', x => x.f > en7]];
   const fila = x => `<div class="gn-fila gn-fila-doc"><span><b>${H.esc(x.d.razon || x.d.rut)}</b> · ${H.esc(x.d.tipoTexto)}${x.d.folio && x.d.origen !== 'credito' ? ' ' + H.esc(x.d.folio) : ''} · ${x.d.vence ? 'vence' : 'del'} ${H.esc(H.diaTexto(x.f))}</span><span class="gn-m">${H.pesos(x.d.saldo)}</span></div>`;
-  const tot = a => a.reduce((t, x) => t + x.d.saldo, 0), dd = GB.deudaDueno(st.D.pagos, st.D.movs);
+  const tot = a => a.reduce((t, x) => t + x.d.saldo, 0), dd = GB.deudaDueno(st.D.pagos, st.D.movs, st.D.docs);
   return `<section class="tarjeta" aria-labelledby="t-gn-pp"><div class="titulo-fila"><h2 id="t-gn-pp">Por pagar ${H.info('Por pagar', TXT_PORPAGAR)}</h2><span class="gn-m">${H.pesos(tot(ahora))}</span></div>
     ${ahora.length ? grupos.map(([t, f]) => { const g = ahora.filter(f); return g.length ? `<h3 class="gn-h3${t === 'Vencido' ? ' gn-vencido' : ''}">${t} · ${H.pesos(tot(g))}</h3>${g.map(fila).join('')}` : ''; }).join('') : '<div class="vacio" style="border:0">Nada por pagar.</div>'}
     ${ant.length ? `<details class="gn-det"><summary>Deuda anterior al inicio · ${H.pesos(tot(ant))}</summary>${ant.map(fila).join('')}</details>` : ''}
-    ${dd.pagado ? `<div class="gn-fila gn-fila-doc gn-dueno"><span><b>Se le debe al dueño</b> · pagado con su plata ${H.pesos(dd.pagado)}${dd.devuelto ? ` − devuelto ${H.pesos(dd.devuelto)}` : ''} ${H.info('Deuda con el dueño', TXT_SINBANCO)}</span><span class="gn-m">${H.pesos(dd.saldo)}</span></div>` : ''}</section>`;
+  </section>${cuentaDuenoHtml(H, dd)}`;
+}
+// v0.126.6 · La cuenta con el dueño (pedido por Emmanuel el 12 nov): quién le debe a quién, con las dos listas
+const TXT_DUENO = 'La cuenta entre usted y la empresa.\nA su favor: lo que usted pagó por la empresa con su plata ("¿Cómo se pagó?" → Con plata del dueño, o Gasto sin banco), menos lo que la empresa ya le devolvió (cargos marcados "No es gasto → Devolución al dueño").\nEn contra: sus gastos personales que pagó la empresa (cargos marcados "No es gasto → Gasto personal del dueño").\nEl saldo es la diferencia: si es a su favor, la empresa le debe; si no, usted le debe a la empresa. Un gasto personal se descuenta solo, sin mover plata.\nLos retiros del dueño no entran: un retiro no se devuelve.';
+function cuentaDuenoHtml(H, dd) {
+  if (!dd.pagado && !dd.devuelto && !dd.gastos) return '';
+  const filas = (l, signo) => l.map(x => `<div class="gn-fila gn-dueno-f"><span>${H.esc(x.texto)} · ${H.esc(H.diaTexto(x.fecha))}</span><span class="gn-m">${signo}${H.pesos(x.monto)}</span></div>`).join('');
+  const sal = dd.saldo, txt = sal > 0 ? `La empresa le debe a usted ${H.pesos(sal)}` : sal < 0 ? `Usted le debe a la empresa ${H.pesos(-sal)}` : 'La cuenta está en cero';
+  return `<section class="tarjeta gn-cuenta-dueno" aria-labelledby="t-gn-dueno"><div class="titulo-fila"><h2 id="t-gn-dueno">Cuenta con el dueño ${H.info('Cuenta con el dueño', TXT_DUENO)}</h2></div>
+    <div class="gn-dueno-saldo ${sal < 0 ? 'gn-dueno-debe' : ''}" data-gn-dueno-saldo="${sal}"><span class="gn-dueno-k">Saldo</span><b>${txt}</b>
+      <small>${sal > 0 ? 'Cuando la empresa le transfiera, marque ese cargo "No es gasto → Devolución al dueño".' : sal < 0 ? 'Se descuenta de lo próximo que pague con su plata, o devuélvalo a la empresa.' : ''}</small></div>
+    <div class="gn-dueno-cols">
+      <div><div class="gn-fila"><b>Lo que usted pagó por la empresa</b><b class="gn-m">${H.pesos(dd.pagado - dd.devuelto)}</b></div>${filas(dd.listaPagado, '')}${filas(dd.listaDevuelto.map(x => ({ ...x, texto: 'Devuelto: ' + x.texto })), '−')}${!dd.listaPagado.length && !dd.listaDevuelto.length ? '<div class="vacio" style="border:0">Nada.</div>' : ''}</div>
+      <div><div class="gn-fila"><b>Gastos suyos que pagó la empresa</b><b class="gn-m">${H.pesos(dd.gastos)}</b></div>${filas(dd.listaGastos, '')}${!dd.listaGastos.length ? '<div class="vacio" style="border:0">Nada.</div>' : ''}</div>
+    </div></section>`;
 }
 
 // v0.98.0 · Un compromiso pagado por otro monto (patente con IPC o multas, arriendo con reajuste): ajustar el documento a lo pagado.
@@ -1393,7 +1407,7 @@ function dlgSinBanco(el, H) {
       const foto = await subirFotoDe(dlg, 'sb', { fecha: v('#sb-fecha'), razon: v('#sb-prov'), monto: v('#sb-monto') }, dlg.querySelector('[type=submit]'));
       await (await fsGN()).registrarSinBanco({ foto, medio, tipo: dlg.querySelector('[name=sb-t]:checked').value, fecha: v('#sb-fecha'), monto: v('#sb-monto'), proveedor: v('#sb-prov'), rut: v('#sb-rut'), folio: v('#sb-folio'), nota: v('#sb-nota'), item: a.item, areas, repartoId: a.repartoId });
       dlg.close(); H.registrar('Gastos: registró un gasto sin banco', `${v('#sb-prov')} · ${v('#sb-monto')} · ${medio}`);
-      aviso(el, H, `Registrado: ${H.esc(v('#sb-prov'))} · ${H.pesos(Number(v('#sb-monto')))} ${medio === 'personal' ? 'con plata del dueño (queda en "Se le debe al dueño")' : 'en efectivo'}.`); }
+      aviso(el, H, `Registrado: ${H.esc(v('#sb-prov'))} · ${H.pesos(Number(v('#sb-monto')))} ${medio === 'personal' ? 'con plata del dueño (queda en Por pagar → "Cuenta con el dueño")' : 'en efectivo'}.`); }
     catch (e) { falla(dlg, e, H); } });
 }
 
@@ -1682,7 +1696,7 @@ function dlgDocTrab(el, H, clave, razon, rut) {
       if (f.size > MAX_ARCHIVO) throw new Error('El archivo pesa más de 10 MB: comprímalo o súbalo en partes.');
       if (!/^application\/pdf$|^image\//.test(f.type || '')) throw new Error('Sirve un PDF o una foto.');
       b.textContent = 'Subiendo…';
-      const G = await import('./gastos.js?v=0.126.5'), b64 = await G.aBase64(f);
+      const G = await import('./gastos.js?v=0.126.6'), b64 = await G.aBase64(f);
       const ext = (f.name.match(/\.[A-Za-z0-9]{2,5}$/) || [f.type === 'application/pdf' ? '.pdf' : '.jpg'])[0];
       const nombre = `Trabajador - ${razon} - ${TR.TIPOS_DOC[tipo]} - ${fecha || isoHoy()}${ext}`.replace(/[\/\\:*?"<>|]/g, '_').slice(0, 120);
       const fd = (fecha || isoHoy()).split('-').reverse().join('-');
