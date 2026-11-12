@@ -36,8 +36,9 @@ export const MEDIOS = { cargo: 'Con cargos del banco', efectivo: 'En efectivo', 
 // v0.126.4 · Una factura de comisiones de Mercado Pago no tiene cargo: Mercado Pago la cobra restándola de cada venta antes de liberar
 // la plata (pedido por Emmanuel el 12 nov). "Descontado de las ventas" la deja pagada en su fecha, sin banco, sin efectivo y sin deuda
 // con el dueño. Solo para documentos con el ítem de comisiones (clasifEf: la clasificación efectiva, del documento o de su proveedor).
-export const ITEM_COMISION = 'COMISIONES DE TARJETA Y MERCADO PAGO';
-export const admiteDescuento = c => !!c && [c.item, ...((c.partes || []).map(p => p.item))].filter(Boolean).length > 0 && [c.item, ...((c.partes || []).map(p => p.item))].filter(Boolean).every(i => String(i).trim().toUpperCase() === ITEM_COMISION);
+// v0.126.4 (12 nov): también el arriendo del POS de Transbank, que Transbank cobraba restándolo de sus depósitos.
+export const ITEMS_DESCUENTO = ['COMISIONES DE TARJETA Y MERCADO PAGO', 'ARRIENDO DE POS (TRANSBANK)'];
+export const admiteDescuento = c => { const l = c ? [c.item, ...((c.partes || []).map(p => p.item))].filter(Boolean) : []; return l.length > 0 && l.every(i => ITEMS_DESCUENTO.includes(String(i).trim().toUpperCase())); };
 
 // ── Estados (de los pagos vigentes) ──
 const vivos = p => (p || []).filter(x => x.estado !== 'deshecho');

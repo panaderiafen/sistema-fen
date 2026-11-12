@@ -10,15 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.126.4';
-import { dbBase, correo } from './gastos-fs.js?v=0.126.4';
-import { ahoraChile } from './gastos-g2.js?v=0.126.4';
-import * as GN from './gn-modelo.js?v=0.126.4';
-import * as GB from './gn-bandeja.js?v=0.126.4';
-import * as GP from './gn-pdf.js?v=0.126.4';
-import * as GI from './gn-items.js?v=0.126.4';
-import * as TR from './trabajadores.js?v=0.126.4';
-import * as GT from './tributario.js?v=0.126.4';   // v0.108.0
+import * as FB from './fs-gastos.js?v=0.126.5';
+import { dbBase, correo } from './gastos-fs.js?v=0.126.5';
+import { ahoraChile } from './gastos-g2.js?v=0.126.5';
+import * as GN from './gn-modelo.js?v=0.126.5';
+import * as GB from './gn-bandeja.js?v=0.126.5';
+import * as GP from './gn-pdf.js?v=0.126.5';
+import * as GI from './gn-items.js?v=0.126.5';
+import * as TR from './trabajadores.js?v=0.126.5';
+import * as GT from './tributario.js?v=0.126.5';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -181,7 +181,7 @@ export async function pagar({ partes, movId = '', medio = 'cargo', fecha = '', n
     const falta = GB.faltaClasificar(sn.map(x => ({ id: x.id, ...x.data() })), provs, reps);
     if (falta.length) throw error(`Primero clasifique: ${falta.map(x => x.razon || x.folio).join(', ')}.`, 'clasificar');
     // v0.126.4 · "Descontado de las ventas" solo para facturas de comisiones (por su clasificación o la de su proveedor)
-    if (medio === 'descuento' && sn.some(x => !GB.admiteDescuento(GB.clasifDe({ id: x.id, ...x.data() }, provs, reps)))) throw error('"Descontado de las ventas" es solo para facturas de comisiones de Mercado Pago.', 'datos');
+    if (medio === 'descuento' && sn.some(x => !GB.admiteDescuento(GB.clasifDe({ id: x.id, ...x.data() }, provs, reps)))) throw error('"Descontado de las ventas" es solo para facturas de comisiones (Mercado Pago) o del arriendo del POS (Transbank).', 'datos');
     // v0.91.1 · El proveedor aprende cómo aparece en el banco (solo si todos los documentos son del mismo proveedor y la glosa tiene seña propia)
     const sena = mov ? GB.senaDe(mov.glosa) : '';
     const aprende = sena && claves.length === 1 ? { ref: FB.doc(d, GN.COL.provs, claves[0]), dato: sn[0].data(), prev: provs[claves[0]] || null } : null;

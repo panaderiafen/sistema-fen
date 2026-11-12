@@ -1,3 +1,22 @@
+# Sistema Fën · v0.126.5
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 12 de noviembre de 2026 · "Descontado de las ventas" también para Transbank.
+
+## Qué cambia
+- **"¿Cómo se pagó?" → "Descontado de las ventas"** ahora aparece también en las facturas con el ítem **ARRIENDO DE POS (TRANSBANK)**, que Transbank cobraba restándolas de sus depósitos (además de las de COMISIONES DE TARJETA Y MERCADO PAGO, desde la v0.126.4).
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.126.5.
+- [ ] Transbank F.59027712 y F.58997871: "¿Cómo se pagó?" trae elegida "Descontado de las ventas".
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/descuento-v01264.test.js`: suma el caso de Transbank. Pasa.
+
+---
+
 # Sistema Fën · v0.126.4
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 12 de noviembre de 2026 · Comisiones de Mercado Pago: "Descontado de las ventas".
