@@ -32,7 +32,12 @@ export function resumenHoy(B, D, dia) {
   const ab = B.abiertosD.filter(d => !d.nc && d.saldo > 0 && d.estado !== 'no_va').map(d => ({ f: d.vence || d.fecha, m: d.saldo, q: s(d.razon || d.rut).slice(0, 40), a: d.anterior ? 1 : 0, t: s(d.tipoTexto).slice(0, 30) })).sort((a, b) => a.f.localeCompare(b.f)).slice(0, 300);   // Firestore no guarda listas dentro de listas
   return { dia, porHacer: B.n.total, abiertos: ab, deudaDueno: deudaDueno(D.pagos, D.movs).saldo };
 }
-export const MEDIOS = { cargo: 'Con cargos del banco', efectivo: 'En efectivo', personal: 'Con plata del dueño' };
+export const MEDIOS = { cargo: 'Con cargos del banco', efectivo: 'En efectivo', personal: 'Con plata del dueño', descuento: 'Descontado de las ventas' };
+// v0.126.4 · Una factura de comisiones de Mercado Pago no tiene cargo: Mercado Pago la cobra restándola de cada venta antes de liberar
+// la plata (pedido por Emmanuel el 12 nov). "Descontado de las ventas" la deja pagada en su fecha, sin banco, sin efectivo y sin deuda
+// con el dueño. Solo para documentos con el ítem de comisiones (clasifEf: la clasificación efectiva, del documento o de su proveedor).
+export const ITEM_COMISION = 'COMISIONES DE TARJETA Y MERCADO PAGO';
+export const admiteDescuento = c => !!c && [c.item, ...((c.partes || []).map(p => p.item))].filter(Boolean).length > 0 && [c.item, ...((c.partes || []).map(p => p.item))].filter(Boolean).every(i => String(i).trim().toUpperCase() === ITEM_COMISION);
 
 // ── Estados (de los pagos vigentes) ──
 const vivos = p => (p || []).filter(x => x.estado !== 'deshecho');

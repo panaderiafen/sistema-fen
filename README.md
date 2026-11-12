@@ -1,3 +1,28 @@
+# Sistema Fën · v0.126.4
+
+**Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 12 de noviembre de 2026 · Comisiones de Mercado Pago: "Descontado de las ventas".
+
+## Qué cambia
+- **Gastos → "¿Cómo se pagó?"** tiene una cuarta forma: **"Descontado de las ventas"**.
+  - Es para las facturas de **comisiones de Mercado Pago**: Mercado Pago cobra la comisión restándola de cada venta antes de liberar la plata, así que la factura no tiene un cargo propio.
+  - Solo aparece en documentos con el ítem COMISIONES DE TARJETA Y MERCADO PAGO, y en ellos viene elegida.
+  - La factura queda pagada en la fecha que elija (por defecto, la de la factura), sin banco, sin efectivo y sin deuda con el dueño.
+  - El resultado no cambia: las comisiones ya se restan en el margen; la factura queda registrada sin sumarse dos veces.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta.
+
+## Checklist
+- [ ] Abajo dice v0.126.4.
+- [ ] Mercado Pago F.3113352 ($93.545): "¿Cómo se pagó?" → "Descontado de las ventas" → Guardar. Queda en Listos.
+- [ ] Un documento de otro ítem no muestra esa opción.
+
+## Pruebas (datos ficticios)
+- `pruebas/caja30/descuento-v01264.test.js` (1 prueba), nueva. Pasa.
+- Del resto pasan 106. Fallan 2 de `flujo-app-v01240.test.js` (Semanas y Cuadre), que ya fallaban antes.
+
+---
+
 # Sistema Fën · v0.126.3
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 11 de noviembre de 2026 · Etapa 5 de "Arreglos desde el uso real": Bandeja más rápida.
