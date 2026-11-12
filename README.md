@@ -1,3 +1,31 @@
+# Sistema Fën · v0.127.0
+
+**Reglas de Firestore:** ninguna cambia (se guarda en config/miRitmo y config/miRitmoHechos, que la administración ya puede escribir) · **Apps Script:** sin cambios · 12 de noviembre de 2026 · Etapa 6 de "Arreglos desde el uso real": Mi ritmo.
+
+## Qué cambia
+- **Hoy → "Mi ritmo"** (arriba):
+  - El **bloque que toca ahora** (o el próximo de hoy), con su horario, una barra de avance y sus **tareas**: casilla, cuánto queda (por ejemplo "13 pendientes") e **Ir** a su pantalla.
+  - Algunas tareas **se marcan solas** ("solo"): la cartola subida hoy, la Bandeja sin nada por unir, nada sin clasificar (del resumen que se guarda al abrir Gastos).
+  - Lo que no se hizo **no pasa** al bloque siguiente: lo pendiente se ve en la cifra de cada tarea.
+  - **Este mes** (RCV y liquidaciones, Previred y F30-1, cierre el 13, conteo el último día) y **Lo que viene** (los 3 próximos bloques).
+- **"Editar mi ritmo"**: la semana completa (turnos en gris, bloques en verde) y cada bloque: nombre, días, horario, cada semana o **semana A/B** (por medio), nota y tareas (con pantalla y cómo se marca). También lo del mes. "Volver al ritmo inicial" deja el acordado el 12 nov.
+- Parte con el ritmo acordado: administración corta lun–mié 16:15; administración de fondo jueves 13:30–17:30; pastelería viernes 13:30–17:30; arreglos 7:30–9:30 el viernes (semana A) o el jueves (semana B); descanso sábado 12:30; domingo libre.
+
+## Dónde va (repo sistema-fen, raíz)
+Todos los archivos del zip, en su misma carpeta. **Hay 2 archivos nuevos:** `mi-ritmo.js` y `vista-ritmo.js`.
+
+## Checklist
+- [ ] Abajo dice v0.127.0.
+- [ ] Hoy muestra "Mi ritmo" con el bloque de ahora (o el próximo) y sus tareas.
+- [ ] Marcar una casilla y recargar: sigue marcada.
+- [ ] "Editar mi ritmo": cambiar algo, Guardar, y se ve en Hoy.
+
+## Pruebas (datos ficticios, reloj fijo en jueves 12 nov 13:45)
+- `pruebas/caja30/ritmo-modelo-v01270.test.mjs` (5) y `ritmo-hoy-v01270.test.js` (1, 1440 y 390 px), nuevas. Pasan.
+- Del resto pasan 108. Fallan 2 de `flujo-app-v01240.test.js` (Semanas y Cuadre), que ya fallaban antes.
+
+---
+
 # Sistema Fën · v0.126.6
 
 **Reglas de Firestore:** ninguna cambia · **Apps Script:** sin cambios · 12 de noviembre de 2026 · Cuenta con el dueño.
