@@ -8,15 +8,15 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.127.0';
-import * as FB from './firebase-b2b.js?v=0.127.0';
-import * as Apps from './apps.js?v=0.127.0';
-import * as Mem from './fs-memoria.js?v=0.127.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.127.0';
-import { distanciaTef } from './feriados-cl.js?v=0.127.0';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.127.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.127.0';
-import { cuadreCartola } from './gn-modelo.js?v=0.127.0';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.127.1';
+import * as FB from './firebase-b2b.js?v=0.127.1';
+import * as Apps from './apps.js?v=0.127.1';
+import * as Mem from './fs-memoria.js?v=0.127.1';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.127.1';
+import { distanciaTef } from './feriados-cl.js?v=0.127.1';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.127.1';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.127.1';
+import { cuadreCartola } from './gn-modelo.js?v=0.127.1';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -1820,7 +1820,7 @@ export function proponer(movs, ctx) {
   // ¿Ya se registró a mano un pago de ese monto? (v0.28.0: todos los del cliente en los 15 días antes del pago, o hasta 3 después)
   const similaresDe = (mv, cid) => { const cerca = p => p.fechaPago && diasEntre(p.fechaPago, mv.fecha) <= 15 && diasEntre(mv.fecha, p.fechaPago) <= 3;
     return (ctx.pagados || []).filter(p => p.clienteId === cid && Math.abs(Math.round(p.total) - mv.monto) <= 3 && cerca(p)).sort((a, b) => String(b.fechaPago).localeCompare(String(a.fechaPago))); };
-  const avisoDe = similares => similares.length ? `Ojo: ${similares.length === 1 ? 'el folio ' + similares[0].folio + ' ya se registró pagado el ' + fechaDMY(similares[0].fechaPago) : 'ya hay ' + similares.length + ' folios pagados con este monto en esos días: ' + similares.map(p => `${p.folio} (${fechaDMY(p.fechaPago)})`).join(', ')}. Si es el mismo pago, marca "Ya estaba registrado".` : '';
+  const avisoDe = similares => similares.length ? `Ojo: ${similares.length === 1 ? 'el folio ' + similares[0].folio + ' ya se registró pagado el ' + fechaDMY(similares[0].fechaPago) : 'ya hay ' + similares.length + ' folios pagados con este monto en esos días: ' + similares.map(p => `${p.folio} (${fechaDMY(p.fechaPago)})`).join(', ')}. Si es el mismo pago, marca "Ya lo anoté a mano".` : '';
   movs.filter(seguroId).concat(movs.filter(mv => !seguroId(mv))).forEach(mv => {
     const { tef, id } = ident.get(mv);
     if (!id || !(SEGUROS.includes(id.por) || id.por === 'regla')) {
@@ -2109,7 +2109,7 @@ export async function marcarDeposito(movId, dep) {
 // Si la segunda parte falla, Deshacer otra vez la termina (la primera no se repite).
 async function deshacerDepositoB2b(db, mref, movId, m0, motivo) {
   const mot = String(motivo || '').trim().slice(0, 200);
-  const EFS = await import('./efectivo-fs.js?v=0.127.0');
+  const EFS = await import('./efectivo-fs.js?v=0.127.1');
   if (m0.deposito && m0.deposito.efectivoId) await EFS.desunir(m0.deposito.efectivoId, movId, mot || 'Deshecho en la conciliación');
   await FB.runTransaction(db, async tx => {
     const ms = await tx.get(mref), mv = ms.data();
@@ -2350,8 +2350,8 @@ export async function guardarRitmo(dias) {
   await FB.setDoc(FB.doc(db, 'config', 'conciliacion'), { ritmo: { dias: l, en: ahoraTxt(), por: authSF.currentUser.email } }, { merge: true });
   uso.escrituras++;
 }
-// "Ya estaba registrado" (revisado) o "No es de B2B" (ignorado); con patrón, se ignoran siempre los que lo digan
-// v0.24.3: "Ya estaba registrado" con un cliente elegido a mano: también se aprende quién pagó (para la próxima cartola)
+// "Ya lo anoté a mano" (revisado) o "No es de B2B" (ignorado); con patrón, se ignoran siempre los que lo digan
+// v0.24.3: "Ya lo anoté a mano" con un cliente elegido a mano: también se aprende quién pagó (para la próxima cartola)
 export async function marcarMovimiento(movId, estado, nota, patron, cliente, opc = {}) {
   const db = await dbOk();
   if (!['revisado', 'ignorado'].includes(estado)) throw new Error('Estado no válido.');

@@ -7,7 +7,7 @@
 //  · las facturas de un cliente de B2B (abiertas y pagadas recientes) y la búsqueda de facturas.
 //  Todo es puro: sale de lo que la pantalla ya tiene leído (0 lecturas).
 // ═══════════════════════════════════════════════
-import * as PM from './pagos-mixtos.js?v=0.127.0';   // v0.69.2: el historial de pagos de un documento pagado en partes
+import * as PM from './pagos-mixtos.js?v=0.127.1';   // v0.69.2: el historial de pagos de un documento pagado en partes
 const s = v => String(v == null ? '' : v);
 const n = v => Number(v) || 0;
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -262,7 +262,7 @@ export function resumenAbono(p, rep) {
   if (rep) return 'Parece repetido de otra cartola';
   if (!p || p.tipo === 'sinCliente') return 'Sin coincidencia';
   if (p.accion === 'noB2B') return 'No es de B2B (tu regla)';
-  if (p.accion === 'revisado') return `Ya estaba registrado${p.cliente ? ' · ' + p.cliente : ''} (tu regla)`;
+  if (p.accion === 'revisado') return `Ya lo anoté a mano${p.cliente ? ' · ' + p.cliente : ''} (tu regla)`;
   const fs = (p.asignaciones || []).filter(a => n(a.monto) > 0).map(a => 'F.' + a.folio);
   if (fs.length) return `Paga ${fs.join(' + ')} · ${p.cliente}`;
   if (p.yaPagado) return `Parece un pago ya registrado · ${p.cliente}`;

@@ -16,12 +16,12 @@
 //    aprendido. La cartola nunca crea obligaciones.
 //  Sin red: se prueba sola. Fechas aaaa-mm-dd (hora de Chile).
 // ═══════════════════════════════════════════════
-import * as G3 from './gastos-g3.js?v=0.127.0';
-import * as B from './gastos-banco.js?v=0.127.0';
-import { habilesEntre } from './feriados-cl.js?v=0.127.0';
-import * as D3 from './gastos-g3d.js?v=0.127.0';   // v0.67.0: total del plan de Previred con multas e intereses
-import * as PM from './pagos-mixtos.js?v=0.127.0';   // v0.69.2: pagos mixtos (un documento pagado en partes)
-import * as BO from './boletas.js?v=0.127.0';   // v0.70.0: boletas de luz y agua (el total a pagar paga todo lo que cubre, lo más antiguo primero)
+import * as G3 from './gastos-g3.js?v=0.127.1';
+import * as B from './gastos-banco.js?v=0.127.1';
+import { habilesEntre } from './feriados-cl.js?v=0.127.1';
+import * as D3 from './gastos-g3d.js?v=0.127.1';   // v0.67.0: total del plan de Previred con multas e intereses
+import * as PM from './pagos-mixtos.js?v=0.127.1';   // v0.69.2: pagos mixtos (un documento pagado en partes)
+import * as BO from './boletas.js?v=0.127.1';   // v0.70.0: boletas de luz y agua (el total a pagar paga todo lo que cubre, lo más antiguo primero)
 
 // v0.62.0 · "Pago de tarjeta de crédito": el cargo no crea gasto (las compras con tarjeta ya son gasto al comprar, por el SII);
 // queda en el mismo cargo como movimiento de flujo (estado CONCILIADO, accion 'pago_tarjeta', detalle { movimiento: 'flujo',
@@ -188,9 +188,10 @@ export const tomadosDe = cargos => new Set((cargos || []).filter(c => c.estado =
 //  · fuerte y único → auto.
 //  · varios fuertes: si los del mismo día y la misma glosa son tantos como los iguales que llegan en esa subida (pagos repetidos de
 //    verdad, que vienen en las dos cartolas), se emparejan uno a uno → auto. Si no → propuesta (ambiguo).
-//  · solo débiles → propuesta. Un original ya emparejado no se vuelve a ofrecer.
+//  · solo débiles → propuesta. Un original ya emparejado no se marca solo otra vez, pero sí se propone (v0.127.1: tercera copia,
+//    p. ej. dos cartolas en línea y la histórica; antes no aparecía "Marcar como repetido"). Primero los libres.
 export function buscarRepetidos(nuevos, originales, { tomados, puede } = {}) {
-  const usados = new Set(tomados || []), out = new Map(), ok = puede || (() => true), marcados = new Set();
+  const ya = new Set(tomados || []), usados = new Set(ya), ahora = new Set(), out = new Map(), ok = puede || (() => true), marcados = new Set();
   const orig = (originales || []).filter(e => e && e.id && e.estado !== ESTADOS.repetido);
   const kG = n => [s(n.cartola), s(n.cuenta), s(n.fecha), Math.round(n.monto), norm(n.descripcion)].join('|');
   const tam = {}; (nuevos || []).forEach(n => { const k = kG(n); tam[k] = (tam[k] || 0) + 1; });
@@ -210,13 +211,13 @@ export function buscarRepetidos(nuevos, originales, { tomados, puede } = {}) {
       if (!grupos[k]) { const g = f.filter(x => x.e.fecha === n.fecha && norm(x.e.descripcion) === norm(n.descripcion)); grupos[k] = { g, ok: g.length > 0 && g.length === tam[k] }; }
       if (grupos[k].ok) el = grupos[k].g.find(x => !usados.has(x.e.id)) || null;
     }
-    if (el) { usados.add(el.e.id); marcados.add(n.id); out.set(n.id, { auto: true, original: el.e, por: el.por, dias: el.dias }); }
+    if (el) { usados.add(el.e.id); ahora.add(el.e.id); marcados.add(n.id); out.set(n.id, { auto: true, original: el.e, por: el.por, dias: el.dias }); }
     else out.set(n.id, { auto: false, ambiguo: true, candidatos: f.slice(0, 3) });
   });
   // 2) débiles (y lo que quedó dudoso): propuesta con los posibles que quedan libres
   lista.forEach(n => {
     const x = out.get(n.id); if (x && x.auto) return;
-    const l = cands(n).filter(y => !usados.has(y.e.id)).sort((a, b) => (b.fuerte - a.fuerte) || ord(a, b));
+    const l = cands(n).filter(y => !ahora.has(y.e.id)).sort((a, b) => (ya.has(a.e.id) - ya.has(b.e.id)) || (b.fuerte - a.fuerte) || ord(a, b));
     if (l.length) out.set(n.id, { auto: false, ambiguo: l.filter(y => y.fuerte).length > 1 || (x && x.ambiguo) || false, candidatos: l.slice(0, 3) });
     else out.delete(n.id);
   });

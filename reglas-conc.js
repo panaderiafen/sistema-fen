@@ -26,7 +26,7 @@ export const NIVEL_CORTO = { proponer: 'Solo propone', listos: 'Pasa a Listos' }
 export const ESTADO = { activa: 'Activa', pausada: 'Pausada', archivada: 'Archivada', descartada: 'Descartada' };
 export const ORIGEN = { manual: 'creada por ti', propuesta: 'propuesta y aceptada', migrada: 'migrada de Lo aprendido', aprendida: 'aprendida al confirmar' };
 export const RES_CARGO = { nuevo: 'Gasto nuevo', ignorar: 'No es gasto', pago_tarjeta: 'Pago de tarjeta de crédito', traspaso: 'Traspaso entre cuentas propias', abono: 'Abono de sueldo a una persona', vencimiento: 'Paga un vencimiento', previred: 'Pago de Previred' };
-export const RES_ABONO = { cliente: 'Asignar al cliente', noB2B: 'No es de B2B', revisado: 'Ya estaba registrado' };
+export const RES_ABONO = { cliente: 'Asignar al cliente', noB2B: 'No es de B2B', revisado: 'Ya lo anoté a mano' };
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 export const diaTxt = f => (/^\d{4}-\d{2}-\d{2}/.test(s(f)) ? `${Number(s(f).slice(8, 10))} ${MESES[Number(s(f).slice(5, 7)) - 1]} ${s(f).slice(0, 4)}` : '');
 const pesos = v => '$' + Math.round(n(v)).toLocaleString('es-CL');
@@ -146,7 +146,7 @@ export function resTxt(res, ctx = {}) {
     case 'previred': return 'Pago de Previred';
     case 'cliente': return `Asignar a ${r.nombre || nom(r.clienteId) || 'un cliente'}`;
     case 'noB2B': return `No es de B2B${r.motivo ? ': ' + r.motivo : ''}${r.alSubir ? ' (se ignora sola al subir la cartola)' : ''}`;
-    case 'revisado': return `Ya estaba registrado${r.nombre ? ' · ' + r.nombre : ''}`;
+    case 'revisado': return `Ya lo anoté a mano${r.nombre ? ' · ' + r.nombre : ''}`;
     default: return 'Sin resultado';
   }
 }

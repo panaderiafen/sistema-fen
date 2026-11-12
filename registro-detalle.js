@@ -69,7 +69,7 @@ export function registroAbono(m, ctx = {}) {
   if (m.nota) res.push(['Nota', m.nota]);
   if (m.estado === 'repetido' && m.repetido && m.repetido.original) res.push(['Es el mismo que', `${pesos(m.repetido.original.monto)} del ${fechaTxt(m.repetido.original.fecha)} (${ctx.fuenteTxt ? ctx.fuenteTxt(m.repetido.original) : ''})`]);
   const r = m.resuelto || {}, quien = m.estado === 'pendiente' ? 'Todavía por conciliar.' : (r.por || r.en || m.resueltoPor) ? `Resuelto ${quienCuando(r.por || m.resueltoPor, r.en ? cuando(r.en) : m.resueltoEn)}.` : '';
-  const aviso = m._fuera ? 'Se resolvió desde otro equipo mientras esta pantalla estaba abierta: toca Actualizar para ver cómo.' : m.estado === 'revisado' ? 'Se marcó "Ya estaba registrado": no registró ningún pago nuevo.' : '';
+  const aviso = m._fuera ? 'Se resolvió desde otro equipo mientras esta pantalla estaba abierta: toca Actualizar para ver cómo.' : m.estado === 'revisado' ? 'Se marcó "Ya lo anoté a mano": no registró ningún pago nuevo.' : '';
   return { clave: 'b2b:' + s(m.id || m.repetidoDe || m.fecha + m.monto), mov, estado: { texto: et, tono }, resolucion: res, docs: { titulo: filas.length === 1 ? 'La factura' : 'Las facturas', filas },
     fechaPago: pagos.join(' · '), quien, aviso };
 }
