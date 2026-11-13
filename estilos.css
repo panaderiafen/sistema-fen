@@ -3487,3 +3487,13 @@ dialog.dialogo:has(.mr-dlg) { width: min(980px, calc(100vw - 32px)); max-width: 
 .pl-hoy small { color: var(--suave); }
 @media (max-width: 760px) { .pl-tres, .pl-dos { grid-template-columns: minmax(0, 1fr); } }
 .pl-info .pl-m { color: var(--suave); }
+/* v0.128.2 · Deuda anterior: marcar las pagadas antes del inicio */
+.gn-ant-barra { display: flex; justify-content: space-between; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding: 6px 0; }
+.gn-ant-todos { display: flex; gap: 8px; align-items: center; min-height: 44px; font-weight: 700; }
+.gn-ant-meses { display: flex; gap: 6px; flex-wrap: wrap; }
+.gn-ant-fila { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--linea); min-height: 44px; font-size: 14px; cursor: pointer; }
+.gn-ant-fila > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
+.gn-ant-fila small { color: var(--suave); }
+.gn-ant-pie { display: flex; justify-content: space-between; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding-top: 10px; border-top: 2px solid var(--acento); }
+.gn-acc-fila { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 560px) { .gn-ant-pie .btn { width: 100%; } }

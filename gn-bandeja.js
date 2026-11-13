@@ -19,6 +19,9 @@ export const VENTANA = { antes: 20, despues: 60 };
 export const TOLERANCIA = 5;
 export const enVentana = (docFecha, movFecha) => { const d = dias(docFecha, movFecha); return d >= -VENTANA.antes && d <= VENTANA.despues; };
 export const MOTIVOS_NO_VA = { repetido: 'Repetido', no_empresa: 'No es de la empresa', no_compra: 'No es una compra' };
+// v0.128.2 · Deuda anterior que se pagó antes del inicio (con cargos que no están en el sistema): se marca de a varios en Por pagar
+export const PAGADO_ANTES = 'pagado_antes';
+export const MOTIVOS_NO_VA_TODOS = { ...MOTIVOS_NO_VA, [PAGADO_ANTES]: 'Se pagó antes del inicio del sistema' };
 // v0.100.0 · devolucion: la empresa le devuelve al dueño lo que él pagó con su plata (baja lo que se le debe; no es retiro)
 // v0.126.6 · gasto_dueno: la empresa pagó algo personal del dueño, que él devuelve (se descuenta de lo que la empresa le debe)
 export const NO_GASTO = { traspaso: 'Traspaso entre cuentas propias', retiro: 'Retiro del dueño', gasto_dueno: 'Gasto personal del dueño (lo devuelve)', devolucion: 'Devolución al dueño (de lo que pagó con su plata)', tarjeta: 'Pago de la tarjeta de crédito', otro: 'Otro (no es gasto)' };

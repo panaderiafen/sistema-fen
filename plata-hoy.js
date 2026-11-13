@@ -5,13 +5,15 @@
 //  Decidido el 13 nov: sueldos, Previred y F29 entran como "estimado" hasta que se sube su documento; lo que la empresa le debe
 //  al dueño se muestra aparte y no se suma; los créditos solo con la cuota que vence en el período.
 // ═══════════════════════════════════════════════════════════════════════
-import * as M from './flujo-modelo.js?v=0.128.1';
-import * as GB from './gn-bandeja.js?v=0.128.1';
+import * as M from './flujo-modelo.js?v=0.128.3';
+import * as GB from './gn-bandeja.js?v=0.128.3';
 
 const ent = v => Math.round(Number(v) || 0);
 const s = v => (v == null ? '' : String(v));
 export const DIAS_VIEJO = 2;        // un saldo de más de 2 días lleva la etiqueta "hace N días"
-export const DIAS_ADELANTE = 30;    // lo esperado (cuotas, compromisos, sueldos, Previred, F29) hasta 30 días; documentos y folios, todos
+export const DIAS_AVISO_MES = 7;    // v0.128.3 (pedido por Emmanuel el 13 nov): por pagar, solo hasta fin de mes; 7 días antes, también el mes que viene
+// Hasta dónde se mira lo por pagar: el último día del mes en curso; desde 7 días antes de que termine, el último del mes siguiente
+export function hastaPagar(hoy) { const fin = M.ultimoDia(hoy.slice(0, 7)); return M.diasEntre(hoy, fin) < DIAS_AVISO_MES ? M.ultimoDia(M.sigMes(hoy.slice(0, 7))) : fin; }
 const SUC = { barros_arana: 'Barros Arana', ainavillo: 'Ainavillo' };
 
 // d: lo de FlujoFS.cargar() (armarDatos). → { hoy, hay, viene, queda, dueno, sinConciliar }
@@ -32,7 +34,7 @@ export function calcular(d, { hoy = M.hoyChile() } = {}) {
   const hay = { lista: hayL, total: hayL.reduce((a, x) => a + (x.monto || 0), 0), faltan: hayL.filter(x => x.monto == null).map(x => x.nombre), viejos: hayL.filter(x => x.viejo) };
 
   // ── Lo que viene ──
-  const hasta = M.sumarDias(hoy, DIAS_ADELANTE), ctx = { catalogo: gn.catalogo, provs: gn.provs, repartos: gn.repartos };
+  const hasta = hastaPagar(hoy), ctx = { catalogo: gn.catalogo, provs: gn.provs, repartos: gn.repartos };
   let esp = [].concat(
     M.esperadosDocs(gn, { hoy }), M.esperadosCompromisos(gn.compromisos, gn.docs, { hoy, hasta, ctx }), M.esperadosCuotas(gn.creditos, gn.docs, { hoy, hasta }),
     M.esperadosSueldos(gn.docs, { hoy, hasta }), M.esperadosPrevired(gn.docs, { hoy, hasta }), M.esperadosF29(gn.docs, { hoy, hasta, cierres: d.evals, ordenes: d.ordenes }),
@@ -44,10 +46,11 @@ export function calcular(d, { hoy = M.hoyChile() } = {}) {
     const t = k => g[k].reduce((a, x) => a + ent(x.monto), 0); return { ...g, tot: { vencido: t('vencido'), semana: t('semana'), adelante: t('adelante') }, total: t('vencido') + t('semana') + t('adelante') }; };
   const esAnterior = x => x.fuente && x.fuente.tipo === 'doc' && /deuda anterior/.test(s(x.que));
   const cobrar = grupo(esp.filter(x => x.sentido === 'entra'));
-  const pagar = grupo(esp.filter(x => x.sentido === 'sale' && !esAnterior(x)));
+  const fueraP = esp.filter(x => x.sentido === 'sale' && !esAnterior(x) && M.esDia(x.fecha) && x.fecha > hasta);
+  const pagar = grupo(esp.filter(x => x.sentido === 'sale' && !esAnterior(x) && !(M.esDia(x.fecha) && x.fecha > hasta)));
   const anteriorL = esp.filter(x => x.sentido === 'sale' && esAnterior(x)), anterior = anteriorL.reduce((a, x) => a + ent(x.monto), 0);
   const tarjeta = tarjetaUsada(gn.movs, d.ini || M.INICIO);
-  const viene = { cobrar, pagar, anterior: { total: anterior, lista: anteriorL }, tarjeta, hasta,
+  const viene = { cobrar, pagar, despues: { n: fueraP.length, total: fueraP.reduce((a, x) => a + ent(x.monto), 0) }, anterior: { total: anterior, lista: anteriorL }, tarjeta, hasta,
     // v0.128.1: la deuda de antes del 1 oct se muestra aparte y no se suma (casi siempre se pagó antes del corte)
     total: cobrar.total - pagar.total - tarjeta.monto, estimados: esp.filter(x => x.estado === 'estimado' && x.sentido === 'sale').length };
 

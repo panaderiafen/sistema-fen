@@ -3,9 +3,9 @@
 //  Lo que hay, lo que viene y lo que queda. Reglas en plata-hoy.js; datos de flujo-fs.js (los mismos del Flujo de caja).
 //  H = ayudas de app.js { esc, info, mensajeError }. Guarda un resumen corto en este equipo para la tarjeta de Hoy.
 // ═══════════════════════════════════════════════════════════════════════
-import * as M from './flujo-modelo.js?v=0.128.1';
-import * as FF from './flujo-fs.js?v=0.128.1';
-import * as P from './plata-hoy.js?v=0.128.1';
+import * as M from './flujo-modelo.js?v=0.128.3';
+import * as FF from './flujo-fs.js?v=0.128.3';
+import * as P from './plata-hoy.js?v=0.128.3';
 
 export const K_RESUMEN = 'fen_plata_hoy';
 const $ = id => document.getElementById(id);
@@ -59,11 +59,11 @@ function html(R, H) {
       <span class="pl-k">Por cobrar · <a href="#b2b/cobranza">clientes de Ventas a empresas</a></span>
       ${TRAMOS.map(([k, t]) => filaTramo(viene.cobrar, k, t, false, H)).join('')}
       <span class="pl-k">Por pagar · <a href="#gastos/porpagar">Gastos</a></span>
-      ${TRAMOS.map(([k, t]) => filaTramo(viene.pagar, k, t, true, H)).join('')}
+      ${TRAMOS.map(([k, t]) => filaTramo(viene.pagar, k, k === 'adelante' ? `Hasta el ${M.diaTxt(viene.hasta)}` : t, true, H)).join('')}
       ${viene.anterior.total ? `<details class="pl-det"><summary class="pl-fila pl-info"><span>Deuda de antes del 1 oct <small>· ${viene.anterior.lista.length} documentos · no se suma: casi siempre se pagó antes del corte (revísela en Gastos → Por pagar)</small></span><span class="pl-m">${pesos(viene.anterior.total)}</span></summary><ul class="pl-items">${viene.anterior.lista.map(x => `<li><span>${H.esc(x.que)}</span><span class="pl-m">${pesos(x.monto)}</span></li>`).join('')}</ul></details>` : ''}
       <div class="pl-fila"><span>Tarjeta de crédito usada <small>· compras anotadas ${pesos(viene.tarjeta.compras)} − pagos ${pesos(viene.tarjeta.pagos)}</small></span><span class="pl-m">− ${pesos(viene.tarjeta.monto)}</span></div>
       ${total('Total que viene', viene.total, 'pl-total-viene')}
-      <p class="ayuda pl-pie">Lo estimado (sueldos, Previred, F29, cuotas y arriendos sin documento) llega hasta el ${H.esc(M.diaTxt(viene.hasta))}. ${R.dueno.saldo ? `Cuenta con el dueño: la empresa ${R.dueno.saldo > 0 ? 'le debe' : 'le prestó'} ${pesos(Math.abs(R.dueno.saldo))} <small>(no se suma)</small>.` : ''}</p>
+      <p class="ayuda pl-pie">Por pagar: lo vencido y lo que vence hasta el ${H.esc(M.diaTxt(viene.hasta))} (fin de mes; desde 7 días antes de que termine, también el mes que viene).${viene.despues.n ? ` Después de esa fecha hay ${viene.despues.n} más por ${pesos(viene.despues.total)}: no se suman.` : ''} Lo estimado (sueldos, Previred, F29, cuotas y arriendos sin documento) aparece con su etiqueta. ${R.dueno.saldo ? `Cuenta con el dueño: la empresa ${R.dueno.saldo > 0 ? 'le debe' : 'le prestó'} ${pesos(Math.abs(R.dueno.saldo))} <small>(no se suma)</small>.` : ''}</p>
     </section>
   </div>
   <section class="tarjeta pl-final">${total('Lo que queda si todo se cobra y se paga', R.queda)}<p class="ayuda">Lo que hay ${pesos(hay.total)} + lo que viene ${pesos(viene.total)}.</p></section>`;

@@ -10,15 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.128.1';
-import { dbBase, correo } from './gastos-fs.js?v=0.128.1';
-import { ahoraChile } from './gastos-g2.js?v=0.128.1';
-import * as GN from './gn-modelo.js?v=0.128.1';
-import * as GB from './gn-bandeja.js?v=0.128.1';
-import * as GP from './gn-pdf.js?v=0.128.1';
-import * as GI from './gn-items.js?v=0.128.1';
-import * as TR from './trabajadores.js?v=0.128.1';
-import * as GT from './tributario.js?v=0.128.1';   // v0.108.0
+import * as FB from './fs-gastos.js?v=0.128.3';
+import { dbBase, correo } from './gastos-fs.js?v=0.128.3';
+import { ahoraChile } from './gastos-g2.js?v=0.128.3';
+import * as GN from './gn-modelo.js?v=0.128.3';
+import * as GB from './gn-bandeja.js?v=0.128.3';
+import * as GP from './gn-pdf.js?v=0.128.3';
+import * as GI from './gn-items.js?v=0.128.3';
+import * as TR from './trabajadores.js?v=0.128.3';
+import * as GT from './tributario.js?v=0.128.3';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -221,6 +221,17 @@ export async function noVa(docId, motivo, nota) {
     const ref = FB.doc(d, GN.COL.docs, docId), sn = await tx.get(ref), a = sn.data();
     const h = marca('esto no va: ' + GB.MOTIVOS_NO_VA[motivo], { nota: String(nota || '').slice(0, 200) });
     tx.update(ref, { estado: 'no_va', noVa: { motivo, nota: h.nota, por: h.por, en: h.en }, historial: conHist(a, h) });
+  });
+}
+// v0.128.2 · Varios documentos de deuda anterior: "Ya se pagó antes del 1 oct" (una sola transacción; solo deuda anterior sin pago)
+export async function pagadosAntes(ids, nota) {
+  const l = [...new Set(ids || [])].filter(Boolean).slice(0, 400); if (!l.length) throw error('Marque al menos un documento.', 'datos');
+  return enTransaccion(async (tx, d) => {
+    const refs = l.map(id => FB.doc(d, GN.COL.docs, id)), sns = await Promise.all(refs.map(r => tx.get(r)));
+    sns.forEach(sn => { if (!sn.exists()) throw error('Un documento ya no está: actualice.', 'cambio'); const a = sn.data(); if (!a.anterior) throw error(`El documento N° ${a.folio || ''} no es deuda anterior.`, 'datos'); if (a.estado === 'no_va') throw error(`El documento N° ${a.folio || ''} ya estaba marcado.`, 'cambio'); });
+    const h = marca('esto no va: ' + GB.MOTIVOS_NO_VA_TODOS[GB.PAGADO_ANTES], { nota: String(nota || '').slice(0, 200) });
+    refs.forEach((r, i) => tx.update(r, { estado: 'no_va', noVa: { motivo: GB.PAGADO_ANTES, nota: h.nota, por: h.por, en: h.en }, historial: conHist(sns[i].data(), h) }));
+    return l.length;
   });
 }
 export async function volverDoc(docId) {

@@ -7,22 +7,22 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.128.1';
-import * as GB from './gn-bandeja.js?v=0.128.1';
-import * as CP from './cartolas-periodo.js?v=0.128.1';   // v0.127.2: cartolas por período
-import * as AR from './areas.js?v=0.128.1';
-import * as Sii from './sii.js?v=0.128.1';
-import * as MP from './mercadopago.js?v=0.128.1';
-import * as GI from './gn-items.js?v=0.128.1';   // v0.102.0: catálogo de ítems
-import * as GF from './gn-finanzas.js?v=0.128.1';
-import * as PC from './plan-cuentas.js?v=0.128.1';
-import * as FR from './finanzas-resultados.js?v=0.128.1';
-import * as TR from './trabajadores.js?v=0.128.1';   // v0.104.0: ficha del trabajador y provisión
-import * as GT from './tributario.js?v=0.128.1';   // v0.108.0: gestión y tributario
+import * as GN from './gn-modelo.js?v=0.128.3';
+import * as GB from './gn-bandeja.js?v=0.128.3';
+import * as CP from './cartolas-periodo.js?v=0.128.3';   // v0.127.2: cartolas por período
+import * as AR from './areas.js?v=0.128.3';
+import * as Sii from './sii.js?v=0.128.3';
+import * as MP from './mercadopago.js?v=0.128.3';
+import * as GI from './gn-items.js?v=0.128.3';   // v0.102.0: catálogo de ítems
+import * as GF from './gn-finanzas.js?v=0.128.3';
+import * as PC from './plan-cuentas.js?v=0.128.3';
+import * as FR from './finanzas-resultados.js?v=0.128.3';
+import * as TR from './trabajadores.js?v=0.128.3';   // v0.104.0: ficha del trabajador y provisión
+import * as GT from './tributario.js?v=0.128.3';   // v0.108.0: gestión y tributario
 
 const st = { medio: '', qMov: '', vista: (() => { try { return localStorage.getItem('fen_gn_vista') || 'recientes'; } catch (e) { return 'recientes'; } })(), D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' }, carga: '', verConciliado: false, mesD: '', mesM: '', qListos: '', abrirListos: false };   // v0.125.1: qListos = buscador de Listos   // v0.124.4: mesD / mesM = filtro por mes de cada lado ('' = todos)   // v0.105.0: carga = conciliar una cartola
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.128.1');
+const fsGN = () => import('./gn-fs.js?v=0.128.3');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -233,7 +233,7 @@ function bandejaHtml(H) {
   const listosF = qL ? B.listosD.filter(d => qL.split(/\s+/).every(w => txtListo(d).includes(w))) : B.listosD;
   const listos = listosF.slice(0, 60);
   const pagoTxt = p => p.movId ? `${H.esc(GN.CUENTAS[p.cuenta] || p.cuenta || 'Banco')} ${H.esc(H.diaTexto(p.fecha))}` : `${H.esc((p.medio === 'nc' ? 'Nota de crédito' : GB.MEDIOS[p.medio] || p.medio))} ${H.esc(H.diaTexto(p.fecha))}`;
-  const listoHtml = d => docFila(d, d.estado === 'no_va' ? `<span class="gn-sug">Esto no va: ${H.esc(GB.MOTIVOS_NO_VA[(d.noVa || {}).motivo] || '')}${(d.noVa || {}).nota ? ' · ' + H.esc(d.noVa.nota) : ''}</span>${bt(`data-gn-volverdoc="${H.esc(d.id)}"`, 'Volver a la Bandeja')}`
+  const listoHtml = d => docFila(d, d.estado === 'no_va' ? `<span class="gn-sug">Esto no va: ${H.esc(GB.MOTIVOS_NO_VA_TODOS[(d.noVa || {}).motivo] || '')}${(d.noVa || {}).nota ? ' · ' + H.esc(d.noVa.nota) : ''}</span>${bt(`data-gn-volverdoc="${H.esc(d.id)}"`, 'Volver a la Bandeja')}`
     : d.pagos.map(p => `<span class="gn-sug">Pagado: ${H.pesos(p.monto)} · ${pagoTxt(p)}</span>${bt(`data-gn-deshacer="${H.esc(p.id)}"`, 'Deshacer el pago')}`).join('') + fotoAcc(d) + clasBtns(d));
   // v0.126.2 · Una boleta en papel registrada aquí: "Ver foto" o, si falta, "Sin foto" con "Agregar foto"
   function fotoAcc(d) {
@@ -404,6 +404,7 @@ function conectar(el, H) {
     const c = dt.querySelector('.gn-mesgrp-c'); if (dt.open && c && !c.children.length && st.lazy && st.lazy[k]) { c.innerHTML = st.lazy[k](); selCambio(c); delete st.lazy[k]; }
   }));
   const gc = el.querySelector('#gn-cartolas'); if (gc) gc.addEventListener('toggle', () => { try { localStorage.setItem('fen_gn_cartolas', gc.open ? '1' : '0'); } catch (e) {} });
+  conectarDeudaAnterior(el, H);   // v0.128.2
   el.querySelectorAll('[data-gn-cuenta]').forEach(b => b.addEventListener('click', () => { st.cuenta = b.dataset.gnCuenta; pintar(el, subActual(), H); }));
   el.querySelectorAll('[data-gn-vista]').forEach(b => b.addEventListener('click', () => { st.vista = b.dataset.gnVista; try { localStorage.setItem('fen_gn_vista', st.vista); } catch (e) { /* sin almacenamiento */ } pintar(el, subActual(), H); }));
   // v0.102.0 · Vista previa del catálogo: lo que se decide se guarda en la vista (nada se escribe hasta confirmar)
@@ -450,7 +451,7 @@ async function procesar(f, H) {
   if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text();
-    const Pv = await import('./previred.js?v=0.128.1');
+    const Pv = await import('./previred.js?v=0.128.3');
     if (Pv.esCsvNomina(Pv.textoDeArchivo(await f.arrayBuffer()))) return subirPrevired(f, H, Pv.leerCsv(Pv.textoDeArchivo(await f.arrayBuffer())));
     const tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -464,13 +465,13 @@ async function procesar(f, H) {
   if (wb) {
     const tefs = H.B2b.leerTransferencias(wb, XLSX);
     if (tefs) { const r = await H.B2b.guardarTransferencias(tefs); H.registrar('Cargó transferencias recibidas', `${r.leidas} leídas · ${r.nuevas} nuevas`); return `<b>Transferencias recibidas</b>: ${r.leidas} en el archivo · ${r.nuevas} nuevas. Sirven a Ventas a empresas → Conciliación (quién pagó cada abono).`; }
-    { const GP = await import('./gn-pdf.js?v=0.128.1'), hC = wb.SheetNames.find(n => /^cr[eé]dito$/i.test(n)), hQ = wb.SheetNames.find(n => /^cuotas$/i.test(n));   // v0.124.5
+    { const GP = await import('./gn-pdf.js?v=0.128.3'), hC = wb.SheetNames.find(n => /^cr[eé]dito$/i.test(n)), hQ = wb.SheetNames.find(n => /^cuotas$/i.test(n));   // v0.124.5
       if (hC && hQ) { const fC = XLSX.utils.sheet_to_json(wb.Sheets[hC], { header: 1, defval: '', raw: true });
         if (GP.esTablaFen(wb.SheetNames, (fC[0] || [])[0])) { const r = GP.leerTablaFen(fC, XLSX.utils.sheet_to_json(wb.Sheets[hQ], { header: 1, defval: '', raw: true }));
           if (r.bloquea) throw new Error('la tabla no se guardó. ' + r.errores.slice(0, 4).join(' ') + (r.errores.length > 4 ? ` (y ${r.errores.length - 4} más)` : ''));
           const k = await (await fsGN()).cargarTablaCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó una tabla de amortización', r.nombre);
           return `<b>${H.esc(r.nombre)}</b>: ${k.que === 'ya' ? 'se unió al crédito que ya estaba' : 'crédito nuevo'} · ${r.reales} ${r.reales === 1 ? 'cuota' : 'cuotas'} con capital, interés y comisiones del banco${k.cambiados ? ` · ${k.cambiados} ${k.cambiados === 1 ? 'cuota ya en Gastos se actualizó' : 'cuotas ya en Gastos se actualizaron'}` : ''}.${k.revisar ? ` <b>${k.revisar} ${k.revisar === 1 ? 'cuota pagada tiene' : 'cuotas pagadas tienen'} otro total en la tabla: revísela${k.revisar === 1 ? '' : 's'} (no se cambió).</b>` : ''}`; } } }
-    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.128.1'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
+    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.128.3'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
       if (GP.esDetalleCredito(filas)) { const enc = wb.SheetNames.includes('Encabezados') ? XLSX.utils.sheet_to_csv(wb.Sheets.Encabezados) : '', r = GP.leerCredito(filas, enc);
         if (r.bloquea) throw new Error(r.errores.join(' '));
         const k = await (await fsGN()).cargarCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó un crédito', r.nombre);
@@ -486,9 +487,9 @@ function esCartola(wb, XLSX, H) {
 }
 // v0.96.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
 async function subirBoleta(f, H) {
-  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.128.1'), import('./boletas.js?v=0.128.1')]);
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.128.3'), import('./boletas.js?v=0.128.3')]);
   let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
-  const GP = await import('./gn-pdf.js?v=0.128.1'), tipo = GP.tipoPdf(lineas);
+  const GP = await import('./gn-pdf.js?v=0.128.3'), tipo = GP.tipoPdf(lineas);
   if (tipo) return subirOtroPdf(f, H, GP, tipo, lineas);
   if (Pv.esComprobante(lineas) || Pv.esCertificado(lineas)) { let r; try { r = Pv.leerPdf(lineas); } catch (x) { throw new Error(x.message); } return subirPrevired(f, H, r); }
   const r = Bo.leerBoleta(lineas);
@@ -522,7 +523,7 @@ async function subirOtroPdf(f, H, GP, tipo, lineas) {
 // v0.97.0 · Previred: el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → el documento del mes
 async function subirPrevired(f, H, r) {
   if (r.bloquea) throw new Error(`Previred no se guardó. ${(r.avisos || []).join(' ')}`);
-  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.128.1'), import('./gastos-g3d.js?v=0.128.1')]);
+  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.128.3'), import('./gastos-g3d.js?v=0.128.3')]);
   const id = GN.idCarga('previred'), d = GP.docDePrevired(r, G3D.venceDe(r.periodo), id);
   const k = await (await fsGN()).cargarPdf(d, { nombre: f.name, tamano: f.size }, 'previred');
   H.registrar('Gastos: cargó Previred', `${d.tipoTexto} · ${k.texto}`);
@@ -541,7 +542,7 @@ async function subirSii(f, txt, H) {
 }
 // v0.101.1 · Después de subir compras del SII: Finanzas revisa los precios de las materias primas (sin esperar; nunca falla hacia afuera)
 function preciosDeMP(H) {
-  import('./finanzas.js?v=0.128.1').then(F => F.preciosTrasImportar()).then(x => {
+  import('./finanzas.js?v=0.128.3').then(F => F.preciosTrasImportar()).then(x => {
     if (!x || (!x.error && !(x.aplicadas.length || x.porConfirmar || x.sinAsociar))) return;
     const t = x.error ? `No se pudieron revisar los precios de las materias primas (${H.esc(x.error)}): hágalo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.`
       : `Precios de materias primas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'actualizado' : 'actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver en Finanzas</a>.`;
@@ -929,7 +930,7 @@ async function subirFotoDe(dlg, pref, { fecha, razon, monto }, bt) {
   if (!/^application\/pdf$|^image\//.test(f.type || '')) throw new Error('Sirve una foto o un PDF.');
   const txt = bt ? bt.textContent : ''; if (bt) bt.textContent = 'Subiendo la foto…';
   try {
-    const G = await import('./gastos.js?v=0.128.1'), b64 = await G.aBase64(f);
+    const G = await import('./gastos.js?v=0.128.3'), b64 = await G.aBase64(f);
     const ext = (f.name.match(/\.[A-Za-z0-9]{2,5}$/) || [f.type === 'application/pdf' ? '.pdf' : '.jpg'])[0], nombre = nombreFoto(fecha, razon, monto) + ext;
     const r = await G.subidor()({ tipo: 'comprobante', fecha: String(fecha || isoHoy()).split('-').reverse().join('-'), imageData: b64, mimeType: f.type, fileName: nombre });
     if (!r || !r.url) throw new Error('Drive no devolvió el enlace de la foto. Intente de nuevo (o registre sin foto y agréguela después).');
@@ -1360,10 +1361,54 @@ function porPagarHtml(H) {
   const grupos = [['Vencido', x => x.f < hoy], ['Esta semana', x => x.f >= hoy && x.f <= en7], ['Más adelante', x => x.f > en7]];
   const fila = x => `<div class="gn-fila gn-fila-doc"><span><b>${H.esc(x.d.razon || x.d.rut)}</b> · ${H.esc(x.d.tipoTexto)}${x.d.folio && x.d.origen !== 'credito' ? ' ' + H.esc(x.d.folio) : ''} · ${x.d.vence ? 'vence' : 'del'} ${H.esc(H.diaTexto(x.f))}</span><span class="gn-m">${H.pesos(x.d.saldo)}</span></div>`;
   const tot = a => a.reduce((t, x) => t + x.d.saldo, 0), dd = GB.deudaDueno(st.D.pagos, st.D.movs, st.D.docs);
+  const pagAntes = (st.D.docs || []).filter(d => d.estado === 'no_va' && d.noVa && d.noVa.motivo === GB.PAGADO_ANTES).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
   return `<section class="tarjeta" aria-labelledby="t-gn-pp"><div class="titulo-fila"><h2 id="t-gn-pp">Por pagar ${H.info('Por pagar', TXT_PORPAGAR)}</h2><span class="gn-m">${H.pesos(tot(ahora))}</span></div>
     ${ahora.length ? grupos.map(([t, f]) => { const g = ahora.filter(f); return g.length ? `<h3 class="gn-h3${t === 'Vencido' ? ' gn-vencido' : ''}">${t} · ${H.pesos(tot(g))}</h3>${g.map(fila).join('')}` : ''; }).join('') : '<div class="vacio" style="border:0">Nada por pagar.</div>'}
-    ${ant.length ? `<details class="gn-det"><summary>Deuda anterior al inicio · ${H.pesos(tot(ant))}</summary>${ant.map(fila).join('')}</details>` : ''}
+    ${ant.length ? deudaAnteriorHtml(H, ant, tot) : ''}
+    ${pagAntes.length ? `<details class="gn-det"><summary>Pagados antes del inicio · ${pagAntes.length} · ${H.pesos(pagAntes.reduce((a, d) => a + (Number(d.total) || 0), 0))}</summary><p class="ayuda">Deuda anterior marcada "Ya se pagó antes del 1 oct". Si aparece su cargo, devuélvala.</p>${pagAntes.map(d => `<div class="gn-fila gn-fila-doc"><span><b>${H.esc(d.razon || d.rut)}</b> · ${H.esc(d.tipoTexto)} ${H.esc(d.folio || '')} · del ${H.esc(H.diaTexto(d.fecha))}${d.noVa && d.noVa.nota ? ' · ' + H.esc(d.noVa.nota) : ''}</span><span class="gn-acc-fila"><span class="gn-m">${H.pesos(d.total)}</span><button type="button" class="btn-link btn-chico" data-gn-volverdoc="${H.esc(d.id)}">Devolver a Por pagar</button></span></div>`).join('')}</details>` : ''}
   </section>${cuentaDuenoHtml(H, dd)}`;
+}
+// v0.128.2 · Deuda anterior: casillas, "Marcar todos", por mes y "Ya se pagó antes del 1 oct" (boceto aprobado el 13 nov)
+const MESES_C = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+function deudaAnteriorHtml(H, ant, tot) {
+  const porMes = {}; ant.forEach(x => { const m = String(x.d.fecha || '').slice(0, 7); (porMes[m] = porMes[m] || []).push(x); });
+  const meses = Object.keys(porMes).sort().reverse();
+  const nomMes = m => (MESES_C[Number(m.slice(5, 7)) - 1] || m) + (m.slice(0, 4) !== String(new Date().getFullYear()) ? ' ' + m.slice(0, 4) : '');
+  const fila = x => `<label class="gn-ant-fila"><input type="checkbox" data-gn-ant-chk="${H.esc(x.d.id)}" data-monto="${x.d.saldo}" data-mes="${H.esc(String(x.d.fecha || '').slice(0, 7))}"><span><b>${H.esc(x.d.razon || x.d.rut)}</b> · ${H.esc(x.d.tipoTexto)} ${H.esc(x.d.folio || '')} <small>· del ${H.esc(H.diaTexto(x.d.fecha))}${x.d.vence ? ' · vencía ' + H.esc(H.diaTexto(x.d.vence)) : ''}</small></span><span class="gn-m">${H.pesos(x.d.saldo)}</span></label>`;
+  return `<details class="gn-det gn-ant" ${st.antAbierta ? 'open' : ''} data-gn-ant><summary>Deuda anterior al inicio · ${ant.length} · ${H.pesos(tot(ant))}</summary>
+    <p class="ayuda">Facturas de antes del inicio del sistema que no tienen su pago aquí. Si ya se pagaron antes del 1 oct (con cargos que no están en el sistema), márquelas: quedan cerradas como pagadas antes del inicio, no cuentan como gasto de octubre ni mueven ningún saldo, y salen de Por pagar y de Plata hoy. Las que todavía se deben, déjelas sin marcar.</p>
+    <div class="gn-ant-barra"><label class="gn-ant-todos"><input type="checkbox" data-gn-ant-todos> Marcar todos</label><div class="gn-ant-meses">${meses.map(m => `<button type="button" class="btn-sec btn-chico" data-gn-ant-mes="${H.esc(m)}">${H.esc(nomMes(m))} · ${porMes[m].length}</button>`).join('')}</div></div>
+    ${ant.map(fila).join('')}
+    <div class="gn-ant-pie"><span data-gn-ant-suma>Marcados: 0</span><button type="button" class="btn" data-gn-ant-marcar disabled>Ya se pagó antes del 1 oct</button></div></details>`;
+}
+function conectarDeudaAnterior(el, H) {
+  const caja = el.querySelector('[data-gn-ant]'); if (!caja) return;
+  caja.addEventListener('toggle', () => { st.antAbierta = caja.open; });
+  const chks = () => [...caja.querySelectorAll('[data-gn-ant-chk]')];
+  const actualizar = () => { const l = chks().filter(x => x.checked), t = l.reduce((a, x) => a + (Number(x.dataset.monto) || 0), 0);
+    caja.querySelector('[data-gn-ant-suma]').textContent = `Marcados: ${l.length}${l.length ? ' · ' + H.pesos(t) : ''}`;
+    const b = caja.querySelector('[data-gn-ant-marcar]'); b.disabled = !l.length; b.textContent = l.length ? `Ya se pagó antes del 1 oct (${l.length} · ${H.pesos(t)})` : 'Ya se pagó antes del 1 oct';
+    const todos = caja.querySelector('[data-gn-ant-todos]'); todos.checked = l.length === chks().length; todos.indeterminate = l.length > 0 && l.length < chks().length; };
+  chks().forEach(x => x.addEventListener('change', actualizar));
+  caja.querySelector('[data-gn-ant-todos]').addEventListener('change', ev => { chks().forEach(x => { x.checked = ev.target.checked; }); actualizar(); });
+  caja.querySelectorAll('[data-gn-ant-mes]').forEach(b => b.addEventListener('click', () => { const l = chks().filter(x => x.dataset.mes === b.dataset.gnAntMes), on = !l.every(x => x.checked); l.forEach(x => { x.checked = on; }); actualizar(); }));
+  caja.querySelector('[data-gn-ant-marcar]').addEventListener('click', () => {
+    const l = chks().filter(x => x.checked); if (!l.length) return;
+    const t = l.reduce((a, x) => a + (Number(x.dataset.monto) || 0), 0);
+    const dlg = H.dialogo(`<form class="form-dialogo" novalidate><h2>¿Se pagaron antes del 1 oct?</h2>
+      <p>${l.length} ${l.length === 1 ? 'documento' : 'documentos'} · ${H.pesos(t)}. Quedan cerrados como pagados antes del inicio del sistema: no cuentan como gasto de octubre ni mueven ningún saldo.</p>
+      <div class="campo"><label for="ant-nota">Nota (opcional)</label><input id="ant-nota" maxlength="200" placeholder="Por ejemplo: pagadas en septiembre"></div>
+      <p class="ayuda">Si después aparece el cargo de alguno, se devuelve a Por pagar desde "Pagados antes del inicio".</p>
+      <p class="error" data-err role="alert"></p>
+      <div class="botones"><button type="button" class="btn-sec" data-cerrar>Volver</button><button type="submit" class="btn">Marcar como pagados</button></div></form>`);
+    dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+    dlg.querySelector('form').addEventListener('submit', async ev => {
+      ev.preventDefault(); dlg.querySelector('[type=submit]').disabled = true;
+      try { const n = await (await fsGN()).pagadosAntes(l.map(x => x.dataset.gnAntChk), dlg.querySelector('#ant-nota').value); dlg.close();
+        H.registrar('Gastos: deuda anterior pagada antes del inicio', `${n} documentos · ${H.pesos(t)}`); st.D = null; aviso(el, H, `${n} ${n === 1 ? 'documento quedó' : 'documentos quedaron'} como pagados antes del 1 oct.`); }
+      catch (e) { dlg.querySelector('[type=submit]').disabled = false; falla(dlg, e, H); }
+    });
+  });
 }
 // v0.126.6 · La cuenta con el dueño (pedido por Emmanuel el 12 nov): quién le debe a quién, con las dos listas
 const TXT_DUENO = 'La cuenta entre usted y la empresa.\nA su favor: lo que usted pagó por la empresa con su plata ("¿Cómo se pagó?" → Con plata del dueño, o Gasto sin banco), menos lo que la empresa ya le devolvió (cargos marcados "No es gasto → Devolución al dueño").\nEn contra: sus gastos personales que pagó la empresa (cargos marcados "No es gasto → Gasto personal del dueño").\nEl saldo es la diferencia: si es a su favor, la empresa le debe; si no, usted le debe a la empresa. Un gasto personal se descuenta solo, sin mover plata.\nLos retiros del dueño no entran: un retiro no se devuelve.';
@@ -1707,7 +1752,7 @@ function dlgDocTrab(el, H, clave, razon, rut) {
       if (f.size > MAX_ARCHIVO) throw new Error('El archivo pesa más de 10 MB: comprímalo o súbalo en partes.');
       if (!/^application\/pdf$|^image\//.test(f.type || '')) throw new Error('Sirve un PDF o una foto.');
       b.textContent = 'Subiendo…';
-      const G = await import('./gastos.js?v=0.128.1'), b64 = await G.aBase64(f);
+      const G = await import('./gastos.js?v=0.128.3'), b64 = await G.aBase64(f);
       const ext = (f.name.match(/\.[A-Za-z0-9]{2,5}$/) || [f.type === 'application/pdf' ? '.pdf' : '.jpg'])[0];
       const nombre = `Trabajador - ${razon} - ${TR.TIPOS_DOC[tipo]} - ${fecha || isoHoy()}${ext}`.replace(/[\/\\:*?"<>|]/g, '_').slice(0, 120);
       const fd = (fecha || isoHoy()).split('-').reverse().join('-');
