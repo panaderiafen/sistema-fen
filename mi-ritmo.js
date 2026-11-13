@@ -8,7 +8,7 @@
 //  · Se guarda en config/miRitmo (lo que se ve) y config/miRitmoHechos (las casillas de los últimos 21 días). Sin reglas nuevas.
 //  · Lo que no se hizo en un bloque no pasa al siguiente (decidido el 12 nov): lo pendiente se ve en la cifra de cada tarea.
 // ═══════════════════════════════════════════════
-import { db, doc, getDoc, setDoc, runTransaction } from './firebase.js?v=0.128.3';
+import { db, doc, getDoc, setDoc, runTransaction } from './firebase.js?v=0.129.0';
 
 const p2 = n => String(n).padStart(2, '0');
 export const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];

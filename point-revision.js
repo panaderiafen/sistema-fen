@@ -10,7 +10,7 @@
 //   · descuadre: se cerró como descuadre (la caja de ese día): Finanzas lo cuenta como venta de esa tienda y deja de ser faltante;
 //   · devuelto: se devolvió en Mercado Pago.
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.128.3';
+import { auth, db, collection, doc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.129.0';
 
 export const RESOLUCIONES = { manual: 'Ya se registró a mano', descuadre: 'Se cerró como descuadre', devuelto: 'Se devolvió en Mercado Pago' };
 export const TIENDAS = { barros_arana: 'Barros Arana', ainavillo: 'Ainavillo' };
@@ -70,7 +70,7 @@ export function olvidar() { mem = null; }
 // → [cobros pagados sin venta] (null si no se pudo preguntar al servidor de cobros)
 export async function paraHoy({ forzar = false } = {}) {
   if (mem && !forzar && Date.now() - mem.t < 300000) return mem.lista.filter(c => !mem.hechos.has(c.referencia));
-  const { api } = await import('./vista-point.js?v=0.128.3');
+  const { api } = await import('./vista-point.js?v=0.129.0');
   const cobros = (await api({ accion: 'cobros_recientes' })).cobros || [];
   const refs = [...new Set(cobros.filter(c => c.estado === 'pagado' && TIENDAS[c.sucursal] && c.referencia).map(c => c.referencia))];
   const conVenta = new Set(), revisados = new Set();

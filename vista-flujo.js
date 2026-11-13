@@ -3,8 +3,8 @@
 //  Tres pestañas: Semanas (#finanzas/flujo), Lo que viene (#finanzas/flujo/viene) y Cuadre (#finanzas/flujo/cuadre).
 //  Reglas en flujo-modelo.js; datos y escrituras en flujo-fs.js. H = ayudas de app.js { esc, info, registrar, mensajeError, dialogo }.
 // ═══════════════════════════════════════════════
-import * as M from './flujo-modelo.js?v=0.128.3';
-import * as FF from './flujo-fs.js?v=0.128.3';
+import * as M from './flujo-modelo.js?v=0.129.0';
+import * as FF from './flujo-fs.js?v=0.129.0';
 
 const K_MODO = 'fen_flujo_modo';
 const leerModo = () => { try { return localStorage.getItem(K_MODO) === 'meta' ? 'meta' : 'estimado'; } catch (e) { return 'estimado'; } };

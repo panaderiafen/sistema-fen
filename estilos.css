@@ -3497,3 +3497,10 @@ dialog.dialogo:has(.mr-dlg) { width: min(980px, calc(100vw - 32px)); max-width: 
 .gn-ant-pie { display: flex; justify-content: space-between; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding-top: 10px; border-top: 2px solid var(--acento); }
 .gn-acc-fila { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 560px) { .gn-ant-pie .btn { width: 100%; } }
+/* v0.129.0 · Informe de conciliación (Finanzas → Cierre de mes) */
+.ic-tres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 8px 0 12px; }
+.ic-k { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--acento-suave); }
+.ic-k b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.ic-k small { color: var(--suave); }
+.ic-k-pend { background: var(--amarillo, #FBF3E0); }
+@media (max-width: 560px) { .ic-tres { grid-template-columns: minmax(0, 1fr); } }
