@@ -61,13 +61,19 @@ export function leer(texto) {
   if (!COLS_LIB.every(c => col(c) >= 0)) return { error: tipoReporte(texto) === 'liquidaciones' ? 'Ese es el reporte de liquidaciones de Mercado Pago: no trae los retiros ni el saldo. Sube el reporte de liberaciones (Reportes → Liberaciones).' : 'No es el reporte de liberaciones de Mercado Pago.' };
   const v = (r, k) => (col(k) >= 0 ? s(r[col(k)]) : '');
   const cargos = [], dias = {}, R = { pagos: { n: 0, monto: 0 }, retiros: { n: 0, monto: 0 }, ventas: { n: 0, bruto: 0, comision: 0, neto: 0 }, filas: filas.length - 1 };
-  let desde = '', hasta = '';
+  let desde = '', hasta = '', ult = null;
   const vistos = new Set();
+  // v0.128.1 · Un pago con el saldo que el reporte todavía muestra solo como reserva (reserve_for_payment sin su "payment") también es un
+  // cargo: el saldo ya bajó. Si un reporte después trae el pago de la misma operación, Gastos lo reconoce (mismo N° de operación).
+  const reserva = {}, pagadas = new Set();
   filas.slice(1).forEach(r => {
     const fecha = fechaDe(v(r, 'DATE')); if (!fecha) return;
     if (!desde || fecha < desde) desde = fecha; if (!hasta || fecha > hasta) hasta = fecha;
     const desc = v(r, 'DESCRIPTION').toLowerCase(), id = v(r, 'SOURCE_ID'), deb = Math.round(num(v(r, 'NET_DEBIT_AMOUNT'))), cred = Math.round(num(v(r, 'NET_CREDIT_AMOUNT')));
     const saldo = Math.round(num(v(r, 'BALANCE_AMOUNT'))), unidad = v(r, 'BUSINESS_UNIT'), sub = v(r, 'SUB_UNIT'), tipoT = v(r, 'PAYMENT_METHOD_TYPE');
+    const cuando = s(v(r, 'DATE')); if (!ult || cuando >= ult.cuando) ult = { cuando, fecha, hora: horaDe(cuando), monto: saldo };   // v0.128.1: el saldo de la última fila
+    if (desc === 'reserve_for_payment' && id) { const x = reserva[id] || (reserva[id] = { deb: 0, cred: 0, fecha, hora: horaDe(cuando), saldo, ml: /mercado libre/i.test(unidad) }); x.deb += deb; x.cred += cred; if (deb > 0) { x.fecha = fecha; x.hora = horaDe(cuando); x.saldo = saldo; } return; }
+    if (desc === 'payment' && deb > 0) pagadas.add(id);
     if (desc === 'payment' && deb > 0) {
       const k = 'p|' + id + '|' + deb; if (vistos.has(k)) return; vistos.add(k);
       const ml = /mercado libre/i.test(unidad);
@@ -85,9 +91,12 @@ export function leer(texto) {
       R.ventas.n++; R.ventas.bruto += bruto; R.ventas.comision += com; R.ventas.neto += cred;
     }
   });
+  Object.entries(reserva).forEach(([id, x]) => { const m = x.deb - x.cred; if (m <= 0 || pagadas.has(id)) return;
+    cargos.push({ fecha: x.fecha, hora: x.hora, descripcion: `${x.ml ? 'COMPRA MERCADO LIBRE' : 'PAGO CON SALDO MERCADO PAGO'} OP ${opLegible(id)}`, monto: m, saldo: x.saldo, operacion: id, tipo: 'pago', ml: x.ml, reserva: true });
+    R.pagos.n++; R.pagos.monto += m; R.reservas = (R.reservas || 0) + 1; });
   cargos.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora.localeCompare(b.hora));
   if (!cargos.length && !R.ventas.n) return { error: 'El reporte no trae pagos, retiros ni ventas.' };
-  return { desde, hasta, cargos, dias, resumen: R };
+  return { desde, hasta, cargos, dias, resumen: R, saldoFinal: ult ? { fecha: ult.fecha, hora: ult.hora, monto: ult.monto } : null };
 }
 // La "cartola" para Gastos (la misma forma que la de BancoEstado: Cartola.cargar)
 export function cartolaDe(L) {

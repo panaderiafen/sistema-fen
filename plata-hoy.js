@@ -5,8 +5,8 @@
 //  Decidido el 13 nov: sueldos, Previred y F29 entran como "estimado" hasta que se sube su documento; lo que la empresa le debe
 //  al dueño se muestra aparte y no se suma; los créditos solo con la cuota que vence en el período.
 // ═══════════════════════════════════════════════════════════════════════
-import * as M from './flujo-modelo.js?v=0.128.0';
-import * as GB from './gn-bandeja.js?v=0.128.0';
+import * as M from './flujo-modelo.js?v=0.128.1';
+import * as GB from './gn-bandeja.js?v=0.128.1';
 
 const ent = v => Math.round(Number(v) || 0);
 const s = v => (v == null ? '' : String(v));
@@ -20,7 +20,7 @@ export function calcular(d, { hoy = M.hoyChile() } = {}) {
   // ── Lo que hay ──
   const fila = (k, nombre, fecha, monto, extra = {}) => ({ k, nombre, fecha: fecha || '', monto: monto == null ? null : ent(monto), dias: fecha ? M.diasEntre(fecha, hoy) : null, ...extra });
   const banco = c => { const f = s(cob[c]); return fila(c, M.CUENTAS[c], f, f ? M.saldoCartolaAl(c, f, d) : null, { de: 'cartola', link: '#gastos' }); };
-  const fmp = s(cob.mp), mp = fila('mp', 'Mercado Pago', fmp, fmp ? M.saldoMpAl(fmp, { movsMp: d.movsMp, mpVentas: d.mpVentas, cobertura: fmp, mpDias: cfg.mpDias || 0 }) : null, { de: 'reporte', link: '#gastos' });
+  const mp = saldoMp(d, cfg);
   const libro = M.libroAdminAl(d.efmovs, hoy);
   const admin = fila('admin', 'Caja de administración', hoy, libro ? libro.saldo : null, { de: 'efectivo', conteo: libro && libro.conteo ? libro.conteo.dia : '', link: '#efectivo' });
   const F = M.fondosAl(d.evals, hoy), fondos = Object.entries(F);
@@ -48,7 +48,8 @@ export function calcular(d, { hoy = M.hoyChile() } = {}) {
   const anteriorL = esp.filter(x => x.sentido === 'sale' && esAnterior(x)), anterior = anteriorL.reduce((a, x) => a + ent(x.monto), 0);
   const tarjeta = tarjetaUsada(gn.movs, d.ini || M.INICIO);
   const viene = { cobrar, pagar, anterior: { total: anterior, lista: anteriorL }, tarjeta, hasta,
-    total: cobrar.total - pagar.total - anterior - tarjeta.monto, estimados: esp.filter(x => x.estado === 'estimado' && x.sentido === 'sale').length };
+    // v0.128.1: la deuda de antes del 1 oct se muestra aparte y no se suma (casi siempre se pagó antes del corte)
+    total: cobrar.total - pagar.total - tarjeta.monto, estimados: esp.filter(x => x.estado === 'estimado' && x.sentido === 'sale').length };
 
   // ── Aparte: la cuenta con el dueño y lo que falta conciliar (los totales pueden cambiar) ──
   const dd = GB.deudaDueno(gn.pagos, gn.movs, gn.docs);
@@ -56,6 +57,15 @@ export function calcular(d, { hoy = M.hoyChile() } = {}) {
   const cargos = (gn.movs || []).filter(m => !m.anterior && ['cc', 'chequera', 'mp'].includes(m.cuenta) && m.estado !== 'no_va' && !m.naturaleza && GB.libreMov(m, I) > GB.TOLERANCIA).length;
   const abonos = (d.abonos || []).filter(a => a.estado === 'pendiente').length;
   return { hoy, hay, viene, queda: hay.total + viene.total, dueno: { saldo: ent(dd.saldo) }, sinConciliar: { cargos, abonos }, faltanDatos: Object.keys(d.faltan || {}) };
+}
+// v0.128.1 · Mercado Pago: el saldo de la última fila del último reporte (BALANCE_AMOUNT, exacto); si el reporte se subió antes de
+// esta versión, el cálculo de antes (saldo del último pago + ventas liberadas después).
+export function saldoMp(d, cfg = {}) {
+  const ks = (((d.gn || {}).cargas) || []).filter(k => k.tipo === 'mercadopago' && k.saldoFinal && M.esDia(k.saldoFinal.fecha)).sort((a, b) => (s(a.saldoFinal.fecha) + s(a.saldoFinal.hora)).localeCompare(s(b.saldoFinal.fecha) + s(b.saldoFinal.hora)));
+  const k = ks[ks.length - 1], fmp = s((d.cobertura || {}).mp), hoy = M.hoyChile();
+  const dias = f => (f ? M.diasEntre(f, hoy) : null);
+  if (k && s(k.saldoFinal.fecha) >= fmp) return { k: 'mp', nombre: 'Mercado Pago', fecha: k.saldoFinal.fecha, monto: ent(k.saldoFinal.monto), dias: dias(k.saldoFinal.fecha), de: 'reporte', exacto: true, hora: s(k.saldoFinal.hora), link: '#gastos' };
+  return { k: 'mp', nombre: 'Mercado Pago', fecha: fmp, monto: fmp ? M.saldoMpAl(fmp, { movsMp: d.movsMp, mpVentas: d.mpVentas, cobertura: fmp, mpDias: cfg.mpDias || 0 }) : null, dias: dias(fmp), de: 'reporte', link: '#gastos' };
 }
 // Los retiros de cierre (o a la caja de administración) que todavía no se reciben en Efectivo
 function sobresSinRecibir(cmovs, efmovs, hoy) {

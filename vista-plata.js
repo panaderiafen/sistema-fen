@@ -3,9 +3,9 @@
 //  Lo que hay, lo que viene y lo que queda. Reglas en plata-hoy.js; datos de flujo-fs.js (los mismos del Flujo de caja).
 //  H = ayudas de app.js { esc, info, mensajeError }. Guarda un resumen corto en este equipo para la tarjeta de Hoy.
 // ═══════════════════════════════════════════════════════════════════════
-import * as M from './flujo-modelo.js?v=0.128.0';
-import * as FF from './flujo-fs.js?v=0.128.0';
-import * as P from './plata-hoy.js?v=0.128.0';
+import * as M from './flujo-modelo.js?v=0.128.1';
+import * as FF from './flujo-fs.js?v=0.128.1';
+import * as P from './plata-hoy.js?v=0.128.1';
 
 export const K_RESUMEN = 'fen_plata_hoy';
 const $ = id => document.getElementById(id);
@@ -32,7 +32,7 @@ export async function pintar(el, H, ctx) {
 
 const etiquetaVieja = x => x.viejo ? ` <span class="chip c-amarillo chip-chico">hace ${x.dias} días</span>` : '';
 function filaHay(x, H) {
-  const sub = x.k === 'admin' ? `debería haber${x.conteo ? ' · último conteo ' + M.diaTxt(x.conteo) : ''}` : x.de ? (x.fecha ? `${x.de} hasta el ${M.diaTxt(x.fecha)}` : `sin ${x.de}`) : (x.detalle || '');
+  const sub = x.k === 'mp' && x.exacto ? `saldo del reporte al ${M.diaTxt(x.fecha)}${x.hora ? ' ' + x.hora : ''}` : x.k === 'admin' ? `debería haber${x.conteo ? ' · último conteo ' + M.diaTxt(x.conteo) : ''}` : x.de ? (x.fecha ? `${x.de} hasta el ${M.diaTxt(x.fecha)}` : `sin ${x.de}`) : (x.detalle || '');
   return `<div class="pl-fila"><span><a href="${x.link}">${H.esc(x.nombre)}</a> <small>· ${H.esc(sub)}</small>${etiquetaVieja(x)}</span><span class="pl-m">${x.monto == null ? '<span class="gn-sug">sin dato</span>' : pesos(x.monto)}</span></div>`;
 }
 const TRAMOS = [['vencido', 'Vencido'], ['semana', 'Esta semana'], ['adelante', 'Más adelante']];
@@ -48,7 +48,7 @@ function html(R, H) {
   return `<section class="pl-intro"><div><h2 id="t-plata">Plata de Fën hoy ${H.info('Plata de Fën hoy', TXT)}</h2><p class="ayuda">${H.esc(M.diaLargo(R.hoy))} · cada número con la fecha de su último dato</p></div><button type="button" class="btn-sec btn-chico" id="pl-act">Actualizar</button></section>
   <div class="pl-tres">
     <div class="tarjeta pl-kpi pl-kpi-hay"><span class="pl-k">Lo que hay</span><b>${pesos(hay.total)}</b><small>bancos, Mercado Pago y efectivo</small></div>
-    <div class="tarjeta pl-kpi"><span class="pl-k">Lo que viene</span><b>${pesos(viene.total)}</b><small>por cobrar ${pesos(viene.cobrar.total)} · por pagar ${pesos(viene.pagar.total + viene.anterior.total + viene.tarjeta.monto)}</small></div>
+    <div class="tarjeta pl-kpi"><span class="pl-k">Lo que viene</span><b>${pesos(viene.total)}</b><small>por cobrar ${pesos(viene.cobrar.total)} · por pagar ${pesos(viene.pagar.total + viene.tarjeta.monto)}</small></div>
     <div class="tarjeta pl-kpi pl-kpi-queda"><span class="pl-k">Lo que queda</span><b>${pesos(R.queda)}</b><small>si todo se cobra y se paga</small></div>
   </div>
   ${n.cargos || n.abonos ? `<p class="aviso pl-aviso" role="note">Hay ${n.cargos ? `<a href="#gastos">${n.cargos} ${n.cargos === 1 ? 'cargo' : 'cargos'}</a>` : ''}${n.cargos && n.abonos ? ' y ' : ''}${n.abonos ? `<a href="#b2b/conciliacion">${n.abonos} ${n.abonos === 1 ? 'abono' : 'abonos'}</a>` : ''} sin conciliar: estos totales pueden cambiar.</p>` : ''}
@@ -60,7 +60,7 @@ function html(R, H) {
       ${TRAMOS.map(([k, t]) => filaTramo(viene.cobrar, k, t, false, H)).join('')}
       <span class="pl-k">Por pagar · <a href="#gastos/porpagar">Gastos</a></span>
       ${TRAMOS.map(([k, t]) => filaTramo(viene.pagar, k, t, true, H)).join('')}
-      ${viene.anterior.total ? `<details class="pl-det"><summary class="pl-fila"><span>Deuda de antes del 1 oct <small>· ${viene.anterior.lista.length}</small></span><span class="pl-m">− ${pesos(viene.anterior.total)}</span></summary><ul class="pl-items">${viene.anterior.lista.map(x => `<li><span>${H.esc(x.que)}</span><span class="pl-m">${pesos(x.monto)}</span></li>`).join('')}</ul></details>` : ''}
+      ${viene.anterior.total ? `<details class="pl-det"><summary class="pl-fila pl-info"><span>Deuda de antes del 1 oct <small>· ${viene.anterior.lista.length} documentos · no se suma: casi siempre se pagó antes del corte (revísela en Gastos → Por pagar)</small></span><span class="pl-m">${pesos(viene.anterior.total)}</span></summary><ul class="pl-items">${viene.anterior.lista.map(x => `<li><span>${H.esc(x.que)}</span><span class="pl-m">${pesos(x.monto)}</span></li>`).join('')}</ul></details>` : ''}
       <div class="pl-fila"><span>Tarjeta de crédito usada <small>· compras anotadas ${pesos(viene.tarjeta.compras)} − pagos ${pesos(viene.tarjeta.pagos)}</small></span><span class="pl-m">− ${pesos(viene.tarjeta.monto)}</span></div>
       ${total('Total que viene', viene.total, 'pl-total-viene')}
       <p class="ayuda pl-pie">Lo estimado (sueldos, Previred, F29, cuotas y arriendos sin documento) llega hasta el ${H.esc(M.diaTxt(viene.hasta))}. ${R.dueno.saldo ? `Cuenta con el dueño: la empresa ${R.dueno.saldo > 0 ? 'le debe' : 'le prestó'} ${pesos(Math.abs(R.dueno.saldo))} <small>(no se suma)</small>.` : ''}</p>

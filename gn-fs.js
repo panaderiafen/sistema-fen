@@ -10,15 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.128.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.128.0';
-import { ahoraChile } from './gastos-g2.js?v=0.128.0';
-import * as GN from './gn-modelo.js?v=0.128.0';
-import * as GB from './gn-bandeja.js?v=0.128.0';
-import * as GP from './gn-pdf.js?v=0.128.0';
-import * as GI from './gn-items.js?v=0.128.0';
-import * as TR from './trabajadores.js?v=0.128.0';
-import * as GT from './tributario.js?v=0.128.0';   // v0.108.0
+import * as FB from './fs-gastos.js?v=0.128.1';
+import { dbBase, correo } from './gastos-fs.js?v=0.128.1';
+import { ahoraChile } from './gastos-g2.js?v=0.128.1';
+import * as GN from './gn-modelo.js?v=0.128.1';
+import * as GB from './gn-bandeja.js?v=0.128.1';
+import * as GP from './gn-pdf.js?v=0.128.1';
+import * as GI from './gn-items.js?v=0.128.1';
+import * as TR from './trabajadores.js?v=0.128.1';
+import * as GT from './tributario.js?v=0.128.1';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -137,6 +137,7 @@ export async function cargarMovs(tipo, movs, meta) {
     parecidos: P.parecidos.length, parecidosLista: P.parecidos.slice(0, 50), antes: P.antes, anteriores: P.anteriores, traspasos: P.nuevos.filter(m => m.naturaleza === 'traspaso').length, por, en };
   // v0.105.0 · El cuadre de saldo de la cartola (GN.cuadreCartola) y lo que salió desde el inicio, para compararlo con lo que está en Gastos
   if (meta.cuadre) { const ini = inicio(); k.cuadre = { ...meta.cuadre, inicio: ini, cargosDesde: movs.filter(m => m.fecha >= ini).reduce((a, m) => a + (Number(m.monto) || 0), 0) }; }
+  if (meta.saldoFinal && Number.isFinite(Number(meta.saldoFinal.monto))) k.saldoFinal = { fecha: String(meta.saldoFinal.fecha || ''), hora: String(meta.saldoFinal.hora || ''), monto: Math.round(Number(meta.saldoFinal.monto)) };   // v0.128.1 · Mercado Pago
   await guardarCarga(k);
   return { ...k, plan: P };
 }
