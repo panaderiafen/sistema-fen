@@ -3441,3 +3441,10 @@ dialog.dialogo:has(.mr-dlg) { width: min(980px, calc(100vw - 32px)); max-width: 
 /* v0.127.1 · Vista por cliente: el posible repetido, arriba del panel del abono */
 .bjc-rep { margin: 6px 0; }
 .bjc-rep .cc-rep-prop { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 10px; border-radius: 8px; background: var(--azul); color: var(--azul-t); font-size: 13px; line-height: 1.35; }
+/* v0.127.2 · Cartolas por período: la que manda, lo que trajo distinto y las que quedaron dentro */
+.gn-cart.gn-cart-grupo { gap: 4px; }
+.gn-compara { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--acento-suave); font-size: 13.5px; }
+.gn-compara .gn-fila { border-top: 1px solid var(--linea); padding-top: 6px; gap: 8px; flex-wrap: wrap; }
+.gn-compara .ayuda { margin: 0; }
+.gn-cart-dentro .gn-cart-sub { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding: 6px 0; border-top: 1px dashed var(--linea); font-size: 13px; }
+.gn-cart-dentro .gn-cart-sub small { color: var(--suave); overflow-wrap: anywhere; }
