@@ -3504,3 +3504,14 @@ dialog.dialogo:has(.mr-dlg) { width: min(980px, calc(100vw - 32px)); max-width: 
 .ic-k small { color: var(--suave); }
 .ic-k-pend { background: var(--amarillo, #FBF3E0); }
 @media (max-width: 560px) { .ic-tres { grid-template-columns: minmax(0, 1fr); } }
+/* v0.130.0 · Anotar boleta */
+.bo-btn { white-space: nowrap; }
+.bo-hoy { width: 100%; min-height: 52px; font-size: 16px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+.bo-hoy small { font-weight: 400; opacity: .85; font-size: 13px; }
+.bo-foto { display: flex; gap: 12px; align-items: center; }
+.bo-foto img { width: 96px; height: 128px; object-fit: cover; border-radius: 10px; background: var(--linea); }
+.bo-monto { font-size: 22px !important; font-weight: 800; min-height: 52px; }
+.bo-clasif > summary { cursor: pointer; font-weight: 700; min-height: 36px; padding: 6px 0; }
+.bo-clasif > summary small { font-weight: 400; color: var(--suave); }
+.bo-esp { flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+@media (max-width: 560px) { .bo-dlg .botones .btn { flex: 1; } }

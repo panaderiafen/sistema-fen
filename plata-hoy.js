@@ -5,8 +5,8 @@
 //  Decidido el 13 nov: sueldos, Previred y F29 entran como "estimado" hasta que se sube su documento; lo que la empresa le debe
 //  al dueño se muestra aparte y no se suma; los créditos solo con la cuota que vence en el período.
 // ═══════════════════════════════════════════════════════════════════════
-import * as M from './flujo-modelo.js?v=0.129.1';
-import * as GB from './gn-bandeja.js?v=0.129.1';
+import * as M from './flujo-modelo.js?v=0.130.0';
+import * as GB from './gn-bandeja.js?v=0.130.0';
 
 const ent = v => Math.round(Number(v) || 0);
 const s = v => (v == null ? '' : String(v));

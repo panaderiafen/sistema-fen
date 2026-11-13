@@ -2,9 +2,9 @@
 //  Sistema Fën — Finanzas → Cierre de mes → Informe de conciliación (pantalla)  v0.129.0
 //  Se prepara al tocar (lee lo mismo que el Flujo de caja) y se descarga un Excel con tres hojas: Resumen, Cargos y Abonos.
 // ═══════════════════════════════════════════════════════════════════════
-import * as M from './flujo-modelo.js?v=0.129.1';
-import * as FF from './flujo-fs.js?v=0.129.1';
-import * as IC from './informe-conc.js?v=0.129.1';
+import * as M from './flujo-modelo.js?v=0.130.0';
+import * as FF from './flujo-fs.js?v=0.130.0';
+import * as IC from './informe-conc.js?v=0.130.0';
 
 // v0.129.1 · ExcelJS (con colores, bordes, formato $ y filtros): la librería anterior no escribía formato
 const EXCELJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';

@@ -3,9 +3,9 @@
 //  Lo que hay, lo que viene y lo que queda. Reglas en plata-hoy.js; datos de flujo-fs.js (los mismos del Flujo de caja).
 //  H = ayudas de app.js { esc, info, mensajeError }. Guarda un resumen corto en este equipo para la tarjeta de Hoy.
 // ═══════════════════════════════════════════════════════════════════════
-import * as M from './flujo-modelo.js?v=0.129.1';
-import * as FF from './flujo-fs.js?v=0.129.1';
-import * as P from './plata-hoy.js?v=0.129.1';
+import * as M from './flujo-modelo.js?v=0.130.0';
+import * as FF from './flujo-fs.js?v=0.130.0';
+import * as P from './plata-hoy.js?v=0.130.0';
 
 export const K_RESUMEN = 'fen_plata_hoy';
 const $ = id => document.getElementById(id);

@@ -16,15 +16,15 @@
 //  línea" y las 3 más parecidas al asociar. Reglas puras en mp-alta-modelo.js; escribe en la base de Cocina (produccion.js) y aquí.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.129.1';
-import * as FC from './finanzas-costos.js?v=0.129.1';
-import * as FS from './finanzas-sii.js?v=0.129.1';
-import * as FM from './finanzas-motor.js?v=0.129.1';
-import * as FV from './finanzas-ventas.js?v=0.129.1';
-import * as FMG from './finanzas-margenes.js?v=0.129.1';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.129.1';
-import * as VR from './vista-finanzas-resultados.js?v=0.129.1';
-import * as MA from './mp-alta-modelo.js?v=0.129.1';
+import * as F from './finanzas.js?v=0.130.0';
+import * as FC from './finanzas-costos.js?v=0.130.0';
+import * as FS from './finanzas-sii.js?v=0.130.0';
+import * as FM from './finanzas-motor.js?v=0.130.0';
+import * as FV from './finanzas-ventas.js?v=0.130.0';
+import * as FMG from './finanzas-margenes.js?v=0.130.0';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.130.0';
+import * as VR from './vista-finanzas-resultados.js?v=0.130.0';
+import * as MA from './mp-alta-modelo.js?v=0.130.0';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -92,9 +92,9 @@ export async function pintar(el, sub, H) {
   // v0.62.0: Estado de resultados (primera parte) y Cierre de mes; Clasificación pasa a #finanzas/resultados/clasificacion
   if (tab === 'resultados') return VR.pintarResultados(el, ['creditos', 'inversiones', 'clasificacion', 'cierre'].includes(p[2]) ? p[2] : 'eerr', H, { cab, error, sinBase, conexion: async () => { if (!st.cx || st.cx.gastos.estado !== 'ok') st.cx = await F.conexiones(); return st.cx; } });
   // v0.128.0 · Plata hoy: lo que hay, lo que viene y lo que queda (vista-plata.js, con los datos del Flujo de caja)
-  if (tab === 'plata') return (await import('./vista-plata.js?v=0.129.1')).pintar(el, H, { cab, error });
+  if (tab === 'plata') return (await import('./vista-plata.js?v=0.130.0')).pintar(el, H, { cab, error });
   // v0.124.0 · Flujo de caja (Semanas, Lo que viene y Cuadre) en vista-flujo.js
-  if (tab === 'flujo') return (await import('./vista-flujo.js?v=0.129.1')).pintar(el, p[2] === 'viene' ? 'viene' : p[2] === 'cuadre' ? 'cuadre' : 'semanas', H, { cab, error });
+  if (tab === 'flujo') return (await import('./vista-flujo.js?v=0.130.0')).pintar(el, p[2] === 'viene' ? 'viene' : p[2] === 'cuadre' ? 'cuadre' : 'semanas', H, { cab, error });
   if (tab === 'margenes') return pintarMargenes(el, ['asociar', 'margen', 'matriz', 'precios', 'ajustes'].includes(p[2]) ? p[2] : 'ventas', H);
   const parte = p[2] === 'revision' ? 'revision' : p[2] === 'compras' ? 'compras' : p[2] === 'productos' ? 'productos' : 'mp';
   el.innerHTML = cab(tab) + subPestanas(parte, null) + '<section class="tarjeta"><div class="vacio" style="border:0">Abriendo los costos…</div></section>';
@@ -1320,7 +1320,7 @@ function dialogoVinculo(p, el, volver, H) {
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
   // v0.73.0: la lista de reventa (cat_reventa, de la memoria de fs-gastos): activas, más la que ya tenía este producto
   const selRev = d.querySelector('#m-v-revid');
-  import('./reventa.js?v=0.129.1').then(R => R.leer()).then(({ lista }) => {
+  import('./reventa.js?v=0.130.0').then(R => R.leer()).then(({ lista }) => {
     MS.reventa = lista;
     const ofrecer = lista.filter(x => x.estado !== 'archivado' || (v && v.reventaId === x.id)).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
     selRev.innerHTML = `<option value="">${ofrecer.length ? 'Elige…' : 'La lista de reventa está vacía (Catálogo → Reventa)'}</option>` + ofrecer.map(x => `<option value="${H.esc(x.id)}" data-costo="${x.costoNeto ?? ''}" data-nombre="${H.esc(x.nombre)}" ${v && v.reventaId === x.id ? 'selected' : ''}>${H.esc(x.nombre)} · ${H.esc(x.id)} · $${(Math.round(Number(x.costoNeto || 0) * 100) / 100).toLocaleString('es-CL')} / ${H.esc(x.unidad || 'un')}${x.estado === 'archivado' ? ' · archivada' : ''}</option>`).join('');

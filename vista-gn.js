@@ -7,22 +7,22 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.129.1';
-import * as GB from './gn-bandeja.js?v=0.129.1';
-import * as CP from './cartolas-periodo.js?v=0.129.1';   // v0.127.2: cartolas por período
-import * as AR from './areas.js?v=0.129.1';
-import * as Sii from './sii.js?v=0.129.1';
-import * as MP from './mercadopago.js?v=0.129.1';
-import * as GI from './gn-items.js?v=0.129.1';   // v0.102.0: catálogo de ítems
-import * as GF from './gn-finanzas.js?v=0.129.1';
-import * as PC from './plan-cuentas.js?v=0.129.1';
-import * as FR from './finanzas-resultados.js?v=0.129.1';
-import * as TR from './trabajadores.js?v=0.129.1';   // v0.104.0: ficha del trabajador y provisión
-import * as GT from './tributario.js?v=0.129.1';   // v0.108.0: gestión y tributario
+import * as GN from './gn-modelo.js?v=0.130.0';
+import * as GB from './gn-bandeja.js?v=0.130.0';
+import * as CP from './cartolas-periodo.js?v=0.130.0';   // v0.127.2: cartolas por período
+import * as AR from './areas.js?v=0.130.0';
+import * as Sii from './sii.js?v=0.130.0';
+import * as MP from './mercadopago.js?v=0.130.0';
+import * as GI from './gn-items.js?v=0.130.0';   // v0.102.0: catálogo de ítems
+import * as GF from './gn-finanzas.js?v=0.130.0';
+import * as PC from './plan-cuentas.js?v=0.130.0';
+import * as FR from './finanzas-resultados.js?v=0.130.0';
+import * as TR from './trabajadores.js?v=0.130.0';   // v0.104.0: ficha del trabajador y provisión
+import * as GT from './tributario.js?v=0.130.0';   // v0.108.0: gestión y tributario
 
 const st = { medio: '', qMov: '', vista: (() => { try { return localStorage.getItem('fen_gn_vista') || 'recientes'; } catch (e) { return 'recientes'; } })(), D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' }, carga: '', verConciliado: false, mesD: '', mesM: '', qListos: '', abrirListos: false };   // v0.125.1: qListos = buscador de Listos   // v0.124.4: mesD / mesM = filtro por mes de cada lado ('' = todos)   // v0.105.0: carga = conciliar una cartola
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.129.1');
+const fsGN = () => import('./gn-fs.js?v=0.130.0');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -53,7 +53,7 @@ const TXT_INICIO = 'Gastos parte desde cero. Lo anterior a esta fecha no entra, 
 
 function cab(H, tab) {
   return `<div class="cabecera"><div><h1 id="t-gastos">Gastos</h1><p>Lo que se debe y lo que salió, desde el ${H.esc(fechaLarga(INICIO()))} ${H.info('Desde cero', TXT_INICIO)}</p></div>
-    </div>
+    <button type="button" class="btn bo-btn" data-gn-boleta>+ Boleta</button></div>
     <nav class="pestanas" role="tablist" aria-label="Pestañas de Gastos">${TABS.map(([k, , t]) => `<a role="tab" href="${hashDe(k)}" aria-selected="${k === tab}">${t}</a>`).join('')}</nav>
     <div class="gn-drop${st.subiendo ? ' gn-drop-ocupado' : ''}" data-gn-drop>
       <label class="gn-drop-zona" for="gn-archivo">
@@ -405,6 +405,7 @@ function conectar(el, H) {
   }));
   const gc = el.querySelector('#gn-cartolas'); if (gc) gc.addEventListener('toggle', () => { try { localStorage.setItem('fen_gn_cartolas', gc.open ? '1' : '0'); } catch (e) {} });
   conectarDeudaAnterior(el, H);   // v0.128.2
+  const bb = el.querySelector('[data-gn-boleta]'); if (bb) bb.addEventListener('click', () => tomarFotoBoleta(f => dlgBoleta(H, f, { el })));   // v0.130.0
   el.querySelectorAll('[data-gn-cuenta]').forEach(b => b.addEventListener('click', () => { st.cuenta = b.dataset.gnCuenta; pintar(el, subActual(), H); }));
   el.querySelectorAll('[data-gn-vista]').forEach(b => b.addEventListener('click', () => { st.vista = b.dataset.gnVista; try { localStorage.setItem('fen_gn_vista', st.vista); } catch (e) { /* sin almacenamiento */ } pintar(el, subActual(), H); }));
   // v0.102.0 · Vista previa del catálogo: lo que se decide se guarda en la vista (nada se escribe hasta confirmar)
@@ -451,7 +452,7 @@ async function procesar(f, H) {
   if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text();
-    const Pv = await import('./previred.js?v=0.129.1');
+    const Pv = await import('./previred.js?v=0.130.0');
     if (Pv.esCsvNomina(Pv.textoDeArchivo(await f.arrayBuffer()))) return subirPrevired(f, H, Pv.leerCsv(Pv.textoDeArchivo(await f.arrayBuffer())));
     const tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -465,13 +466,13 @@ async function procesar(f, H) {
   if (wb) {
     const tefs = H.B2b.leerTransferencias(wb, XLSX);
     if (tefs) { const r = await H.B2b.guardarTransferencias(tefs); H.registrar('Cargó transferencias recibidas', `${r.leidas} leídas · ${r.nuevas} nuevas`); return `<b>Transferencias recibidas</b>: ${r.leidas} en el archivo · ${r.nuevas} nuevas. Sirven a Ventas a empresas → Conciliación (quién pagó cada abono).`; }
-    { const GP = await import('./gn-pdf.js?v=0.129.1'), hC = wb.SheetNames.find(n => /^cr[eé]dito$/i.test(n)), hQ = wb.SheetNames.find(n => /^cuotas$/i.test(n));   // v0.124.5
+    { const GP = await import('./gn-pdf.js?v=0.130.0'), hC = wb.SheetNames.find(n => /^cr[eé]dito$/i.test(n)), hQ = wb.SheetNames.find(n => /^cuotas$/i.test(n));   // v0.124.5
       if (hC && hQ) { const fC = XLSX.utils.sheet_to_json(wb.Sheets[hC], { header: 1, defval: '', raw: true });
         if (GP.esTablaFen(wb.SheetNames, (fC[0] || [])[0])) { const r = GP.leerTablaFen(fC, XLSX.utils.sheet_to_json(wb.Sheets[hQ], { header: 1, defval: '', raw: true }));
           if (r.bloquea) throw new Error('la tabla no se guardó. ' + r.errores.slice(0, 4).join(' ') + (r.errores.length > 4 ? ` (y ${r.errores.length - 4} más)` : ''));
           const k = await (await fsGN()).cargarTablaCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó una tabla de amortización', r.nombre);
           return `<b>${H.esc(r.nombre)}</b>: ${k.que === 'ya' ? 'se unió al crédito que ya estaba' : 'crédito nuevo'} · ${r.reales} ${r.reales === 1 ? 'cuota' : 'cuotas'} con capital, interés y comisiones del banco${k.cambiados ? ` · ${k.cambiados} ${k.cambiados === 1 ? 'cuota ya en Gastos se actualizó' : 'cuotas ya en Gastos se actualizaron'}` : ''}.${k.revisar ? ` <b>${k.revisar} ${k.revisar === 1 ? 'cuota pagada tiene' : 'cuotas pagadas tienen'} otro total en la tabla: revísela${k.revisar === 1 ? '' : 's'} (no se cambió).</b>` : ''}`; } } }
-    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.129.1'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
+    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.130.0'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
       if (GP.esDetalleCredito(filas)) { const enc = wb.SheetNames.includes('Encabezados') ? XLSX.utils.sheet_to_csv(wb.Sheets.Encabezados) : '', r = GP.leerCredito(filas, enc);
         if (r.bloquea) throw new Error(r.errores.join(' '));
         const k = await (await fsGN()).cargarCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó un crédito', r.nombre);
@@ -487,9 +488,9 @@ function esCartola(wb, XLSX, H) {
 }
 // v0.96.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
 async function subirBoleta(f, H) {
-  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.129.1'), import('./boletas.js?v=0.129.1')]);
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.130.0'), import('./boletas.js?v=0.130.0')]);
   let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
-  const GP = await import('./gn-pdf.js?v=0.129.1'), tipo = GP.tipoPdf(lineas);
+  const GP = await import('./gn-pdf.js?v=0.130.0'), tipo = GP.tipoPdf(lineas);
   if (tipo) return subirOtroPdf(f, H, GP, tipo, lineas);
   if (Pv.esComprobante(lineas) || Pv.esCertificado(lineas)) { let r; try { r = Pv.leerPdf(lineas); } catch (x) { throw new Error(x.message); } return subirPrevired(f, H, r); }
   const r = Bo.leerBoleta(lineas);
@@ -523,7 +524,7 @@ async function subirOtroPdf(f, H, GP, tipo, lineas) {
 // v0.97.0 · Previred: el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → el documento del mes
 async function subirPrevired(f, H, r) {
   if (r.bloquea) throw new Error(`Previred no se guardó. ${(r.avisos || []).join(' ')}`);
-  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.129.1'), import('./gastos-g3d.js?v=0.129.1')]);
+  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.130.0'), import('./gastos-g3d.js?v=0.130.0')]);
   const id = GN.idCarga('previred'), d = GP.docDePrevired(r, G3D.venceDe(r.periodo), id);
   const k = await (await fsGN()).cargarPdf(d, { nombre: f.name, tamano: f.size }, 'previred');
   H.registrar('Gastos: cargó Previred', `${d.tipoTexto} · ${k.texto}`);
@@ -542,7 +543,7 @@ async function subirSii(f, txt, H) {
 }
 // v0.101.1 · Después de subir compras del SII: Finanzas revisa los precios de las materias primas (sin esperar; nunca falla hacia afuera)
 function preciosDeMP(H) {
-  import('./finanzas.js?v=0.129.1').then(F => F.preciosTrasImportar()).then(x => {
+  import('./finanzas.js?v=0.130.0').then(F => F.preciosTrasImportar()).then(x => {
     if (!x || (!x.error && !(x.aplicadas.length || x.porConfirmar || x.sinAsociar))) return;
     const t = x.error ? `No se pudieron revisar los precios de las materias primas (${H.esc(x.error)}): hágalo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.`
       : `Precios de materias primas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'actualizado' : 'actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver en Finanzas</a>.`;
@@ -930,7 +931,7 @@ async function subirFotoDe(dlg, pref, { fecha, razon, monto }, bt) {
   if (!/^application\/pdf$|^image\//.test(f.type || '')) throw new Error('Sirve una foto o un PDF.');
   const txt = bt ? bt.textContent : ''; if (bt) bt.textContent = 'Subiendo la foto…';
   try {
-    const G = await import('./gastos.js?v=0.129.1'), b64 = await G.aBase64(f);
+    const G = await import('./gastos.js?v=0.130.0'), b64 = await G.aBase64(f);
     const ext = (f.name.match(/\.[A-Za-z0-9]{2,5}$/) || [f.type === 'application/pdf' ? '.pdf' : '.jpg'])[0], nombre = nombreFoto(fecha, razon, monto) + ext;
     const r = await G.subidor()({ tipo: 'comprobante', fecha: String(fecha || isoHoy()).split('-').reverse().join('-'), imageData: b64, mimeType: f.type, fileName: nombre });
     if (!r || !r.url) throw new Error('Drive no devolvió el enlace de la foto. Intente de nuevo (o registre sin foto y agréguela después).');
@@ -954,7 +955,10 @@ function dlgFoto(el, H, d) {
   });
 }
 // Registrar a mano: boleta en papel o pago sin documento
-function dlgMano(el, H, m) {
+function dlgMano(el, H, m, sinPreguntar) {
+  // v0.130.0 · Si hay una boleta anotada esperando un cargo de este monto, primero se pregunta (para no registrarla dos veces)
+  const esp = !sinPreguntar && (st.B || GB.armar(st.D, {})).abiertosD.filter(d => d.anotada && d.saldo === m.libre && GB.enVentana(d.fecha, m.fecha));
+  if (esp && esp.length) return preguntarBoleta(el, H, m, esp);
   const provs = Object.values(st.D.provs || {});
   const dlg = H.dialogo(`<form class="form-dialogo" novalidate><div class="titulo-fila"><h2>Registrar a mano</h2>${H.info('Registrar a mano', TXT_MANO)}</div>
     <p class="ayuda"><b>${H.esc(m.glosa)}</b> · ${H.pesos(m.libre)} · ${H.esc(H.diaTexto(m.fecha))}</p>
@@ -980,6 +984,100 @@ function dlgMano(el, H, m) {
       dlg.close(); H.registrar('Gastos: registró a mano', `${prov.value} · ${m.libre}`); aviso(el, H, `Registrado: ${H.esc(prov.value)} · ${H.esc(c.item)}, pagado con ${H.esc(m.glosa)}.`); }
     catch (e) { falla(dlg, e, H); }
   });
+}
+// ═══════════════ v0.130.0 · Anotar boleta (boceto "Anotar boleta" aprobado el 13 nov) ═══════════════
+// La cámara se abre en el mismo toque (el navegador lo exige); después se completa monto, cómo pagó y, si se sabe, ítem y área.
+export function tomarFotoBoleta(alElegir) {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture', 'environment'); inp.style.display = 'none';
+  inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; inp.remove(); if (f) alElegir(f); });
+  document.body.appendChild(inp); inp.click();
+}
+// La foto, achicada (lado mayor 1600 px, JPEG): sube más rápido desde el celular. Si no se puede, va la original.
+async function achicar(f) {
+  if (!/^image\//.test(f.type || '') || f.size < 600 * 1024) return f;
+  try {
+    const bmp = await createImageBitmap(f), k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k); c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const b = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.82)); return b && b.size < f.size ? new File([b], 'boleta.jpg', { type: 'image/jpeg' }) : f;
+  } catch (e) { return f; }
+}
+const MEDIOS_BOLETA = [['debito', 'Débito'], ['credito', 'Crédito'], ['efectivo', 'Efectivo (caja de administración)'], ['personal', 'Mi plata']];
+const TXT_BOLETA = 'Para registrar una boleta en el momento, con su foto.\nDébito: queda esperando su cargo; cuando suba la cartola, la Bandeja propone unirlos.\nEfectivo: queda pagada con la caja de administración (sale en Efectivo como pago).\nMi plata: queda pagada con su plata (cuenta con el dueño).\nCrédito: queda como compra de la tarjeta, ya unida.\nCon efectivo, su plata o crédito hay que elegir el ítem y el área (la boleta queda pagada al guardar). Con débito se puede dejar para después.\nLa foto se guarda en Drive (Comprobantes).';
+export async function dlgBoleta(H, file, { el = null } = {}) {
+  if (!st.D) { try { st.D = await (await fsGN()).leer(); } catch (e) { H.dialogo(`<div class="form-dialogo"><h2>Anotar boleta</h2><p class="error">${H.esc(H.mensajeError(e))}</p><div class="botones"><button type="button" class="btn" data-cerrar>Cerrar</button></div></div>`).querySelector('[data-cerrar]').onclick = ev => ev.target.closest('dialog').close(); return; } }
+  let foto = file, url = URL.createObjectURL(file);
+  const provs = Object.values(st.D.provs || {}), hoy = isoHoy();
+  const dlg = H.dialogo(`<form class="form-dialogo bo-dlg" novalidate><div class="titulo-fila"><h2>Anotar boleta</h2>${H.info('Anotar boleta', TXT_BOLETA)}</div>
+    <div class="bo-foto"><img alt="Foto de la boleta" data-bo-img src="${url}"><button type="button" class="btn-sec btn-chico" data-bo-otra>Tomar otra</button></div>
+    <div class="campo"><label for="bo-monto">Monto</label><input id="bo-monto" class="bo-monto" inputmode="numeric" autocomplete="off" placeholder="$"></div>
+    <fieldset class="campo"><legend>¿Cómo pagó?</legend><div class="chips" role="radiogroup">${MEDIOS_BOLETA.map(([k, t], i) => `<label class="chip-radio"><input type="radio" name="bo-medio" value="${k}" ${i === 0 ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div></fieldset>
+    <div class="campo"><label for="bo-donde">Dónde compró <small>(opcional)</small></label><input id="bo-donde" list="bo-provs" maxlength="120" autocomplete="off" placeholder="Por ejemplo: supermercado"><datalist id="bo-provs">${provs.map(p => `<option value="${H.esc(p.razon)}">`).join('')}</datalist></div>
+    <details class="bo-clasif" data-bo-clasif><summary>Ítem y área <small data-bo-opc>(opcional: también después, en la Bandeja)</small></summary>${camposClasif(H, null, 'bo')}</details>
+    <div class="campo"><label for="bo-fecha">Fecha</label><input id="bo-fecha" type="date" value="${hoy}" max="${hoy}"></div>
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="submit" class="btn">Guardar boleta</button></div></form>`);
+  const leer = conectarClasif(dlg, H, null, 'bo'), cerrar = () => { dlg.close(); URL.revokeObjectURL(url); };
+  dlg.querySelector('[data-cerrar]').onclick = cerrar;
+  dlg.querySelector('[data-bo-otra]').onclick = () => tomarFotoBoleta(f => { URL.revokeObjectURL(url); foto = f; url = URL.createObjectURL(f); dlg.querySelector('[data-bo-img]').src = url; });
+  const det = dlg.querySelector('[data-bo-clasif]'), opc = dlg.querySelector('[data-bo-opc]');
+  const medio = () => (dlg.querySelector('[name=bo-medio]:checked') || {}).value;
+  const alMedio = () => { const obl = medio() !== 'debito'; opc.textContent = obl ? '(obligatorio con este medio)' : '(opcional: también después, en la Bandeja)'; if (obl) det.open = true; };
+  dlg.querySelectorAll('[name=bo-medio]').forEach(x => x.addEventListener('change', alMedio));
+  const donde = dlg.querySelector('#bo-donde');
+  donde.addEventListener('change', () => { const p = provs.find(x => x.razon === donde.value); if (!p || !p.item) return; dlg.querySelector('#bo-item').value = p.item;
+    dlg.querySelectorAll('[data-areas] input').forEach(x => { x.checked = (p.areas || []).some(a => a.area === x.value); }); const a0 = dlg.querySelector('[data-areas] input'); if (a0) a0.dispatchEvent(new Event('change')); });
+  setTimeout(() => { try { dlg.querySelector('#bo-monto').focus(); } catch (e) {} }, 50);
+  dlg.querySelector('form').addEventListener('submit', async ev => {
+    ev.preventDefault(); const bt = dlg.querySelector('[type=submit]'), t0 = bt.textContent; bt.disabled = true;
+    try {
+      const monto = Math.round(Number(String(dlg.querySelector('#bo-monto').value).replace(/[$\s.]/g, '').replace(',', '.')) || 0); if (!(monto > 0)) throw new Error('Escriba el monto.');
+      const m = medio(), fecha = dlg.querySelector('#bo-fecha').value, c = leer(); c.item = c.item ? itemValido(c.item) : '';
+      if (m !== 'debito' && !c.item) { det.open = true; throw new Error('Con este medio, elija el ítem y el área (la boleta queda pagada al guardar).'); }
+      bt.textContent = 'Subiendo la foto…';
+      const f = await achicar(foto), G = await import('./gastos.js?v=0.130.0'), b64 = await G.aBase64(f), nombre = nombreFoto(fecha, donde.value || 'Boleta', monto) + '.jpg';
+      const r = await G.subidor()({ tipo: 'comprobante', fecha: fecha.split('-').reverse().join('-'), imageData: b64, mimeType: f.type || 'image/jpeg', fileName: nombre });
+      if (!r || !r.url) throw new Error('Drive no devolvió el enlace de la foto. Intente de nuevo.');
+      bt.textContent = 'Guardando…';
+      const FS = await fsGN(), { docId, doc } = await FS.anotarBoleta({ monto, medio: m, donde: donde.value, fecha, item: c.item, areas: c.areas, repartoId: c.repartoId, foto: { url: r.url, nombre } });
+      let msg = `Boleta anotada: ${H.pesos(monto)}${donde.value ? ' · ' + H.esc(donde.value) : ''}.`;
+      try {
+        if (m === 'personal') { await FS.pagar({ partes: [{ docId, monto }], medio: 'personal', fecha, clave: 'bol_' + docId }); msg += ' Quedó pagada con su plata.'; }
+        else if (m === 'credito') {
+          const id = GN.idCarga('tarjeta'), movs = GN.movsDeTarjeta([{ fecha, glosa: donde.value || 'BOLETA', monto }], id);
+          await FS.cargarMovs('tarjeta', movs, { id, archivo: 'anotada con la boleta', desde: fecha, hasta: fecha, identificador: '1 compra de la tarjeta (boleta)' });
+          await FS.pagar({ partes: [{ docId, monto }], movId: movs[0].id, medio: 'cargo', fecha, clave: 'bol_' + docId }); msg += ' Quedó como compra de la tarjeta de crédito.';
+        } else if (m === 'efectivo') { await pagarBoletaEfectivo(FS, doc, { monto, fecha, donde: donde.value }); msg += ' Quedó pagada con la caja de administración (en Efectivo, como pago).'; }
+        else msg += ' Queda esperando su cargo: al subir la cartola, la Bandeja propone unirlos.';
+      } catch (e2) { msg += ` La boleta quedó anotada, pero no se alcanzó a registrar el pago (${H.esc(e2.message || H.mensajeError(e2))}): búsquela en la Bandeja y use "¿Cómo se pagó?".`; }
+      cerrar(); H.registrar('Gastos: anotó una boleta', `${monto} · ${m} · ${donde.value || ''}`);
+      st.D = null; if (el) aviso(el, H, msg); else H.dialogo(`<div class="form-dialogo"><h2>Listo</h2><p>${msg}</p><div class="botones"><button type="button" class="btn" data-cerrar>Cerrar</button></div></div>`).querySelector('[data-cerrar]').onclick = e3 => e3.target.closest('dialog').close();
+    } catch (e) { bt.textContent = t0; falla(dlg, e, H); }
+  });
+}
+// Efectivo de la caja de administración: la salida "Pago en efectivo" en Efectivo, unida a la boleta (como "Unir a su documento")
+async function pagarBoletaEfectivo(FS, doc, { monto, fecha, donde }) {
+  const [EM, EF] = await Promise.all([import('./efectivo-modelo.js?v=0.130.0'), import('./efectivo-fs.js?v=0.130.0')]);
+  const r = EM.revisar({ tipo: 'salida', motivo: 'pago', monto: String(monto), dia: fecha, detalle: donde || 'Boleta', documento: 'Boleta', nota: 'Anotada con su foto en Gastos' }, isoHoy());
+  if (r.error) throw new Error(r.error);
+  const g = await EF.guardar(r.mov), m = { id: g.id, col: 'efectivo_movimientos', ...r.mov };
+  const pago = await FS.pagarConEfectivo({ id: doc.id, estado: 'pendiente', razon: doc.razon }, { id: m.id, col: m.col, dia: fecha, monto, origen: EM.origenEfectivo(m), clave: EM.claveUnion(m), texto: `Efectivo · Caja de administración · ${donde || 'Boleta'}` });
+  await EF.unir(m, { docId: doc.id, pagoId: pago.pagoId || '', documento: 'Boleta', proveedor: String(doc.razon || '').slice(0, 120), monto });
+}
+// "Registrar a mano" sobre un cargo con una boleta anotada esperando del mismo monto: "¿Es la boleta del …?"
+function preguntarBoleta(el, H, m, esp) {
+  const dlg = H.dialogo(`<div class="form-dialogo"><h2>¿Es una boleta ya anotada?</h2><p class="ayuda"><b>${H.esc(m.glosa)}</b> · ${H.pesos(m.libre)} · ${H.esc(H.diaTexto(m.fecha))}</p>
+    ${esp.map(d => `<div class="gn-fila bo-esp">${d.foto && d.foto.url ? `<a href="${H.esc(d.foto.url)}" target="_blank" rel="noopener">Ver foto</a>` : ''}<span>Boleta del ${H.esc(H.diaTexto(d.fecha))} · ${H.esc(d.razon)} · ${H.pesos(d.saldo)}</span><button type="button" class="btn btn-chico" data-bo-unir="${H.esc(d.id)}">Sí, es esta: unir</button></div>`).join('')}
+    <p class="error" data-err role="alert"></p>
+    <div class="botones"><button type="button" class="btn-sec" data-cerrar>Cancelar</button><button type="button" class="btn-sec" data-bo-otra>No, registrar otra</button></div></div>`);
+  dlg.querySelector('[data-cerrar]').onclick = () => dlg.close();
+  dlg.querySelector('[data-bo-otra]').onclick = () => { dlg.close(); dlgMano(el, H, m, true); };
+  dlg.querySelectorAll('[data-bo-unir]').forEach(b => b.addEventListener('click', async () => {
+    const d = esp.find(x => x.id === b.dataset.boUnir); b.disabled = true;
+    try { if (!(await asegurarClasif(H, [d]))) { b.disabled = false; return; }
+      await (await fsGN()).pagar({ partes: [{ docId: d.id, monto: m.libre }], movId: m.id, medio: 'cargo', fecha: m.fecha }); dlg.close();
+      H.registrar('Gastos: unió una boleta anotada', `${d.razon} · ${m.libre}`); aviso(el, H, `Unida: la boleta de ${H.esc(d.razon)} con ${H.esc(m.glosa)}.`); }
+    catch (e) { b.disabled = false; falla(dlg, e, H); }
+  }));
 }
 // v0.124.2 · Nota en un cargo o documento: qué falta para resolverlo. Se guarda en el mismo cargo o documento (sin lecturas nuevas).
 const TXT_NOTA = 'Para acordarse de qué falta: "pedir la boleta", "es el sueldo de septiembre de X, falta la liquidación", "preguntar a la contadora".\nSe ve en la Bandeja y en el resumen de su cartola. Cuando el cargo o el documento se resuelve, deja de verse en la Bandeja pero queda en su historial (y en "Lo conciliado" de su cartola).\nPara borrarla, déjela vacía y guarde.';
@@ -1752,7 +1850,7 @@ function dlgDocTrab(el, H, clave, razon, rut) {
       if (f.size > MAX_ARCHIVO) throw new Error('El archivo pesa más de 10 MB: comprímalo o súbalo en partes.');
       if (!/^application\/pdf$|^image\//.test(f.type || '')) throw new Error('Sirve un PDF o una foto.');
       b.textContent = 'Subiendo…';
-      const G = await import('./gastos.js?v=0.129.1'), b64 = await G.aBase64(f);
+      const G = await import('./gastos.js?v=0.130.0'), b64 = await G.aBase64(f);
       const ext = (f.name.match(/\.[A-Za-z0-9]{2,5}$/) || [f.type === 'application/pdf' ? '.pdf' : '.jpg'])[0];
       const nombre = `Trabajador - ${razon} - ${TR.TIPOS_DOC[tipo]} - ${fecha || isoHoy()}${ext}`.replace(/[\/\\:*?"<>|]/g, '_').slice(0, 120);
       const fd = (fecha || isoHoy()).split('-').reverse().join('-');

@@ -13,8 +13,8 @@
 //  faltante; si el que se corrige era el conteo inicial, el nuevo pasa a ser el conteo inicial.
 //  v0.123.0: unir a su documento (pagos) o a su abono de la cartola (depósitos) y Retiros por semana (ver abajo).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.129.1';
-import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.129.1';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.130.0';
+import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.130.0';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 const refCuenta = () => doc(db, 'efectivo', CUENTA);

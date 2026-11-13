@@ -10,15 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.129.1';
-import { dbBase, correo } from './gastos-fs.js?v=0.129.1';
-import { ahoraChile } from './gastos-g2.js?v=0.129.1';
-import * as GN from './gn-modelo.js?v=0.129.1';
-import * as GB from './gn-bandeja.js?v=0.129.1';
-import * as GP from './gn-pdf.js?v=0.129.1';
-import * as GI from './gn-items.js?v=0.129.1';
-import * as TR from './trabajadores.js?v=0.129.1';
-import * as GT from './tributario.js?v=0.129.1';   // v0.108.0
+import * as FB from './fs-gastos.js?v=0.130.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.130.0';
+import { ahoraChile } from './gastos-g2.js?v=0.130.0';
+import * as GN from './gn-modelo.js?v=0.130.0';
+import * as GB from './gn-bandeja.js?v=0.130.0';
+import * as GP from './gn-pdf.js?v=0.130.0';
+import * as GI from './gn-items.js?v=0.130.0';
+import * as TR from './trabajadores.js?v=0.130.0';
+import * as GT from './tributario.js?v=0.130.0';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -356,6 +356,26 @@ export async function registrarAMano(mov, p) {
   });
 }
 
+// v0.130.0 · Anotar boleta (desde el celular, con la foto): la boleta queda registrada en el momento; el pago se une después
+// (débito: con su cargo de la cartola) o en el acto (efectivo, plata del dueño o tarjeta de crédito, desde la pantalla).
+// p: { monto, medio: 'debito'|'credito'|'efectivo'|'personal', donde, fecha, item, areas, repartoId, foto } → { docId, doc }
+export async function anotarBoleta(p) {
+  const monto = Math.round(Number(p.monto) || 0); if (!(monto > 0)) throw error('Escriba el monto.', 'datos');
+  if (!GN.esIso(p.fecha)) throw error('Elija la fecha.', 'datos');
+  const medio = ['debito', 'credito', 'efectivo', 'personal'].includes(p.medio) ? p.medio : '';
+  if (!medio) throw error('Elija cómo pagó.', 'datos');
+  const item = String(p.item || '').trim(), conClasif = !!item;
+  if (conClasif) { const err = GB.repartoValido(p.areas); if (err && !p.repartoId) throw error(err, 'datos'); }
+  if (!conClasif && medio !== 'debito') throw error('Elija el ítem y el área: con efectivo, plata del dueño o tarjeta de crédito, la boleta queda pagada al guardar.', 'datos');
+  const razon = String(p.donde || '').trim().slice(0, 120) || 'Boleta', h = marca('anotó la boleta', { medio }), docId = `d_bol_${GN.hash(p.fecha + '|' + razon + '|' + monto + '|' + Date.now())}`;
+  const doc = { origen: 'mano', tipo: '39m', tipoTexto: 'Boleta', nc: false, rut: '', rutN: '', razon, folio: '', fecha: p.fecha, mes: p.fecha.slice(0, 7), neto: 0, exento: 0, iva: 0, otroImp: 0, total: monto,
+    vence: '', formaPago: '', referencias: [], detalle: [], estado: 'vigente', anotada: { medio, por: h.por, en: h.en },
+    ...(conClasif ? { clasif: { item, areas: p.repartoId ? [] : p.areas, repartoId: p.repartoId || '', partes: GB.partesSimple(monto, item, p.areas), por: h.por, en: h.en } } : {}),
+    creado: { por: h.por, en: h.en }, version: 0, historial: [h], ...fotoDoc(p.foto, h) };
+  if (conClasif && !doc.clasif.partes.length) throw error('Elija el área o el reparto.', 'datos');
+  await enTransaccion(async (tx, d) => { tx.set(FB.doc(d, GN.COL.docs, docId), limpio(doc)); });
+  return { docId, doc: { id: docId, ...doc } };
+}
 // v0.91.1 · Olvidar una seña aprendida (desde el par que la muestra)
 export async function olvidarSena(provKey, sena) {
   return enTransaccion(async (tx, d) => {
