@@ -4,7 +4,7 @@
 //  "Editar mi ritmo": la semana completa y cada bloque (nombre, días, horario, semana A/B, tareas).
 //  H: { esc, info, dialogo, registrar, mensajeError, correo }
 // ═══════════════════════════════════════════════
-import * as MR from './mi-ritmo.js?v=0.127.2';
+import * as MR from './mi-ritmo.js?v=0.128.0';
 
 const TXT = 'Su semana de trabajo, en bloques: cada bloque tiene su hora y sus tareas, y Hoy muestra el que toca.\nLas casillas se marcan a mano; las que dicen "solo" las marca el sistema cuando lo ve hecho (la cartola subida hoy, la Bandeja sin nada por unir, nada sin clasificar; lo lee del resumen que se guarda al abrir Gastos).\nLo que no se hizo en un bloque no pasa al siguiente: lo pendiente se ve en la cifra de cada tarea.\nLos turnos (cafetería, panadería) se ven en la semana como referencia.\nSemana A y B: semana por medio (A las semanas pares del año, B las impares). Para cambiar bloques o tareas: "Editar mi ritmo".';
 const st = { R: null, G: null, hechos: {} };
