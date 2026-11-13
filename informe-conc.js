@@ -3,9 +3,9 @@
 //  Cada cargo y cada abono del banco y de Mercado Pago de un mes, con su documento o su explicación, y lo que quedó pendiente.
 //  Respaldo ante el SII y para la contadora. Puro: recibe lo de flujo-fs.js (los mismos datos del Flujo de caja).
 // ═══════════════════════════════════════════════════════════════════════
-import * as M from './flujo-modelo.js?v=0.129.0';
-import * as GB from './gn-bandeja.js?v=0.129.0';
-import * as GT from './tributario.js?v=0.129.0';
+import * as M from './flujo-modelo.js?v=0.129.1';
+import * as GB from './gn-bandeja.js?v=0.129.1';
+import * as GT from './tributario.js?v=0.129.1';
 
 const s = v => (v == null ? '' : String(v));
 const ent = v => Math.round(Number(v) || 0);
