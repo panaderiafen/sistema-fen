@@ -2741,6 +2741,7 @@ a.rv-fila:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px;
 .gn-listos { margin-top: 14px; }
 .gn-opcs { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; padding-right: 2px; }
 .gn-opc { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--linea); border-radius: 12px; padding: 9px 11px; cursor: pointer; background: var(--tarjeta); }
+.gn-opc[hidden] { display: none; }
 .gn-opc:has(input:checked) { border-color: var(--acento); background: var(--acento-suave); }
 .gn-opc input { margin-top: 3px; accent-color: var(--acento); }
 .gn-opc > span { flex: 1; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
