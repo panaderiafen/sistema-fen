@@ -3516,3 +3516,13 @@ dialog.dialogo:has(.mr-dlg) { width: min(980px, calc(100vw - 32px)); max-width: 
 .bo-clasif > summary small { font-weight: 400; color: var(--suave); }
 .bo-esp { flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 @media (max-width: 560px) { .bo-dlg .botones .btn { flex: 1; } }
+
+/* v0.131.0 · Boleta primero, pago después; cobros de logística */
+.ef-bols { border: 1.5px solid var(--acento); border-radius: 12px; padding: 10px 12px; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
+.ef-bols legend { font-weight: 700; font-size: 14px; padding: 0 4px; }
+.ef-bol { display: flex; gap: 10px; align-items: center; border-top: 1px solid var(--linea); padding-top: 8px; min-height: 44px; font-size: 14px; }
+.ef-bol input { width: 20px; height: 20px; accent-color: var(--acento); flex: none; }
+.ef-bol > span { flex: 1; min-width: 0; }
+.ef-bol small { display: block; font-size: 12px; color: var(--suave); }
+.ef-bol-aviso { background: var(--amarillo, #FBF3E0); border: 1.5px solid #C9A24A; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.45; }
+.ef-bol-aviso span { color: var(--suave); font-size: 13px; }

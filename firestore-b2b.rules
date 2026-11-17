@@ -1,8 +1,11 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.8.0 (2026-10-22)
+//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.9.0 (2026-11-17)
 //
+//  v1.9.0: (Sistema Fën v0.131.0 · logística v1.4.0) Cobros en efectivo: logística marca pagada en efectivo una
+//          orden sin folio y pendiente (solo los campos del pago, por el total de la orden, a su nombre y
+//          "pendiente de recibir"), y lo deshace mientras administración no lo recibe. Todo lo demás igual.
 //  v1.8.0: (Sistema Fën v0.80.0) listas_precios/{id}: las listas de precios de Ventas B2B → Listas de
 //          precios. Solo administración las lee, crea y cambia; nada se borra. Logística no las ve.
 //          (La portada y las condiciones van en config/listasPrecios, que ya era solo de administración.)
@@ -121,6 +124,20 @@ service cloud.firestore {
                         && antes().estado == 'activa' && antes().archivada == false
                         && ordenDeLogistica(n) && nuevo().n == antes().n
                         && nuevo().get('creada', null) == antes().get('creada', null))
+                    // v1.9.0: logística marca pagada en efectivo (Cobros) una orden sin folio y pendiente
+                    || (esLogistica() && antes().folio == null && antes().get('estadoPago', 'PENDIENTE') == 'PENDIENTE'
+                        && antes().estado == 'activa' && antes().archivada == false
+                        && cambian().hasOnly(['estadoPago', 'fechaPago', 'medioPago', 'pagoOrden'])
+                        && nuevo().estadoPago == 'PAGADO' && nuevo().fechaPago is string
+                        && nuevo().pagoOrden.logistica == true && nuevo().pagoOrden.pendienteAdmin == true
+                        && nuevo().pagoOrden.medio == 'efectivo' && nuevo().pagoOrden.por == miCorreo()
+                        && nuevo().pagoOrden.monto == antes().total)
+                    // v1.9.0: y lo deshace mientras administración no lo recibe
+                    || (esLogistica() && antes().folio == null && antes().get('estadoPago', '') == 'PAGADO'
+                        && antes().get('pagoOrden', null) != null
+                        && antes().pagoOrden.get('logistica', false) == true && antes().pagoOrden.get('pendienteAdmin', false) == true
+                        && cambian().hasOnly(['estadoPago', 'fechaPago', 'medioPago', 'pagoOrden'])
+                        && nuevo().estadoPago == 'PENDIENTE' && nuevo().fechaPago == null && nuevo().pagoOrden == null)
                     // cualquiera de los dos marca que ya pasó a la planilla (lo hace el script con su sesión)
                     || ((esAdmin() || esLogistica()) && cambian().hasOnly(['planillaPendiente', 'planillaEn'])
                         && nuevo().planillaPendiente == false);

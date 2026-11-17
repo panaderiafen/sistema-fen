@@ -212,7 +212,7 @@ const msReg = t => (t && typeof t.toMillis === 'function' ? t.toMillis() : (t &&
 export const ordenarPorRegistro = movs => (movs || []).slice().sort((a, b) => msReg(a.creado) - msReg(b.creado));
 
 // v0.124.6 · "folio 3538" u "orden N° 2815" (pagada por orden, antes de tener folio)
-export const refB2b = x => (x && !x.folio && x.orden ? `orden N° ${x.orden}` : `folio ${(x && x.folio) || ''}`);
+export const refB2b = x => (x && !x.folio && x.orden ? `${/,/.test(String(x.orden)) ? 'órdenes' : 'orden'} N° ${x.orden}` : `folio ${(x && x.folio) || ''}`);
 // v0.120.0 · Efectivo de un cliente B2B que queda por recibir (efectivo_por_recibir), desde Cobranza.
 export function movDesdePendiente(x) {
   if (!x || x.anulado) return null;
@@ -239,7 +239,7 @@ export function revisarRecepcion(base, r) {
   if (llego > esperado) return { error: `Llegó más de lo esperado ($${esperado.toLocaleString('es-CL')}). Reciba lo esperado y anote lo que sobra como un Ingreso aparte.` };
   const falta = esperado - llego;
   const usos = (r.usos || []).filter(u => u && (String(u.monto || '').trim() !== '' || String(u.proveedor || u.detalle || '').trim() !== ''));
-  const salidas = [];
+  const salidas = [], boletas = [];
   for (const u of usos) {
     const monto = leerMonto(u.monto);
     if (!(monto > 0)) return { error: 'Cada parte de la diferencia necesita un monto mayor que 0.' };
@@ -252,12 +252,28 @@ export function revisarRecepcion(base, r) {
       const d = limpio(u.detalle, 120);
       if (d.length < 2) return { error: 'Escriba qué cree que pasó con lo que falta.' };
       salidas.push({ ...comun, motivo: 'faltante', detalle: d });
+    } else if (u.tipo === 'boleta') {
+      // v0.131.0 · Una boleta ya anotada y pagada en efectivo (con + Boleta): ya salió de la caja, no sale otra vez
+      const efId = limpio(u.efId, 80);
+      if (!efId) return { error: 'No se encontró la boleta elegida.' };
+      boletas.push({ efId, monto, detalle: limpio(u.detalle, 120) });
     } else return { error: 'Elija en qué se usó cada parte de la diferencia.' };
   }
-  const explicado = salidas.reduce((a, m) => a + m.monto, 0);
+  const explicado = salidas.reduce((a, m) => a + m.monto, 0) + boletas.reduce((a, b) => a + b.monto, 0);
   if (explicado !== falta) return { error: explicado > falta ? `Lo explicado ($${explicado.toLocaleString('es-CL')}) es más que lo que falta ($${falta.toLocaleString('es-CL')}).` : `Faltan por explicar $${(falta - explicado).toLocaleString('es-CL')} (de $${falta.toLocaleString('es-CL')}).`, falta, explicado };
-  return { movs: [base, ...salidas], falta };
+  return { movs: [base, ...salidas], falta, boletas };
 }
+// v0.131.0 · Boleta primero, pago después (aprobado por Emmanuel el 17 nov). Una salida que nació de "+ Boleta" pagada en efectivo
+// (Gastos): ya descontó la plata. Si después se anota el mismo pago (al recibir un cobro B2B o como Salida), se elige la boleta.
+export const esBoletaEfectivo = m => !!m && !m.anulado && m.tipo === 'salida' && m.motivo === 'pago' && (m.boleta === true || m.nota === 'Anotada con su foto en Gastos');
+export const DIAS_BOLETA = 7;
+// Las boletas en efectivo de los últimos días que todavía no explican otro pago → [mov] (las más nuevas primero)
+export function boletasSinExplicar(movs, hoy, dias = DIAS_BOLETA) {
+  const desde = sumarDiasTxt(hoy, -dias);
+  return (movs || []).filter(m => esBoletaEfectivo(m) && !m.deRecepcion && !m.confirmadaSalida && String(m.dia || '') >= desde && String(m.dia || '') <= hoy)
+    .sort((a, b) => String(b.dia).localeCompare(String(a.dia)) || msReg(b.creado) - msReg(a.creado));
+}
+function sumarDiasTxt(d, n) { const [y, m, dd] = String(d).split('-').map(Number); const x = new Date(Date.UTC(y, m - 1, dd + n)); return x.toISOString().slice(0, 10); }
 
 // ═══════════════════════════════════════════════
 //  v0.123.0 · Unir cada pago en efectivo a su documento en Gastos, cada depósito a su abono de la cartola, y Retiros por semana.

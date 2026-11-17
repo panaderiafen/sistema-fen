@@ -13,8 +13,8 @@
 //  faltante; si el que se corrige era el conteo inicial, el nuevo pasa a ser el conteo inicial.
 //  v0.123.0: unir a su documento (pagos) o a su abono de la cartola (depósitos) y Retiros por semana (ver abajo).
 // ═══════════════════════════════════════════════
-import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.130.2';
-import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.130.2';
+import { auth, db, collection, doc, getDoc, getDocs, query, where, Timestamp, runTransaction } from './firebase.js?v=0.131.0';
+import { CUENTA, efecto, movPorRecibir, revisarRecepcion } from './efectivo-modelo.js?v=0.131.0';
 
 const correo = () => (auth.currentUser && auth.currentUser.email) || '';
 const refCuenta = () => doc(db, 'efectivo', CUENTA);
@@ -124,6 +124,7 @@ export async function recibirDeCaja(id, recepcion = null, col = 'caja_movimiento
     if (!base) throw new Error('Ese movimiento no va a la caja de administración.');
     const r = recepcion ? revisarRecepcion(base, recepcion) : { movs: [base], falta: 0 };
     if (r.error) throw new Error(r.error);
+    const bol = await leerBoletas(tx, r.boletas);   // v0.131.0: las boletas ya pagadas que explican parte de la diferencia
     let s = c.exists() ? Math.round(Number(c.data().saldo) || 0) : 0;
     const ids = [];
     r.movs.forEach((m, i) => {
@@ -136,9 +137,27 @@ export async function recibirDeCaja(id, recepcion = null, col = 'caja_movimiento
     saldo = s;
     if (c.exists()) tx.update(refCuenta(), { saldo, actualizado: ahora, por });
     else tx.set(refCuenta(), { saldo, actualizado: ahora, por, creado: ahora });
-    tx.update(refOrigen, { pendienteAdmin: false, recibido: { por, en: ahora, efectivoId: ids[0], ...(r.falta ? { llego: base.monto - r.falta, falta: r.falta } : {}) } });
+    tx.update(refOrigen, { pendienteAdmin: false, recibido: { por, en: ahora, efectivoId: ids[0], ...(r.falta ? { llego: base.monto - r.falta, falta: r.falta } : {}), ...(bol.length ? { boletas: bol.map(b => b.efId) } : {}) } });
+    marcarBoletas(tx, bol, { id, col, texto: base.detalle || base.nota || '', por, en: ahora });
   });
   return { saldo };
+}
+// v0.131.0 · Las boletas elegidas al recibir: deben existir, seguir vigentes y no explicar otro pago (se leen antes de escribir)
+async function leerBoletas(tx, boletas) {
+  const out = [];
+  for (const b of boletas || []) {
+    const ref = doc(db, 'efectivo_movimientos', b.efId), sn = await tx.get(ref);
+    if (!sn.exists()) throw new Error('Una de las boletas elegidas ya no existe.');
+    const m = sn.data();
+    if (m.anulado) throw new Error(`La boleta ${m.detalle || ''} fue anulada: elija otra.`);
+    if (m.deRecepcion) throw new Error(`La boleta ${m.detalle || ''} ya explica otro cobro.`);
+    if (Math.round(Number(m.monto) || 0) !== b.monto) throw new Error(`La boleta ${m.detalle || ''} es de $${Math.round(Number(m.monto) || 0).toLocaleString('es-CL')}, no de $${b.monto.toLocaleString('es-CL')}.`);
+    out.push({ ...b, ref });
+  }
+  return out;
+}
+function marcarBoletas(tx, bol, { id, col, texto, por, en }) {
+  bol.forEach(b => tx.update(b.ref, { deRecepcion: { id, col, texto: String(texto || '').slice(0, 120), por, en } }));
 }
 
 // v0.121.0 · Recibir varios de una vez, todos completos (Emmanuel, 31 oct): "Recibir todos (llegó completo)".
@@ -167,6 +186,8 @@ export async function recibirVarios(lista) {
       if (r.error) throw new Error(`${base.detalle || 'Uno de ellos'}: ${r.error} No se recibió ninguno.`);
       return { base, r };
     });
+    const bols = [];
+    for (const { r } of bases) bols.push(await leerBoletas(tx, r.boletas));   // v0.131.0
     let s = c.exists() ? Math.round(Number(c.data().saldo) || 0) : 0, k = 0;
     bases.forEach(({ base, r }, i) => {
       let primero = null;
@@ -176,13 +197,41 @@ export async function recibirVarios(lista) {
         tx.set(ref, { ...m, cuenta: CUENTA, creado: Timestamp.fromMillis(ahora.toMillis() + k++), por });
       });
       total += base.monto - r.falta;
-      tx.update(refs[i], { pendienteAdmin: false, recibido: { por, en: ahora, efectivoId: primero, ...(r.falta ? { llego: base.monto - r.falta, falta: r.falta } : {}) } });
+      tx.update(refs[i], { pendienteAdmin: false, recibido: { por, en: ahora, efectivoId: primero, ...(r.falta ? { llego: base.monto - r.falta, falta: r.falta } : {}), ...(bols[i].length ? { boletas: bols[i].map(b => b.efId) } : {}) } });
+      marcarBoletas(tx, bols[i], { id: items[i].id, col: items[i].col || 'caja_movimientos', texto: base.detalle || base.nota || '', por, en: ahora });
     });
     saldo = s;
     if (c.exists()) tx.update(refCuenta(), { saldo, actualizado: ahora, por });
     else tx.set(refCuenta(), { saldo, actualizado: ahora, por, creado: ahora });
   });
   return { saldo, n: items.length, total };
+}
+
+// v0.131.0 · Cobros en efectivo de logística (fen-logistica v1.4.0): logística marca la orden pagada en fen-b2b; aquí cada cobro
+// (uno por cliente, con sus órdenes) se deja por recibir con un id fijo (log_<cobroId>), así leerlo dos veces no lo repite.
+// grupos: los cobros que siguen pendientes en fen-b2b (B2b.cobrosLogistica). pendientes: lo que hoy está por recibir.
+// → { creados, anulados, recibidos: [cobro ya recibido aquí cuya orden sigue pendiente en fen-b2b] }
+export const idCobroLogistica = cobroId => 'log_' + String(cobroId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60);
+export async function sincronizarLogistica(grupos, pendientes) {
+  const out = { creados: 0, anulados: 0, recibidos: [] }, vivos = new Set((grupos || []).map(g => idCobroLogistica(g.cobroId)));
+  for (const g of grupos || []) {
+    const ref = doc(db, 'efectivo_por_recibir', idCobroLogistica(g.cobroId));
+    await runTransaction(db, async tx => {
+      const sn = await tx.get(ref);
+      if (sn.exists()) { const x = sn.data(); if (x.recibido) out.recibidos.push({ ...g, efectivoId: x.recibido.efectivoId || '' }); return; }
+      tx.set(ref, { origen: 'b2b', folio: '', orden: g.ns.join(', '), cliente: String(g.cliente || '').slice(0, 120), monto: Math.round(Number(g.efectivo) || 0),
+        dia: g.fecha, mes: String(g.fecha || '').slice(0, 7), pendienteAdmin: true, por: correo(), creado: Timestamp.now(),
+        nota: `Cobró logística${g.redondeo ? ` · total $${g.total.toLocaleString('es-CL')}, redondeo ${g.redondeo > 0 ? '+' : '−'}$${Math.abs(g.redondeo).toLocaleString('es-CL')}` : ''}`.slice(0, 200),
+        logistica: { cobroId: String(g.cobroId), ns: g.ns, total: g.total, redondeo: g.redondeo, cobro: String(g.por || '').slice(0, 120) } });
+      out.creados++;
+    });
+  }
+  // Lo que logística deshizo antes de que se recibiera: se anula aquí (nada se borra)
+  for (const x of pendientes || []) {
+    if (!x.logistica || x.col !== 'efectivo_por_recibir' || vivos.has(x.id)) continue;
+    try { await anularPorRecibir(x.id, 'Logística deshizo el cobro'); out.anulados++; } catch (e) { /* ya recibido o anulado */ }
+  }
+  return out;
 }
 
 // v0.120.0 · Anular un cobro B2B que quedó por recibir (por ejemplo, el pago se marcó por error). Nada se borra.
