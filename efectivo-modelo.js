@@ -20,7 +20,7 @@ export const MOTIVOS = {
   ],
   salida: [
     ['deposito', 'Depósito al banco', 'banco'],
-    ['pago', 'Pago en efectivo', 'proveedor'],
+    ['pago', 'Pago en efectivo (solo para pagos en efectivo sin boleta posible)', 'proveedor'],   // v0.134.0: con boleta, + Boleta
     ['anticipo', 'Anticipo de sueldo', 'trabajador'],   // v0.124.9: queda por unir a la liquidación del mes
     ['sencillo_caja', 'Sencillo a una caja', 'sucursal'],
     ['retiro_dueno', 'Retiro del dueño', ''],

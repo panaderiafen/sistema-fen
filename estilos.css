@@ -3548,3 +3548,14 @@ dialog.dialogo:has(.mr-dlg) { width: min(980px, calc(100vw - 32px)); max-width: 
 .fac-rec input[type="date"] { min-height: 40px; }
 .fac-asoc { border-top: 1px solid var(--linea); padding: 10px 0; }
 .fac-asoc-t { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
+
+/* v0.134.0 · + Boleta: de dónde salió el efectivo, pago que la esperaba */
+.bo-origen { display: flex; flex-direction: column; gap: 6px; }
+.bo-origen[hidden], .bo-match[hidden] { display: none; }
+.bo-or { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; font-size: 14px; }
+.bo-or input { margin-top: 3px; }
+.bo-or small { display: block; font-size: 12px; color: var(--suave); }
+.bo-medio-txt { margin: 0; }
+.bo-match { background: #FBF3E0; border: 1.5px solid #C9A24A; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.bo-match-p { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; border-top: 1px solid rgba(0,0,0,.08); padding-top: 8px; }
+.bo-match-p small { display: block; font-size: 12px; color: var(--suave); }

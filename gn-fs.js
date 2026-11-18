@@ -10,15 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.133.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.133.0';
-import { ahoraChile } from './gastos-g2.js?v=0.133.0';
-import * as GN from './gn-modelo.js?v=0.133.0';
-import * as GB from './gn-bandeja.js?v=0.133.0';
-import * as GP from './gn-pdf.js?v=0.133.0';
-import * as GI from './gn-items.js?v=0.133.0';
-import * as TR from './trabajadores.js?v=0.133.0';
-import * as GT from './tributario.js?v=0.133.0';   // v0.108.0
+import * as FB from './fs-gastos.js?v=0.134.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.134.0';
+import { ahoraChile } from './gastos-g2.js?v=0.134.0';
+import * as GN from './gn-modelo.js?v=0.134.0';
+import * as GB from './gn-bandeja.js?v=0.134.0';
+import * as GP from './gn-pdf.js?v=0.134.0';
+import * as GI from './gn-items.js?v=0.134.0';
+import * as TR from './trabajadores.js?v=0.134.0';
+import * as GT from './tributario.js?v=0.134.0';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -369,7 +369,7 @@ export async function anotarBoleta(p) {
   if (!conClasif && medio !== 'debito') throw error('Elija el ítem y el área: con efectivo, plata del dueño o tarjeta de crédito, la boleta queda pagada al guardar.', 'datos');
   const razon = String(p.donde || '').trim().slice(0, 120) || 'Boleta', h = marca('anotó la boleta', { medio }), docId = `d_bol_${GN.hash(p.fecha + '|' + razon + '|' + monto + '|' + Date.now())}`;
   const doc = { origen: 'mano', tipo: '39m', tipoTexto: 'Boleta', nc: false, rut: '', rutN: '', razon, folio: '', fecha: p.fecha, mes: p.fecha.slice(0, 7), neto: 0, exento: 0, iva: 0, otroImp: 0, total: monto,
-    vence: '', formaPago: '', referencias: [], detalle: [], estado: 'vigente', anotada: { medio, por: h.por, en: h.en },
+    vence: '', formaPago: '', referencias: [], detalle: [], estado: 'vigente', anotada: { medio, ...(medio === 'efectivo' && ['admin', 'caja', 'cobro'].includes(p.origen) ? { origen: p.origen } : {}), por: h.por, en: h.en },   // v0.134.0: de dónde salió el efectivo
     ...(conClasif ? { clasif: { item, areas: p.repartoId ? [] : p.areas, repartoId: p.repartoId || '', partes: GB.partesSimple(monto, item, p.areas), por: h.por, en: h.en } } : {}),
     creado: { por: h.por, en: h.en }, version: 0, historial: [h], ...fotoDoc(p.foto, h) };
   if (conClasif && !doc.clasif.partes.length) throw error('Elija el área o el reparto.', 'datos');
@@ -569,10 +569,12 @@ export async function registrarSinBanco(p) {
   await enTransaccion(async (tx, d) => {
     const pref = p.recordar !== false ? FB.doc(d, GN.COL.provs, GB.claveProveedor(doc)) : null, ps = pref ? await tx.get(pref) : null, prev = ps && ps.exists() ? ps.data() : null;
     tx.set(FB.doc(d, GN.COL.docs, docId), limpio(doc));
-    tx.set(FB.doc(d, GN.COL.pagos, idPago(docId, medio + '|' + p.fecha)), { docId, movId: '', medio, monto, fecha: p.fecha, cuenta: '', nota: '', estado: 'vigente', creado: { por: h.por, en: h.en } });
+    // v0.134.0: desde Efectivo (pago sin boleta posible) el pago nace unido a su movimiento de Efectivo
+    tx.set(FB.doc(d, GN.COL.pagos, idPago(docId, medio + '|' + p.fecha)), { docId, movId: '', medio, monto, fecha: p.fecha, cuenta: '', nota: '', estado: 'vigente', creado: { por: h.por, en: h.en },
+      ...(p.efectivo ? { efectivo: { ...p.efectivo, por: h.por, en: h.en }, origenEfectivo: p.efectivo.origen || '' } : {}) });
     if (pref) tx.set(pref, limpio({ rut: doc.rut, razon: doc.razon, item: doc.clasif.item, modo: (prev && prev.modo) || 'fijo', areas: prev && prev.modo === 'item' ? [] : areas, repartoId: p.repartoId || '', por: h.por, en: h.en, historial: conHist(prev, h) }), { merge: true });
   });
-  return docId;
+  return p.efectivo ? { docId, pagoId: idPago(docId, medio + '|' + p.fecha) } : docId;
 }
 
 // ═══════════════ v0.102.0 · Catálogo de ítems (gn_items) ═══════════════
