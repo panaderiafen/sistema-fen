@@ -3559,3 +3559,6 @@ dialog.dialogo:has(.mr-dlg) { width: min(980px, calc(100vw - 32px)); max-width: 
 .bo-match { background: #FBF3E0; border: 1.5px solid #C9A24A; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
 .bo-match-p { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; border-top: 1px solid rgba(0,0,0,.08); padding-top: 8px; }
 .bo-match-p small { display: block; font-size: 12px; color: var(--suave); }
+/* v0.135.0 · Bandeja: cargo que parece repetido; boletas esperando su pago */
+.gn-rep { flex-basis: 100%; background: #FBF3E0; color: #5A4210; border-radius: 10px; padding: 6px 10px; font-size: 12.5px; line-height: 1.45; }
+#gn-esperan .gn-sug { flex-basis: 100%; }

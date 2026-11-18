@@ -374,7 +374,7 @@ export function armar(D, { cuenta = '', excluir = null } = {}) {
   const porId = Object.fromEntries(docs.map(d => [d.id, d]));
   const paresV = pares.filter(p => !cuenta || (movs.find(m => m.id === p.movId) || {}).cuenta === cuenta).map(p => ({ ...p, faltaClasif: p.docIds.some(i => !porId[i].clasifEf && !sinEfecto(porId[i])) }));
   const aCuenta = movs.filter(esACuenta).filter(m => !cuenta || m.cuenta === cuenta).sort((a, b) => b.fecha.localeCompare(a.fecha));
-  return { docs, movs, I, S, pares: paresV, aCuenta, porClasificar, sinPago, sinDoc, listosD, noGasto, abiertosD, abiertosM,
+  return { docs, movs, I, S, rep: repetidos(movs, D.cargas), pares: paresV, aCuenta, porClasificar, sinPago, sinDoc, listosD, noGasto, abiertosD, abiertosM,
     anteriores: docs.filter(d => d.anterior && d.estadoPago !== 'pagado' && d.estado !== 'no_va'),
     movsAnteriores: abiertosM.filter(m => m.anterior && !movEnPar.has(m.id) && (!cuenta || m.cuenta === cuenta)).sort((a, b) => b.fecha.localeCompare(a.fecha)),
     conAreaAntigua: docs.filter(d => d.estado !== 'no_va' && tieneAreaAntigua(d.clasifEf)),
@@ -464,5 +464,25 @@ export function docDeCuota(cr, c, partes) {
 export function cuotasPendientes(creds, docs, inicio, hoy, partesDe) {
   const ya = new Set((docs || []).map(d => d.id)), mesHoy = s(hoy).slice(0, 7), out = [];
   (creds || []).filter(cr => cr.estado !== 'archivado').forEach(cr => (cr.cuotas || []).forEach(c => { if (c.fecha >= s(inicio) && c.fecha.slice(0, 7) <= mesHoy && !ya.has(idCuotaDoc(cr.id, c.n))) out.push(docDeCuota(cr, c, partesDe(c))); }));
+  return out;
+}
+
+// ═══════════════ v0.135.0 · Parece repetido (boceto "Boletas: una sola puerta", aprobado el 18 nov) ═══════════════
+// El mismo cargo (cuenta, fecha, monto y glosa) en dos cartolas distintas: uno de los dos sobra. Se marca el que está libre; si los dos
+// están libres, el de la cartola más nueva (se queda el primero que llegó). "Son dos compras" (noRepetido) no vuelve a avisar.
+// movs: los de armar (con libre y pagosM), cargas: D.cargas → { movId: el otro movimiento }
+export function repetidos(movs, cargas) {
+  const enDe = Object.fromEntries((cargas || []).map(k => [k.id, String(k.en || '')]));
+  const vivo = m => !m.naturaleza && m.estado !== 'no_va', clave = m => [m.cuenta, m.fecha, entero(m.monto), norm(m.glosa)].join('|');
+  const grupos = {};
+  (movs || []).filter(m => vivo(m) && m.cargaId && entero(m.monto) > 0).forEach(m => { (grupos[clave(m)] = grupos[clave(m)] || []).push(m); });
+  const out = {};
+  Object.values(grupos).forEach(l => {
+    if (l.length < 2 || new Set(l.map(m => m.cargaId)).size < 2) return;
+    // Se queda: el que ya tiene pagos; si no, el de la cartola más antigua
+    const orden = l.slice().sort((a, b) => ((b.pagosM || []).length > 0) - ((a.pagosM || []).length > 0) || (enDe[a.cargaId] || '').localeCompare(enDe[b.cargaId] || '') || a.id.localeCompare(b.id));
+    const queda = orden[0];
+    orden.slice(1).forEach(m => { if (m.cargaId !== queda.cargaId && !(m.pagosM || []).length && !m.noRepetido) out[m.id] = queda; });
+  });
   return out;
 }

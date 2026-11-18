@@ -10,8 +10,8 @@
 //  v0.123.0 (aprobado por Emmanuel el 1 nov): "Por unir a su documento" (los pagos en efectivo, de aquí y de las cajas, se unen a su
 //  boleta o factura en Gastos), los depósitos esperan su abono de la cartola, y la pestaña "Retiros por semana".
 // ═══════════════════════════════════════════════
-import * as M from './efectivo-modelo.js?v=0.134.0';
-import * as FS from './efectivo-fs.js?v=0.134.0';
+import * as M from './efectivo-modelo.js?v=0.135.0';
+import * as FS from './efectivo-fs.js?v=0.135.0';
 
 const EF = { mes: '', cuenta: undefined, movs: null, porRecibir: null, posteriores: null, porUnir: null, semana: '', msg: '', err: '', selPr: new Set(), pasados: null };   // v0.124.8: selPr = ids elegidos en Por recibir · v0.124.9: pasados = { mes: [movs] } de los meses anteriores (se leen al abrir "Meses anteriores")
 export function olvidar() { EF.cuenta = undefined; EF.movs = null; EF.pasados = null; EF.porRecibir = null; EF.posteriores = null; EF.porUnir = null; EF.pasados = null; FS.olvidarPorUnir(); FS.olvidarSemanas(); }
@@ -28,7 +28,7 @@ const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], MESES = ['ener
 const diaTexto = d => { if (!d) return ''; const [y, m, dd] = d.split('-').map(Number); return `${DIAS[new Date(y, m - 1, dd).getDay()]} ${dd} ${MESES[m - 1].slice(0, 3)}`; };
 // v0.131.0 · Los cobros en efectivo que marcó logística (fen-b2b) quedan por recibir aquí. Si Ventas a empresas no está conectada
 // en este equipo, se sigue sin ellos (con un aviso). Un cobro ya recibido cuya orden quedó pendiente se vuelve a marcar.
-const b2bMod = () => import('./b2b.js?v=0.134.0');
+const b2bMod = () => import('./b2b.js?v=0.135.0');
 async function traerLogistica() {
   EF.avisoLog = '';
   let grupos;
@@ -310,7 +310,7 @@ function dialogoMov(tipo, H, repintar) {
       EF.msg = `Listo. Lo que debería haber en la caja de administración: <b>${esc(pesos(res.saldo))}</b>.`;
       // v0.134.0 · Pago en efectivo sin boleta posible: queda como gasto "Sin documento" de una vez (si se deja para después, queda por unir)
       if (tipo === 'salida' && r.mov.motivo === 'pago' && res.id) {
-        try { const G = await import('./vista-gn.js?v=0.134.0'), ok = await G.dlgSinDocEfectivo(H, { id: res.id, col: 'efectivo_movimientos', ...r.mov });
+        try { const G = await import('./vista-gn.js?v=0.135.0'), ok = await G.dlgSinDocEfectivo(H, { id: res.id, col: 'efectivo_movimientos', ...r.mov });
           EF.msg += ok ? ' Quedó registrado en Gastos como gasto sin documento.' : ' Quedó por unir: regístrelo en Gastos cuando pueda ("Unir a su documento").'; }
         catch (e2) { EF.msg += ` No se alcanzó a registrar en Gastos (${esc(e2.message || H.mensajeError(e2))}): quedó por unir.`; }
         EF.porUnir = null; FS.olvidarPorUnir();
@@ -569,7 +569,7 @@ function dialogoAnularPr(x, H, repintar) {
 // ═══════════════ v0.123.0 · Unir un pago en efectivo a su documento en Gastos ═══════════════
 // Primero se paga en Gastos (fen-gastos), con una clave que sale del movimiento; después se marca aquí (fen-ventas). Son dos bases
 // distintas: si la segunda parte falla, el pago en Gastos ya quedó y "Unir" otra vez solo termina de marcarlo (no paga dos veces).
-const fsGN = () => import('./gn-fs.js?v=0.134.0');
+const fsGN = () => import('./gn-fs.js?v=0.135.0');
 function dialogoUnir(m, H, repintar) {
   const { esc, pesos } = H;
   let docs = null, elegido = '';
@@ -582,7 +582,7 @@ function dialogoUnir(m, H, repintar) {
     <div class="botones"><button type="button" class="btn-sec" id="eu-no">Cancelar</button><button type="submit" class="btn" id="eu-si" disabled>Unir</button></div></form>`);
   const lista = d.querySelector('#eu-lista'), err = d.querySelector('#eu-err'), b = d.querySelector('#eu-si');
   const sd = d.querySelector('#eu-sindoc');   // v0.134.0
-  if (sd) sd.onclick = async () => { d.close(); try { const G = await import('./vista-gn.js?v=0.134.0'); if (await G.dlgSinDocEfectivo(H, m)) { EF.porUnir = null; EF.movs = null; FS.olvidarPorUnir(); EF.msg = 'Listo: quedó en Gastos como gasto sin documento, pagado con este efectivo.'; repintar(); } } catch (e) { EF.msg = esc(e.message || H.mensajeError(e)); repintar(); } };
+  if (sd) sd.onclick = async () => { d.close(); try { const G = await import('./vista-gn.js?v=0.135.0'); if (await G.dlgSinDocEfectivo(H, m)) { EF.porUnir = null; EF.movs = null; FS.olvidarPorUnir(); EF.msg = 'Listo: quedó en Gastos como gasto sin documento, pagado con este efectivo.'; repintar(); } } catch (e) { EF.msg = esc(e.message || H.mensajeError(e)); repintar(); } };
   const fila = x => {
     const dd = x.d, pag = dd.estado === 'pagado_efectivo';
     const sub = pag ? `Ya pagado en efectivo en Gastos el ${esc(diaTexto(dd.pagoFecha || dd.fecha))} · ${pesos(dd.pagoMonto)}` : `${esc(diaTexto(dd.fecha))} · total ${pesos(dd.total)}${dd.saldo !== dd.total ? ` · falta ${pesos(dd.saldo)}` : ''}`;

@@ -10,15 +10,15 @@
 //  gn_config/sugerencias (lo que sugiere el Gastos anterior, armado UNA vez leyendo sus gastos; después se lee un solo documento).
 //  Cada cambio en un documento o movimiento queda en su "historial" (qué, quién, cuándo). Deshacer no borra: el pago queda "deshecho".
 // ═══════════════════════════════════════════════
-import * as FB from './fs-gastos.js?v=0.134.0';
-import { dbBase, correo } from './gastos-fs.js?v=0.134.0';
-import { ahoraChile } from './gastos-g2.js?v=0.134.0';
-import * as GN from './gn-modelo.js?v=0.134.0';
-import * as GB from './gn-bandeja.js?v=0.134.0';
-import * as GP from './gn-pdf.js?v=0.134.0';
-import * as GI from './gn-items.js?v=0.134.0';
-import * as TR from './trabajadores.js?v=0.134.0';
-import * as GT from './tributario.js?v=0.134.0';   // v0.108.0
+import * as FB from './fs-gastos.js?v=0.135.0';
+import { dbBase, correo } from './gastos-fs.js?v=0.135.0';
+import { ahoraChile } from './gastos-g2.js?v=0.135.0';
+import * as GN from './gn-modelo.js?v=0.135.0';
+import * as GB from './gn-bandeja.js?v=0.135.0';
+import * as GP from './gn-pdf.js?v=0.135.0';
+import * as GI from './gn-items.js?v=0.135.0';
+import * as TR from './trabajadores.js?v=0.135.0';
+import * as GT from './tributario.js?v=0.135.0';   // v0.108.0
 
 const quien = () => correo() || 'Sistema Fën';
 const todos = async col => { const d = await dbBase(); return (await FB.getDocs(FB.collection(d, col))).docs.map(x => ({ id: x.id, ...x.data() })); };
@@ -260,6 +260,14 @@ export async function noEsGasto(movId, tipo, nota) {
     const ref = FB.doc(d, GN.COL.movs, movId), sn = await tx.get(ref), a = sn.data();
     const h = marca('no es gasto: ' + GB.NO_GASTO[tipo], { nota: String(nota || '').slice(0, 200) });
     tx.update(ref, { naturaleza: tipo, naturalezaNota: h.nota, historial: conHist(a, h) });
+  });
+}
+// v0.135.0 · "Son dos compras": el cargo que parecía repetido (el mismo en otra cartola) no vuelve a avisar
+export async function noRepetido(movId) {
+  return enTransaccion(async (tx, d) => {
+    const ref = FB.doc(d, GN.COL.movs, movId), sn = await tx.get(ref); if (!sn.exists()) throw error('Ese movimiento ya no está.', 'cambio');
+    const h = marca('no es repetido: son dos compras');
+    tx.update(ref, { noRepetido: { por: h.por, en: h.en }, historial: conHist(sn.data(), h) });
   });
 }
 export async function volverMov(movId) {
