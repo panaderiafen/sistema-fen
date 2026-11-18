@@ -3526,3 +3526,16 @@ dialog.dialogo:has(.mr-dlg) { width: min(980px, calc(100vw - 32px)); max-width: 
 .ef-bol small { display: block; font-size: 12px; color: var(--suave); }
 .ef-bol-aviso { background: var(--amarillo, #FBF3E0); border: 1.5px solid #C9A24A; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.45; }
 .ef-bol-aviso span { color: var(--suave); font-size: 13px; }
+
+/* v0.132.0 · Hoy → Solicitudes */
+.sol-hoy { margin-bottom: 16px; }
+.sol-n { display: inline-flex; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px; background: var(--lila, #E6E1F2); color: var(--lila-t, #4A3F6B); font-size: 13px; align-items: center; justify-content: center; vertical-align: 2px; }
+.sol-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.sol-lista li + li { border-top: 1px solid var(--linea); }
+.sol-item { display: flex; gap: 12px; align-items: center; padding: 10px 2px; color: inherit; text-decoration: none; min-height: 44px; }
+.sol-item:hover b { text-decoration: underline; }
+.sol-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sol-txt b { font-size: 15px; }
+.sol-txt span, .sol-txt small { font-size: 12.5px; color: var(--suave); overflow-wrap: anywhere; }
+.sol-item .chip { flex: none; }
+.sol-hoy[hidden] { display: none; }
