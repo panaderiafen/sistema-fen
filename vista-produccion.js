@@ -9,11 +9,11 @@
 //  Antes (v0.42.0 … v0.76.0): una sola página con tarjetas y pliegues (Desde Cocina, grupo Cocina y grupo Sistema).
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as P from './produccion.js?v=0.132.0';
+import * as P from './produccion.js?v=0.133.0';
 import * as K from './cocina/consumo.js?v=0.17.12';
-import { conBuscador, coincide } from './buscador.js?v=0.132.0';
-import * as FBQ from './fermentacion.js?v=0.132.0';
-import * as RV from './recetas-ver-modelo.js?v=0.132.0';
+import { conBuscador, coincide } from './buscador.js?v=0.133.0';
+import * as FBQ from './fermentacion.js?v=0.133.0';
+import * as RV from './recetas-ver-modelo.js?v=0.133.0';
 
 const st = { fb: null, sab: null, fbMsg: '', prep: null, tot: null, copiando: false, msg: '', props: null, sols: null, abierta: null, costos: {}, cocinaMsg: '', mover: null, moverMsg: '', nRevisar: null, cfgMsg: '', merma: { periodo: 'semana', datos: null, msg: '', cargando: false }, bodega: { calc: null, msg: '', cargando: false, periodo: 'semana', agregar: '', ver: 'PROD' } };
 const $ = id => document.getElementById(id);
@@ -62,7 +62,7 @@ export async function pintar(el, sub, H) {
     el.addEventListener('click', ev => {
       if (!ev.target.closest('#prod-actualizar')) return;
       P.olvidarMemoria(); st.bodega.calc = null; st.merma.datos = null; st.fb = null; st.sab = null; st.costos = {}; st.mover = null;
-      import('./vista-prod-recetas.js?v=0.132.0').then(m => m.olvidar()).catch(() => {});
+      import('./vista-prod-recetas.js?v=0.133.0').then(m => m.olvidar()).catch(() => {});
       pintar(el, partes()[1] || '', H);
     });
   }
@@ -72,7 +72,7 @@ export async function pintar(el, sub, H) {
   const nav = el.querySelector('.pest-prod'), sel = nav && nav.querySelector('[aria-selected="true"]');
   if (nav && sel && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = Math.max(0, sel.offsetLeft - nav.offsetLeft - 16);
   // v0.71.1: Plan de Panadería (Etapa 1); desde la v0.77.1 es una pestaña (trae Finanzas y B2B: se carga recién al abrirla)
-  if (tab === 'plan-pan') { contarRevisar(); const VPP = await import('./vista-plan-pan.js?v=0.132.0'); VPP.fijarH(H); return VPP.pintar(cont, H); }
+  if (tab === 'plan-pan') { contarRevisar(); const VPP = await import('./vista-plan-pan.js?v=0.133.0'); VPP.fijarH(H); return VPP.pintar(cont, H); }
   // Materias primas: los precios están en Finanzas; sin la base de Cocina se ven igual (sin crear ni cambiar, lo dice el aviso)
   if (tab === 'mp') { contarRevisar(); return pintarTab(cont, tab, H); }
   let cx;
@@ -86,8 +86,8 @@ export async function pintar(el, sub, H) {
 function contarRevisar() { P.pendientesCocina().then(r => { if (r) ponerChip((r.nRecetas || 0) + (r.nMps || 0)); }).catch(() => {}); }
 function pintarTab(cont, tab, H) {
   if (tab === 'revisar') { cont.innerHTML = '<section class="tarjeta" aria-labelledby="t-prod-revision" id="prod-cocina"><div class="vacio" style="border:0">Revisando lo que llegó desde Cocina…</div></section>'; return pintarCocina(cont, H, true); }
-  if (tab === 'recetas') return import('./vista-prod-recetas.js?v=0.132.0').then(m => m.pintar(cont, H, { sub: partes().slice(2).join('/') }));
-  if (tab === 'mp') return import('./vista-finanzas.js?v=0.132.0').then(m => m.pintarMaestro(cont, H, { conteo: conteoMps }));
+  if (tab === 'recetas') return import('./vista-prod-recetas.js?v=0.133.0').then(m => m.pintar(cont, H, { sub: partes().slice(2).join('/') }));
+  if (tab === 'mp') return import('./vista-finanzas.js?v=0.133.0').then(m => m.pintarMaestro(cont, H, { conteo: conteoMps }));
   if (tab === 'bodega') { cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prod-bodega"><h2 id="t-prod-bodega">Bodega</h2><div id="prod-bodega">${seccionBodega(H)}</div></section>`; return conectarBodega(H); }
   if (tab === 'merma') { cont.innerHTML = `<section class="tarjeta" aria-labelledby="t-prod-merma"><h2 id="t-prod-merma">Merma</h2><div id="prod-merma">${seccionMerma(H)}</div></section>`; return conectarMerma(cont, H); }
   if (tab === 'config') return pintarConfigTab(cont, H);
@@ -430,6 +430,7 @@ function seccionBodega(H) {
   return cab + `
     <p class="ayuda">Calculado el ${H.esc(fechaC(c.hoy))} a las ${H.esc(new Date(c.en).toTimeString().slice(0, 5))} · las jefas ven en Cocina lo de su bodega que está bajo el mínimo.${resp ? ' ' + H.info('Bodegas por área responsable', INFO_RESP) : ''}</p>
     ${resp ? avisosResp(H, c) : seccionAsignar(H, c)}
+    ${seccionFacturas(H, b)}
     ${pest}
     <div class="bod-bodega" data-bodega="${H.esc(ver)}">${seccionUnaBodega(H, c, ver)}</div>
     <div class="error" id="prod-bod-err" role="alert">${H.esc(b.msg)}</div>
@@ -447,7 +448,37 @@ function seccionBodega(H) {
     ${c.cafe && Object.keys(c.cafe.sinReceta).length ? `<p class="ayuda">Vendidos en Cafetería sin receta vinculada en la caja (no descuentan): ${H.esc(Object.entries(c.cafe.sinReceta).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([n, q]) => `${n} (${Math.round(q)})`).join(', '))}${Object.keys(c.cafe.sinReceta).length > 10 ? '…' : ''}. Vincúlalos en la caja para que cuenten.</p>` : ''}
     ${sinId.length ? `<p class="ayuda">Ingredientes sin materia prima en el maestro (no se cuentan): ${H.esc(sinId.slice(0, 8).join(', '))}${sinId.length > 8 ? '…' : ''}.</p>` : ''}`;
 }
-// v0.65.0 · "Asignar responsables" (una vez, mientras Producción es una sola bodega): propuesta por uso, se cambia y se confirma
+// v0.133.0 · Facturas de críticas: cada compra entra sola a la bodega (con la fecha de la factura, o la de recepción si se cambia)
+const TXT_FAC = 'Cada factura de compra de una materia prima crítica entra sola a su bodega como llegada: cantidad de la factura × lo que trae una unidad (por ejemplo 80 sacos × 25 kg = 2.000 kg). Entra con la fecha de la factura; si llegó otro día, cámbielo en "Llegó el" y el stock se recalcula solo (también hacia atrás).\nEl stock es siempre: último conteo + llegadas − lo que usaron las recetas desde ese conteo. Una factura de antes del último conteo ya está dentro del conteo.\nPara que una compra entre, su producto de la factura tiene que estar asociado a la materia prima (una vez): abajo aparecen los que parecen de una crítica y no lo están. Asociar también actualiza su precio en Costos.\nLas jefas ya no anotan llegadas: solo cuentan cuando se les pide.';
+function seccionFacturas(H, b) {
+  const f = b.fac;
+  if (b.facErr) return `<p class="aviso" role="note">No se pudieron revisar las facturas de compra: ${H.esc(b.facErr)}</p>`;
+  if (!f) return '';
+  const kg = (v, u) => K.texto(v, u || 'g');
+  const est = l => l.estado === 'entro' ? '<span class="chip c-verde chip-chico">entró</span>' : l.estado === 'anulada' ? '<span class="chip c-gris chip-chico">anulada</span>' : l.estado === 'nc' ? '<span class="chip c-gris chip-chico">nota de crédito</span>' : '<span class="chip c-amarillo chip-chico">fuera del período</span>';
+  const facs = f.facturas.slice(0, 20);
+  const opts = (f.criticas || []).filter((c, i, a) => a.findIndex(x => x.mp.id === c.mp.id) === i);
+  const contTxt = x => { const c = x.sug && x.sug.contenido; return c ? (c.unidad === 'g' ? [c.cantidad / 1000, 'kg'] : c.unidad === 'ml' ? [c.cantidad / 1000, 'l'] : [c.cantidad, 'un']) : ['', 'kg']; };
+  return `<details class="tarjeta-sub bod-fac" id="prod-bod-fac" ${b.facAbierto === false ? '' : 'open'}><summary><b>Facturas de críticas</b> · las compras entran solas a la bodega ${H.info('Facturas de críticas', TXT_FAC)}</summary>
+    ${f.repetidas && f.repetidas.length ? `<div class="aviso" role="status" id="prod-bod-fac-rep"><b>${f.repetidas.length} ${f.repetidas.length === 1 ? 'llegada anotada a mano se repite' : 'llegadas anotadas a mano se repiten'} con las facturas</b>
+      <ul>${f.repetidas.map(m => `<li>${H.esc(fechaC(m.fecha))} · ${H.esc(m.nombre)} · ${H.esc(kg(m.cantidad, m.unidad))}${m.por ? ' · ' + H.esc(m.por) : ''}</li>`).join('')}</ul>
+      <button type="button" class="btn-sec" id="prod-bod-fac-anular">Anular las anotadas a mano</button></div>` : ''}
+    ${facs.length ? `<div class="tabla-b2b"><table class="tabla-tiempos tabla-fac"><thead><tr><th scope="col">Factura</th><th scope="col">Materia prima</th><th scope="col" style="text-align:right">Cantidad</th><th scope="col">Llegó el</th></tr></thead><tbody>
+      ${facs.map((x, i) => `<tr><td>${H.esc(fechaC(x.fecha))} · F. ${H.esc(x.folio)}<br><span class="ayuda">${H.esc(x.proveedor)}</span></td>
+        <td>${x.lineas.map(l => `${H.esc(l.nombre)} ${est(l)}`).join('<br>')}</td>
+        <td style="text-align:right">${x.lineas.map(l => `${H.esc(String(l.cantidad).replace('.', ','))} ${H.esc((l.unidadFactura || 'un').toLowerCase())} = <b>${H.esc(kg(l.total, l.unidad))}</b>`).join('<br>')}</td>
+        <td>${x.lineas.some(l => l.estado === 'entro') ? `<div class="fac-rec"><input type="date" data-fac-fecha="${i}" value="${H.esc(x.recepcion || x.fecha)}" max="${H.esc(CMhoy())}" aria-label="Llegó el (factura ${H.esc(x.folio)})"><button type="button" class="btn-sec btn-chico" data-fac-rec="${i}">Guardar</button></div>${x.recepcion ? '<span class="ayuda">cambiada</span>' : ''}` : '<span class="ayuda">—</span>'}</td></tr>`).join('')}
+      </tbody></table></div>${f.facturas.length > facs.length ? `<p class="ayuda">Y ${f.facturas.length - facs.length} más antiguas.</p>` : ''}` : '<p class="ayuda">Todavía no hay facturas de críticas asociadas (desde el 1 de octubre).</p>'}
+    ${f.sinAsociar.length ? `<h4 style="margin:14px 0 4px">Productos de factura sin asociar</h4><p class="ayuda">Parecen de una crítica. Asócielos una vez: sus facturas entran a la bodega y actualizan el precio en Costos.</p>
+      ${f.sinAsociar.map((x, i) => { const [cq, cu] = contTxt(x); return `<div class="fac-asoc" data-fac-asoc-i="${i}"><div class="fac-asoc-t"><b>${H.esc(x.descripcion)}</b><span class="ayuda">${H.esc(x.proveedor)} · última ${H.esc(fechaC(x.fecha))} · F. ${H.esc(x.folio)} · ${H.esc(String(x.cantidad).replace('.', ','))} ${H.esc((x.unidad || 'un').toLowerCase())}</span></div>
+        <div class="fila-campos fila-bod"><div class="campo campo-ancho"><label for="fac-mp-${i}">Es</label><select id="fac-mp-${i}">${opts.map(c => `<option value="${H.esc(c.mp.id)}" ${c.mp.id === x.sugerida ? 'selected' : ''}>${H.esc(c.mp.nombre)}</option>`).join('')}</select></div>
+          <div class="campo"><label for="fac-cq-${i}">Cada unidad trae</label><input id="fac-cq-${i}" inputmode="decimal" value="${H.esc(String(cq).replace('.', ','))}"></div>
+          <div class="campo"><label for="fac-cu-${i}">Unidad</label><select id="fac-cu-${i}">${['kg', 'g', 'l', 'ml', 'un'].map(u => `<option ${u === cu ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
+          <button type="button" class="btn-sec" data-fac-asociar="${i}">Asociar</button><button type="button" class="btn-link" data-fac-ignorar="${i}">No es materia prima</button></div></div>`; }).join('')}` : ''}
+  </details>`;
+}
+const CMhoy = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+// v0.65.0 · "Asignar responsables\" (una vez, mientras Producción es una sola bodega): propuesta por uso, se cambia y se confirma
 function seccionAsignar(H, c) {
   const lista = c.propuesta || [], b = st.bodega, elegidas = b.resp || {};
   if (!lista.length) return '';
@@ -518,12 +549,45 @@ function conectarBodega(H) {
   const repintarB = () => { const c = $b('prod-bodega'); if (!c) return; c.innerHTML = seccionBodega(H); conectarBodega(H); };
   // v0.77.1: al abrir la pestaña se calcula solo, con lo que ya está en memoria (casi sin lecturas al volver);
   // "Actualizar ahora" y después de un cambio hecho aquí se vuelve a leer todo (fresco)
-  const calcular = async (fresco = true) => { b.cargando = true; b.msg = ''; repintarB(); try { b.calc = await P.calcularBodega({ fresco }); } catch (e) { b.msg = error(e, H); } b.cargando = false; repintarB(); };
+  // v0.133.0: después de calcular, las facturas de las críticas que faltan entran solas (y se recalcula si entró alguna)
+  const calcular = async (fresco = true) => { b.cargando = true; b.msg = ''; repintarB();
+    try { b.calc = await P.calcularBodega({ fresco });
+      try { b.fac = await P.facturasBodega({ forzar: fresco }); b.facErr = '';
+        if (b.fac && b.fac.creadas) { H.registrar('Bodega: entraron facturas de críticas', `${b.fac.creadas} ${b.fac.creadas === 1 ? 'línea' : 'líneas'}`); b.calc = await P.calcularBodega({ fresco: true }); } }
+      catch (e) { b.facErr = error(e, H); }
+    } catch (e) { b.msg = error(e, H); } b.cargando = false; repintarB(); };
   const boton = $b('prod-bod-calc'); if (!boton) return;
   if (!b.calc && !b.cargando && !b.autoHecho) { b.autoHecho = true; setTimeout(() => calcular(false), 0); }
   // v0.54.1: buscador sobre las listas de materias primas (café de Cafetería, agregar crítica, llegó mercadería)
   document.querySelectorAll('#prod-bod-cafe, select[id^="prod-bod-nueva"], select[id^="prod-bod-ll-mp"]').forEach(conBuscador);
   boton.addEventListener('click', () => calcular(true));
+  // v0.133.0 · Facturas de críticas
+  const fd = $b('prod-bod-fac'); if (fd) fd.addEventListener('toggle', () => { b.facAbierto = fd.open; });
+  const errF = (el, t) => { const p = el.closest('details') || document; let e = p.querySelector('.fac-err'); if (!e) { e = document.createElement('p'); e.className = 'error fac-err'; e.setAttribute('role', 'alert'); (el.closest('.fac-asoc, td, .aviso') || p).appendChild(e); } e.textContent = t; };
+  document.querySelectorAll('[data-fac-rec]').forEach(x => x.addEventListener('click', async () => {
+    const fac = b.fac.facturas[Number(x.dataset.facRec)], v = document.querySelector(`[data-fac-fecha="${x.dataset.facRec}"]`).value;
+    x.disabled = true;
+    try { await P.recepcionFactura(fac.lineas, v); H.registrar('Bodega: fecha de llegada de una factura', `F. ${fac.folio} · ${fac.proveedor} → ${v}`); await calcular(true); }
+    catch (e) { x.disabled = false; errF(x, error(e, H)); }
+  }));
+  const asoc = async (x, ignorar) => {
+    const i = Number(x.dataset.facAsociar ?? x.dataset.facIgnorar), it = b.fac.sinAsociar[i];
+    const mp = $b('fac-mp-' + i).value, cq = String($b('fac-cq-' + i).value || '').replace(',', '.'), cu = $b('fac-cu-' + i).value;
+    if (!ignorar && !(Number(cq) > 0)) { errF(x, 'Escriba cuánto trae una unidad de la factura (por ejemplo 25 kg).'); return; }
+    x.disabled = true;
+    try { const r = await P.asociarFactura(it, { mp, contenido: { cantidad: cq, unidad: cu }, ignorar });
+      H.registrar('Bodega: asoció un producto de factura', `${it.proveedor} · ${it.descripcion} → ${ignorar ? 'no es materia prima' : (b.fac.criticas.find(c => c.mp.id === mp) || { mp: { nombre: mp } }).mp.nombre}${r && r.aplicadas && r.aplicadas.length ? ' (precio actualizado)' : ''}`);
+      await calcular(true); }
+    catch (e) { x.disabled = false; errF(x, error(e, H)); }
+  };
+  document.querySelectorAll('[data-fac-asociar]').forEach(x => x.addEventListener('click', () => asoc(x, false)));
+  document.querySelectorAll('[data-fac-ignorar]').forEach(x => x.addEventListener('click', () => asoc(x, true)));
+  const an = $b('prod-bod-fac-anular');
+  if (an) an.addEventListener('click', async () => {
+    const l = b.fac.repetidas; an.disabled = true;
+    try { await P.anularManuales(l); H.registrar('Bodega: anuló llegadas a mano repetidas con facturas', l.map(m => `${m.fecha} ${m.nombre}`).join(', ')); await calcular(true); }
+    catch (e) { an.disabled = false; errF(an, error(e, H)); }
+  });
   document.querySelectorAll('[data-bod-tab]').forEach(t => t.addEventListener('click', () => { b.ver = t.dataset.bodTab; repintarB(); }));
   const per = $b('prod-bod-per'); if (per) per.addEventListener('change', () => { b.periodo = per.value; repintarB(); });
   const mp = id => b.calc.datos.mps.find(m => m.id === id);

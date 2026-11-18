@@ -3539,3 +3539,12 @@ dialog.dialogo:has(.mr-dlg) { width: min(980px, calc(100vw - 32px)); max-width: 
 .sol-txt span, .sol-txt small { font-size: 12.5px; color: var(--suave); overflow-wrap: anywhere; }
 .sol-item .chip { flex: none; }
 .sol-hoy[hidden] { display: none; }
+
+/* v0.133.0 · Bodega: facturas de críticas */
+.bod-fac { border: 1px solid var(--linea); border-radius: 12px; padding: 10px 14px; margin: 10px 0 14px; background: var(--tarjeta, #fff); }
+.bod-fac > summary { cursor: pointer; min-height: 32px; }
+.tabla-fac td { vertical-align: top; }
+.fac-rec { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.fac-rec input[type="date"] { min-height: 40px; }
+.fac-asoc { border-top: 1px solid var(--linea); padding: 10px 0; }
+.fac-asoc-t { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
