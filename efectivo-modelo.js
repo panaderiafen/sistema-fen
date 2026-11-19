@@ -406,3 +406,40 @@ export function resumirSemana(evals, cmovs, lunes) {
   motivos.sort((a, b) => a.texto.localeCompare(b.texto, 'es') || a.dia.localeCompare(b.dia) || a.sucursal.localeCompare(b.sucursal));
   return { lunes, domingo: fin, porSuc, motivos };
 }
+
+// v0.136.0 · Recibir varios con una sola línea "¿Cuánto llegó en total?" (Emmanuel, 18 nov: los cobros llegan siempre juntos).
+// La diferencia se explica una vez (boletas, pagos con esa plata, faltante) y aquí se reparte entre los cobros, para que cada
+// uno quede con su recepción { llego, usos } (la misma regla que recibir uno: revisarRecepcion).
+// esperados: [monto de cada uno], usos: [{ tipo, monto, … }] → { porItem: [null | { llego, usos }] } o { error }
+// Cada parte va entera al cobro donde mejor cabe; un pago o un faltante que no cabe en uno se parte; una boleta no se parte.
+export function repartirDiferencia(esperados, llegoTotal, usos) {
+  const esp = (esperados || []).map(x => Math.round(Number(x) || 0)), total = esp.reduce((a, b) => a + b, 0);
+  const llego = leerMonto(llegoTotal);
+  if (!(llego >= 0)) return { error: 'Escriba cuánto llegó en total (puede ser 0).' };
+  if (llego > total) return { error: `Llegó más de lo esperado ($${total.toLocaleString('es-CL')}). Reciba lo esperado y anote lo que sobra como un Ingreso aparte.` };
+  const falta = total - llego;
+  const lista = (usos || []).filter(u => u && (String(u.monto || '').trim() !== '' || String(u.proveedor || u.detalle || '').trim() !== ''))
+    .map((u, k) => ({ ...u, _m: leerMonto(u.monto), _k: k }));
+  if (lista.some(u => !(u._m > 0))) return { error: 'Cada parte de la diferencia necesita un monto mayor que 0.' };
+  const exp = lista.reduce((a, u) => a + u._m, 0);
+  if (exp !== falta) return { error: exp > falta ? `Lo explicado ($${exp.toLocaleString('es-CL')}) es más que lo que falta ($${falta.toLocaleString('es-CL')}).` : `Faltan por explicar $${(falta - exp).toLocaleString('es-CL')}.` };
+  const cap = esp.slice(), asig = esp.map(() => []);
+  const mejor = m => { let j = -1; cap.forEach((c, i) => { if (c >= m && (j < 0 || c < cap[j])) j = i; }); return j; };
+  const orden = lista.slice().sort((a, b) => (b.tipo === 'boleta') - (a.tipo === 'boleta') || b._m - a._m || a._k - b._k);
+  for (const u of orden) {
+    const j = mejor(u._m);
+    if (j >= 0) { asig[j].push({ ...u, monto: String(u._m) }); cap[j] -= u._m; continue; }
+    if (u.tipo === 'boleta') return { error: `La boleta ${u.detalle || ''} ($${u._m.toLocaleString('es-CL')}) es mayor que cada uno de los cobros por separado, y una boleta no se reparte entre dos cobros.` };
+    let resto = u._m;   // se parte entre los cobros con más espacio
+    while (resto > 0) {
+      let i = -1; cap.forEach((c, k) => { if (c > 0 && (i < 0 || c > cap[i])) i = k; });
+      if (i < 0) return { error: 'No se pudo repartir la diferencia entre los cobros.' };
+      const p = Math.min(resto, cap[i]); asig[i].push({ ...u, monto: String(p) }); cap[i] -= p; resto -= p;
+    }
+  }
+  return { porItem: esp.map((e, i) => {
+    if (!asig[i].length) return null;
+    const usado = asig[i].reduce((a, u) => a + Number(u.monto), 0);
+    return { llego: String(e - usado), usos: asig[i].map(({ _m, _k, ...u }) => u) };
+  }), falta };
+}

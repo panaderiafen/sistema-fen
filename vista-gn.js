@@ -7,22 +7,22 @@
 //  La cartola de BancoEstado sigue pasando sus abonos a Ventas B2B → Conciliación, igual que antes.
 //  H = ayudas de app.js: { esc, info, icono, registrar, mensajeError, pesos, diaTexto, cargarXLSX, B2b, Cartola }
 // ═══════════════════════════════════════════════
-import * as GN from './gn-modelo.js?v=0.135.0';
-import * as GB from './gn-bandeja.js?v=0.135.0';
-import * as CP from './cartolas-periodo.js?v=0.135.0';   // v0.127.2: cartolas por período
-import * as AR from './areas.js?v=0.135.0';
-import * as Sii from './sii.js?v=0.135.0';
-import * as MP from './mercadopago.js?v=0.135.0';
-import * as GI from './gn-items.js?v=0.135.0';   // v0.102.0: catálogo de ítems
-import * as GF from './gn-finanzas.js?v=0.135.0';
-import * as PC from './plan-cuentas.js?v=0.135.0';
-import * as FR from './finanzas-resultados.js?v=0.135.0';
-import * as TR from './trabajadores.js?v=0.135.0';   // v0.104.0: ficha del trabajador y provisión
-import * as GT from './tributario.js?v=0.135.0';   // v0.108.0: gestión y tributario
+import * as GN from './gn-modelo.js?v=0.136.0';
+import * as GB from './gn-bandeja.js?v=0.136.0';
+import * as CP from './cartolas-periodo.js?v=0.136.0';   // v0.127.2: cartolas por período
+import * as AR from './areas.js?v=0.136.0';
+import * as Sii from './sii.js?v=0.136.0';
+import * as MP from './mercadopago.js?v=0.136.0';
+import * as GI from './gn-items.js?v=0.136.0';   // v0.102.0: catálogo de ítems
+import * as GF from './gn-finanzas.js?v=0.136.0';
+import * as PC from './plan-cuentas.js?v=0.136.0';
+import * as FR from './finanzas-resultados.js?v=0.136.0';
+import * as TR from './trabajadores.js?v=0.136.0';   // v0.104.0: ficha del trabajador y provisión
+import * as GT from './tributario.js?v=0.136.0';   // v0.108.0: gestión y tributario
 
 const st = { medio: '', qMov: '', vista: (() => { try { return localStorage.getItem('fen_gn_vista') || 'recientes'; } catch (e) { return 'recientes'; } })(), D: null, B: null, err: '', msg: '', subiendo: false, cuenta: '', cargando: false, ocupado: false, sel: { d: [], m: [], primero: '' }, carga: '', verConciliado: false, mesD: '', mesM: '', qListos: '', abrirListos: false };   // v0.125.1: qListos = buscador de Listos   // v0.124.4: mesD / mesM = filtro por mes de cada lado ('' = todos)   // v0.105.0: carga = conciliar una cartola
 const $ = id => document.getElementById(id);
-const fsGN = () => import('./gn-fs.js?v=0.135.0');
+const fsGN = () => import('./gn-fs.js?v=0.136.0');
 const INICIO = () => (window.FEN_SIS && window.FEN_SIS.INICIO) || '2026-10-01';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = f => `${Number(f.slice(8, 10))} de ${MESES[Number(f.slice(5, 7)) - 1]} de ${f.slice(0, 4)}`;
@@ -503,7 +503,7 @@ async function procesar(f, H) {
   if (e === 'pdf') return subirBoleta(f, H);
   if (e === 'csv') {
     const txt = await f.text();
-    const Pv = await import('./previred.js?v=0.135.0');
+    const Pv = await import('./previred.js?v=0.136.0');
     if (Pv.esCsvNomina(Pv.textoDeArchivo(await f.arrayBuffer()))) return subirPrevired(f, H, Pv.leerCsv(Pv.textoDeArchivo(await f.arrayBuffer())));
     const tipo = MP.tipoReporte(txt);
     if (tipo === 'liberaciones') return subirMP(f, txt, H);
@@ -517,13 +517,13 @@ async function procesar(f, H) {
   if (wb) {
     const tefs = H.B2b.leerTransferencias(wb, XLSX);
     if (tefs) { const r = await H.B2b.guardarTransferencias(tefs); H.registrar('Cargó transferencias recibidas', `${r.leidas} leídas · ${r.nuevas} nuevas`); return `<b>Transferencias recibidas</b>: ${r.leidas} en el archivo · ${r.nuevas} nuevas. Sirven a Ventas a empresas → Conciliación (quién pagó cada abono).`; }
-    { const GP = await import('./gn-pdf.js?v=0.135.0'), hC = wb.SheetNames.find(n => /^cr[eé]dito$/i.test(n)), hQ = wb.SheetNames.find(n => /^cuotas$/i.test(n));   // v0.124.5
+    { const GP = await import('./gn-pdf.js?v=0.136.0'), hC = wb.SheetNames.find(n => /^cr[eé]dito$/i.test(n)), hQ = wb.SheetNames.find(n => /^cuotas$/i.test(n));   // v0.124.5
       if (hC && hQ) { const fC = XLSX.utils.sheet_to_json(wb.Sheets[hC], { header: 1, defval: '', raw: true });
         if (GP.esTablaFen(wb.SheetNames, (fC[0] || [])[0])) { const r = GP.leerTablaFen(fC, XLSX.utils.sheet_to_json(wb.Sheets[hQ], { header: 1, defval: '', raw: true }));
           if (r.bloquea) throw new Error('la tabla no se guardó. ' + r.errores.slice(0, 4).join(' ') + (r.errores.length > 4 ? ` (y ${r.errores.length - 4} más)` : ''));
           const k = await (await fsGN()).cargarTablaCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó una tabla de amortización', r.nombre);
           return `<b>${H.esc(r.nombre)}</b>: ${k.que === 'ya' ? 'se unió al crédito que ya estaba' : 'crédito nuevo'} · ${r.reales} ${r.reales === 1 ? 'cuota' : 'cuotas'} con capital, interés y comisiones del banco${k.cambiados ? ` · ${k.cambiados} ${k.cambiados === 1 ? 'cuota ya en Gastos se actualizó' : 'cuotas ya en Gastos se actualizaron'}` : ''}.${k.revisar ? ` <b>${k.revisar} ${k.revisar === 1 ? 'cuota pagada tiene' : 'cuotas pagadas tienen'} otro total en la tabla: revísela${k.revisar === 1 ? '' : 's'} (no se cambió).</b>` : ''}`; } } }
-    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.135.0'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
+    if (wb.SheetNames.includes('Datos')) { const GP = await import('./gn-pdf.js?v=0.136.0'), filas = XLSX.utils.sheet_to_json(wb.Sheets.Datos, { header: 1, defval: '', raw: false });
       if (GP.esDetalleCredito(filas)) { const enc = wb.SheetNames.includes('Encabezados') ? XLSX.utils.sheet_to_csv(wb.Sheets.Encabezados) : '', r = GP.leerCredito(filas, enc);
         if (r.bloquea) throw new Error(r.errores.join(' '));
         const k = await (await fsGN()).cargarCredito(r, { nombre: f.name, tamano: f.size }); H.registrar('Gastos: cargó un crédito', r.nombre);
@@ -539,9 +539,9 @@ function esCartola(wb, XLSX, H) {
 }
 // v0.96.0 · Boleta de luz (CGE) o agua (ESSBIO) en PDF: el mismo lector del Gastos anterior; entra como documento con su N° de cliente
 async function subirBoleta(f, H) {
-  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.135.0'), import('./boletas.js?v=0.135.0')]);
+  const [Pv, Bo] = await Promise.all([import('./previred.js?v=0.136.0'), import('./boletas.js?v=0.136.0')]);
   let lineas = null; try { lineas = await Pv.lineasDelPdf(f); } catch (x) { throw new Error('no se pudo leer el PDF.'); }
-  const GP = await import('./gn-pdf.js?v=0.135.0'), tipo = GP.tipoPdf(lineas);
+  const GP = await import('./gn-pdf.js?v=0.136.0'), tipo = GP.tipoPdf(lineas);
   if (tipo) return subirOtroPdf(f, H, GP, tipo, lineas);
   if (Pv.esComprobante(lineas) || Pv.esCertificado(lineas)) { let r; try { r = Pv.leerPdf(lineas); } catch (x) { throw new Error(x.message); } return subirPrevired(f, H, r); }
   const r = Bo.leerBoleta(lineas);
@@ -575,7 +575,7 @@ async function subirOtroPdf(f, H, GP, tipo, lineas) {
 // v0.97.0 · Previred: el CSV de la nómina o el comprobante de pago (los lectores del Gastos anterior) → el documento del mes
 async function subirPrevired(f, H, r) {
   if (r.bloquea) throw new Error(`Previred no se guardó. ${(r.avisos || []).join(' ')}`);
-  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.135.0'), import('./gastos-g3d.js?v=0.135.0')]);
+  const [GP, G3D] = await Promise.all([import('./gn-pdf.js?v=0.136.0'), import('./gastos-g3d.js?v=0.136.0')]);
   const id = GN.idCarga('previred'), d = GP.docDePrevired(r, G3D.venceDe(r.periodo), id);
   const k = await (await fsGN()).cargarPdf(d, { nombre: f.name, tamano: f.size }, 'previred');
   H.registrar('Gastos: cargó Previred', `${d.tipoTexto} · ${k.texto}`);
@@ -594,7 +594,7 @@ async function subirSii(f, txt, H) {
 }
 // v0.101.1 · Después de subir compras del SII: Finanzas revisa los precios de las materias primas (sin esperar; nunca falla hacia afuera)
 function preciosDeMP(H) {
-  import('./finanzas.js?v=0.135.0').then(F => F.preciosTrasImportar()).then(x => {
+  import('./finanzas.js?v=0.136.0').then(F => F.preciosTrasImportar()).then(x => {
     if (!x || (!x.error && !(x.aplicadas.length || x.porConfirmar || x.sinAsociar))) return;
     const t = x.error ? `No se pudieron revisar los precios de las materias primas (${H.esc(x.error)}): hágalo en <a href="#finanzas/costos/compras">Finanzas → Costos → Compras del SII</a>.`
       : `Precios de materias primas: ${x.aplicadas.length} ${x.aplicadas.length === 1 ? 'actualizado' : 'actualizados'}${x.porConfirmar ? ` · ${x.porConfirmar} por confirmar` : ''}${x.sinAsociar ? ` · ${x.sinAsociar} ${x.sinAsociar === 1 ? 'producto' : 'productos'} sin asociar` : ''} · <a href="#finanzas/costos/compras">Ver en Finanzas</a>.`;
@@ -990,7 +990,7 @@ async function subirFotoDe(dlg, pref, { fecha, razon, monto }, bt) {
   if (!/^application\/pdf$|^image\//.test(f.type || '')) throw new Error('Sirve una foto o un PDF.');
   const txt = bt ? bt.textContent : ''; if (bt) bt.textContent = 'Subiendo la foto…';
   try {
-    const G = await import('./gastos.js?v=0.135.0'), b64 = await G.aBase64(f);
+    const G = await import('./gastos.js?v=0.136.0'), b64 = await G.aBase64(f);
     const ext = (f.name.match(/\.[A-Za-z0-9]{2,5}$/) || [f.type === 'application/pdf' ? '.pdf' : '.jpg'])[0], nombre = nombreFoto(fecha, razon, monto) + ext;
     const r = await G.subidor()({ tipo: 'comprobante', fecha: String(fecha || isoHoy()).split('-').reverse().join('-'), imageData: b64, mimeType: f.type, fileName: nombre });
     if (!r || !r.url) throw new Error('Drive no devolvió el enlace de la foto. Intente de nuevo (o registre sin foto y agréguela después).');
@@ -1128,7 +1128,7 @@ export async function dlgBoleta(H, file, { el = null } = {}) {
         else if (cands.length) { mostrarPagos(dlg, H, cands, () => dlg.querySelector('form').requestSubmit()); bt.disabled = false; bt.textContent = t0; return; }
       }
       bt.textContent = 'Subiendo la foto…';
-      const f = await achicar(foto), G = await import('./gastos.js?v=0.135.0'), b64 = await G.aBase64(f), nombre = nombreFoto(fecha, donde.value || 'Boleta', monto) + '.jpg';
+      const f = await achicar(foto), G = await import('./gastos.js?v=0.136.0'), b64 = await G.aBase64(f), nombre = nombreFoto(fecha, donde.value || 'Boleta', monto) + '.jpg';
       const r = await G.subidor()({ tipo: 'comprobante', fecha: fecha.split('-').reverse().join('-'), imageData: b64, mimeType: f.type || 'image/jpeg', fileName: nombre });
       if (!r || !r.url) throw new Error('Drive no devolvió el enlace de la foto. Intente de nuevo.');
       bt.textContent = 'Guardando…';
@@ -1171,7 +1171,7 @@ export async function dlgSinDocEfectivo(H, m) {
       try {
         const c = leer(); c.item = itemValido(c.item); if (!c.item) throw new Error('Elija el ítem.');
         const FS = await fsGN(), monto = Math.round(Number(m.monto) || 0);
-        const [EM, EF] = await Promise.all([import('./efectivo-modelo.js?v=0.135.0'), import('./efectivo-fs.js?v=0.135.0')]);
+        const [EM, EF] = await Promise.all([import('./efectivo-modelo.js?v=0.136.0'), import('./efectivo-fs.js?v=0.136.0')]);
         const r = await FS.registrarSinBanco({ medio: 'efectivo', tipo: 'sin', proveedor: prov.value, monto, fecha: m.dia, item: c.item, areas: c.areas, repartoId: c.repartoId, nota: dlg.querySelector('#se-nota').value,
           efectivo: { id: m.id, col: m.col || 'efectivo_movimientos', origen: EM.origenEfectivo(m), ...(m.sucursal ? { sucursal: m.sucursal } : {}) } });
         await EF.unir(m, { docId: r.docId, pagoId: r.pagoId, documento: 'Sin documento', proveedor: String(prov.value || '').slice(0, 120), monto }); EF.olvidarPorUnir();
@@ -1184,7 +1184,7 @@ export async function dlgSinDocEfectivo(H, m) {
 // origen: 'caja' = retiros "Pago a proveedor" de una caja de venta; 'cobro' = pagos anotados al recibir un cobro; 'admin' = de la caja de administración.
 async function pagosSinBoleta(monto, origen, fecha, hasta = fecha, diasAntes = 30) {   // v0.135.0: hasta (una boleta que espera: hasta hoy)
   try {
-    const [EM, EF] = await Promise.all([import('./efectivo-modelo.js?v=0.135.0'), import('./efectivo-fs.js?v=0.135.0')]);
+    const [EM, EF] = await Promise.all([import('./efectivo-modelo.js?v=0.136.0'), import('./efectivo-fs.js?v=0.136.0')]);
     const l = await EF.leerPorUnir(), desde = new Date(new Date(fecha + 'T12:00:00').getTime() - diasAntes * 864e5).toISOString().slice(0, 10);
     return l.filter(m => Math.round(Number(m.monto) || 0) === monto && String(m.dia || '') >= desde && String(m.dia || '') <= hasta && ['pago', 'pago_proveedor'].includes(m.motivo) && m.estado === 'por_unir')
       .filter(m => origen === 'caja' ? m.col === 'caja_movimientos' : origen === 'cobro' ? m.col !== 'caja_movimientos' && /^Al recibir/.test(m.nota || '') : m.col !== 'caja_movimientos')
@@ -1203,14 +1203,14 @@ function mostrarPagos(dlg, H, cands, seguir) {
 }
 // La boleta con un pago en efectivo que la esperaba (lo mismo que "Unir a su documento" en Efectivo)
 async function unirBoletaConPago(FS, doc, x, monto) {
-  const [EM, EF] = await Promise.all([import('./efectivo-modelo.js?v=0.135.0'), import('./efectivo-fs.js?v=0.135.0')]), m = x.m;
+  const [EM, EF] = await Promise.all([import('./efectivo-modelo.js?v=0.136.0'), import('./efectivo-fs.js?v=0.136.0')]), m = x.m;
   const pago = await FS.pagarConEfectivo({ id: doc.id, estado: 'pendiente', razon: doc.razon }, { id: m.id, col: m.col || 'efectivo_movimientos', sucursal: m.sucursal || '', dia: m.dia, monto, origen: EM.origenEfectivo(m), clave: EM.claveUnion(m), texto: `Efectivo · ${EM.textoOrigenEfectivo(m)} · ${m.detalle || ''}` });
   await EF.unir(m, { docId: doc.id, pagoId: pago.pagoId || '', documento: 'Boleta', proveedor: String(doc.razon || '').slice(0, 120), monto });
   EF.olvidarPorUnir();
 }
 // Efectivo de la caja de administración: la salida "Pago en efectivo" en Efectivo, unida a la boleta (como "Unir a su documento")
 async function pagarBoletaEfectivo(FS, doc, { monto, fecha, donde }) {
-  const [EM, EF] = await Promise.all([import('./efectivo-modelo.js?v=0.135.0'), import('./efectivo-fs.js?v=0.135.0')]);
+  const [EM, EF] = await Promise.all([import('./efectivo-modelo.js?v=0.136.0'), import('./efectivo-fs.js?v=0.136.0')]);
   const r = EM.revisar({ tipo: 'salida', motivo: 'pago', monto: String(monto), dia: fecha, detalle: donde || 'Boleta', documento: 'Boleta', nota: 'Anotada con su foto en Gastos' }, isoHoy());
   if (r.error) throw new Error(r.error);
   r.mov.boleta = true;   // v0.131.0: así Efectivo la reconoce (boleta primero, pago después)
@@ -2005,7 +2005,7 @@ function dlgDocTrab(el, H, clave, razon, rut) {
       if (f.size > MAX_ARCHIVO) throw new Error('El archivo pesa más de 10 MB: comprímalo o súbalo en partes.');
       if (!/^application\/pdf$|^image\//.test(f.type || '')) throw new Error('Sirve un PDF o una foto.');
       b.textContent = 'Subiendo…';
-      const G = await import('./gastos.js?v=0.135.0'), b64 = await G.aBase64(f);
+      const G = await import('./gastos.js?v=0.136.0'), b64 = await G.aBase64(f);
       const ext = (f.name.match(/\.[A-Za-z0-9]{2,5}$/) || [f.type === 'application/pdf' ? '.pdf' : '.jpg'])[0];
       const nombre = `Trabajador - ${razon} - ${TR.TIPOS_DOC[tipo]} - ${fecha || isoHoy()}${ext}`.replace(/[\/\\:*?"<>|]/g, '_').slice(0, 120);
       const fd = (fecha || isoHoy()).split('-').reverse().join('-');
