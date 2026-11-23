@@ -7,8 +7,8 @@
 //  después los productos en 2 columnas (foto, nombre, formato, descripción corta, precio "$ 3.500 + IVA") y al final
 //  "Condiciones" y el contacto. Pie con el número de página. Paleta "Salvia y arena". Sin costos.
 // ═══════════════════════════════════════════════
-import { cargarLibrerias } from './pdf-orden.js?v=0.137.2';
-import * as LM from './listas-precios-modelo.js?v=0.137.2';
+import { cargarLibrerias } from './pdf-orden.js?v=0.138.0';
+import * as LM from './listas-precios-modelo.js?v=0.138.0';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ANCHO = 794, ALTO = 1123;          // px CSS de una hoja A4 (96 ppp)
@@ -104,14 +104,18 @@ async function esperarImagenes(raiz) {
 }
 // → { blob, nombre, paginas, bytes }
 export async function generar(lista, opts = {}) {
+  const r = await generarHojas(paginasHtml(lista, opts));
+  return { ...r, nombre: LM.nombreArchivo(lista) };
+}
+// v0.138.0: las hojas ya armadas ([{ html, texto }], cada html una .lp-pag) → { blob, paginas, bytes }. Lo usa también el aviso de producto nuevo.
+export async function generarHojas(hojas, css = CSS) {
   await cargarLibrerias();
-  const hojas = paginasHtml(lista, opts);
   const pdf = new window.jspdf.jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait', compress: true });
   const W = pdf.internal.pageSize.getWidth(), Hh = pdf.internal.pageSize.getHeight();
   for (let i = 0; i < hojas.length; i++) {
     const caja = document.createElement('div');
     caja.style.cssText = `position:absolute;top:0;left:-99999px;width:${ANCHO}px;z-index:-1`;
-    caja.innerHTML = `<style>${CSS}</style>` + hojas[i].html;
+    caja.innerHTML = `<style>${css}</style>` + hojas[i].html;
     document.body.appendChild(caja);
     try {
       const raiz = caja.querySelector('.lp-pag');
@@ -125,7 +129,7 @@ export async function generar(lista, opts = {}) {
     } finally { caja.remove(); }
   }
   const blob = pdf.output('blob');
-  return { blob, nombre: LM.nombreArchivo(lista), paginas: hojas.length, bytes: blob.size };
+  return { blob, paginas: hojas.length, bytes: blob.size };
 }
 // Bajar el archivo (computador, o celular sin "Compartir")
 export function bajar(blob, nombre) {
