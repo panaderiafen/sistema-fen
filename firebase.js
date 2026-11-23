@@ -7,7 +7,7 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
-  getFirestore, collection, doc, addDoc, getDoc, getDocs, updateDoc, setDoc, increment,
+  getFirestore, initializeFirestore, collection, doc, addDoc, getDoc, getDocs, updateDoc, setDoc, increment,
   query, where, orderBy, limit, onSnapshot, Timestamp, serverTimestamp, runTransaction,
   getAggregateFromServer, sum, count
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -17,7 +17,8 @@ import {
 // nunca cambia ni cierra la cuenta abierta en la caja de ese navegador.
 const app = initializeApp(window.FEN_SIS.firebase, 'sistema-fen');
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+// v0.137.1 (20 nov): la conexión por streaming de Firestore se quedó colgada (Abriendo… sin fin); la consulta larga (long polling) sí responde
+export const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 export {
   onAuthStateChanged, signInWithEmailAndPassword, signOut,
   setPersistence, browserLocalPersistence, browserSessionPersistence,

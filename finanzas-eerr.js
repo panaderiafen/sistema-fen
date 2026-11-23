@@ -40,11 +40,11 @@
 //   · La merma de la tienda (5.3), valorizada como el costo directo (finanzas-margenes.costearMermaTienda), en el área del producto.
 //   No son gastos de Gastos: la cuadratura los descuenta (info.caja). Un mes cerrado no cambia: lo nuevo entra como ajuste del mes siguiente.
 // ═══════════════════════════════════════════════
-import * as FR from './finanzas-resultados.js?v=0.136.0';
-import * as AR from './areas.js?v=0.136.0';
-import * as PC from './plan-cuentas.js?v=0.136.0';
-import * as GT from './tributario.js?v=0.136.0';   // v0.108.0: gestión y tributario
-import * as FS from './finanzas-estado.js?v=0.136.0';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
+import * as FR from './finanzas-resultados.js?v=0.137.2';
+import * as AR from './areas.js?v=0.137.2';
+import * as PC from './plan-cuentas.js?v=0.137.2';
+import * as GT from './tributario.js?v=0.137.2';   // v0.108.0: gestión y tributario
+import * as FS from './finanzas-estado.js?v=0.137.2';   // v0.111.0: el estado por cuentas (filas clásicas en 4 niveles)
 
 export const AREAS = AR.MARGEN;
 export const REVENTA = AR.REVENTA;
@@ -212,7 +212,14 @@ export function comisionCaja(E) {
   if (!mp || !mp.dias) return { fuente: 'tasa', motivo: tarjeta > 0 ? 'sin_reporte' : 'sin_tarjeta', estimada };
   const cobertura = tarjeta > 0 ? num(mp.bruto) / tarjeta : null;
   if (cobertura === null) return { fuente: 'tasa', motivo: 'sin_medios', mpBruto: r0(mp.bruto), estimada };
-  if (cobertura < 0.97 || cobertura > 1.03) return { fuente: 'tasa', motivo: 'parcial', cobertura: cobertura || 0, mpBruto: r0(mp.bruto), tarjeta: r0(tarjeta), estimada };
+  // v0.137.0 · Si el reporte no calza con la caja (trae otro punto de venta, como el Point de Ainavillo antes de registrar en la caja, o le
+  // faltan días), se usa la tasa REAL del reporte (comisión ÷ venta, la misma cuenta y la misma categoría) sobre lo vendido con tarjeta en
+  // Barros Arana. Antes iba con la tasa configurada.
+  if (cobertura < 0.97 || cobertura > 1.03) {
+    if (num(mp.bruto) > 0 && num(mp.comision) > 0) { const tasa = num(mp.comision) / num(mp.bruto);
+      return { fuente: 'real', porTasa: true, tasa, real: r0(tarjeta * tasa / 1.19), conIva: r0(tarjeta * tasa), cobertura, mpBruto: r0(mp.bruto), tarjeta: r0(tarjeta), estimada }; }
+    return { fuente: 'tasa', motivo: 'parcial', cobertura: cobertura || 0, mpBruto: r0(mp.bruto), tarjeta: r0(tarjeta), estimada };
+  }
   return { fuente: 'real', real: r0(num(mp.comision) / 1.19), conIva: r0(mp.comision), cobertura, estimada };
 }
 export function armarEERR(E) {
@@ -248,6 +255,9 @@ export function armarEERR(E) {
   ((CG && CG.lineas) || []).forEach(x => { F.cargos.comun += num(x.neto); det('cargos', 'comun', { tipo: 'cargo', nombre: s(x.nombre), suc: x.suc, neto: r0(x.neto), unidades: Math.round(num(x.cantidad) * 1000) / 1000, catalogoId: s(x.catalogoId) }); });
   if (CM.fuente === 'tasa' && CM.motivo === 'sin_reporte') avisos.push({ k: 'comision_tasa', texto: `Sin el reporte de Mercado Pago de ${mesTxt(mes)}: la comisión de tarjeta de Barros Arana va con la tasa configurada (Finanzas → Márgenes → Ajustes). Súbalo en Gastos → Bandeja para usar la comisión real.` });
   if (CM.fuente === 'tasa' && CM.motivo === 'sin_medios') avisos.push({ k: 'comision_tasa', texto: `El reporte de Mercado Pago de ${mesTxt(mes)} está, pero las ventas en tienda de Barros Arana no tienen el detalle por medio de pago para compararlo: la comisión de tarjeta va con la tasa configurada. "Volver a leer", arriba del estado de resultados, arma ese detalle.` });
+  const pctTasa = t => `${(Math.round(t * 1000) / 10).toLocaleString('es-CL')} %`;
+  if (CM.porTasa && CM.cobertura > 1.03) avisos.push({ k: 'comision_tasa_real', texto: `El reporte de Mercado Pago suma ${pesosTxt(CM.mpBruto)}, más que los ${pesosTxt(CM.tarjeta)} vendidos con tarjeta en Barros Arana en ${mesTxt(mes)} (${Math.round(CM.cobertura * 100)} %): trae cobros de otro punto de venta (el Point de Ainavillo) que no pasaron por la caja. La comisión de Barros Arana va con la tasa real del reporte (${pctTasa(CM.tasa)} con IVA) sobre lo vendido con tarjeta.` });
+  else if (CM.porTasa) avisos.push({ k: 'comision_tasa_real', texto: `El reporte de Mercado Pago cubre ${pesosTxt(CM.mpBruto)} de los ${pesosTxt(CM.tarjeta)} vendidos con tarjeta en ${mesTxt(mes)} (${Math.round(CM.cobertura * 100)} %): la comisión va con la tasa real del reporte (${pctTasa(CM.tasa)} con IVA) sobre lo vendido con tarjeta. Suba el reporte del mes completo para usar la comisión exacta.` });
   if (CM.fuente === 'tasa' && CM.motivo === 'parcial' && CM.cobertura > 1.03) avisos.push({ k: 'comision_tasa', texto: `El reporte de Mercado Pago suma ${pesosTxt(CM.mpBruto)}, más que los ${pesosTxt(CM.tarjeta)} vendidos con tarjeta en Barros Arana en ${mesTxt(mes)} (${Math.round(CM.cobertura * 100)} %): ¿incluye otro punto de venta o días de otro mes? Mientras tanto, la comisión de tarjeta va con la tasa configurada.` });
   else if (CM.fuente === 'tasa' && CM.motivo === 'parcial') avisos.push({ k: 'comision_tasa', texto: `El reporte de Mercado Pago cubre ${pesosTxt(CM.mpBruto)} de los ${pesosTxt(CM.tarjeta)} vendidos con tarjeta en ${mesTxt(mes)} (${Math.round(CM.cobertura * 100)} %): la comisión de tarjeta va con la tasa configurada hasta que el reporte cubra el mes.` });
   if (sinAsocNeto) avisos.push({ k: 'sin_asociar', texto: `Ventas de productos sin asociar: ${pesosTxt(sinAsocNeto)} (en Común, sin costo directo). Asócialos en Márgenes → Asociar productos.` });

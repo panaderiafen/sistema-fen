@@ -10,8 +10,8 @@
 //  · archivar: no si una receta viva (no archivada) la usa como ingrediente o insumo. Nada se borra.
 //  Se prueba solo: pruebas/sistemafen/mp-crear-v0760.test.js.
 // ═══════════════════════════════════════════════
-import { num, parsearContenido, contenidoValido } from './finanzas-costos.js?v=0.136.0';
-import { normalizarItem, contenidoDesdeForm, contenidoDeLinea, precioUnitarioNeto } from './finanzas-sii.js?v=0.136.0';
+import { num, parsearContenido, contenidoValido } from './finanzas-costos.js?v=0.137.2';
+import { normalizarItem, contenidoDesdeForm, contenidoDeLinea, precioUnitarioNeto } from './finanzas-sii.js?v=0.137.2';
 
 const t = v => (v === null || v === undefined ? '' : String(v).trim());
 const sinTildes = v => t(v).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -29,6 +29,30 @@ export const normNombre = v => sinTildes(v).replace(/[^a-z0-9ñ]+/g, ' ').replac
 export const esSub = m => !!m && (t(m.tipo) === 'sub_receta' || /^SR/i.test(t(m.id)));
 export const estadoDe = m => t(m && m.estado) || 'activa';
 // La que ya tiene ese nombre (cualquier estado; también una sub receta: no pueden llamarse igual). excepto: su propio id al cambiarle el nombre
+// ── v0.137.2 · Categorías: elegir una de las que hay, sin crear otra por escribirla distinto ──
+// (Emmanuel, 21 nov: "si escribo mal una categoría que existe se creará otra"; había "Lácteos", "Lacteos" y "Leches")
+// La clave ignora tildes, mayúsculas, espacios y la "s" final: "lacteos", "Lácteo" y "LÁCTEOS" son la misma.
+export const claveCategoria = v => normNombre(v).replace(/(es|s)$/, '');
+const NO_ES_CATEGORIA = /^(pendiente( de clasificar)?|sin categoria|sub recetas?)$/;
+// Las categorías de las materias primas e insumos (sin las sub recetas ni "Pendiente de clasificar"), una por clave, ordenadas
+export function categoriasDe(mps) {
+  const por = {};
+  (mps || []).filter(m => !esSub(m) && estadoDe(m) !== 'archivada').forEach(m => {
+    const c = t(m.categoria).replace(/\s+/g, ' '), k = claveCategoria(c);
+    if (!c || NO_ES_CATEGORIA.test(normNombre(c))) return;
+    (por[k] = por[k] || {})[c] = (por[k][c] || 0) + 1;
+  });
+  // De cada clave, la forma más usada (a igualdad, la con tilde)
+  return Object.values(por).map(f => Object.entries(f).sort((a, b) => b[1] - a[1] || (b[0] !== sinTildes(b[0])) - (a[0] !== sinTildes(a[0])))[0][0])
+    .sort((a, b) => a.localeCompare(b, 'es'));
+}
+// La categoría escrita, con la forma de una que ya existe si es la misma (si no, tal como se escribió)
+export function categoriaExistente(texto, mps) {
+  const c = t(texto).replace(/\s+/g, ' ').slice(0, 40), k = claveCategoria(c);
+  if (!k) return c;
+  return categoriasDe(mps).find(x => claveCategoria(x) === k) || c;
+}
+
 export function repetida(nombre, mps, excepto = '') {
   const n = normNombre(nombre); if (!n) return null;
   return (mps || []).find(m => m && t(m.id) !== t(excepto) && normNombre(m.nombre) === n) || null;
@@ -142,7 +166,7 @@ export function validarAlta(datos, mps) {
   let precioNeto = num(d.precio);
   if (!(precioNeto > 0)) throw new Error('Escribe el precio neto (sin IVA) de la unidad de compra.');
   if (d.conIva) precioNeto = redondear(precioNeto / 1.19, 2);
-  const categoria = t(d.categoria).replace(/\s+/g, ' ').slice(0, 40);
+  const categoria = categoriaExistente(d.categoria, mps);   // v0.137.2
   return { nombre, tipo, categoria, unidad, contenido, precioNeto, areas: limpiarAreas(d.areas) };
 }
 
@@ -182,7 +206,7 @@ export function cambioDatos(mp, datos, mps, { por = '', en = '' } = {}) {
     if (nombre !== t(mp.nombre)) { patch.nombre = nombre; cambios.push(`nombre: ${t(mp.nombre)} → ${nombre}`); }
   }
   if (d.categoria !== undefined) {
-    const c = t(d.categoria).replace(/\s+/g, ' ').slice(0, 40);
+    const c = categoriaExistente(d.categoria, mps);   // v0.137.2
     if (c !== t(mp.categoria)) { patch.categoria = c; cambios.push(`categoría: ${t(mp.categoria) || '—'} → ${c || '—'}`); }
   }
   if (d.areas !== undefined) {

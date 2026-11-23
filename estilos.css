@@ -3562,3 +3562,6 @@ dialog.dialogo:has(.mr-dlg) { width: min(980px, calc(100vw - 32px)); max-width: 
 /* v0.135.0 · Bandeja: cargo que parece repetido; boletas esperando su pago */
 .gn-rep { flex-basis: 100%; background: #FBF3E0; color: #5A4210; border-radius: 10px; padding: 6px 10px; font-size: 12.5px; line-height: 1.45; }
 #gn-esperan .gn-sug { flex-basis: 100%; }
+/* v0.137.2 · Categoría de una materia prima: lista + "Otra…" */
+[data-cat-otra] { margin-top: 6px; }
+[data-cat-sel] + [data-cat-otra][hidden] { display: none; }

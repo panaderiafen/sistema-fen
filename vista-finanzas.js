@@ -16,15 +16,16 @@
 //  línea" y las 3 más parecidas al asociar. Reglas puras en mp-alta-modelo.js; escribe en la base de Cocina (produccion.js) y aquí.
 //  H = ayudas de app.js: { esc, info, registrar, mensajeError, hace, dialogo }
 // ═══════════════════════════════════════════════
-import * as F from './finanzas.js?v=0.136.0';
-import * as FC from './finanzas-costos.js?v=0.136.0';
-import * as FS from './finanzas-sii.js?v=0.136.0';
-import * as FM from './finanzas-motor.js?v=0.136.0';
-import * as FV from './finanzas-ventas.js?v=0.136.0';
-import * as FMG from './finanzas-margenes.js?v=0.136.0';
-import { normalizar, coincide, conBuscador } from './buscador.js?v=0.136.0';
-import * as VR from './vista-finanzas-resultados.js?v=0.136.0';
-import * as MA from './mp-alta-modelo.js?v=0.136.0';
+import * as F from './finanzas.js?v=0.137.2';
+import * as FC from './finanzas-costos.js?v=0.137.2';
+import * as FS from './finanzas-sii.js?v=0.137.2';
+import * as FM from './finanzas-motor.js?v=0.137.2';
+import * as FV from './finanzas-ventas.js?v=0.137.2';
+import * as FMG from './finanzas-margenes.js?v=0.137.2';
+import { normalizar, coincide, conBuscador } from './buscador.js?v=0.137.2';
+import * as VR from './vista-finanzas-resultados.js?v=0.137.2';
+import * as MA from './mp-alta-modelo.js?v=0.137.2';
+import * as CC from './campo-categoria.js?v=0.137.2';
 
 const st = { datos: null, prod: null, cx: null, filtro: 'todas', q: '', msg: '', err: '', cargando: false, verRevisados: false, compras: null, cFiltro: '', cQ: '',
   pr: null, pArea: 'todas', pQ: '', pOrden: 'nombre', calcErr: '' };
@@ -92,9 +93,9 @@ export async function pintar(el, sub, H) {
   // v0.62.0: Estado de resultados (primera parte) y Cierre de mes; Clasificación pasa a #finanzas/resultados/clasificacion
   if (tab === 'resultados') return VR.pintarResultados(el, ['creditos', 'inversiones', 'clasificacion', 'cierre'].includes(p[2]) ? p[2] : 'eerr', H, { cab, error, sinBase, conexion: async () => { if (!st.cx || st.cx.gastos.estado !== 'ok') st.cx = await F.conexiones(); return st.cx; } });
   // v0.128.0 · Plata hoy: lo que hay, lo que viene y lo que queda (vista-plata.js, con los datos del Flujo de caja)
-  if (tab === 'plata') return (await import('./vista-plata.js?v=0.136.0')).pintar(el, H, { cab, error });
+  if (tab === 'plata') return (await import('./vista-plata.js?v=0.137.2')).pintar(el, H, { cab, error });
   // v0.124.0 · Flujo de caja (Semanas, Lo que viene y Cuadre) en vista-flujo.js
-  if (tab === 'flujo') return (await import('./vista-flujo.js?v=0.136.0')).pintar(el, p[2] === 'viene' ? 'viene' : p[2] === 'cuadre' ? 'cuadre' : 'semanas', H, { cab, error });
+  if (tab === 'flujo') return (await import('./vista-flujo.js?v=0.137.2')).pintar(el, p[2] === 'viene' ? 'viene' : p[2] === 'cuadre' ? 'cuadre' : 'semanas', H, { cab, error });
   if (tab === 'margenes') return pintarMargenes(el, ['asociar', 'margen', 'matriz', 'precios', 'ajustes'].includes(p[2]) ? p[2] : 'ventas', H);
   const parte = p[2] === 'revision' ? 'revision' : p[2] === 'compras' ? 'compras' : p[2] === 'productos' ? 'productos' : 'mp';
   el.innerHTML = cab(tab) + subPestanas(parte, null) + '<section class="tarjeta"><div class="vacio" style="border:0">Abriendo los costos…</div></section>';
@@ -423,7 +424,7 @@ function editar(id, el, H, volver) {
 // La base de Cocina (fen-produccion mps) es la maestra (todas, con cualquier estado); el precio va al maestro de costos (aquí).
 const mpsCocina = () => (st.prod && Array.isArray(st.prod.mps) ? st.prod.mps : []);
 const mpDe = id => mpsCocina().find(m => m.id === id) || null;
-const categoriasCocina = () => [...new Set(mpsCocina().filter(m => !MA.esSub(m)).map(m => String(m.categoria || '').trim()).filter(c => c && !/^pendiente$/i.test(c)))].sort((a, b) => a.localeCompare(b, 'es'));
+const categoriasCocina = () => MA.categoriasDe(mpsCocina());   // v0.137.2: una por clave (sin repetidas por tildes o plural)
 const ESTADO_CHIP = { activa: '', inactiva: '<span class="chip c-amarillo chip-chico">inactiva</span>', archivada: '<span class="chip c-gris chip-chico">archivada</span>', reemplazada: '<span class="chip c-gris chip-chico">reemplazada</span>' };
 const TXT_AREAS = 'Las áreas de Cocina que la ven para elegirla en sus recetas.\nSi no marcas ninguna, sirve para todas las áreas (Panadería, Bollería, Pastelería y Cafetería).\nSi después un área la necesita, la puede pedir desde Cocina ("Falta una materia prima") o la habilitas aquí.';
 const TXT_NOMBRE = 'Las recetas guardan el ID de la materia prima (por ejemplo MP012), no el nombre: cambiarlo no rompe nada.\nEl nombre nuevo se ve en Cocina al elegir ingredientes y en las recetas que la usan (se cambia también la copia del nombre en esas recetas), y en Finanzas.\nNo puede repetirse con otra (sin importar mayúsculas ni tildes), aunque esa esté archivada.';
@@ -456,8 +457,7 @@ function dialogoAlta(el, H, { g = null, volver = 'mp' } = {}) {
     <fieldset class="fin-as-tipo"><legend class="rotulo-campo">Es</legend>
       <label class="check"><input type="radio" name="mpa-tipo" value="mp" ${pre.tipo === 'insumo' ? '' : 'checked'}> Materia prima (va en la receta)</label>
       <label class="check"><input type="radio" name="mpa-tipo" value="insumo" ${pre.tipo === 'insumo' ? 'checked' : ''}> Insumo (envase, etiqueta, desechable…)</label></fieldset>
-    <div class="campo"><label for="mpa-cat">Categoría</label><input id="mpa-cat" list="mpa-cats" maxlength="40" autocomplete="off" placeholder="${H.esc(cats.slice(0, 3).join(', ') || 'Secos, Lácteos…')}" value="${H.esc(pre.categoria)}">
-      <datalist id="mpa-cats">${cats.map(c => `<option value="${H.esc(c)}"></option>`).join('')}</datalist></div>
+    <div class="campo"><label for="mpa-cat">Categoría</label>${CC.htmlCategoria(H, 'mpa-cat', pre.categoria, cats)}</div>
     <div class="grilla-montos">
       <div class="campo"><label for="mpa-uni">Unidad de compra ${H.info('Unidad de compra', 'Cómo la compras: kg, 25kg (un saco), lt, 500ml, un, 10un (un paquete de 10)…\nAl lado va lo que trae esa unidad, en peso, volumen o unidades: con eso sale el precio por kg, l o unidad que usa el costeo.' + (g ? '\nAquí la unidad de compra es la de la factura: lo que trae una unidad facturada.' : ''))}</label>
         <input id="mpa-uni" maxlength="20" autocomplete="off" spellcheck="false" placeholder="kg, 25kg, lt, un, 10un" value="${H.esc(pre.unidad)}"></div>
@@ -476,8 +476,9 @@ function dialogoAlta(el, H, { g = null, volver = 'mp' } = {}) {
   </form>`);
   const q = s2 => d.querySelector(s2);
   q('#mpa-no').addEventListener('click', () => d.close());
+  CC.conectarCategoria(d, cats);   // v0.137.2
   let contTocado = false;   // si escribes el contenido a mano, la unidad de compra ya no lo cambia
-  const leer = () => ({ nombre: q('#mpa-nombre').value, tipo: (d.querySelector('input[name="mpa-tipo"]:checked') || {}).value, categoria: q('#mpa-cat').value, unidad: q('#mpa-uni').value,
+  const leer = () => ({ nombre: q('#mpa-nombre').value, tipo: (d.querySelector('input[name="mpa-tipo"]:checked') || {}).value, categoria: CC.leerCategoria(d, 'mpa-cat'), unidad: q('#mpa-uni').value,
     contenido: { cantidad: FC.casilla(q('#mpa-cant')), unidad: q('#mpa-cuni').value }, precio: FC.casilla(q('#mpa-precio')), conIva: q('#mpa-coniva').checked, areas: leerAreas(d, 'mpa') });
   const abrirOtra = (id, modo) => {
     d.close();
@@ -546,8 +547,7 @@ function dialogoDatos(id, el, H, volver = 'mp') {
     <p class="ayuda">${MA.TIPOS[m.tipo === 'insumo' ? 'insumo' : 'mp']} · ${H.esc(id)} · se compra por ${H.esc(m.unidad || '—')} ${ESTADO_CHIP[est] || ''}</p>
     <div class="campo"><label for="mpd-nombre">Nombre ${H.info('Cambiar el nombre', TXT_NOMBRE)}</label><input id="mpd-nombre" maxlength="${MA.MAX_NOMBRE}" autocomplete="off" spellcheck="false" value="${H.esc(m.nombre)}">
       <div id="mpd-aviso" role="status" aria-live="polite"></div></div>
-    <div class="campo"><label for="mpd-cat">Categoría</label><input id="mpd-cat" list="mpd-cats" maxlength="40" autocomplete="off" value="${H.esc(/^pendiente$/i.test(m.categoria || '') ? '' : m.categoria || '')}" placeholder="${H.esc(cats.slice(0, 3).join(', ') || 'Secos, Lácteos…')}">
-      <datalist id="mpd-cats">${cats.map(c => `<option value="${H.esc(c)}"></option>`).join('')}</datalist></div>
+    <div class="campo"><label for="mpd-cat">Categoría</label>${CC.htmlCategoria(H, 'mpd-cat', m.categoria, cats)}</div>
     ${checksAreas('mpd', areas, H)}
     <p class="error" id="mpd-err" role="alert"></p>
     <div class="botones"><button type="button" class="btn-sec" id="mpd-no">Cancelar</button><button type="submit" class="btn" id="mpd-si">Guardar</button></div>
@@ -561,6 +561,7 @@ function dialogoDatos(id, el, H, volver = 'mp') {
   </form>`);
   const q = s2 => d.querySelector(s2);
   q('#mpd-no').addEventListener('click', () => d.close());
+  CC.conectarCategoria(d, cats);   // v0.137.2
   const aviso = () => {
     const n = q('#mpd-nombre').value, rep = MA.repetida(n, mpsCocina(), id), box = q('#mpd-aviso');
     const harina = /^harina/i.test(MA.normNombre(m.nombre)) && !/^harina/i.test(MA.normNombre(n));
@@ -575,7 +576,7 @@ function dialogoDatos(id, el, H, volver = 'mp') {
   q('#mpd-f').addEventListener('submit', async ev => {
     ev.preventDefault();
     const err = q('#mpd-err'), b = q('#mpd-si'); err.textContent = '';
-    const datos = { nombre: q('#mpd-nombre').value, categoria: q('#mpd-cat').value, areas: leerAreas(d, 'mpd') };
+    const datos = { nombre: q('#mpd-nombre').value, categoria: CC.leerCategoria(d, 'mpd-cat') || undefined, areas: leerAreas(d, 'mpd') };
     let c;
     try { c = MA.cambioDatos(m, datos, mpsCocina()); } catch (e) { err.textContent = e.message; return; }
     if (!c) { d.close(); return; }
@@ -1320,7 +1321,7 @@ function dialogoVinculo(p, el, volver, H) {
   d.querySelectorAll('input[name="m-vt"]').forEach(r => r.addEventListener('change', vis));
   // v0.73.0: la lista de reventa (cat_reventa, de la memoria de fs-gastos): activas, más la que ya tenía este producto
   const selRev = d.querySelector('#m-v-revid');
-  import('./reventa.js?v=0.136.0').then(R => R.leer()).then(({ lista }) => {
+  import('./reventa.js?v=0.137.2').then(R => R.leer()).then(({ lista }) => {
     MS.reventa = lista;
     const ofrecer = lista.filter(x => x.estado !== 'archivado' || (v && v.reventaId === x.id)).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
     selRev.innerHTML = `<option value="">${ofrecer.length ? 'Elige…' : 'La lista de reventa está vacía (Catálogo → Reventa)'}</option>` + ofrecer.map(x => `<option value="${H.esc(x.id)}" data-costo="${x.costoNeto ?? ''}" data-nombre="${H.esc(x.nombre)}" ${v && v.reventaId === x.id ? 'selected' : ''}>${H.esc(x.nombre)} · ${H.esc(x.id)} · $${(Math.round(Number(x.costoNeto || 0) * 100) / 100).toLocaleString('es-CL')} / ${H.esc(x.unidad || 'un')}${x.estado === 'archivado' ? ' · archivada' : ''}</option>`).join('');
