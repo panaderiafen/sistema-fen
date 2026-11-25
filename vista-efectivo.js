@@ -9,9 +9,11 @@
 //  v0.122.0: cada movimiento muestra "antes" y "saldo"; Contar puede corregir el conteo anterior mal hecho.
 //  v0.123.0 (aprobado por Emmanuel el 1 nov): "Por unir a su documento" (los pagos en efectivo, de aquí y de las cajas, se unen a su
 //  boleta o factura en Gastos), los depósitos esperan su abono de la cartola, y la pestaña "Retiros por semana".
+//  v0.139.0 (aprobado por Emmanuel el 25 nov, boceto "Etiquetas de sobres y gastos de logística"): los gastos que logística pagó con
+//  la plata de los cobros llegan como pagos al recibir sus cobros (quedan Por unir a su documento) y quedan recibidos en fen-b2b.
 // ═══════════════════════════════════════════════
-import * as M from './efectivo-modelo.js?v=0.138.0';
-import * as FS from './efectivo-fs.js?v=0.138.0';
+import * as M from './efectivo-modelo.js?v=0.139.0';
+import * as FS from './efectivo-fs.js?v=0.139.0';
 
 const EF = { mes: '', cuenta: undefined, movs: null, porRecibir: null, posteriores: null, porUnir: null, semana: '', msg: '', err: '', selPr: new Set(), pasados: null };   // v0.124.8: selPr = ids elegidos en Por recibir · v0.124.9: pasados = { mes: [movs] } de los meses anteriores (se leen al abrir "Meses anteriores")
 export function olvidar() { EF.cuenta = undefined; EF.movs = null; EF.pasados = null; EF.porRecibir = null; EF.posteriores = null; EF.porUnir = null; EF.pasados = null; FS.olvidarPorUnir(); FS.olvidarSemanas(); }
@@ -28,10 +30,12 @@ const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], MESES = ['ener
 const diaTexto = d => { if (!d) return ''; const [y, m, dd] = d.split('-').map(Number); return `${DIAS[new Date(y, m - 1, dd).getDay()]} ${dd} ${MESES[m - 1].slice(0, 3)}`; };
 // v0.131.0 · Los cobros en efectivo que marcó logística (fen-b2b) quedan por recibir aquí. Si Ventas a empresas no está conectada
 // en este equipo, se sigue sin ellos (con un aviso). Un cobro ya recibido cuya orden quedó pendiente se vuelve a marcar.
-const b2bMod = () => import('./b2b.js?v=0.138.0');
+const b2bMod = () => import('./b2b.js?v=0.139.0');
 async function traerLogistica() {
-  EF.avisoLog = '';
+  EF.avisoLog = ''; EF.gastosLog = [];
   let grupos;
+  // v0.139.0 · Los gastos que logística pagó con la plata de los cobros (se descuentan al recibir sus cobros)
+  try { EF.gastosLog = await (await b2bMod()).gastosLogistica(); } catch (e) { console.warn('Efectivo: sin los gastos de logística', e); EF.gastosLog = []; }
   try { grupos = await (await b2bMod()).cobrosLogistica(); }
   catch (e) { console.warn('Efectivo: sin los cobros de logística (Ventas a empresas sin conectar en este equipo)', e); return; }
   try {
@@ -47,6 +51,13 @@ async function marcarLogistica(lista) {
     try { await (await b2bMod()).marcarCobroRecibido(x.logistica.cobroId, x.logistica.ns); }
     catch (e) { console.warn('Efectivo: el cobro quedó recibido, pero la orden no se marcó (se reintenta al abrir Efectivo)', e); }
   }
+}
+// v0.139.0 · Gastos de logística (fen-logistica v1.5.0): texto, y los que van con los cobros de logística de la lista (por el día del cobro)
+const QUE_GASTO = { estacionamiento: 'Estacionamiento', compra: 'Compra chica', bencina: 'Bencina', otro: 'Otro' };
+export const textoGastoLog = g => (g.detalle ? `${g.que === 'otro' ? '' : (QUE_GASTO[g.que] || 'Gasto') + ': '}${g.detalle}` : QUE_GASTO[g.que] || 'Gasto');
+export function gastosDeLista(lista, gastos) {
+  const dias = new Set((lista || []).filter(x => x && x.logistica).map(x => x.dia));
+  return (gastos || []).filter(g => dias.has(g.fecha)).sort((a, b) => String(a.en || '').localeCompare(String(b.en || '')));
 }
 // De dónde viene lo que está por recibir
 const textoPr = x => (x.logistica ? `Cobrado por logística · ${x.cliente || ''} · ${M.refB2b(x)}` : x.origen === 'b2b' ? `Efectivo de un cliente B2B · ${x.cliente || ''} · ${M.refB2b(x)}` : `${M.TEXTO_CAJA[x.motivo] || ''} · ${M.textoSucursal(x.sucursal)}`);
@@ -121,7 +132,7 @@ export async function pintarEfectivo(el, sub, H) {
     const cas = entra && entran.length >= 2 ? `<label class="check-b2b ef-sel-pr"><input type="checkbox" data-sel-pr="${esc(x.id)}" ${EF.selPr.has(x.id) ? 'checked' : ''} aria-label="Marcar ${esc(textoPr(x))} · ${esc(pesos(x.monto))}"></label>` : '';
     return `<div class="fila-caja ef-fila${cas ? ' ef-fila-sel' : ''}">${cas}<div class="txt">
         <b>${entra ? '<span class="chip c-verde">Entra</span>' : '<span class="chip c-amarillo">Sale</span>'} ${esc(textoPr(x))}</b>
-        <span>${esc(diaTexto(x.dia))}${x.logistica && x.logistica.cobro ? ' · cobró ' + esc(x.logistica.cobro) : x.por ? ' · ' + esc(x.por) : ''}${x.nota ? ' · ' + esc(x.nota) : ''}</span></div>
+        <span>${esc(diaTexto(x.dia))}${x.logistica && x.logistica.cobro ? ' · cobró ' + esc(x.logistica.cobro) : x.por ? ' · ' + esc(x.por) : ''}${x.nota ? ' · ' + esc(x.nota) : ''}</span>${x.logistica && gastosDeLista([x], EF.gastosLog).length ? `<span class="nota">Logística anotó gastos ese día: se descuentan al recibir (${esc(pesos(gastosDeLista([x], EF.gastosLog).reduce((a, g) => a + g.monto, 0)))})</span>` : ''}</div>
       <div class="acciones"><span class="ef-monto ef-${entra ? 'ingreso' : 'salida'}">${entra ? '+ ' : '− '}${pesos(x.monto)}</span><button type="button" class="btn btn-chico" data-recibir="${esc(x.id)}">${entra ? 'Recibir' : 'Confirmar salida'}</button>${x.origen === 'b2b' ? `<button type="button" class="btn-link btn-chico" data-anular-pr="${esc(x.id)}">Anular</button>` : ''}</div></div>`;
   };
   const totPr = pr.reduce((a, x) => a + (entraPr(x) ? 1 : -1) * Math.round(Number(x.monto) || 0), 0);
@@ -310,7 +321,7 @@ function dialogoMov(tipo, H, repintar) {
       EF.msg = `Listo. Lo que debería haber en la caja de administración: <b>${esc(pesos(res.saldo))}</b>.`;
       // v0.134.0 · Pago en efectivo sin boleta posible: queda como gasto "Sin documento" de una vez (si se deja para después, queda por unir)
       if (tipo === 'salida' && r.mov.motivo === 'pago' && res.id) {
-        try { const G = await import('./vista-gn.js?v=0.138.0'), ok = await G.dlgSinDocEfectivo(H, { id: res.id, col: 'efectivo_movimientos', ...r.mov });
+        try { const G = await import('./vista-gn.js?v=0.139.0'), ok = await G.dlgSinDocEfectivo(H, { id: res.id, col: 'efectivo_movimientos', ...r.mov });
           EF.msg += ok ? ' Quedó registrado en Gastos como gasto sin documento.' : ' Quedó por unir: regístrelo en Gastos cuando pueda ("Unir a su documento").'; }
         catch (e2) { EF.msg += ` No se alcanzó a registrar en Gastos (${esc(e2.message || H.mensajeError(e2))}): quedó por unir.`; }
         EF.porUnir = null; FS.olvidarPorUnir();
@@ -355,6 +366,11 @@ async function recibir(x, b, H, repintar) {
   const { esc, pesos } = H;
   const entra = x.tipo === 'retiro' || x.origen === 'b2b';
   if (!entra) return guardarRecibir(x, null, b, H, repintar);
+  // v0.139.0 · Un cobro de logística con gastos anotados ese día: se recibe el sobre del día (sus cobros y sus gastos juntos)
+  if (x.logistica && gastosDeLista([x], EF.gastosLog).length) {
+    const delDia = (EF.porRecibir || []).filter(y => y.logistica && y.dia === x.dia && M.movPorRecibir(y));
+    return dialogoRecibirTodos(delDia.length ? delDia : [x], H, repintar, true, 'Recibir el sobre de logística');
+  }
   const esperado = Math.round(Number(x.monto) || 0);
   const bols = await boletasRecientes();   // v0.131.0
   const d = H.dialogo(`<form class="form-dialogo" novalidate><h2>Recibir</h2>
@@ -464,17 +480,19 @@ async function guardarRecibir(x, rec, b, H, repintar, errEl = null) {
 // v0.136.0 (Emmanuel, 18 nov: "una línea de cuánto llegó para que el sistema haga la resta solo"; los cobros llegan siempre juntos):
 // una sola línea "¿Cuánto llegó en total?". Si llegó menos, la diferencia se explica una vez (boletas ya pagadas, pagos con esa
 // plata, faltante) y M.repartirDiferencia la reparte entre los cobros; cada uno se guarda con su recepción, como antes.
-async function dialogoRecibirTodos(lista, H, repintar, seleccion = false) {   // v0.124.8: seleccion = solo lo marcado (puede ser 1)
+async function dialogoRecibirTodos(lista, H, repintar, seleccion = false, titulo = '') {   // v0.124.8: seleccion = solo lo marcado (puede ser 1) · v0.139.0: titulo
   if (!lista || lista.length < (seleccion ? 1 : 2)) return;
   const { esc, pesos } = H;
   const esperados = lista.map(x => Math.round(Number(x.monto) || 0)), total = esperados.reduce((a, b) => a + b, 0);
-  const tit = seleccion ? 'Recibir lo seleccionado' : 'Recibir todos';
+  const tit = titulo || (seleccion ? 'Recibir lo seleccionado' : 'Recibir todos');
   const bols = await boletasRecientes();
+  const gLog = gastosDeLista(lista, EF.gastosLog), sumaG = gLog.reduce((a, g) => a + g.monto, 0);   // v0.139.0
   const d = H.dialogo(`<form class="form-dialogo ef-rt-form" novalidate><h2>${tit}</h2>
     <p class="ayuda">Está recibiendo ${lista.length === 1 ? 'esto' : `estos ${lista.length}`}:</p>
     <div class="ef-rt-lista">${lista.map(x => `<div class="ef-rt-fila"><span>${esc(textoPr(x))} · ${esc(diaTexto(x.dia))}${x.logistica && x.logistica.cobro ? `<br><span class="nota">cobró ${esc(x.logistica.cobro)}</span>` : ''}</span><b class="nowrap">${pesos(x.monto)}</b></div>`).join('')}
       <div class="ef-rt-fila ef-rt-total"><span>Se esperaba (${lista.length})</span><b class="nowrap" id="ef-rt-total">${pesos(total)}</b></div></div>
-    <div class="campo"><label for="ef-rt-llego">¿Cuánto llegó en total?</label><input id="ef-rt-llego" inputmode="numeric" autocomplete="off" value="${total.toLocaleString('es-CL')}"></div>
+    ${gLog.length ? `<p class="ayuda ef-rt-glog">Logística anotó <b>${gLog.length} ${gLog.length === 1 ? 'gasto' : 'gastos'}</b> pagados con esta plata (${pesos(sumaG)}): ya van abajo como pagos, y debería llegar <b>${pesos(total - sumaG)}</b>. Quedan por unir a su boleta, o como sin documento, en Gastos.</p>` : ''}
+    <div class="campo"><label for="ef-rt-llego">¿Cuánto llegó en total?</label><input id="ef-rt-llego" inputmode="numeric" autocomplete="off" value="${Math.max(0, total - sumaG).toLocaleString('es-CL')}"></div>
     <div id="ef-rt-dif" class="oculto">
       <p class="ayuda" id="ef-rt-dif-txt"></p>
       ${bols.length ? `<fieldset class="ef-bols"><legend>Boletas ya pagadas en efectivo (últimos ${M.DIAS_BOLETA} días)</legend>
@@ -493,9 +511,9 @@ async function dialogoRecibirTodos(lista, H, repintar, seleccion = false) {   //
     .concat([...usos.querySelectorAll('.ef-uso')].map(u => { const o = { tipo: u.dataset.tipo }; u.querySelectorAll('[data-u]').forEach(i => { o[i.dataset.u] = i.value; }); return o; }));
   const explicado = () => leerUsos().reduce((a, u) => a + (M.leerMonto(u.monto) || 0), 0);
   let n = 0;
-  const filaUso = tipo => {
+  const filaUso = (tipo, pre = null) => {   // v0.139.0: pre = un gasto de logística ({ proveedor, documento, monto, gasto })
     const k = ++n, div = document.createElement('div');
-    div.className = 'ef-uso'; div.dataset.tipo = tipo;
+    div.className = 'ef-uso'; div.dataset.tipo = tipo; if (pre && pre.gasto) div.dataset.gasto = pre.gasto;
     div.innerHTML = tipo === 'pago'
       ? `<div class="fila-campos"><div class="campo"><label for="ert-p${k}">A quién se le pagó</label><input id="ert-p${k}" data-u="proveedor" maxlength="120" placeholder="Nombre del proveedor"></div>
          <div class="campo"><label for="ert-d${k}">N° de boleta o factura (si la hay)</label><input id="ert-d${k}" data-u="documento" maxlength="40"></div>
@@ -506,6 +524,7 @@ async function dialogoRecibirTodos(lista, H, repintar, seleccion = false) {   //
          <button type="button" class="btn-link btn-chico" data-quitar>Quitar</button>`;
     div.querySelector('[data-quitar]').onclick = () => { div.remove(); vis(); };
     usos.appendChild(div);
+    if (pre) { ['proveedor', 'documento'].forEach(c => { const i = div.querySelector(`[data-u="${c}"]`); if (i) i.value = pre[c] || ''; }); div.querySelector('[data-u="monto"]').value = pre.monto.toLocaleString('es-CL'); return; }
     const resto = total - (llego() >= 0 ? llego() : total) - explicado();   // sugiere lo que falta explicar
     if (resto > 0) div.querySelector('[data-u="monto"]').value = resto.toLocaleString('es-CL');
     vis(); div.querySelector('input').focus();
@@ -521,6 +540,7 @@ async function dialogoRecibirTodos(lista, H, repintar, seleccion = false) {   //
   d.addEventListener('input', vis); d.addEventListener('change', vis);
   d.querySelector('#ef-rt-mas-pago').onclick = () => filaUso('pago');
   d.querySelector('#ef-rt-mas-falta').onclick = () => filaUso('faltante');
+  gLog.forEach(g => filaUso('pago', { proveedor: `${textoGastoLog(g)} (logística)`.slice(0, 120), documento: g.boleta ? 'boleta en el sobre' : 'sin boleta', monto: g.monto, gasto: g.id }));   // v0.139.0
   vis();
   d.querySelector('form').addEventListener('submit', async ev => {
     ev.preventDefault();
@@ -540,6 +560,9 @@ async function dialogoRecibirTodos(lista, H, repintar, seleccion = false) {   //
       for (const x of lista) if (!(await cobroVigente(x))) throw new Error(`Logística deshizo el cobro de ${x.cliente || 'un cliente'} recién. No se recibió ninguno: cierre y vuelva a abrir Efectivo.`);
       const res = await FS.recibirVarios(items);
       await marcarLogistica(lista);
+      // v0.139.0 · Los gastos de logística que quedaron como pagos: recibidos en fen-b2b (logística ya no los quita)
+      const idsG = [...usos.querySelectorAll('.ef-uso[data-gasto]')].map(u => u.dataset.gasto);
+      if (idsG.length) { try { await (await b2bMod()).marcarGastosRecibidos(idsG, `Recibido con los cobros del ${lista[0].dia || ''}`); } catch (e) { console.warn('Efectivo: los gastos de logística no se marcaron recibidos (se ven otra vez al abrir)', e); } EF.gastosLog = null; }
       H.registrar((seleccion ? 'Efectivo: recibió lo seleccionado' : 'Efectivo: recibió todos') + (rep.falta ? ` (llegaron ${pesos(rep.falta)} menos)` : ' (completos)'), `${lista.length} · ${pesos(res.total)} de ${pesos(total)} · ${lista.map(x => `${textoPr(x)} ${pesos(x.monto)}`).join(' · ')}`.slice(0, 900));
       d.close();
       const meses = [...new Set(lista.map(x => String(x.dia || '').slice(0, 7)).filter(Boolean))].sort();
@@ -587,7 +610,7 @@ function dialogoAnularPr(x, H, repintar) {
 // ═══════════════ v0.123.0 · Unir un pago en efectivo a su documento en Gastos ═══════════════
 // Primero se paga en Gastos (fen-gastos), con una clave que sale del movimiento; después se marca aquí (fen-ventas). Son dos bases
 // distintas: si la segunda parte falla, el pago en Gastos ya quedó y "Unir" otra vez solo termina de marcarlo (no paga dos veces).
-const fsGN = () => import('./gn-fs.js?v=0.138.0');
+const fsGN = () => import('./gn-fs.js?v=0.139.0');
 function dialogoUnir(m, H, repintar) {
   const { esc, pesos } = H;
   let docs = null, elegido = '';
@@ -600,7 +623,7 @@ function dialogoUnir(m, H, repintar) {
     <div class="botones"><button type="button" class="btn-sec" id="eu-no">Cancelar</button><button type="submit" class="btn" id="eu-si" disabled>Unir</button></div></form>`);
   const lista = d.querySelector('#eu-lista'), err = d.querySelector('#eu-err'), b = d.querySelector('#eu-si');
   const sd = d.querySelector('#eu-sindoc');   // v0.134.0
-  if (sd) sd.onclick = async () => { d.close(); try { const G = await import('./vista-gn.js?v=0.138.0'); if (await G.dlgSinDocEfectivo(H, m)) { EF.porUnir = null; EF.movs = null; FS.olvidarPorUnir(); EF.msg = 'Listo: quedó en Gastos como gasto sin documento, pagado con este efectivo.'; repintar(); } } catch (e) { EF.msg = esc(e.message || H.mensajeError(e)); repintar(); } };
+  if (sd) sd.onclick = async () => { d.close(); try { const G = await import('./vista-gn.js?v=0.139.0'); if (await G.dlgSinDocEfectivo(H, m)) { EF.porUnir = null; EF.movs = null; FS.olvidarPorUnir(); EF.msg = 'Listo: quedó en Gastos como gasto sin documento, pagado con este efectivo.'; repintar(); } } catch (e) { EF.msg = esc(e.message || H.mensajeError(e)); repintar(); } };
   const fila = x => {
     const dd = x.d, pag = dd.estado === 'pagado_efectivo';
     const sub = pag ? `Ya pagado en efectivo en Gastos el ${esc(diaTexto(dd.pagoFecha || dd.fecha))} · ${pesos(dd.pagoMonto)}` : `${esc(diaTexto(dd.fecha))} · total ${pesos(dd.total)}${dd.saldo !== dd.total ? ` · falta ${pesos(dd.saldo)}` : ''}`;

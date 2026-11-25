@@ -6,10 +6,10 @@
 //    achicadas en el equipo (≤ 900 px, ≤ 90 KB cada una: 4 fotos ≈ 360 KB, bajo el máximo de 1 MB de un documento).
 //  Lecturas: los avisos, 1 consulta (los últimos 40), una vez por sesión; las fotos, 1 por aviso al abrirlo. Nada se borra.
 // ═══════════════════════════════════════════════
-import { auth } from './firebase.js?v=0.138.0';
-import * as GB from './gastos-base.js?v=0.138.0';
-import * as FBG from './fs-gastos.js?v=0.138.0';
-import * as LM from './listas-precios-modelo.js?v=0.138.0';
+import { auth } from './firebase.js?v=0.139.0';
+import * as GB from './gastos-base.js?v=0.139.0';
+import * as FBG from './fs-gastos.js?v=0.139.0';
+import * as LM from './listas-precios-modelo.js?v=0.139.0';
 
 const yo = () => (auth.currentUser && auth.currentUser.email) || '';
 const ahora = () => new Date().toISOString();

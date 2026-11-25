@@ -11,7 +11,7 @@
 //    enviadoEn, envios [...], historial }
 //  Fotos aparte (leer la lista no trae imágenes): avisos_fotos/{id} = { principal (data URL | null), rellenos [data URL] }
 // ═══════════════════════════════════════════════
-import * as LM from './listas-precios-modelo.js?v=0.138.0';
+import * as LM from './listas-precios-modelo.js?v=0.139.0';
 
 export const TIPOS = { talcual: 'Se vende tal cual', rellenar: 'Para rellenar o agregar valor' };
 export const MAX_RELLENOS = 3, MAX_CARACT = 3;

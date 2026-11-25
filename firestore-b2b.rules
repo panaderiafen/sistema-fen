@@ -1,8 +1,12 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.9.0 (2026-11-17)
+//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.10.0 (2026-11-25)
 //
+//  v1.10.0: (Sistema Fën v0.139.0 · logística v1.5.0) gastos_logistica/{id}: los gastos que logística paga con la
+//          plata de los cobros (estacionamiento, compras chicas). Logística crea los suyos (a su nombre, monto
+//          entre 1 y 200.000, pendientes de recibir) y los quita mientras administración no los recibe; los ve
+//          solo ella y administración. Administración los marca recibidos. Nada se borra. Todo lo demás igual.
 //  v1.9.0: (Sistema Fën v0.131.0 · logística v1.4.0) Cobros en efectivo: logística marca pagada en efectivo una
 //          orden sin folio y pendiente (solo los campos del pago, por el total de la orden, a su nombre y
 //          "pendiente de recibir"), y lo deshace mientras administración no lo recibe. Todo lo demás igual.
@@ -172,6 +176,24 @@ service cloud.firestore {
       // logística solo marca "Entendido" en la respuesta a una solicitud suya
       allow update: if esAdmin()
                     || (esLogistica() && antes().por == miCorreo() && cambian().hasOnly(['vista', 'vistaEn']) && nuevo().vista == true);
+      allow delete: if false;
+    }
+
+    // v1.10.0 · Gastos de logística con la plata de los cobros
+    match /gastos_logistica/{id} {
+      allow read: if esAdmin() || (esLogistica() && resource.data.por == miCorreo());
+      allow create: if esLogistica() && nuevo().por == miCorreo()
+                    && nuevo().keys().hasOnly(['monto', 'que', 'detalle', 'boleta', 'fecha', 'por', 'en', 'pendienteAdmin', 'creado'])
+                    && nuevo().monto is int && nuevo().monto > 0 && nuevo().monto <= 200000
+                    && nuevo().que in ['estacionamiento', 'compra', 'bencina', 'otro']
+                    && nuevo().detalle is string && nuevo().detalle.size() <= 120
+                    && nuevo().boleta is bool && nuevo().fecha is string && nuevo().fecha.size() == 10
+                    && nuevo().pendienteAdmin == true;
+      // logística solo lo quita (anulado) mientras sigue pendiente; administración lo marca recibido
+      allow update: if esAdmin()
+                    || (esLogistica() && antes().por == miCorreo() && antes().pendienteAdmin == true
+                        && cambian().hasOnly(['anulado', 'pendienteAdmin', 'anuladoEn'])
+                        && nuevo().anulado == true && nuevo().pendienteAdmin == false);
       allow delete: if false;
     }
 

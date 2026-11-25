@@ -8,15 +8,15 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.138.0';
-import * as FB from './firebase-b2b.js?v=0.138.0';
-import * as Apps from './apps.js?v=0.138.0';
-import * as Mem from './fs-memoria.js?v=0.138.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.138.0';
-import { distanciaTef } from './feriados-cl.js?v=0.138.0';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.138.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.138.0';
-import { cuadreCartola } from './gn-modelo.js?v=0.138.0';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.139.0';
+import * as FB from './firebase-b2b.js?v=0.139.0';
+import * as Apps from './apps.js?v=0.139.0';
+import * as Mem from './fs-memoria.js?v=0.139.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.139.0';
+import { distanciaTef } from './feriados-cl.js?v=0.139.0';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.139.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.139.0';
+import { cuadreCartola } from './gn-modelo.js?v=0.139.0';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -593,6 +593,31 @@ export async function cobroSigue(cobroId, ns) {
     if (!p || String(p.cobroId) !== String(cobroId) || !p.pendienteAdmin) return false;
   }
   return true;
+}
+// v0.139.0 · Gastos que logística pagó con la plata de los cobros (fen-logistica v1.5.0, reglas fen-b2b v1.10.0): los pendientes de
+// recibir. 1 consulta (igualdad en un campo). → [{ id, fecha, monto, que, detalle, boleta, por, en }]
+export async function gastosLogistica() {
+  const db = await dbOk();
+  const sn = await FB.getDocs(FB.query(FB.collection(db, 'gastos_logistica'), FB.where('pendienteAdmin', '==', true)));
+  uso.lecturas += Math.max(1, sn.size);
+  return sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(g => !g.anulado && Math.round(Number(g.monto) || 0) > 0)
+    .map(g => ({ ...g, monto: Math.round(Number(g.monto) || 0) }));
+}
+// Al recibir el sobre: esos gastos quedan recibidos (logística ya no los puede quitar). Los que ya no estaban pendientes se saltan.
+export async function marcarGastosRecibidos(ids, efectivoTexto = '') {
+  if (!(ids || []).length) return 0;
+  const db = await dbOk();
+  let n = 0;
+  await FB.runTransaction(db, async tx => {
+    const refs = ids.map(id => FB.doc(db, 'gastos_logistica', String(id))), sns = [];
+    for (const r of refs) sns.push(await tx.get(r));
+    sns.forEach((sn, i) => {
+      if (!sn.exists() || sn.data().pendienteAdmin !== true) return;
+      tx.update(refs[i], { pendienteAdmin: false, recibido: { por: authSF.currentUser.email, en: ahoraTxt(), texto: String(efectivoTexto || '').slice(0, 200) } }); n++;
+    });
+  });
+  uso.escrituras += n;
+  return n;
 }
 // Deja anotado en la orden el id de lo que quedó por recibir en Efectivo (para poder anularlo si se quita el pago)
 export async function anotarPorRecibirOrden(n, id) {
@@ -2148,7 +2173,7 @@ export async function marcarDeposito(movId, dep) {
 // Si la segunda parte falla, Deshacer otra vez la termina (la primera no se repite).
 async function deshacerDepositoB2b(db, mref, movId, m0, motivo) {
   const mot = String(motivo || '').trim().slice(0, 200);
-  const EFS = await import('./efectivo-fs.js?v=0.138.0');
+  const EFS = await import('./efectivo-fs.js?v=0.139.0');
   if (m0.deposito && m0.deposito.efectivoId) await EFS.desunir(m0.deposito.efectivoId, movId, mot || 'Deshecho en la conciliación');
   await FB.runTransaction(db, async tx => {
     const ms = await tx.get(mref), mv = ms.data();
