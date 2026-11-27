@@ -5,9 +5,9 @@
 //  de la descripción si es "para rellenar"), descripción, características, precio neto + IVA, "Ideas para rellenar" (1 a 3
 //  fotos con su texto) y al pie las condiciones y el contacto de las listas de precios.
 // ═══════════════════════════════════════════════
-import * as PL from './pdf-lista-precios.js?v=0.139.0';
-import * as LM from './listas-precios-modelo.js?v=0.139.0';
-import * as AM from './aviso-producto-modelo.js?v=0.139.0';
+import * as PL from './pdf-lista-precios.js?v=0.139.1';
+import * as LM from './listas-precios-modelo.js?v=0.139.1';
+import * as AM from './aviso-producto-modelo.js?v=0.139.1';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const CSS = PL.CSS + `

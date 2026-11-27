@@ -1,8 +1,10 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
-//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.10.0 (2026-11-25)
+//  Fën · B2B (proyecto Firebase fen-b2b) — Reglas de Firestore v1.11.0 (2026-11-27)
 //
+//  v1.11.0: (logística v1.5.5 · Sistema Fën v0.139.1) logística también marca pagada (y deshace) una orden que ya tiene folio:
+//          a veces se factura antes de que logística cobre. Al recibirlo, Sistema Fën lo deja como abono del folio. Todo lo demás igual.
 //  v1.10.0: (Sistema Fën v0.139.0 · logística v1.5.0) gastos_logistica/{id}: los gastos que logística paga con la
 //          plata de los cobros (estacionamiento, compras chicas). Logística crea los suyos (a su nombre, monto
 //          entre 1 y 200.000, pendientes de recibir) y los quita mientras administración no los recibe; los ve
@@ -128,16 +130,16 @@ service cloud.firestore {
                         && antes().estado == 'activa' && antes().archivada == false
                         && ordenDeLogistica(n) && nuevo().n == antes().n
                         && nuevo().get('creada', null) == antes().get('creada', null))
-                    // v1.9.0: logística marca pagada en efectivo (Cobros) una orden sin folio y pendiente
-                    || (esLogistica() && antes().folio == null && antes().get('estadoPago', 'PENDIENTE') == 'PENDIENTE'
+                    // v1.9.0: logística marca pagada en efectivo (Cobros) una orden pendiente (v1.11.0: también con folio)
+                    || (esLogistica() && antes().get('estadoPago', 'PENDIENTE') == 'PENDIENTE'
                         && antes().estado == 'activa' && antes().archivada == false
                         && cambian().hasOnly(['estadoPago', 'fechaPago', 'medioPago', 'pagoOrden'])
                         && nuevo().estadoPago == 'PAGADO' && nuevo().fechaPago is string
                         && nuevo().pagoOrden.logistica == true && nuevo().pagoOrden.pendienteAdmin == true
                         && nuevo().pagoOrden.medio == 'efectivo' && nuevo().pagoOrden.por == miCorreo()
                         && nuevo().pagoOrden.monto == antes().total)
-                    // v1.9.0: y lo deshace mientras administración no lo recibe
-                    || (esLogistica() && antes().folio == null && antes().get('estadoPago', '') == 'PAGADO'
+                    // v1.9.0: y lo deshace mientras administración no lo recibe (v1.11.0: también con folio)
+                    || (esLogistica() && antes().get('estadoPago', '') == 'PAGADO'
                         && antes().get('pagoOrden', null) != null
                         && antes().pagoOrden.get('logistica', false) == true && antes().pagoOrden.get('pendienteAdmin', false) == true
                         && cambian().hasOnly(['estadoPago', 'fechaPago', 'medioPago', 'pagoOrden'])

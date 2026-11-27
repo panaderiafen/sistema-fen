@@ -8,15 +8,15 @@
 //    arman los documentos (b2b-modelo.js). Se escribe solo lo que cambió desde la
 //    última copia (migracion/{coleccion} guarda una huella por documento).
 // ═══════════════════════════════════════════════
-import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.139.0';
-import * as FB from './firebase-b2b.js?v=0.139.0';
-import * as Apps from './apps.js?v=0.139.0';
-import * as Mem from './fs-memoria.js?v=0.139.0';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
-import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.139.0';
-import { distanciaTef } from './feriados-cl.js?v=0.139.0';   // v0.63.4: días hábiles para cruzar transferencias
-import * as CB from './gastos-cartola.js?v=0.139.0';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
-import * as RC from './reglas-conc.js?v=0.139.0';
-import { cuadreCartola } from './gn-modelo.js?v=0.139.0';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
+import { auth as authSF, db as dbSF, doc as docSF, getDoc as getDocSF, runTransaction } from './firebase.js?v=0.139.1';
+import * as FB from './firebase-b2b.js?v=0.139.1';
+import * as Apps from './apps.js?v=0.139.1';
+import * as Mem from './fs-memoria.js?v=0.139.1';   // v0.63.3: memoria de lo que lee Hoy (fen-b2b tiene su propia cuota)
+import { armar, cambios, COLECCIONES, precioEsDe, aplicarUniones } from './b2b-modelo.js?v=0.139.1';
+import { distanciaTef } from './feriados-cl.js?v=0.139.1';   // v0.63.4: días hábiles para cruzar transferencias
+import * as CB from './gastos-cartola.js?v=0.139.1';   // v0.67.7: las mismas reglas de "el mismo movimiento" que los cargos
+import * as RC from './reglas-conc.js?v=0.139.1';
+import { cuadreCartola } from './gn-modelo.js?v=0.139.1';   // v0.109.0: el cuadre de saldo de la cartola (el mismo de Gastos)   // v0.69.0: las reglas de conciliación de Abonos (config/conciliacion.reglasConc)
 
 export const VERSION_MINIMA = '2.3.0';   // script de B2B con la copia (SistemaFen.gs v1.1.0)
 export const VERSION_BASE_NUEVA = '2.5.0';   // script que pasa la base nueva a la planilla (SistemaFen.gs v1.3.0: también clientes y productos)
@@ -571,18 +571,55 @@ export async function cobrosLogistica() {
   return [...g.values()].map(x => { x.ns.sort((a, b) => a - b); if (!(x.efectivo > 0)) x.efectivo = x.total; x.redondeo = x.efectivo - x.total; return x; });
 }
 // Al recibir un cobro de logística: sus órdenes dejan de estar pendientes de recibir (logística ya no lo puede deshacer)
+// v0.139.1 · Si la orden ya tenía folio (se facturó antes de que logística cobrara), su pago queda como abono del folio, igual que al
+// facturar una orden ya pagada (v0.124.6): con este abono el folio queda PAGADO (o PARCIAL si falta). No se repite si el folio ya
+// tiene el abono de esa orden, ni si el folio ya estaba pagado entero por otro lado.
 export async function marcarCobroRecibido(cobroId, ns, efectivoId = '') {
   const db = await dbOk();
+  // Antes de la transacción (las consultas no van dentro): folios de esas órdenes, sus órdenes y sus abonos
+  const folios = {};
+  for (const n of ns || []) {
+    const sn = await FB.getDoc(FB.doc(db, 'ordenes', String(n))); uso.lecturas++;
+    const o = sn.exists() ? sn.data() : null;
+    if (o && o.folio && o.pagoOrden && String(o.pagoOrden.cobroId) === String(cobroId) && o.pagoOrden.pendienteAdmin) folios[String(o.folio)] = null;
+  }
+  for (const f of Object.keys(folios)) {
+    const os = await ordenesDelFolio(db, f);
+    const ab = await FB.getDocs(FB.query(FB.collection(db, 'abonos'), FB.where('folio', '==', f))); uso.lecturas += Math.max(1, ab.size);
+    const abonos = ab.docs.map(d => d.data()).filter(a => !a.quitadoEnPlanilla);
+    folios[f] = { os, abonos, abonado: abonos.reduce((x, a) => x + (Number(a.monto) || 0), 0), total: totalFolio(os).total };
+  }
+  let nAb = 0;
   await FB.runTransaction(db, async tx => {
     const refs = (ns || []).map(n => FB.doc(db, 'ordenes', String(n))), sns = [];
     for (const r of refs) sns.push(await tx.get(r));
+    const nuevos = {};   // folio → [{ n, monto, fecha, cobro }]
     sns.forEach((sn, i) => {
-      const p = sn.exists() && sn.data().pagoOrden;
+      const o = sn.exists() ? sn.data() : null, p = o && o.pagoOrden;
       if (!p || String(p.cobroId) !== String(cobroId) || !p.pendienteAdmin) return;
       tx.update(refs[i], marcaCambio({ 'pagoOrden.pendienteAdmin': false, 'pagoOrden.recibido': { por: authSF.currentUser.email, en: ahoraTxt(), efectivoId: String(efectivoId || '') } }));
+      const F = o.folio && folios[String(o.folio)];
+      if (!F) return;
+      const ya = F.abonos.some(a => a.pagoOrden && (a.ordenes || []).map(String).includes(String(o.n)));
+      if (ya || F.abonado >= F.total) return;   // ya está ese abono, o el folio ya se pagó entero por otro lado
+      (nuevos[String(o.folio)] = nuevos[String(o.folio)] || []).push({ n: o.n, monto: Math.round(Number(p.monto) || 0), fecha: p.fecha || hoyTxt(), cobro: p.cobro || '' });
+    });
+    Object.entries(nuevos).forEach(([f, lista]) => {
+      const F = folios[f]; let abonado = F.abonado;
+      lista.forEach(x => { abonado += x.monto; nAb++;
+        tx.set(FB.doc(FB.collection(db, 'abonos')), { folio: f, fecha: x.fecha, monto: x.monto, referencia: `Efectivo · logística · orden N° ${x.n}`.slice(0, 200),
+          ordenes: [String(x.n)], pagoOrden: true, extra: {}, quitadoEnPlanilla: false, planillaPendiente: false, por: authSF.currentUser.email, en: FB.serverTimestamp() }); });
+      // Las demás órdenes del folio: pagadas si ya se cubrió la factura (o solo falta el redondeo del IVA), si no, parcial
+      const cobradas = new Set(lista.map(x => String(x.n)));
+      const resto = F.os.filter(o => !cobradas.has(String(o.n)) && !/PAGADO/.test(String(o.estadoPago || '').toUpperCase()));
+      const tolerancia = Math.ceil(F.os.length / 2) + 1, falta = Math.max(0, F.total - abonado);
+      const fechaUlt = lista.map(x => x.fecha).sort().pop();
+      resto.forEach(o => tx.update(FB.doc(db, 'ordenes', o.id), marcaCambio(falta <= tolerancia
+        ? { estadoPago: 'PAGADO', fechaPago: fechaUlt, medioPago: 'Pagada por orden (efectivo)' } : { estadoPago: 'PARCIAL' })));
     });
   });
-  uso.escrituras++; olvidarAgendaB2b();
+  uso.escrituras += 1 + nAb; olvidarAgendaB2b();
+  return { abonos: nAb };
 }
 // ¿Sigue pendiente ese cobro? (antes de recibirlo: logística pudo deshacerlo recién)
 export async function cobroSigue(cobroId, ns) {
@@ -2173,7 +2210,7 @@ export async function marcarDeposito(movId, dep) {
 // Si la segunda parte falla, Deshacer otra vez la termina (la primera no se repite).
 async function deshacerDepositoB2b(db, mref, movId, m0, motivo) {
   const mot = String(motivo || '').trim().slice(0, 200);
-  const EFS = await import('./efectivo-fs.js?v=0.139.0');
+  const EFS = await import('./efectivo-fs.js?v=0.139.1');
   if (m0.deposito && m0.deposito.efectivoId) await EFS.desunir(m0.deposito.efectivoId, movId, mot || 'Deshecho en la conciliación');
   await FB.runTransaction(db, async tx => {
     const ms = await tx.get(mref), mv = ms.data();

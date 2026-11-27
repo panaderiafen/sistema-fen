@@ -1,7 +1,7 @@
 // Sistema Fën v0.137.2 · Campo "Categoría" de una materia prima o insumo: una lista con las que existen y "Otra…" para una nueva.
 // (Emmanuel, 21 nov: al escribirla a mano se creaban categorías repetidas, como "Lácteos", "Lacteos" y "Leches").
 // Si en "Otra…" se escribe una que ya existe (sin tilde, en plural…), avisa y se guarda con la forma que existe (mp-alta-modelo.js).
-import { claveCategoria } from './mp-alta-modelo.js?v=0.139.0';
+import { claveCategoria } from './mp-alta-modelo.js?v=0.139.1';
 const OTRA = '__otra';
 // H: helpers (esc). id: el id del select (el campo de texto es id + '-otra'). valor: la categoría actual. cats: categoriasDe(mps)
 export function htmlCategoria(H, id, valor, cats, { dataK = '' } = {}) {

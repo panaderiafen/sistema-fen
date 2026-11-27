@@ -7,9 +7,9 @@
 //  Reglas en aviso-producto-modelo.js, datos en avisos-producto.js, PDF en pdf-aviso-producto.js.
 //  ctx = { H, X, universo() (productos del catálogo habilitados en B2B), cfg() (config/listasPrecios), leerFoto(catalogoId) }
 // ═══════════════════════════════════════════════
-import * as A from './avisos-producto.js?v=0.139.0';
-import * as AM from './aviso-producto-modelo.js?v=0.139.0';
-import * as LM from './listas-precios-modelo.js?v=0.139.0';
+import * as A from './avisos-producto.js?v=0.139.1';
+import * as AM from './aviso-producto-modelo.js?v=0.139.1';
+import * as LM from './listas-precios-modelo.js?v=0.139.1';
 
 let C = null, EL = null;
 const st = { ed: null, msg: '', err: '', listos: new Map() };
@@ -118,7 +118,7 @@ function previa(diferida = false) {
   mostrarHoja(c, doc, fotosEditor(st.ed));
 }
 async function mostrarHoja(c, doc, fotos) {
-  const P = await import('./pdf-aviso-producto.js?v=0.139.0');
+  const P = await import('./pdf-aviso-producto.js?v=0.139.1');
   const h = P.paginasHtml(doc, { fotos })[0];
   c.innerHTML = `<style>${P.CSS}</style><div class="lp-previa" id="av-previa"><div class="lp-hoja" aria-label="La hoja del PDF">${h.html}</div></div>`;
   escalar(c);
@@ -130,7 +130,7 @@ function escalar(c) {
 async function subirFoto(archivo, i) {
   const err = $('av-err'); err.textContent = 'Achicando la foto…';
   try {
-    const IM = await import('./imagenes.js?v=0.139.0');
+    const IM = await import('./imagenes.js?v=0.139.1');
     const f = await IM.fotoProducto(archivo);
     if (i === 'p') st.ed.principal = f.foto; else st.ed.rellenos[i].foto = f.foto;
     err.textContent = ''; pintarEditor();
@@ -172,10 +172,10 @@ async function pintarDetalle(a) {
   st.msg = '';
   try { await mostrarHoja($('av-previa-c'), a, await fotosDe(a)); } catch (x) { const c = $('av-previa-c'); if (c) c.innerHTML = `<p class="error">${esc(error(x))}</p>`; }
 }
-async function pdfDe(a) { const P = await import('./pdf-aviso-producto.js?v=0.139.0'); return P.generar(a, { fotos: await fotosDe(a) }); }
+async function pdfDe(a) { const P = await import('./pdf-aviso-producto.js?v=0.139.1'); return P.generar(a, { fotos: await fotosDe(a) }); }
 async function descargar(a, b) {
   const t = b.innerHTML; b.disabled = true; b.textContent = 'Generando…'; $('av-err').textContent = '';
-  try { const P = await import('./pdf-aviso-producto.js?v=0.139.0'); const r = await pdfDe(a); P.bajar(r.blob, r.nombre); window.__avUltimoPdf = { bytes: r.bytes, paginas: r.paginas, nombre: r.nombre };
+  try { const P = await import('./pdf-aviso-producto.js?v=0.139.1'); const r = await pdfDe(a); P.bajar(r.blob, r.nombre); window.__avUltimoPdf = { bytes: r.bytes, paginas: r.paginas, nombre: r.nombre };
     C.H.registrar('Avisos de producto: descargó el PDF', a.nombre); $('av-msg').textContent = `PDF descargado (${Math.round(r.bytes / 1024).toLocaleString('es-CL')} KB).`; }
   catch (x) { $('av-err').textContent = 'No se pudo hacer el PDF: ' + error(x); }
   b.disabled = false; b.innerHTML = t;
@@ -196,7 +196,7 @@ async function enviar(a, b) {
         throw x;
       }
     } else {
-      const P = await import('./pdf-aviso-producto.js?v=0.139.0');
+      const P = await import('./pdf-aviso-producto.js?v=0.139.1');
       P.bajar(archivo, archivo.name);
       await C.X.abrirWhatsapp({}, texto);
       msg.textContent = 'PDF descargado: adjúntelo en el chat de WhatsApp que se abrió (elija el cliente).';
